@@ -98,6 +98,25 @@
   --sidebar-accent-foreground: oklch(0.28 0.04 60);
   --sidebar-border: oklch(0.9 0.012 78);
   --sidebar-ring: oklch(0.5 0.11 25);
+
+  /* Premium announcement bar */
+  --announce-surface: linear-gradient(
+    100deg,
+    oklch(0.26 0.045 32) 0%,
+    oklch(0.33 0.062 28) 38%,
+    oklch(0.29 0.05 34) 72%,
+    oklch(0.24 0.04 32) 100%
+  );
+  --announce-foreground: oklch(0.965 0.014 84);
+  --announce-gold: oklch(0.84 0.1 84);
+  --announce-hairline: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--announce-gold) 70%, transparent) 22%,
+    color-mix(in oklab, var(--announce-gold) 95%, transparent) 50%,
+    color-mix(in oklab, var(--announce-gold) 70%, transparent) 78%,
+    transparent 100%
+  );
 }
 
 .dark {
@@ -133,6 +152,15 @@
   --sidebar-accent-foreground: oklch(0.96 0.008 85);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.66 0.12 30);
+  --announce-surface: linear-gradient(
+    100deg,
+    oklch(0.17 0.02 32) 0%,
+    oklch(0.23 0.035 28) 40%,
+    oklch(0.2 0.03 34) 74%,
+    oklch(0.16 0.018 32) 100%
+  );
+  --announce-foreground: oklch(0.96 0.01 84);
+  --announce-gold: oklch(0.8 0.095 84);
 }
 
 @layer base {
