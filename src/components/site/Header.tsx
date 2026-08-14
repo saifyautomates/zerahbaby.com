@@ -25,33 +25,26 @@ export function Header() {
       >
         Skip to main content
       </a>
-      <div className="relative overflow-hidden border-b border-primary-foreground/10 bg-[linear-gradient(100deg,var(--color-primary)_0%,color-mix(in_oklab,var(--color-primary)_80%,black)_45%,var(--color-accent)_100%)] text-primary-foreground">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(115deg,transparent_0%,color-mix(in_oklab,var(--color-primary-foreground)_100%,transparent)_50%,transparent_100%)] [background-size:220%_100%] animate-marquee"
-          aria-hidden
-        />
-        <div
-          className="relative flex whitespace-nowrap py-2 animate-marquee"
-          style={{
-            maskImage:
-              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
-          }}
-        >
-          {[0, 1].map((k) => (
-            <div key={k} className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={k === 1}>
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="flex items-center gap-3 font-display text-[11px] font-semibold uppercase tracking-[0.32em] sm:text-xs md:text-[13px]"
-                >
-                  {announcement}
-                  <span className="text-[9px] opacity-60">✦</span>
-                </span>
-              ))}
-            </div>
-          ))}
+      <div className="announce-bar">
+        <span className="announce-sheen" aria-hidden />
+        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
+          <span className="hidden shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
+            <Truck className="size-3.5 announce-gold-text" aria-hidden />
+            Pan-India shipping
+          </span>
+
+          <p className="flex min-w-0 flex-1 items-center justify-center gap-2.5 text-center sm:gap-3.5">
+            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
+            <span className="truncate font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
+              {announcement}
+            </span>
+            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
+          </p>
+
+          <span className="hidden shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
+            <BadgeCheck className="size-3.5 announce-gold-text" aria-hidden />
+            Genuine brands only
+          </span>
         </div>
       </div>
 
