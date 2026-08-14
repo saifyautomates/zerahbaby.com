@@ -1,0 +1,215 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { discountPct, formatPrice, useProducts } from "@/lib/store";
+import { useCart } from "@/lib/cart";
+import { ProductCard } from "@/components/site/ProductCard";
+import { AdminProductControls } from "@/components/admin/InlineAdmin";
+
+
+export const Route = createFileRoute("/product/$id")({
+  head: () => ({
+    meta: [
+      { title: "Product — Zerah Baby And Kids" },
+      {
+        name: "description",
+        content: "Product details, highlights, pricing and delivery info at Zerah Baby And Kids.",
+      },
+      { property: "og:title", content: "Product — Zerah Baby And Kids" },
+      { property: "og:description", content: "Product details, highlights and pricing at Zerah Baby And Kids." },
+      { property: "og:type", content: "product" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: ProductPage,
+});
+
+function ProductPage() {
+  const { id } = Route.useParams();
+  const { data: products, isLoading } = useProducts();
+  const { add } = useCart();
+  const [qty, setQty] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
+
+  const list = products ?? [];
+  const product = list.find((p) => p.id === id);
+  const gallery = (product?.images.length ? product.images : [product?.image]).filter(Boolean) as string[];
+  const soldOut = (product?.stock ?? 0) <= 0;
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 md:grid-cols-2">
+        <div className="aspect-square animate-pulse rounded-3xl bg-muted" />
+        <div className="space-y-4">
+          <div className="h-8 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="h-24 w-full animate-pulse rounded bg-muted" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="font-display text-3xl font-bold">Product not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">This item may have sold out or been renamed.</p>
+        <Link
+          to="/shop"
+          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
+        >
+          Back to shop
+        </Link>
+      </div>
+    );
+  }
+
+  const related = list.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <nav className="text-xs text-muted-foreground">
+        <Link to="/" className="hover:text-primary">Home</Link> /{" "}
+        <Link to="/shop" search={{ category: product.category }} className="hover:text-primary">
+          {product.category}
+        </Link>{" "}
+        / <span className="text-foreground">{product.name}</span>
+      </nav>
+
+      <div className="mt-6 grid gap-10 md:grid-cols-2">
+        <div className="relative">
+          <AdminProductControls product={product} />
+          <img
+
+            src={gallery[activeImage] ?? product.image}
+            alt={product.name}
+            width={800}
+            height={800}
+            className="w-full rounded-3xl border border-border object-cover"
+          />
+          {gallery.length > 1 && (
+            <div className="mt-3 flex flex-wrap gap-3">
+              {gallery.map((url, i) => (
+                <button
+                  key={url}
+                  onClick={() => setActiveImage(i)}
+                  aria-label={`View image ${i + 1}`}
+                  className={`size-16 overflow-hidden rounded-xl border-2 transition ${
+                    i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{product.brand}</p>
+          <h1 className="mt-2 font-display text-3xl font-bold leading-tight">{product.name}</h1>
+
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 font-semibold">
+              <Star className="size-3.5 fill-accent text-accent" />
+              {product.rating}
+            </span>
+            <span className="text-muted-foreground">{product.reviews.toLocaleString("en-IN")} reviews</span>
+            <span className="rounded-full bg-muted px-2 py-1 text-xs">Ages {product.ageGroup}</span>
+          </div>
+
+          <div className="mt-5 flex items-baseline gap-3">
+            <span className="text-3xl font-bold">{formatPrice(product.price)}</span>
+            {product.mrp > product.price && (
+              <>
+                <span className="text-muted-foreground line-through">{formatPrice(product.mrp)}</span>
+                <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+                  {discountPct(product)}% off
+                </span>
+              </>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
+
+          <p className="mt-5 text-sm text-muted-foreground">{product.description}</p>
+
+          <ul className="mt-4 space-y-1.5 text-sm">
+            {product.highlights.map((h: string) => (
+              <li key={h} className="flex gap-2">
+                <span className="text-primary">•</span>
+                {h}
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-5 text-sm font-semibold">
+            {soldOut ? (
+              <span className="text-destructive">Out of stock</span>
+            ) : product.stock <= product.lowStockAt ? (
+              <span className="text-primary">Only {product.stock} left in stock</span>
+            ) : (
+              <span className="text-muted-foreground">In stock</span>
+            )}
+          </p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3 rounded-full border border-border px-3 py-2">
+              <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity">
+                <Minus className="size-4" />
+              </button>
+              <span className="w-6 text-center text-sm font-semibold">{qty}</span>
+              <button onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))} aria-label="Increase quantity">
+                <Plus className="size-4" />
+              </button>
+            </div>
+            <button
+              disabled={soldOut}
+              onClick={() => {
+                add(product.id, qty);
+                toast.success("Added to bag", { description: `${qty} × ${product.name}` });
+              }}
+              className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              {soldOut ? "Sold out" : "Add to bag"}
+            </button>
+            {!soldOut && (
+              <Link
+                to="/cart"
+                onClick={() => add(product.id, qty)}
+                className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted"
+              >
+                Buy now
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {[
+              { icon: Truck, text: "Free delivery over ₹999" },
+              { icon: RotateCcw, text: "7-day easy returns" },
+              { icon: ShieldCheck, text: "Safety lab tested" },
+            ].map((f) => (
+              <div key={f.text} className="flex items-center gap-2 rounded-xl border border-border p-3 text-xs">
+                <f.icon className="size-4 text-primary" />
+                {f.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {related.length > 0 && (
+        <section className="mt-16">
+          <h2 className="font-display text-2xl font-bold">You may also like</h2>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {related.map((r) => (
+              <ProductCard key={r.id} product={r} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

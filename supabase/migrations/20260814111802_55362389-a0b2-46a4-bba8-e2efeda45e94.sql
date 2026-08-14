@@ -1,0 +1,2 @@
+UPDATE public.site_settings SET value = 'Free delivery on orders above ₹999 · Easy 7-day returns' WHERE key = 'announcement' AND value LIKE '%30-day%';
+INSERT INTO public.user_roles (user_id, role) VALUES ('68f02ef3-ef84-4df2-8628-a746930d5ded','admin') ON CONFLICT DO NOTHING;
