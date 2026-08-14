@@ -272,6 +272,64 @@
   }
 }
 
+@keyframes zerah-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* Premium announcement bar surface: deep clay field, gold hairlines, slow sheen */
+@utility announce-bar {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-image: var(--announce-surface);
+  color: var(--announce-foreground);
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-image: var(--announce-hairline);
+    opacity: 0.55;
+    z-index: 2;
+  }
+  &::before {
+    top: 0;
+  }
+  &::after {
+    bottom: 0;
+    opacity: 0.35;
+  }
+}
+
+@utility announce-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in oklab, var(--announce-gold) 26%, transparent) 45%,
+    color-mix(in oklab, oklch(1 0 0) 30%, transparent) 52%,
+    transparent 100%
+  );
+  width: 45%;
+  animation: zerah-sheen 6.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  animation-delay: 1.2s;
+}
+
+@utility announce-gold-text {
+  color: var(--announce-gold);
+}
+
 @utility animate-marquee {
   animation: zerah-marquee 26s linear infinite;
 }
@@ -318,6 +376,10 @@
   .rise-in,
   .fade-in-soft {
     animation: none !important;
+  }
+  .announce-sheen {
+    animation: none !important;
+    opacity: 0;
   }
   .lift:hover {
     transform: none;
