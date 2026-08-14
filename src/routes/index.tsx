@@ -9,6 +9,7 @@ import { HeroMediaDialog } from "@/components/admin/HeroMediaManager";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
 import { AdminAddProduct, AdminEditableText } from "@/components/admin/InlineAdmin";
+import heroFallback from "@/assets/hero-baby.jpg";
 
 
 
@@ -41,6 +42,16 @@ const perks = [
   { icon: Sparkles, title: "Gentle materials", text: "Organic & non-toxic first" },
 ];
 
+/** Shown until an admin uploads their own hero photos or videos. */
+const defaultHeroSlides = [
+  {
+    id: "default-hero",
+    type: "image" as const,
+    url: heroFallback,
+    alt: "Baby essentials from Zerah Baby And Kids",
+  },
+];
+
 function Index() {
   const { data: products, isLoading } = useProducts();
   const { data: categories } = useCategories();
@@ -49,7 +60,7 @@ function Index() {
   const { adminMode } = useAdminMode();
   const [heroEditor, setHeroEditor] = useState(false);
 
-  const slides = heroSlides ?? [];
+  const slides = heroSlides && heroSlides.length > 0 ? heroSlides : defaultHeroSlides;
   const hasMedia = slides.length > 0;
 
   const list = products ?? [];
