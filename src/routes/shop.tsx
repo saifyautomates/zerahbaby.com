@@ -5,12 +5,13 @@ import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard"
 import { AdminAddProduct } from "@/components/admin/InlineAdmin";
 
 
-type ShopSearch = { category?: string | undefined; age?: string | undefined };
+type ShopSearch = { category?: string | undefined; age?: string | undefined; q?: string | undefined };
 
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): ShopSearch => ({
     category: typeof search["category"] === "string" ? (search["category"] as string) : undefined,
     age: typeof search["age"] === "string" ? (search["age"] as string) : undefined,
+    q: typeof search["q"] === "string" && search["q"] ? (search["q"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/shop")({
 });
 
 function ShopPage() {
-  const { category, age } = Route.useSearch();
+  const { category, age, q } = Route.useSearch();
   const { data: products, isLoading } = useProducts();
   const { data: categories } = useCategories();
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -44,12 +45,17 @@ function ShopPage() {
     set(arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value]);
 
   const visible = useMemo(() => {
+    const query = (q ?? "").trim().toLowerCase();
     const filtered = list.filter(
       (p) =>
         (!category || p.category === category) &&
         (!age || p.ageGroup === age) &&
         (selectedBrands.length === 0 || selectedBrands.includes(p.brand)) &&
-        p.price <= maxPrice,
+        p.price <= maxPrice &&
+        (!query ||
+          [p.name, p.brand, p.description, p.category]
+            .filter(Boolean)
+            .some((field) => String(field).toLowerCase().includes(query))),
     );
     const sorted = [...filtered];
     if (sort === "low") sorted.sort((a, b) => a.price - b.price);
@@ -57,7 +63,7 @@ function ShopPage() {
     if (sort === "rating") sorted.sort((a, b) => b.rating - a.rating);
     if (sort === "popular") sorted.sort((a, b) => b.reviews - a.reviews);
     return sorted;
-  }, [list, category, age, selectedBrands, maxPrice, sort]);
+  }, [list, category, age, q, selectedBrands, maxPrice, sort]);
 
 
   const activeCategory = (categories ?? []).find((c) => c.slug === category);
