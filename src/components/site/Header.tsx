@@ -1,5 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, Search, ShoppingCart, User, LayoutDashboard, ShieldCheck } from "lucide-react";
+import {
+  Menu,
+  Search,
+  ShoppingCart,
+  User,
+  LayoutDashboard,
+  ShieldCheck,
+  Truck,
+  Sparkle,
+  BadgeCheck,
+} from "lucide-react";
 import { useState } from "react";
 import logo from "@/assets/zerah-logo.png";
 import { ageGroups, useCategories, useSettings } from "@/lib/store";
