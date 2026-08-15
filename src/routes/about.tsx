@@ -32,7 +32,7 @@ function AboutPage() {
     <div className="mx-auto max-w-5xl px-4 py-12">
       <h1 className="font-display text-4xl font-bold">We're parents building the shop we wanted</h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">
-        Zerah Baby And Kids started in 2019 in a small flat, with two new parents frustrated by scratchy fabrics, mystery
+        Zerah Baby And Kids started in 2026 in a small flat, with two new parents frustrated by scratchy fabrics, mystery
         ingredient lists and gear that fell apart by month three. Today we curate a few hundred products across
         clothing, toys, care and gear — each one chosen because we'd use it ourselves.
       </p>
@@ -58,17 +58,9 @@ function AboutPage() {
         ))}
       </div>
 
-      <div className="mt-12 grid gap-6 rounded-3xl bg-secondary p-8 sm:grid-cols-3">
-        {[
-          { n: "120k+", l: "Families served" },
-          { n: "4.6★", l: "Average product rating" },
-          { n: "48 hrs", l: "Typical delivery time" },
-        ].map((s) => (
-          <div key={s.l}>
-            <p className="font-display text-3xl font-bold text-primary">{s.n}</p>
-            <p className="text-sm text-muted-foreground">{s.l}</p>
-          </div>
-        ))}
+      <div className="mt-12 rounded-3xl bg-secondary p-8 text-center">
+        <p className="font-display text-4xl font-bold text-primary">2500+</p>
+        <p className="mt-1 text-sm text-muted-foreground">Families served</p>
       </div>
 
       <div className="mt-12 text-center">

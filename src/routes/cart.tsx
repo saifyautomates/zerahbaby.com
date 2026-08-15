@@ -100,10 +100,12 @@ function CartPage() {
               <dt className="text-muted-foreground">Subtotal</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">You save</dt>
-              <dd className="text-primary">−{formatPrice(savings)}</dd>
-            </div>
+            {savings > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">You save (MRP − our price)</dt>
+                <dd className="text-primary">−{formatPrice(savings)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Delivery</dt>
               <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
