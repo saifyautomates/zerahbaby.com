@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Menu,
   Search,
@@ -21,11 +21,19 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const { count } = useCart();
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const navigate = useNavigate();
   const { data: categories } = useCategories();
   const { brandName, announcement } = useSettings();
   const { user } = useSession();
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
 
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = term.trim();
+    setOpen(false);
+    navigate({ to: "/shop", search: q ? { q } : {} });
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -89,13 +97,15 @@ export function Header() {
 
           <form
             className="ml-auto hidden flex-1 items-center md:flex"
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={submitSearch}
             role="search"
           >
             <div className="relative w-full max-w-xl">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
                 placeholder="Search for onesies, strollers, diapers…"
                 aria-label="Search products"
                 className="w-full rounded-full border border-border bg-muted/60 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
@@ -167,13 +177,15 @@ export function Header() {
 
         <form
           className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={submitSearch}
           role="search"
         >
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
               placeholder="Search products…"
               aria-label="Search products"
               className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
