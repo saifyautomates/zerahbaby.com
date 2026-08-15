@@ -53,7 +53,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       count: lines.reduce((sum, l) => sum + l.qty, 0),
       subtotal: items.reduce((sum, i) => sum + i.product.price * i.qty, 0),
-      savings: items.reduce((sum, i) => sum + (i.product.mrp - i.product.price) * i.qty, 0),
+      savings: items.reduce(
+        (sum, i) => sum + Math.max(0, i.product.mrp - i.product.price) * i.qty,
+        0,
+      ),
       add: (id, qty = 1) =>
         setLines((prev) => {
           const existing = prev.find((l) => l.id === id);

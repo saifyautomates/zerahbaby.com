@@ -64,7 +64,7 @@ export function Footer() {
             <li><Link to="/contact" className="transition hover:text-primary">Contact</Link></li>
             <li><Link to="/shop" className="transition hover:text-primary">All products</Link></li>
             <li><Link to="/cart" className="transition hover:text-primary">Your bag</Link></li>
-
+            <li><Link to="/returns" className="transition hover:text-primary">Refund &amp; Return Policy</Link></li>
           </ul>
         </div>
 

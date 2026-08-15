@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")({
 
 const perks = [
   { icon: Truck, title: "Free delivery", text: "On every order above ₹999" },
-  { icon: RotateCcw, title: "7-day returns", text: "No-questions-asked exchanges" },
+  { icon: RotateCcw, title: "7-day returns", text: "Unused, unwashed, original packaging" },
   { icon: ShieldCheck, title: "Safety tested", text: "Every product lab-checked" },
   { icon: Sparkles, title: "Gentle materials", text: "Organic & non-toxic first" },
 ];
