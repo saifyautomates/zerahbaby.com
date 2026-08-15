@@ -64,8 +64,6 @@ function AuthPage() {
     }
   }
 
-  async function onGoogle() {
-
   function normalizedPhone() {
     const digits = phone.replace(/[^\d]/g, "");
     if (phone.trim().startsWith("+")) return "+" + digits;
