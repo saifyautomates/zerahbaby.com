@@ -103,7 +103,7 @@ export function Header() {
               className="size-8 object-contain sm:size-10"
             />
             <span className="font-display text-base font-bold leading-none tracking-tight text-foreground sm:text-xl">
-              Zerah <span className="text-primary">Baby</span>
+              Zérah <span className="text-primary">Baby</span>
               <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-[11px]">
                 And Kids
               </span>

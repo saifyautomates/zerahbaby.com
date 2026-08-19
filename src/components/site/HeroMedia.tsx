@@ -63,12 +63,11 @@ export function HeroMedia({ slides }: { slides: HeroSlide[] }) {
             ) : (
               <img
                 src={media.url}
-                alt={slide.alt || ""}
+                alt={slide.alt || "Hero presentation"}
+                fetchPriority={i === 0 ? "high" : "auto"}
                 loading={i === 0 ? "eager" : "lazy"}
-                decoding="async"
-                {...(i === 0 ? { fetchPriority: "high" as const } : {})}
-                sizes="100vw"
-                className={`size-full object-cover transition-transform duration-[9000ms] ease-out motion-reduce:transition-none ${
+                decoding={i === 0 ? "sync" : "async"}
+                className={`size-full object-cover object-[center_25%] sm:object-center transition-transform duration-[8000ms] ease-out ${
                   active ? "scale-105" : "scale-100"
                 }`}
               />

@@ -74,12 +74,15 @@ function Index() {
         aria-label="Welcome to Zerah Baby And Kids"
         className={`relative isolate overflow-hidden ${
           hasMedia
-            ? "bg-foreground"
+            ? "bg-black"
             : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
         }`}
       >
         {hasMedia ? (
-          <HeroMedia slides={slides} />
+          <>
+            <HeroMedia slides={slides} />
+            <div className="absolute inset-0 z-0 bg-black/40 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+          </>
         ) : (
           <>
             <span className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/15 blur-3xl" />
