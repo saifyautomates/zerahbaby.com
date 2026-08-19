@@ -102,27 +102,50 @@ function ProductPage() {
       <div className="mt-6 grid gap-10 md:grid-cols-2">
         <div className="relative">
           <AdminProductControls product={product} />
-          <img
-            src={gallery[activeImage] ?? product.image}
-            alt={product.name}
-            width={800}
-            height={800}
-            className="w-full rounded-3xl border border-border object-cover"
-          />
+          {(() => {
+            const activeUrl = gallery[activeImage] ?? product.image;
+            const isVideo = activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+            return isVideo ? (
+              <video
+                src={activeUrl}
+                className="w-full rounded-3xl border border-border object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+              />
+            ) : (
+              <img
+                src={activeUrl}
+                alt={product.name}
+                width={800}
+                height={800}
+                className="w-full rounded-3xl border border-border object-cover"
+              />
+            );
+          })()}
           {gallery.length > 1 && (
             <div className="mt-3 flex flex-wrap gap-3">
-              {gallery.map((url, i) => (
-                <button
-                  key={url}
-                  onClick={() => setActiveImage(i)}
-                  aria-label={`View image ${i + 1}`}
-                  className={`size-16 overflow-hidden rounded-xl border-2 transition ${
-                    i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <img src={url} alt="" loading="lazy" className="size-full object-cover" />
-                </button>
-              ))}
+              {gallery.map((url, i) => {
+                const isVideo = url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+                return (
+                  <button
+                    key={url}
+                    onClick={() => setActiveImage(i)}
+                    aria-label={`View media ${i + 1}`}
+                    className={`size-16 overflow-hidden rounded-xl border-2 transition ${
+                      i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {isVideo ? (
+                      <video src={url} className="size-full object-cover" playsInline muted />
+                    ) : (
+                      <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

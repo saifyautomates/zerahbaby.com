@@ -118,8 +118,8 @@ export function ProductForm({
     >
       {picker && (
         <MediaLibraryPicker
-          title="Pick product images"
-          accept="image"
+          title="Pick product media"
+          accept="all"
           onClose={() => setPicker(false)}
           onSelect={(assets) =>
             setDraft((d) => {
@@ -138,17 +138,17 @@ export function ProductForm({
         <div className="mt-5 rounded-2xl border border-border p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold">Image gallery</p>
+              <p className="text-sm font-semibold">Media gallery</p>
               <p className="text-xs text-muted-foreground">
-                Up to {MAX_IMAGES} photos · drag to reorder · the first one is the main image
+                Up to {MAX_IMAGES} photos or videos · drag to reorder · the first one is the main thumbnail
               </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
               <Upload className="size-4" />
-              {uploading ? "Uploading…" : "Upload images"}
+              {uploading ? "Uploading…" : "Upload files"}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 className="hidden"
                 disabled={uploading}
@@ -188,7 +188,11 @@ export function ProductForm({
                 }}
                 className="group relative aspect-square overflow-hidden rounded-xl border border-border"
               >
-                <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+                {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
+                  <video src={url} className="size-full object-cover" playsInline muted autoPlay loop />
+                ) : (
+                  <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+                )}
                 {i === 0 && (
                   <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                     <Star className="size-3" /> Main
