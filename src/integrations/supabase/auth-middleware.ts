@@ -81,6 +81,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
             Authorization: `Bearer ${token}`,
           },
         },
+<<<<<<< Updated upstream
         auth: {
           storage: undefined,
           persistSession: false,
@@ -89,6 +90,17 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       }
     );
 
+=======
+      },
+      auth: {
+        storage: undefined,
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
+    // @ts-expect-error - getClaims exists at runtime but is missing from type
+>>>>>>> Stashed changes
     const { data, error } = await supabase.auth.getClaims(token);
     if (error || !data?.claims) {
       throw new Error('Unauthorized: Invalid token');

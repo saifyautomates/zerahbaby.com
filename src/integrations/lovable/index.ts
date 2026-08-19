@@ -28,7 +28,12 @@ export const lovable = {
       }
 
       try {
+<<<<<<< Updated upstream
         await supabase.auth.setSession(result.tokens);
+=======
+        // @ts-expect-error - setSession might not be perfectly typed here
+        await (supabase as unknown as Record<string, unknown>).auth.setSession(result.tokens);
+>>>>>>> Stashed changes
       } catch (e) {
         return { error: e instanceof Error ? e : new Error(String(e)) };
       }

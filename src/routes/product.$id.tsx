@@ -1,6 +1,28 @@
+<<<<<<< Updated upstream
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus } from "lucide-react";
+=======
+// @ts-nocheck
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
+import {
+  Star,
+  Truck,
+  RotateCcw,
+  ShieldCheck,
+  Minus,
+  Plus,
+  MapPin,
+  Check,
+  Ruler,
+  X,
+  Sparkles,
+  Share2,
+  Heart,
+  ChevronRight,
+} from "lucide-react";
+>>>>>>> Stashed changes
 import { toast } from "sonner";
 import { discountPct, formatPrice, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";

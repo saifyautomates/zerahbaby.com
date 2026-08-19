@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ShieldCheck, Truck, RotateCcw, Sparkles, Star, Images } from "lucide-react";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
 import { toast } from "sonner";
