@@ -20,7 +20,10 @@ export const draftToRow = (draft: ProductDraft) => ({
   low_stock_at: Number(draft.lowStockAt),
   sku: draft.sku.trim(),
   description: draft.description,
-  highlights: draft.highlights.split("\n").map((h) => h.trim()).filter(Boolean),
+  highlights: draft.highlights
+    .split("\n")
+    .map((h) => h.trim())
+    .filter(Boolean),
   is_featured: draft.isFeatured,
   is_active: draft.isActive,
   sort_order: Number(draft.sortOrder),
@@ -74,7 +77,9 @@ export function useSaveSetting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      const { error } = await supabase.from("site_settings").upsert({ key, value }, { onConflict: "key" });
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key, value }, { onConflict: "key" });
       if (error) throw error;
     },
     onSuccess: () => {

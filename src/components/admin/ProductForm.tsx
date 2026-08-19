@@ -49,7 +49,6 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   sortOrder: p?.sortOrder ?? 0,
 });
 
-
 const input =
   "mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 
@@ -112,7 +111,11 @@ export function ProductForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       {picker && (
         <MediaLibraryPicker
           title="Pick product images"
@@ -127,7 +130,9 @@ export function ProductForm({
         />
       )}
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-card p-6">
-        <h2 className="font-display text-xl font-bold">{product ? "Edit product" : "Add product"}</h2>
+        <h2 className="font-display text-xl font-bold">
+          {product ? "Edit product" : "Add product"}
+        </h2>
 
         {/* Gallery */}
         <div className="mt-5 rounded-2xl border border-border p-4">
@@ -218,25 +223,47 @@ export function ProductForm({
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-semibold">
             Name
-            <input className={input} value={draft.name} onChange={(e) => set("name", e.target.value)} />
+            <input
+              className={input}
+              value={draft.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold">
             Slug (URL id)
-            <input className={input} value={draft.slug} onChange={(e) => set("slug", e.target.value)} />
+            <input
+              className={input}
+              value={draft.slug}
+              onChange={(e) => set("slug", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold">
             SKU
-            <input className={input} value={draft.sku} onChange={(e) => set("sku", e.target.value)} />
+            <input
+              className={input}
+              value={draft.sku}
+              onChange={(e) => set("sku", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold">
             Brand
-            <input className={input} value={draft.brand} onChange={(e) => set("brand", e.target.value)} />
+            <input
+              className={input}
+              value={draft.brand}
+              onChange={(e) => set("brand", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold">
             Section / category
-            <select className={input} value={draft.category} onChange={(e) => set("category", e.target.value)}>
+            <select
+              className={input}
+              value={draft.category}
+              onChange={(e) => set("category", e.target.value)}
+            >
               {(categories ?? []).map((c) => (
-                <option key={c.slug} value={c.slug}>{c.name}</option>
+                <option key={c.slug} value={c.slug}>
+                  {c.name}
+                </option>
               ))}
               {!(categories ?? []).some((c) => c.slug === draft.category) && draft.category && (
                 <option value={draft.category}>{draft.category}</option>
@@ -245,64 +272,137 @@ export function ProductForm({
           </label>
           <label className="text-sm font-semibold">
             Age group
-            <select className={input} value={draft.ageGroup} onChange={(e) => set("ageGroup", e.target.value)}>
+            <select
+              className={input}
+              value={draft.ageGroup}
+              onChange={(e) => set("ageGroup", e.target.value)}
+            >
               {ageGroups.map((a) => (
-                <option key={a} value={a}>{a}</option>
+                <option key={a} value={a}>
+                  {a}
+                </option>
               ))}
             </select>
           </label>
           <label className="text-sm font-semibold">
             Price (₹)
-            <input type="number" className={input} value={draft.price} onChange={(e) => set("price", Number(e.target.value))} />
+            <input
+              type="number"
+              className={input}
+              value={draft.price}
+              onChange={(e) => set("price", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             MRP (₹)
-            <input type="number" className={input} value={draft.mrp} onChange={(e) => set("mrp", Number(e.target.value))} />
+            <input
+              type="number"
+              className={input}
+              value={draft.mrp}
+              onChange={(e) => set("mrp", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Stock on hand
-            <input type="number" min="0" className={input} value={draft.stock} onChange={(e) => set("stock", Number(e.target.value))} />
+            <input
+              type="number"
+              min="0"
+              className={input}
+              value={draft.stock}
+              onChange={(e) => set("stock", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Low-stock alert at
-            <input type="number" min="0" className={input} value={draft.lowStockAt} onChange={(e) => set("lowStockAt", Number(e.target.value))} />
+            <input
+              type="number"
+              min="0"
+              className={input}
+              value={draft.lowStockAt}
+              onChange={(e) => set("lowStockAt", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Rating
-            <input type="number" step="0.1" min="0" max="5" className={input} value={draft.rating} onChange={(e) => set("rating", Number(e.target.value))} />
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              className={input}
+              value={draft.rating}
+              onChange={(e) => set("rating", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Reviews
-            <input type="number" className={input} value={draft.reviews} onChange={(e) => set("reviews", Number(e.target.value))} />
+            <input
+              type="number"
+              className={input}
+              value={draft.reviews}
+              onChange={(e) => set("reviews", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Sort order
-            <input type="number" className={input} value={draft.sortOrder} onChange={(e) => set("sortOrder", Number(e.target.value))} />
+            <input
+              type="number"
+              className={input}
+              value={draft.sortOrder}
+              onChange={(e) => set("sortOrder", Number(e.target.value))}
+            />
           </label>
           <label className="text-sm font-semibold">
             Main image URL (optional override)
-            <input className={input} value={draft.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} />
+            <input
+              className={input}
+              value={draft.imageUrl}
+              onChange={(e) => set("imageUrl", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold sm:col-span-2">
             Description
-            <textarea rows={3} className={input} value={draft.description} onChange={(e) => set("description", e.target.value)} />
+            <textarea
+              rows={3}
+              className={input}
+              value={draft.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
           </label>
           <label className="text-sm font-semibold sm:col-span-2">
             Highlights (one per line)
-            <textarea rows={3} className={input} value={draft.highlights} onChange={(e) => set("highlights", e.target.value)} />
+            <textarea
+              rows={3}
+              className={input}
+              value={draft.highlights}
+              onChange={(e) => set("highlights", e.target.value)}
+            />
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={draft.isFeatured} onChange={(e) => set("isFeatured", e.target.checked)} className="size-4 accent-[var(--primary)]" />
+            <input
+              type="checkbox"
+              checked={draft.isFeatured}
+              onChange={(e) => set("isFeatured", e.target.checked)}
+              className="size-4 accent-[var(--primary)]"
+            />
             Featured
           </label>
           <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={draft.isActive} onChange={(e) => set("isActive", e.target.checked)} className="size-4 accent-[var(--primary)]" />
+            <input
+              type="checkbox"
+              checked={draft.isActive}
+              onChange={(e) => set("isActive", e.target.checked)}
+              className="size-4 accent-[var(--primary)]"
+            />
             Visible in store
           </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onCancel} className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted">
+          <button
+            onClick={onCancel}
+            className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted"
+          >
             Cancel
           </button>
           <button

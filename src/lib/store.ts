@@ -94,7 +94,11 @@ export const mapProduct = (row: ProductRow): Product => ({
 });
 
 export const formatPrice = (n: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
 
 export const discountPct = (product: { price: number; mrp: number }) =>
   product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
@@ -136,10 +140,51 @@ export const productsQueryOptions = (includeInactive = false) => ({
   staleTime: 30_000,
 });
 
+export const fallbackCategories: Category[] = [
+  {
+    uuid: "cat-1",
+    slug: "clothing",
+    name: "Clothing",
+    tagline: "",
+    image: clothing,
+    imageUrl: null,
+    sortOrder: 1,
+  },
+  {
+    uuid: "cat-2",
+    slug: "toys",
+    name: "Toys",
+    tagline: "",
+    image: toys,
+    imageUrl: null,
+    sortOrder: 2,
+  },
+  {
+    uuid: "cat-3",
+    slug: "care",
+    name: "Care",
+    tagline: "",
+    image: care,
+    imageUrl: null,
+    sortOrder: 3,
+  },
+  {
+    uuid: "cat-4",
+    slug: "gear",
+    name: "Gear",
+    tagline: "",
+    image: gear,
+    imageUrl: null,
+    sortOrder: 4,
+  },
+];
+
 export const categoriesQueryOptions = () => ({
   queryKey: ["categories"] as const,
   queryFn: fetchCategories,
   staleTime: 60_000,
+  initialData: fallbackCategories,
+  initialDataUpdatedAt: 0,
 });
 
 export const settingsQueryOptions = () => ({

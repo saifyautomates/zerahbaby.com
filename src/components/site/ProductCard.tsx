@@ -1,13 +1,19 @@
 // @ts-nocheck
 import { Link } from "@tanstack/react-router";
-import { Star } from "lucide-react";
+import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import { discountPct, formatPrice, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
+import { useSession } from "@/lib/auth";
+import { useWishlist } from "@/lib/wishlist";
+import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
+  const { user } = useSession();
+  const { isWishlisted, toggle } = useWishlist();
+  const wishlisted = user ? isWishlisted(product.uuid) : false;
 
   return (
     <article className="lift group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card hover:border-primary/30">
@@ -33,12 +39,31 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
         )}
       </Link>
-
+      {user && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            toggle(product.uuid);
+            trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", { productId: product.uuid });
+            toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
+          }}
+          aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          className="absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur transition hover:bg-background hover:scale-110"
+        >
+          <Heart className={`size-4 transition ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+        </button>
+      )}
 
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{product.brand}</p>
-        <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">
-          <Link to="/product/$id" params={{ id: product.id }} className="transition hover:text-primary">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {product.brand}
+        </p>
+        <h3 className="mt-1 text-sm font-semibold leading-snug text-balance">
+          <Link
+            to="/product/$id"
+            params={{ id: product.id }}
+            className="transition hover:text-primary"
+          >
             {product.name}
           </Link>
         </h3>
@@ -53,16 +78,19 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="mt-3 flex items-baseline gap-2">
           <span className="text-base font-bold">{formatPrice(product.price)}</span>
           {product.mrp > product.price && (
-            <span className="text-xs text-muted-foreground line-through">{formatPrice(product.mrp)}</span>
+            <span className="text-xs text-muted-foreground line-through">
+              {formatPrice(product.mrp)}
+            </span>
           )}
         </div>
 
         <button
           onClick={() => {
             add(product.id);
+            trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
           }}
-          className="focus-ring mt-4 w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 active:scale-[0.98]"
+          className="focus-ring mt-auto w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 active:scale-[0.98]"
         >
           Add to bag
         </button>

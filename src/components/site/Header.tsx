@@ -4,6 +4,7 @@ import {
   Menu,
   Search,
   ShoppingCart,
+  Heart,
   User,
   LayoutDashboard,
   ShieldCheck,
@@ -17,7 +18,16 @@ import { ageGroups, useCategories, useSettings } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useAdminMode } from "@/lib/admin-mode";
+import { useWishlist } from "@/lib/wishlist";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Header() {
   const { count } = useCart();
@@ -28,6 +38,12 @@ export function Header() {
   const { brandName, announcement } = useSettings();
   const { user } = useSession();
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
+  const { productIds: wishlistIds } = useWishlist();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/" });
+  };
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -46,28 +62,23 @@ export function Header() {
       </a>
       <div className="announce-bar">
         <span className="announce-sheen" aria-hidden />
-        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
-          <span className="hidden shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
+        <div className="relative z-[3] mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
+          <div className="hidden flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
             <Truck className="size-3.5 announce-gold-text" aria-hidden />
             Pan-India shipping
-          </span>
+          </div>
 
-          <p className="flex min-w-0 flex-1 items-center justify-center gap-2.5 text-center sm:gap-3.5">
+          <p className="flex shrink-0 items-center justify-center gap-2.5 text-center sm:gap-3.5 w-full lg:w-auto">
             <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
-            <span className="truncate font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
+            <span className="line-clamp-2 text-balance font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
               {announcement}
             </span>
             <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
           </p>
 
-          <span className="hidden shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
-            <BadgeCheck className="size-3.5 announce-gold-text" aria-hidden />
-            Genuine brands only
-          </span>
+          <div className="hidden flex-1 lg:block" />
         </div>
       </div>
-
-
 
       <div className="border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
@@ -80,7 +91,10 @@ export function Header() {
             <Menu className="size-5" />
           </button>
 
-          <Link to="/" className="focus-ring flex min-w-0 items-center gap-2 rounded-lg transition-transform duration-300 hover:-translate-y-0.5">
+          <Link
+            to="/"
+            className="focus-ring flex min-w-0 items-center gap-2 rounded-lg transition-transform duration-300 hover:-translate-y-0.5"
+          >
             <img
               src={logo}
               alt={`${brandName} logo`}
@@ -151,6 +165,41 @@ export function Header() {
                     )}
                   </>
                 )}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                      aria-label="User profile"
+                    >
+                      <User className="size-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-medium truncate">
+                      {user.email}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="cursor-pointer">My profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/orders" className="cursor-pointer">My orders</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/wishlist" className="cursor-pointer">My wishlist</Link>
+                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="cursor-pointer">Admin Dashboard</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             ) : (
               <Link
@@ -159,6 +208,20 @@ export function Header() {
                 aria-label="Sign in"
               >
                 <User className="size-5" />
+              </Link>
+            )}
+            {user && (
+              <Link
+                to="/wishlist"
+                className="focus-ring relative rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                aria-label={`Wishlist with ${wishlistIds.length} items`}
+              >
+                <Heart className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`} />
+                {wishlistIds.length > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                    {wishlistIds.length}
+                  </span>
+                )}
               </Link>
             )}
             <Link
@@ -194,10 +257,13 @@ export function Header() {
           </div>
         </form>
 
-
         <div className={cn("border-t border-border md:block", open ? "block" : "hidden")}>
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-2 text-sm font-medium md:flex-row md:items-center md:gap-6">
-            <Link to="/shop" className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100" onClick={() => setOpen(false)}>
+            <Link
+              to="/shop"
+              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              onClick={() => setOpen(false)}
+            >
               All Products
             </Link>
             {(categories ?? []).map((c) => (
@@ -211,15 +277,25 @@ export function Header() {
                 {c.name}
               </Link>
             ))}
-            <Link to="/about" className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100" onClick={() => setOpen(false)}>
+            <Link
+              to="/about"
+              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              onClick={() => setOpen(false)}
+            >
               About
             </Link>
-            <Link to="/contact" className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100" onClick={() => setOpen(false)}>
+            <Link
+              to="/contact"
+              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              onClick={() => setOpen(false)}
+            >
               Contact
             </Link>
 
             <div className="flex items-center gap-2 py-1.5 md:ml-auto">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Age</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Age
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {ageGroups.map((a) => (
                   <Link

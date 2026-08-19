@@ -4,9 +4,14 @@ import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
 
+import { useAdminMode } from "@/lib/admin-mode";
+
 /** Small clickable invoice chip — opens the full printable invoice. */
 export function InvoiceBox({ order }: { order: Order }) {
   const [open, setOpen] = useState(false);
+  const { isAdmin } = useAdminMode();
+
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -35,7 +40,11 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
   const { brandName, storeAddress, contactPhone, contactEmail } = useSettings();
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-foreground/50 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[70] grid place-items-center bg-foreground/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-6 print:border-0">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -48,7 +57,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           <div className="text-right">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Invoice</p>
             <p className="font-display text-lg font-bold">{order.invoice_no ?? "—"}</p>
-            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString("en-IN")}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(order.created_at).toLocaleString("en-IN")}
+            </p>
             <p className="mt-1 text-xs capitalize text-muted-foreground">
               Order #{order.id.slice(0, 8).toUpperCase()} · {order.status}
             </p>
@@ -57,7 +68,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
 
         <div className="mt-6 grid gap-4 rounded-2xl bg-muted/50 p-4 text-sm sm:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Billed to</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Billed to
+            </p>
             <p className="mt-1 font-semibold">{order.full_name}</p>
             <p className="text-muted-foreground">
               {order.address}
@@ -74,9 +87,13 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             <p className="text-muted-foreground">{order.email}</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Payment
+            </p>
             <p className="mt-1 font-semibold uppercase">{order.payment_method || "cod"}</p>
-            {order.notes && <p className="mt-2 text-xs italic text-muted-foreground">“{order.notes}”</p>}
+            {order.notes && (
+              <p className="mt-2 text-xs italic text-muted-foreground">“{order.notes}”</p>
+            )}
           </div>
         </div>
 
@@ -98,7 +115,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                 </td>
                 <td className="py-2 text-center">{item.qty}</td>
                 <td className="py-2 text-right">{formatPrice(Number(item.price))}</td>
-                <td className="py-2 text-right font-semibold">{formatPrice(Number(item.price) * item.qty)}</td>
+                <td className="py-2 text-right font-semibold">
+                  {formatPrice(Number(item.price) * item.qty)}
+                </td>
               </tr>
             ))}
           </tbody>

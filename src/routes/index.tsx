@@ -12,9 +12,6 @@ import { CategoryCarousel } from "@/components/site/CategoryCarousel";
 import { AdminAddProduct, AdminEditableText } from "@/components/admin/InlineAdmin";
 import heroFallback from "@/assets/hero-baby.jpg";
 
-
-
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -27,7 +24,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Zerah Baby And Kids — Everything Your Little One Needs" },
       {
         property: "og:description",
-        content: "Organic baby clothing, safe toys, nursery care and travel gear, curated by parents.",
+        content:
+          "Organic baby clothing, safe toys, nursery care and travel gear, curated by parents.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -75,7 +73,9 @@ function Index() {
       <section
         aria-label="Welcome to Zerah Baby And Kids"
         className={`relative isolate overflow-hidden ${
-          hasMedia ? "bg-foreground" : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
+          hasMedia
+            ? "bg-foreground"
+            : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
         }`}
       >
         {hasMedia ? (
@@ -89,7 +89,9 @@ function Index() {
 
         <div
           className={`relative z-10 mx-auto flex max-w-4xl flex-col items-center px-4 text-center ${
-            hasMedia ? "min-h-[70vh] justify-center py-24 md:min-h-[78vh] md:py-32" : "py-16 sm:py-20 md:py-28"
+            hasMedia
+              ? "min-h-[70vh] justify-center py-24 md:min-h-[78vh] md:py-32"
+              : "py-16 sm:py-20 md:py-28"
           }`}
         >
           <span
@@ -171,17 +173,21 @@ function Index() {
 
       {heroEditor && <HeroMediaDialog onClose={() => setHeroEditor(false)} />}
 
-
       <section className="mx-auto max-w-7xl px-4 py-10">
-        <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {perks.map((perk) => (
-            <li key={perk.title} className="flex items-center gap-3 rounded-2xl border border-border p-4">
+            <li
+              key={perk.title}
+              className="flex items-center gap-3 rounded-2xl border border-border p-4"
+            >
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary">
                 <perk.icon className="size-5" />
               </span>
               <span>
-                <span className="block text-sm font-semibold">{perk.title}</span>
-                <span className="block text-xs text-muted-foreground">{perk.text}</span>
+                <span className="block text-sm font-semibold text-balance">{perk.title}</span>
+                <span className="block text-xs text-muted-foreground text-balance">
+                  {perk.text}
+                </span>
               </span>
             </li>
           ))}
@@ -199,7 +205,6 @@ function Index() {
           <CategoryCarousel categories={categories ?? []} />
         </div>
       </section>
-
 
       <section className="mx-auto max-w-7xl px-4 py-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -226,7 +231,9 @@ function Index() {
       <section className="mx-auto max-w-7xl px-4 py-8">
         <div className="rounded-3xl bg-secondary p-6 md:p-10">
           <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Biggest savings across the store, refreshed every Monday.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Biggest savings across the store, refreshed every Monday.
+          </p>
           <AdminAddProduct label="Add a deal product" className="mt-4" />
 
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
@@ -241,9 +248,18 @@ function Index() {
         <h2 className="font-display text-2xl font-bold">Loved by parents</h2>
         <div className="mt-6 grid gap-5 md:grid-cols-3">
           {[
-            { name: "Ananya R.", text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now." },
-            { name: "Vikram S.", text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant." },
-            { name: "Meera J.", text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription." },
+            {
+              name: "Ananya R.",
+              text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now.",
+            },
+            {
+              name: "Vikram S.",
+              text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant.",
+            },
+            {
+              name: "Meera J.",
+              text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
+            },
           ].map((r) => (
             <figure key={r.name} className="rounded-2xl border border-border p-6">
               <div className="flex gap-0.5 text-accent">

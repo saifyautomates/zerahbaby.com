@@ -24,7 +24,10 @@ export function normaliseMediaUrl(url: string): { url: string; embed: boolean } 
   }
   const vimeo = trimmed.match(/vimeo\.com\/(\d+)/);
   if (vimeo?.[1]) {
-    return { url: `https://player.vimeo.com/video/${vimeo[1]}?autoplay=1&muted=1&loop=1&background=1`, embed: true };
+    return {
+      url: `https://player.vimeo.com/video/${vimeo[1]}?autoplay=1&muted=1&loop=1&background=1`,
+      embed: true,
+    };
   }
   return { url: trimmed, embed: false };
 }

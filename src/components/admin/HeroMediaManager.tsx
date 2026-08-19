@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, FolderOpen, ImagePlus, Loader2, Trash2, Video, X } from "lucide-react";
 import { toast } from "sonner";
-import { useHeroMedia, useSaveHeroMedia, normaliseMediaUrl, type HeroSlide } from "@/lib/hero-media";
+import {
+  useHeroMedia,
+  useSaveHeroMedia,
+  normaliseMediaUrl,
+  type HeroSlide,
+} from "@/lib/hero-media";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
 import { useUploadToLibrary } from "@/lib/media-library";
 
-const uid = () => (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+const uid = () => globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random());
 
 /** Admin UI to add, reorder and remove the photos/videos shown in the homepage hero. */
 export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
@@ -38,7 +43,12 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
     setUploading(true);
     try {
       const assets = await uploadToLibrary(Array.from(files));
-      const added: HeroSlide[] = assets.map((a) => ({ id: uid(), type: a.type, url: a.url, alt: a.name }));
+      const added: HeroSlide[] = assets.map((a) => ({
+        id: uid(),
+        type: a.type,
+        url: a.url,
+        alt: a.name,
+      }));
       setSlides((s) => [...s, ...added]);
       toast.success(`${added.length} file(s) uploaded — remember to save`);
     } catch (e) {
@@ -62,20 +72,27 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
           title="Pick hero media"
           onClose={() => setPicker(false)}
           onSelect={(assets) =>
-            setSlides((s) => [...s, ...assets.map((a) => ({ id: uid(), type: a.type, url: a.url, alt: a.name }))])
+            setSlides((s) => [
+              ...s,
+              ...assets.map((a) => ({ id: uid(), type: a.type, url: a.url, alt: a.name })),
+            ])
           }
         />
       )}
       <div className="rounded-2xl border border-dashed border-primary/50 bg-secondary/40 p-4">
         <p className="text-sm font-semibold">Add hero media</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Everything is saved to your
-          store backend and shows for all visitors.
+          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Everything
+          is saved to your store backend and shows for all visitors.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="focus-ring inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90">
-            {uploading ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ImagePlus className="size-4" />
+            )}
             {uploading ? "Uploading…" : "Upload photos / videos"}
             <input
               type="file"
@@ -132,7 +149,10 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
           {slides.map((slide, i) => {
             const media = normaliseMediaUrl(slide.url);
             return (
-              <li key={slide.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+              <li
+                key={slide.id}
+                className="overflow-hidden rounded-2xl border border-border bg-card"
+              >
                 <div className="relative aspect-video bg-muted">
                   {slide.type === "video" ? (
                     media.embed ? (
@@ -159,7 +179,9 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
                   <input
                     value={slide.alt}
                     onChange={(e) =>
-                      setSlides((s) => s.map((x) => (x.id === slide.id ? { ...x, alt: e.target.value } : x)))
+                      setSlides((s) =>
+                        s.map((x) => (x.id === slide.id ? { ...x, alt: e.target.value } : x)),
+                      )
                     }
                     placeholder="Describe this media (for accessibility)"
                     aria-label="Media description"
@@ -224,10 +246,17 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
 /** Floating "Edit hero media" entry point rendered on the homepage in admin mode. */
 export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-foreground/50 p-4" role="dialog" aria-modal="true" aria-label="Manage hero media">
+    <div
+      className="fixed inset-0 z-[60] grid place-items-center bg-foreground/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Manage hero media"
+    >
       <div className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-background p-6 shadow-2xl">
         <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Photos and videos shown behind the homepage headline.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Photos and videos shown behind the homepage headline.
+        </p>
         <div className="mt-6">
           <HeroMediaManager onClose={onClose} />
         </div>

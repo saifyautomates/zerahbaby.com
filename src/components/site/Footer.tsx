@@ -6,8 +6,17 @@ import { useCategories, useSettings } from "@/lib/store";
 
 export function Footer() {
   const { data: categories } = useCategories();
-  const { brandName, contactEmail, contactPhone, storeAddress, storeHours, mapsUrl, instagramUrl, facebookUrl, whatsappUrl } =
-    useSettings();
+  const {
+    brandName,
+    contactEmail,
+    contactPhone,
+    storeAddress,
+    storeHours,
+    mapsUrl,
+    instagramUrl,
+    facebookUrl,
+    whatsappUrl,
+  } = useSettings();
 
   const socials = [
     { href: instagramUrl, label: "Instagram", Icon: Instagram },
@@ -20,11 +29,19 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
-            <img src={logo} alt={`${brandName} logo`} loading="lazy" width={40} height={40} className="size-10 object-contain" />
+            <img
+              src={logo}
+              alt={`${brandName} logo`}
+              loading="lazy"
+              width={40}
+              height={40}
+              className="size-10 object-contain"
+            />
             <span className="font-display text-lg font-bold">{brandName}</span>
           </div>
-          <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-            A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by parents.
+          <p className="mt-3 max-w-xs text-sm text-muted-foreground text-pretty">
+            A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by
+            parents.
           </p>
           {socials.length > 0 && (
             <div className="mt-4 flex gap-2">
@@ -44,13 +61,16 @@ export function Footer() {
           )}
         </div>
 
-
         <div>
           <h2 className="text-sm font-semibold">Shop</h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             {(categories ?? []).map((c) => (
               <li key={c.slug}>
-                <Link to="/shop" search={{ category: c.slug }} className="transition hover:text-primary">
+                <Link
+                  to="/shop"
+                  search={{ category: c.slug }}
+                  className="transition hover:text-primary"
+                >
                   {c.name}
                 </Link>
               </li>
@@ -61,17 +81,47 @@ export function Footer() {
         <div>
           <h2 className="text-sm font-semibold">Company</h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li><Link to="/about" className="transition hover:text-primary">About us</Link></li>
-            <li><Link to="/contact" className="transition hover:text-primary">Contact</Link></li>
-            <li><Link to="/shop" className="transition hover:text-primary">All products</Link></li>
-            <li><Link to="/cart" className="transition hover:text-primary">Your bag</Link></li>
-            <li><Link to="/returns" className="transition hover:text-primary">Refund &amp; Return Policy</Link></li>
+            <li>
+              <Link to="/about" className="transition hover:text-primary">
+                About us
+              </Link>
+            </li>
+            <li>
+              <Link to="/contact" className="transition hover:text-primary">
+                Contact
+              </Link>
+            </li>
+            <li>
+              <Link to="/shop" className="transition hover:text-primary">
+                All products
+              </Link>
+            </li>
+            <li>
+              <Link to="/cart" className="transition hover:text-primary">
+                Your bag
+              </Link>
+            </li>
+            <li>
+              <Link to="/profile" className="transition hover:text-primary">
+                My profile
+              </Link>
+            </li>
+            <li>
+              <Link to="/wishlist" className="transition hover:text-primary">
+                My wishlist
+              </Link>
+            </li>
+            <li>
+              <Link to="/returns" className="transition hover:text-primary">
+                Refund &amp; Return Policy
+              </Link>
+            </li>
           </ul>
         </div>
 
         <div>
           <h2 className="text-sm font-semibold">Stay in the loop</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="mt-3 text-sm text-muted-foreground text-balance">
             Weekly parenting tips and early access to sales.
           </p>
           <form className="mt-4 flex gap-2" onSubmit={(e) => e.preventDefault()}>
@@ -103,7 +153,6 @@ export function Footer() {
             </span>
           </a>
         </div>
-
       </div>
 
       <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">

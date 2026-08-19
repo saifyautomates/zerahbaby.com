@@ -23,10 +23,24 @@ function Thumb({ asset }: { asset: MediaAsset }) {
         <Video className="size-7" />
       </div>
     ) : (
-      <video src={media.url} muted playsInline preload="metadata" className="size-full object-cover" />
+      <video
+        src={media.url}
+        muted
+        playsInline
+        preload="metadata"
+        className="size-full object-cover"
+      />
     );
   }
-  return <img src={media.url} alt={asset.name} loading="lazy" decoding="async" className="size-full object-cover" />;
+  return (
+    <img
+      src={media.url}
+      alt={asset.name}
+      loading="lazy"
+      decoding="async"
+      className="size-full object-cover"
+    />
+  );
 }
 
 export type MediaLibraryProps = {
@@ -41,7 +55,12 @@ export type MediaLibraryProps = {
  * Shared media library: upload, tag, search and reuse photos/videos anywhere in the store.
  * Everything is persisted in the backend so all admins and pages share one set of assets.
  */
-export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all", onClose }: MediaLibraryProps) {
+export function MediaLibrary({
+  onSelect,
+  selectMode = "multiple",
+  accept = "all",
+  onClose,
+}: MediaLibraryProps) {
   const { data, isLoading } = useMediaLibrary();
   const save = useSaveMediaLibrary();
   const upload = useUploadToLibrary();
@@ -85,12 +104,15 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
   function addLink() {
     const url = linkUrl.trim();
     if (!url) return;
-    save.mutate([...assets, makeAsset({ url, type: linkType, name: url.split("/").pop() ?? "Linked media" })], {
-      onSuccess: () => {
-        setLinkUrl("");
-        toast.success("Link added to the library");
+    save.mutate(
+      [...assets, makeAsset({ url, type: linkType, name: url.split("/").pop() ?? "Linked media" })],
+      {
+        onSuccess: () => {
+          setLinkUrl("");
+          toast.success("Link added to the library");
+        },
       },
-    });
+    );
   }
 
   function patch(id: string, changes: Partial<MediaAsset>) {
@@ -100,7 +122,13 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
   function toggle(id: string) {
     if (!onSelect) return;
     setSelected((s) =>
-      selectMode === "single" ? (s[0] === id ? [] : [id]) : s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
+      selectMode === "single"
+        ? s[0] === id
+          ? []
+          : [id]
+        : s.includes(id)
+          ? s.filter((x) => x !== id)
+          : [...s, id],
     );
   }
 
@@ -112,8 +140,8 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
       <div className="rounded-2xl border border-dashed border-primary/50 bg-secondary/40 p-4">
         <p className="text-sm font-semibold">Add to the library</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Assets here can be reused on
-          any page.
+          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Assets
+          here can be reused on any page.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
@@ -121,13 +149,19 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
             onClick={() => fileInput.current?.click()}
             className="focus-ring inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
-            {uploading ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ImagePlus className="size-4" />
+            )}
             {uploading ? "Uploading…" : "Upload photos / videos"}
           </button>
           <input
             ref={fileInput}
             type="file"
-            accept={accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*"}
+            accept={
+              accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*"
+            }
             multiple
             className="sr-only"
             onChange={(e) => {
@@ -238,7 +272,9 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
                 <div className="space-y-2 p-3">
                   <input
                     defaultValue={asset.name}
-                    onBlur={(e) => e.target.value !== asset.name && patch(asset.id, { name: e.target.value })}
+                    onBlur={(e) =>
+                      e.target.value !== asset.name && patch(asset.id, { name: e.target.value })
+                    }
                     placeholder="Name / description"
                     aria-label="Media name"
                     className="focus-ring w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs"
@@ -246,7 +282,10 @@ export function MediaLibrary({ onSelect, selectMode = "multiple", accept = "all"
                   <input
                     defaultValue={asset.tags.join(", ")}
                     onBlur={(e) => {
-                      const next = e.target.value.split(",").map((t) => t.trim()).filter(Boolean);
+                      const next = e.target.value
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter(Boolean);
                       if (next.join(",") !== asset.tags.join(",")) patch(asset.id, { tags: next });
                     }}
                     placeholder="Tags, comma separated"
@@ -347,7 +386,9 @@ export function MediaLibraryPicker({
     >
       <div className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-background p-6 shadow-2xl">
         <h2 className="font-display text-xl font-bold">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Reuse any photo or video you've already uploaded.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Reuse any photo or video you've already uploaded.
+        </p>
         <div className="mt-6">
           <MediaLibrary
             onSelect={(assets) => {

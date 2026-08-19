@@ -10,9 +10,16 @@ export const Route = createFileRoute("/cart")({
   head: () => ({
     meta: [
       { title: "Your Shopping Bag — Zerah Baby And Kids" },
-      { name: "description", content: "Review the baby essentials in your Zerah Baby And Kids bag and check out securely." },
+      {
+        name: "description",
+        content:
+          "Review the baby essentials in your Zerah Baby And Kids bag and check out securely.",
+      },
       { property: "og:title", content: "Your Shopping Bag — Zerah Baby And Kids" },
-      { property: "og:description", content: "Review your baby essentials and check out securely." },
+      {
+        property: "og:description",
+        content: "Review your baby essentials and check out securely.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -30,7 +37,9 @@ function CartPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-display text-3xl font-bold">Your bag is empty</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Add a few essentials and they'll show up here.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Add a few essentials and they'll show up here.
+        </p>
         <Link
           to="/shop"
           className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
@@ -58,9 +67,15 @@ function CartPage() {
                 className="size-24 shrink-0 rounded-xl object-cover"
               />
               <div className="flex-1">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{product.brand}</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {product.brand}
+                </p>
                 <h2 className="text-sm font-semibold">
-                  <Link to="/product/$id" params={{ id: product.id }} className="hover:text-primary">
+                  <Link
+                    to="/product/$id"
+                    params={{ id: product.id }}
+                    className="hover:text-primary"
+                  >
                     {product.name}
                   </Link>
                 </h2>
@@ -68,11 +83,17 @@ function CartPage() {
 
                 <div className="mt-3 flex items-center gap-4">
                   <div className="flex items-center gap-3 rounded-full border border-border px-3 py-1.5">
-                    <button onClick={() => setQty(product.id, qty - 1)} aria-label="Decrease quantity">
+                    <button
+                      onClick={() => setQty(product.id, qty - 1)}
+                      aria-label="Decrease quantity"
+                    >
                       <Minus className="size-3.5" />
                     </button>
                     <span className="w-5 text-center text-sm font-semibold">{qty}</span>
-                    <button onClick={() => setQty(product.id, qty + 1)} aria-label="Increase quantity">
+                    <button
+                      onClick={() => setQty(product.id, qty + 1)}
+                      aria-label="Increase quantity"
+                    >
                       <Plus className="size-3.5" />
                     </button>
                   </div>
@@ -88,7 +109,10 @@ function CartPage() {
             </li>
           ))}
           <li>
-            <button onClick={clear} className="text-xs text-muted-foreground hover:text-destructive">
+            <button
+              onClick={clear}
+              className="text-xs text-muted-foreground hover:text-destructive"
+            >
               Clear bag
             </button>
           </li>
@@ -137,7 +161,10 @@ function CartPage() {
               </p>
             </>
           )}
-          <Link to="/shop" className="mt-3 block text-center text-sm text-muted-foreground hover:text-primary">
+          <Link
+            to="/shop"
+            className="mt-3 block text-center text-sm text-muted-foreground hover:text-primary"
+          >
             Continue shopping
           </Link>
         </aside>

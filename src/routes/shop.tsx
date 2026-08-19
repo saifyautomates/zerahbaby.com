@@ -5,8 +5,11 @@ import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { AdminAddProduct } from "@/components/admin/InlineAdmin";
 
-
-type ShopSearch = { category?: string | undefined; age?: string | undefined; q?: string | undefined };
+type ShopSearch = {
+  category?: string | undefined;
+  age?: string | undefined;
+  q?: string | undefined;
+};
 
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): ShopSearch => ({
@@ -23,7 +26,10 @@ export const Route = createFileRoute("/shop")({
           "Browse the full Zerah Baby And Kids range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.",
       },
       { property: "og:title", content: "Shop Baby & Kids Essentials — Zerah Baby And Kids" },
-      { property: "og:description", content: "Filter baby clothing, toys, care and gear by age, brand and price." },
+      {
+        property: "og:description",
+        content: "Filter baby clothing, toys, care and gear by age, brand and price.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -66,17 +72,26 @@ function ShopPage() {
     return sorted;
   }, [list, category, age, q, selectedBrands, maxPrice, sort]);
 
-
   const activeCategory = (categories ?? []).find((c) => c.slug === category);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <nav className="text-xs text-muted-foreground">
-        <Link to="/" className="hover:text-primary">Home</Link> / <span>Shop</span>
-        {activeCategory && <> / <span className="text-foreground">{activeCategory.name}</span></>}
+        <Link to="/" className="hover:text-primary">
+          Home
+        </Link>{" "}
+        / <span>Shop</span>
+        {activeCategory && (
+          <>
+            {" "}
+            / <span className="text-foreground">{activeCategory.name}</span>
+          </>
+        )}
       </nav>
 
-      <h1 className="mt-3 font-display text-3xl font-bold">{activeCategory?.name ?? "All products"}</h1>
+      <h1 className="mt-3 font-display text-3xl font-bold">
+        {activeCategory?.name ?? "All products"}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {visible.length} product{visible.length === 1 ? "" : "s"}
         {activeCategory ? ` in ${activeCategory.tagline.toLowerCase()}` : " across the store"}
@@ -86,7 +101,9 @@ function ShopPage() {
         <Link
           to="/shop"
           className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-            !category ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
+            !category
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border hover:bg-muted"
           }`}
         >
           All
@@ -111,16 +128,16 @@ function ShopPage() {
         />
       </div>
 
-
       <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
         <aside className="space-y-6 rounded-2xl border border-border p-5 h-fit">
-
-
           <div>
             <h2 className="text-sm font-semibold">Brand</h2>
             <div className="mt-3 space-y-2">
               {brands.map((b) => (
-                <label key={b} className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <label
+                  key={b}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
+                >
                   <input
                     type="checkbox"
                     checked={selectedBrands.includes(b)}
@@ -145,7 +162,9 @@ function ShopPage() {
               className="mt-3 w-full accent-[var(--primary)]"
               aria-label="Maximum price"
             />
-            <p className="text-xs text-muted-foreground">Up to ₹{maxPrice.toLocaleString("en-IN")}</p>
+            <p className="text-xs text-muted-foreground">
+              Up to ₹{maxPrice.toLocaleString("en-IN")}
+            </p>
           </div>
 
           <button

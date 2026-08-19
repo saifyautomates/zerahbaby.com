@@ -99,7 +99,9 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               <div className="p-4 sm:p-5">
                 <h3 className="font-display text-base font-bold sm:text-lg">{c.name}</h3>
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.tagline}</p>
-                <span className="mt-3 inline-block text-sm font-semibold text-primary">Shop now →</span>
+                <span className="mt-3 inline-block text-sm font-semibold text-primary">
+                  Shop now →
+                </span>
               </div>
             </Link>
           ))}

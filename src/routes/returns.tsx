@@ -12,7 +12,8 @@ export const Route = createFileRoute("/returns")({
       { property: "og:title", content: "Refund & Return Policy — Zerah Baby And Kids" },
       {
         property: "og:description",
-        content: "7-day returns, inspection-based refunds and shipping charge rules for Zerah Baby And Kids orders.",
+        content:
+          "7-day returns, inspection-based refunds and shipping charge rules for Zerah Baby And Kids orders.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -22,7 +23,9 @@ export const Route = createFileRoute("/returns")({
 });
 
 export const returnPolicyPoints = [
-  <>Returns are accepted within <strong>7 days</strong> of delivery.</>,
+  <>
+    Returns are accepted within <strong>7 days</strong> of delivery.
+  </>,
   <>Products must be unused, unwashed, and in their original packaging.</>,
   <>Refunds are processed after the returned product passes inspection.</>,
   <>Shipping charges are non-refundable unless the wrong or damaged item was delivered.</>,

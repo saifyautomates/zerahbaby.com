@@ -43,7 +43,11 @@ export function useProfile(userId: string | undefined) {
     enabled: Boolean(userId),
     queryFn: async () => {
       await supabase.rpc("ensure_profile");
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId!).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId!)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -133,8 +137,19 @@ export function usePlaceOrder() {
       notes: string;
       subtotal: number;
       shipping: number;
-      items: { product_slug: string; name: string; image_url: string | null; price: number; qty: number }[];
+      discount?: number;
+      coupon_code?: string;
+      items: {
+        product_slug: string;
+        name: string;
+        image_url: string | null;
+        price: number;
+        qty: number;
+      }[];
     }) => {
+      const discount = input.discount ?? 0;
+      const total = input.subtotal + input.shipping - discount;
+
       const { data, error } = await supabase
         .from("orders")
         .insert({
@@ -153,7 +168,10 @@ export function usePlaceOrder() {
           notes: input.notes,
           subtotal: input.subtotal,
           shipping: input.shipping,
-          total: input.subtotal + input.shipping,
+          discount,
+          coupon_code: input.coupon_code ?? null,
+          total,
+          status: "pending",
         })
         .select("id, invoice_no")
         .single();

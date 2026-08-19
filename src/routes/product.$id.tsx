@@ -1,34 +1,14 @@
-<<<<<<< Updated upstream
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus } from "lucide-react";
-=======
-// @ts-nocheck
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import {
-  Star,
-  Truck,
-  RotateCcw,
-  ShieldCheck,
-  Minus,
-  Plus,
-  MapPin,
-  Check,
-  Ruler,
-  X,
-  Sparkles,
-  Share2,
-  Heart,
-  ChevronRight,
-} from "lucide-react";
->>>>>>> Stashed changes
 import { toast } from "sonner";
 import { discountPct, formatPrice, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
+import { useSession } from "@/lib/auth";
+import { useProductReviews, useSubmitReview } from "@/lib/reviews";
+import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
-
 
 export const Route = createFileRoute("/product/$id")({
   head: () => ({
@@ -39,7 +19,10 @@ export const Route = createFileRoute("/product/$id")({
         content: "Product details, highlights, pricing and delivery info at Zerah Baby And Kids.",
       },
       { property: "og:title", content: "Product — Zerah Baby And Kids" },
-      { property: "og:description", content: "Product details, highlights and pricing at Zerah Baby And Kids." },
+      {
+        property: "og:description",
+        content: "Product details, highlights and pricing at Zerah Baby And Kids.",
+      },
       { property: "og:type", content: "product" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -51,13 +34,23 @@ function ProductPage() {
   const { id } = Route.useParams();
   const { data: products, isLoading } = useProducts();
   const { add } = useCart();
+  const { user } = useSession();
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
 
   const list = products ?? [];
   const product = list.find((p) => p.id === id);
-  const gallery = (product?.images.length ? product.images : [product?.image]).filter(Boolean) as string[];
+  const gallery = (product?.images.length ? product.images : [product?.image]).filter(
+    Boolean,
+  ) as string[];
   const soldOut = (product?.stock ?? 0) <= 0;
+
+  // Track product view
+  useEffect(() => {
+    if (product) {
+      trackEvent("product_view", { productId: product.uuid, metadata: { slug: product.id, name: product.name } });
+    }
+  }, [product?.uuid]);
 
   if (isLoading) {
     return (
@@ -76,7 +69,9 @@ function ProductPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-display text-3xl font-bold">Product not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">This item may have sold out or been renamed.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This item may have sold out or been renamed.
+        </p>
         <Link
           to="/shop"
           className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
@@ -87,13 +82,18 @@ function ProductPage() {
     );
   }
 
-  const related = list.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const related = list
+    .filter((p) => p.category === product.category && p.id !== product.id)
+    .slice(0, 4);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <nav className="text-xs text-muted-foreground">
-        <Link to="/" className="hover:text-primary">Home</Link> /{" "}
-        <Link to="/shop" search={{ category: product.category }} className="hover:text-primary">
+        <Link to="/" className="hover:text-primary">
+          Home
+        </Link>{" "}
+        /{" "}
+        <Link to="/shop" search={{ category: product.category } as any} className="hover:text-primary">
           {product.category}
         </Link>{" "}
         / <span className="text-foreground">{product.name}</span>
@@ -103,7 +103,6 @@ function ProductPage() {
         <div className="relative">
           <AdminProductControls product={product} />
           <img
-
             src={gallery[activeImage] ?? product.image}
             alt={product.name}
             width={800}
@@ -128,9 +127,10 @@ function ProductPage() {
           )}
         </div>
 
-
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{product.brand}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {product.brand}
+          </p>
           <h1 className="mt-2 font-display text-3xl font-bold leading-tight">{product.name}</h1>
 
           <div className="mt-3 flex items-center gap-2 text-sm">
@@ -138,7 +138,9 @@ function ProductPage() {
               <Star className="size-3.5 fill-accent text-accent" />
               {product.rating}
             </span>
-            <span className="text-muted-foreground">{product.reviews.toLocaleString("en-IN")} reviews</span>
+            <span className="text-muted-foreground">
+              {product.reviews.toLocaleString("en-IN")} reviews
+            </span>
             <span className="rounded-full bg-muted px-2 py-1 text-xs">Ages {product.ageGroup}</span>
           </div>
 
@@ -146,7 +148,9 @@ function ProductPage() {
             <span className="text-3xl font-bold">{formatPrice(product.price)}</span>
             {product.mrp > product.price && (
               <>
-                <span className="text-muted-foreground line-through">{formatPrice(product.mrp)}</span>
+                <span className="text-muted-foreground line-through">
+                  {formatPrice(product.mrp)}
+                </span>
                 <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
                   {discountPct(product)}% off
                 </span>
@@ -178,11 +182,17 @@ function ProductPage() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-3 rounded-full border border-border px-3 py-2">
-              <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity">
+              <button
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                aria-label="Decrease quantity"
+              >
                 <Minus className="size-4" />
               </button>
               <span className="w-6 text-center text-sm font-semibold">{qty}</span>
-              <button onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))} aria-label="Increase quantity">
+              <button
+                onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
+                aria-label="Increase quantity"
+              >
                 <Plus className="size-4" />
               </button>
             </div>
@@ -190,6 +200,7 @@ function ProductPage() {
               disabled={soldOut}
               onClick={() => {
                 add(product.id, qty);
+                trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, from: "product_page" } });
                 toast.success("Added to bag", { description: `${qty} × ${product.name}` });
               }}
               className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
@@ -199,7 +210,10 @@ function ProductPage() {
             {!soldOut && (
               <Link
                 to="/cart"
-                onClick={() => add(product.id, qty)}
+                onClick={() => {
+                  add(product.id, qty);
+                  trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
+                }}
                 className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted"
               >
                 Buy now
@@ -213,7 +227,10 @@ function ProductPage() {
               { icon: RotateCcw, text: "7-day easy returns" },
               { icon: ShieldCheck, text: "Safety lab tested" },
             ].map((f) => (
-              <div key={f.text} className="flex items-center gap-2 rounded-xl border border-border p-3 text-xs">
+              <div
+                key={f.text}
+                className="flex items-center gap-2 rounded-xl border border-border p-3 text-xs"
+              >
                 <f.icon className="size-4 text-primary" />
                 {f.text}
               </div>
@@ -232,6 +249,130 @@ function ProductPage() {
           </div>
         </section>
       )}
+
+      {/* Reviews Section */}
+      {product && <ReviewsSection product={product} user={user} />}
     </div>
+  );
+}
+
+function ReviewsSection({ product, user }: { product: any; user: any }) {
+  const { data: reviews } = useProductReviews(product.uuid);
+  const submitReview = useSubmitReview();
+  const [showForm, setShowForm] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState("");
+  const [comment, setComment] = useState("");
+
+  return (
+    <section className="mt-16">
+      <h2 className="font-display text-2xl font-bold">Customer Reviews</h2>
+
+      {reviews && reviews.length > 0 ? (
+        <div className="mt-6 space-y-4">
+          {reviews.map((review) => (
+            <div key={review.id} className="rounded-2xl border border-border p-5">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`size-4 ${i < review.rating ? "fill-accent text-accent" : "text-muted-foreground"}`}
+                    />
+                  ))}
+                </div>
+                {review.verified_purchase && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Verified Purchase</span>
+                )}
+              </div>
+              {review.title && <p className="mt-2 text-sm font-semibold">{review.title}</p>}
+              <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {new Date(review.created_at).toLocaleDateString("en-IN")}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">No reviews yet. Be the first to review this product!</p>
+      )}
+
+      {user && !showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="mt-4 rounded-full border border-primary px-6 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+        >
+          Write a review
+        </button>
+      )}
+
+      {showForm && user && (
+        <form
+          className="mt-4 space-y-3 rounded-2xl border border-border p-5"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await submitReview.mutateAsync({
+              product_id: product.uuid,
+              user_id: user.id,
+              rating,
+              title: title.trim(),
+              comment: comment.trim(),
+            });
+            setShowForm(false);
+            setTitle("");
+            setComment("");
+            setRating(5);
+          }}
+        >
+          <div>
+            <p className="text-sm font-semibold">Rating</p>
+            <div className="mt-1 flex gap-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setRating(i + 1)}
+                >
+                  <Star
+                    className={`size-6 cursor-pointer transition ${i < rating ? "fill-accent text-accent" : "text-muted-foreground hover:text-accent"}`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Review title (optional)"
+            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+          />
+          <textarea
+            required
+            rows={3}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Share your experience with this product..."
+            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitReview.isPending}
+              className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              {submitReview.isPending ? "Submitting..." : "Submit review"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition hover:bg-muted"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }

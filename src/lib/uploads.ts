@@ -15,7 +15,9 @@ export async function uploadMedia(file: File): Promise<string> {
   });
   if (error) throw error;
 
-  const { data, error: signError } = await supabase.storage.from(BUCKET).createSignedUrl(path, TEN_YEARS);
+  const { data, error: signError } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, TEN_YEARS);
   if (signError || !data) throw signError ?? new Error("Could not create media URL");
   return data.signedUrl;
 }

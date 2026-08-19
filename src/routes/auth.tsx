@@ -12,7 +12,10 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — Zerah Baby And Kids" },
-      { name: "description", content: "Sign in to manage the Zerah Baby And Kids store catalogue and settings." },
+      {
+        name: "description",
+        content: "Sign in to manage the Zerah Baby And Kids store catalogue and settings.",
+      },
       { property: "og:title", content: "Sign in — Zerah Baby And Kids" },
       { property: "og:description", content: "Store team sign in for Zerah Baby And Kids." },
       { property: "og:type", content: "website" },
@@ -28,7 +31,7 @@ function AuthPage() {
   const { user } = useSession();
   const { items } = useCart();
   const [tab, setTab] = useState<"email" | "phone">("email");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
@@ -44,7 +47,14 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signin") {
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + "/auth?mode=reset",
+        });
+        if (error) throw error;
+        toast.success("Password reset email sent! Check your inbox.");
+        setMode("signin");
+      } else if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Signed in");
@@ -52,7 +62,7 @@ function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/admin" },
+          options: { emailRedirectTo: window.location.origin + "/auth" },
         });
         if (error) throw error;
         if (!data.session) toast.success("Check your email to confirm your account");
@@ -106,7 +116,9 @@ function AuthPage() {
 
   async function onGoogleSignIn() {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + "/auth",
+    });
     if (result.error) {
       setBusy(false);
       toast.error("Google sign-in failed");
@@ -119,11 +131,25 @@ function AuthPage() {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <div className="rounded-3xl border border-border bg-card p-8">
-        <img src={logo} alt="Zerah Baby And Kids logo" width={64} height={64} className="mx-auto size-16 object-contain" />
+        <img
+          src={logo}
+          alt="Zerah Baby And Kids logo"
+          width={64}
+          height={64}
+          className="mx-auto size-16 object-contain"
+        />
         <h1 className="mt-4 text-center font-display text-2xl font-bold">
-          {tab === "phone" ? "Sign in with your phone" : mode === "signin" ? "Welcome back" : "Create your account"}
+          {tab === "phone"
+            ? "Sign in with your phone"
+            : mode === "forgot"
+              ? "Reset your password"
+              : mode === "signin"
+                ? "Welcome back"
+                : "Create your account"}
         </h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">Sign in to shop and track your orders</p>
+        <p className="mt-1 text-center text-sm text-muted-foreground">
+          {mode === "forgot" ? "Enter your email and we'll send a reset link" : "Sign in to shop and track your orders"}
+        </p>
 
         <div className="mt-6 grid grid-cols-2 gap-1 rounded-full border border-border p-1 text-sm font-semibold">
           {(["email", "phone"] as const).map((t) => (
@@ -133,7 +159,9 @@ function AuthPage() {
               onClick={() => setTab(t)}
               className={
                 "rounded-full py-2 transition " +
-                (tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")
+                (tab === t
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted")
               }
             >
               {t === "email" ? "Email" : "Phone OTP"}
@@ -142,33 +170,46 @@ function AuthPage() {
         </div>
 
         {tab === "email" ? (
-        <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-            aria-label="Email"
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            aria-label="Password"
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <button
-            disabled={busy}
-            className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-          >
-            {mode === "signin" ? "Sign in" : "Sign up"}
-          </button>
-        </form>
+          <form onSubmit={onSubmit} className="mt-4 space-y-3">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              aria-label="Email"
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+            />
+            {mode !== "forgot" && (
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                aria-label="Password"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            )}
+            {mode === "signin" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="text-xs text-muted-foreground hover:text-primary"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+            <button
+              disabled={busy}
+              className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+            >
+              {mode === "forgot" ? "Send reset link" : mode === "signin" ? "Sign in" : "Sign up"}
+            </button>
+          </form>
         ) : (
           <form onSubmit={otpSent ? onVerifyOtp : onSendOtp} className="mt-4 space-y-3">
             <input
@@ -224,18 +265,31 @@ function AuthPage() {
         </button>
 
         {tab === "email" && (
-        <p className="mt-5 text-center text-sm text-muted-foreground">
-          {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
-          <button
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="font-semibold text-primary hover:underline"
-          >
-            {mode === "signin" ? "Create an account" : "Sign in"}
-          </button>
-        </p>
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            {mode === "forgot" ? (
+              <button
+                onClick={() => setMode("signin")}
+                className="font-semibold text-primary hover:underline"
+              >
+                ← Back to sign in
+              </button>
+            ) : (
+              <>
+                {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
+                <button
+                  onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  {mode === "signin" ? "Create an account" : "Sign in"}
+                </button>
+              </>
+            )}
+          </p>
         )}
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-primary">← Back to the store</Link>
+          <Link to="/" className="hover:text-primary">
+            ← Back to the store
+          </Link>
         </p>
       </div>
     </div>

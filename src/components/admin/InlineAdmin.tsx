@@ -84,7 +84,9 @@ export function AdminProductControls({ product }: { product: Product }) {
           confirmLabel="Yes, delete"
           busy={remove.isPending}
           onCancel={() => setConfirmDelete(false)}
-          onConfirm={() => remove.mutate(product.uuid, { onSuccess: () => setConfirmDelete(false) })}
+          onConfirm={() =>
+            remove.mutate(product.uuid, { onSuccess: () => setConfirmDelete(false) })
+          }
         />
       )}
     </>

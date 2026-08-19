@@ -88,7 +88,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Zerah Baby And Kids is an online baby store for organic clothing, safe toys, nursery care and travel gear.",
       },
       { name: "author", content: "Zerah Baby And Kids" },
-      { property: "og:title", content: "Zerah Baby And Kids — Baby Clothing, Toys, Diapers & Gear" },
+      {
+        property: "og:title",
+        content: "Zerah Baby And Kids — Baby Clothing, Toys, Diapers & Gear",
+      },
       {
         property: "og:description",
         content: "Organic baby clothing, safe toys, nursery care and travel gear.",
