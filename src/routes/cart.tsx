@@ -91,8 +91,16 @@ function CartPage() {
                     </button>
                     <span className="w-5 text-center text-sm font-semibold">{qty}</span>
                     <button
-                      onClick={() => setQty(product.id, qty + 1)}
+                      disabled={qty >= product.stock}
+                      onClick={() => {
+                        if (qty >= product.stock) {
+                          toast.error("Max stock reached");
+                          return;
+                        }
+                        setQty(product.id, qty + 1);
+                      }}
                       aria-label="Increase quantity"
+                      className="disabled:cursor-not-allowed disabled:opacity-30"
                     >
                       <Plus className="size-3.5" />
                     </button>

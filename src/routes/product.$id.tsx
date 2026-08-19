@@ -33,7 +33,7 @@ export const Route = createFileRoute("/product/$id")({
 function ProductPage() {
   const { id } = Route.useParams();
   const { data: products, isLoading } = useProducts();
-  const { add } = useCart();
+  const { add, items } = useCart();
   const { user } = useSession();
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -219,29 +219,48 @@ function ProductPage() {
                 <Plus className="size-4" />
               </button>
             </div>
-            <button
-              disabled={soldOut}
-              onClick={() => {
-                add(product.id, qty);
-                trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, from: "product_page" } });
-                toast.success("Added to bag", { description: `${qty} × ${product.name}` });
-              }}
-              className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-            >
-              {soldOut ? "Sold out" : "Add to bag"}
-            </button>
-            {!soldOut && (
-              <Link
-                to="/cart"
-                onClick={() => {
-                  add(product.id, qty);
-                  trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
-                }}
-                className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted"
-              >
-                Buy now
-              </Link>
-            )}
+            {(() => {
+              const inCart = items.find((i) => i.product.id === product.id)?.qty || 0;
+              const remaining = Math.max(0, product.stock - inCart);
+              const maxed = remaining <= 0;
+              
+              return (
+                <>
+                  <button
+                    disabled={soldOut || maxed || qty > remaining}
+                    onClick={() => {
+                      if (qty > remaining) {
+                        toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
+                        return;
+                      }
+                      add(product.id, qty);
+                      trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, from: "product_page" } });
+                      toast.success("Added to bag", { description: `${qty} × ${product.name}` });
+                    }}
+                    className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
+                  </button>
+                  {!soldOut && !maxed && (
+                    <Link
+                      to="/cart"
+                      onClick={(e) => {
+                        if (qty > remaining) {
+                          e.preventDefault();
+                          toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
+                          return;
+                        }
+                        add(product.id, qty);
+                        trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
+                      }}
+                      className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted"
+                    >
+                      Buy now
+                    </Link>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">

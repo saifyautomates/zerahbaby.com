@@ -160,9 +160,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const items = lines
       .map((line) => {
         const product = list.find((x) => x.id === line.id);
-        return product ? { product, qty: line.qty } : null;
+        if (!product) return null;
+        const clampedQty = Math.min(line.qty, product.stock);
+        return { product, qty: clampedQty };
       })
-      .filter((x): x is { product: Product; qty: number } => x !== null);
+      .filter((x): x is { product: Product; qty: number } => x !== null && x.qty > 0);
 
     return {
       lines,
@@ -175,16 +177,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ),
       add: (id, qty = 1) =>
         setLines((prev) => {
+          const product = list.find((p) => p.id === id);
+          if (!product) return prev;
+          
           const existing = prev.find((l) => l.id === id);
-          if (existing) return prev.map((l) => (l.id === id ? { ...l, qty: l.qty + qty } : l));
-          return [...prev, { id, qty }];
+          const requestedQty = (existing?.qty || 0) + qty;
+          const finalQty = Math.min(requestedQty, product.stock);
+          
+          if (existing) {
+            return prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
+          }
+          return [...prev, { id, qty: finalQty }];
         }),
       setQty: (id, qty) =>
-        setLines((prev) =>
-          qty <= 0
+        setLines((prev) => {
+          const product = list.find((p) => p.id === id);
+          if (!product) return prev;
+          
+          const finalQty = Math.min(qty, product.stock);
+          return finalQty <= 0
             ? prev.filter((l) => l.id !== id)
-            : prev.map((l) => (l.id === id ? { ...l, qty } : l)),
-        ),
+            : prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
+        }),
       remove: (id) => setLines((prev) => prev.filter((l) => l.id !== id)),
       clear: () => setLines([]),
     };
