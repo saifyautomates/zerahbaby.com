@@ -213,8 +213,8 @@ export function useSettings() {
     heroSubtitle:
       s["hero_subtitle"] ??
       "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
-    contactEmail: s["contact_email"] ?? "hello@zerahbabyandkids.com",
-    contactPhone: s["contact_phone"] ?? "+91 90000 00000",
+    contactEmail: "hello@zerahkids.com",
+    contactPhone: "9057074777, 9667571712",
     storeAddress:
       s["store_address"] ??
       "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
