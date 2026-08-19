@@ -155,8 +155,19 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} {brandName}. All rights reserved.
+      <div className="border-t border-border px-4 py-5 text-center text-xs text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
+          <span>
+            © {new Date().getFullYear()} {brandName}. All rights reserved.
+          </span>
+          <span className="hidden sm:inline">·</span>
+          <a
+            href="mailto:saifyautomates@gmail.com?subject=Inquiry%20for%20Website%20Services&body=Hi%20Saify%20Automates,%0D%0A%0D%0AI%20am%20interested%20in%20getting%20a%20world-class%20website%20built.%20Please%20let%20me%20know%20how%20we%20can%20proceed.%0D%0A%0D%0AThanks!"
+            className="font-medium transition hover:text-primary"
+          >
+            Developed by Saify Automates
+          </a>
+        </div>
       </div>
     </footer>
   );
