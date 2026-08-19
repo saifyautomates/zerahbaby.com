@@ -83,25 +83,25 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               search={{ category: c.slug }}
               aria-hidden={i >= categories.length}
               tabIndex={i >= categories.length ? -1 : 0}
-              className="group w-[62vw] shrink-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition hover:shadow-xl sm:w-[280px] lg:w-[300px]"
+              className="group relative w-[62vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[280px] lg:w-[320px]"
             >
-              <div className="relative overflow-hidden">
-                <img
-                  src={c.image}
-                  alt={c.name}
-                  loading="lazy"
-                  width={800}
-                  height={600}
-                  className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-110"
-                />
-                <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-foreground/45 via-transparent to-transparent" />
-              </div>
-              <div className="p-4 sm:p-5">
-                <h3 className="font-display text-base font-bold sm:text-lg">{c.name}</h3>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.tagline}</p>
-                <span className="mt-3 inline-block text-sm font-semibold text-primary">
-                  Shop now →
-                </span>
+              <img
+                src={c.image}
+                alt={c.name}
+                loading="lazy"
+                width={800}
+                height={1000}
+                className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"
+              />
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
+              <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">
+                <h3 className="font-display text-2xl font-bold tracking-tight text-white">{c.name}</h3>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/80">{c.tagline}</p>
+                <div className="mt-5 overflow-hidden">
+                  <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
+                    Shop now <ChevronRight className="size-4" />
+                  </span>
+                </div>
               </div>
             </Link>
           ))}
