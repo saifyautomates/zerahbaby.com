@@ -120,10 +120,32 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Contact Us</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {contactEmail} · {contactPhone}
-          </p>
+          <h2 className="text-sm font-semibold text-foreground">Contact Us</h2>
+          <div className="mt-4 flex flex-col gap-2.5 text-sm text-muted-foreground">
+            <div>
+              <span className="font-semibold text-foreground">Email:</span>{" "}
+              <a
+                href={`mailto:${contactEmail}`}
+                className="transition-colors hover:text-primary"
+              >
+                {contactEmail}
+              </a>
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">Contact NO. :</span>{" "}
+              {(contactPhone || "").split(",").map((phone, i, arr) => (
+                <span key={phone}>
+                  <a
+                    href={`tel:${phone.trim()}`}
+                    className="transition-colors hover:text-primary"
+                  >
+                    {phone.trim()}
+                  </a>
+                  {i < arr.length - 1 && ", "}
+                </span>
+              ))}
+            </div>
+          </div>
           <a
             href={mapsUrl}
             target="_blank"
