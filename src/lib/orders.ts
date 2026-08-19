@@ -171,7 +171,7 @@ export function usePlaceOrder() {
           discount,
           coupon_code: input.coupon_code ?? null,
           total,
-          status: "pending",
+          status: "placed",
         })
         .select("id, invoice_no")
         .single();
