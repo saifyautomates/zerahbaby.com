@@ -120,23 +120,8 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Stay in the loop</h2>
-          <p className="mt-3 text-sm text-muted-foreground text-balance">
-            Weekly parenting tips and early access to sales.
-          </p>
-          <form className="mt-4 flex gap-2" onSubmit={(e) => e.preventDefault()}>
-            <input
-              type="email"
-              required
-              placeholder="you@email.com"
-              aria-label="Email address"
-              className="w-full rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90">
-              Join
-            </button>
-          </form>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <h2 className="text-sm font-semibold">Contact Us</h2>
+          <p className="mt-3 text-sm text-muted-foreground">
             {contactEmail} · {contactPhone}
           </p>
           <a
