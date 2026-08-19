@@ -283,6 +283,7 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
   const { data: reviews } = useProductReviews(product.uuid);
   const submitReview = useSubmitReview();
   const [showForm, setShowForm] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
@@ -320,7 +321,27 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
         <p className="mt-4 text-sm text-muted-foreground">No reviews yet. Be the first to review this product!</p>
       )}
 
-      {user && !showForm && (
+      {submitted && (
+        <div className="mt-8 rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center shadow-sm">
+          <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-primary/10">
+            <Star className="size-6 fill-primary text-primary" />
+          </div>
+          <h3 className="font-display text-xl font-bold text-foreground">Thank you for your review! 🌟</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Your feedback helps us grow and helps other parents make great choices! If you love what we do, would you mind taking 10 seconds to share your experience on Google?
+          </p>
+          <a
+            href="https://maps.app.goo.gl/79nYYFUSWre5ymHT6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#4285F4] px-6 py-3 text-sm font-bold text-white shadow-md transition-transform hover:scale-105 hover:bg-[#3367D6]"
+          >
+            Review us on Google Maps
+          </a>
+        </div>
+      )}
+
+      {user && !showForm && !submitted && (
         <button
           onClick={() => setShowForm(true)}
           className="mt-4 rounded-full border border-primary px-6 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
@@ -329,7 +350,7 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
         </button>
       )}
 
-      {showForm && user && (
+      {showForm && user && !submitted && (
         <form
           className="mt-4 space-y-3 rounded-2xl border border-border p-5"
           onSubmit={async (e) => {
@@ -342,6 +363,7 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
               comment: comment.trim(),
             });
             setShowForm(false);
+            setSubmitted(true);
             setTitle("");
             setComment("");
             setRating(5);
