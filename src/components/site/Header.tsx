@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 export function Header() {
   const { count } = useCart();
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
   const navigate = useNavigate();
   const { data: categories } = useCategories();
@@ -129,6 +130,14 @@ export function Header() {
           </form>
 
           <nav className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0">
+            {/* Mobile Search Toggle */}
+            <button
+              className="md:hidden focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+              aria-label="Toggle search"
+              onClick={() => setSearchOpen(!searchOpen)}
+            >
+              <Search className="size-5" />
+            </button>
             {user ? (
               <>
                 <Link
@@ -239,23 +248,26 @@ export function Header() {
           </nav>
         </div>
 
-        <form
-          className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden"
-          onSubmit={submitSearch}
-          role="search"
-        >
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search products…"
-              aria-label="Search products"
-              className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
-            />
-          </div>
-        </form>
+        {searchOpen && (
+          <form
+            className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden"
+            onSubmit={submitSearch}
+            role="search"
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={term}
+                autoFocus
+                onChange={(e) => setTerm(e.target.value)}
+                placeholder="Search products…"
+                aria-label="Search products"
+                className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
+              />
+            </div>
+          </form>
+        )}
 
         <div className={cn("border-t border-border md:block", open ? "block" : "hidden")}>
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-2 text-sm font-medium md:flex-row md:items-center md:gap-6">
