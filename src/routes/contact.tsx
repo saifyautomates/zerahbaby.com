@@ -89,15 +89,31 @@ function ContactPage() {
           <p className="font-semibold">{brandName}</p>
           <div className="flex gap-3">
             <Mail className="size-4 shrink-0 text-primary" />
-            <span>{contactEmail}</span>
+            <a
+              href={`mailto:${contactEmail}`}
+              className="transition-colors hover:text-primary"
+            >
+              {contactEmail}
+            </a>
           </div>
           <div className="flex gap-3">
             <Phone className="size-4 shrink-0 text-primary" />
-            <span>
-              {contactPhone}
-              <br />
-              {storeHours}
-            </span>
+            <div className="flex flex-col">
+              <span className="leading-relaxed">
+                {(contactPhone || "").split(",").map((phone, i, arr) => (
+                  <span key={phone}>
+                    <a
+                      href={`tel:${phone.trim()}`}
+                      className="transition-colors hover:text-primary"
+                    >
+                      {phone.trim()}
+                    </a>
+                    {i < arr.length - 1 && ", "}
+                  </span>
+                ))}
+              </span>
+              <span className="text-muted-foreground">{storeHours}</span>
+            </div>
           </div>
           <a
             href={mapsUrl}
