@@ -89,126 +89,49 @@ function ShopPage() {
         )}
       </nav>
 
-      <h1 className="mt-3 font-display text-3xl font-bold">
-        {activeCategory?.name ?? "All products"}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {visible.length} product{visible.length === 1 ? "" : "s"}
-        {activeCategory ? ` in ${activeCategory.tagline.toLowerCase()}` : " across the store"}
-      </p>
-
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Link
-          to="/shop"
-          className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-            !category
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border hover:bg-muted"
-          }`}
-        >
-          All
-        </Link>
-        {(categories ?? []).map((c) => (
-          <Link
-            key={c.slug}
-            to="/shop"
-            search={{ category: c.slug }}
-            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-              category === c.slug
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border hover:bg-muted"
-            }`}
-          >
-            {c.name}
-          </Link>
-        ))}
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <h1 className="font-display text-3xl font-bold">
+          {activeCategory?.name ?? "All products"}
+        </h1>
         <AdminAddProduct
           {...(category ? { defaultCategory: category } : {})}
           label={category ? `Add product to ${activeCategory?.name ?? category}` : "Add product"}
         />
       </div>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
-        <aside className="space-y-6 rounded-2xl border border-border p-5 h-fit">
-          <div>
-            <h2 className="text-sm font-semibold">Brand</h2>
-            <div className="mt-3 space-y-2">
-              {brands.map((b) => (
-                <label
-                  key={b}
-                  className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedBrands.includes(b)}
-                    onChange={() => toggle(selectedBrands, b, setSelectedBrands)}
-                    className="size-4 accent-[var(--primary)]"
-                  />
-                  {b}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold">Max price</h2>
-            <input
-              type="range"
-              min={400}
-              max={20000}
-              step={100}
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(Number(e.target.value))}
-              className="mt-3 w-full accent-[var(--primary)]"
-              aria-label="Maximum price"
-            />
-            <p className="text-xs text-muted-foreground">
-              Up to ₹{maxPrice.toLocaleString("en-IN")}
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              setSelectedBrands([]);
-              setMaxPrice(20000);
-            }}
-            className="w-full rounded-full border border-border py-2 text-sm font-medium transition hover:bg-muted"
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {visible.length} product{visible.length === 1 ? "" : "s"}
+          {activeCategory ? ` in ${activeCategory.tagline.toLowerCase()}` : " across the store"}
+        </p>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          Sort by
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground"
           >
-            Clear filters
-          </button>
-        </aside>
+            <option value="popular">Popularity</option>
+            <option value="rating">Rating</option>
+            <option value="low">Price: low to high</option>
+            <option value="high">Price: high to low</option>
+          </select>
+        </label>
+      </div>
 
-        <div>
-          <div className="flex justify-end">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              Sort by
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-              >
-                <option value="popular">Popularity</option>
-                <option value="rating">Rating</option>
-                <option value="low">Price: low to high</option>
-                <option value="high">Price: high to low</option>
-              </select>
-            </label>
+      <div className="mt-8">
+        {isLoading ? (
+          <ProductGridSkeleton count={8} />
+        ) : visible.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-muted-foreground">
+            No products found.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            {visible.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
-
-          {isLoading ? (
-            <ProductGridSkeleton count={6} />
-          ) : visible.length === 0 ? (
-            <p className="mt-10 text-center text-sm text-muted-foreground">
-              No products match these filters. Try clearing a few.
-            </p>
-          ) : (
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
-              {visible.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
