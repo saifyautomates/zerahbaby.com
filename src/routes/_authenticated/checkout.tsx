@@ -29,17 +29,20 @@ export const Route = createFileRoute("/_authenticated/checkout")({
 function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useSession();
-  const { items, subtotal, clear } = useCart();
+  const { items, subtotal, total, coupon, clear, applyCoupon, removeCoupon } = useCart();
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
   const shipping = subtotal >= 999 ? 0 : 79;
-
-  const [couponCode, setCouponCode] = useState("");
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [couponApplied, setCouponApplied] = useState(false);
+  
+  const couponCode = coupon?.code || "";
+  const couponDiscount = coupon?.discount || 0;
+  const couponApplied = !!coupon;
+  
+  // Local state for the input field
+  const [couponInput, setCouponInput] = useState(couponCode);
   const [couponLoading, setCouponLoading] = useState(false);
-  const finalTotal = subtotal + shipping - couponDiscount;
+  const finalTotal = total + shipping;
 
   useEffect(() => { trackEvent("checkout_started"); }, []);
 
@@ -387,8 +390,8 @@ function CheckoutPage() {
             <div className="mt-2 flex gap-2">
               <input
                 type="text"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                 placeholder="Enter code"
                 disabled={couponApplied}
                 className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
@@ -397,9 +400,8 @@ function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setCouponDiscount(0);
-                    setCouponApplied(false);
-                    setCouponCode("");
+                    removeCoupon();
+                    setCouponInput("");
                     toast.success("Coupon removed");
                   }}
                   className="rounded-xl border border-destructive px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10"
@@ -409,21 +411,15 @@ function CheckoutPage() {
               ) : (
                 <button
                   type="button"
-                  disabled={!couponCode.trim() || couponLoading}
+                  disabled={!couponInput.trim() || couponLoading}
                   onClick={async () => {
                     if (!user) return;
                     setCouponLoading(true);
                     try {
-                      const result = await validateCoupon(couponCode.trim(), user.id, subtotal);
-                      if (result.valid && result.discount) {
-                        setCouponDiscount(result.discount);
-                        setCouponApplied(true);
-                        toast.success(`Coupon applied! You save ${formatPrice(result.discount)}`);
-                      } else {
-                        toast.error(result.error || "Invalid coupon");
-                      }
-                    } catch {
-                      toast.error("Could not validate coupon");
+                      await applyCoupon(couponInput.trim());
+                      toast.success(`Coupon applied!`);
+                    } catch (e: any) {
+                      toast.error(e.message || "Invalid coupon");
                     } finally {
                       setCouponLoading(false);
                     }

@@ -20,6 +20,8 @@ import {
   Tag,
   MessageSquare,
   Star,
+  Printer,
+  Scan,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin, useSession } from "@/lib/auth";
@@ -31,6 +33,8 @@ import { HeroMediaManager } from "@/components/admin/HeroMediaManager";
 import { MediaLibrary } from "@/components/admin/MediaLibrary";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
+import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+import { POSTab } from "@/components/admin/POSTab";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -51,14 +55,24 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 type Tab =
-  "products" | "hero" | "media" | "orders" | "customers" | "categories" | "settings" | "admins" | "coupons" | "reviews";
+  | "pos"
+  | "products"
+  | "hero"
+  | "media"
+  | "orders"
+  | "customers"
+  | "categories"
+  | "settings"
+  | "admins"
+  | "coupons"
+  | "reviews";
 
 function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useSession();
   const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
-  const [tab, setTab] = useState<Tab>("products");
+  const [tab, setTab] = useState<Tab>("pos");
 
   async function signOut() {
     await qc.cancelQueries();
@@ -107,58 +121,68 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className="border-b border-border bg-card lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
-        <div className="px-5 py-5">
-          <p className="font-display text-lg font-bold">Zerah admin</p>
-          <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+    <div className="min-h-screen bg-muted/30 lg:grid lg:grid-cols-[260px_1fr] selection:bg-primary/20">
+      <aside className="border-b border-border/50 bg-background/60 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="px-6 py-8">
+          <p className="font-display text-2xl font-bold tracking-tight text-foreground">
+            Zérah <span className="text-primary">Admin</span>
+          </p>
+          <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{user?.email}</p>
         </div>
-        <nav className="flex flex-wrap gap-1 px-3 pb-3 lg:flex-col">
+        <nav className="flex flex-wrap gap-1.5 px-4 pb-4 lg:flex-1 lg:flex-col lg:overflow-y-auto">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              className={`group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ${
                 tab === key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               }`}
             >
-              <Icon className="size-4" /> {label}
+              <Icon
+                className={`size-4 transition-transform duration-300 ${
+                  tab === key ? "scale-110" : "group-hover:scale-110 group-hover:text-primary"
+                }`}
+              />
+              {label}
             </button>
           ))}
         </nav>
-        <div className="flex flex-wrap gap-1 border-t border-border px-3 py-3 lg:flex-col">
+        <div className="flex flex-wrap gap-2 border-t border-border/50 bg-background/30 p-4 lg:flex-col">
           <Link
             to="/"
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/50 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all duration-300 hover:border-primary/50 hover:bg-muted"
           >
-            <Store className="size-4" /> View store
+            <Store className="size-4 text-muted-foreground transition-colors group-hover:text-primary" /> View store
           </Link>
           <button
             onClick={signOut}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-all duration-300 hover:bg-destructive/10 hover:text-destructive"
           >
             <LogOut className="size-4" /> Sign out
           </button>
         </div>
       </aside>
 
-      <main className="px-4 py-8 lg:px-8">
-        <h1 className="font-display text-2xl font-bold capitalize">
-          {TABS.find((t) => t.key === tab)?.label}
-        </h1>
-        <div className="mt-6 rounded-3xl bg-background p-4 shadow-sm lg:p-6">
-          {tab === "products" && <ProductsTab />}
-          {tab === "hero" && <HeroMediaManager />}
-          {tab === "media" && <MediaLibrary />}
-          {tab === "orders" && <OrdersTab />}
-          {tab === "customers" && <CustomersTab />}
-          {tab === "categories" && <CategoriesTab />}
-          {tab === "settings" && <SettingsTab />}
-          {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
-          {tab === "coupons" && <CouponsTab />}
-          {tab === "reviews" && <ReviewsTab />}
+      <main className="flex-1 overflow-x-hidden px-4 py-8 lg:px-10 lg:py-10">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="font-display text-3xl font-bold capitalize tracking-tight text-foreground">
+            {TABS.find((t) => t.key === tab)?.label}
+          </h1>
+          <div className="mt-8 min-h-[500px] rounded-[2rem] border border-border/50 bg-background p-5 shadow-sm lg:p-8">
+            {tab === "pos" && <POSTab />}
+            {tab === "products" && <ProductsTab />}
+            {tab === "hero" && <HeroMediaManager />}
+            {tab === "media" && <MediaLibrary />}
+            {tab === "orders" && <OrdersTab />}
+            {tab === "customers" && <CustomersTab />}
+            {tab === "categories" && <CategoriesTab />}
+            {tab === "settings" && <SettingsTab />}
+            {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
+            {tab === "coupons" && <CouponsTab />}
+            {tab === "reviews" && <ReviewsTab />}
+          </div>
         </div>
       </main>
     </div>
@@ -166,6 +190,7 @@ function AdminPage() {
 }
 
 const TABS = [
+  { key: "pos" as const, label: "POS (Offline)", icon: Scan },
   { key: "products" as const, label: "Products", icon: Package },
   { key: "hero" as const, label: "Hero media", icon: Images },
   { key: "media" as const, label: "Media library", icon: FolderOpen },
@@ -184,6 +209,7 @@ function ProductsTab() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
+  const [printingLabels, setPrintingLabels] = useState(false);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -270,84 +296,92 @@ function ProductsTab() {
           aria-label="Search products"
           className="w-full max-w-xs rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-primary"
         />
-        <button
-          onClick={() => setCreating(true)}
-          className="ml-auto flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-        >
-          <Plus className="size-4" /> Add product
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setPrintingLabels(true)}
+            className="flex items-center gap-2 rounded-full border border-border bg-background px-5 py-2 text-sm font-semibold shadow-sm transition hover:bg-muted"
+          >
+            <Printer className="size-4" /> Print Labels
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+          >
+            <Plus className="size-4" /> Add product
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
-        <p className="mt-8 text-sm text-muted-foreground">Loading products…</p>
+        <p className="mt-8 text-sm font-medium text-muted-foreground">Loading products…</p>
       ) : (
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-border/50 bg-background shadow-sm">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">MRP</th>
-                <th className="px-4 py-3">Stock</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-5 py-4">Product</th>
+                <th className="px-5 py-4">Category</th>
+                <th className="px-5 py-4">Price</th>
+                <th className="px-5 py-4">MRP</th>
+                <th className="px-5 py-4">Stock</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/50">
               {list.map((p) => (
-                <tr key={p.uuid} className="border-t border-border">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                <tr key={p.uuid} className="group transition-colors hover:bg-muted/30">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-4">
                       <img
                         src={p.image}
                         alt=""
                         loading="lazy"
-                        width={40}
-                        height={40}
-                        className="size-10 rounded-lg object-cover"
+                        width={48}
+                        height={48}
+                        className="size-12 shrink-0 rounded-xl border border-border/50 object-cover shadow-sm transition-transform group-hover:scale-105"
                       />
                       <div>
-                        <p className="font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.brand} · {p.id}
+                        <p className="font-semibold text-foreground">{p.name}</p>
+                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                          {p.brand} <span className="opacity-50">•</span> {p.id}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 capitalize">{p.category}</td>
-                  <td className="px-4 py-3 font-semibold">{formatPrice(p.price)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatPrice(p.mrp)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4 capitalize font-medium">{p.category}</td>
+                  <td className="px-5 py-4 font-semibold text-foreground">{formatPrice(p.price)}</td>
+                  <td className="px-5 py-4 text-muted-foreground/70 line-through">{formatPrice(p.mrp)}</td>
+                  <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
                         p.stock === 0
                           ? "bg-destructive/10 text-destructive"
                           : p.stock <= p.lowStockAt
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-500"
+                            : "bg-green-500/10 text-green-600 dark:text-green-500"
                       }`}
                     >
                       {p.stock === 0 ? "Out of stock" : `${p.stock} left`}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
                         p.isActive
-                          ? "bg-secondary text-secondary-foreground"
+                          ? "bg-primary/10 text-primary"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {p.isActive ? "Live" : "Hidden"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
+                  <td className="px-5 py-4">
+                    <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                       <button
                         onClick={() => setEditing(p)}
                         aria-label={`Edit ${p.name}`}
-                        className="rounded-lg border border-border p-2 hover:bg-muted"
+                        className="rounded-xl border border-border/50 bg-background p-2 text-muted-foreground shadow-sm transition-all hover:border-primary/50 hover:text-primary"
                       >
                         <Pencil className="size-4" />
                       </button>
@@ -356,7 +390,7 @@ function ProductsTab() {
                           if (window.confirm(`Delete "${p.name}"?`)) remove.mutate(p.uuid);
                         }}
                         aria-label={`Delete ${p.name}`}
-                        className="rounded-lg border border-border p-2 text-destructive hover:bg-muted"
+                        className="rounded-xl border border-border/50 bg-background p-2 text-muted-foreground shadow-sm transition-all hover:border-destructive/50 hover:text-destructive"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -366,7 +400,7 @@ function ProductsTab() {
               ))}
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-16 text-center text-sm font-medium text-muted-foreground">
                     No products found.
                   </td>
                 </tr>
@@ -385,6 +419,13 @@ function ProductsTab() {
             setEditing(null);
           }}
           onSave={(draft) => save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })}
+        />
+      )}
+      
+      {printingLabels && (
+        <PrintLabelsModal
+          products={data ?? []}
+          onClose={() => setPrintingLabels(false)}
         />
       )}
     </div>
@@ -842,19 +883,19 @@ function OrdersTab() {
     .reduce((sum, o) => sum + Number(o.total), 0);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Orders</p>
-          <p className="mt-1 font-display text-2xl font-bold">{(data ?? []).length}</p>
+        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Orders</p>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">{(data ?? []).length}</p>
         </div>
-        <div className="rounded-2xl border border-border p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Revenue</p>
-          <p className="mt-1 font-display text-2xl font-bold">{formatPrice(revenue)}</p>
+        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue</p>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-primary">{formatPrice(revenue)}</p>
         </div>
-        <div className="rounded-2xl border border-border p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Awaiting action</p>
-          <p className="mt-1 font-display text-2xl font-bold">
+        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Awaiting action</p>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
             {(data ?? []).filter((o) => o.status === "placed").length}
           </p>
         </div>
@@ -885,35 +926,44 @@ function OrdersTab() {
 
       <ul className="space-y-4">
         {orders.map((order) => (
-          <li key={order.id} className="rounded-2xl border border-border p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold">#{order.id.slice(0, 8).toUpperCase()}</p>
-                <p className="text-xs text-muted-foreground">
+          <li key={order.id} className="relative overflow-hidden rounded-2xl border border-border/50 bg-background p-6 shadow-sm transition-all hover:shadow-md">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <p className="font-display text-lg font-bold tracking-tight">#{order.id.slice(0, 8).toUpperCase()}</p>
+                  <span className="rounded-full bg-muted/50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {order.payment_method || "cod"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
                   {new Date(order.created_at).toLocaleString("en-IN")}
                 </p>
-                <p className="mt-2 text-sm">
-                  {order.full_name} · {order.phone}
-                </p>
-                <p className="text-sm text-muted-foreground">{order.email}</p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  {order.address}
-                  {order.address_line2 ? `, ${order.address_line2}` : ""}
-                  {order.landmark ? `, near ${order.landmark}` : ""}
-                  {[order.city, order.state, order.pincode].filter(Boolean).length
-                    ? ` — ${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
-                    : ""}
-                </p>
-                {order.alt_phone && (
-                  <p className="text-xs text-muted-foreground">Alt: {order.alt_phone}</p>
-                )}
-                <p className="text-xs uppercase text-muted-foreground">
-                  Pay: {order.payment_method || "cod"}
-                </p>
+                <div className="mt-4 grid gap-1 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold">{order.full_name}</p>
+                    <p className="text-sm text-muted-foreground">{order.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.phone} {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="max-w-xs text-sm text-muted-foreground">
+                      {order.address}
+                      {order.address_line2 ? `, ${order.address_line2}` : ""}
+                      {order.landmark ? `, near ${order.landmark}` : ""}
+                      <br />
+                      {[order.city, order.state, order.pincode].filter(Boolean).length
+                        ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
                 {order.notes && (
-                  <p className="mt-1 text-sm italic text-muted-foreground">“{order.notes}”</p>
+                  <div className="mt-3 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-500">
+                    <strong>Note:</strong> “{order.notes}”
+                  </div>
                 )}
-                <div className="mt-3">
+                <div className="mt-4">
                   <InvoiceBox order={order} />
                 </div>
               </div>

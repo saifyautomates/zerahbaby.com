@@ -81,20 +81,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Zerah Baby And Kids — Baby Clothing, Toys, Diapers & Gear" },
+      { title: "Zerah Baby And Kids — Best Kids Store in Kota" },
       {
         name: "description",
         content:
-          "Zerah Baby And Kids is an online baby store for organic clothing, safe toys, nursery care and travel gear.",
+          "Looking for a kids store near me in Kota? Zerah Baby And Kids offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
       },
+      { name: "keywords", content: "kids store in kota, baby shop near me, baby clothes kota, toys shop kota, zerah baby and kids, baby gear" },
       { name: "author", content: "Zerah Baby And Kids" },
       {
         property: "og:title",
-        content: "Zerah Baby And Kids — Baby Clothing, Toys, Diapers & Gear",
+        content: "Zerah Baby And Kids — Best Kids Store in Kota",
       },
       {
         property: "og:description",
-        content: "Organic baby clothing, safe toys, nursery care and travel gear.",
+        content: "Looking for a kids store near me in Kota? Zerah Baby And Kids offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

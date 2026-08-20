@@ -64,18 +64,24 @@ export function Header() {
       <div className="announce-bar">
         <span className="announce-sheen" aria-hidden />
         <div className="relative z-[3] mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
-          <div className="hidden flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
-            <Truck className="size-3.5 announce-gold-text" aria-hidden />
+          <div className="hidden flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-90 drop-shadow-sm lg:flex">
+            <Truck className="size-3.5 announce-gold-text drop-shadow-sm" aria-hidden />
             Pan-India shipping
           </div>
 
-          <p className="flex shrink-0 items-center justify-center gap-2.5 text-center sm:gap-3.5 w-full lg:w-auto">
-            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
-            <span className="line-clamp-2 text-balance font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
-              {announcement}
-            </span>
-            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
-          </p>
+          <div className="group flex w-full overflow-hidden whitespace-nowrap drop-shadow-sm lg:w-auto">
+            <div className="flex w-max animate-marquee items-center group-hover:[animation-play-state:paused]">
+              {[...Array(2)].map((_, i) => (
+                <p key={i} className="flex shrink-0 items-center justify-center gap-2.5 px-4 text-center sm:gap-3.5">
+                  <Sparkle className="hidden size-3 shrink-0 announce-gold-text drop-shadow-sm sm:block" aria-hidden />
+                  <span className="font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
+                    {announcement}
+                  </span>
+                  <Sparkle className="hidden size-3 shrink-0 announce-gold-text drop-shadow-sm sm:block" aria-hidden />
+                </p>
+              ))}
+            </div>
+          </div>
 
           <div className="hidden flex-1 lg:block" />
         </div>
@@ -273,7 +279,9 @@ export function Header() {
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-2 text-sm font-medium md:flex-row md:items-center md:gap-6">
             <Link
               to="/shop"
+              search={{}}
               className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              activeProps={{ className: "text-primary after:scale-x-100" }}
               onClick={() => setOpen(false)}
             >
               All Products
@@ -284,6 +292,7 @@ export function Header() {
                 to="/shop"
                 search={{ category: c.slug }}
                 className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+                activeProps={{ className: "text-primary after:scale-x-100" }}
                 onClick={() => setOpen(false)}
               >
                 {c.name}
@@ -292,6 +301,7 @@ export function Header() {
             <Link
               to="/about"
               className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              activeProps={{ className: "text-primary after:scale-x-100" }}
               onClick={() => setOpen(false)}
             >
               About
@@ -299,6 +309,7 @@ export function Header() {
             <Link
               to="/contact"
               className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
+              activeProps={{ className: "text-primary after:scale-x-100" }}
               onClick={() => setOpen(false)}
             >
               Contact

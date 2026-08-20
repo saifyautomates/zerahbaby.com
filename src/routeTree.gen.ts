@@ -15,6 +15,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as PosTestRouteImport } from './routes/pos-test'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -52,6 +53,11 @@ const CartRoute = CartRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PosTestRoute = PosTestRouteImport.update({
+  id: '/pos-test',
+  path: '/pos-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReturnsRoute = ReturnsRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/pos-test': typeof PosTestRoute
   '/returns': typeof ReturnsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/pos-test': typeof PosTestRoute
   '/returns': typeof ReturnsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/pos-test': typeof PosTestRoute
   '/returns': typeof ReturnsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/pos-test'
     | '/returns'
     | '/shop'
     | '/sitemap.xml'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/pos-test'
     | '/returns'
     | '/shop'
     | '/sitemap.xml'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/pos-test'
     | '/returns'
     | '/shop'
     | '/sitemap.xml'
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
+  PosTestRoute: typeof PosTestRoute
   ReturnsRoute: typeof ReturnsRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -257,6 +270,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pos-test': {
+      id: '/pos-test'
+      path: '/pos-test'
+      fullPath: '/pos-test'
+      preLoaderRoute: typeof PosTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/returns': {
@@ -351,6 +371,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
+  PosTestRoute: PosTestRoute,
   ReturnsRoute: ReturnsRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

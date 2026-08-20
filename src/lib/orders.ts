@@ -28,6 +28,8 @@ export type Order = {
   invoice_no: string | null;
   subtotal: number;
   shipping: number;
+  discount: number;
+  coupon_code: string | null;
   total: number;
   status: string;
   notes: string;

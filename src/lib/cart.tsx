@@ -6,16 +6,22 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type CartLine = { id: string; qty: number };
 
+export type CartCoupon = { code: string; discount: number; id: string };
+
 type CartContextValue = {
   lines: CartLine[];
   items: { product: Product; qty: number }[];
   count: number;
   subtotal: number;
   savings: number;
+  total: number;
+  coupon: CartCoupon | null;
   add: (id: string, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   clear: () => void;
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -155,6 +161,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [lines, user, products]);
 
+  const [coupon, setCoupon] = useState<CartCoupon | null>(null);
+
   const value = useMemo<CartContextValue>(() => {
     const list = products ?? [];
     const items = lines
@@ -166,15 +174,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .filter((x): x is { product: Product; qty: number } => x !== null && x.qty > 0);
 
+    const subtotal = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+    const total = Math.max(0, subtotal - (coupon?.discount || 0));
+
     return {
       lines,
       items,
       count: lines.reduce((sum, l) => sum + l.qty, 0),
-      subtotal: items.reduce((sum, i) => sum + i.product.price * i.qty, 0),
+      subtotal,
       savings: items.reduce(
         (sum, i) => sum + Math.max(0, i.product.mrp - i.product.price) * i.qty,
         0,
       ),
+      total,
+      coupon,
       add: (id, qty = 1) =>
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
@@ -200,9 +213,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
         }),
       remove: (id) => setLines((prev) => prev.filter((l) => l.id !== id)),
-      clear: () => setLines([]),
+      clear: () => {
+        setLines([]);
+        setCoupon(null);
+      },
+      applyCoupon: async (code: string) => {
+        if (!user) {
+          throw new Error("You must be logged in to use coupons");
+        }
+        const { data, error } = await supabase.rpc("validate_coupon", {
+          _code: code,
+          _user_id: user.id,
+          _order_total: subtotal,
+        });
+        if (error) throw error;
+        if (!data.valid) {
+          throw new Error(data.error || "Invalid coupon");
+        }
+        setCoupon({ code: data.code, discount: data.discount, id: data.coupon_id });
+      },
+      removeCoupon: () => setCoupon(null),
     };
-  }, [lines, products]);
+  }, [lines, products, coupon, user]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

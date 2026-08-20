@@ -28,9 +28,13 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
+import { useState } from "react";
+
 function CartPage() {
-  const { items, subtotal, savings, setQty, remove, clear } = useCart();
+  const { items, subtotal, savings, total, coupon, applyCoupon, removeCoupon, setQty, remove, clear } = useCart();
   const { user } = useSession();
+  const [couponInput, setCouponInput] = useState("");
+  const [isApplying, setIsApplying] = useState(false);
   const shipping = subtotal === 0 || subtotal >= 999 ? 0 : 79;
 
   if (items.length === 0) {
@@ -139,13 +143,64 @@ function CartPage() {
                 <dd className="text-primary">−{formatPrice(savings)}</dd>
               </div>
             )}
-            <div className="flex justify-between">
+            
+            {coupon ? (
+              <div className="flex items-center justify-between text-green-600">
+                <dt className="flex items-center gap-2">
+                  Code: {coupon.code}
+                  <button 
+                    onClick={removeCoupon}
+                    className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-destructive underline"
+                  >
+                    Remove
+                  </button>
+                </dt>
+                <dd>−{formatPrice(coupon.discount)}</dd>
+              </div>
+            ) : (
+              <div className="pt-2">
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!couponInput.trim()) return;
+                    setIsApplying(true);
+                    try {
+                      await applyCoupon(couponInput.trim());
+                      toast.success("Coupon applied!");
+                      setCouponInput("");
+                    } catch (e: any) {
+                      toast.error(e.message);
+                    } finally {
+                      setIsApplying(false);
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    placeholder="Promo code"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm uppercase outline-none focus:border-primary"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isApplying || !couponInput.trim()}
+                    className="rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold transition hover:bg-secondary/80 disabled:opacity-50"
+                  >
+                    {isApplying ? "..." : "Apply"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-2">
               <dt className="text-muted-foreground">Delivery</dt>
               <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
               <dt>Total</dt>
-              <dd>{formatPrice(subtotal + shipping)}</dd>
+              <dd>{formatPrice(total + shipping)}</dd>
             </div>
           </dl>
           {user ? (

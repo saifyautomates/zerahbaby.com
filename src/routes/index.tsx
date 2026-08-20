@@ -146,7 +146,7 @@ function Index() {
           </div>
 
           <ul
-            className={`rise-in delay-4 mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold ${
+            className={`rise-in delay-4 mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-4 sm:gap-x-8 gap-y-3 text-sm font-semibold ${
               hasMedia ? "text-background/90" : "text-muted-foreground"
             }`}
           >

@@ -89,6 +89,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                 src={c.image}
                 alt={c.name}
                 loading="lazy"
+                decoding="async"
                 width={800}
                 height={1000}
                 className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"

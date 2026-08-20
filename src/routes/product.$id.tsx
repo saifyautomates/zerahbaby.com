@@ -9,24 +9,38 @@ import { useProductReviews, useSubmitReview } from "@/lib/reviews";
 import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
+import { RelatedProducts } from "@/components/site/RelatedProducts";
+import { RecentlyViewed } from "@/components/site/RecentlyViewed";
+
+import { productsQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/product/$id")({
-  head: () => ({
-    meta: [
-      { title: "Product — Zerah Baby And Kids" },
-      {
-        name: "description",
-        content: "Product details, highlights, pricing and delivery info at Zerah Baby And Kids.",
-      },
-      { property: "og:title", content: "Product — Zerah Baby And Kids" },
-      {
-        property: "og:description",
-        content: "Product details, highlights and pricing at Zerah Baby And Kids.",
-      },
-      { property: "og:type", content: "product" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  loader: async ({ context, params }) => {
+    const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
+    return { product: products.find((p: any) => p.id === params.id) };
+  },
+  head: (ctx) => {
+    const product = ctx.loaderData?.product;
+    if (!product) return { meta: [{ title: "Product Not Found" }] };
+    
+    return {
+      meta: [
+        { title: `${product.name} — Zerah Baby And Kids Kota` },
+        {
+          name: "description",
+          content: product.description.substring(0, 155),
+        },
+        { property: "og:title", content: product.name },
+        {
+          property: "og:description",
+          content: product.description.substring(0, 155),
+        },
+        { property: "og:image", content: product.image },
+        { property: "og:type", content: "product" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+    };
+  },
   component: ProductPage,
 });
 
@@ -81,10 +95,6 @@ function ProductPage() {
       </div>
     );
   }
-
-  const related = list
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -281,19 +291,11 @@ function ProductPage() {
         </div>
       </div>
 
-      {related.length > 0 && (
-        <section className="mt-16">
-          <h2 className="font-display text-2xl font-bold">You may also like</h2>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {related.map((r) => (
-              <ProductCard key={r.id} product={r} />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Reviews Section */}
       {product && <ReviewsSection product={product} user={user} />}
+
+      {product && <RelatedProducts currentProductId={product.id} category={product.category} />}
+      {product && <RecentlyViewed currentProductId={product.id} />}
     </div>
   );
 }
