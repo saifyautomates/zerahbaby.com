@@ -30,8 +30,33 @@ export const Route = createFileRoute("/contact")({
 
 function ContactPage() {
   const [sent, setSent] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [message, setMessage] = useState("");
   const { contactEmail, contactPhone, brandName, storeAddress, storeHours, mapsUrl, instagramUrl } =
     useSettings();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const subject = encodeURIComponent(
+      orderNumber
+        ? `Order #${orderNumber} — Support Request from ${name}`
+        : `Support Request from ${name}`,
+    );
+    const body = encodeURIComponent(
+      `Name: ${name}\nEmail: ${email}\n${orderNumber ? `Order Number: ${orderNumber}\n` : ""}\nMessage:\n${message}`,
+    );
+
+    // Open the user's email client with pre-filled data
+    window.open(`mailto:${contactEmail}?subject=${subject}&body=${body}`, "_self");
+
+    setSent(true);
+    toast.success("Opening your email client…", {
+      description: "Your message details have been pre-filled. Just hit send!",
+    });
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
@@ -42,19 +67,14 @@ function ContactPage() {
       </p>
 
       <div className="mt-10 grid gap-10 md:grid-cols-[1fr_280px]">
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-            toast.success("Message sent", { description: "We'll get back to you within a day." });
-          }}
-        >
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium">
               Name
               <input
                 required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-normal outline-none focus:border-primary"
               />
             </label>
@@ -63,19 +83,27 @@ function ContactPage() {
               <input
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-normal outline-none focus:border-primary"
               />
             </label>
           </div>
           <label className="block text-sm font-medium">
             Order number (optional)
-            <input className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-normal outline-none focus:border-primary" />
+            <input
+              value={orderNumber}
+              onChange={(e) => setOrderNumber(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-normal outline-none focus:border-primary"
+            />
           </label>
           <label className="block text-sm font-medium">
             How can we help?
             <textarea
               required
               rows={5}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-normal outline-none focus:border-primary"
             />
           </label>

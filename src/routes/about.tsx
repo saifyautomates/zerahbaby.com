@@ -63,7 +63,7 @@ function AboutPage() {
       <img
         src={hero}
         alt="Parent playing with toddlers among soft pastel toys"
-        loading="lazy"
+        loading="eager"
         width={1600}
         height={900}
         className="mt-8 w-full rounded-3xl object-cover"

@@ -5,7 +5,6 @@ import { formatPrice } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
-import { validateCoupon } from "@/lib/coupons";
 import { trackEvent } from "@/lib/analytics";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
