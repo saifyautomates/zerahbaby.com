@@ -98,12 +98,14 @@ function ProductPage() {
     if (!product) return;
     try {
       let file: File | null = null;
-      
+
       try {
         // Fetch the image and convert it to a File object
         const response = await fetch(product.image);
         const blob = await response.blob();
-        file = new File([blob], `${product.name.replace(/[^a-z0-9]/gi, '_')}.jpg`, { type: blob.type });
+        file = new File([blob], `${product.name.replace(/[^a-z0-9]/gi, "_")}.jpg`, {
+          type: blob.type,
+        });
       } catch (e) {
         console.error("Could not fetch image for sharing", e);
       }

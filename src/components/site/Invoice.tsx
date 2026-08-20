@@ -4,7 +4,6 @@ import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
 
-
 /** Small clickable invoice chip — opens the full printable invoice. */
 export function InvoiceBox({ order }: { order: Order }) {
   const [open, setOpen] = useState(false);

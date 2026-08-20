@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";

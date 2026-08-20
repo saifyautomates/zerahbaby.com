@@ -1,4 +1,4 @@
-// @ts-nocheck
+// 
 import { createFileRoute } from "@tanstack/react-router";
 
 const STATIC_PATHS: Array<{ path: string; priority: string; changefreq: string }> = [
@@ -19,20 +19,23 @@ export const Route = createFileRoute("/sitemap.xml")({
         let productUrls: string[] = [];
         try {
           // Safely access env vars across different platforms (Node/Vercel vs Vite/Cloudflare)
-          const base = 
-            (typeof process !== 'undefined' && process.env?.SUPABASE_URL) || 
-            (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || 
+          const base =
+            (typeof process !== "undefined" && process.env?.SUPABASE_URL) ||
+            (typeof process !== "undefined" && process.env?.VITE_SUPABASE_URL) ||
             import.meta.env?.VITE_SUPABASE_URL;
-            
-          const key = 
-            (typeof process !== 'undefined' && process.env?.SUPABASE_PUBLISHABLE_KEY) || 
-            (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_PUBLISHABLE_KEY) || 
+
+          const key =
+            (typeof process !== "undefined" && process.env?.SUPABASE_PUBLISHABLE_KEY) ||
+            (typeof process !== "undefined" && process.env?.VITE_SUPABASE_PUBLISHABLE_KEY) ||
             import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY;
 
           if (base && key) {
-            const res = await fetch(`${base}/rest/v1/products?select=slug&is_active=eq.true&limit=1000`, {
-              headers: { apikey: key },
-            });
+            const res = await fetch(
+              `${base}/rest/v1/products?select=slug&is_active=eq.true&limit=1000`,
+              {
+                headers: { apikey: key },
+              },
+            );
             if (res.ok) {
               const rows = (await res.json()) as Array<{ slug: string }>;
               productUrls = rows

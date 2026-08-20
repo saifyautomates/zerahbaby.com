@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, MapPin, MessageCircle } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";

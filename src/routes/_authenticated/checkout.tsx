@@ -72,6 +72,7 @@ function CheckoutPage() {
   );
 
   const [addressMode, setAddressMode] = useState<"saved" | "new">("new");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -112,13 +113,11 @@ function CheckoutPage() {
     );
   }
 
-  const [submitting, setSubmitting] = useState(false);
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || submitting) return;
     setSubmitting(true);
-    
+
     if (addressMode === "new") {
       if (!/^\d{6}$/.test(form.pincode.trim())) {
         toast.error("Enter a valid 6-digit pincode");

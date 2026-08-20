@@ -15,15 +15,24 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([
-  "jpg", "jpeg", "png", "webp", "gif", "avif",
-  "mp4", "webm", "mov",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "avif",
+  "mp4",
+  "webm",
+  "mov",
 ]);
 
 /** Uploads any media file (image or video) to storage and returns a public URL. */
 export async function uploadMedia(file: File): Promise<string> {
   // Validate MIME type
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    throw new Error(`File type "${file.type}" is not allowed. Use JPEG, PNG, WebP, GIF, MP4, or WebM.`);
+    throw new Error(
+      `File type "${file.type}" is not allowed. Use JPEG, PNG, WebP, GIF, MP4, or WebM.`,
+    );
   }
 
   const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
@@ -56,4 +65,3 @@ export async function uploadMedia(file: File): Promise<string> {
 export async function uploadProductImage(file: File): Promise<string> {
   return uploadMedia(file);
 }
-

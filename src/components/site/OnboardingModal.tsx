@@ -15,7 +15,8 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (profile) {
-      const defaultName = profile.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+      const defaultName =
+        profile.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
       setForm((prev) => ({
         ...prev,
         full_name: defaultName,
@@ -45,9 +46,9 @@ export function OnboardingModal() {
           address: form.address,
         })
         .eq("id", user.id);
-      
+
       if (error) throw error;
-      
+
       toast.success("Profile saved successfully");
       qc.invalidateQueries({ queryKey: ["profile", user.id] });
     } catch (err) {

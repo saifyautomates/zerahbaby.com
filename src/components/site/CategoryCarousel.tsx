@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -99,7 +99,9 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                 <h3 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   {c.name}
                 </h3>
-                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/85 sm:text-base">{c.tagline}</p>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/85 sm:text-base">
+                  {c.tagline}
+                </p>
                 <div className="mt-5 overflow-hidden">
                   <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
                     Shop now <ChevronRight className="size-4" />

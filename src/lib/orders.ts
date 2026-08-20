@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,7 +37,17 @@ export type Order = {
   order_items: OrderItem[];
 };
 
-export const orderStatuses = ["pending", "confirmed", "processing", "packed", "shipped", "out_for_delivery", "delivered", "cancelled", "returned"];
+export const orderStatuses = [
+  "pending",
+  "confirmed",
+  "processing",
+  "packed",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+  "returned",
+];
 
 export type Profile = {
   id: string;

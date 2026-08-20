@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { normaliseMediaUrl, type HeroSlide } from "@/lib/hero-media";

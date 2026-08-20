@@ -1,4 +1,4 @@
-// @ts-nocheck
+// 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useCategories, useProducts } from "@/lib/store";

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Truck, RotateCcw, Sparkles, Star, Images } from "lucide-react";
@@ -100,7 +100,8 @@ function Index() {
                 : "border-border bg-background/80 text-primary"
             }`}
           >
-            <Sparkles className="size-3.5 shrink-0" /> <span className="truncate">New arrivals · Baby essentials</span>
+            <Sparkles className="size-3.5 shrink-0" />{" "}
+            <span className="truncate">New arrivals · Baby essentials</span>
           </span>
           <AdminEditableText settingKey="hero_title" value={heroTitle}>
             <h1
@@ -198,7 +199,9 @@ function Index() {
         <div className="mx-auto flex max-w-7xl items-end justify-between px-4 sm:px-6 lg:px-8">
           <div>
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Shop by category</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Explore all curated collections for babies and kids</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Explore all curated collections for babies and kids
+            </p>
           </div>
           <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
             View all

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trash2, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";

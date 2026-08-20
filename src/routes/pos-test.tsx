@@ -41,7 +41,9 @@ function PosTestRoute() {
     return (
       <div className="p-8 text-center">
         <h1 className="text-xl font-bold">Admin access required</h1>
-        <p className="text-sm text-muted-foreground mt-2">Sign in with an admin account to use POS.</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Sign in with an admin account to use POS.
+        </p>
       </div>
     );
   }
