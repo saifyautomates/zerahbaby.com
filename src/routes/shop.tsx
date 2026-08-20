@@ -19,13 +19,13 @@ export const Route = createFileRoute("/shop")({
   }),
   head: () => ({
     meta: [
-      { title: "Shop Baby & Kids Essentials — Zerah Baby And Kids" },
+      { title: "Shop Baby & Kids Essentials — Zerah Baby And Kid's" },
       {
         name: "description",
         content:
-          "Browse the full Zerah Baby And Kids range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.",
+          "Browse the full Zerah Baby And Kid's range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.",
       },
-      { property: "og:title", content: "Shop Baby & Kids Essentials — Zerah Baby And Kids" },
+      { property: "og:title", content: "Shop Baby & Kids Essentials — Zerah Baby And Kid's" },
       {
         property: "og:description",
         content: "Filter baby clothing, toys, care and gear by age, brand and price.",

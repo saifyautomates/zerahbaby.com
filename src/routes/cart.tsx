@@ -9,13 +9,13 @@ import { useSession } from "@/lib/auth";
 export const Route = createFileRoute("/cart")({
   head: () => ({
     meta: [
-      { title: "Your Shopping Bag — Zerah Baby And Kids" },
+      { title: "Your Shopping Bag — Zerah Baby And Kid's" },
       {
         name: "description",
         content:
-          "Review the baby essentials in your Zerah Baby And Kids bag and check out securely.",
+          "Review the baby essentials in your Zerah Baby And Kid's bag and check out securely.",
       },
-      { property: "og:title", content: "Your Shopping Bag — Zerah Baby And Kids" },
+      { property: "og:title", content: "Your Shopping Bag — Zerah Baby And Kid's" },
       {
         property: "og:description",
         content: "Review your baby essentials and check out securely.",

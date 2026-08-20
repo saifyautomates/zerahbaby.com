@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/privacy-policy")({
   head: () => ({
-    meta: [{ title: "Privacy Policy | Zérah Baby And Kids" }],
+    meta: [{ title: "Privacy Policy | Zérah Baby And Kid's" }],
   }),
   component: PrivacyPolicyPage,
 });
@@ -25,7 +25,7 @@ function PrivacyPolicyPage() {
 
         <h2 className="text-xl font-semibold text-foreground mt-8">1. Introduction</h2>
         <p>
-          Welcome to Zérah Baby And Kids. We respect your privacy and are committed to protecting
+          Welcome to Zérah Baby And Kid's. We respect your privacy and are committed to protecting
           your personal data. This privacy policy will inform you as to how we look after your
           personal data when you visit our website and tell you about your privacy rights and how
           the law protects you.

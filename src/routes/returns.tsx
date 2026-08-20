@@ -3,17 +3,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/returns")({
   head: () => ({
     meta: [
-      { title: "Refund & Return Policy — Zerah Baby And Kids" },
+      { title: "Refund & Return Policy — Zerah Baby And Kid's" },
       {
         name: "description",
         content:
           "Returns accepted within 7 days of delivery. Products must be unused, unwashed and in original packaging. Refunds are processed after inspection.",
       },
-      { property: "og:title", content: "Refund & Return Policy — Zerah Baby And Kids" },
+      { property: "og:title", content: "Refund & Return Policy — Zerah Baby And Kid's" },
       {
         property: "og:description",
         content:
-          "7-day returns, inspection-based refunds and shipping charge rules for Zerah Baby And Kids orders.",
+          "7-day returns, inspection-based refunds and shipping charge rules for Zerah Baby And Kid's orders.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

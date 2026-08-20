@@ -5,15 +5,15 @@ import hero from "@/assets/hero-baby.jpg";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About Zerah Baby And Kids — Gentle Essentials for Little Ones" },
+      { title: "About Zerah Baby And Kid's — Gentle Essentials for Little Ones" },
       {
         name: "description",
         content:
-          "Zerah Baby And Kids is a parent-run baby store curating organic clothing, safe toys and trusted nursery gear. Learn how we test and choose every product.",
+          "Zerah Baby And Kid's is a parent-run baby store curating organic clothing, safe toys and trusted nursery gear. Learn how we test and choose every product.",
       },
       {
         property: "og:title",
-        content: "About Zerah Baby And Kids — Gentle Essentials for Little Ones",
+        content: "About Zerah Baby And Kid's — Gentle Essentials for Little Ones",
       },
       {
         property: "og:description",
@@ -54,7 +54,7 @@ function AboutPage() {
     <div className="mx-auto max-w-5xl px-4 py-12">
       <h1 className="font-display text-4xl font-bold">We're parents building the shop we wanted</h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">
-        Zerah Baby And Kids started in 2026 in a small flat, with two new parents frustrated by
+        Zerah Baby And Kid's started in 2026 in a small flat, with two new parents frustrated by
         scratchy fabrics, mystery ingredient lists and gear that fell apart by month three. Today we
         curate a few hundred products across clothing, toys, care and gear — each one chosen because
         we'd use it ourselves.

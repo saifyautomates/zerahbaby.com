@@ -15,13 +15,13 @@ import heroFallback from "@/assets/hero-baby.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Zerah Baby And Kids — Clothing, Toys, Diapers & Gear" },
+      { title: "Zerah Baby And Kid's — Clothing, Toys, Diapers & Gear" },
       {
         name: "description",
         content:
-          "Shop baby and kids essentials at Zerah Baby And Kids: organic clothing, wooden toys, diapers, skincare, strollers and car seats. Free delivery over ₹999.",
+          "Shop Baby And Kid's essentials at Zerah Baby And Kid's: organic clothing, wooden toys, diapers, skincare, strollers and car seats. Free delivery over ₹999.",
       },
-      { property: "og:title", content: "Zerah Baby And Kids — Everything Your Little One Needs" },
+      { property: "og:title", content: "Zerah Baby And Kid's — Everything Your Little One Needs" },
       {
         property: "og:description",
         content:
@@ -46,7 +46,7 @@ const defaultHeroSlides = [
     id: "default-hero",
     type: "image" as const,
     url: heroFallback,
-    alt: "Baby essentials from Zerah Baby And Kids",
+    alt: "Baby essentials from Zerah Baby And Kid's",
   },
 ];
 
@@ -70,7 +70,7 @@ function Index() {
   return (
     <div>
       <section
-        aria-label="Welcome to Zerah Baby And Kids"
+        aria-label="Welcome to Zerah Baby And Kid's"
         className={`relative isolate overflow-hidden ${
           hasMedia ? "bg-black" : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
         }`}

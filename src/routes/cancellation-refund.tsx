@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/cancellation-refund")({
   head: () => ({
-    meta: [{ title: "Cancellation and Refund Policy | Zérah Baby And Kids" }],
+    meta: [{ title: "Cancellation and Refund Policy | Zérah Baby And Kid's" }],
   }),
   component: CancellationRefundPage,
 });

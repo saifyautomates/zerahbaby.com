@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/terms-conditions")({
   head: () => ({
-    meta: [{ title: "Terms and Conditions | Zérah Baby And Kids" }],
+    meta: [{ title: "Terms and Conditions | Zérah Baby And Kid's" }],
   }),
   component: TermsConditionsPage,
 });
@@ -27,7 +27,7 @@ function TermsConditionsPage() {
         <p>
           These terms and conditions outline the rules and regulations for the use of Zérah Baby And
           Kids's Website. By accessing this website we assume you accept these terms and conditions.
-          Do not continue to use Zérah Baby And Kids if you do not agree to take all of the terms
+          Do not continue to use Zérah Baby And Kid's if you do not agree to take all of the terms
           and conditions stated on this page.
         </p>
 

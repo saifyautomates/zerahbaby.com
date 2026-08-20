@@ -42,7 +42,7 @@ export const Route = createFileRoute("/product/$id")({
 
     return {
       meta: [
-        { title: `${product.name} — Zerah Baby And Kids Kota` },
+        { title: `${product.name} — Zerah Baby And Kid's Kota` },
         {
           name: "description",
           content: product.description.substring(0, 155),
@@ -84,7 +84,7 @@ function ProductPage() {
   const shareWhatsApp = () => {
     if (!product) return;
     const text = encodeURIComponent(
-      `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}\n\nShop here: ${window.location.href}`,
+      `Check out ${product.name} on Zérah Baby And Kid's!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}\n\nShop here: ${window.location.href}`,
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
@@ -113,7 +113,7 @@ function ProductPage() {
       const url = window.location.href;
       const shareData: ShareData = {
         title: product.name,
-        text: `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}`,
+        text: `Check out ${product.name} on Zérah Baby And Kid's!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}`,
         url,
       };
 

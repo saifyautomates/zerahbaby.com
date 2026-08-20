@@ -10,12 +10,12 @@ import { trackEvent } from "@/lib/analytics";
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
     meta: [
-      { title: "Checkout — Zerah Baby And Kids" },
+      { title: "Checkout — Zerah Baby And Kid's" },
       {
         name: "description",
-        content: "Confirm your delivery details and place your Zerah Baby And Kids order.",
+        content: "Confirm your delivery details and place your Zerah Baby And Kid's order.",
       },
-      { property: "og:title", content: "Checkout — Zerah Baby And Kids" },
+      { property: "og:title", content: "Checkout — Zerah Baby And Kid's" },
       { property: "og:description", content: "Confirm delivery details and place your order." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

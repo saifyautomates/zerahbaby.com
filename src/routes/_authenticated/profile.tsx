@@ -14,7 +14,7 @@ type UserAddress = Database["public"]["Tables"]["user_addresses"]["Row"];
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
     meta: [
-      { title: "My Profile — Zerah Baby And Kids" },
+      { title: "My Profile — Zerah Baby And Kid's" },
       { name: "description", content: "Manage your profile, addresses, and preferences." },
       { name: "robots", content: "noindex" },
     ],

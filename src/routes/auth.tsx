@@ -11,13 +11,13 @@ import { useCart } from "@/lib/cart";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Zerah Baby And Kids" },
+      { title: "Sign in — Zerah Baby And Kid's" },
       {
         name: "description",
-        content: "Sign in to manage the Zerah Baby And Kids store catalogue and settings.",
+        content: "Sign in to manage the Zerah Baby And Kid's store catalogue and settings.",
       },
-      { property: "og:title", content: "Sign in — Zerah Baby And Kids" },
-      { property: "og:description", content: "Store team sign in for Zerah Baby And Kids." },
+      { property: "og:title", content: "Sign in — Zerah Baby And Kid's" },
+      { property: "og:description", content: "Store team sign in for Zerah Baby And Kid's." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -90,7 +90,7 @@ function AuthPage() {
       <div className="rounded-3xl border border-border bg-card p-8">
         <img
           src={logo}
-          alt="Zerah Baby And Kids logo"
+          alt="Zerah Baby And Kid's logo"
           width={64}
           height={64}
           className="mx-auto size-16 object-contain"

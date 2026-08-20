@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/shipping-delivery")({
   head: () => ({
-    meta: [{ title: "Shipping and Delivery Policy | Zérah Baby And Kids" }],
+    meta: [{ title: "Shipping and Delivery Policy | Zérah Baby And Kid's" }],
   }),
   component: ShippingDeliveryPage,
 });

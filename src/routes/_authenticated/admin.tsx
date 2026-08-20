@@ -41,13 +41,13 @@ import { BarChart3 } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Store Admin — Zerah Baby And Kids" },
+      { title: "Store Admin — Zerah Baby And Kid's" },
       {
         name: "description",
-        content: "Manage products, categories and store settings for Zerah Baby And Kids.",
+        content: "Manage products, categories and store settings for Zerah Baby And Kid's.",
       },
-      { property: "og:title", content: "Store Admin — Zerah Baby And Kids" },
-      { property: "og:description", content: "Manage the Zerah Baby And Kids catalogue." },
+      { property: "og:title", content: "Store Admin — Zerah Baby And Kid's" },
+      { property: "og:description", content: "Manage the Zerah Baby And Kid's catalogue." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },

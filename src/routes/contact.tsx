@@ -7,15 +7,15 @@ import { useSettings } from "@/lib/store";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact Zerah Baby And Kids — Orders, Returns & Product Help" },
+      { title: "Contact Zerah Baby And Kid's — Orders, Returns & Product Help" },
       {
         name: "description",
         content:
-          "Reach the Zerah Baby And Kids parent-support team for order tracking, returns, sizing advice and product questions. Reply within one working day.",
+          "Reach the Zerah Baby And Kid's parent-support team for order tracking, returns, sizing advice and product questions. Reply within one working day.",
       },
       {
         property: "og:title",
-        content: "Contact Zerah Baby And Kids — Orders, Returns & Product Help",
+        content: "Contact Zerah Baby And Kid's — Orders, Returns & Product Help",
       },
       {
         property: "og:description",

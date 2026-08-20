@@ -10,10 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
     meta: [
-      { title: "My Orders — Zerah Baby And Kids" },
-      { name: "description", content: "Track the status of your Zerah Baby And Kids orders." },
-      { property: "og:title", content: "My Orders — Zerah Baby And Kids" },
-      { property: "og:description", content: "Track your Zerah Baby And Kids orders." },
+      { title: "My Orders — Zerah Baby And Kid's" },
+      { name: "description", content: "Track the status of your Zerah Baby And Kid's orders." },
+      { property: "og:title", content: "My Orders — Zerah Baby And Kid's" },
+      { property: "og:description", content: "Track your Zerah Baby And Kid's orders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },

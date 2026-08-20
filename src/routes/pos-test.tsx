@@ -11,7 +11,7 @@ import { useIsAdmin, useSession } from "@/lib/auth";
 export const Route = createFileRoute("/pos-test")({
   head: () => ({
     meta: [
-      { title: "POS Test — Zerah Baby And Kids" },
+      { title: "POS Test — Zerah Baby And Kid's" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),

@@ -10,8 +10,8 @@ import { useCart } from "@/lib/cart";
 export const Route = createFileRoute("/_authenticated/wishlist")({
   head: () => ({
     meta: [
-      { title: "My Wishlist — Zerah Baby And Kids" },
-      { name: "description", content: "Your saved products at Zerah Baby And Kids." },
+      { title: "My Wishlist — Zerah Baby And Kid's" },
+      { name: "description", content: "Your saved products at Zerah Baby And Kid's." },
       { name: "robots", content: "noindex" },
     ],
   }),
