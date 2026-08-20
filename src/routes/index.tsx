@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShieldCheck, Truck, RotateCcw, Sparkles, Star, Images } from "lucide-react";
+import { Truck, RotateCcw, Sparkles, Star, Images } from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
 import { useAdminMode } from "@/lib/admin-mode";
