@@ -101,14 +101,14 @@
 
   /* Premium announcement bar: warm espresso clay with antique gold accents */
   --announce-surface: linear-gradient(
-    100deg,
-    oklch(0.38 0.08 25) 0%,
-    oklch(0.34 0.07 30) 45%,
-    oklch(0.3 0.06 35) 100%
+    90deg,
+    oklch(0.68 0.22 340) 0%,
+    oklch(0.62 0.20 300) 35%,
+    oklch(0.60 0.18 260) 65%,
+    oklch(0.68 0.15 235) 100%
   );
-  --announce-foreground: oklch(0.97 0.006 80);
-  --announce-gold: oklch(0.82 0.09 78);
-  --announce-gold-soft: oklch(0.82 0.09 78 / 0.22);
+  --announce-foreground: oklch(0.99 0 0);
+  --announce-gold: oklch(0.85 0.14 85);
   --announce-hairline: linear-gradient(
     90deg,
     transparent 0%,
@@ -153,14 +153,14 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.66 0.12 30);
   --announce-surface: linear-gradient(
-    100deg,
-    oklch(0.32 0.07 25) 0%,
-    oklch(0.28 0.06 30) 45%,
-    oklch(0.24 0.05 35) 100%
+    90deg,
+    oklch(0.55 0.18 340) 0%,
+    oklch(0.50 0.16 300) 35%,
+    oklch(0.48 0.15 260) 65%,
+    oklch(0.55 0.12 235) 100%
   );
-  --announce-foreground: oklch(0.96 0.006 80);
-  --announce-gold: oklch(0.78 0.085 78);
-  --announce-gold-soft: oklch(0.78 0.085 78 / 0.2);
+  --announce-foreground: oklch(0.99 0 0);
+  --announce-gold: oklch(0.82 0.12 85);
 }
 
 @layer base {
