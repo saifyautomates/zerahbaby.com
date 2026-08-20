@@ -154,12 +154,13 @@
   --sidebar-ring: oklch(0.66 0.12 30);
   --announce-surface: linear-gradient(
     100deg,
-    oklch(0.45 0.12 340) 0%,
-    oklch(0.45 0.1 280) 50%,
-    oklch(0.45 0.12 250) 100%
+    oklch(0.32 0.07 25) 0%,
+    oklch(0.28 0.06 30) 45%,
+    oklch(0.24 0.05 35) 100%
   );
-  --announce-foreground: oklch(0.96 0.01 84);
-  --announce-gold: oklch(0.8 0.095 84);
+  --announce-foreground: oklch(0.96 0.006 80);
+  --announce-gold: oklch(0.78 0.085 78);
+  --announce-gold-soft: oklch(0.78 0.085 78 / 0.2);
 }
 
 @layer base {
