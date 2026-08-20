@@ -15,14 +15,15 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (profile) {
+      const defaultName = profile.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
       setForm((prev) => ({
         ...prev,
-        full_name: profile.full_name || "",
-        phone: profile.phone || "",
+        full_name: defaultName,
+        phone: profile.phone || user?.phone || "",
         address: profile.address || "",
       }));
     }
-  }, [profile]);
+  }, [profile, user]);
 
   if (!user || isLoading || !profile) return null;
 

@@ -9,9 +9,6 @@ import { useAdminMode } from "@/lib/admin-mode";
 /** Small clickable invoice chip — opens the full printable invoice. */
 export function InvoiceBox({ order }: { order: Order }) {
   const [open, setOpen] = useState(false);
-  const { isAdmin } = useAdminMode();
-
-  if (!isAdmin) return null;
 
   return (
     <>

@@ -89,14 +89,16 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <button
+          disabled={product.stock === 0}
           onClick={() => {
+            if (product.stock === 0) return;
             add(product.id);
             trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
           }}
-          className="focus-ring mt-auto w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 active:scale-[0.98]"
+          className="focus-ring mt-auto w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Add to bag
+          {product.stock === 0 ? "Out of stock" : "Add to bag"}
         </button>
       </div>
     </article>

@@ -21,15 +21,17 @@ export const Route = createFileRoute("/sitemap.xml")({
           const base = process.env["SUPABASE_URL"];
           const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
           if (base && key) {
-            const res = await fetch(`${base}/rest/v1/products?select=id&limit=1000`, {
+            const res = await fetch(`${base}/rest/v1/products?select=slug&is_active=eq.true&limit=1000`, {
               headers: { apikey: key },
             });
             if (res.ok) {
-              const rows = (await res.json()) as Array<{ id: string }>;
-              productUrls = rows.map(
-                (r) =>
-                  `<url><loc>${origin}/product/${encodeURIComponent(r.id)}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
-              );
+              const rows = (await res.json()) as Array<{ slug: string }>;
+              productUrls = rows
+                .filter((r) => r.slug && r.slug.trim())
+                .map(
+                  (r) =>
+                    `<url><loc>${origin}/product/${encodeURIComponent(r.slug)}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
+                );
             }
           }
         } catch {
