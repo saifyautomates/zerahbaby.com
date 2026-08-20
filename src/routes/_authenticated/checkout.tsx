@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
-import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
+import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/orders";
 import { trackEvent } from "@/lib/analytics";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
@@ -66,9 +66,9 @@ function CheckoutPage() {
     profile.full_name &&
     profile.phone &&
     profile.address &&
-    (profile as any).city &&
-    (profile as any).state &&
-    (profile as any).pincode,
+    profile.city &&
+    profile.state &&
+    profile.pincode,
   );
 
   const [addressMode, setAddressMode] = useState<"saved" | "new">("new");
@@ -80,9 +80,9 @@ function CheckoutPage() {
       profile.full_name &&
       profile.phone &&
       profile.address &&
-      (profile as any).city &&
-      (profile as any).state &&
-      (profile as any).pincode
+      profile.city &&
+      profile.state &&
+      profile.pincode
     ) {
       setAddressMode("saved");
     }
@@ -92,9 +92,9 @@ function CheckoutPage() {
       full_name: f.full_name || profile.full_name || "",
       phone: f.phone || profile.phone || "",
       address: f.address || profile.address || "",
-      city: f.city || (profile as { city?: string }).city || "",
-      state: f.state || (profile as { state?: string }).state || "",
-      pincode: f.pincode || (profile as { pincode?: string }).pincode || "",
+      city: f.city || profile.city || "",
+      state: f.state || profile.state || "",
+      pincode: f.pincode || profile.pincode || "",
     }));
   }, [profile]);
 
@@ -149,9 +149,9 @@ function CheckoutPage() {
               address: profile.address,
               address_line2: "",
               landmark: "",
-              city: (profile as any).city || "",
-              state: (profile as any).state || "",
-              pincode: (profile as any).pincode || "",
+              city: profile.city || "",
+              state: profile.state || "",
+              pincode: profile.pincode || "",
               payment_method: form.payment_method,
               notes: form.notes.trim(),
               subtotal,
@@ -234,7 +234,7 @@ function CheckoutPage() {
               <p className="font-semibold">{profile.full_name}</p>
               <p className="mt-2 text-sm text-muted-foreground">{profile.address}</p>
               <p className="text-sm text-muted-foreground">
-                {(profile as any).city}, {(profile as any).state} {(profile as any).pincode}
+                {profile.city}, {profile.state} {profile.pincode}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">Mobile: {profile.phone}</p>
             </div>

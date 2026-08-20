@@ -39,6 +39,18 @@ export type Order = {
 
 export const orderStatuses = ["placed", "confirmed", "packed", "shipped", "delivered", "cancelled"];
 
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  created_at: string;
+  [key: string]: unknown;
+};
+
 export function useProfile(userId: string | undefined) {
   return useQuery({
     queryKey: ["profile", userId],
@@ -51,7 +63,7 @@ export function useProfile(userId: string | undefined) {
         .eq("id", userId!)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as Profile | null;
     },
   });
 }

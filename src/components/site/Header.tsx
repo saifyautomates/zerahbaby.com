@@ -50,6 +50,7 @@ export function Header() {
     e.preventDefault();
     const q = term.trim();
     setOpen(false);
+    setSearchOpen(false);
     navigate({ to: "/shop", search: q ? { q } : {} });
   }
 
