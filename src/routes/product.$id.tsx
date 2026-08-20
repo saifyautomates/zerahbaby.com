@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { discountPct, formatPrice, useProducts } from "@/lib/store";
+import { discountPct, formatPrice, useProducts, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProductReviews, useSubmitReview } from "@/lib/reviews";
@@ -34,7 +34,7 @@ import { productsQueryOptions } from "@/lib/store";
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
     const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
-    return { product: products.find((p: any) => p.id === params.id) };
+    return { product: products.find((p) => p.id === params.id) };
   },
   head: (ctx) => {
     const product = ctx.loaderData?.product;
@@ -135,7 +135,7 @@ function ProductPage() {
         metadata: { slug: product.id, name: product.name },
       });
     }
-  }, [product?.uuid]);
+  }, [product]);
 
   if (isLoading) {
     return (
@@ -176,6 +176,7 @@ function ProductPage() {
         /{" "}
         <Link
           to="/shop"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           search={{ category: product.category } as any}
           className="hover:text-primary"
         >
@@ -273,7 +274,7 @@ function ProductPage() {
                   <Instagram className="size-4" />
                   <span className="font-semibold">Share to Instagram</span>
                 </DropdownMenuItem>
-                {typeof navigator !== "undefined" && navigator.share && (
+                {typeof navigator !== "undefined" && "share" in navigator && (
                   <DropdownMenuItem
                     onClick={nativeShare}
                     className="cursor-pointer gap-3 rounded-lg py-2.5 mt-1 border-t"
@@ -427,7 +428,13 @@ function ProductPage() {
   );
 }
 
-function ReviewsSection({ product, user }: { product: any; user: any }) {
+function ReviewsSection({
+  product,
+  user,
+}: {
+  product: Product;
+  user: ReturnType<typeof useSession>["user"];
+}) {
   const { data: reviews } = useProductReviews(product.uuid);
   const submitReview = useSubmitReview();
   const [showForm, setShowForm] = useState(false);

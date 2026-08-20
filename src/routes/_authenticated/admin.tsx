@@ -1020,7 +1020,7 @@ function OrdersTab() {
                     className="size-12 shrink-0 rounded-xl border border-border object-cover"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{item.name}</span>
+                    <span className="block font-semibold">{item.name}</span>
                     <span className="block text-xs text-muted-foreground">
                       {item.product_slug} · qty {item.qty}
                     </span>
@@ -1163,7 +1163,9 @@ function CouponsTab() {
               Type
               <select
                 value={form.discount_type}
-                onChange={(e) => setForm({ ...form, discount_type: e.target.value as any })}
+                onChange={(e) =>
+                  setForm({ ...form, discount_type: e.target.value as "percentage" | "fixed" })
+                }
                 className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
               >
                 <option value="percentage">Percentage</option>

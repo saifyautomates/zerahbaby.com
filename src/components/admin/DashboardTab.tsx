@@ -44,7 +44,14 @@ export function DashboardTab() {
     const today = new Date();
     const last30Days = Array.from({ length: 30 }).map((_, i) => {
       const date = subDays(today, 29 - i);
-      return { date, dateStr: format(date, "MMM dd"), online: 0, offline: 0, total: 0, visitors: 0 };
+      return {
+        date,
+        dateStr: format(date, "MMM dd"),
+        online: 0,
+        offline: 0,
+        total: 0,
+        visitors: 0,
+      };
     });
 
     orders.forEach((o) => {
@@ -98,7 +105,7 @@ export function DashboardTab() {
 
   const visitorStats = useMemo(() => {
     const totalVisitors = visitors.length;
-    
+
     // Group by location (City, State)
     const locationCounts: Record<string, number> = {};
     visitors.forEach((v) => {
@@ -115,7 +122,7 @@ export function DashboardTab() {
       .slice(0, 10);
 
     // Merge visitor counts into chartData
-    const chartWithVisitors = chartData.map(d => ({ ...d }));
+    const chartWithVisitors = chartData.map((d) => ({ ...d }));
     visitors.forEach((v) => {
       const visitDate = parseISO(v.created_at);
       const dayData = chartWithVisitors.find((d) => isSameDay(d.date, visitDate));
@@ -155,9 +162,7 @@ export function DashboardTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-              <h3 className="font-display text-2xl font-bold text-foreground">
-                {totalOrders}
-              </h3>
+              <h3 className="font-display text-2xl font-bold text-foreground">{totalOrders}</h3>
             </div>
           </div>
         </div>
@@ -205,44 +210,53 @@ export function DashboardTab() {
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Sales Chart */}
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
-          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">Sales Over Time (Last 30 Days)</h2>
+          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">
+            Sales Over Time (Last 30 Days)
+          </h2>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={visitorStats.chartWithVisitors} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <LineChart
+                data={visitorStats.chartWithVisitors}
+                margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="dateStr" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#888' }}
+                <XAxis
+                  dataKey="dateStr"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#888" }}
                   dy={10}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#888' }}
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#888" }}
                   tickFormatter={(val) => `₹${val}`}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [`₹${value}`, undefined]}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "none",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  }}
                 />
                 <Legend iconType="circle" />
-                <Line 
-                  type="monotone" 
-                  dataKey="online" 
-                  name="Online Sales" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3} 
+                <Line
+                  type="monotone"
+                  dataKey="online"
+                  name="Online Sales"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="offline" 
-                  name="POS Sales" 
-                  stroke="#f97316" 
-                  strokeWidth={3} 
+                <Line
+                  type="monotone"
+                  dataKey="offline"
+                  name="POS Sales"
+                  stroke="#f97316"
+                  strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
                 />
@@ -253,33 +267,38 @@ export function DashboardTab() {
 
         {/* Visitors Chart */}
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
-          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">Visitors Over Time (Last 30 Days)</h2>
+          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">
+            Visitors Over Time (Last 30 Days)
+          </h2>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={visitorStats.chartWithVisitors} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <LineChart
+                data={visitorStats.chartWithVisitors}
+                margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="dateStr" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#888' }}
+                <XAxis
+                  dataKey="dateStr"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#888" }}
                   dy={10}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#888' }}
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#888" }} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "none",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  }}
                 />
                 <Legend iconType="circle" />
-                <Line 
-                  type="monotone" 
-                  dataKey="visitors" 
-                  name="Unique Visitors" 
-                  stroke="#10b981" 
-                  strokeWidth={3} 
+                <Line
+                  type="monotone"
+                  dataKey="visitors"
+                  name="Unique Visitors"
+                  stroke="#10b981"
+                  strokeWidth={3}
                   dot={false}
                   activeDot={{ r: 6 }}
                 />
@@ -328,7 +347,9 @@ export function DashboardTab() {
 
         {/* Visitor Locations */}
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Top Visitor Locations</h2>
+          <h2 className="mb-4 font-display text-lg font-semibold text-foreground">
+            Top Visitor Locations
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -341,9 +362,7 @@ export function DashboardTab() {
                 {visitorStats.topLocations.map(([location, count]) => (
                   <tr key={location} className="transition-colors hover:bg-muted/50">
                     <td className="py-4 font-medium text-foreground">{location}</td>
-                    <td className="py-4 text-right tabular-nums text-muted-foreground">
-                      {count}
-                    </td>
+                    <td className="py-4 text-right tabular-nums text-muted-foreground">{count}</td>
                   </tr>
                 ))}
                 {visitorStats.topLocations.length === 0 && (

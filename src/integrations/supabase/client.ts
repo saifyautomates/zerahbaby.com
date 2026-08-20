@@ -60,13 +60,18 @@ function createSupabaseClient() {
   });
 }
 
-let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ClientWithAuth = Omit<SupabaseClient<Database>, "auth"> & { auth: any };
+
+let _supabase: ClientWithAuth | undefined;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
-export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
+export const supabase = new Proxy({} as ClientWithAuth, {
   get(_, prop, receiver) {
-    if (!_supabase) _supabase = createSupabaseClient();
+    if (!_supabase) _supabase = createSupabaseClient() as unknown as ClientWithAuth;
     return Reflect.get(_supabase, prop, receiver);
   },
-});
+}) as ClientWithAuth;

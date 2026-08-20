@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Banknote, Scan } from "lucide-react";
@@ -38,6 +38,38 @@ export function POSTab() {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const total = Math.max(0, subtotal - discount);
 
+  // -- Barcode Scan Handler --
+  const handleScan = useCallback(
+    (sku: string) => {
+      const product = products.find((p) => p.sku === sku);
+      if (!product) {
+        toast.error(`Product not found for SKU: ${sku}`);
+        return;
+      }
+
+      if (product.stock <= 0) {
+        toast.error(`Product "${product.name}" is out of stock!`);
+        return;
+      }
+
+      setCart((prev) => {
+        const existing = prev.find((p) => p.uuid === product.uuid);
+        if (existing) {
+          if (existing.qty >= product.stock) {
+            toast.error(`Cannot add more. Only ${product.stock} left in stock.`);
+            return prev;
+          }
+          return prev.map((p) => (p.uuid === product.uuid ? { ...p, qty: p.qty + 1 } : p));
+        }
+        return [...prev, { ...product, qty: 1 }];
+      });
+
+      setLastScanned({ name: product.name, price: product.price.toString() });
+      toast.success(`Added ${product.name}`);
+    },
+    [products],
+  );
+
   // -- Barcode Scanner Listener --
   useEffect(() => {
     // A barcode scanner types characters very fast and sends 'Enter' at the end.
@@ -71,35 +103,7 @@ export function POSTab() {
       window.removeEventListener("keydown", handleKeyDown);
       clearTimeout(timeoutId);
     };
-  }, [barcodeInput, products]);
-
-  const handleScan = (sku: string) => {
-    const product = products.find((p) => p.sku === sku);
-    if (!product) {
-      toast.error(`Product not found for SKU: ${sku}`);
-      return;
-    }
-
-    if (product.stock <= 0) {
-      toast.error(`Product "${product.name}" is out of stock!`);
-      return;
-    }
-
-    setCart((prev) => {
-      const existing = prev.find((p) => p.uuid === product.uuid);
-      if (existing) {
-        if (existing.qty >= product.stock) {
-          toast.error(`Cannot add more. Only ${product.stock} left in stock.`);
-          return prev;
-        }
-        return prev.map((p) => (p.uuid === product.uuid ? { ...p, qty: p.qty + 1 } : p));
-      }
-      return [...prev, { ...product, qty: 1 }];
-    });
-
-    setLastScanned({ name: product.name, price: product.price.toString() });
-    toast.success(`Added ${product.name}`);
-  };
+  }, [barcodeInput, handleScan]);
 
   const updateQty = (uuid: string, delta: number) => {
     setCart((prev) =>
@@ -121,13 +125,13 @@ export function POSTab() {
   const placeOrder = useMutation({
     mutationFn: async (paymentMethod: "cash" | "upi") => {
       // Build items payload for the RPC
-      const rpcItems = cart.map((item: any) => ({
+      const rpcItems = cart.map((item) => ({
         product_slug: item.id, // the slug
         qty: item.qty,
       }));
 
       // Calculate subtotal from cart (this is just for the payload, RPC computes actual)
-      const subtotal = cart.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
       const { data, error } = await supabase.rpc("place_order", {
         _full_name: customer.full_name || "POS Customer",
@@ -142,7 +146,8 @@ export function POSTab() {
       });
 
       if (error) throw error;
-      return { id: (data as any).order_id, invoice_no: (data as any).invoice_no };
+      const result = data as { order_id: string; invoice_no: string } | null;
+      return { id: result?.order_id ?? "", invoice_no: result?.invoice_no ?? "" };
     },
     onSuccess: () => {
       toast.success("Order completed successfully!");
@@ -162,7 +167,7 @@ export function POSTab() {
   });
 
   return (
-    <div className="flex h-[85dvh] lg:h-[80dvh] flex-col overflow-hidden rounded-2xl border border-border/50 bg-background lg:flex-row">
+    <div className="flex min-h-[80dvh] flex-col rounded-2xl border border-border/50 bg-background lg:flex-row">
       {/* Left: Cart & Scanning */}
       <div className="flex flex-1 flex-col border-r border-border/50">
         <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 p-4">
@@ -374,13 +379,10 @@ export function POSTab() {
                         ageGroup: "all",
                         rating: 5,
                         reviews: 0,
-                        images: [],
-                        description: "",
-                        highlights: [],
-                        isFeatured: false,
-                        isActive: true,
                         sortOrder: 0,
-                      },
+                        imageUrl: "https://via.placeholder.com/150",
+                        lowStockAt: 5,
+                      } as unknown as Product & { qty: number },
                     ]);
                     toast.success(`Added ${lastScanned.name}`);
                     setLastScanned({ name: "", price: "" });

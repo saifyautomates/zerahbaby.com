@@ -145,23 +145,17 @@ CREATE TABLE public.products (
   sku text NOT NULL DEFAULT '',
   price numeric NOT NULL DEFAULT 0,
   mrp numeric NOT NULL DEFAULT 0,
-  compare_at_price numeric NOT NULL DEFAULT 0,
-  cost_price numeric NOT NULL DEFAULT 0,
   rating numeric NOT NULL DEFAULT 0,
   reviews integer NOT NULL DEFAULT 0,
-  review_count integer NOT NULL DEFAULT 0,
   age_group text NOT NULL DEFAULT '',
   image_url text,
   images text[] NOT NULL DEFAULT '{}',
   highlights text[] NOT NULL DEFAULT '{}',
   stock integer NOT NULL DEFAULT 0,
-  stock_quantity integer NOT NULL DEFAULT 0,
   low_stock_at integer NOT NULL DEFAULT 5,
-  low_stock_threshold integer NOT NULL DEFAULT 5,
   status public.product_status NOT NULL DEFAULT 'active',
   is_active boolean NOT NULL DEFAULT true,
   is_featured boolean NOT NULL DEFAULT false,
-  featured boolean NOT NULL DEFAULT false,
   bestseller boolean NOT NULL DEFAULT false,
   new_arrival boolean NOT NULL DEFAULT false,
   seo_title text NOT NULL DEFAULT '',
@@ -188,18 +182,6 @@ CREATE POLICY "admins manage products" ON public.products FOR ALL TO authenticat
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER products_touch BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
--- Sync stock fields trigger
-CREATE OR REPLACE FUNCTION public.sync_product_stock()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
-BEGIN
-  NEW.stock_quantity = NEW.stock;
-  NEW.low_stock_threshold = NEW.low_stock_at;
-  NEW.featured = NEW.is_featured;
-  NEW.review_count = NEW.reviews;
-  NEW.compare_at_price = NEW.mrp;
-  RETURN NEW;
-END; $$;
-CREATE TRIGGER products_sync_stock BEFORE INSERT OR UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.sync_product_stock();
 
 -- ======================== PRODUCT IMAGES =====================
 

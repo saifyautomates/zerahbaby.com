@@ -148,10 +148,10 @@ function CheckoutPage() {
           ? {
               userId: user.id,
               email: user.email ?? "",
-              full_name: profile.full_name,
-              phone: profile.phone,
+              full_name: profile.full_name ?? "",
+              phone: profile.phone ?? "",
               alt_phone: "",
-              address: profile.address,
+              address: profile.address ?? "",
               address_line2: "",
               landmark: "",
               city: profile.city || "",
@@ -445,8 +445,8 @@ function CheckoutPage() {
                     try {
                       await applyCoupon(couponInput.trim());
                       toast.success(`Coupon applied!`);
-                    } catch (e: any) {
-                      toast.error(e.message || "Invalid coupon");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Invalid coupon");
                     } finally {
                       setCouponLoading(false);
                     }

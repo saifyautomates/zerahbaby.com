@@ -179,8 +179,8 @@ function CartPage() {
                       await applyCoupon(couponInput.trim());
                       toast.success("Coupon applied!");
                       setCouponInput("");
-                    } catch (e: any) {
-                      toast.error(e.message);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Invalid coupon");
                     } finally {
                       setIsApplying(false);
                     }

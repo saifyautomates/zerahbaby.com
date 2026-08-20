@@ -84,7 +84,7 @@ function OrdersPage() {
                         <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />
                       )}
                       <div className="flex flex-1 flex-col justify-center">
-                        <span className="text-sm font-semibold text-foreground line-clamp-2 transition-colors group-hover:text-primary">
+                        <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
                           {item.name}
                         </span>
                         <span className="mt-1 text-xs text-muted-foreground">
@@ -136,7 +136,7 @@ function OrderTimeline({ orderId }: { orderId: string }) {
           {history.map((h) => (
             <li key={h.id} className="relative">
               <span className="absolute -left-[1.35rem] top-1 size-2 rounded-full bg-primary" />
-              <p className="text-xs font-semibold capitalize">{h.new_status?.replace(/_/g, " ")}</p>
+              <p className="text-xs font-semibold capitalize">{h.status?.replace(/_/g, " ")}</p>
               <p className="text-[11px] text-muted-foreground">
                 {new Date(h.created_at).toLocaleString("en-IN")}
                 {h.note ? ` — ${h.note}` : ""}

@@ -83,13 +83,13 @@ export function Header() {
               <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
             </p>
             <div className="group relative w-full lg:hidden" aria-label="Announcement">
-              <div className="announce-marquee group-hover:announce-marquee-pause">
-                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+              <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap">
+                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em] whitespace-nowrap">
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                   {announcement}
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                 </span>
-                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em] whitespace-nowrap">
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                   {announcement}
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
@@ -98,12 +98,7 @@ export function Header() {
             </div>
           </div>
 
-          {/* Desktop right trust badge */}
           <div className="hidden flex-1 items-center justify-end gap-2 lg:flex">
-            <span className="announce-pill">
-              <BadgeCheck className="size-3 announce-gold-text" aria-hidden />
-              2500+ families served
-            </span>
           </div>
         </div>
       </div>

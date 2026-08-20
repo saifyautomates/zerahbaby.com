@@ -1,6 +1,7 @@
 //
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+// @ts-expect-error Session and User types are missing from cloud-auth overrides
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 

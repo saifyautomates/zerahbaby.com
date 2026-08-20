@@ -75,7 +75,7 @@ export function MediaLibrary({
   const [pendingDelete, setPendingDelete] = useState<MediaAsset | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const assets = data ?? [];
+  const assets = useMemo(() => data ?? [], [data]);
   const tags = useMemo(() => collectTags(assets), [assets]);
 
   const visible = useMemo(() => {

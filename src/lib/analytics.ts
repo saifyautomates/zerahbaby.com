@@ -20,7 +20,8 @@ export function trackEvent(
         event_name: eventName,
         product_id: opts?.productId ?? null,
         order_id: opts?.orderId ?? null,
-        metadata: opts?.metadata ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        metadata: (opts?.metadata ?? null) as any, // Cast to any to satisfy Supabase Json type expectations
       })
       .then(({ error }) => {
         if (error) console.warn("[Analytics]", error.message);

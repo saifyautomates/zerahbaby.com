@@ -32,7 +32,7 @@ export function useRecentlyViewed(currentProductId?: string) {
 
 export function RecentlyViewed({ currentProductId }: { currentProductId?: string }) {
   const viewedIds = useRecentlyViewed(currentProductId);
-  const { data: allProducts = [] } = useProducts(true);
+  const { data: allProducts = [] } = useProducts();
 
   if (viewedIds.length === 0) return null;
 

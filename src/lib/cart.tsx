@@ -71,7 +71,7 @@ async function syncToSupabase(userId: string, lines: CartLine[], products: Produ
             price_at_add: product.price,
           };
         })
-        .filter(Boolean);
+        .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
       if (items.length > 0) {
         await supabase.from("cart_items").insert(items);
@@ -235,10 +235,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
           _order_total: subtotal,
         });
         if (error) throw error;
-        if (!data.valid) {
-          throw new Error(data.error || "Invalid coupon");
+        const result = data as {
+          valid?: boolean;
+          code?: string;
+          discount?: number;
+          coupon_id?: string;
+          error?: string;
+        } | null;
+        if (!result || !result.valid) {
+          throw new Error(result?.error || "Invalid coupon");
         }
-        setCoupon({ code: data.code, discount: data.discount, id: data.coupon_id });
+        setCoupon({ code: result.code!, discount: result.discount!, id: result.coupon_id! });
       },
       removeCoupon: () => setCoupon(null),
     };

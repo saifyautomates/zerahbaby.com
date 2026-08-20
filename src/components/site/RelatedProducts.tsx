@@ -9,7 +9,7 @@ export function RelatedProducts({
   currentProductId: string;
   category: string;
 }) {
-  const { data: allProducts = [] } = useProducts(true);
+  const { data: allProducts = [] } = useProducts();
 
   const related = allProducts
     .filter((p) => p.category === category && p.id !== currentProductId)

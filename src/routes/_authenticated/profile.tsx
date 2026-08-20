@@ -5,8 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { User, MapPin, Plus, Trash2, Star, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile } from "@/lib/orders";
+
+type UserAddress = Database["public"]["Tables"]["user_addresses"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -27,6 +30,7 @@ function ProfilePage() {
   const [form, setForm] = useState({
     full_name: "",
     phone: "",
+    address: "",
     city: "",
     state: "",
     pincode: "",
@@ -37,6 +41,7 @@ function ProfilePage() {
       setForm({
         full_name: profile.full_name || "",
         phone: profile.phone || "",
+        address: profile.address || "",
         city: profile.city || "",
         state: profile.state || "",
         pincode: profile.pincode || "",
@@ -231,7 +236,7 @@ function AddressList({ userId }: { userId: string | undefined }) {
     },
   });
 
-  const editAddress = (addr: any) => {
+  const editAddress = (addr: UserAddress) => {
     setEditingId(addr.id);
     setShowForm(true);
   };
@@ -325,7 +330,7 @@ function AddressForm({
 }: {
   userId: string;
   editingId: string | null;
-  addresses: any[];
+  addresses: UserAddress[];
   onDone: () => void;
   onCancel: () => void;
 }) {
