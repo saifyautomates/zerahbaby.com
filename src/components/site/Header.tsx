@@ -63,27 +63,47 @@ export function Header() {
       </a>
       <div className="announce-bar">
         <span className="announce-sheen" aria-hidden />
-        <div className="relative z-[3] mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
-          <div className="hidden flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-90 drop-shadow-sm lg:flex">
-            <Truck className="size-3.5 announce-gold-text drop-shadow-sm" aria-hidden />
-            Pan-India shipping
+        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:py-2.5">
+          {/* Desktop left trust badge */}
+          <div className="hidden flex-1 items-center gap-2 lg:flex">
+            <span className="announce-pill">
+              <Truck className="size-3 announce-gold-text" aria-hidden />
+              Pan-India shipping
+            </span>
           </div>
 
-          <div className="group flex w-full overflow-hidden whitespace-nowrap drop-shadow-sm lg:w-auto">
-            <div className="flex w-max animate-marquee items-center group-hover:[animation-play-state:paused]">
-              {[...Array(2)].map((_, i) => (
-                <p key={i} className="flex shrink-0 items-center justify-center gap-2.5 px-4 text-center sm:gap-3.5">
-                  <Sparkle className="hidden size-3 shrink-0 announce-gold-text drop-shadow-sm sm:block" aria-hidden />
-                  <span className="font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
-                    {announcement}
-                  </span>
-                  <Sparkle className="hidden size-3 shrink-0 announce-gold-text drop-shadow-sm sm:block" aria-hidden />
-                </p>
-              ))}
+          {/* Center announcement — marquee on mobile, static on desktop */}
+          <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
+            <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
+              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+              <span className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-[var(--announce-foreground)]">
+                {announcement}
+              </span>
+              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+            </p>
+            <div className="group relative w-full lg:hidden" aria-label="Announcement">
+              <div className="announce-marquee group-hover:announce-marquee-pause">
+                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  {announcement}
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                </span>
+                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  {announcement}
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="hidden flex-1 lg:block" />
+          {/* Desktop right trust badge */}
+          <div className="hidden flex-1 items-center justify-end gap-2 lg:flex">
+            <span className="announce-pill">
+              <BadgeCheck className="size-3 announce-gold-text" aria-hidden />
+              2500+ families served
+            </span>
+          </div>
         </div>
       </div>
 

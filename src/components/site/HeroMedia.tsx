@@ -67,7 +67,7 @@ export function HeroMedia({ slides }: { slides: HeroSlide[] }) {
                 fetchPriority={i === 0 ? "high" : "auto"}
                 loading={i === 0 ? "eager" : "lazy"}
                 decoding={i === 0 ? "sync" : "async"}
-                className={`size-full object-cover object-[center_25%] sm:object-center transition-transform duration-[8000ms] ease-out ${
+                className={`size-full object-cover object-[center_30%] sm:object-center transition-transform duration-[8000ms] ease-out ${
                   active ? "scale-105" : "scale-100"
                 }`}
               />
@@ -76,7 +76,7 @@ export function HeroMedia({ slides }: { slides: HeroSlide[] }) {
         );
       })}
 
-      <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/45 to-foreground/70" />
+      <div className="absolute inset-0 bg-gradient-to-b from-foreground/45 via-foreground/25 to-foreground/65 sm:from-foreground/60 sm:via-foreground/35 sm:to-foreground/70" />
 
       {count > 1 && (
         <>
@@ -96,7 +96,7 @@ export function HeroMedia({ slides }: { slides: HeroSlide[] }) {
           >
             <ChevronRight className="size-5" />
           </button>
-          <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 sm:bottom-5">
             {slides.map((slide, i) => (
               <button
                 key={slide.id}
