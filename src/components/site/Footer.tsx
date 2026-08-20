@@ -26,8 +26,8 @@ export function Footer() {
 
   return (
     <footer className="mt-20 border-t border-border bg-muted/50">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="lg:col-span-2">
           <div className="flex items-center gap-2">
             <img
               src={logo}
@@ -62,7 +62,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Shop</h2>
+          <h2 className="text-sm font-semibold">Shop & Company</h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             {(categories ?? []).map((c) => (
               <li key={c.slug}>
@@ -75,12 +75,6 @@ export function Footer() {
                 </Link>
               </li>
             ))}
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="text-sm font-semibold">Company</h2>
-          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>
               <Link to="/about" className="transition hover:text-primary">
                 About us
@@ -91,29 +85,30 @@ export function Footer() {
                 Contact
               </Link>
             </li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-semibold">Legal Policies</h2>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>
-              <Link to="/shop" className="transition hover:text-primary">
-                All products
+              <Link to="/privacy-policy" className="transition hover:text-primary">
+                Privacy Policy
               </Link>
             </li>
             <li>
-              <Link to="/cart" className="transition hover:text-primary">
-                Your bag
+              <Link to="/terms-conditions" className="transition hover:text-primary">
+                Terms and Conditions
               </Link>
             </li>
             <li>
-              <Link to="/profile" className="transition hover:text-primary">
-                My profile
+              <Link to="/cancellation-refund" className="transition hover:text-primary">
+                Cancellation and Refund
               </Link>
             </li>
             <li>
-              <Link to="/wishlist" className="transition hover:text-primary">
-                My wishlist
-              </Link>
-            </li>
-            <li>
-              <Link to="/returns" className="transition hover:text-primary">
-                Refund &amp; Return Policy
+              <Link to="/shipping-delivery" className="transition hover:text-primary">
+                Shipping and Delivery
               </Link>
             </li>
           </ul>

@@ -13,12 +13,16 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CancellationRefundRouteImport } from './routes/cancellation-refund'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as PosTestRouteImport } from './routes/pos-test'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ReturnsRouteImport } from './routes/returns'
+import { Route as ShippingDeliveryRouteImport } from './routes/shipping-delivery'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsConditionsRouteImport } from './routes/terms-conditions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedCheckoutRouteImport } from './routes/_authenticated/checkout'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
@@ -45,6 +49,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CancellationRefundRoute = CancellationRefundRouteImport.update({
+  id: '/cancellation-refund',
+  path: '/cancellation-refund',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
@@ -60,9 +69,19 @@ const PosTestRoute = PosTestRouteImport.update({
   path: '/pos-test',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReturnsRoute = ReturnsRouteImport.update({
   id: '/returns',
   path: '/returns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShippingDeliveryRoute = ShippingDeliveryRouteImport.update({
+  id: '/shipping-delivery',
+  path: '/shipping-delivery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -73,6 +92,11 @@ const ShopRoute = ShopRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsConditionsRoute = TermsConditionsRouteImport.update({
+  id: '/terms-conditions',
+  path: '/terms-conditions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -110,12 +134,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/pos-test': typeof PosTestRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
+  '/shipping-delivery': typeof ShippingDeliveryRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-conditions': typeof TermsConditionsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
@@ -127,12 +155,16 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/pos-test': typeof PosTestRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
+  '/shipping-delivery': typeof ShippingDeliveryRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-conditions': typeof TermsConditionsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout': typeof AuthenticatedCheckoutRoute
   '/orders': typeof AuthenticatedOrdersRoute
@@ -146,12 +178,16 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/pos-test': typeof PosTestRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
+  '/shipping-delivery': typeof ShippingDeliveryRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-conditions': typeof TermsConditionsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/checkout': typeof AuthenticatedCheckoutRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
@@ -165,12 +201,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
+    | '/cancellation-refund'
     | '/cart'
     | '/contact'
     | '/pos-test'
+    | '/privacy-policy'
     | '/returns'
+    | '/shipping-delivery'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms-conditions'
     | '/admin'
     | '/checkout'
     | '/orders'
@@ -182,12 +222,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/auth'
+    | '/cancellation-refund'
     | '/cart'
     | '/contact'
     | '/pos-test'
+    | '/privacy-policy'
     | '/returns'
+    | '/shipping-delivery'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms-conditions'
     | '/admin'
     | '/checkout'
     | '/orders'
@@ -200,12 +244,16 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/auth'
+    | '/cancellation-refund'
     | '/cart'
     | '/contact'
     | '/pos-test'
+    | '/privacy-policy'
     | '/returns'
+    | '/shipping-delivery'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms-conditions'
     | '/_authenticated/admin'
     | '/_authenticated/checkout'
     | '/_authenticated/orders'
@@ -219,12 +267,16 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
+  CancellationRefundRoute: typeof CancellationRefundRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
   PosTestRoute: typeof PosTestRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReturnsRoute: typeof ReturnsRoute
+  ShippingDeliveryRoute: typeof ShippingDeliveryRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsConditionsRoute: typeof TermsConditionsRoute
   ProductIdRoute: typeof ProductIdRoute
 }
 
@@ -258,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cancellation-refund': {
+      id: '/cancellation-refund'
+      path: '/cancellation-refund'
+      fullPath: '/cancellation-refund'
+      preLoaderRoute: typeof CancellationRefundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cart': {
       id: '/cart'
       path: '/cart'
@@ -279,11 +338,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PosTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/returns': {
       id: '/returns'
       path: '/returns'
       fullPath: '/returns'
       preLoaderRoute: typeof ReturnsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipping-delivery': {
+      id: '/shipping-delivery'
+      path: '/shipping-delivery'
+      fullPath: '/shipping-delivery'
+      preLoaderRoute: typeof ShippingDeliveryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -298,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms-conditions': {
+      id: '/terms-conditions'
+      path: '/terms-conditions'
+      fullPath: '/terms-conditions'
+      preLoaderRoute: typeof TermsConditionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -369,12 +449,16 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
+  CancellationRefundRoute: CancellationRefundRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
   PosTestRoute: PosTestRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReturnsRoute: ReturnsRoute,
+  ShippingDeliveryRoute: ShippingDeliveryRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsConditionsRoute: TermsConditionsRoute,
   ProductIdRoute: ProductIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { GripVertical, Images, Star, Trash2, Upload } from "lucide-react";
-import { ageGroups, useCategories, type Product } from "@/lib/store";
+import { ageGroups, useCategories, useProducts, type Product } from "@/lib/store";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
 import { useUploadToLibrary } from "@/lib/media-library";
 
@@ -70,6 +70,7 @@ export function ProductForm({
   const [draft, setDraft] = useState<ProductDraft>(toDraft(product, defaultCategory));
 
   const { data: categories } = useCategories();
+  const { data: allProducts } = useProducts();
   const [uploading, setUploading] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [picker, setPicker] = useState(false);
@@ -129,7 +130,7 @@ export function ProductForm({
           }
         />
       )}
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-card p-6">
+      <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto overflow-x-hidden rounded-3xl border border-border bg-card p-6 flex flex-col">
         <h2 className="font-display text-xl font-bold">
           {product ? "Edit product" : "Add product"}
         </h2>
@@ -233,21 +234,39 @@ export function ProductForm({
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-semibold">
+          <label className="text-sm font-semibold sm:col-span-2">
             Name
             <input
               className={input}
               value={draft.name}
-              onChange={(e) => set("name", e.target.value)}
+              onChange={(e) => {
+                const newName = e.target.value;
+                setDraft((d) => ({
+                  ...d,
+                  name: newName,
+                  slug: !product
+                    ? newName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/(^-|-$)/g, "")
+                    : d.slug,
+                }));
+              }}
             />
           </label>
-          <label className="text-sm font-semibold">
+          <label className="text-sm font-semibold sm:col-span-2">
             Slug (URL id)
             <input
               className={input}
               value={draft.slug}
               onChange={(e) => set("slug", e.target.value)}
+              list="existing-slugs"
             />
+            <datalist id="existing-slugs">
+              {(allProducts ?? []).map((p) => (
+                <option key={p.id} value={p.id} />
+              ))}
+            </datalist>
           </label>
           <label className="text-sm font-semibold">
             SKU

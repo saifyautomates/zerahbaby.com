@@ -35,6 +35,8 @@ import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { POSTab } from "@/components/admin/POSTab";
+import { DashboardTab } from "@/components/admin/DashboardTab";
+import { BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -55,6 +57,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 type Tab =
+  | "dashboard"
   | "pos"
   | "products"
   | "hero"
@@ -72,7 +75,7 @@ function AdminPage() {
   const qc = useQueryClient();
   const { user } = useSession();
   const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
-  const [tab, setTab] = useState<Tab>("pos");
+  const [tab, setTab] = useState<Tab>("dashboard");
 
   async function signOut() {
     await qc.cancelQueries();
@@ -121,8 +124,8 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 lg:grid lg:grid-cols-[260px_1fr] selection:bg-primary/20">
-      <aside className="border-b border-border/50 bg-background/60 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col lg:border-b-0 lg:border-r">
+    <div className="min-h-[100dvh] bg-muted/30 lg:grid lg:grid-cols-[260px_1fr] selection:bg-primary/20">
+      <aside className="border-b border-border/50 bg-background/60 backdrop-blur-xl lg:sticky lg:top-0 lg:h-[100dvh] lg:flex lg:flex-col lg:border-b-0 lg:border-r">
         <div className="px-6 py-8">
           <p className="font-display text-2xl font-bold tracking-tight text-foreground">
             Zérah <span className="text-primary">Admin</span>
@@ -172,6 +175,7 @@ function AdminPage() {
             {TABS.find((t) => t.key === tab)?.label}
           </h1>
           <div className="mt-8 min-h-[500px] rounded-[2rem] border border-border/50 bg-background p-5 shadow-sm lg:p-8">
+            {tab === "dashboard" && <DashboardTab />}
             {tab === "pos" && <POSTab />}
             {tab === "products" && <ProductsTab />}
             {tab === "hero" && <HeroMediaManager />}
@@ -191,6 +195,7 @@ function AdminPage() {
 }
 
 const TABS = [
+  { key: "dashboard" as const, label: "Dashboard", icon: BarChart3 },
   { key: "pos" as const, label: "POS (Offline)", icon: Scan },
   { key: "products" as const, label: "Products", icon: Package },
   { key: "hero" as const, label: "Hero media", icon: Images },

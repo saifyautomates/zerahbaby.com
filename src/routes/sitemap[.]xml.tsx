@@ -1,4 +1,4 @@
-// 
+//
 import { createFileRoute } from "@tanstack/react-router";
 
 const STATIC_PATHS: Array<{ path: string; priority: string; changefreq: string }> = [

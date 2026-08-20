@@ -384,7 +384,7 @@ export function MediaLibraryPicker({
       aria-modal="true"
       aria-label={title}
     >
-      <div className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-background p-6 shadow-2xl">
+      <div className="max-h-[90dvh] w-full max-w-5xl overflow-y-auto overflow-x-hidden rounded-3xl bg-background p-6 shadow-2xl flex flex-col">
         <h2 className="font-display text-xl font-bold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Reuse any photo or video you've already uploaded.

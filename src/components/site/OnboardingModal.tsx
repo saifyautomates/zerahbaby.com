@@ -60,7 +60,7 @@ export function OnboardingModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-lg">
+      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-3xl border border-border bg-card p-8 shadow-lg flex flex-col">
         <h2 className="text-center font-display text-2xl font-bold">Welcome to Zerah!</h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
           Please provide a few details so you don't have to enter them later.

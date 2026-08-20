@@ -252,7 +252,7 @@ export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-label="Manage hero media"
     >
-      <div className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-background p-6 shadow-2xl">
+      <div className="max-h-[90dvh] w-full max-w-4xl overflow-y-auto overflow-x-hidden rounded-3xl bg-background p-6 shadow-2xl flex flex-col">
         <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Photos and videos shown behind the homepage headline.

@@ -15,7 +15,7 @@ export function PrintLabelsModal({
       className="fixed inset-0 z-[100] grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
     >
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
+      <div className="flex max-h-[90dvh] overflow-y-auto overflow-x-hidden w-full max-w-5xl flex-col rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
         <div className="flex items-center justify-between border-b border-border/50 p-6 print:hidden">
           <div>
             <h2 className="font-display text-2xl font-bold">Print Product Labels</h2>

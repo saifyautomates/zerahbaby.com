@@ -27,7 +27,7 @@ export function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 text-center shadow-xl"
+        className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-3xl border border-border bg-card p-6 text-center shadow-xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <span

@@ -737,6 +737,25 @@ export type Database = {
         Args: { _code: string; _order_total: number; _user_id: string };
         Returns: Json;
       };
+      place_order: {
+        Args: {
+          _full_name: string;
+          _email: string;
+          _phone: string;
+          _alt_phone?: string;
+          _address?: string;
+          _address_line2?: string;
+          _landmark?: string;
+          _city?: string;
+          _state?: string;
+          _pincode?: string;
+          _payment_method?: string;
+          _notes?: string;
+          _coupon_code?: string | null;
+          _items?: Json;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       app_role: "admin" | "user";

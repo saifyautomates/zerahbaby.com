@@ -31,6 +31,8 @@ export function POSTab() {
   const [checkoutMode, setCheckoutMode] = useState<"idle" | "cash" | "online" | "processing">(
     "idle",
   );
+  const [lastScanned, setLastScanned] = useState({ name: "", price: "" });
+  const [selectedItem, setSelectedItem] = useState<Product | null>(null);
 
   // -- Cart Calculations --
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -95,6 +97,7 @@ export function POSTab() {
       return [...prev, { ...product, qty: 1 }];
     });
 
+    setLastScanned({ name: product.name, price: product.price.toString() });
     toast.success(`Added ${product.name}`);
   };
 
@@ -159,7 +162,7 @@ export function POSTab() {
   });
 
   return (
-    <div className="flex h-[85vh] lg:h-[80vh] flex-col overflow-hidden rounded-2xl border border-border/50 bg-background lg:flex-row">
+    <div className="flex h-[85dvh] lg:h-[80dvh] flex-col overflow-hidden rounded-2xl border border-border/50 bg-background lg:flex-row">
       {/* Left: Cart & Scanning */}
       <div className="flex flex-1 flex-col border-r border-border/50">
         <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 p-4">
@@ -182,7 +185,8 @@ export function POSTab() {
               {cart.map((item) => (
                 <li
                   key={item.uuid}
-                  className="flex items-center gap-4 rounded-xl border border-border/50 bg-card p-3 shadow-sm"
+                  onClick={() => setSelectedItem(item)}
+                  className="flex cursor-pointer items-center gap-4 rounded-xl border border-border/50 bg-card p-3 shadow-sm hover:border-primary transition-colors"
                 >
                   <img src={item.image} alt="" className="size-16 rounded-lg object-cover" />
                   <div className="flex-1">
@@ -191,7 +195,10 @@ export function POSTab() {
                     <p className="mt-1 font-semibold">{formatPrice(item.price)}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center rounded-lg border border-border">
+                    <div
+                      className="flex items-center rounded-lg border border-border"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => updateQty(item.uuid, -1)}
                         className="p-1 hover:bg-muted"
@@ -207,7 +214,10 @@ export function POSTab() {
                       </button>
                     </div>
                     <button
-                      onClick={() => removeFromCart(item.uuid)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFromCart(item.uuid);
+                      }}
                       className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
                     >
                       <Trash2 className="size-4" />
@@ -220,31 +230,169 @@ export function POSTab() {
         </div>
       </div>
 
+      {/* Product Details Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-3xl bg-background shadow-2xl flex flex-col">
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+            >
+              ×
+            </button>
+            <div className="h-64 w-full bg-muted">
+              <img
+                src={selectedItem.image}
+                alt={selectedItem.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="p-6">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {selectedItem.brand}
+                </span>
+                <span className="text-sm font-bold text-primary">{selectedItem.sku}</span>
+              </div>
+              <h2 className="mb-1 font-display text-2xl font-bold">{selectedItem.name}</h2>
+              <div className="mb-4 text-xl font-bold text-primary">
+                {formatPrice(selectedItem.price)}
+              </div>
+
+              <div className="mb-6 space-y-2 text-sm text-muted-foreground">
+                <p>
+                  <strong>Category:</strong> {selectedItem.category}
+                </p>
+                <p>
+                  <strong>Age Group:</strong> {selectedItem.ageGroup}
+                </p>
+                <p>
+                  <strong>Stock:</strong> {selectedItem.stock} remaining
+                </p>
+                {selectedItem.description && (
+                  <div className="mt-4 border-t pt-4">
+                    <strong>Description:</strong>
+                    <p className="mt-1">{selectedItem.description}</p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="w-full rounded-xl bg-slate-900 py-3 font-bold text-white transition hover:bg-slate-800"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Right: Checkout & Customer */}
       <div className="flex w-full flex-col bg-muted/10 lg:w-96">
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mb-4">
-            Customer Details
-          </h3>
-          <div className="space-y-3">
-            <input
-              placeholder="Full Name"
-              value={customer.full_name}
-              onChange={(e) => setCustomer({ ...customer, full_name: e.target.value })}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              placeholder="Phone Number"
-              value={customer.phone}
-              onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              placeholder="Email (Optional)"
-              value={customer.email}
-              onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
+          <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm border border-border/50">
+            <h2 className="font-display text-xl font-bold">Customer Details</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Fill in information to place an order
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Full Name <span className="text-destructive">*</span>
+                </label>
+                <input
+                  placeholder="Enter full name"
+                  value={customer.full_name}
+                  onChange={(e) => setCustomer({ ...customer, full_name: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  WhatsApp Number <span className="text-destructive">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1 rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-sm">
+                    <span>🇮🇳</span>
+                    <span>+91</span>
+                  </div>
+                  <input
+                    placeholder="9XXXXXXXXX"
+                    value={customer.phone}
+                    onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                    className="flex-1 rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Product Name <span className="text-destructive">*</span>
+                </label>
+                <input
+                  placeholder="What would you like to order?"
+                  value={lastScanned.name}
+                  onChange={(e) => setLastScanned({ ...lastScanned, name: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Price (₹) <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={lastScanned.price}
+                  onChange={(e) => setLastScanned({ ...lastScanned, price: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                />
+              </div>
+
+              {/* Manual Add Button for custom items not in DB */}
+              <button
+                onClick={() => {
+                  if (lastScanned.name && lastScanned.price) {
+                    setCart((prev) => [
+                      ...prev,
+                      {
+                        uuid: crypto.randomUUID(),
+                        id: `custom-${Date.now()}`,
+                        name: lastScanned.name,
+                        sku: "CUSTOM",
+                        price: Number(lastScanned.price),
+                        mrp: Number(lastScanned.price),
+                        stock: 999,
+                        qty: 1,
+                        image: "https://via.placeholder.com/150",
+                        brand: "Custom",
+                        category: "custom",
+                        ageGroup: "all",
+                        rating: 5,
+                        reviews: 0,
+                        images: [],
+                        description: "",
+                        highlights: [],
+                        isFeatured: false,
+                        isActive: true,
+                        sortOrder: 0,
+                      },
+                    ]);
+                    toast.success(`Added ${lastScanned.name}`);
+                    setLastScanned({ name: "", price: "" });
+                  } else {
+                    toast.error("Please enter product name and price");
+                  }
+                }}
+                className="w-full rounded-xl bg-pink-100 py-2 text-sm font-bold text-pink-700 hover:bg-pink-200 transition-colors"
+              >
+                Add Custom Item to Cart
+              </button>
+            </div>
           </div>
 
           <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mt-8 mb-4">

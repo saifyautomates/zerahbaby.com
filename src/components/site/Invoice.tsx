@@ -39,7 +39,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
       role="dialog"
       aria-modal="true"
     >
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-white p-8 text-slate-900 shadow-2xl print:max-h-none print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto overflow-x-hidden rounded-3xl border border-border bg-white p-8 text-slate-900 shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none flex flex-col">
         {/* Header section */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6 print:border-slate-300">
           <div>
