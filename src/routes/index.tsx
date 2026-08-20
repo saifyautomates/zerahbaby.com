@@ -194,14 +194,17 @@ function Index() {
         </ul>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8">
-        <div className="flex items-end justify-between">
-          <h2 className="font-display text-2xl font-bold">Shop by category</h2>
+      <section className="w-full py-10">
+        <div className="mx-auto flex max-w-7xl items-end justify-between px-4 sm:px-6 lg:px-8">
+          <div>
+            <h2 className="font-display text-2xl font-bold sm:text-3xl">Shop by category</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Explore all curated collections for babies and kids</p>
+          </div>
           <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
             View all
           </Link>
         </div>
-        <div className="mt-6">
+        <div className="mt-6 w-full">
           <CategoryCarousel categories={categories ?? []} />
         </div>
       </section>

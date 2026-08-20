@@ -63,7 +63,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
 
   return (
     <div
-      className="relative"
+      className="relative w-full overflow-hidden"
       onMouseEnter={() => (paused.current = true)}
       onMouseLeave={() => (paused.current = false)}
       onTouchStart={() => (paused.current = true)}
@@ -71,10 +71,10 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
       onFocusCapture={() => (paused.current = true)}
       onBlurCapture={() => (paused.current = false)}
     >
-      <span className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-background to-transparent sm:w-12" />
-      <span className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-background to-transparent sm:w-12" />
-      <div ref={viewportRef} className="overflow-hidden">
-        <div ref={trackRef} className="flex w-max gap-4 will-change-transform sm:gap-5">
+      <span className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background to-transparent sm:w-16 lg:w-24" />
+      <span className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background to-transparent sm:w-16 lg:w-24" />
+      <div ref={viewportRef} className="w-full overflow-hidden px-4 sm:px-6 lg:px-8">
+        <div ref={trackRef} className="flex w-max gap-4 will-change-transform sm:gap-6">
           {loop.map((c, i) => (
             <Link
               key={`${c.slug}-${i}`}
@@ -83,7 +83,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               search={{ category: c.slug }}
               aria-hidden={i >= categories.length}
               tabIndex={i >= categories.length ? -1 : 0}
-              className="group relative w-[62vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[280px] lg:w-[320px]"
+              className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
             >
               <img
                 src={c.image}
@@ -96,10 +96,10 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               />
               <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
               <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">
-                <h3 className="font-display text-2xl font-bold tracking-tight text-white">
+                <h3 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   {c.name}
                 </h3>
-                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/80">{c.tagline}</p>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/85 sm:text-base">{c.tagline}</p>
                 <div className="mt-5 overflow-hidden">
                   <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
                     Shop now <ChevronRight className="size-4" />
@@ -115,17 +115,17 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         type="button"
         aria-label="Previous categories"
         onClick={() => nudge(-1)}
-        className="absolute left-1 top-1/2 z-20 hidden size-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-lg transition hover:bg-muted md:grid"
+        className="absolute left-3 top-1/2 z-20 hidden size-12 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-xl backdrop-blur transition hover:scale-110 hover:bg-muted md:grid"
       >
-        <ChevronLeft className="size-5" />
+        <ChevronLeft className="size-6" />
       </button>
       <button
         type="button"
         aria-label="Next categories"
         onClick={() => nudge(1)}
-        className="absolute right-1 top-1/2 z-20 hidden size-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-lg transition hover:bg-muted md:grid"
+        className="absolute right-3 top-1/2 z-20 hidden size-12 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-xl backdrop-blur transition hover:scale-110 hover:bg-muted md:grid"
       >
-        <ChevronRight className="size-5" />
+        <ChevronRight className="size-6" />
       </button>
     </div>
   );
