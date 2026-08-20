@@ -84,7 +84,7 @@ function ProductPage() {
   const shareWhatsApp = () => {
     if (!product) return;
     const text = encodeURIComponent(
-      `Check out ${product.name} on Zérah Baby And Kids!\n\n${window.location.href}`,
+      `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}\n\nShop here: ${window.location.href}`,
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
@@ -99,7 +99,7 @@ function ProductPage() {
     const url = window.location.href;
     const shareData = {
       title: product.name,
-      text: `Check out ${product.name} on Zérah Baby And Kids!`,
+      text: `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}`,
       url,
     };
     try {
