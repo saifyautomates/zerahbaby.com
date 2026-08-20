@@ -72,14 +72,30 @@ export function Header() {
             </span>
           </div>
 
-          {/* Center announcement — always visible, mobile-optimized */}
-          <p className="flex flex-1 items-center justify-center gap-2 text-center lg:flex-none lg:shrink-0 sm:gap-3">
-            <Sparkle className="size-2.5 shrink-0 announce-gold-text sm:size-3" aria-hidden />
-            <span className="line-clamp-1 text-balance font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.28em] md:text-xs md:tracking-[0.32em]">
-              {announcement}
-            </span>
-            <Sparkle className="size-2.5 shrink-0 announce-gold-text sm:size-3" aria-hidden />
-          </p>
+          {/* Center announcement — marquee on mobile, static on desktop */}
+          <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
+            <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
+              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+              <span className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-[var(--announce-foreground)]">
+                {announcement}
+              </span>
+              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+            </p>
+            <div className="group relative w-full lg:hidden" aria-label="Announcement">
+              <div className="announce-marquee group-hover:announce-marquee-pause">
+                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  {announcement}
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                </span>
+                <span className="flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em]">
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  {announcement}
+                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                </span>
+              </div>
+            </div>
+          </div>
 
           {/* Desktop right trust badge */}
           <div className="hidden flex-1 items-center justify-end gap-2 lg:flex">
