@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus } from "lucide-react";
+import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { discountPct, formatPrice, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -58,6 +58,26 @@ function ProductPage() {
     Boolean,
   ) as string[];
   const soldOut = (product?.stock ?? 0) <= 0;
+
+  const handleShare = async () => {
+    if (!product) return;
+    const url = window.location.href;
+    const shareData = {
+      title: product.name,
+      text: `Check out ${product.name} on Zérah Baby And Kids!`,
+      url,
+    };
+    if (navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // user cancelled or error
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard!");
+    }
+  };
 
   // Track product view
   useEffect(() => {
@@ -164,7 +184,17 @@ function ProductPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {product.brand}
           </p>
-          <h1 className="mt-2 font-display text-3xl font-bold leading-tight">{product.name}</h1>
+          <div className="flex items-start justify-between gap-4 mt-2">
+            <h1 className="font-display text-3xl font-bold leading-tight">{product.name}</h1>
+            <button
+              onClick={handleShare}
+              className="focus-ring mt-1 shrink-0 rounded-full border border-border bg-background p-2.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              aria-label="Share product"
+              title="Share product"
+            >
+              <Share2 className="size-5" />
+            </button>
+          </div>
 
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 font-semibold">
