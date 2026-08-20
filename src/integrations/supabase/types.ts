@@ -660,6 +660,33 @@ export type Database = {
         }
         Relationships: []
       }
+      website_visitors: {
+        Row: {
+          id: string
+          session_id: string
+          city: string | null
+          region: string | null
+          country: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          city?: string | null
+          region?: string | null
+          country?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          city?: string | null
+          region?: string | null
+          country?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       wishlist_items: {
         Row: {
           created_at: string

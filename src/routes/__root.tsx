@@ -16,6 +16,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -146,6 +147,41 @@ function RootComponent() {
   const router = useRouter();
   const location = router.state.location;
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    // Visitor Analytics Tracking
+    const trackVisitor = async () => {
+      // Don't track admin pages or if already tracked in this session
+      if (isAdminRoute || sessionStorage.getItem("visitor_tracked")) return;
+
+      try {
+        const sessionId = crypto.randomUUID();
+        sessionStorage.setItem("visitor_tracked", "true");
+
+        // Use ipapi.co to get location
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+
+        if (data && !data.error) {
+          await supabase.from("website_visitors").insert({
+            session_id: sessionId,
+            city: data.city,
+            region: data.region,
+            country: data.country_name,
+          });
+        } else {
+          // Insert without location if fetch fails or adblocker blocks it
+          await supabase.from("website_visitors").insert({
+            session_id: sessionId,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to track visitor", err);
+      }
+    };
+
+    trackVisitor();
+  }, [isAdminRoute]);
 
   return (
     <QueryClientProvider client={queryClient}>

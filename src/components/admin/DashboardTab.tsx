@@ -12,7 +12,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Banknote, ShoppingCart, TrendingUp } from "lucide-react";
+import { Banknote, ShoppingCart, TrendingUp, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function DashboardTab() {
   const { data: orders = [], isLoading } = useAllOrders();
@@ -42,7 +44,7 @@ export function DashboardTab() {
     const today = new Date();
     const last30Days = Array.from({ length: 30 }).map((_, i) => {
       const date = subDays(today, 29 - i);
-      return { date, dateStr: format(date, "MMM dd"), online: 0, offline: 0, total: 0 };
+      return { date, dateStr: format(date, "MMM dd"), online: 0, offline: 0, total: 0, visitors: 0 };
     });
 
     orders.forEach((o) => {
@@ -85,7 +87,47 @@ export function DashboardTab() {
     };
   }, [orders]);
 
-  if (isLoading) {
+  const { data: visitors = [], isLoading: isLoadingVisitors } = useQuery({
+    queryKey: ["website_visitors"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("website_visitors").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const visitorStats = useMemo(() => {
+    const totalVisitors = visitors.length;
+    
+    // Group by location (City, State)
+    const locationCounts: Record<string, number> = {};
+    visitors.forEach((v) => {
+      if (v.city && v.region) {
+        const loc = `${v.city}, ${v.region}`;
+        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+      } else if (v.country) {
+        locationCounts[v.country] = (locationCounts[v.country] || 0) + 1;
+      }
+    });
+
+    const topLocations = Object.entries(locationCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    // Merge visitor counts into chartData
+    const chartWithVisitors = chartData.map(d => ({ ...d }));
+    visitors.forEach((v) => {
+      const visitDate = parseISO(v.created_at);
+      const dayData = chartWithVisitors.find((d) => isSameDay(d.date, visitDate));
+      if (dayData) {
+        dayData.visitors += 1;
+      }
+    });
+
+    return { totalVisitors, topLocations, chartWithVisitors };
+  }, [visitors, chartData]);
+
+  if (isLoading || isLoadingVisitors) {
     return <div className="p-8 text-center text-muted-foreground">Loading dashboard data...</div>;
   }
 
@@ -108,27 +150,28 @@ export function DashboardTab() {
         </div>
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
               <ShoppingCart className="size-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Orders
-              </p>
-              <h3 className="text-2xl font-bold">{totalOrders}</h3>
+              <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+              <h3 className="font-display text-2xl font-bold text-foreground">
+                {totalOrders}
+              </h3>
             </div>
           </div>
         </div>
+
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
-              <TrendingUp className="size-6" />
+            <div className="flex size-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+              <Users className="size-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Avg Order Value
-              </p>
-              <h3 className="text-2xl font-bold">{formatPrice(avgOrderValue)}</h3>
+              <p className="text-sm font-medium text-muted-foreground">Total Visitors</p>
+              <h3 className="font-display text-2xl font-bold text-foreground">
+                {visitorStats.totalVisitors}
+              </h3>
             </div>
           </div>
         </div>
@@ -158,89 +201,161 @@ export function DashboardTab() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      {/* Charts */}
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* Sales Chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
-          <h3 className="mb-6 font-display text-lg font-bold">Sales Overview (Last 30 Days)</h3>
-          <div className="h-[350px] w-full">
+        <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
+          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">Sales Over Time (Last 30 Days)</h2>
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="dateStr"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#6b7280" }}
+              <LineChart data={visitorStats.chartWithVisitors} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="dateStr" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 12, fill: '#888' }}
                   dy={10}
                 />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#6b7280" }}
-                  tickFormatter={(val) => `₹${val / 1000}k`}
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 12, fill: '#888' }}
+                  tickFormatter={(val) => `₹${val}`}
                 />
-                <Tooltip
-                  formatter={(value: number) => [formatPrice(value), ""]}
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
+                <Tooltip 
+                  formatter={(value: number) => [`₹${value}`, undefined]}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Legend />
-                <Line
-                  type="monotone"
-                  name="Total Sales"
-                  dataKey="total"
-                  stroke="#c64d7c"
-                  strokeWidth={3}
+                <Legend iconType="circle" />
+                <Line 
+                  type="monotone" 
+                  dataKey="online" 
+                  name="Online Sales" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3} 
                   dot={false}
-                  activeDot={{ r: 8 }}
+                  activeDot={{ r: 6 }}
                 />
-                <Line
-                  type="monotone"
-                  name="Online"
-                  dataKey="online"
-                  stroke="#6366f1"
-                  strokeWidth={2}
+                <Line 
+                  type="monotone" 
+                  dataKey="offline" 
+                  name="POS Sales" 
+                  stroke="#f97316" 
+                  strokeWidth={3} 
                   dot={false}
-                />
-                <Line
-                  type="monotone"
-                  name="Offline (POS)"
-                  dataKey="offline"
-                  stroke="#ec4899"
-                  strokeWidth={2}
-                  dot={false}
+                  activeDot={{ r: 6 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
+        {/* Visitors Chart */}
+        <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
+          <h2 className="mb-6 font-display text-lg font-semibold text-foreground">Visitors Over Time (Last 30 Days)</h2>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={visitorStats.chartWithVisitors} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="dateStr" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 12, fill: '#888' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 12, fill: '#888' }}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend iconType="circle" />
+                <Line 
+                  type="monotone" 
+                  dataKey="visitors" 
+                  name="Unique Visitors" 
+                  stroke="#10b981" 
+                  strokeWidth={3} 
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Tables Row */}
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* Top Products */}
         <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
           <h3 className="mb-6 font-display text-lg font-bold">Top Selling Products</h3>
-          {topProducts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sales data yet.</p>
-          ) : (
-            <ul className="space-y-4">
-              {topProducts.map((p, i) => (
-                <li key={p.name} className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                    #{i + 1}
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="truncate text-sm font-bold">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.qty} units sold</p>
-                  </div>
-                  <div className="text-right text-sm font-bold text-primary">
-                    {formatPrice(p.revenue)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="pb-3 font-medium">Product</th>
+                  <th className="pb-3 text-right font-medium">Revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {topProducts.map((p, i) => (
+                  <tr key={p.name} className="transition-colors hover:bg-muted/50">
+                    <td className="py-4">
+                      <p className="font-semibold text-foreground">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.qty} units sold</p>
+                    </td>
+                    <td className="py-4 text-right font-medium text-primary">
+                      {formatPrice(p.revenue)}
+                    </td>
+                  </tr>
+                ))}
+                {topProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={2} className="py-8 text-center text-sm text-muted-foreground">
+                      No sales data available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Visitor Locations */}
+        <div className="rounded-2xl border border-border/50 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Top Visitor Locations</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="pb-3 font-medium">Location (City, State)</th>
+                  <th className="pb-3 text-right font-medium">Visits</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {visitorStats.topLocations.map(([location, count]) => (
+                  <tr key={location} className="transition-colors hover:bg-muted/50">
+                    <td className="py-4 font-medium text-foreground">{location}</td>
+                    <td className="py-4 text-right tabular-nums text-muted-foreground">
+                      {count}
+                    </td>
+                  </tr>
+                ))}
+                {visitorStats.topLocations.length === 0 && (
+                  <tr>
+                    <td colSpan={2} className="py-8 text-center text-sm text-muted-foreground">
+                      No visitor data available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
