@@ -37,7 +37,6 @@ export const Route = createFileRoute("/")({
 const perks = [
   { icon: Truck, title: "Free delivery", text: "On every order above ₹999" },
   { icon: RotateCcw, title: "7-day returns", text: "Unused, unwashed, original packaging" },
-  { icon: ShieldCheck, title: "Safety tested", text: "Every product lab-checked" },
   { icon: Sparkles, title: "Gentle materials", text: "Organic & non-toxic first" },
 ];
 
@@ -81,7 +80,6 @@ function Index() {
         {hasMedia ? (
           <>
             <HeroMedia slides={slides} />
-            <div className="absolute inset-0 z-0 bg-black/40 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
           </>
         ) : (
           <>
@@ -93,22 +91,23 @@ function Index() {
         <div
           className={`relative z-10 mx-auto flex max-w-4xl flex-col items-center px-4 text-center ${
             hasMedia
-              ? "min-h-[70vh] justify-center py-24 md:min-h-[78vh] md:py-32"
-              : "py-16 sm:py-20 md:py-28"
+              ? "min-h-[74svh] justify-center py-16 sm:py-24 md:min-h-[78vh] md:py-32"
+              : "py-14 sm:py-20 md:py-28"
           }`}
         >
           <span
-            className={`rise-in inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] backdrop-blur ${
+            className={`rise-in inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] backdrop-blur sm:px-4 sm:text-xs sm:tracking-[0.18em] ${
               hasMedia
                 ? "border-background/40 bg-background/15 text-background"
                 : "border-border bg-background/80 text-primary"
             }`}
           >
-            <Sparkles className="size-3.5" /> New season · up to 40% off
+            <Sparkles className="size-3.5 shrink-0" />{" "}
+            <span className="truncate">New season · up to 40% off</span>
           </span>
           <AdminEditableText settingKey="hero_title" value={heroTitle}>
             <h1
-              className={`rise-in delay-1 mt-7 font-display text-4xl font-bold sm:text-5xl md:text-6xl ${
+              className={`rise-in delay-1 mt-6 font-display text-[2rem] font-bold leading-[1.08] sm:mt-7 sm:text-5xl md:text-6xl ${
                 hasMedia ? "text-background drop-shadow-md" : "text-foreground"
               }`}
             >
@@ -117,7 +116,7 @@ function Index() {
           </AdminEditableText>
           <AdminEditableText settingKey="hero_subtitle" value={heroSubtitle} multiline>
             <p
-              className={`rise-in delay-2 mx-auto mt-6 max-w-2xl text-base leading-relaxed md:text-lg ${
+              className={`rise-in delay-2 mx-auto mt-4 max-w-2xl text-sm leading-relaxed sm:mt-6 sm:text-base md:text-lg ${
                 hasMedia ? "text-background/90" : "text-muted-foreground"
               }`}
             >
@@ -125,7 +124,7 @@ function Index() {
             </p>
           </AdminEditableText>
 
-          <div className="rise-in delay-3 mt-10 flex flex-wrap justify-center gap-3">
+          <div className="rise-in delay-3 mt-8 flex w-full flex-col items-stretch justify-center gap-3 sm:mt-10 sm:w-auto sm:flex-row sm:flex-wrap">
             <Link
               to="/shop"
               className="focus-ring rounded-full bg-primary px-8 py-3.5 text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl"
@@ -146,17 +145,18 @@ function Index() {
           </div>
 
           <ul
-            className={`rise-in delay-4 mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold ${
+            className={`rise-in delay-4 mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold sm:mt-12 sm:gap-x-8 sm:gap-y-3 sm:text-sm ${
               hasMedia ? "text-background/90" : "text-muted-foreground"
             }`}
           >
             {[
               { icon: Truck, text: "Free delivery over ₹999" },
               { icon: RotateCcw, text: "7-day easy returns" },
-              { icon: ShieldCheck, text: "Safety lab tested" },
             ].map((f) => (
-              <li key={f.text} className="flex items-center gap-2">
-                <f.icon className={`size-4 ${hasMedia ? "text-accent" : "text-primary"}`} />
+              <li key={f.text} className="flex min-w-0 items-center gap-2">
+                <f.icon
+                  className={`size-4 shrink-0 ${hasMedia ? "text-accent" : "text-primary"}`}
+                />
                 {f.text}
               </li>
             ))}
@@ -177,7 +177,7 @@ function Index() {
       {heroEditor && <HeroMediaDialog onClose={() => setHeroEditor(false)} />}
 
       <section className="mx-auto max-w-7xl px-4 py-10">
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {perks.map((perk) => (
             <li
               key={perk.title}
