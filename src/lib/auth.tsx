@@ -28,6 +28,9 @@ export function useIsAdmin(userId: string | undefined) {
     queryKey: ["is-admin", userId],
     enabled: Boolean(userId),
     queryFn: async () => {
+      // Attempt to sync admin status from allowlist or first-boot
+      await supabase.rpc("sync_admin_from_allowlist");
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
