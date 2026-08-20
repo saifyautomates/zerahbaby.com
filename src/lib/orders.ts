@@ -184,6 +184,22 @@ export function usePlaceOrder() {
         .insert(input.items.map((item) => ({ ...item, order_id: data.id })));
       if (itemsError) throw itemsError;
 
+      // Update inventory (deduct stock)
+      for (const item of input.items) {
+        // Fetch current stock to avoid race conditions as best as possible client-side,
+        // though an RPC would be safer, this aligns with the current POSTab logic
+        const { data: product } = await supabase
+          .from("products")
+          .select("stock")
+          .eq("id", item.product_slug) // item.product_slug maps to product UUID
+          .single();
+
+        if (product) {
+          const newStock = Math.max(0, (product.stock || 0) - item.qty);
+          await supabase.from("products").update({ stock: newStock }).eq("id", item.product_slug);
+        }
+      }
+
       return data.id as string;
     },
     onSuccess: () => {
