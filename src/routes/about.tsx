@@ -82,7 +82,7 @@ function AboutPage() {
       </div>
 
       <div className="mt-12 rounded-3xl bg-secondary p-8 text-center">
-        <p className="font-display text-4xl font-bold text-primary">2500+</p>
+        <p className="font-display text-4xl font-bold text-primary">'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                        \n                                            \n                                            .</p>
         <p className="mt-1 text-sm text-muted-foreground">Families served</p>
       </div>
 
