@@ -352,6 +352,17 @@
   animation: zerah-marquee 26s linear infinite;
 }
 
+@utility announce-marquee {
+  display: inline-flex;
+  min-width: 100%;
+  animation: zerah-marquee 18s linear infinite;
+  will-change: transform;
+}
+
+@utility announce-marquee-pause {
+  animation-play-state: paused;
+}
+
 /* Page-load entrance animations */
 @utility rise-in {
   animation: zerah-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
