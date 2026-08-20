@@ -117,55 +117,29 @@ export function POSTab() {
   // -- Checkout Workflow --
   const placeOrder = useMutation({
     mutationFn: async (paymentMethod: "cash" | "upi") => {
-      // Create the order
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          user_id: null, // guest/offline
-          full_name: customer.full_name || "Offline Customer",
-          email: customer.email || "offline@zerahbaby.com",
-          phone: customer.phone || "0000000000",
-          alt_phone: "",
-          address: customer.address || "Store Walk-in",
-          address_line2: "",
-          landmark: "",
-          city: "",
-          state: "",
-          pincode: "",
-          total,
-          subtotal,
-          shipping: 0,
-          discount,
-          payment_method: paymentMethod,
-          status: "delivered", // Mark as delivered instantly for offline POS
-          notes: "Offline POS Sale",
-        })
-        .select("id")
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const items = cart.map((item) => ({
-        order_id: orderData.id,
-        product_slug: item.id,
-        name: item.name,
-        price: item.price,
+      // Build items payload for the RPC
+      const rpcItems = cart.map((item: any) => ({
+        product_slug: item.id, // the slug
         qty: item.qty,
-        image_url: item.imageUrl,
       }));
 
-      const { error: itemsError } = await supabase.from("order_items").insert(items);
-      if (itemsError) throw itemsError;
+      // Calculate subtotal from cart (this is just for the payload, RPC computes actual)
+      const subtotal = cart.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
 
-      // Update Inventory manually since we don't have a reliable DB trigger setup yet for POS in this prompt scope
-      for (const item of cart) {
-        // Calculate new stock and update the DB directly
-        const newStock = Math.max(0, item.stock - item.qty);
-        await supabase.from("products").update({ stock: newStock }).eq("id", item.uuid);
-      }
+      const { data, error } = await supabase.rpc("place_order", {
+        _full_name: customer.full_name || "POS Customer",
+        _email: customer.email || "offline@zerahbaby.com",
+        _phone: customer.phone || "0000000000",
+        _payment_method: paymentMethod,
+        _notes: "POS Order",
+        _subtotal: subtotal,
+        _shipping: 0,
+        _discount: discount || 0,
+        _items: rpcItems,
+      });
 
-      return orderData;
+      if (error) throw error;
+      return { id: (data as any).order_id, invoice_no: (data as any).invoice_no };
     },
     onSuccess: () => {
       toast.success("Order completed successfully!");

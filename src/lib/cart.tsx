@@ -188,7 +188,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return {
       lines,
       items,
-      count: lines.reduce((sum, l) => sum + l.qty, 0),
+      count: items.reduce((sum, i) => sum + i.qty, 0),
       subtotal,
       savings: items.reduce(
         (sum, i) => sum + Math.max(0, i.product.mrp - i.product.price) * i.qty,

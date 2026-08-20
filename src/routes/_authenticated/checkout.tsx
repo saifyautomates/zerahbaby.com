@@ -112,16 +112,22 @@ function CheckoutPage() {
     );
   }
 
+  const [submitting, setSubmitting] = useState(false);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return;
+    if (!user || submitting) return;
+    setSubmitting(true);
+    
     if (addressMode === "new") {
       if (!/^\d{6}$/.test(form.pincode.trim())) {
         toast.error("Enter a valid 6-digit pincode");
+        setSubmitting(false);
         return;
       }
       if (!/^[\d\s+-]{10,15}$/.test(form.phone.trim())) {
         toast.error("Enter a valid phone number");
+        setSubmitting(false);
         return;
       }
     }
@@ -202,12 +208,13 @@ function CheckoutPage() {
       navigate({ to: "/orders" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not place the order");
+      setSubmitting(false);
     }
   }
 
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary";
-  const busy = placeOrder.isPending || saveProfile.isPending;
+  const busy = placeOrder.isPending || saveProfile.isPending || submitting;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">

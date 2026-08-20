@@ -1,28 +1,59 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const BUCKET = "product-images";
-const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
 
-/** Uploads any media file (image or video) to storage and returns a long-lived URL. */
+/** Safe MIME types allowed for upload */
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
+const ALLOWED_EXTENSIONS = new Set([
+  "jpg", "jpeg", "png", "webp", "gif", "avif",
+  "mp4", "webm", "mov",
+]);
+
+/** Uploads any media file (image or video) to storage and returns a public URL. */
 export async function uploadMedia(file: File): Promise<string> {
+  // Validate MIME type
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    throw new Error(`File type "${file.type}" is not allowed. Use JPEG, PNG, WebP, GIF, MP4, or WebM.`);
+  }
+
   const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+
+  // Validate extension
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(`File extension ".${ext}" is not allowed.`);
+  }
+
+  // Cap file size at 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("File size must be under 10 MB.");
+  }
+
   const path = `${crypto.randomUUID()}.${ext}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "31536000",
     upsert: false,
-    contentType: file.type || "application/octet-stream",
+    contentType: file.type,
   });
   if (error) throw error;
 
-  const { data, error: signError } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, TEN_YEARS);
-  if (signError || !data) throw signError ?? new Error("Could not create media URL");
-  return data.signedUrl;
+  // Use public URL since bucket is public — no expiry issues
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
 
-/** Uploads an image to the product image library and returns a long-lived URL. */
+/** Uploads an image to the product image library and returns a public URL. */
 export async function uploadProductImage(file: File): Promise<string> {
   return uploadMedia(file);
 }
+

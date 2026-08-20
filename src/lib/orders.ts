@@ -37,7 +37,7 @@ export type Order = {
   order_items: OrderItem[];
 };
 
-export const orderStatuses = ["placed", "confirmed", "packed", "shipped", "delivered", "cancelled"];
+export const orderStatuses = ["pending", "confirmed", "processing", "packed", "shipped", "out_for_delivery", "delivered", "cancelled", "returned"];
 
 export type Profile = {
   id: string;
@@ -132,6 +132,12 @@ export function useCustomers(enabled: boolean) {
   });
 }
 
+/**
+ * Secure order placement via server-side RPC.
+ * The server verifies all prices from the products table, validates coupons,
+ * computes totals, and deducts stock atomically — preventing price manipulation,
+ * race conditions, and double-deduction.
+ */
 export function usePlaceOrder() {
   const qc = useQueryClient();
   return useMutation({
@@ -161,60 +167,36 @@ export function usePlaceOrder() {
         qty: number;
       }[];
     }) => {
-      const discount = input.discount ?? 0;
-      const total = input.subtotal + input.shipping - discount;
+      // Build items payload for the RPC (only slug + qty needed; server fetches prices)
+      const rpcItems = input.items.map((item) => ({
+        product_slug: item.product_slug,
+        qty: item.qty,
+      }));
 
-      const { data, error } = await supabase
-        .from("orders")
-        .insert({
-          user_id: input.userId,
-          email: input.email,
-          full_name: input.full_name,
-          phone: input.phone,
-          address: input.address,
-          address_line2: input.address_line2,
-          city: input.city,
-          state: input.state,
-          pincode: input.pincode,
-          landmark: input.landmark,
-          alt_phone: input.alt_phone,
-          payment_method: input.payment_method,
-          notes: input.notes,
-          subtotal: input.subtotal,
-          shipping: input.shipping,
-          discount,
-          coupon_code: input.coupon_code ?? null,
-          total,
-          status: "placed",
-        })
-        .select("id, invoice_no")
-        .single();
+      const { data, error } = await supabase.rpc("place_order", {
+        _full_name: input.full_name,
+        _email: input.email,
+        _phone: input.phone,
+        _alt_phone: input.alt_phone,
+        _address: input.address,
+        _address_line2: input.address_line2,
+        _landmark: input.landmark,
+        _city: input.city,
+        _state: input.state,
+        _pincode: input.pincode,
+        _payment_method: input.payment_method,
+        _notes: input.notes,
+        _coupon_code: input.coupon_code ?? null,
+        _items: rpcItems,
+      });
+
       if (error) throw error;
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(input.items.map((item) => ({ ...item, order_id: data.id })));
-      if (itemsError) throw itemsError;
-
-      // Update inventory (deduct stock)
-      for (const item of input.items) {
-        const { data: product } = await supabase
-          .from("products")
-          .select("id, stock")
-          .eq("slug", item.product_slug)
-          .maybeSingle();
-
-        if (product) {
-          const newStock = Math.max(0, (product.stock || 0) - item.qty);
-          await supabase.from("products").update({ stock: newStock }).eq("id", product.id);
-        }
-      }
-
-      return data.id as string;
+      return (data as { order_id: string }).order_id;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
