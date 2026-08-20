@@ -92,18 +92,3 @@ export function useToggleCoupon() {
     onError: (e: Error) => toast.error(e.message),
   });
 }
-
-/** Customer: validate a coupon code server-side */
-export async function validateCoupon(
-  code: string,
-  userId: string,
-  orderTotal: number,
-): Promise<{ valid: boolean; discount?: number; coupon_id?: string; error?: string }> {
-  const { data, error } = await supabase.rpc("validate_coupon", {
-    _code: code,
-    _user_id: userId,
-    _order_total: orderTotal,
-  });
-  if (error) return { valid: false, error: error.message };
-  return data as { valid: boolean; discount?: number; coupon_id?: string; error?: string };
-}

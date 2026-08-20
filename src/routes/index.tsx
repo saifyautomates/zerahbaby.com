@@ -100,8 +100,7 @@ function Index() {
                 : "border-border bg-background/80 text-primary"
             }`}
           >
-            <Sparkles className="size-3.5 shrink-0" />{" "}
-            <span>New arrivals · Baby essentials</span>
+            <Sparkles className="size-3.5 shrink-0" /> <span>New arrivals · Baby essentials</span>
           </span>
           <AdminEditableText settingKey="hero_title" value={heroTitle}>
             <h1

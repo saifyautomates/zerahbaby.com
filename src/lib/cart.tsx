@@ -1,13 +1,5 @@
 //
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useProducts, type Product } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";

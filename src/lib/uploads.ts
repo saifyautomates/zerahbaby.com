@@ -60,8 +60,3 @@ export async function uploadMedia(file: File): Promise<string> {
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
-
-/** Uploads an image to the product image library and returns a public URL. */
-export async function uploadProductImage(file: File): Promise<string> {
-  return uploadMedia(file);
-}

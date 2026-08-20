@@ -98,8 +98,7 @@ export function Header() {
             </div>
           </div>
 
-          <div className="hidden flex-1 items-center justify-end gap-2 lg:flex">
-          </div>
+          <div className="hidden flex-1 items-center justify-end gap-2 lg:flex"></div>
         </div>
       </div>
 
