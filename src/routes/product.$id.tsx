@@ -1,6 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus, Share2 } from "lucide-react";
+import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus, Share2, Link2, MessageCircle, Instagram } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { discountPct, formatPrice, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -59,7 +65,23 @@ function ProductPage() {
   ) as string[];
   const soldOut = (product?.stock ?? 0) <= 0;
 
-  const handleShare = async () => {
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    toast.success("Link copied to clipboard!");
+  };
+
+  const shareWhatsApp = () => {
+    if (!product) return;
+    const text = encodeURIComponent(`Check out ${product.name} on Zérah Baby And Kids!\n\n${window.location.href}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  const shareInstagram = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    toast.success("Link copied! Open Instagram to paste & share.");
+  };
+
+  const nativeShare = async () => {
     if (!product) return;
     const url = window.location.href;
     const shareData = {
@@ -67,16 +89,9 @@ function ProductPage() {
       text: `Check out ${product.name} on Zérah Baby And Kids!`,
       url,
     };
-    if (navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        // user cancelled or error
-      }
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Link copied to clipboard!");
-    }
+    try {
+      await navigator.share(shareData);
+    } catch (err) {}
   };
 
   // Track product view
@@ -186,14 +201,37 @@ function ProductPage() {
           </p>
           <div className="flex items-start justify-between gap-4 mt-2">
             <h1 className="font-display text-3xl font-bold leading-tight">{product.name}</h1>
-            <button
-              onClick={handleShare}
-              className="focus-ring mt-1 shrink-0 rounded-full border border-border bg-background p-2.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              aria-label="Share product"
-              title="Share product"
-            >
-              <Share2 className="size-5" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="focus-ring mt-1 shrink-0 rounded-full border border-border bg-background p-2.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Share product options"
+                  title="Share product"
+                >
+                  <Share2 className="size-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+                <DropdownMenuItem onClick={copyLink} className="cursor-pointer gap-3 rounded-lg py-2.5">
+                  <Link2 className="size-4" />
+                  <span className="font-semibold">Copy link</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={shareWhatsApp} className="cursor-pointer gap-3 rounded-lg py-2.5 text-green-600 focus:text-green-700">
+                  <MessageCircle className="size-4" />
+                  <span className="font-semibold">Share to WhatsApp</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={shareInstagram} className="cursor-pointer gap-3 rounded-lg py-2.5 text-pink-600 focus:text-pink-700">
+                  <Instagram className="size-4" />
+                  <span className="font-semibold">Share to Instagram</span>
+                </DropdownMenuItem>
+                {typeof navigator !== "undefined" && navigator.share && (
+                  <DropdownMenuItem onClick={nativeShare} className="cursor-pointer gap-3 rounded-lg py-2.5 mt-1 border-t">
+                    <Share2 className="size-4" />
+                    <span className="font-semibold">More options...</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="mt-3 flex items-center gap-2 text-sm">
