@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export function DashboardTab() {
-  const { data: orders = [], isLoading } = useAllOrders();
+  const { data: orders = [], isLoading } = useAllOrders(true);
 
   const {
     totalRevenue,

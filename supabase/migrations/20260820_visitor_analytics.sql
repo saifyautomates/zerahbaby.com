@@ -21,7 +21,7 @@ CREATE POLICY "Allow admins to view website_visitors"
     ON public.website_visitors
     FOR SELECT
     USING (
-        public.has_role('admin', auth.uid())
+        public.has_role(auth.uid(), 'admin')
     );
 
 -- Grant privileges
