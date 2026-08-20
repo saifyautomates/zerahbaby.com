@@ -96,15 +96,33 @@ function ProductPage() {
 
   const nativeShare = async () => {
     if (!product) return;
-    const url = window.location.href;
-    const shareData = {
-      title: product.name,
-      text: `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}`,
-      url,
-    };
     try {
+      let file: File | null = null;
+      
+      try {
+        // Fetch the image and convert it to a File object
+        const response = await fetch(product.image);
+        const blob = await response.blob();
+        file = new File([blob], `${product.name.replace(/[^a-z0-9]/gi, '_')}.jpg`, { type: blob.type });
+      } catch (e) {
+        console.error("Could not fetch image for sharing", e);
+      }
+
+      const url = window.location.href;
+      const shareData: ShareData = {
+        title: product.name,
+        text: `Check out ${product.name} on Zérah Baby And Kids!\n\nPrice: ${formatPrice(product.price)}\n\n${product.description}`,
+        url,
+      };
+
+      if (file && navigator.canShare && navigator.canShare({ ...shareData, files: [file] })) {
+        shareData.files = [file];
+      }
+
       await navigator.share(shareData);
-    } catch (err) {}
+    } catch (err) {
+      console.error("Error sharing", err);
+    }
   };
 
   // Track product view
