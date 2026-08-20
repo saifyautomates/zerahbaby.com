@@ -63,21 +63,31 @@ export function Header() {
       </a>
       <div className="announce-bar">
         <span className="announce-sheen" aria-hidden />
-        <div className="relative z-[3] mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
-          <div className="hidden flex-1 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] opacity-80 lg:flex">
-            <Truck className="size-3.5 announce-gold-text" aria-hidden />
-            Pan-India shipping
+        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:py-2.5">
+          {/* Desktop left trust badge */}
+          <div className="hidden flex-1 items-center gap-2 lg:flex">
+            <span className="announce-pill">
+              <Truck className="size-3 announce-gold-text" aria-hidden />
+              Pan-India shipping
+            </span>
           </div>
 
-          <p className="flex shrink-0 items-center justify-center gap-2.5 text-center sm:gap-3.5 w-full lg:w-auto">
-            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
-            <span className="line-clamp-2 text-balance font-display text-[11px] font-semibold uppercase tracking-[0.26em] sm:text-xs sm:tracking-[0.3em] md:text-[13px]">
+          {/* Center announcement — always visible, mobile-optimized */}
+          <p className="flex flex-1 items-center justify-center gap-2 text-center lg:flex-none lg:shrink-0 sm:gap-3">
+            <Sparkle className="size-2.5 shrink-0 announce-gold-text sm:size-3" aria-hidden />
+            <span className="line-clamp-1 text-balance font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.28em] md:text-xs md:tracking-[0.32em]">
               {announcement}
             </span>
-            <Sparkle className="hidden size-3 shrink-0 announce-gold-text sm:block" aria-hidden />
+            <Sparkle className="size-2.5 shrink-0 announce-gold-text sm:size-3" aria-hidden />
           </p>
 
-          <div className="hidden flex-1 lg:block" />
+          {/* Desktop right trust badge */}
+          <div className="hidden flex-1 items-center justify-end gap-2 lg:flex">
+            <span className="announce-pill">
+              <BadgeCheck className="size-3 announce-gold-text" aria-hidden />
+              2500+ families served
+            </span>
+          </div>
         </div>
       </div>
 
