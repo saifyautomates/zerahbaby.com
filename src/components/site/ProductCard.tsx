@@ -44,13 +44,17 @@ export function ProductCard({ product }: { product: Product }) {
           onClick={(e) => {
             e.preventDefault();
             toggle(product.uuid);
-            trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", { productId: product.uuid });
+            trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", {
+              productId: product.uuid,
+            });
             toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
           }}
           aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
           className="absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur transition hover:bg-background hover:scale-110"
         >
-          <Heart className={`size-4 transition ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+          <Heart
+            className={`size-4 transition ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
+          />
         </button>
       )}
 

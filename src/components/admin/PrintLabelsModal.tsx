@@ -16,7 +16,6 @@ export function PrintLabelsModal({
       role="dialog"
     >
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
-        
         <div className="flex items-center justify-between border-b border-border/50 p-6 print:hidden">
           <div>
             <h2 className="font-display text-2xl font-bold">Print Product Labels</h2>
@@ -74,10 +73,11 @@ export function PrintLabelsModal({
                   </div>
                 ))}
             </div>
-            
+
             {products.filter((p) => !p.sku).length > 0 && (
               <p className="mt-8 text-center text-sm text-destructive print:hidden">
-                Warning: {products.filter((p) => !p.sku).length} product(s) missing SKU. They are excluded from this sheet.
+                Warning: {products.filter((p) => !p.sku).length} product(s) missing SKU. They are
+                excluded from this sheet.
               </p>
             )}
           </div>

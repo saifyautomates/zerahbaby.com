@@ -103,8 +103,8 @@
   --announce-surface: linear-gradient(
     90deg,
     oklch(0.68 0.22 340) 0%,
-    oklch(0.62 0.20 300) 35%,
-    oklch(0.60 0.18 260) 65%,
+    oklch(0.62 0.2 300) 35%,
+    oklch(0.6 0.18 260) 65%,
     oklch(0.68 0.15 235) 100%
   );
   --announce-foreground: oklch(0.99 0 0);
@@ -155,7 +155,7 @@
   --announce-surface: linear-gradient(
     90deg,
     oklch(0.55 0.18 340) 0%,
-    oklch(0.50 0.16 300) 35%,
+    oklch(0.5 0.16 300) 35%,
     oklch(0.48 0.15 260) 65%,
     oklch(0.55 0.12 235) 100%
   );

@@ -1,6 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Star, Truck, RotateCcw, ShieldCheck, Minus, Plus, Share2, Link2, MessageCircle, Instagram } from "lucide-react";
+import {
+  Star,
+  Truck,
+  RotateCcw,
+  ShieldCheck,
+  Minus,
+  Plus,
+  Share2,
+  Link2,
+  MessageCircle,
+  Instagram,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +39,7 @@ export const Route = createFileRoute("/product/$id")({
   head: (ctx) => {
     const product = ctx.loaderData?.product;
     if (!product) return { meta: [{ title: "Product Not Found" }] };
-    
+
     return {
       meta: [
         { title: `${product.name} — Zerah Baby And Kids Kota` },
@@ -72,7 +83,9 @@ function ProductPage() {
 
   const shareWhatsApp = () => {
     if (!product) return;
-    const text = encodeURIComponent(`Check out ${product.name} on Zérah Baby And Kids!\n\n${window.location.href}`);
+    const text = encodeURIComponent(
+      `Check out ${product.name} on Zérah Baby And Kids!\n\n${window.location.href}`,
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
 
@@ -97,7 +110,10 @@ function ProductPage() {
   // Track product view
   useEffect(() => {
     if (product) {
-      trackEvent("product_view", { productId: product.uuid, metadata: { slug: product.id, name: product.name } });
+      trackEvent("product_view", {
+        productId: product.uuid,
+        metadata: { slug: product.id, name: product.name },
+      });
     }
   }, [product?.uuid]);
 
@@ -138,7 +154,11 @@ function ProductPage() {
           Home
         </Link>{" "}
         /{" "}
-        <Link to="/shop" search={{ category: product.category } as any} className="hover:text-primary">
+        <Link
+          to="/shop"
+          search={{ category: product.category } as any}
+          className="hover:text-primary"
+        >
           {product.category}
         </Link>{" "}
         / <span className="text-foreground">{product.name}</span>
@@ -212,20 +232,32 @@ function ProductPage() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
-                <DropdownMenuItem onClick={copyLink} className="cursor-pointer gap-3 rounded-lg py-2.5">
+                <DropdownMenuItem
+                  onClick={copyLink}
+                  className="cursor-pointer gap-3 rounded-lg py-2.5"
+                >
                   <Link2 className="size-4" />
                   <span className="font-semibold">Copy link</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={shareWhatsApp} className="cursor-pointer gap-3 rounded-lg py-2.5 text-green-600 focus:text-green-700">
+                <DropdownMenuItem
+                  onClick={shareWhatsApp}
+                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-green-600 focus:text-green-700"
+                >
                   <MessageCircle className="size-4" />
                   <span className="font-semibold">Share to WhatsApp</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={shareInstagram} className="cursor-pointer gap-3 rounded-lg py-2.5 text-pink-600 focus:text-pink-700">
+                <DropdownMenuItem
+                  onClick={shareInstagram}
+                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-pink-600 focus:text-pink-700"
+                >
                   <Instagram className="size-4" />
                   <span className="font-semibold">Share to Instagram</span>
                 </DropdownMenuItem>
                 {typeof navigator !== "undefined" && navigator.share && (
-                  <DropdownMenuItem onClick={nativeShare} className="cursor-pointer gap-3 rounded-lg py-2.5 mt-1 border-t">
+                  <DropdownMenuItem
+                    onClick={nativeShare}
+                    className="cursor-pointer gap-3 rounded-lg py-2.5 mt-1 border-t"
+                  >
                     <Share2 className="size-4" />
                     <span className="font-semibold">More options...</span>
                   </DropdownMenuItem>
@@ -301,18 +333,23 @@ function ProductPage() {
               const inCart = items.find((i) => i.product.id === product.id)?.qty || 0;
               const remaining = Math.max(0, product.stock - inCart);
               const maxed = remaining <= 0;
-              
+
               return (
                 <>
                   <button
                     disabled={soldOut || maxed || qty > remaining}
                     onClick={() => {
                       if (qty > remaining) {
-                        toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
+                        toast.error("Not enough stock", {
+                          description: `You can only add ${remaining} more.`,
+                        });
                         return;
                       }
                       add(product.id, qty);
-                      trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, from: "product_page" } });
+                      trackEvent("add_to_cart", {
+                        productId: product.uuid,
+                        metadata: { qty, from: "product_page" },
+                      });
                       toast.success("Added to bag", { description: `${qty} × ${product.name}` });
                     }}
                     className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
@@ -325,7 +362,9 @@ function ProductPage() {
                       onClick={(e) => {
                         if (qty > remaining) {
                           e.preventDefault();
-                          toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
+                          toast.error("Not enough stock", {
+                            description: `You can only add ${remaining} more.`,
+                          });
                           return;
                         }
                         add(product.id, qty);
@@ -395,7 +434,9 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
                   ))}
                 </div>
                 {review.verified_purchase && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Verified Purchase</span>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                    Verified Purchase
+                  </span>
                 )}
               </div>
               {review.title && <p className="mt-2 text-sm font-semibold">{review.title}</p>}
@@ -407,7 +448,9 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">No reviews yet. Be the first to review this product!</p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          No reviews yet. Be the first to review this product!
+        </p>
       )}
 
       {submitted && (
@@ -415,9 +458,12 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
           <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-primary/10">
             <Star className="size-6 fill-primary text-primary" />
           </div>
-          <h3 className="font-display text-xl font-bold text-foreground">Thank you for your review! 🌟</h3>
+          <h3 className="font-display text-xl font-bold text-foreground">
+            Thank you for your review! 🌟
+          </h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Your feedback helps us grow and helps other parents make great choices! If you love what we do, would you mind taking 10 seconds to share your experience on Google?
+            Your feedback helps us grow and helps other parents make great choices! If you love what
+            we do, would you mind taking 10 seconds to share your experience on Google?
           </p>
           <a
             href="https://maps.app.goo.gl/79nYYFUSWre5ymHT6"
@@ -462,11 +508,7 @@ function ReviewsSection({ product, user }: { product: any; user: any }) {
             <p className="text-sm font-semibold">Rating</p>
             <div className="mt-1 flex gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setRating(i + 1)}
-                >
+                <button key={i} type="button" onClick={() => setRating(i + 1)}>
                   <Star
                     className={`size-6 cursor-pointer transition ${i < rating ? "fill-accent text-accent" : "text-muted-foreground hover:text-accent"}`}
                   />

@@ -140,7 +140,8 @@ export function ProductForm({
             <div>
               <p className="text-sm font-semibold">Media gallery</p>
               <p className="text-xs text-muted-foreground">
-                Up to {MAX_IMAGES} photos or videos · drag to reorder · the first one is the main thumbnail
+                Up to {MAX_IMAGES} photos or videos · drag to reorder · the first one is the main
+                thumbnail
               </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
@@ -189,7 +190,14 @@ export function ProductForm({
                 className="group relative aspect-square overflow-hidden rounded-xl border border-border"
               >
                 {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
-                  <video src={url} className="size-full object-cover" playsInline muted autoPlay loop />
+                  <video
+                    src={url}
+                    className="size-full object-cover"
+                    playsInline
+                    muted
+                    autoPlay
+                    loop
+                  />
                 ) : (
                   <img src={url} alt="" loading="lazy" className="size-full object-cover" />
                 )}

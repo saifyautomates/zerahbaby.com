@@ -122,9 +122,7 @@ function ShopPage() {
         {isLoading ? (
           <ProductGridSkeleton count={8} />
         ) : visible.length === 0 ? (
-          <p className="mt-10 text-center text-sm text-muted-foreground">
-            No products found.
-          </p>
+          <p className="mt-10 text-center text-sm text-muted-foreground">No products found.</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
             {visible.map((product) => (

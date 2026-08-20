@@ -19,23 +19,23 @@ async function runTests() {
     email: testEmail,
     password,
   });
-  
+
   if (authErr) {
     console.error("❌ Auth Error:", authErr.message);
     return;
   }
-  
+
   const user = authData.user;
   if (!user || !authData.session) {
     console.error("❌ No user or session returned.");
     return;
   }
-  
+
   console.log("✅ Logged in successfully with session:", user.id);
 
   // 2. Test Profile Creation (Trigger Test)
   console.log(`\n--- 2. Testing Profile Trigger ---`);
-  await new Promise(r => setTimeout(r, 1500)); // wait for trigger
+  await new Promise((r) => setTimeout(r, 1500)); // wait for trigger
   const { data: profile, error: profErr } = await supabase
     .from("profiles")
     .select("*")
@@ -70,38 +70,37 @@ async function runTests() {
     .upsert({ user_id: user.id }, { onConflict: "user_id" })
     .select("id")
     .single();
-    
+
   if (cartErr) {
     console.error("❌ Cart Creation Error:", cartErr.message);
     return;
   }
-  
-  const { error: cartItemErr } = await supabase
-    .from("cart_items")
-    .insert({
-      cart_id: cartData.id,
-      product_id: product.id,
-      quantity: 2,
-      price_at_add: product.price
-    });
+
+  const { error: cartItemErr } = await supabase.from("cart_items").insert({
+    cart_id: cartData.id,
+    product_id: product.id,
+    quantity: 2,
+    price_at_add: product.price,
+  });
 
   if (cartItemErr) {
     console.error("❌ Cart Item Insert Error:", cartItemErr.message);
     return;
   }
-  
-  const { data: cartItems } = await supabase.from("cart_items").select("*").eq("cart_id", cartData.id);
+
+  const { data: cartItems } = await supabase
+    .from("cart_items")
+    .select("*")
+    .eq("cart_id", cartData.id);
   console.log(`✅ Cart item successfully added. Total items in cart: ${cartItems.length}`);
 
   // 5. Test Wishlist functionality
   console.log(`\n--- 5. Testing Wishlist ---`);
-  const { error: wishErr } = await supabase
-    .from("wishlists")
-    .insert({
-      user_id: user.id,
-      product_id: product.id
-    });
-    
+  const { error: wishErr } = await supabase.from("wishlists").insert({
+    user_id: user.id,
+    product_id: product.id,
+  });
+
   if (wishErr) {
     console.error("❌ Wishlist Error:", wishErr.message);
   } else {
@@ -118,7 +117,7 @@ async function runTests() {
       total_amount: product.price * 2,
       shipping_address: "123 E2E Test Lane",
       billing_address: "123 E2E Test Lane",
-      contact_phone: "1234567890"
+      contact_phone: "1234567890",
     })
     .select()
     .single();

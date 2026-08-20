@@ -72,9 +72,7 @@ function Index() {
       <section
         aria-label="Welcome to Zerah Baby And Kids"
         className={`relative isolate overflow-hidden ${
-          hasMedia
-            ? "bg-black"
-            : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
+          hasMedia ? "bg-black" : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
         }`}
       >
         {hasMedia ? (

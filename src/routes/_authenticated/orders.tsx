@@ -69,9 +69,17 @@ function OrdersPage() {
                 const product = products?.find((p) => p.id === item.product_slug);
                 return (
                   <li key={item.id} className="flex gap-4">
-                    <Link to="/product/$id" params={{ id: item.product_slug }} className="group flex flex-1 gap-4">
+                    <Link
+                      to="/product/$id"
+                      params={{ id: item.product_slug }}
+                      className="group flex flex-1 gap-4"
+                    >
                       {product ? (
-                        <img src={product.image} alt={item.name} className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80" />
+                        <img
+                          src={product.image}
+                          alt={item.name}
+                          className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80"
+                        />
                       ) : (
                         <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />
                       )}

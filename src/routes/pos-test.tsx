@@ -24,11 +24,14 @@ function PosTestRoute() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">E2E Test Environment for POS</h1>
-      <button onClick={() => setPrint(true)} className="bg-primary text-primary-foreground px-4 py-2 mb-8 rounded">
+      <button
+        onClick={() => setPrint(true)}
+        className="bg-primary text-primary-foreground px-4 py-2 mb-8 rounded"
+      >
         Open Print Labels
       </button>
       <POSTab />
-      
+
       {print && <PrintLabelsModal products={products} onClose={() => setPrint(false)} />}
     </div>
   );

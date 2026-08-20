@@ -124,10 +124,7 @@ export function Footer() {
           <div className="mt-4 flex flex-col gap-2.5 text-sm text-muted-foreground">
             <div>
               <span className="font-semibold text-foreground">Email:</span>{" "}
-              <a
-                href={`mailto:${contactEmail}`}
-                className="transition-colors hover:text-primary"
-              >
+              <a href={`mailto:${contactEmail}`} className="transition-colors hover:text-primary">
                 {contactEmail}
               </a>
             </div>
@@ -135,10 +132,7 @@ export function Footer() {
               <span className="font-semibold text-foreground">Contact NO. :</span>{" "}
               {(contactPhone || "").split(",").map((phone, i, arr) => (
                 <span key={phone}>
-                  <a
-                    href={`tel:${phone.trim()}`}
-                    className="transition-colors hover:text-primary"
-                  >
+                  <a href={`tel:${phone.trim()}`} className="transition-colors hover:text-primary">
                     {phone.trim()}
                   </a>
                   {i < arr.length - 1 && ", "}

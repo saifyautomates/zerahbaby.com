@@ -200,7 +200,7 @@ export function Header() {
                     )}
                   </>
                 )}
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -211,26 +211,35 @@ export function Header() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-1.5 text-sm font-medium truncate">
-                      {user.email}
-                    </div>
+                    <div className="px-2 py-1.5 text-sm font-medium truncate">{user.email}</div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link to="/profile" className="cursor-pointer">My profile</Link>
+                      <Link to="/profile" className="cursor-pointer">
+                        My profile
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/orders" className="cursor-pointer">My orders</Link>
+                      <Link to="/orders" className="cursor-pointer">
+                        My orders
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/wishlist" className="cursor-pointer">My wishlist</Link>
+                      <Link to="/wishlist" className="cursor-pointer">
+                        My wishlist
+                      </Link>
                     </DropdownMenuItem>
                     {isAdmin && (
                       <DropdownMenuItem asChild>
-                        <Link to="/admin" className="cursor-pointer">Admin Dashboard</Link>
+                        <Link to="/admin" className="cursor-pointer">
+                          Admin Dashboard
+                        </Link>
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
                       Sign out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -251,7 +260,9 @@ export function Header() {
                 className="focus-ring relative rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
                 aria-label={`Wishlist with ${wishlistIds.length} items`}
               >
-                <Heart className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`} />
+                <Heart
+                  className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`}
+                />
                 {wishlistIds.length > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
                     {wishlistIds.length}

@@ -148,7 +148,9 @@ function AuthPage() {
                 : "Create your account"}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
-          {mode === "forgot" ? "Enter your email and we'll send a reset link" : "Sign in to shop and track your orders"}
+          {mode === "forgot"
+            ? "Enter your email and we'll send a reset link"
+            : "Sign in to shop and track your orders"}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-1 rounded-full border border-border p-1 text-sm font-semibold">

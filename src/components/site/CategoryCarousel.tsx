@@ -96,7 +96,9 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               />
               <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
               <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">
-                <h3 className="font-display text-2xl font-bold tracking-tight text-white">{c.name}</h3>
+                <h3 className="font-display text-2xl font-bold tracking-tight text-white">
+                  {c.name}
+                </h3>
                 <p className="mt-2 line-clamp-2 text-sm font-medium text-white/80">{c.tagline}</p>
                 <div className="mt-5 overflow-hidden">
                   <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">

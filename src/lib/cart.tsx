@@ -1,5 +1,13 @@
 // @ts-nocheck
-import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { useProducts, type Product } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -192,11 +200,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
           if (!product) return prev;
-          
+
           const existing = prev.find((l) => l.id === id);
           const requestedQty = (existing?.qty || 0) + qty;
           const finalQty = Math.min(requestedQty, product.stock);
-          
+
           if (existing) {
             return prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
           }
@@ -206,7 +214,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
           if (!product) return prev;
-          
+
           const finalQty = Math.min(qty, product.stock);
           return finalQty <= 0
             ? prev.filter((l) => l.id !== id)

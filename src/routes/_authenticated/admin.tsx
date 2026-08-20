@@ -154,7 +154,8 @@ function AdminPage() {
             to="/"
             className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/50 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all duration-300 hover:border-primary/50 hover:bg-muted"
           >
-            <Store className="size-4 text-muted-foreground transition-colors group-hover:text-primary" /> View store
+            <Store className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />{" "}
+            View store
           </Link>
           <button
             onClick={signOut}
@@ -350,8 +351,12 @@ function ProductsTab() {
                     </div>
                   </td>
                   <td className="px-5 py-4 capitalize font-medium">{p.category}</td>
-                  <td className="px-5 py-4 font-semibold text-foreground">{formatPrice(p.price)}</td>
-                  <td className="px-5 py-4 text-muted-foreground/70 line-through">{formatPrice(p.mrp)}</td>
+                  <td className="px-5 py-4 font-semibold text-foreground">
+                    {formatPrice(p.price)}
+                  </td>
+                  <td className="px-5 py-4 text-muted-foreground/70 line-through">
+                    {formatPrice(p.mrp)}
+                  </td>
                   <td className="px-5 py-4">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
@@ -368,9 +373,7 @@ function ProductsTab() {
                   <td className="px-5 py-4">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
-                        p.isActive
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
+                        p.isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {p.isActive ? "Live" : "Hidden"}
@@ -400,7 +403,10 @@ function ProductsTab() {
               ))}
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center text-sm font-medium text-muted-foreground">
+                  <td
+                    colSpan={7}
+                    className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
+                  >
                     No products found.
                   </td>
                 </tr>
@@ -421,12 +427,9 @@ function ProductsTab() {
           onSave={(draft) => save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })}
         />
       )}
-      
+
       {printingLabels && (
-        <PrintLabelsModal
-          products={data ?? []}
-          onClose={() => setPrintingLabels(false)}
-        />
+        <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
       )}
     </div>
   );
@@ -886,15 +889,25 @@ function OrdersTab() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Orders</p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">{(data ?? []).length}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Orders
+          </p>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
+            {(data ?? []).length}
+          </p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Revenue</p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-primary">{formatPrice(revenue)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Revenue
+          </p>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-primary">
+            {formatPrice(revenue)}
+          </p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Awaiting action</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Awaiting action
+          </p>
           <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
             {(data ?? []).filter((o) => o.status === "placed").length}
           </p>
@@ -926,11 +939,16 @@ function OrdersTab() {
 
       <ul className="space-y-4">
         {orders.map((order) => (
-          <li key={order.id} className="relative overflow-hidden rounded-2xl border border-border/50 bg-background p-6 shadow-sm transition-all hover:shadow-md">
+          <li
+            key={order.id}
+            className="relative overflow-hidden rounded-2xl border border-border/50 bg-background p-6 shadow-sm transition-all hover:shadow-md"
+          >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <p className="font-display text-lg font-bold tracking-tight">#{order.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="font-display text-lg font-bold tracking-tight">
+                    #{order.id.slice(0, 8).toUpperCase()}
+                  </p>
                   <span className="rounded-full bg-muted/50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {order.payment_method || "cod"}
                   </span>
@@ -943,7 +961,8 @@ function OrdersTab() {
                     <p className="text-sm font-semibold">{order.full_name}</p>
                     <p className="text-sm text-muted-foreground">{order.email}</p>
                     <p className="text-sm text-muted-foreground">
-                      {order.phone} {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
+                      {order.phone}{" "}
+                      {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
                     </p>
                   </div>
                   <div>
@@ -1228,11 +1247,21 @@ function CouponsTab() {
               <tr key={c.id} className="border-t border-border align-middle">
                 <td className="px-4 py-3 font-mono font-semibold">{c.code}</td>
                 <td className="px-4 py-3">
-                  {c.discount_type === "percentage" ? `${c.discount_value}%` : `₹${c.discount_value}`}
-                  {c.maximum_discount > 0 && <span className="text-xs text-muted-foreground"> (max ₹{c.maximum_discount})</span>}
+                  {c.discount_type === "percentage"
+                    ? `${c.discount_value}%`
+                    : `₹${c.discount_value}`}
+                  {c.maximum_discount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {" "}
+                      (max ₹{c.maximum_discount})
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">₹{c.minimum_order_value}</td>
-                <td className="px-4 py-3">{c.usage_count}{c.usage_limit > 0 ? `/${c.usage_limit}` : ""}</td>
+                <td className="px-4 py-3">
+                  {c.usage_count}
+                  {c.usage_limit > 0 ? `/${c.usage_limit}` : ""}
+                </td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
@@ -1334,11 +1363,15 @@ function ReviewsTab() {
                       />
                     ))}
                   </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
-                    review.status === "approved" ? "bg-green-100 text-green-700"
-                    : review.status === "rejected" ? "bg-red-100 text-red-700"
-                    : "bg-yellow-100 text-yellow-700"
-                  }`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
+                      review.status === "approved"
+                        ? "bg-green-100 text-green-700"
+                        : review.status === "rejected"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
                     {review.status}
                   </span>
                   {review.verified_purchase && (

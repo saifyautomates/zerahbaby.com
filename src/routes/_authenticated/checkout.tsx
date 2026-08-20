@@ -34,17 +34,19 @@ function CheckoutPage() {
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
   const shipping = subtotal >= 999 ? 0 : 79;
-  
+
   const couponCode = coupon?.code || "";
   const couponDiscount = coupon?.discount || 0;
   const couponApplied = !!coupon;
-  
+
   // Local state for the input field
   const [couponInput, setCouponInput] = useState(couponCode);
   const [couponLoading, setCouponLoading] = useState(false);
   const finalTotal = total + shipping;
 
-  useEffect(() => { trackEvent("checkout_started"); }, []);
+  useEffect(() => {
+    trackEvent("checkout_started");
+  }, []);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -61,15 +63,28 @@ function CheckoutPage() {
   });
 
   const hasSavedAddress = Boolean(
-    profile && profile.full_name && profile.phone && profile.address && (profile as any).city && (profile as any).state && (profile as any).pincode
+    profile &&
+    profile.full_name &&
+    profile.phone &&
+    profile.address &&
+    (profile as any).city &&
+    (profile as any).state &&
+    (profile as any).pincode,
   );
 
   const [addressMode, setAddressMode] = useState<"saved" | "new">("new");
 
   useEffect(() => {
     if (!profile) return;
-    
-    if (profile.full_name && profile.phone && profile.address && (profile as any).city && (profile as any).state && (profile as any).pincode) {
+
+    if (
+      profile.full_name &&
+      profile.phone &&
+      profile.address &&
+      (profile as any).city &&
+      (profile as any).state &&
+      (profile as any).pincode
+    ) {
       setAddressMode("saved");
     }
 
@@ -124,60 +139,65 @@ function CheckoutPage() {
         });
       }
 
-      const orderPayload = addressMode === "saved" && profile ? {
-        userId: user.id,
-        email: user.email ?? "",
-        full_name: profile.full_name,
-        phone: profile.phone,
-        alt_phone: "",
-        address: profile.address,
-        address_line2: "",
-        landmark: "",
-        city: (profile as any).city || "",
-        state: (profile as any).state || "",
-        pincode: (profile as any).pincode || "",
-        payment_method: form.payment_method,
-        notes: form.notes.trim(),
-        subtotal,
-        shipping,
-        discount: couponDiscount,
-        coupon_code: couponApplied ? couponCode : undefined,
-        items: items.map(({ product, qty }) => ({
-          product_slug: product.id,
-          name: product.name,
-          image_url: product.imageUrl,
-          price: product.price,
-          qty,
-        })),
-      } : {
-        userId: user.id,
-        email: user.email ?? "",
-        full_name: form.full_name.trim(),
-        phone: form.phone.trim(),
-        alt_phone: form.alt_phone.trim(),
-        address: form.address.trim(),
-        address_line2: form.address_line2.trim(),
-        landmark: form.landmark.trim(),
-        city: form.city.trim(),
-        state: form.state.trim(),
-        pincode: form.pincode.trim(),
-        payment_method: form.payment_method,
-        notes: form.notes.trim(),
-        subtotal,
-        shipping,
-        discount: couponDiscount,
-        coupon_code: couponApplied ? couponCode : undefined,
-        items: items.map(({ product, qty }) => ({
-          product_slug: product.id,
-          name: product.name,
-          image_url: product.imageUrl,
-          price: product.price,
-          qty,
-        })),
-      };
+      const orderPayload =
+        addressMode === "saved" && profile
+          ? {
+              userId: user.id,
+              email: user.email ?? "",
+              full_name: profile.full_name,
+              phone: profile.phone,
+              alt_phone: "",
+              address: profile.address,
+              address_line2: "",
+              landmark: "",
+              city: (profile as any).city || "",
+              state: (profile as any).state || "",
+              pincode: (profile as any).pincode || "",
+              payment_method: form.payment_method,
+              notes: form.notes.trim(),
+              subtotal,
+              shipping,
+              discount: couponDiscount,
+              coupon_code: couponApplied ? couponCode : undefined,
+              items: items.map(({ product, qty }) => ({
+                product_slug: product.id,
+                name: product.name,
+                image_url: product.imageUrl,
+                price: product.price,
+                qty,
+              })),
+            }
+          : {
+              userId: user.id,
+              email: user.email ?? "",
+              full_name: form.full_name.trim(),
+              phone: form.phone.trim(),
+              alt_phone: form.alt_phone.trim(),
+              address: form.address.trim(),
+              address_line2: form.address_line2.trim(),
+              landmark: form.landmark.trim(),
+              city: form.city.trim(),
+              state: form.state.trim(),
+              pincode: form.pincode.trim(),
+              payment_method: form.payment_method,
+              notes: form.notes.trim(),
+              subtotal,
+              shipping,
+              discount: couponDiscount,
+              coupon_code: couponApplied ? couponCode : undefined,
+              items: items.map(({ product, qty }) => ({
+                product_slug: product.id,
+                name: product.name,
+                image_url: product.imageUrl,
+                price: product.price,
+                qty,
+              })),
+            };
 
       const orderId = await placeOrder.mutateAsync(orderPayload);
-      trackEvent("order_created", { metadata: { orderId, total: finalTotal, coupon: couponCode || null } });
+      trackEvent("order_created", {
+        metadata: { orderId, total: finalTotal, coupon: couponCode || null },
+      });
       clear();
       toast.success("Order placed! Your invoice is ready in My orders.");
       navigate({ to: "/orders" });
@@ -198,25 +218,27 @@ function CheckoutPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
         <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border p-5 sm:p-6">
           <div className="flex items-center justify-between border-b border-border pb-4">
-             <h2 className="text-lg font-bold">Delivery Address</h2>
-             {hasSavedAddress && (
-               <button 
-                 type="button" 
-                 onClick={() => setAddressMode(addressMode === 'saved' ? 'new' : 'saved')} 
-                 className="text-sm font-semibold text-primary transition hover:underline"
-               >
-                 {addressMode === 'saved' ? 'Enter a new address' : 'Use saved address'}
-               </button>
-             )}
+            <h2 className="text-lg font-bold">Delivery Address</h2>
+            {hasSavedAddress && (
+              <button
+                type="button"
+                onClick={() => setAddressMode(addressMode === "saved" ? "new" : "saved")}
+                className="text-sm font-semibold text-primary transition hover:underline"
+              >
+                {addressMode === "saved" ? "Enter a new address" : "Use saved address"}
+              </button>
+            )}
           </div>
 
           {addressMode === "saved" && profile ? (
-             <div className="rounded-xl border border-border bg-muted/30 p-5">
-                <p className="font-semibold">{profile.full_name}</p>
-                <p className="mt-2 text-sm text-muted-foreground">{profile.address}</p>
-                <p className="text-sm text-muted-foreground">{(profile as any).city}, {(profile as any).state} {(profile as any).pincode}</p>
-                <p className="mt-2 text-sm text-muted-foreground">Mobile: {profile.phone}</p>
-             </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-5">
+              <p className="font-semibold">{profile.full_name}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{profile.address}</p>
+              <p className="text-sm text-muted-foreground">
+                {(profile as any).city}, {(profile as any).state} {(profile as any).pincode}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">Mobile: {profile.phone}</p>
+            </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold">

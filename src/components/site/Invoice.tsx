@@ -55,10 +55,15 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Tax Invoice</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">
+              Tax Invoice
+            </p>
             <p className="mt-1 font-display text-2xl font-bold">{order.invoice_no ?? "—"}</p>
             <p className="mt-2 text-sm text-slate-600">
-              {new Date(order.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+              {new Date(order.created_at).toLocaleString("en-IN", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
             </p>
             <p className="mt-1 text-sm font-semibold capitalize text-slate-500">
               Order #{order.id.slice(0, 8).toUpperCase()}
@@ -86,13 +91,21 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             <p className="text-slate-600">{order.email}</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment Method</p>
-            <p className="mt-2 text-base font-bold uppercase text-slate-900">{order.payment_method || "cod"}</p>
-            <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Order Status</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Payment Method
+            </p>
+            <p className="mt-2 text-base font-bold uppercase text-slate-900">
+              {order.payment_method || "cod"}
+            </p>
+            <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+              Order Status
+            </p>
             <p className="mt-1 text-base font-bold capitalize text-slate-900">{order.status}</p>
             {order.notes && (
               <div className="mt-4 inline-block max-w-xs rounded-xl bg-amber-100 p-3 text-left sm:text-right">
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Order Note</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                  Order Note
+                </p>
                 <p className="mt-1 text-sm text-amber-900">“{order.notes}”</p>
               </div>
             )}
@@ -114,10 +127,14 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               <tr key={item.id}>
                 <td className="py-4">
                   <span className="block font-bold text-slate-900">{item.name}</span>
-                  <span className="block text-xs text-slate-500 mt-1">Ref: {item.product_slug}</span>
+                  <span className="block text-xs text-slate-500 mt-1">
+                    Ref: {item.product_slug}
+                  </span>
                 </td>
                 <td className="py-4 text-center font-medium text-slate-700">{item.qty}</td>
-                <td className="py-4 text-right font-medium text-slate-700">{formatPrice(Number(item.price))}</td>
+                <td className="py-4 text-right font-medium text-slate-700">
+                  {formatPrice(Number(item.price))}
+                </td>
                 <td className="py-4 text-right font-bold text-slate-900">
                   {formatPrice(Number(item.price) * item.qty)}
                 </td>
@@ -131,7 +148,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           <dl className="w-full max-w-sm space-y-3 rounded-2xl bg-slate-50 p-6 text-sm print:bg-transparent print:p-0">
             <div className="flex justify-between">
               <dt className="font-medium text-slate-600">Subtotal</dt>
-              <dd className="font-semibold text-slate-900">{formatPrice(Number(order.subtotal))}</dd>
+              <dd className="font-semibold text-slate-900">
+                {formatPrice(Number(order.subtotal))}
+              </dd>
             </div>
             {Number(order.discount) > 0 && (
               <div className="flex justify-between text-emerald-600">
@@ -151,7 +170,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             </div>
           </dl>
         </div>
-        
+
         {/* Footer */}
         <div className="mt-12 border-t border-slate-200 pt-6 text-center text-xs text-slate-500">
           <p>Thank you for shopping with {brandName}.</p>

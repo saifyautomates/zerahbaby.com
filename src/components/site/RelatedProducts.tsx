@@ -2,9 +2,15 @@ import { Link } from "@tanstack/react-router";
 import { useProducts, type Product } from "@/lib/store";
 import { ProductCard } from "@/components/site/ProductCard";
 
-export function RelatedProducts({ currentProductId, category }: { currentProductId: string; category: string }) {
+export function RelatedProducts({
+  currentProductId,
+  category,
+}: {
+  currentProductId: string;
+  category: string;
+}) {
   const { data: allProducts = [] } = useProducts(true);
-  
+
   const related = allProducts
     .filter((p) => p.category === category && p.id !== currentProductId)
     .slice(0, 4);

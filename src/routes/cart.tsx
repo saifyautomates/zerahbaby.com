@@ -31,7 +31,18 @@ export const Route = createFileRoute("/cart")({
 import { useState } from "react";
 
 function CartPage() {
-  const { items, subtotal, savings, total, coupon, applyCoupon, removeCoupon, setQty, remove, clear } = useCart();
+  const {
+    items,
+    subtotal,
+    savings,
+    total,
+    coupon,
+    applyCoupon,
+    removeCoupon,
+    setQty,
+    remove,
+    clear,
+  } = useCart();
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
   const [isApplying, setIsApplying] = useState(false);
@@ -143,12 +154,12 @@ function CartPage() {
                 <dd className="text-primary">−{formatPrice(savings)}</dd>
               </div>
             )}
-            
+
             {coupon ? (
               <div className="flex items-center justify-between text-green-600">
                 <dt className="flex items-center gap-2">
                   Code: {coupon.code}
-                  <button 
+                  <button
                     onClick={removeCoupon}
                     className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-destructive underline"
                   >
@@ -159,7 +170,7 @@ function CartPage() {
               </div>
             ) : (
               <div className="pt-2">
-                <form 
+                <form
                   onSubmit={async (e) => {
                     e.preventDefault();
                     if (!couponInput.trim()) return;

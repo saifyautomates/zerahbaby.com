@@ -89,10 +89,7 @@ function ContactPage() {
           <p className="font-semibold">{brandName}</p>
           <div className="flex gap-3">
             <Mail className="size-4 shrink-0 text-primary" />
-            <a
-              href={`mailto:${contactEmail}`}
-              className="transition-colors hover:text-primary"
-            >
+            <a href={`mailto:${contactEmail}`} className="transition-colors hover:text-primary">
               {contactEmail}
             </a>
           </div>

@@ -219,7 +219,10 @@ function AddressList({ userId }: { userId: string | undefined }) {
       // First unset all defaults
       await supabase.from("user_addresses").update({ is_default: false }).eq("user_id", userId!);
       // Set this one as default
-      const { error } = await supabase.from("user_addresses").update({ is_default: true }).eq("id", id);
+      const { error } = await supabase
+        .from("user_addresses")
+        .update({ is_default: true })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -244,7 +247,9 @@ function AddressList({ userId }: { userId: string | undefined }) {
               <p className="text-sm font-semibold">{addr.full_name}</p>
               <p className="text-xs text-muted-foreground">{addr.phone}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {[addr.address_line_1, addr.address_line_2, addr.landmark].filter(Boolean).join(", ")}
+                {[addr.address_line_1, addr.address_line_2, addr.landmark]
+                  .filter(Boolean)
+                  .join(", ")}
               </p>
               <p className="text-xs text-muted-foreground">
                 {[addr.city, addr.state, addr.postal_code].filter(Boolean).join(", ")}
@@ -281,7 +286,10 @@ function AddressList({ userId }: { userId: string | undefined }) {
 
       {!showForm ? (
         <button
-          onClick={() => { setEditingId(null); setShowForm(true); }}
+          onClick={() => {
+            setEditingId(null);
+            setShowForm(true);
+          }}
           className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
         >
           <Plus className="size-4" /> Add address
@@ -296,7 +304,10 @@ function AddressList({ userId }: { userId: string | undefined }) {
             setEditingId(null);
             qc.invalidateQueries({ queryKey: ["user-addresses", userId] });
           }}
-          onCancel={() => { setShowForm(false); setEditingId(null); }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingId(null);
+          }}
         />
       )}
     </div>
@@ -361,7 +372,10 @@ function AddressForm({
   return (
     <form
       className="space-y-2 rounded-xl border border-primary/30 p-3"
-      onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
     >
       <div className="grid gap-2 sm:grid-cols-2">
         <input

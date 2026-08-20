@@ -12,12 +12,15 @@ export function useRecentlyViewed(currentProductId?: string) {
       const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
       const parsed = stored ? JSON.parse(stored) : [];
       let updated = Array.isArray(parsed) ? parsed : [];
-      
+
       if (currentProductId) {
-        updated = [currentProductId, ...updated.filter(id => id !== currentProductId)].slice(0, 5);
+        updated = [currentProductId, ...updated.filter((id) => id !== currentProductId)].slice(
+          0,
+          5,
+        );
         localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
       }
-      
+
       setViewedIds(updated);
     } catch (e) {
       console.error("Failed to parse recently viewed", e);
@@ -35,8 +38,8 @@ export function RecentlyViewed({ currentProductId }: { currentProductId?: string
 
   // Map IDs to products, excluding current one if passed
   const products = viewedIds
-    .filter(id => id !== currentProductId)
-    .map(id => allProducts.find(p => p.id === id))
+    .filter((id) => id !== currentProductId)
+    .map((id) => allProducts.find((p) => p.id === id))
     .filter(Boolean)
     .slice(0, 4);
 

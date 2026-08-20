@@ -7,7 +7,7 @@ import { type Product, mapProduct, formatPrice } from "@/lib/store";
 
 export function POSTab() {
   const qc = useQueryClient();
-  
+
   // -- Products Data --
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ["admin-products"],
@@ -28,7 +28,9 @@ export function POSTab() {
     address: "",
   });
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [checkoutMode, setCheckoutMode] = useState<"idle" | "cash" | "online" | "processing">("idle");
+  const [checkoutMode, setCheckoutMode] = useState<"idle" | "cash" | "online" | "processing">(
+    "idle",
+  );
 
   // -- Cart Calculations --
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -38,7 +40,7 @@ export function POSTab() {
   useEffect(() => {
     // A barcode scanner types characters very fast and sends 'Enter' at the end.
     let timeoutId: ReturnType<typeof setTimeout>;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input field (unless they scan while focused, which we might want to handle, but usually POS scanners scan into a void).
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -53,7 +55,7 @@ export function POSTab() {
         }
       } else if (e.key.length === 1) {
         setBarcodeInput((prev) => prev + e.key);
-        
+
         // Clear input if typing is too slow (human typing vs scanner)
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
@@ -75,7 +77,7 @@ export function POSTab() {
       toast.error(`Product not found for SKU: ${sku}`);
       return;
     }
-    
+
     if (product.stock <= 0) {
       toast.error(`Product "${product.name}" is out of stock!`);
       return;
@@ -92,7 +94,7 @@ export function POSTab() {
       }
       return [...prev, { ...product, qty: 1 }];
     });
-    
+
     toast.success(`Added ${product.name}`);
   };
 
@@ -104,7 +106,7 @@ export function POSTab() {
           return { ...p, qty: newQty };
         }
         return p;
-      })
+      }),
     );
   };
 
@@ -160,12 +162,9 @@ export function POSTab() {
       for (const item of cart) {
         // Calculate new stock and update the DB directly
         const newStock = Math.max(0, item.stock - item.qty);
-        await supabase
-          .from("products")
-          .update({ stock: newStock })
-          .eq("id", item.uuid);
+        await supabase.from("products").update({ stock: newStock }).eq("id", item.uuid);
       }
-      
+
       return orderData;
     },
     onSuccess: () => {
@@ -196,7 +195,7 @@ export function POSTab() {
             Scanner Active
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4">
           {cart.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
@@ -207,7 +206,10 @@ export function POSTab() {
           ) : (
             <ul className="space-y-3">
               {cart.map((item) => (
-                <li key={item.uuid} className="flex items-center gap-4 rounded-xl border border-border/50 bg-card p-3 shadow-sm">
+                <li
+                  key={item.uuid}
+                  className="flex items-center gap-4 rounded-xl border border-border/50 bg-card p-3 shadow-sm"
+                >
                   <img src={item.image} alt="" className="size-16 rounded-lg object-cover" />
                   <div className="flex-1">
                     <p className="font-bold text-sm leading-tight">{item.name}</p>
@@ -216,11 +218,24 @@ export function POSTab() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center rounded-lg border border-border">
-                      <button onClick={() => updateQty(item.uuid, -1)} className="p-1 hover:bg-muted"><Minus className="size-3" /></button>
+                      <button
+                        onClick={() => updateQty(item.uuid, -1)}
+                        className="p-1 hover:bg-muted"
+                      >
+                        <Minus className="size-3" />
+                      </button>
                       <span className="w-8 text-center text-sm font-semibold">{item.qty}</span>
-                      <button onClick={() => updateQty(item.uuid, 1)} className="p-1 hover:bg-muted"><Plus className="size-3" /></button>
+                      <button
+                        onClick={() => updateQty(item.uuid, 1)}
+                        className="p-1 hover:bg-muted"
+                      >
+                        <Plus className="size-3" />
+                      </button>
                     </div>
-                    <button onClick={() => removeFromCart(item.uuid)} className="p-2 text-destructive hover:bg-destructive/10 rounded-lg">
+                    <button
+                      onClick={() => removeFromCart(item.uuid)}
+                      className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
+                    >
                       <Trash2 className="size-4" />
                     </button>
                   </div>
@@ -234,26 +249,33 @@ export function POSTab() {
       {/* Right: Checkout & Customer */}
       <div className="flex w-full flex-col bg-muted/10 lg:w-96">
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mb-4">Customer Details</h3>
+          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mb-4">
+            Customer Details
+          </h3>
           <div className="space-y-3">
-            <input 
-              placeholder="Full Name" 
-              value={customer.full_name} onChange={e => setCustomer({...customer, full_name: e.target.value})}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" 
+            <input
+              placeholder="Full Name"
+              value={customer.full_name}
+              onChange={(e) => setCustomer({ ...customer, full_name: e.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
-            <input 
-              placeholder="Phone Number" 
-              value={customer.phone} onChange={e => setCustomer({...customer, phone: e.target.value})}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" 
+            <input
+              placeholder="Phone Number"
+              value={customer.phone}
+              onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
-            <input 
-              placeholder="Email (Optional)" 
-              value={customer.email} onChange={e => setCustomer({...customer, email: e.target.value})}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" 
+            <input
+              placeholder="Email (Optional)"
+              value={customer.email}
+              onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
 
-          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mt-8 mb-4">Payment Summary</h3>
+          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mt-8 mb-4">
+            Payment Summary
+          </h3>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Subtotal</dt>
@@ -264,12 +286,12 @@ export function POSTab() {
               <dd>
                 <div className="flex items-center gap-1">
                   <span>- ₹</span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min="0"
-                    value={discount || ""} 
-                    onChange={e => setDiscount(Number(e.target.value))}
-                    className="w-16 rounded-md border border-border bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary" 
+                    value={discount || ""}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                    className="w-16 rounded-md border border-border bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary"
                   />
                 </div>
               </dd>
@@ -284,14 +306,14 @@ export function POSTab() {
         <div className="border-t border-border/50 bg-card p-6 shadow-[0_-4px_10px_-5px_rgba(0,0,0,0.05)]">
           {checkoutMode === "idle" && (
             <div className="grid gap-3">
-              <button 
+              <button
                 disabled={cart.length === 0}
                 onClick={() => setCheckoutMode("cash")}
                 className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
               >
                 <Banknote className="size-5" /> Pay via Cash
               </button>
-              <button 
+              <button
                 disabled={cart.length === 0}
                 onClick={() => setCheckoutMode("online")}
                 className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50"
@@ -305,8 +327,19 @@ export function POSTab() {
             <div className="text-center">
               <p className="font-bold text-lg mb-4">Collect {formatPrice(total)} in Cash</p>
               <div className="flex gap-2">
-                <button onClick={() => setCheckoutMode("idle")} className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold">Cancel</button>
-                <button onClick={() => placeOrder.mutate("cash")} disabled={placeOrder.isPending} className="flex-1 rounded-xl bg-slate-900 py-2 font-semibold text-white">Confirm</button>
+                <button
+                  onClick={() => setCheckoutMode("idle")}
+                  className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => placeOrder.mutate("cash")}
+                  disabled={placeOrder.isPending}
+                  className="flex-1 rounded-xl bg-slate-900 py-2 font-semibold text-white"
+                >
+                  Confirm
+                </button>
               </div>
             </div>
           )}
@@ -318,11 +351,23 @@ export function POSTab() {
               </div>
               <p className="font-bold">Waiting for Payment...</p>
               <p className="text-xs text-muted-foreground mt-1 mb-4">
-                Notification sent to customer. Awaiting PhonePe confirmation for {formatPrice(total)}.
+                Notification sent to customer. Awaiting PhonePe confirmation for{" "}
+                {formatPrice(total)}.
               </p>
               <div className="flex gap-2">
-                <button onClick={() => setCheckoutMode("idle")} className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold text-xs">Cancel</button>
-                <button onClick={() => placeOrder.mutate("upi")} disabled={placeOrder.isPending} className="flex-[2] rounded-xl bg-purple-600 py-2 font-semibold text-white text-sm">Force Confirm Payment</button>
+                <button
+                  onClick={() => setCheckoutMode("idle")}
+                  className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => placeOrder.mutate("upi")}
+                  disabled={placeOrder.isPending}
+                  className="flex-[2] rounded-xl bg-purple-600 py-2 font-semibold text-white text-sm"
+                >
+                  Force Confirm Payment
+                </button>
               </div>
             </div>
           )}
