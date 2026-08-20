@@ -99,21 +99,22 @@
   --sidebar-border: oklch(0.9 0.012 78);
   --sidebar-ring: oklch(0.5 0.11 25);
 
-  /* Premium announcement bar */
+  /* Premium announcement bar: warm espresso clay with antique gold accents */
   --announce-surface: linear-gradient(
     100deg,
-    oklch(0.65 0.15 340) 0%,
-    oklch(0.65 0.12 280) 50%,
-    oklch(0.65 0.15 250) 100%
+    oklch(0.38 0.08 25) 0%,
+    oklch(0.34 0.07 30) 45%,
+    oklch(0.3 0.06 35) 100%
   );
-  --announce-foreground: oklch(0.965 0.014 84);
-  --announce-gold: oklch(0.84 0.1 84);
+  --announce-foreground: oklch(0.97 0.006 80);
+  --announce-gold: oklch(0.82 0.09 78);
+  --announce-gold-soft: oklch(0.82 0.09 78 / 0.22);
   --announce-hairline: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in oklab, var(--announce-gold) 70%, transparent) 22%,
-    color-mix(in oklab, var(--announce-gold) 95%, transparent) 50%,
-    color-mix(in oklab, var(--announce-gold) 70%, transparent) 78%,
+    color-mix(in oklab, var(--announce-gold) 55%, transparent) 20%,
+    color-mix(in oklab, var(--announce-gold) 90%, transparent) 50%,
+    color-mix(in oklab, var(--announce-gold) 55%, transparent) 80%,
     transparent 100%
   );
 }
