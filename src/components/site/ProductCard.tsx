@@ -31,7 +31,11 @@ export function ProductCard({ product }: { product: Product }) {
           width={800}
           height={800}
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="aspect-square w-full object-cover transition duration-500 ease-out group-hover:scale-[1.06]"
+          className="aspect-square w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.06]"
+          onError={(e) => {
+            const el = e.target as HTMLImageElement;
+            el.style.opacity = "0";
+          }}
         />
         {discountPct(product) > 0 && (
           <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground">
@@ -50,7 +54,7 @@ export function ProductCard({ product }: { product: Product }) {
             toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
           }}
           aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          className="absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur transition hover:bg-background hover:scale-110"
+          className="press absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur transition hover:bg-background hover:scale-110"
         >
           <Heart
             className={`size-4 transition ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
@@ -59,10 +63,10 @@ export function ProductCard({ product }: { product: Product }) {
       )}
 
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground">
           {product.brand}
         </p>
-        <h3 className="mt-1 text-sm font-semibold leading-snug text-balance">
+        <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">
           <Link
             to="/product/$id"
             params={{ id: product.id }}
@@ -76,11 +80,15 @@ export function ProductCard({ product }: { product: Product }) {
           <Star className="size-3.5 fill-accent text-accent" />
           <span className="font-semibold text-foreground">{product.rating}</span>
           <span>({product.reviews.toLocaleString("en-IN")})</span>
-          <span className="ml-auto rounded-full bg-muted px-2 py-0.5">{product.ageGroup}</span>
+          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-semibold">
+            {product.ageGroup}
+          </span>
         </div>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-base font-bold">{formatPrice(product.price)}</span>
+          <span className="font-display text-base font-bold tracking-tight">
+            {formatPrice(product.price)}
+          </span>
           {product.mrp > product.price && (
             <span className="text-xs text-muted-foreground line-through">
               {formatPrice(product.mrp)}
@@ -96,7 +104,7 @@ export function ProductCard({ product }: { product: Product }) {
             trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
           }}
-          className="focus-ring mt-auto w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="focus-ring press mt-4 w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {product.stock === 0 ? "Out of stock" : "Add to bag"}
         </button>

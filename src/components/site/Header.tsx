@@ -102,7 +102,7 @@ export function Header() {
         </div>
       </div>
 
-      <div className="border-b border-border bg-background/95 backdrop-blur">
+      <div className="border-b border-border glass-header">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
           <button
             className="focus-ring -ml-1 rounded-md p-2 text-foreground transition hover:bg-muted md:hidden"
@@ -115,7 +115,7 @@ export function Header() {
 
           <Link
             to="/"
-            className="focus-ring flex min-w-0 items-center gap-2 rounded-lg transition-transform duration-300 hover:-translate-y-0.5"
+            className="focus-ring press flex min-w-0 items-center gap-2 rounded-lg transition-transform duration-200 hover:-translate-y-0.5"
           >
             <img
               src={logo}
@@ -123,6 +123,9 @@ export function Header() {
               width={40}
               height={40}
               className="size-8 object-contain sm:size-10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.opacity = "0";
+              }}
             />
             <span className="font-display text-base font-bold leading-none tracking-tight text-foreground sm:text-xl">
               Zérah <span className="text-primary">Baby</span>
@@ -243,7 +246,7 @@ export function Header() {
             ) : (
               <Link
                 to="/auth"
-                className="focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                className="focus-ring press rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
                 aria-label="Sign in"
               >
                 <User className="size-5" />
@@ -252,14 +255,14 @@ export function Header() {
             {user && (
               <Link
                 to="/wishlist"
-                className="focus-ring relative rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
                 aria-label={`Wishlist with ${wishlistIds.length} items`}
               >
                 <Heart
                   className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`}
                 />
                 {wishlistIds.length > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
                     {wishlistIds.length}
                   </span>
                 )}
@@ -267,12 +270,12 @@ export function Header() {
             )}
             <Link
               to="/cart"
-              className="focus-ring relative rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+              className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
               aria-label={`Cart with ${count} items`}
             >
               <ShoppingCart className="size-5" />
               {count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
                   {count}
                 </span>
               )}

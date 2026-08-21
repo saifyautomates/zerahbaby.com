@@ -70,6 +70,9 @@ export function HeroMedia({ slides }: { slides: HeroSlide[] }) {
                 className={`size-full object-cover object-[center_30%] sm:object-center transition-transform duration-[8000ms] ease-out ${
                   active ? "scale-105" : "scale-100"
                 }`}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
               />
             )}
           </div>

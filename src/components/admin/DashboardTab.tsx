@@ -47,11 +47,12 @@ type WebsiteVisitor = {
   city: string | null;
   region: string | null;
   country: string | null;
+  metadata?: any;
 };
 
 export function DashboardTab() {
   const [timeRange, setTimeRange] = useState("30");
-  
+
   // Real data queries
   const { data: orders = [], isLoading: isLoadingOrders } = useAllOrders(true);
   const { data: posSales = [] } = useQuery({
@@ -79,7 +80,9 @@ export function DashboardTab() {
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products-count"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, price, stock, name, image_url");
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, price, stock, name, image_url");
       if (error) return [];
       return data ?? [];
     },
@@ -100,7 +103,7 @@ export function DashboardTab() {
 
     const calculatedStockValue = products.reduce(
       (sum: number, p: any) => sum + Number(p.price || 0) * Number(p.stock || 0),
-      0
+      0,
     );
     const stockValue = calculatedStockValue;
 
@@ -131,13 +134,26 @@ export function DashboardTab() {
   }, [orders, posSales, visitors, products]);
 
   // Payment Breakdown Data for Donut Chart
-  const paymentBreakdown = stats.revenue > 0 ? [
-    { name: "Cash/Offline", value: stats.cashSales, percentage: `${((stats.cashSales/stats.revenue)*100).toFixed(1)}%`, color: "#0f172a" },
-    { name: "Online", value: stats.onlineSales, percentage: `${((stats.onlineSales/stats.revenue)*100).toFixed(1)}%`, color: "#2563eb" },
-  ] : [
-    { name: "Cash/Offline", value: 0, percentage: "0%", color: "#0f172a" },
-    { name: "Online", value: 0, percentage: "0%", color: "#2563eb" },
-  ];
+  const paymentBreakdown =
+    stats.revenue > 0
+      ? [
+          {
+            name: "Cash/Offline",
+            value: stats.cashSales,
+            percentage: `${((stats.cashSales / stats.revenue) * 100).toFixed(1)}%`,
+            color: "#0f172a",
+          },
+          {
+            name: "Online",
+            value: stats.onlineSales,
+            percentage: `${((stats.onlineSales / stats.revenue) * 100).toFixed(1)}%`,
+            color: "#2563eb",
+          },
+        ]
+      : [
+          { name: "Cash/Offline", value: 0, percentage: "0%", color: "#0f172a" },
+          { name: "Online", value: 0, percentage: "0%", color: "#2563eb" },
+        ];
 
   // Recent Orders Data
   const recentOrders = useMemo(() => {
@@ -145,13 +161,13 @@ export function DashboardTab() {
     return all
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
       .slice(0, 5)
-      .map(o => ({
+      .map((o) => ({
         id: `#${o.id.toString().substring(0, 6)}`,
         customer: o.full_name || o.customer_name || o.email || "Guest",
         date: format(new Date(o.created_at), "MMM dd, yyyy"),
         amount: Number(o.total || 0),
         status: o.status || "Completed",
-        source: o.notes?.includes("POS Order") ? "POS" : "Online"
+        source: o.notes?.includes("POS Order") ? "POS" : "Online",
       }));
   }, [orders, posSales]);
 
@@ -160,36 +176,47 @@ export function DashboardTab() {
     return [...products]
       .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
       .slice(0, 5)
-      .map(p => ({
+      .map((p) => ({
         name: p.name || "Unknown",
         sold: 0, // Need order item tracking to show real sold amount
         revenue: Number(p.price || 0),
-        icon: "📦"
+        icon: "📦",
       }));
   }, [products]);
 
   // Recent Activity Feed
   const recentActivity = useMemo(() => {
-    const activities: Array<{ title: string; time: string; icon: typeof FileText; color: string }> = [];
+    const activities: Array<{ title: string; time: string; icon: typeof FileText; color: string }> =
+      [];
     if (orders.length > 0) {
-      activities.push({ title: `New order from ${orders[0].email || 'Customer'}`, time: "Recently", icon: FileText, color: "text-blue-500 bg-blue-50" });
+      activities.push({
+        title: `New order from ${orders[0].email || "Customer"}`,
+        time: "Recently",
+        icon: FileText,
+        color: "text-blue-500 bg-blue-50",
+      });
     }
     const recentVisitors = visitors.slice(0, 3);
-    recentVisitors.forEach(v => {
+    recentVisitors.forEach((v) => {
       let loc = "";
       const meta = v.metadata as any;
       if (meta && meta.city) {
         loc = `from ${meta.city}, ${meta.region}, ${meta.country}`;
       }
-      activities.push({ 
-        title: loc ? `New visitor ${loc}` : "New visitor session recorded", 
-        time: format(new Date(v.created_at), "MMM dd, hh:mm a"), 
-        icon: Users, 
-        color: "text-cyan-500 bg-cyan-50" 
+      activities.push({
+        title: loc ? `New visitor ${loc}` : "New visitor session recorded",
+        time: format(new Date(v.created_at), "MMM dd, hh:mm a"),
+        icon: Users,
+        color: "text-cyan-500 bg-cyan-50",
       });
     });
     if (activities.length === 0) {
-      activities.push({ title: "Dashboard loaded", time: "Just now", icon: FileText, color: "text-gray-500 bg-gray-50" });
+      activities.push({
+        title: "Dashboard loaded",
+        time: "Just now",
+        icon: FileText,
+        color: "text-gray-500 bg-gray-50",
+      });
     }
     return activities;
   }, [orders, visitors]);
@@ -206,7 +233,6 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-6 text-[#1e293b]">
-      
       {/* 1. Date and Action Bar */}
       <div className="flex flex-wrap items-center justify-end gap-3 -mt-2 mb-4">
         <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition">
@@ -223,13 +249,14 @@ export function DashboardTab() {
 
       {/* 2. Top 5 Vibrant Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        
         {/* Total Revenue (Green) */}
         <div className="relative overflow-hidden rounded-2xl bg-[#16a34a] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-xs font-medium text-white/90">Total Revenue</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">{formatPrice(stats.revenue)}</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1">
+                {formatPrice(stats.revenue)}
+              </h3>
               <p className="text-[11px] text-white/80 mt-0.5">All time Sales</p>
             </div>
             <div className="opacity-20">
@@ -281,9 +308,7 @@ export function DashboardTab() {
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-white/10 text-[11px]">
-            <span className="flex items-center gap-1 font-semibold text-white">
-              Realtime
-            </span>
+            <span className="flex items-center gap-1 font-semibold text-white">Realtime</span>
             <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
               More info <Info className="h-3 w-3" />
             </span>
@@ -296,7 +321,9 @@ export function DashboardTab() {
             <div>
               <p className="text-xs font-medium text-white/90">Low Stock Items</p>
               <h3 className="text-2xl font-extrabold tracking-tight mt-1">{stats.lowStock}</h3>
-              <p className="text-[11px] text-white/80 mt-0.5">{stats.lowStock > 0 ? "Requires attention" : "All good"}</p>
+              <p className="text-[11px] text-white/80 mt-0.5">
+                {stats.lowStock > 0 ? "Requires attention" : "All good"}
+              </p>
             </div>
             <div className="opacity-20">
               <AlertTriangle className="h-10 w-10" />
@@ -331,7 +358,6 @@ export function DashboardTab() {
 
       {/* 3. Secondary 6-Item White Strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
-        
         {/* Stock Value */}
         <div className="flex items-center gap-3 p-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -404,7 +430,6 @@ export function DashboardTab() {
 
       {/* 4. Main Charts Row (3 Columns) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        
         {/* Sales Over Time */}
         <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
@@ -416,16 +441,49 @@ export function DashboardTab() {
           </div>
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.chartDays} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart
+                data={stats.chartDays}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="dateStr" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}`} />
+                <XAxis
+                  dataKey="dateStr"
+                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `₹${v}`}
+                />
                 <Tooltip
                   formatter={(val: number) => [`₹${val}`, ""]}
-                  contentStyle={{ borderRadius: "10px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", fontSize: "12px" }}
+                  contentStyle={{
+                    borderRadius: "10px",
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    fontSize: "12px",
+                  }}
                 />
-                <Line type="monotone" dataKey="online" name="Online Sales" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3, fill: "#2563eb" }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="offline" name="POS Sales" stroke="#f97316" strokeWidth={2.5} dot={{ r: 3, fill: "#f97316" }} />
+                <Line
+                  type="monotone"
+                  dataKey="online"
+                  name="Online Sales"
+                  stroke="#2563eb"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "#2563eb" }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="offline"
+                  name="POS Sales"
+                  stroke="#f97316"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "#f97316" }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -452,15 +510,36 @@ export function DashboardTab() {
           </div>
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.chartDays} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart
+                data={stats.chartDays}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="dateStr" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="dateStr"
+                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                 <Tooltip
                   formatter={(val: number) => [`${val} visitors`, ""]}
-                  contentStyle={{ borderRadius: "10px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", fontSize: "12px" }}
+                  contentStyle={{
+                    borderRadius: "10px",
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    fontSize: "12px",
+                  }}
                 />
-                <Line type="monotone" dataKey="visitors" name="Unique Visitors" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: "#10b981" }} activeDot={{ r: 5 }} />
+                <Line
+                  type="monotone"
+                  dataKey="visitors"
+                  name="Unique Visitors"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "#10b981" }}
+                  activeDot={{ r: 5 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -481,7 +560,7 @@ export function DashboardTab() {
               <ChevronDown className="h-3 w-3 text-gray-400" />
             </button>
           </div>
-          
+
           <div className="relative h-[180px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -510,11 +589,15 @@ export function DashboardTab() {
           <div className="flex items-center justify-center gap-6 mt-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-sm bg-[#0f172a]" />
-              <span className="text-gray-700 font-medium">Cash <span className="text-gray-400 text-[11px]">₹9,120 (82.5%)</span></span>
+              <span className="text-gray-700 font-medium">
+                Cash <span className="text-gray-400 text-[11px]">₹9,120 (82.5%)</span>
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-sm bg-[#2563eb]" />
-              <span className="text-gray-700 font-medium">Card <span className="text-gray-400 text-[11px]">₹1,940 (17.5%)</span></span>
+              <span className="text-gray-700 font-medium">
+                Card <span className="text-gray-400 text-[11px]">₹1,940 (17.5%)</span>
+              </span>
             </div>
           </div>
         </div>
@@ -522,7 +605,6 @@ export function DashboardTab() {
 
       {/* 5. Middle Section: Recent Orders | Top Products | Recent Activity */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        
         {/* Recent Orders */}
         <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -551,18 +633,28 @@ export function DashboardTab() {
                     <td className="py-2.5 font-bold text-gray-900">{o.id}</td>
                     <td className="py-2.5 text-gray-600">{o.customer}</td>
                     <td className="py-2.5 text-gray-400 text-[11px]">{o.date}</td>
-                    <td className="py-2.5 font-semibold text-gray-900">₹{o.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 font-semibold text-gray-900">
+                      ₹{o.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
                     <td className="py-2.5">
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${
-                        o.status === "Completed" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                      }`}>
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                          o.status === "Completed"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-amber-50 text-amber-600"
+                        }`}
+                      >
                         {o.status}
                       </span>
                     </td>
                     <td className="py-2.5">
-                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                        o.source === "Online" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
-                      }`}>
+                      <span
+                        className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                          o.source === "Online"
+                            ? "bg-blue-50 text-blue-600"
+                            : "bg-orange-50 text-orange-600"
+                        }`}
+                      >
                         {o.source}
                       </span>
                     </td>
@@ -599,12 +691,16 @@ export function DashboardTab() {
                   <tr key={p.name} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-sm">{p.icon}</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-sm">
+                          {p.icon}
+                        </span>
                         <span className="font-semibold text-gray-800">{p.name}</span>
                       </div>
                     </td>
                     <td className="py-2.5 text-center font-medium text-gray-600">{p.sold}</td>
-                    <td className="py-2.5 text-right font-bold text-gray-900">₹{p.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 text-right font-bold text-gray-900">
+                      ₹{p.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -627,7 +723,9 @@ export function DashboardTab() {
               return (
                 <div key={i} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2.5">
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${act.color}`}>
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${act.color}`}
+                    >
                       <Icon className="h-3.5 w-3.5" />
                     </div>
                     <span className="font-medium text-gray-700 line-clamp-1">{act.title}</span>
@@ -642,13 +740,14 @@ export function DashboardTab() {
 
       {/* 6. Bottom Sparkline Cards (6 Columns) */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        
         {/* Total Customers */}
         <div className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
             <p className="text-[11px] font-medium text-gray-500">Total Customers</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">128</h4>
-            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">↑ 8.5% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">
+              ↑ 8.5% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -664,7 +763,9 @@ export function DashboardTab() {
           <div>
             <p className="text-[11px] font-medium text-gray-500">Returning Customers</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">24</h4>
-            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">↑ 20% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">
+              ↑ 20% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -680,7 +781,9 @@ export function DashboardTab() {
           <div>
             <p className="text-[11px] font-medium text-gray-500">Refunds</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">₹0.00</h4>
-            <p className="text-[10px] font-semibold text-red-500 mt-0.5">↓ 0% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-red-500 mt-0.5">
+              ↓ 0% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -696,7 +799,9 @@ export function DashboardTab() {
           <div>
             <p className="text-[11px] font-medium text-gray-500">Abandoned Carts</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">7</h4>
-            <p className="text-[10px] font-semibold text-red-500 mt-0.5">↓ 5% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-red-500 mt-0.5">
+              ↓ 5% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -712,7 +817,9 @@ export function DashboardTab() {
           <div>
             <p className="text-[11px] font-medium text-gray-500">Total Products</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">156</h4>
-            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">↑ 6.2% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">
+              ↑ 6.2% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -728,7 +835,9 @@ export function DashboardTab() {
           <div>
             <p className="text-[11px] font-medium text-gray-500">Reviews</p>
             <h4 className="text-xl font-bold text-gray-900 mt-1">32</h4>
-            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">↑ 14.5% <span className="text-gray-400 font-normal">vs last 7 days</span></p>
+            <p className="text-[10px] font-semibold text-emerald-600 mt-0.5">
+              ↑ 14.5% <span className="text-gray-400 font-normal">vs last 7 days</span>
+            </p>
           </div>
           <div className="h-10 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -739,7 +848,6 @@ export function DashboardTab() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }

@@ -9,7 +9,7 @@ test.describe("Zerah Baby And Kids - Admin Security Tests", () => {
     await expect(page).toHaveURL(/.*\/auth/);
 
     // The auth page should clearly indicate you need to sign in
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
-    await expect(page.getByPlaceholder("you@email.com")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible();
+    await expect(page.getByPlaceholder(/Email or Mobile Number/i)).toBeVisible();
   });
 });

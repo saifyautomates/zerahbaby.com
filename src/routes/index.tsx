@@ -12,7 +12,15 @@ import { CategoryCarousel } from "@/components/site/CategoryCarousel";
 import { AdminAddProduct, AdminEditableText } from "@/components/admin/InlineAdmin";
 import heroFallback from "@/assets/hero-baby.jpg";
 
+import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
+
 export const Route = createFileRoute("/")({
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(productsQueryOptions(false)),
+      context.queryClient.ensureQueryData(categoriesQueryOptions()),
+    ]).catch(() => null);
+  },
   head: () => ({
     meta: [
       { title: "Zerah Baby And Kid's — Clothing, Toys, Diapers & Gear" },
@@ -124,7 +132,7 @@ function Index() {
           <div className="rise-in delay-3 mt-8 flex w-full flex-col items-stretch justify-center gap-3 sm:mt-10 sm:w-auto sm:flex-row sm:flex-wrap">
             <Link
               to="/shop"
-              className="focus-ring rounded-full bg-primary px-8 py-3.5 text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl"
+              className="focus-ring press rounded-full bg-primary px-8 py-3.5 text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl"
             >
               Shop all products
             </Link>
@@ -173,21 +181,19 @@ function Index() {
 
       {heroEditor && <HeroMediaDialog onClose={() => setHeroEditor(false)} />}
 
-      <section className="mx-auto max-w-7xl px-4 py-10">
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {perks.map((perk) => (
             <li
               key={perk.title}
-              className="flex items-center gap-3 rounded-2xl border border-border p-4"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/20 hover:shadow-sm"
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                 <perk.icon className="size-5" />
               </span>
               <span>
-                <span className="block text-sm font-semibold text-balance">{perk.title}</span>
-                <span className="block text-xs text-muted-foreground text-balance">
-                  {perk.text}
-                </span>
+                <span className="block text-sm font-bold">{perk.title}</span>
+                <span className="block text-xs text-muted-foreground">{perk.text}</span>
               </span>
             </li>
           ))}
@@ -211,9 +217,14 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8">
+      <section className="mx-auto max-w-7xl px-4 py-12">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-display text-2xl font-bold">Bestsellers</h2>
+          <div>
+            <h2 className="font-display text-2xl font-bold sm:text-3xl">Bestsellers</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Top picks loved by parents across India
+            </p>
+          </div>
           <div className="flex items-center gap-3">
             <AdminAddProduct label="Add product" />
             <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
@@ -233,12 +244,14 @@ function Index() {
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8">
-        <div className="rounded-3xl bg-secondary p-6 md:p-10">
-          <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Biggest savings across the store, refreshed every Monday.
-          </p>
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <div className="rounded-3xl bg-secondary/60 p-6 md:p-10">
+          <div>
+            <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Biggest savings across the store, refreshed every Monday.
+            </p>
+          </div>
           <AdminAddProduct label="Add a deal product" className="mt-4" />
 
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
@@ -249,9 +262,14 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
-        <h2 className="font-display text-2xl font-bold">Loved by parents</h2>
-        <div className="mt-6 grid gap-5 md:grid-cols-3">
+      <section className="mx-auto max-w-7xl px-4 py-14">
+        <div className="text-center">
+          <h2 className="font-display text-2xl font-bold sm:text-3xl">Loved by parents</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Real words from real families who shop with us
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 md:grid-cols-3">
           {[
             {
               name: "Ananya R.",
@@ -266,14 +284,19 @@ function Index() {
               text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
             },
           ].map((r) => (
-            <figure key={r.name} className="rounded-2xl border border-border p-6">
+            <figure
+              key={r.name}
+              className="rounded-2xl border border-border bg-card p-6 transition hover:border-primary/20 hover:shadow-sm"
+            >
               <div className="flex gap-0.5 text-accent">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="size-4 fill-accent" />
                 ))}
               </div>
-              <blockquote className="mt-3 text-sm text-muted-foreground">“{r.text}”</blockquote>
-              <figcaption className="mt-4 text-sm font-semibold">{r.name}</figcaption>
+              <blockquote className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                “{r.text}”
+              </blockquote>
+              <figcaption className="mt-4 text-sm font-bold">{r.name}</figcaption>
             </figure>
           ))}
         </div>

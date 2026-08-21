@@ -93,6 +93,9 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                 width={800}
                 height={1000}
                 className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
               />
               <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
               <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">

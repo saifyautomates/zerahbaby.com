@@ -6,7 +6,12 @@ import { formatPrice } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 
+import { productsQueryOptions } from "@/lib/store";
+
 export const Route = createFileRoute("/cart")({
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(productsQueryOptions(false)).catch(() => null);
+  },
   head: () => ({
     meta: [
       { title: "Your Shopping Bag — Zerah Baby And Kid's" },
@@ -57,7 +62,7 @@ function CartPage() {
         </p>
         <Link
           to="/shop"
-          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+          className="press mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
         >
           Start shopping
         </Link>
@@ -80,6 +85,9 @@ function CartPage() {
                 width={800}
                 height={800}
                 className="size-24 shrink-0 rounded-xl object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
               />
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -217,7 +225,7 @@ function CartPage() {
           {user ? (
             <Link
               to="/checkout"
-              className="mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              className="press mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
             >
               Proceed to checkout
             </Link>
@@ -226,7 +234,7 @@ function CartPage() {
               <Link
                 to="/auth"
                 onClick={() => toast.info("Please sign in to place your order")}
-                className="mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                className="press mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
               >
                 Sign in to check out
               </Link>

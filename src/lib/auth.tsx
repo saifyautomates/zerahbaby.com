@@ -1,7 +1,7 @@
 //
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/gotrue-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useSession() {

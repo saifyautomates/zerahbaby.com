@@ -200,7 +200,7 @@ function CheckoutPage() {
             };
 
       const orderId = await placeOrder.mutateAsync(orderPayload);
-      
+
       if (form.payment_method === "online") {
         setSubmitting(true);
         try {
@@ -218,7 +218,7 @@ function CheckoutPage() {
           // Create Razorpay Order
           const { data: createData, error: createError } = await supabase.functions.invoke(
             "create-razorpay-order",
-            { body: { orderId } }
+            { body: { orderId } },
           );
 
           if (createError || !createData?.rzp_order_id) {
@@ -249,19 +249,28 @@ function CheckoutPage() {
                       razorpay_payment_id: response.razorpay_payment_id,
                       razorpay_signature: response.razorpay_signature,
                     },
-                  }
+                  },
                 );
 
                 if (verifyError) throw verifyError;
 
                 trackEvent("order_created", {
-                  metadata: { orderId, total: finalTotal, coupon: couponCode || null, payment: "online" },
+                  metadata: {
+                    orderId,
+                    total: finalTotal,
+                    coupon: couponCode || null,
+                    payment: "online",
+                  },
                 });
                 clear();
-                toast.success("Payment successful! Your order is placed.", { id: "payment-verify" });
+                toast.success("Payment successful! Your order is placed.", {
+                  id: "payment-verify",
+                });
                 navigate({ to: "/orders" });
               } catch (verifyErr: any) {
-                toast.error("Payment verification failed. Please contact support.", { id: "payment-verify" });
+                toast.error("Payment verification failed. Please contact support.", {
+                  id: "payment-verify",
+                });
                 // Still redirect to orders so they can see the pending order
                 navigate({ to: "/orders" });
               }
@@ -271,11 +280,11 @@ function CheckoutPage() {
                 setSubmitting(false);
                 toast.error("Payment was cancelled. You can retry from your orders.");
                 navigate({ to: "/orders" });
-              }
+              },
             },
             theme: {
-              color: "#db2777" // tailwind pink-600
-            }
+              color: "#db2777", // tailwind pink-600
+            },
           };
 
           const rzp = new (window as any).Razorpay(options);
@@ -292,7 +301,12 @@ function CheckoutPage() {
       }
 
       trackEvent("order_created", {
-        metadata: { orderId, total: finalTotal, coupon: couponCode || null, payment: form.payment_method },
+        metadata: {
+          orderId,
+          total: finalTotal,
+          coupon: couponCode || null,
+          payment: form.payment_method,
+        },
       });
       clear();
       toast.success("Order placed! Your invoice is ready in My orders.");
@@ -462,7 +476,7 @@ function CheckoutPage() {
           </div>
           <button
             disabled={busy}
-            className="mt-2 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+            className="press mt-2 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
           >
             {busy ? "Placing order…" : `Place order · ${formatPrice(finalTotal)}`}
           </button>

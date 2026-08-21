@@ -43,3 +43,7 @@ test-results/
 playwright-report/
 take-screenshots.cjs
 tests/e2e-debug.spec.ts
+
+# Agent / IDE config
+.agent/
+.agents/

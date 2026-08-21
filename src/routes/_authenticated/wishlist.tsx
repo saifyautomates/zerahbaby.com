@@ -60,6 +60,9 @@ function WishlistPage() {
                 alt={product.name}
                 loading="lazy"
                 className="size-24 shrink-0 rounded-xl object-cover transition hover:opacity-80"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
               />
             </Link>
             <div className="flex-1">

@@ -1,7 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Banknote, Scan, Package, Star, Send } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingBag,
+  CreditCard,
+  Banknote,
+  Scan,
+  Package,
+  Star,
+  Send,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice } from "@/lib/store";
 
@@ -190,7 +201,14 @@ export function POSTab() {
                   onClick={() => setSelectedItem(item)}
                   className="flex cursor-pointer items-center gap-4 rounded-xl border border-border/50 bg-card p-3 shadow-sm hover:border-primary transition-colors"
                 >
-                  <img src={item.image} alt="" className="size-16 rounded-lg object-cover" />
+                  <img
+                    src={item.image}
+                    alt=""
+                    className="size-16 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.opacity = "0";
+                    }}
+                  />
                   <div className="flex-1">
                     <p className="font-bold text-sm leading-tight">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.sku}</p>
@@ -234,22 +252,25 @@ export function POSTab() {
 
       {/* Product Details Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-3xl bg-background shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
+          <div className="relative flex flex-col w-full max-w-lg max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
             <button
               onClick={() => setSelectedItem(null)}
               className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
             >
               ×
             </button>
-            <div className="h-64 w-full bg-muted">
+            <div className="h-64 w-full shrink-0 bg-muted">
               <img
                 src={selectedItem.image}
                 alt={selectedItem.name}
                 className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
               />
             </div>
-            <div className="p-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
               <div className="mb-2 flex items-center justify-between">
                 <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {selectedItem.brand}
@@ -292,7 +313,6 @@ export function POSTab() {
 
       {/* Right: Checkout & Customer styled exactly like the screenshot */}
       <div className="flex w-full flex-col bg-gradient-to-b from-[#fdf2f7] to-white lg:w-[32rem] items-center justify-start overflow-y-auto p-8 relative border-l border-border/40 shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)]">
-        
         {/* Logo Section */}
         <div className="flex flex-col items-center mt-2 mb-8">
           <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#fce4ef] mb-3 shadow-sm">
@@ -300,7 +320,8 @@ export function POSTab() {
           </div>
           <div className="text-center space-y-1.5">
             <h1 className="text-[26px] tracking-tight text-[#1a1a1a] flex items-center justify-center gap-1.5 font-bold">
-              Zerah <span className="text-[#d85c88] font-serif italic font-medium">Baby & Kids</span>
+              Zerah{" "}
+              <span className="text-[#d85c88] font-serif italic font-medium">Baby & Kids</span>
             </h1>
             <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#8a8a8a]">
               Premium Children's Clothing
@@ -310,22 +331,32 @@ export function POSTab() {
 
         {/* Stepper */}
         <div className="flex items-center gap-1 mb-10 text-xs font-medium">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#d85c88] bg-[#fdf2f7] text-[#d85c88]">1</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#d85c88] bg-[#fdf2f7] text-[#d85c88]">
+            1
+          </div>
           <div className="h-[1px] w-6 bg-gray-200"></div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">2</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">
+            2
+          </div>
           <div className="h-[1px] w-6 bg-gray-200"></div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">3</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">
+            3
+          </div>
           <div className="h-[1px] w-6 bg-gray-200"></div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400"><Star className="h-3 w-3" /></div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">
+            <Star className="h-3 w-3" />
+          </div>
         </div>
 
         {/* Form Card */}
         <div className="w-full max-w-md rounded-[20px] bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
-          <h2 className="font-serif text-[22px] font-bold text-[#2a2a2a] tracking-tight">Customer Details</h2>
+          <h2 className="font-serif text-[22px] font-bold text-[#2a2a2a] tracking-tight">
+            Customer Details
+          </h2>
           <p className="text-[13px] text-[#6b6b6b] mt-1 mb-7">
             Fill in your information to place an order
           </p>
-          
+
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a8a] mb-1.5 block">
@@ -386,11 +417,11 @@ export function POSTab() {
                   className="w-full rounded-xl border border-gray-200/80 bg-[#fbfbfb] pl-8 pr-4 py-2.5 text-[13px] outline-none focus:border-[#d85c88] focus:bg-white transition-colors placeholder:text-gray-400"
                 />
                 <div className="absolute right-3 top-2.5 flex flex-col -space-y-[2px]">
-                   {/* Custom arrows placeholder to match design */}
-                   <div className="h-4 w-4 bg-gray-200 rounded-sm flex items-center justify-center cursor-pointer opacity-70">
-                     <span className="text-[8px] transform -rotate-90">›</span>
-                     <span className="text-[8px] transform rotate-90 -ml-[1px]">›</span>
-                   </div>
+                  {/* Custom arrows placeholder to match design */}
+                  <div className="h-4 w-4 bg-gray-200 rounded-sm flex items-center justify-center cursor-pointer opacity-70">
+                    <span className="text-[8px] transform -rotate-90">›</span>
+                    <span className="text-[8px] transform rotate-90 -ml-[1px]">›</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -428,7 +459,7 @@ export function POSTab() {
                     ]);
                     setCheckoutMode("cash"); // Move forward to checkout step logically
                   } else if (cart.length > 0) {
-                     setCheckoutMode("cash");
+                    setCheckoutMode("cash");
                   } else {
                     toast.error("Please enter product name and price");
                   }
@@ -443,63 +474,69 @@ export function POSTab() {
 
         {/* Checkout Confirmations (only show when moving past step 1) */}
         {checkoutMode !== "idle" && (
-           <div className="w-full max-w-md mt-6 rounded-[20px] bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
-             <h3 className="font-serif text-xl font-bold text-[#2a2a2a] mb-4">Payment Confirmation</h3>
-             
-             {checkoutMode === "cash" && (
-               <div className="text-center">
-                 <p className="font-bold text-lg mb-4 text-slate-800">Collect {formatPrice(total)} in Cash</p>
-                 <div className="flex gap-2">
-                   <button
-                     onClick={() => setCheckoutMode("idle")}
-                     className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-sm text-gray-600"
-                   >
-                     Cancel
-                   </button>
-                   <button
-                     onClick={() => placeOrder.mutate("cash")}
-                     disabled={placeOrder.isPending}
-                     className="flex-[2] rounded-xl bg-slate-900 py-2.5 font-semibold text-white text-sm"
-                   >
-                     Confirm Order
-                   </button>
-                 </div>
-               </div>
-             )}
+          <div className="w-full max-w-md mt-6 rounded-[20px] bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
+            <h3 className="font-serif text-xl font-bold text-[#2a2a2a] mb-4">
+              Payment Confirmation
+            </h3>
 
-             {checkoutMode === "online" && (
-               <div className="text-center">
-                 <div className="mx-auto mb-3 flex size-12 animate-pulse items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                   <CreditCard className="size-6" />
-                 </div>
-                 <p className="font-bold text-slate-800">Waiting for Payment...</p>
-                 <p className="text-xs text-muted-foreground mt-1 mb-4">
-                   Notification sent to customer. Awaiting confirmation for {formatPrice(total)}.
-                 </p>
-                 <div className="flex gap-2">
-                   <button
-                     onClick={() => setCheckoutMode("idle")}
-                     className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-xs text-gray-600"
-                   >
-                     Cancel
-                   </button>
-                   <button
-                     onClick={() => placeOrder.mutate("upi")}
-                     disabled={placeOrder.isPending}
-                     className="flex-[2] rounded-xl bg-purple-600 py-2.5 font-semibold text-white text-sm"
-                   >
-                     Force Confirm Payment
-                   </button>
-                 </div>
-               </div>
-             )}
-           </div>
+            {checkoutMode === "cash" && (
+              <div className="text-center">
+                <p className="font-bold text-lg mb-4 text-slate-800">
+                  Collect {formatPrice(total)} in Cash
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCheckoutMode("idle")}
+                    className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-sm text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => placeOrder.mutate("cash")}
+                    disabled={placeOrder.isPending}
+                    className="flex-[2] rounded-xl bg-slate-900 py-2.5 font-semibold text-white text-sm"
+                  >
+                    Confirm Order
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {checkoutMode === "online" && (
+              <div className="text-center">
+                <div className="mx-auto mb-3 flex size-12 animate-pulse items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                  <CreditCard className="size-6" />
+                </div>
+                <p className="font-bold text-slate-800">Waiting for Payment...</p>
+                <p className="text-xs text-muted-foreground mt-1 mb-4">
+                  Notification sent to customer. Awaiting confirmation for {formatPrice(total)}.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCheckoutMode("idle")}
+                    className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-xs text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => placeOrder.mutate("upi")}
+                    disabled={placeOrder.isPending}
+                    className="flex-[2] rounded-xl bg-purple-600 py-2.5 font-semibold text-white text-sm"
+                  >
+                    Force Confirm Payment
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer Text */}
         <div className="mt-auto pt-12 flex items-center justify-center gap-4 w-full max-w-sm opacity-50">
           <div className="h-[1px] flex-1 bg-gray-300"></div>
-          <span className="text-[9px] font-bold tracking-[0.1em] text-gray-500 uppercase">Made with ♥ for tiny humans</span>
+          <span className="text-[9px] font-bold tracking-[0.1em] text-gray-500 uppercase">
+            Made with ♥ for tiny humans
+          </span>
           <div className="h-[1px] flex-1 bg-gray-300"></div>
         </div>
       </div>

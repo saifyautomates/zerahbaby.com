@@ -12,11 +12,11 @@ export function PrintLabelsModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[100] grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm print:block print:bg-white print:p-0"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
     >
-      <div className="flex max-h-[90dvh] overflow-y-auto overflow-x-hidden w-full max-w-5xl flex-col rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
-        <div className="flex items-center justify-between border-b border-border/50 p-6 print:hidden">
+      <div className="flex w-full max-w-5xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
+        <div className="shrink-0 flex items-center justify-between border-b border-border/50 p-6 print:hidden">
           <div>
             <h2 className="font-display text-2xl font-bold">Print Product Labels</h2>
             <p className="text-sm text-muted-foreground">
@@ -40,7 +40,7 @@ export function PrintLabelsModal({
         </div>
 
         {/* Printable Area - A4 grid of labels */}
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-white print:p-0">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-white print:p-0">
           <div className="mx-auto max-w-[210mm] bg-white p-4 shadow-sm print:max-w-none print:p-0 print:shadow-none">
             <div className="grid grid-cols-4 gap-4 print:grid-cols-4">
               {products

@@ -63,14 +63,16 @@ export const Route = createFileRoute("/product/$id")({
 
 function ProductPage() {
   const { id } = Route.useParams();
-  const { data: products, isLoading } = useProducts();
+  const loaderData = Route.useLoaderData();
+  const { data: products, isLoading: productsLoading } = useProducts();
   const { add, items } = useCart();
   const { user } = useSession();
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
 
   const list = products ?? [];
-  const product = list.find((p) => p.id === id);
+  const product = list.find((p) => p.id === id) ?? loaderData?.product;
+  const isLoading = productsLoading && !product;
   const gallery = (product?.images.length ? product.images : [product?.image]).filter(
     Boolean,
   ) as string[];
@@ -192,23 +194,30 @@ function ProductPage() {
             const activeUrl = gallery[activeImage] ?? product.image;
             const isVideo = activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return isVideo ? (
-              <video
-                src={activeUrl}
-                className="w-full rounded-3xl border border-border object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-              />
+              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-muted">
+                <video
+                  src={activeUrl}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                />
+              </div>
             ) : (
-              <img
-                src={activeUrl}
-                alt={product.name}
-                width={800}
-                height={800}
-                className="w-full rounded-3xl border border-border object-cover"
-              />
+              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-muted">
+                <img
+                  src={activeUrl}
+                  alt={product.name}
+                  width={800}
+                  height={800}
+                  className="absolute inset-0 h-full w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
             );
           })()}
           {gallery.length > 1 && (
@@ -227,7 +236,15 @@ function ProductPage() {
                     {isVideo ? (
                       <video src={url} className="size-full object-cover" playsInline muted />
                     ) : (
-                      <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        className="size-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.opacity = "0";
+                        }}
+                      />
                     )}
                   </button>
                 );

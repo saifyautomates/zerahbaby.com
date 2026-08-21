@@ -177,10 +177,29 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-size: 1rem;
-    line-height: 1.7;
+    line-height: 1.6;
     letter-spacing: 0.002em;
+    font-optical-sizing: auto;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * GLOBAL MEDIA SAFETY RESETS
+   * Prevents ANY image/video/iframe from blowing out its container,
+   * regardless of source dimensions or aspect ratio.
+   */
+  img,
+  video,
+  picture,
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  iframe {
+    max-width: 100%;
   }
 
   h1,
@@ -192,11 +211,22 @@
     line-height: 1.14;
     letter-spacing: -0.018em;
     text-wrap: balance;
+    font-optical-sizing: auto;
   }
 
   h1 {
     line-height: 1.06;
     letter-spacing: -0.028em;
+  }
+
+  h2 {
+    line-height: 1.18;
+    letter-spacing: -0.022em;
+  }
+
+  h3 {
+    line-height: 1.22;
+    letter-spacing: -0.014em;
   }
 
   p {
@@ -212,6 +242,32 @@
 
   ::selection {
     background: color-mix(in oklab, var(--color-primary) 22%, transparent);
+    color: var(--color-foreground);
+  }
+
+  /* Themed caret — matches primary color */
+  input,
+  textarea,
+  [contenteditable] {
+    caret-color: var(--color-primary);
+  }
+
+  /* Themed scrollbar — subtle warm track, clay thumb */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-primary) 25%, transparent) transparent;
+  }
+
+  /* Link underline offset for body text */
+  a {
+    text-underline-offset: 0.18em;
+  }
+
+  /* Tabular figures in data contexts */
+  td,
+  th,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -220,6 +276,24 @@
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
+}
+
+/* Apple-style instant press feedback — respond on pointer-down, not release */
+@utility press {
+  transition:
+    transform 120ms ease-out,
+    opacity 120ms ease-out;
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+}
+
+/* Translucent material header — content scrolls underneath */
+@utility glass-header {
+  background: color-mix(in oklab, var(--color-background) 85%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 /* Section rhythm used across the storefront */
@@ -365,11 +439,11 @@
 
 /* Page-load entrance animations */
 @utility rise-in {
-  animation: zerah-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: zerah-rise 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 @utility fade-in-soft {
-  animation: zerah-fade 0.9s ease-out both;
+  animation: zerah-fade 0.5s ease-out both;
 }
 
 @utility delay-1 {
@@ -388,10 +462,13 @@
 /* Shared premium hover behaviour */
 @utility lift {
   transition:
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.35s ease;
-  &:hover {
+    transform 0.25s cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 0.25s cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 0.25s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lift:hover {
     transform: translateY(-4px);
     box-shadow: 0 18px 40px -22px color-mix(in oklab, var(--color-primary) 55%, transparent);
   }
@@ -413,9 +490,28 @@
   .lift:hover {
     transform: none;
   }
+  .press:active {
+    transform: none;
+  }
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Apple: prefers-reduced-transparency — make translucent surfaces frostier/solid */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-header {
+    background: var(--color-background);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Apple: prefers-contrast — defined, contrasting borders */
+@media (prefers-contrast: more) {
+  :root {
+    --border: oklch(0.7 0.01 78);
   }
 }

@@ -8,7 +8,12 @@ import {
   type HeroSlide,
 } from "@/lib/hero-media";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
-import { useUploadToLibrary, useSaveMediaLibrary, useMediaLibrary, makeAsset } from "@/lib/media-library";
+import {
+  useUploadToLibrary,
+  useSaveMediaLibrary,
+  useMediaLibrary,
+  makeAsset,
+} from "@/lib/media-library";
 
 const uid = () => globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random());
 
@@ -63,7 +68,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
   function addLink() {
     const url = linkUrl.trim();
     if (!url) return;
-    
+
     // Add to library as well so it's not lost
     const newAsset = makeAsset({ url, type: linkType, name: "Linked Media" });
     saveLibrary.mutate([...(libraryAssets ?? []), newAsset]);
@@ -176,6 +181,9 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
                       loading="lazy"
                       decoding="async"
                       className="size-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = "0";
+                      }}
                     />
                   )}
                   <span className="absolute left-2 top-2 rounded-full bg-foreground/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-background">
@@ -227,7 +235,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
         </ul>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-6 border-t border-border bg-background p-6 flex flex-wrap gap-3">
         <button
           type="button"
           disabled={save.isPending}
@@ -254,17 +262,19 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
 export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-foreground/50 p-4 pt-10 sm:p-6 sm:pt-[10vh]"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Manage hero media"
     >
-      <div className="relative w-full max-w-4xl rounded-3xl bg-background p-6 shadow-2xl flex flex-col mb-10">
-        <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Photos and videos shown behind the homepage headline.
-        </p>
-        <div className="mt-6">
+      <div className="flex flex-col w-full max-w-4xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
+        <div className="shrink-0 border-b border-border p-6">
+          <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Photos and videos shown behind the homepage headline.
+          </p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           <HeroMediaManager onClose={onClose} />
         </div>
       </div>

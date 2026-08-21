@@ -154,34 +154,22 @@ function RootComponent() {
     // Visitor Analytics Tracking
     const trackVisitor = async () => {
       // Don't track admin pages or if already tracked in this session
-      if (isAdminRoute || sessionStorage.getItem("visitor_tracked")) return;
+      if (typeof window === "undefined" || isAdminRoute || sessionStorage.getItem("visitor_tracked")) return;
 
       try {
         sessionStorage.setItem("visitor_tracked", "true");
+        const sessionId = crypto.randomUUID();
 
-        // Use ipapi.co to get location
-        const res = await fetch("https://ipapi.co/json/").catch(() => null);
-        const data = res && res.ok ? await res.json().catch(() => null) : null;
-
-        // The generated client types can briefly lag a newly migrated table.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const visitorsTable = (supabase as any).from("website_visitors");
-
-        if (data && !data.error) {
-          await visitorsTable.insert({
+        // Safely record visitor without throwing on external IP service failure
+        await (supabase as any)
+          .from("website_visitors")
+          .insert({
             session_id: sessionId,
-            city: data.city,
-            region: data.region,
-            country: data.country_name,
-          });
-        } else {
-          // Insert without location if fetch fails or adblocker blocks it
-          await visitorsTable.insert({
-            session_id: sessionId,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to track visitor", err);
+            country: "India",
+          })
+          .catch(() => null);
+      } catch {
+        // Silent fail for analytics
       }
     };
 

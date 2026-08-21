@@ -80,6 +80,9 @@ function OrdersPage() {
                           src={product.image}
                           alt={item.name}
                           className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = "0";
+                          }}
                         />
                       ) : (
                         <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />

@@ -13,13 +13,7 @@ export function OnlineSalesTab() {
   const [filter, setFilter] = useState("all");
 
   const update = useMutation({
-    mutationFn: async ({
-      id,
-      status,
-    }: {
-      id: string;
-      status: any;
-    }) => {
+    mutationFn: async ({ id, status }: { id: string; status: any }) => {
       const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
     },
@@ -144,7 +138,9 @@ export function OnlineSalesTab() {
               </div>
 
               <div className="text-right sm:w-48">
-                <p className="text-xl font-extrabold text-gray-900">{formatPrice(Number(order.total))}</p>
+                <p className="text-xl font-extrabold text-gray-900">
+                  {formatPrice(Number(order.total))}
+                </p>
                 <select
                   value={order.status}
                   onChange={(e) =>

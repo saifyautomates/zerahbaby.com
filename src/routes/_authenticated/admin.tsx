@@ -181,7 +181,12 @@ function AdminPage() {
   const NAVIGATION = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "pos", label: "POS (Offline)", icon: Scan },
-    { key: "orders", label: "Orders", icon: ShoppingBag, badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined },
+    {
+      key: "orders",
+      label: "Orders",
+      icon: ShoppingBag,
+      badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
+    },
     { key: "products", label: "Products", icon: Package },
     { key: "categories", label: "Categories", icon: Layers },
     { key: "customers", label: "Customers", icon: Users },
@@ -194,22 +199,21 @@ function AdminPage() {
     { key: "analytics", label: "Analytics", icon: BarChart3, hasSubmenu: true },
     { key: "marketing", label: "Marketing", icon: Megaphone, hasSubmenu: true },
     { key: "settings", label: "Settings", icon: Settings },
-    { key: "admins", label: "Admins", icon: Shield }
+    { key: "admins", label: "Admins", icon: Shield },
   ];
 
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-[#f8fafc] text-slate-800 antialiased selection:bg-primary/20">
-      
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col border-r border-gray-100 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -224,14 +228,14 @@ function AdminPage() {
               {user?.email || "jackxparrowww@gmail.com"}
             </p>
           </div>
-          <button 
+          <button
             className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             ×
           </button>
         </div>
-        
+
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {NAVIGATION.map(({ key, label, icon: Icon, badge, hasSubmenu }) => {
@@ -257,7 +261,7 @@ function AdminPage() {
                   />
                   <span className="truncate">{label}</span>
                 </div>
-                
+
                 {badge && (
                   <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-bold text-white">
                     {badge}
@@ -265,15 +269,13 @@ function AdminPage() {
                 )}
 
                 {hasSubmenu && !badge && (
-                  <span className="text-gray-400 group-hover:text-gray-600 text-[10px]">
-                    ▾
-                  </span>
+                  <span className="text-gray-400 group-hover:text-gray-600 text-[10px]">▾</span>
                 )}
               </button>
             );
           })}
         </nav>
-        
+
         {/* Bottom Actions */}
         <div className="flex flex-col gap-2 border-t border-gray-100 p-3 bg-white">
           <Link
@@ -285,7 +287,7 @@ function AdminPage() {
           </Link>
           <button
             onClick={signOut}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-red-50 hover:text-red-700 hover:border-red-200"
           >
             <LogOut className="h-4 w-4 text-gray-400 group-hover:text-red-500" />
             Sign Out
@@ -295,31 +297,44 @@ function AdminPage() {
 
       {/* Main Content Area */}
       <main className="flex-1 min-w-0 flex flex-col h-[100dvh] overflow-hidden relative">
-        
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-3.5 shadow-xs">
-          
           {/* Left: Title & Subtitle */}
           <div className="flex items-center gap-3">
-            <button 
+            <button
               className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 lg:hidden"
               onClick={() => setIsMobileMenuOpen(true)}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="3" x2="21" y1="6" y2="6" />
+                <line x1="3" x2="21" y1="12" y2="12" />
+                <line x1="3" x2="21" y1="18" y2="18" />
+              </svg>
             </button>
             <div>
               <h1 className="text-xl font-extrabold text-gray-900 tracking-tight capitalize">
                 {NAVIGATION.find((t) => t.key === tab)?.label || "Dashboard"}
               </h1>
               <p className="text-[11px] text-gray-400 font-medium">
-                {tab === "dashboard" ? "Overview of your store performance" : `Manage ${tab} and settings`}
+                {tab === "dashboard"
+                  ? "Overview of your store performance"
+                  : `Manage ${tab} and settings`}
               </p>
             </div>
           </div>
 
           {/* Right: Search, Theme, Notifications, User Profile */}
           <div className="flex items-center gap-3">
-            
             {/* Search Input */}
             <div className="relative hidden sm:block w-56 md:w-64">
               <input
@@ -334,12 +349,18 @@ function AdminPage() {
             </div>
 
             {/* Theme Toggle (Sun/Moon placeholder) */}
-            <button className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition">
+            <button
+              aria-label="Notifications"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
+            >
               <span className="text-xs">☀️</span>
             </button>
 
             {/* Notifications with badge */}
-            <button className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition">
+            <button
+              aria-label="Messages"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
+            >
               <span className="text-xs">🔔</span>
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white">
                 8
@@ -349,23 +370,27 @@ function AdminPage() {
             {/* User Profile Pill */}
             <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-xs shadow-xs overflow-hidden">
-                <img 
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" 
-                  alt="User" 
+                <img
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                  alt="User"
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    (e.target as HTMLElement).style.display = "none";
                   }}
                 />
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-gray-900">
-                  {user?.email ? user.email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Jack Sparrow"}
+                  {user?.email
+                    ? user.email
+                        .split("@")[0]
+                        .replace(/[._]/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase())
+                    : "Jack Sparrow"}
                 </p>
                 <p className="text-[10px] font-medium text-gray-400">Administrator</p>
               </div>
             </div>
-
           </div>
         </header>
 
@@ -395,8 +420,6 @@ function AdminPage() {
     </div>
   );
 }
-
-
 
 /* ---------------- Products ---------------- */
 
@@ -540,6 +563,9 @@ function ProductsTab() {
                         width={48}
                         height={48}
                         className="size-12 shrink-0 rounded-xl border border-gray-100 object-cover shadow-sm transition-transform group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.opacity = "0";
+                        }}
                       />
                       <div>
                         <p className="font-semibold text-gray-900">{p.name}</p>
@@ -550,9 +576,7 @@ function ProductsTab() {
                     </div>
                   </td>
                   <td className="px-5 py-4 capitalize font-medium text-gray-700">{p.category}</td>
-                  <td className="px-5 py-4 font-semibold text-gray-900">
-                    {formatPrice(p.price)}
-                  </td>
+                  <td className="px-5 py-4 font-semibold text-gray-900">{formatPrice(p.price)}</td>
                   <td className="px-5 py-4 text-gray-400 line-through font-medium">
                     {formatPrice(p.mrp)}
                   </td>
@@ -572,7 +596,9 @@ function ProductsTab() {
                   <td className="px-5 py-4">
                     <span
                       className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                        p.isActive ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-gray-100 text-gray-500 border border-gray-200"
+                        p.isActive
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : "bg-gray-100 text-gray-700 border border-gray-200"
                       }`}
                     >
                       {p.isActive ? "Live" : "Hidden"}
@@ -592,7 +618,7 @@ function ProductsTab() {
                           if (window.confirm(`Delete "${p.name}"?`)) remove.mutate(p.uuid);
                         }}
                         aria-label={`Delete ${p.name}`}
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 hover:bg-red-50"
+                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -813,6 +839,9 @@ function CategoryRowEditor({
         width={56}
         height={56}
         className="size-14 rounded-xl object-cover border border-gray-100 shadow-sm"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.opacity = "0";
+        }}
       />
       <input
         className={input}
@@ -1097,7 +1126,9 @@ function CustomersTab() {
               <tr key={c.id} className="group transition-colors hover:bg-gray-50/50 align-top">
                 <td className="px-5 py-4">
                   <span className="font-semibold text-gray-900">{c.full_name || "—"}</span>
-                  <span className="block max-w-xs text-xs text-gray-500 mt-1 whitespace-normal">{c.address}</span>
+                  <span className="block max-w-xs text-xs text-gray-500 mt-1 whitespace-normal">
+                    {c.address}
+                  </span>
                 </td>
                 <td className="px-5 py-4">
                   <span className="text-gray-900 font-medium">{c.email}</span>
@@ -1107,7 +1138,9 @@ function CustomersTab() {
                   {new Date(c.created_at).toLocaleDateString("en-IN")}
                 </td>
                 <td className="px-5 py-4 text-right font-medium text-gray-700">{s.count}</td>
-                <td className="px-5 py-4 text-right font-semibold text-gray-900">{formatPrice(s.spend)}</td>
+                <td className="px-5 py-4 text-right font-semibold text-gray-900">
+                  {formatPrice(s.spend)}
+                </td>
               </tr>
             );
           })}
@@ -1284,9 +1317,7 @@ function CouponsTab() {
                     ? `${c.discount_value}%`
                     : `₹${c.discount_value}`}
                   {c.maximum_discount > 0 && (
-                    <span className="text-xs text-gray-500 ml-1">
-                      (max ₹{c.maximum_discount})
-                    </span>
+                    <span className="text-xs text-gray-500 ml-1">(max ₹{c.maximum_discount})</span>
                   )}
                 </td>
                 <td className="px-5 py-4 text-gray-700">₹{c.minimum_order_value}</td>
@@ -1297,7 +1328,7 @@ function CouponsTab() {
                 <td className="px-5 py-4">
                   <button
                     onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
-                    className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${c.active ? "bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100" : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"}`}
+                    className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${c.active ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100" : "bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"}`}
                   >
                     {c.active ? "Active" : "Inactive"}
                   </button>
@@ -1305,7 +1336,7 @@ function CouponsTab() {
                 <td className="px-5 py-4 text-right">
                   <button
                     onClick={() => deleteCoupon.mutate(c.id)}
-                    className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 hover:bg-red-50"
+                    className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -1314,7 +1345,10 @@ function CouponsTab() {
             ))}
             {!isLoading && (coupons ?? []).length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-16 text-center text-sm font-medium text-gray-500">
+                <td
+                  colSpan={6}
+                  className="px-5 py-16 text-center text-sm font-medium text-gray-500"
+                >
                   No coupons yet. Create one to get started.
                 </td>
               </tr>

@@ -12,12 +12,15 @@ export default defineConfig({
     // production build runs in an environment that only exposes server names.
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
-        process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"],
-      ) ?? "undefined",
+        process.env["VITE_SUPABASE_URL"] ||
+          process.env["SUPABASE_URL"] ||
+          "https://wbbatgbvizhghtkvuguf.supabase.co",
+      ),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-        process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
-          process.env["SUPABASE_PUBLISHABLE_KEY"],
-      ) ?? "undefined",
+        process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+          process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+          "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP",
+      ),
     },
   },
   tanstackStart: {

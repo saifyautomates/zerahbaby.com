@@ -25,8 +25,8 @@ export function Footer() {
   ].filter((s) => s.href);
 
   return (
-    <footer className="mt-20 border-t border-border bg-muted/50">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-5">
+    <footer className="mt-20 border-t border-border bg-muted/40">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2">
             <img
@@ -36,6 +36,9 @@ export function Footer() {
               width={40}
               height={40}
               className="size-10 object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.opacity = "0";
+              }}
             />
             <span className="font-display text-lg font-bold">{brandName}</span>
           </div>
@@ -62,7 +65,9 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Shop & Company</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-foreground">
+            Shop & Company
+          </h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             {(categories ?? []).map((c) => (
               <li key={c.slug}>
@@ -89,7 +94,9 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Legal Policies</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-foreground">
+            Legal Policies
+          </h2>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>
               <Link to="/privacy-policy" className="transition hover:text-primary">
@@ -115,7 +122,9 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Contact Us</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-foreground">
+            Contact Us
+          </h2>
           <div className="mt-4 flex flex-col gap-2.5 text-sm text-muted-foreground">
             <div>
               <span className="font-semibold text-foreground">Email:</span>{" "}
@@ -151,7 +160,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-border px-4 py-5 text-center text-xs text-muted-foreground">
+      <div className="border-t border-border px-4 py-6 text-center text-xs text-muted-foreground">
         <div className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
           <span>
             © {new Date().getFullYear()} {brandName}. All rights reserved.

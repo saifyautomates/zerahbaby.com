@@ -85,7 +85,10 @@ export function OfflineAnalyticsTab() {
             ))}
             {!isLoading && (sales ?? []).length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-16 text-center text-sm font-medium text-gray-500">
+                <td
+                  colSpan={5}
+                  className="px-5 py-16 text-center text-sm font-medium text-gray-500"
+                >
                   No POS sales yet.
                 </td>
               </tr>

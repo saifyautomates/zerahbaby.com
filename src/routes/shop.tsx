@@ -11,12 +11,20 @@ type ShopSearch = {
   q?: string | undefined;
 };
 
+import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
+
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): ShopSearch => ({
     category: typeof search["category"] === "string" ? (search["category"] as string) : undefined,
     age: typeof search["age"] === "string" ? (search["age"] as string) : undefined,
     q: typeof search["q"] === "string" && search["q"] ? (search["q"] as string) : undefined,
   }),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(productsQueryOptions(false)),
+      context.queryClient.ensureQueryData(categoriesQueryOptions()),
+    ]).catch(() => null);
+  },
   head: () => ({
     meta: [
       { title: "Shop Baby & Kids Essentials — Zerah Baby And Kid's" },

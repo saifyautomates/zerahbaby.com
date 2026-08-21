@@ -60,14 +60,19 @@ function AboutPage() {
         we'd use it ourselves.
       </p>
 
-      <img
-        src={hero}
-        alt="Parent playing with toddlers among soft pastel toys"
-        loading="eager"
-        width={1600}
-        height={900}
-        className="mt-8 w-full rounded-3xl object-cover"
-      />
+      <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-3xl bg-muted">
+        <img
+          src={hero}
+          alt="Parent playing with toddlers among soft pastel toys"
+          loading="eager"
+          width={1600}
+          height={900}
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.opacity = "0";
+          }}
+        />
+      </div>
 
       <div className="mt-12 grid gap-5 sm:grid-cols-2">
         {values.map((v) => (

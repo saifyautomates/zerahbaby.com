@@ -39,6 +39,9 @@ function Thumb({ asset }: { asset: MediaAsset }) {
       loading="lazy"
       decoding="async"
       className="size-full object-cover"
+      onError={(e) => {
+        (e.target as HTMLImageElement).style.opacity = "0";
+      }}
     />
   );
 }
@@ -330,7 +333,7 @@ export function MediaLibrary({
       )}
 
       {(onSelect || onClose) && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-6 border-t border-border bg-background p-6 flex flex-wrap items-center gap-3">
           {onSelect && (
             <button
               type="button"
@@ -379,17 +382,19 @@ export function MediaLibraryPicker({
 }: MediaLibraryProps & { title?: string }) {
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-start justify-center overflow-y-auto bg-foreground/50 p-4 pt-10 sm:p-6 sm:pt-[10vh]"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className="relative w-full max-w-5xl rounded-3xl bg-background p-6 shadow-2xl flex flex-col mb-10">
-        <h2 className="font-display text-xl font-bold">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Reuse any photo or video you've already uploaded.
-        </p>
-        <div className="mt-6">
+      <div className="flex flex-col w-full max-w-5xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
+        <div className="shrink-0 border-b border-border p-6">
+          <h2 className="font-display text-xl font-bold">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Reuse any photo or video you've already uploaded.
+          </p>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           <MediaLibrary
             onSelect={(assets) => {
               onSelect?.(assets);
