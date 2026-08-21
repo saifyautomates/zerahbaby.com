@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { X, Printer } from "lucide-react";
 import Barcode from "react-barcode";
 import type { Product } from "@/lib/store";
@@ -10,7 +11,7 @@ export function PrintLabelsModal({
   products: Product[];
   onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
@@ -83,6 +84,7 @@ export function PrintLabelsModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

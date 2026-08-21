@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Copy, ImagePlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -380,7 +381,7 @@ export function MediaLibraryPicker({
   accept = "all",
   title = "Media library",
 }: MediaLibraryProps & { title?: string }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
       role="dialog"
@@ -406,6 +407,7 @@ export function MediaLibraryPicker({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

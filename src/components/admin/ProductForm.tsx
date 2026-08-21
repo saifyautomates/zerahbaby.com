@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { GripVertical, Images, Star, Trash2, Upload } from "lucide-react";
 import { ageGroups, useCategories, useProducts, type Product } from "@/lib/store";
@@ -111,7 +112,7 @@ export function ProductForm({
     });
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 sm:p-6"
       role="dialog"
@@ -457,6 +458,7 @@ export function ProductForm({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

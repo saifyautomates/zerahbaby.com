@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -251,7 +252,7 @@ export function POSTab() {
       </div>
 
       {/* Product Details Modal */}
-      {selectedItem && (
+      {selectedItem && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
           <div className="relative flex flex-col w-full max-w-lg max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
             <button
@@ -308,7 +309,8 @@ export function POSTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Right: Checkout & Customer styled exactly like the screenshot */}

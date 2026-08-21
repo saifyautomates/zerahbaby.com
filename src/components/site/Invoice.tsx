@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { FileText, Printer, X } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
@@ -33,7 +34,7 @@ export function InvoiceBox({ order }: { order: Order }) {
 function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void }) {
   const { brandName, storeAddress, contactPhone, contactEmail } = useSettings();
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
@@ -190,6 +191,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

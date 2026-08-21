@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, FolderOpen, ImagePlus, Loader2, Trash2, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -260,7 +261,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
 
 /** Floating "Edit hero media" entry point rendered on the homepage in admin mode. */
 export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
       role="dialog"
@@ -278,6 +279,7 @@ export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
           <HeroMediaManager onClose={onClose} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

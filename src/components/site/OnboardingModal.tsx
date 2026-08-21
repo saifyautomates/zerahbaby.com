@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "@/lib/auth";
 import { useProfile } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,7 +76,7 @@ export function OnboardingModal() {
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6">
       <div className="flex flex-col w-full max-w-md max-h-full rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
         <div className="flex-1 min-h-0 overflow-y-auto p-8">
@@ -170,6 +171,7 @@ export function OnboardingModal() {
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
