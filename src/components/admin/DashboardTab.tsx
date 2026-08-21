@@ -16,6 +16,13 @@ import { Banknote, ShoppingCart, TrendingUp, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+type WebsiteVisitor = {
+  created_at: string;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+};
+
 export function DashboardTab() {
   const { data: orders = [], isLoading } = useAllOrders(true);
 
@@ -97,9 +104,11 @@ export function DashboardTab() {
   const { data: visitors = [], isLoading: isLoadingVisitors } = useQuery({
     queryKey: ["website_visitors"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("website_visitors").select("*");
+      // The generated client types can briefly lag a newly migrated table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).from("website_visitors").select("*");
       if (error) throw error;
-      return data;
+      return data as WebsiteVisitor[];
     },
   });
 

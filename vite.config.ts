@@ -13,11 +13,11 @@ export default defineConfig({
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
         process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"],
-      ),
+      ) ?? "undefined",
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
         process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
           process.env["SUPABASE_PUBLISHABLE_KEY"],
-      ),
+      ) ?? "undefined",
     },
   },
   tanstackStart: {
