@@ -253,8 +253,14 @@ export function POSTab() {
 
       {/* Product Details Modal */}
       {selectedItem && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
-          <div className="relative flex flex-col w-full max-w-lg max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6"
+          onClick={() => setSelectedItem(null)}
+        >
+          <div
+            className="relative flex flex-col w-full max-w-lg max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setSelectedItem(null)}
               className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"

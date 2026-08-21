@@ -15,8 +15,12 @@ export function PrintLabelsModal({
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
+      onClick={onClose}
     >
-      <div className="flex w-full max-w-5xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none">
+      <div
+        className="flex w-full max-w-5xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="shrink-0 flex items-center justify-between border-b border-border/50 p-6 print:hidden">
           <div>
             <h2 className="font-display text-2xl font-bold">Print Product Labels</h2>

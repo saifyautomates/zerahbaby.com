@@ -39,8 +39,12 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
       className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
       role="dialog"
       aria-modal="true"
+      onClick={onClose}
     >
-      <div className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-white shadow-2xl overflow-hidden print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <div
+        className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-white shadow-2xl overflow-hidden print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-1 min-h-0 overflow-y-auto p-8 print:p-0 print:overflow-visible">
           {/* Header section */}
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6 print:border-slate-300">

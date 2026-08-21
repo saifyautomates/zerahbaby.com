@@ -17,6 +17,7 @@ export function OnboardingModal() {
 
   const [form, setForm] = useState({ full_name: "", phone: "", address: "", city: "", state: "", pincode: "" });
   const [busy, setBusy] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     if (profile) {
@@ -34,7 +35,7 @@ export function OnboardingModal() {
     }
   }, [profile, user]);
 
-  if (!user || isLoading || !profile) return null;
+  if (!user || isLoading || !profile || !isOpen) return null;
 
   // Show if missing ANY critical profile info
   const isProfileComplete = 
@@ -77,8 +78,14 @@ export function OnboardingModal() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6">
-      <div className="flex flex-col w-full max-w-md max-h-full rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6"
+      onClick={() => setIsOpen(false)}
+    >
+      <div
+        className="flex flex-col w-full max-w-md max-h-full rounded-3xl border border-border bg-card shadow-lg overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-1 min-h-0 overflow-y-auto p-8">
           <h2 className="text-center font-display text-2xl font-bold">Welcome to Zerah!</h2>
           <p className="mt-2 text-center text-sm text-muted-foreground">

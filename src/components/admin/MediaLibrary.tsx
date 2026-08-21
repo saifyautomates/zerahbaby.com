@@ -387,8 +387,12 @@ export function MediaLibraryPicker({
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      onClick={onClose}
     >
-      <div className="flex flex-col w-full max-w-5xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
+      <div
+        className="flex flex-col w-full max-w-5xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="shrink-0 border-b border-border p-6">
           <h2 className="font-display text-xl font-bold">{title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">

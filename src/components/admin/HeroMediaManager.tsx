@@ -267,8 +267,12 @@ export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Manage hero media"
+      onClick={onClose}
     >
-      <div className="flex flex-col w-full max-w-4xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden">
+      <div
+        className="flex flex-col w-full max-w-4xl max-h-full rounded-3xl bg-background shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="shrink-0 border-b border-border p-6">
           <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
           <p className="mt-1 text-sm text-muted-foreground">

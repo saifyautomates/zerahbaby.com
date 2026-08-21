@@ -117,6 +117,7 @@ export function ProductForm({
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
+      onClick={onCancel}
     >
       {picker && (
         <MediaLibraryPicker
@@ -131,7 +132,10 @@ export function ProductForm({
           }
         />
       )}
-      <div className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div
+        className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-card shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="shrink-0 border-b border-border p-6">
           <h2 className="font-display text-xl font-bold">
             {product ? "Edit product" : "Add product"}
