@@ -58,7 +58,7 @@ function CheckoutPage() {
     city: "",
     state: "",
     pincode: "",
-    payment_method: "cod",
+    payment_method: "online",
     notes: "",
   });
 
@@ -451,16 +451,9 @@ function CheckoutPage() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold sm:col-span-2">
                 Payment method
-                <select
-                  className={`mt-1 ${field}`}
-                  value={form.payment_method}
-                  onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
-                >
-                  <option value="online">Pay Online (UPI/Cards/NetBanking)</option>
-                  <option value="cod">Cash on delivery</option>
-                  <option value="upi">UPI on delivery</option>
-                  <option value="card">Card on delivery</option>
-                </select>
+                <div className={`mt-1 bg-muted text-muted-foreground ${field} cursor-not-allowed`}>
+                  Pay Online (UPI/Cards/NetBanking)
+                </div>
               </label>
               <label className="text-sm font-semibold sm:col-span-2">
                 Delivery notes (optional)
