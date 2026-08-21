@@ -7,6 +7,19 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    // Keep Lovable Cloud's browser-safe connection values available when the
+    // production build runs in an environment that only exposes server names.
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
+        process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"],
+      ) ?? "undefined",
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
+        process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
+          process.env["SUPABASE_PUBLISHABLE_KEY"],
+      ) ?? "undefined",
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

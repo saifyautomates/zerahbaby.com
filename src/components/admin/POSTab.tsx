@@ -133,7 +133,9 @@ export function POSTab() {
       // Calculate subtotal from cart (this is just for the payload, RPC computes actual)
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-      const { data, error } = await supabase.rpc("place_order", {
+      // The generated client types can briefly lag a newly migrated RPC.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc("place_order", {
         _full_name: customer.full_name || "POS Customer",
         _email: customer.email || "offline@zerahbaby.com",
         _phone: customer.phone || "0000000000",

@@ -162,8 +162,12 @@ function RootComponent() {
         const res = await fetch("https://ipapi.co/json/");
         const data = await res.json();
 
+        // The generated client types can briefly lag a newly migrated table.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const visitorsTable = (supabase as any).from("website_visitors");
+
         if (data && !data.error) {
-          await supabase.from("website_visitors").insert({
+          await visitorsTable.insert({
             session_id: sessionId,
             city: data.city,
             region: data.region,
@@ -171,7 +175,7 @@ function RootComponent() {
           });
         } else {
           // Insert without location if fetch fails or adblocker blocks it
-          await supabase.from("website_visitors").insert({
+          await visitorsTable.insert({
             session_id: sessionId,
           });
         }

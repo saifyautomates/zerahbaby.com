@@ -183,7 +183,9 @@ export function usePlaceOrder() {
         qty: item.qty,
       }));
 
-      const { data, error } = await supabase.rpc("place_order", {
+      // The generated client types can briefly lag a newly migrated RPC.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc("place_order", {
         _full_name: input.full_name,
         _email: input.email,
         _phone: input.phone,
