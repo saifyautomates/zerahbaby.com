@@ -158,7 +158,9 @@ function RootComponent() {
 
       try {
         sessionStorage.setItem("visitor_tracked", "true");
-        const sessionId = crypto.randomUUID();
+        const sessionId =
+          sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
+        sessionStorage.setItem("visitor_session_id", sessionId);
 
         // Safely record visitor without throwing on external IP service failure
         await (supabase as any)
