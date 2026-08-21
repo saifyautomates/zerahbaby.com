@@ -176,13 +176,9 @@ export function DashboardTab() {
     }
     const recentVisitors = visitors.slice(0, 3);
     recentVisitors.forEach(v => {
-      let loc = "";
-      const meta = v.metadata as any;
-      if (meta && meta.city) {
-        loc = `from ${meta.city}, ${meta.region}, ${meta.country}`;
-      }
+      const location = [v.city, v.region, v.country].filter(Boolean).join(", ");
       activities.push({ 
-        title: loc ? `New visitor ${loc}` : "New visitor session recorded", 
+        title: location ? `New visitor from ${location}` : "New visitor session recorded", 
         time: format(new Date(v.created_at), "MMM dd, hh:mm a"), 
         icon: Users, 
         color: "text-cyan-500 bg-cyan-50" 
