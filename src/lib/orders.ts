@@ -38,6 +38,7 @@ export type Order = {
 };
 
 export const orderStatuses = [
+  "placed",
   "pending",
   "confirmed",
   "processing",
@@ -198,7 +199,7 @@ export function usePlaceOrder() {
         _pincode: input.pincode,
         _payment_method: input.payment_method,
         _notes: input.notes,
-        _coupon_code: input.coupon_code ?? null,
+        _coupon_code: input.coupon_code || undefined,
         _items: rpcItems,
       });
 

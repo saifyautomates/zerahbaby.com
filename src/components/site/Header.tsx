@@ -64,7 +64,7 @@ export function Header() {
       </a>
       <div className="announce-bar">
         <span className="announce-sheen" aria-hidden />
-        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:py-2.5">
+        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5">
           {/* Desktop left trust badge */}
           <div className="hidden flex-1 items-center gap-2 lg:flex">
             <span className="announce-pill">
@@ -77,19 +77,19 @@ export function Header() {
           <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
             <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
               <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
-              <span className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-[var(--announce-foreground)]">
+              <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)]">
                 {announcement}
               </span>
               <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
             </p>
             <div className="group relative w-full lg:hidden" aria-label="Announcement">
               <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap">
-                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em] whitespace-nowrap">
+                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                   {announcement}
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--announce-foreground)] sm:text-[11px] sm:tracking-[0.26em] whitespace-nowrap">
+                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                   {announcement}
                   <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />

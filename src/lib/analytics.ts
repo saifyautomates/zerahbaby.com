@@ -24,7 +24,9 @@ export function trackEvent(
         metadata: (opts?.metadata ?? null) as any, // Cast to any to satisfy Supabase Json type expectations
       })
       .then(({ error }) => {
-        if (error) console.warn("[Analytics]", error.message);
+        if (error && error.code !== "42501") {
+          console.warn("[Analytics]", error.message);
+        }
       });
   });
 }

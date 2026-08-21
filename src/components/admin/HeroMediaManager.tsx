@@ -8,7 +8,7 @@ import {
   type HeroSlide,
 } from "@/lib/hero-media";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
-import { useUploadToLibrary } from "@/lib/media-library";
+import { useUploadToLibrary, useSaveMediaLibrary, useMediaLibrary, makeAsset } from "@/lib/media-library";
 
 const uid = () => globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random());
 
@@ -22,6 +22,8 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
   const [linkType, setLinkType] = useState<"image" | "video">("image");
   const [picker, setPicker] = useState(false);
   const uploadToLibrary = useUploadToLibrary();
+  const { data: libraryAssets } = useMediaLibrary();
+  const saveLibrary = useSaveMediaLibrary();
 
   useEffect(() => {
     if (data) setSlides(data);
@@ -61,6 +63,11 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
   function addLink() {
     const url = linkUrl.trim();
     if (!url) return;
+    
+    // Add to library as well so it's not lost
+    const newAsset = makeAsset({ url, type: linkType, name: "Linked Media" });
+    saveLibrary.mutate([...(libraryAssets ?? []), newAsset]);
+
     setSlides((s) => [...s, { id: uid(), type: linkType, url, alt: "" }]);
     setLinkUrl("");
   }
@@ -247,12 +254,12 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
 export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-foreground/50 p-4"
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-foreground/50 p-4 pt-10 sm:p-6 sm:pt-[10vh]"
       role="dialog"
       aria-modal="true"
       aria-label="Manage hero media"
     >
-      <div className="max-h-[90dvh] w-full max-w-4xl overflow-y-auto overflow-x-hidden rounded-3xl bg-background p-6 shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-4xl rounded-3xl bg-background p-6 shadow-2xl flex flex-col mb-10">
         <h2 className="font-display text-xl font-bold">Homepage hero media</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Photos and videos shown behind the homepage headline.

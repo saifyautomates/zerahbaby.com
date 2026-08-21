@@ -22,8 +22,11 @@ import {
   Star,
   Printer,
   Scan,
+  FileText,
+  Megaphone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
@@ -36,6 +39,8 @@ import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/rev
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { POSTab } from "@/components/admin/POSTab";
 import { DashboardTab } from "@/components/admin/DashboardTab";
+import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
+import { OfflineAnalyticsTab } from "@/components/admin/OfflineAnalyticsTab";
 import { BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -59,6 +64,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 type Tab =
   | "dashboard"
   | "pos"
+  | "offline-analytics"
   | "products"
   | "hero"
   | "media"
@@ -68,7 +74,11 @@ type Tab =
   | "settings"
   | "admins"
   | "coupons"
-  | "reviews";
+  | "reviews"
+  | "inventory"
+  | "reports"
+  | "analytics"
+  | "marketing";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -76,6 +86,16 @@ function AdminPage() {
   const { user } = useSession();
   const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -123,66 +143,248 @@ function AdminPage() {
     );
   }
 
+  // Real data for Orders badge
+  const { data: onlineOrders = [] } = useAllOrders(true);
+  const { data: posSales = [] } = useQuery({
+    queryKey: ["offline-sales"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("offline_sales").select("*");
+      if (error) return [];
+      return (data ?? []) as Array<{ created_at: string; [key: string]: any }>;
+    },
+  });
+
+  const [lastViewedOrdersTime, setLastViewedOrdersTime] = useState<number>(() => {
+    return parseInt(localStorage.getItem("admin_last_viewed_orders") || "0", 10);
+  });
+
+  useEffect(() => {
+    if (tab === "orders" || tab === "pos") {
+      const now = Date.now();
+      setLastViewedOrdersTime(now);
+      localStorage.setItem("admin_last_viewed_orders", now.toString());
+    }
+  }, [tab]);
+
+  const unseenOrdersCount = useMemo(() => {
+    const newOnline = onlineOrders.filter((o) => {
+      const t = new Date(o.created_at).getTime();
+      return t > lastViewedOrdersTime && (o.status === "placed" || o.status === "pending");
+    }).length;
+    const newOffline = posSales.filter((o) => {
+      const t = new Date(o.created_at).getTime();
+      return t > lastViewedOrdersTime;
+    }).length;
+    return newOnline + newOffline;
+  }, [onlineOrders, posSales, lastViewedOrdersTime]);
+
+  const NAVIGATION = [
+    { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { key: "pos", label: "POS (Offline)", icon: Scan },
+    { key: "orders", label: "Orders", icon: ShoppingBag, badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined },
+    { key: "products", label: "Products", icon: Package },
+    { key: "categories", label: "Categories", icon: Layers },
+    { key: "customers", label: "Customers", icon: Users },
+    { key: "inventory", label: "Inventory", icon: Package },
+    { key: "coupons", label: "Coupons", icon: Tag },
+    { key: "reviews", label: "Reviews", icon: Star },
+    { key: "hero", label: "Hero Media", icon: Images },
+    { key: "media", label: "Media Library", icon: FolderOpen },
+    { key: "reports", label: "Reports", icon: FileText, hasSubmenu: true },
+    { key: "analytics", label: "Analytics", icon: BarChart3, hasSubmenu: true },
+    { key: "marketing", label: "Marketing", icon: Megaphone, hasSubmenu: true },
+    { key: "settings", label: "Settings", icon: Settings },
+    { key: "admins", label: "Admins", icon: Shield }
+  ];
+
   return (
-    <div className="min-h-[100dvh] bg-muted/30 lg:grid lg:grid-cols-[260px_1fr] selection:bg-primary/20">
-      <aside className="border-b border-border/50 bg-background/60 backdrop-blur-xl lg:sticky lg:top-0 lg:h-[100dvh] lg:flex lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="px-6 py-8">
-          <p className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Zérah <span className="text-primary">Admin</span>
-          </p>
-          <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{user?.email}</p>
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#f8fafc] text-slate-800 antialiased selection:bg-primary/20">
+      
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col border-r border-gray-100 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div>
+            <h1 className="font-sans text-xl font-bold tracking-tight text-gray-900">
+              Zérah <span className="text-[#8B2020]">Admin</span>
+            </h1>
+            <p className="text-[11px] text-gray-400 truncate max-w-[180px]">
+              {user?.email || "jackxparrowww@gmail.com"}
+            </p>
+          </div>
+          <button 
+            className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            ×
+          </button>
         </div>
-        <nav className="flex flex-wrap gap-1.5 px-4 pb-4 lg:flex-1 lg:flex-col lg:overflow-y-auto">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ${
-                tab === key
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              }`}
-            >
-              <Icon
-                className={`size-4 transition-transform duration-300 ${
-                  tab === key ? "scale-110" : "group-hover:scale-110 group-hover:text-primary"
+        
+        {/* Navigation Items */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {NAVIGATION.map(({ key, label, icon: Icon, badge, hasSubmenu }) => {
+            const isActive = tab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => {
+                  setTab(key as Tab);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                  isActive
+                    ? "bg-[#8B2020] text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
-              />
-              {label}
-            </button>
-          ))}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon
+                    className={`h-4 w-4 shrink-0 transition-colors ${
+                      isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"
+                    }`}
+                  />
+                  <span className="truncate">{label}</span>
+                </div>
+                
+                {badge && (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-bold text-white">
+                    {badge}
+                  </span>
+                )}
+
+                {hasSubmenu && !badge && (
+                  <span className="text-gray-400 group-hover:text-gray-600 text-[10px]">
+                    ▾
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="flex flex-wrap gap-2 border-t border-border/50 bg-background/30 p-4 lg:flex-col">
+        
+        {/* Bottom Actions */}
+        <div className="flex flex-col gap-2 border-t border-gray-100 p-3 bg-white">
           <Link
             to="/"
-            className="group flex flex-1 items-center justify-center gap-2 rounded-xl border border-border/50 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all duration-300 hover:border-primary/50 hover:bg-muted"
+            className="group flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
           >
-            <Store className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />{" "}
-            View store
+            <Store className="h-4 w-4 text-gray-400 group-hover:text-gray-700" />
+            View Store
           </Link>
           <button
             onClick={signOut}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-all duration-300 hover:bg-destructive/10 hover:text-destructive"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-red-50 hover:text-red-600 hover:border-red-200"
           >
-            <LogOut className="size-4" /> Sign out
+            <LogOut className="h-4 w-4 text-gray-400 group-hover:text-red-500" />
+            Sign Out
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-x-hidden px-4 py-8 lg:px-10 lg:py-10">
-        <div className="mx-auto max-w-7xl">
-          <h1 className="font-display text-3xl font-bold capitalize tracking-tight text-foreground">
-            {TABS.find((t) => t.key === tab)?.label}
-          </h1>
-          <div className="mt-8 min-h-[500px] rounded-[2rem] border border-border/50 bg-background p-5 shadow-sm lg:p-8">
+      {/* Main Content Area */}
+      <main className="flex-1 min-w-0 flex flex-col h-[100dvh] overflow-hidden relative">
+        
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-3.5 shadow-xs">
+          
+          {/* Left: Title & Subtitle */}
+          <div className="flex items-center gap-3">
+            <button 
+              className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 lg:hidden"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-extrabold text-gray-900 tracking-tight capitalize">
+                {NAVIGATION.find((t) => t.key === tab)?.label || "Dashboard"}
+              </h1>
+              <p className="text-[11px] text-gray-400 font-medium">
+                {tab === "dashboard" ? "Overview of your store performance" : `Manage ${tab} and settings`}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Search, Theme, Notifications, User Profile */}
+          <div className="flex items-center gap-3">
+            
+            {/* Search Input */}
+            <div className="relative hidden sm:block w-56 md:w-64">
+              <input
+                type="text"
+                placeholder="Search anything..."
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 pl-8 pr-9 py-1.5 text-xs text-gray-800 outline-none focus:border-gray-300 focus:bg-white transition-all"
+              />
+              <span className="absolute left-2.5 top-2 text-gray-400 text-xs">🔍</span>
+              <kbd className="absolute right-2.5 top-1.5 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-gray-400">
+                ⌘K
+              </kbd>
+            </div>
+
+            {/* Theme Toggle (Sun/Moon placeholder) */}
+            <button className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition">
+              <span className="text-xs">☀️</span>
+            </button>
+
+            {/* Notifications with badge */}
+            <button className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition">
+              <span className="text-xs">🔔</span>
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white">
+                8
+              </span>
+            </button>
+
+            {/* User Profile Pill */}
+            <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-xs shadow-xs overflow-hidden">
+                <img 
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" 
+                  alt="User" 
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              <div className="hidden md:block text-left leading-tight">
+                <p className="text-xs font-bold text-gray-900">
+                  {user?.email ? user.email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Jack Sparrow"}
+                </p>
+                <p className="text-[10px] font-medium text-gray-400">Administrator</p>
+              </div>
+            </div>
+
+          </div>
+        </header>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="mx-auto max-w-[1600px]">
             {tab === "dashboard" && <DashboardTab />}
             {tab === "pos" && <POSTab />}
             {tab === "products" && <ProductsTab />}
             {tab === "hero" && <HeroMediaManager />}
             {tab === "media" && <MediaLibrary />}
-            {tab === "orders" && <OrdersTab />}
+            {tab === "orders" && <OnlineSalesTab />}
+            {tab === "offline-analytics" && <OfflineAnalyticsTab />}
             {tab === "customers" && <CustomersTab />}
             {tab === "categories" && <CategoriesTab />}
+            {tab === "inventory" && <ProductsTab />}
+            {tab === "reports" && <OfflineAnalyticsTab />}
+            {tab === "analytics" && <OfflineAnalyticsTab />}
+            {tab === "marketing" && <HeroMediaManager />}
             {tab === "settings" && <SettingsTab />}
             {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
             {tab === "coupons" && <CouponsTab />}
@@ -194,20 +396,7 @@ function AdminPage() {
   );
 }
 
-const TABS = [
-  { key: "dashboard" as const, label: "Dashboard", icon: BarChart3 },
-  { key: "pos" as const, label: "POS (Offline)", icon: Scan },
-  { key: "products" as const, label: "Products", icon: Package },
-  { key: "hero" as const, label: "Hero media", icon: Images },
-  { key: "media" as const, label: "Media library", icon: FolderOpen },
-  { key: "orders" as const, label: "Orders", icon: ShoppingBag },
-  { key: "customers" as const, label: "Customers", icon: Users },
-  { key: "categories" as const, label: "Categories", icon: Layers },
-  { key: "coupons" as const, label: "Coupons", icon: Tag },
-  { key: "reviews" as const, label: "Reviews", icon: MessageSquare },
-  { key: "settings" as const, label: "Pages & settings", icon: Settings },
-  { key: "admins" as const, label: "Admin users", icon: Shield },
-];
+
 
 /* ---------------- Products ---------------- */
 
@@ -293,25 +482,28 @@ function ProductsTab() {
   );
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search products…"
-          aria-label="Search products"
-          className="w-full max-w-xs rounded-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-primary"
-        />
+        <div className="relative w-full max-w-xs">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products…"
+            aria-label="Search products"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 pl-9 text-sm text-gray-800 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+          />
+          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setPrintingLabels(true)}
-            className="flex items-center gap-2 rounded-full border border-border bg-background px-5 py-2 text-sm font-semibold shadow-sm transition hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
           >
-            <Printer className="size-4" /> Print Labels
+            <Printer className="size-4 text-gray-500" /> Print Labels
           </button>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+            className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c]"
           >
             <Plus className="size-4" /> Add product
           </button>
@@ -319,11 +511,13 @@ function ProductsTab() {
       </div>
 
       {isLoading ? (
-        <p className="mt-8 text-sm font-medium text-muted-foreground">Loading products…</p>
+        <div className="mt-8 flex justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
+        </div>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-border/50 bg-background shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
               <tr>
                 <th className="px-5 py-4">Product</th>
                 <th className="px-5 py-4">Category</th>
@@ -334,9 +528,9 @@ function ProductsTab() {
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody className="divide-y divide-gray-100">
               {list.map((p) => (
-                <tr key={p.uuid} className="group transition-colors hover:bg-muted/30">
+                <tr key={p.uuid} className="group transition-colors hover:bg-gray-50/50">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-4">
                       <img
@@ -345,31 +539,31 @@ function ProductsTab() {
                         loading="lazy"
                         width={48}
                         height={48}
-                        className="size-12 shrink-0 rounded-xl border border-border/50 object-cover shadow-sm transition-transform group-hover:scale-105"
+                        className="size-12 shrink-0 rounded-xl border border-gray-100 object-cover shadow-sm transition-transform group-hover:scale-105"
                       />
                       <div>
-                        <p className="font-semibold text-foreground">{p.name}</p>
-                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                        <p className="font-semibold text-gray-900">{p.name}</p>
+                        <p className="text-xs font-medium text-gray-500 mt-0.5">
                           {p.brand} <span className="opacity-50">•</span> {p.id}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4 capitalize font-medium">{p.category}</td>
-                  <td className="px-5 py-4 font-semibold text-foreground">
+                  <td className="px-5 py-4 capitalize font-medium text-gray-700">{p.category}</td>
+                  <td className="px-5 py-4 font-semibold text-gray-900">
                     {formatPrice(p.price)}
                   </td>
-                  <td className="px-5 py-4 text-muted-foreground/70 line-through">
+                  <td className="px-5 py-4 text-gray-400 line-through font-medium">
                     {formatPrice(p.mrp)}
                   </td>
                   <td className="px-5 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
+                      className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
                         p.stock === 0
-                          ? "bg-destructive/10 text-destructive"
+                          ? "bg-red-50 text-red-600 border border-red-100"
                           : p.stock <= p.lowStockAt
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-500"
-                            : "bg-green-500/10 text-green-600 dark:text-green-500"
+                            ? "bg-amber-50 text-amber-600 border border-amber-100"
+                            : "bg-emerald-50 text-emerald-600 border border-emerald-100"
                       }`}
                     >
                       {p.stock === 0 ? "Out of stock" : `${p.stock} left`}
@@ -377,8 +571,8 @@ function ProductsTab() {
                   </td>
                   <td className="px-5 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
-                        p.isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                      className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                        p.isActive ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-gray-100 text-gray-500 border border-gray-200"
                       }`}
                     >
                       {p.isActive ? "Live" : "Hidden"}
@@ -389,7 +583,7 @@ function ProductsTab() {
                       <button
                         onClick={() => setEditing(p)}
                         aria-label={`Edit ${p.name}`}
-                        className="rounded-xl border border-border/50 bg-background p-2 text-muted-foreground shadow-sm transition-all hover:border-primary/50 hover:text-primary"
+                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50"
                       >
                         <Pencil className="size-4" />
                       </button>
@@ -398,7 +592,7 @@ function ProductsTab() {
                           if (window.confirm(`Delete "${p.name}"?`)) remove.mutate(p.uuid);
                         }}
                         aria-label={`Delete ${p.name}`}
-                        className="rounded-xl border border-border/50 bg-background p-2 text-muted-foreground shadow-sm transition-all hover:border-destructive/50 hover:text-destructive"
+                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -528,7 +722,7 @@ function CategoriesTab() {
   });
 
   const input =
-    "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
+    "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm placeholder:text-gray-400";
 
   return (
     <div className="space-y-8">
@@ -545,9 +739,9 @@ function CategoriesTab() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-border p-5">
-        <h2 className="font-display text-lg font-bold">Add a category</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-900">Add a category</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <input
             className={input}
             placeholder="Slug (e.g. bath)"
@@ -588,7 +782,7 @@ function CategoriesTab() {
         <button
           onClick={() => create.mutate()}
           disabled={!draft.slug || !draft.name || create.isPending}
-          className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="mt-5 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c] disabled:opacity-60"
         >
           Add category
         </button>
@@ -608,17 +802,17 @@ function CategoryRowEditor({
 }) {
   const [value, setValue] = useState(row);
   const input =
-    "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
+    "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm placeholder:text-gray-400";
 
   return (
-    <div className="grid items-center gap-3 rounded-2xl border border-border p-4 lg:grid-cols-[64px_1fr_1fr_1fr_80px_auto]">
+    <div className="grid items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[64px_1fr_1fr_1fr_80px_auto] transition-all hover:border-gray-200">
       <img
         src={imageFor(value.slug, value.image_url)}
         alt=""
         loading="lazy"
         width={56}
         height={56}
-        className="size-14 rounded-xl object-cover"
+        className="size-14 rounded-xl object-cover border border-gray-100 shadow-sm"
       />
       <input
         className={input}
@@ -866,178 +1060,6 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
   );
 }
 
-/* ---------------- Orders ---------------- */
-
-function OrdersTab() {
-  const qc = useQueryClient();
-  const { data, isLoading } = useAllOrders(true);
-  const [filter, setFilter] = useState("all");
-
-  const update = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Order updated");
-      qc.invalidateQueries({ queryKey: ["admin-orders"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const orders = (data ?? []).filter((o) => filter === "all" || o.status === filter);
-  const revenue = (data ?? [])
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + Number(o.total), 0);
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Orders
-          </p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
-            {(data ?? []).length}
-          </p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Revenue
-          </p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-primary">
-            {formatPrice(revenue)}
-          </p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-muted/50 p-5 shadow-sm transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Awaiting action
-          </p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
-            {(data ?? []).filter((o) => o.status === "placed").length}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {["all", ...orderStatuses].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
-              filter === s
-                ? "border-primary text-primary"
-                : "border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {isLoading && <p className="text-sm text-muted-foreground">Loading orders…</p>}
-      {!isLoading && orders.length === 0 && (
-        <p className="rounded-2xl border border-border p-10 text-center text-sm text-muted-foreground">
-          No orders here yet.
-        </p>
-      )}
-
-      <ul className="space-y-4">
-        {orders.map((order) => (
-          <li
-            key={order.id}
-            className="relative overflow-hidden rounded-2xl border border-border/50 bg-background p-6 shadow-sm transition-all hover:shadow-md"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <p className="font-display text-lg font-bold tracking-tight">
-                    #{order.id.slice(0, 8).toUpperCase()}
-                  </p>
-                  <span className="rounded-full bg-muted/50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {order.payment_method || "cod"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  {new Date(order.created_at).toLocaleString("en-IN")}
-                </p>
-                <div className="mt-4 grid gap-1 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm font-semibold">{order.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{order.email}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.phone}{" "}
-                      {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="max-w-xs text-sm text-muted-foreground">
-                      {order.address}
-                      {order.address_line2 ? `, ${order.address_line2}` : ""}
-                      {order.landmark ? `, near ${order.landmark}` : ""}
-                      <br />
-                      {[order.city, order.state, order.pincode].filter(Boolean).length
-                        ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
-                        : ""}
-                    </p>
-                  </div>
-                </div>
-                {order.notes && (
-                  <div className="mt-3 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-500">
-                    <strong>Note:</strong> “{order.notes}”
-                  </div>
-                )}
-                <div className="mt-4">
-                  <InvoiceBox order={order} />
-                </div>
-              </div>
-
-              <div className="text-right">
-                <p className="font-display text-xl font-bold">{formatPrice(Number(order.total))}</p>
-                <select
-                  value={order.status}
-                  onChange={(e) => update.mutate({ id: order.id, status: e.target.value })}
-                  aria-label={`Status for order ${order.id}`}
-                  className="mt-2 rounded-xl border border-border bg-background px-3 py-1.5 text-sm capitalize outline-none focus:border-primary"
-                >
-                  {orderStatuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <ul className="mt-4 space-y-3 border-t border-border pt-3 text-sm">
-              {order.order_items.map((item) => (
-                <li key={item.id} className="flex items-center gap-3">
-                  <img
-                    src={imageFor("clothing", item.image_url)}
-                    alt={item.name}
-                    loading="lazy"
-                    width={48}
-                    height={48}
-                    className="size-12 shrink-0 rounded-xl border border-border object-cover"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold">{item.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {item.product_slug} · qty {item.qty}
-                    </span>
-                  </span>
-                  <span className="font-semibold">
-                    {formatPrice(Number(item.price) * item.qty)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /* ---------------- Customers ---------------- */
 
 function CustomersTab() {
@@ -1057,41 +1079,41 @@ function CustomersTab() {
   }, [orders]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <table className="w-full text-left text-sm whitespace-nowrap">
+        <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
           <tr>
-            <th className="px-4 py-3">Customer</th>
-            <th className="px-4 py-3">Contact</th>
-            <th className="px-4 py-3">Joined</th>
-            <th className="px-4 py-3 text-right">Orders</th>
-            <th className="px-4 py-3 text-right">Spend</th>
+            <th className="px-5 py-4">Customer</th>
+            <th className="px-5 py-4">Contact</th>
+            <th className="px-5 py-4">Joined</th>
+            <th className="px-5 py-4 text-right">Orders</th>
+            <th className="px-5 py-4 text-right">Spend</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-gray-100">
           {(customers ?? []).map((c) => {
             const s = stats.get(c.id) ?? { count: 0, spend: 0 };
             return (
-              <tr key={c.id} className="border-t border-border align-top">
-                <td className="px-4 py-3">
-                  <span className="font-semibold">{c.full_name || "—"}</span>
-                  <span className="block max-w-xs text-xs text-muted-foreground">{c.address}</span>
+              <tr key={c.id} className="group transition-colors hover:bg-gray-50/50 align-top">
+                <td className="px-5 py-4">
+                  <span className="font-semibold text-gray-900">{c.full_name || "—"}</span>
+                  <span className="block max-w-xs text-xs text-gray-500 mt-1 whitespace-normal">{c.address}</span>
                 </td>
-                <td className="px-4 py-3">
-                  {c.email}
-                  <span className="block text-xs text-muted-foreground">{c.phone}</span>
+                <td className="px-5 py-4">
+                  <span className="text-gray-900 font-medium">{c.email}</span>
+                  <span className="block text-xs text-gray-500 mt-1">{c.phone}</span>
                 </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
+                <td className="px-5 py-4 text-xs text-gray-500 font-medium">
                   {new Date(c.created_at).toLocaleDateString("en-IN")}
                 </td>
-                <td className="px-4 py-3 text-right">{s.count}</td>
-                <td className="px-4 py-3 text-right font-semibold">{formatPrice(s.spend)}</td>
+                <td className="px-5 py-4 text-right font-medium text-gray-700">{s.count}</td>
+                <td className="px-5 py-4 text-right font-semibold text-gray-900">{formatPrice(s.spend)}</td>
               </tr>
             );
           })}
           {!isLoading && (customers ?? []).length === 0 && (
             <tr>
-              <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+              <td colSpan={5} className="px-5 py-16 text-center text-sm font-medium text-gray-500">
                 No customers yet.
               </td>
             </tr>
@@ -1124,12 +1146,12 @@ function CouponsTab() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{(coupons ?? []).length} coupon(s)</p>
+        <p className="text-sm font-medium text-gray-500">{(coupons ?? []).length} coupon(s)</p>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c]"
         >
           <Plus className="size-4" /> Add coupon
         </button>
@@ -1137,7 +1159,7 @@ function CouponsTab() {
 
       {showForm && (
         <form
-          className="space-y-3 rounded-2xl border border-border p-5"
+          className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
             createCoupon.mutate(form, {
@@ -1148,31 +1170,31 @@ function CouponsTab() {
             });
           }}
         >
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="text-sm font-semibold">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="text-sm font-semibold text-gray-900">
               Code
               <input
                 required
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                 placeholder="WELCOME10"
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold">
+            <label className="text-sm font-semibold text-gray-900">
               Type
               <select
                 value={form.discount_type}
                 onChange={(e) =>
                   setForm({ ...form, discount_type: e.target.value as "percentage" | "fixed" })
                 }
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               >
                 <option value="percentage">Percentage</option>
                 <option value="fixed">Fixed amount</option>
               </select>
             </label>
-            <label className="text-sm font-semibold">
+            <label className="text-sm font-semibold text-gray-900">
               Value
               <input
                 type="number"
@@ -1180,54 +1202,54 @@ function CouponsTab() {
                 min={1}
                 value={form.discount_value}
                 onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               />
             </label>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="text-sm font-semibold">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="text-sm font-semibold text-gray-900">
               Min order value (₹)
               <input
                 type="number"
                 min={0}
                 value={form.minimum_order_value}
                 onChange={(e) => setForm({ ...form, minimum_order_value: Number(e.target.value) })}
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold">
+            <label className="text-sm font-semibold text-gray-900">
               Max discount (₹, 0=unlimited)
               <input
                 type="number"
                 min={0}
                 value={form.maximum_discount}
                 onChange={(e) => setForm({ ...form, maximum_discount: Number(e.target.value) })}
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold">
+            <label className="text-sm font-semibold text-gray-900">
               Usage limit (0=unlimited)
               <input
                 type="number"
                 min={0}
                 value={form.usage_limit}
                 onChange={(e) => setForm({ ...form, usage_limit: Number(e.target.value) })}
-                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
               />
             </label>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3 pt-2">
             <button
               type="submit"
               disabled={createCoupon.isPending}
-              className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-xl bg-[#8B2020] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c] disabled:opacity-50"
             >
               {createCoupon.isPending ? "Creating…" : "Create coupon"}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-full border border-border px-6 py-2 text-sm font-semibold transition hover:bg-muted"
+              className="rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -1235,52 +1257,55 @@ function CouponsTab() {
         </form>
       )}
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading coupons…</p>}
+      {isLoading && (
+        <div className="flex justify-center py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
+        </div>
+      )}
 
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <table className="w-full text-left text-sm whitespace-nowrap">
+          <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
             <tr>
-              <th className="px-4 py-3">Code</th>
-              <th className="px-4 py-3">Discount</th>
-              <th className="px-4 py-3">Min order</th>
-              <th className="px-4 py-3">Used</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-5 py-4">Code</th>
+              <th className="px-5 py-4">Discount</th>
+              <th className="px-5 py-4">Min order</th>
+              <th className="px-5 py-4">Used</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {(coupons ?? []).map((c) => (
-              <tr key={c.id} className="border-t border-border align-middle">
-                <td className="px-4 py-3 font-mono font-semibold">{c.code}</td>
-                <td className="px-4 py-3">
+              <tr key={c.id} className="group transition-colors hover:bg-gray-50/50">
+                <td className="px-5 py-4 font-mono font-bold text-gray-900">{c.code}</td>
+                <td className="px-5 py-4 font-medium text-gray-700">
                   {c.discount_type === "percentage"
                     ? `${c.discount_value}%`
                     : `₹${c.discount_value}`}
                   {c.maximum_discount > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {" "}
+                    <span className="text-xs text-gray-500 ml-1">
                       (max ₹{c.maximum_discount})
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3">₹{c.minimum_order_value}</td>
-                <td className="px-4 py-3">
+                <td className="px-5 py-4 text-gray-700">₹{c.minimum_order_value}</td>
+                <td className="px-5 py-4 font-medium text-gray-700">
                   {c.usage_count}
-                  {c.usage_limit > 0 ? `/${c.usage_limit}` : ""}
+                  {c.usage_limit > 0 ? <span className="text-gray-400">/{c.usage_limit}</span> : ""}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-5 py-4">
                   <button
                     onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${c.active ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}
+                    className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${c.active ? "bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100" : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"}`}
                   >
                     {c.active ? "Active" : "Inactive"}
                   </button>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-5 py-4 text-right">
                   <button
                     onClick={() => deleteCoupon.mutate(c.id)}
-                    className="text-xs text-muted-foreground hover:text-destructive"
+                    className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -1289,7 +1314,7 @@ function CouponsTab() {
             ))}
             {!isLoading && (coupons ?? []).length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={6} className="px-5 py-16 text-center text-sm font-medium text-gray-500">
                   No coupons yet. Create one to get started.
                 </td>
               </tr>

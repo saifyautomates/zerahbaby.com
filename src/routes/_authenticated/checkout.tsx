@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/orders";
+import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
@@ -199,8 +200,99 @@ function CheckoutPage() {
             };
 
       const orderId = await placeOrder.mutateAsync(orderPayload);
+      
+      if (form.payment_method === "online") {
+        setSubmitting(true);
+        try {
+          // Load Razorpay Script
+          await new Promise((resolve, reject) => {
+            if (document.getElementById("razorpay-script")) return resolve(true);
+            const script = document.createElement("script");
+            script.id = "razorpay-script";
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          });
+
+          // Create Razorpay Order
+          const { data: createData, error: createError } = await supabase.functions.invoke(
+            "create-razorpay-order",
+            { body: { orderId } }
+          );
+
+          if (createError || !createData?.rzp_order_id) {
+            throw new Error(createError?.message || "Failed to initialize payment");
+          }
+
+          // Open Razorpay Checkout
+          const options = {
+            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+            amount: Math.round(finalTotal * 100),
+            currency: "INR",
+            name: "Zerah Baby And Kid's",
+            description: "Order Payment",
+            order_id: createData.rzp_order_id,
+            prefill: {
+              name: orderPayload.full_name,
+              email: orderPayload.email,
+              contact: orderPayload.phone,
+            },
+            handler: async (response: any) => {
+              try {
+                toast.loading("Verifying payment...", { id: "payment-verify" });
+                const { error: verifyError } = await supabase.functions.invoke(
+                  "verify-razorpay-payment",
+                  {
+                    body: {
+                      razorpay_order_id: response.razorpay_order_id,
+                      razorpay_payment_id: response.razorpay_payment_id,
+                      razorpay_signature: response.razorpay_signature,
+                    },
+                  }
+                );
+
+                if (verifyError) throw verifyError;
+
+                trackEvent("order_created", {
+                  metadata: { orderId, total: finalTotal, coupon: couponCode || null, payment: "online" },
+                });
+                clear();
+                toast.success("Payment successful! Your order is placed.", { id: "payment-verify" });
+                navigate({ to: "/orders" });
+              } catch (verifyErr: any) {
+                toast.error("Payment verification failed. Please contact support.", { id: "payment-verify" });
+                // Still redirect to orders so they can see the pending order
+                navigate({ to: "/orders" });
+              }
+            },
+            modal: {
+              ondismiss: () => {
+                setSubmitting(false);
+                toast.error("Payment was cancelled. You can retry from your orders.");
+                navigate({ to: "/orders" });
+              }
+            },
+            theme: {
+              color: "#db2777" // tailwind pink-600
+            }
+          };
+
+          const rzp = new (window as any).Razorpay(options);
+          rzp.on("payment.failed", (response: any) => {
+            toast.error(response.error.description || "Payment failed");
+          });
+          rzp.open();
+          return; // Do not proceed to standard success yet
+        } catch (paymentErr: any) {
+          toast.error(paymentErr.message || "Could not start payment");
+          navigate({ to: "/orders" });
+          return;
+        }
+      }
+
       trackEvent("order_created", {
-        metadata: { orderId, total: finalTotal, coupon: couponCode || null },
+        metadata: { orderId, total: finalTotal, coupon: couponCode || null, payment: form.payment_method },
       });
       clear();
       toast.success("Order placed! Your invoice is ready in My orders.");
@@ -350,6 +442,7 @@ function CheckoutPage() {
                   value={form.payment_method}
                   onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
                 >
+                  <option value="online">Pay Online (UPI/Cards/NetBanking)</option>
                   <option value="cod">Cash on delivery</option>
                   <option value="upi">UPI on delivery</option>
                   <option value="card">Card on delivery</option>

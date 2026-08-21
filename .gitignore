@@ -35,6 +35,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+supabase/.temp/
 
 # Test artifacts
 screenshots/

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Banknote, Scan } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingBag, CreditCard, Banknote, Scan, Package, Star, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice } from "@/lib/store";
 
@@ -126,30 +126,25 @@ export function POSTab() {
     mutationFn: async (paymentMethod: "cash" | "upi") => {
       // Build items payload for the RPC
       const rpcItems = cart.map((item) => ({
-        product_slug: item.id, // the slug
+        product_slug: item.id, // the slug or "custom-xxx"
         qty: item.qty,
+        name: item.name,
+        custom_price: item.sku === "CUSTOM" ? item.price : undefined,
       }));
 
-      // Calculate subtotal from cart (this is just for the payload, RPC computes actual)
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-
-      // The generated client types can briefly lag a newly migrated RPC.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc("place_order", {
-        _full_name: customer.full_name || "POS Customer",
-        _email: customer.email || "offline@zerahbaby.com",
-        _phone: customer.phone || "0000000000",
+      const { data, error } = await (supabase.rpc as any)("place_offline_sale", {
+        _customer_name: customer.full_name || "POS Customer",
+        _customer_email: customer.email || "offline@zerahbaby.com",
+        _customer_phone: customer.phone || "0000000000",
         _payment_method: paymentMethod,
         _notes: "POS Order",
-        _subtotal: subtotal,
-        _shipping: 0,
         _discount: discount || 0,
         _items: rpcItems,
       });
 
       if (error) throw error;
-      const result = data as { order_id: string; invoice_no: string } | null;
-      return { id: result?.order_id ?? "", invoice_no: result?.invoice_no ?? "" };
+      const result = data as { sale_id: string; sale_number: string } | null;
+      return { id: result?.sale_id ?? "", invoice_no: result?.sale_number ?? "" };
     },
     onSuccess: () => {
       toast.success("Order completed successfully!");
@@ -295,72 +290,112 @@ export function POSTab() {
         </div>
       )}
 
-      {/* Right: Checkout & Customer */}
-      <div className="flex w-full flex-col bg-muted/10 lg:w-96">
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm border border-border/50">
-            <h2 className="font-display text-xl font-bold">Customer Details</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Fill in information to place an order
+      {/* Right: Checkout & Customer styled exactly like the screenshot */}
+      <div className="flex w-full flex-col bg-gradient-to-b from-[#fdf2f7] to-white lg:w-[32rem] items-center justify-start overflow-y-auto p-8 relative border-l border-border/40 shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)]">
+        
+        {/* Logo Section */}
+        <div className="flex flex-col items-center mt-2 mb-8">
+          <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#fce4ef] mb-3 shadow-sm">
+            <span className="text-[28px] leading-none">👶</span>
+          </div>
+          <div className="text-center space-y-1.5">
+            <h1 className="text-[26px] tracking-tight text-[#1a1a1a] flex items-center justify-center gap-1.5 font-bold">
+              Zerah <span className="text-[#d85c88] font-serif italic font-medium">Baby & Kids</span>
+            </h1>
+            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#8a8a8a]">
+              Premium Children's Clothing
             </p>
+          </div>
+        </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                  Full Name <span className="text-destructive">*</span>
-                </label>
+        {/* Stepper */}
+        <div className="flex items-center gap-1 mb-10 text-xs font-medium">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#d85c88] bg-[#fdf2f7] text-[#d85c88]">1</div>
+          <div className="h-[1px] w-6 bg-gray-200"></div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">2</div>
+          <div className="h-[1px] w-6 bg-gray-200"></div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400">3</div>
+          <div className="h-[1px] w-6 bg-gray-200"></div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400"><Star className="h-3 w-3" /></div>
+        </div>
+
+        {/* Form Card */}
+        <div className="w-full max-w-md rounded-[20px] bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
+          <h2 className="font-serif text-[22px] font-bold text-[#2a2a2a] tracking-tight">Customer Details</h2>
+          <p className="text-[13px] text-[#6b6b6b] mt-1 mb-7">
+            Fill in your information to place an order
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a8a] mb-1.5 block">
+                Full Name <span className="text-[#d85c88]">*</span>
+              </label>
+              <input
+                placeholder="Enter your full name"
+                value={customer.full_name}
+                onChange={(e) => setCustomer({ ...customer, full_name: e.target.value })}
+                className="w-full rounded-xl border border-gray-200/80 bg-[#fbfbfb] px-3.5 py-2.5 text-[13px] outline-none focus:border-[#d85c88] focus:bg-white transition-colors placeholder:text-gray-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a8a] mb-1.5 block">
+                WhatsApp Number <span className="text-[#d85c88]">*</span>
+              </label>
+              <div className="flex gap-2">
+                <div className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200/80 bg-[#fbfbfb] px-3 py-2.5 text-[13px] text-gray-600 font-medium min-w-[70px]">
+                  <span>🇮🇳</span>
+                  <span>+91</span>
+                </div>
                 <input
-                  placeholder="Enter full name"
-                  value={customer.full_name}
-                  onChange={(e) => setCustomer({ ...customer, full_name: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                  placeholder="9XXXXXXXXX"
+                  value={customer.phone}
+                  onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                  className="flex-1 rounded-xl border border-gray-200/80 bg-[#fbfbfb] px-3.5 py-2.5 text-[13px] outline-none focus:border-[#d85c88] focus:bg-white transition-colors placeholder:text-gray-400"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                  WhatsApp Number <span className="text-destructive">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="flex items-center gap-1 rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-sm">
-                    <span>🇮🇳</span>
-                    <span>+91</span>
-                  </div>
-                  <input
-                    placeholder="9XXXXXXXXX"
-                    value={customer.phone}
-                    onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-                    className="flex-1 rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                  Product Name <span className="text-destructive">*</span>
-                </label>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a8a] mb-1.5 block">
+                Product Name <span className="text-[#d85c88]">*</span>
+              </label>
+              <div className="relative">
+                <Package className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
                 <input
                   placeholder="What would you like to order?"
                   value={lastScanned.name}
                   onChange={(e) => setLastScanned({ ...lastScanned, name: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                  className="w-full rounded-xl border border-gray-200/80 bg-[#fbfbfb] pl-10 pr-4 py-2.5 text-[13px] outline-none focus:border-[#d85c88] focus:bg-white transition-colors placeholder:text-gray-400"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                  Price (₹) <span className="text-destructive">*</span>
-                </label>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a8a] mb-1.5 block">
+                Price (₹) <span className="text-[#d85c88]">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-2.5 text-gray-400 text-sm">₹</span>
                 <input
                   type="number"
                   placeholder="0"
                   value={lastScanned.price}
                   onChange={(e) => setLastScanned({ ...lastScanned, price: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-primary focus:bg-white transition-colors"
+                  className="w-full rounded-xl border border-gray-200/80 bg-[#fbfbfb] pl-8 pr-4 py-2.5 text-[13px] outline-none focus:border-[#d85c88] focus:bg-white transition-colors placeholder:text-gray-400"
                 />
+                <div className="absolute right-3 top-2.5 flex flex-col -space-y-[2px]">
+                   {/* Custom arrows placeholder to match design */}
+                   <div className="h-4 w-4 bg-gray-200 rounded-sm flex items-center justify-center cursor-pointer opacity-70">
+                     <span className="text-[8px] transform -rotate-90">›</span>
+                     <span className="text-[8px] transform rotate-90 -ml-[1px]">›</span>
+                   </div>
+                </div>
               </div>
+            </div>
 
-              {/* Manual Add Button for custom items not in DB */}
+            <div className="pt-3">
               <button
                 onClick={() => {
                   if (lastScanned.name && lastScanned.price) {
@@ -384,119 +419,88 @@ export function POSTab() {
                         sortOrder: 0,
                         imageUrl: "https://via.placeholder.com/150",
                         lowStockAt: 5,
-                      } as unknown as Product & { qty: number },
+                        description: "",
+                        highlights: [],
+                        isFeatured: false,
+                        isActive: true,
+                        images: [],
+                      } as Product & { qty: number },
                     ]);
-                    toast.success(`Added ${lastScanned.name}`);
-                    setLastScanned({ name: "", price: "" });
+                    setCheckoutMode("cash"); // Move forward to checkout step logically
+                  } else if (cart.length > 0) {
+                     setCheckoutMode("cash");
                   } else {
                     toast.error("Please enter product name and price");
                   }
                 }}
-                className="w-full rounded-xl bg-pink-100 py-2 text-sm font-bold text-pink-700 hover:bg-pink-200 transition-colors"
+                className="w-full rounded-[14px] bg-[#cc4b7a] py-3.5 text-[14px] font-semibold text-white shadow-sm hover:bg-[#b83b68] transition-colors flex items-center justify-center gap-2"
               >
-                Add Custom Item to Cart
+                <Send className="h-4 w-4" /> Continue to Payment
               </button>
             </div>
           </div>
-
-          <h3 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mt-8 mb-4">
-            Payment Summary
-          </h3>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
-              <dd>{formatPrice(subtotal)}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Discount</dt>
-              <dd>
-                <div className="flex items-center gap-1">
-                  <span>- ₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discount || ""}
-                    onChange={(e) => setDiscount(Number(e.target.value))}
-                    className="w-16 rounded-md border border-border bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary"
-                  />
-                </div>
-              </dd>
-            </div>
-            <div className="flex justify-between border-t border-border/50 pt-2 text-xl font-bold">
-              <dt>Total</dt>
-              <dd className="text-primary">{formatPrice(total)}</dd>
-            </div>
-          </dl>
         </div>
 
-        <div className="border-t border-border/50 bg-card p-6 shadow-[0_-4px_10px_-5px_rgba(0,0,0,0.05)]">
-          {checkoutMode === "idle" && (
-            <div className="grid gap-3">
-              <button
-                disabled={cart.length === 0}
-                onClick={() => setCheckoutMode("cash")}
-                className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-              >
-                <Banknote className="size-5" /> Pay via Cash
-              </button>
-              <button
-                disabled={cart.length === 0}
-                onClick={() => setCheckoutMode("online")}
-                className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50"
-              >
-                <CreditCard className="size-5" /> Pay via PhonePe / Online
-              </button>
-            </div>
-          )}
+        {/* Checkout Confirmations (only show when moving past step 1) */}
+        {checkoutMode !== "idle" && (
+           <div className="w-full max-w-md mt-6 rounded-[20px] bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/80">
+             <h3 className="font-serif text-xl font-bold text-[#2a2a2a] mb-4">Payment Confirmation</h3>
+             
+             {checkoutMode === "cash" && (
+               <div className="text-center">
+                 <p className="font-bold text-lg mb-4 text-slate-800">Collect {formatPrice(total)} in Cash</p>
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => setCheckoutMode("idle")}
+                     className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-sm text-gray-600"
+                   >
+                     Cancel
+                   </button>
+                   <button
+                     onClick={() => placeOrder.mutate("cash")}
+                     disabled={placeOrder.isPending}
+                     className="flex-[2] rounded-xl bg-slate-900 py-2.5 font-semibold text-white text-sm"
+                   >
+                     Confirm Order
+                   </button>
+                 </div>
+               </div>
+             )}
 
-          {checkoutMode === "cash" && (
-            <div className="text-center">
-              <p className="font-bold text-lg mb-4">Collect {formatPrice(total)} in Cash</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCheckoutMode("idle")}
-                  className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => placeOrder.mutate("cash")}
-                  disabled={placeOrder.isPending}
-                  className="flex-1 rounded-xl bg-slate-900 py-2 font-semibold text-white"
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          )}
+             {checkoutMode === "online" && (
+               <div className="text-center">
+                 <div className="mx-auto mb-3 flex size-12 animate-pulse items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                   <CreditCard className="size-6" />
+                 </div>
+                 <p className="font-bold text-slate-800">Waiting for Payment...</p>
+                 <p className="text-xs text-muted-foreground mt-1 mb-4">
+                   Notification sent to customer. Awaiting confirmation for {formatPrice(total)}.
+                 </p>
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => setCheckoutMode("idle")}
+                     className="flex-1 rounded-xl border border-gray-200 bg-[#fbfbfb] py-2.5 font-semibold text-xs text-gray-600"
+                   >
+                     Cancel
+                   </button>
+                   <button
+                     onClick={() => placeOrder.mutate("upi")}
+                     disabled={placeOrder.isPending}
+                     className="flex-[2] rounded-xl bg-purple-600 py-2.5 font-semibold text-white text-sm"
+                   >
+                     Force Confirm Payment
+                   </button>
+                 </div>
+               </div>
+             )}
+           </div>
+        )}
 
-          {checkoutMode === "online" && (
-            <div className="text-center">
-              <div className="mx-auto mb-3 flex size-12 animate-pulse items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                <CreditCard className="size-6" />
-              </div>
-              <p className="font-bold">Waiting for Payment...</p>
-              <p className="text-xs text-muted-foreground mt-1 mb-4">
-                Notification sent to customer. Awaiting PhonePe confirmation for{" "}
-                {formatPrice(total)}.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCheckoutMode("idle")}
-                  className="flex-1 rounded-xl border border-border bg-muted py-2 font-semibold text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => placeOrder.mutate("upi")}
-                  disabled={placeOrder.isPending}
-                  className="flex-[2] rounded-xl bg-purple-600 py-2 font-semibold text-white text-sm"
-                >
-                  Force Confirm Payment
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Footer Text */}
+        <div className="mt-auto pt-12 flex items-center justify-center gap-4 w-full max-w-sm opacity-50">
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
+          <span className="text-[9px] font-bold tracking-[0.1em] text-gray-500 uppercase">Made with ♥ for tiny humans</span>
+          <div className="h-[1px] flex-1 bg-gray-300"></div>
         </div>
       </div>
     </div>

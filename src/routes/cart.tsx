@@ -151,7 +151,7 @@ function CartPage() {
             {savings > 0 && (
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">You save (MRP − our price)</dt>
-                <dd className="text-primary">−{formatPrice(savings)}</dd>
+                <dd className="text-primary">{formatPrice(savings)}</dd>
               </div>
             )}
 

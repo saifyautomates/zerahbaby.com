@@ -379,12 +379,12 @@ export function MediaLibraryPicker({
 }: MediaLibraryProps & { title?: string }) {
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-foreground/50 p-4"
+      className="fixed inset-0 z-[110] flex items-start justify-center overflow-y-auto bg-foreground/50 p-4 pt-10 sm:p-6 sm:pt-[10vh]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className="max-h-[90dvh] w-full max-w-5xl overflow-y-auto overflow-x-hidden rounded-3xl bg-background p-6 shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-5xl rounded-3xl bg-background p-6 shadow-2xl flex flex-col mb-10">
         <h2 className="font-display text-xl font-bold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Reuse any photo or video you've already uploaded.

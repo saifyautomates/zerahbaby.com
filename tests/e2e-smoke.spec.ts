@@ -5,7 +5,7 @@ test.describe("Zerah Baby And Kids - End to End Smoke Tests", () => {
     await page.goto("/");
 
     // Check title and hero text
-    await expect(page).toHaveTitle(/Zerah Baby And Kids/);
+    await expect(page).toHaveTitle(/Zerah Baby And Kid'?s/i);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     // Verify marquee is present

@@ -142,6 +142,8 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { trackEvent } from "@/lib/analytics";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -155,12 +157,11 @@ function RootComponent() {
       if (isAdminRoute || sessionStorage.getItem("visitor_tracked")) return;
 
       try {
-        const sessionId = crypto.randomUUID();
         sessionStorage.setItem("visitor_tracked", "true");
 
         // Use ipapi.co to get location
-        const res = await fetch("https://ipapi.co/json/");
-        const data = await res.json();
+        const res = await fetch("https://ipapi.co/json/").catch(() => null);
+        const data = res && res.ok ? await res.json().catch(() => null) : null;
 
         // The generated client types can briefly lag a newly migrated table.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

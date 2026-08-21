@@ -133,6 +133,7 @@ function AuthPage() {
           {mode === "signin" && (
             <div className="text-right">
               <button
+                id="auth-forgot-btn"
                 type="button"
                 onClick={() => setMode("forgot")}
                 className="text-xs text-muted-foreground hover:text-primary"
@@ -150,6 +151,7 @@ function AuthPage() {
         </form>
 
         <button
+          type="button"
           onClick={onGoogleSignIn}
           disabled={busy}
           className="mt-3 w-full rounded-full border border-border py-2.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
@@ -160,6 +162,8 @@ function AuthPage() {
         <p className="mt-5 text-center text-sm text-muted-foreground">
           {mode === "forgot" ? (
             <button
+              id="auth-back-to-signin-btn"
+              type="button"
               onClick={() => setMode("signin")}
               className="font-semibold text-primary hover:underline"
             >
@@ -169,7 +173,9 @@ function AuthPage() {
             <>
               {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
               <button
-                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                id="auth-toggle-mode-btn"
+                type="button"
+                onClick={() => setMode((m) => (m === "signin" ? "signup" : "signin"))}
                 className="font-semibold text-primary hover:underline"
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}

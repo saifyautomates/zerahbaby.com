@@ -2,7 +2,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useProducts, formatPrice } from "@/lib/store";
-import { useSession } from "@/lib/auth";
+import { useSession, useIsAdmin } from "@/lib/auth";
 import { useMyOrders } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
 
 function OrdersPage() {
   const { user } = useSession();
+  const { data: isAdmin } = useIsAdmin(user?.id);
   const { data: orders, isLoading } = useMyOrders(user?.id);
   const { data: products } = useProducts();
 
@@ -100,8 +101,8 @@ function OrdersPage() {
               })}
             </ul>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              <InvoiceBox order={order} />
-              <p className="text-sm font-bold">Total {formatPrice(Number(order.total))}</p>
+              {isAdmin && <InvoiceBox order={order} />}
+              <p className="ml-auto text-sm font-bold">Total {formatPrice(Number(order.total))}</p>
             </div>
           </li>
         ))}
