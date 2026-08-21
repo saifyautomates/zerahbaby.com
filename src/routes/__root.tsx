@@ -158,6 +158,9 @@ function RootComponent() {
 
       try {
         sessionStorage.setItem("visitor_tracked", "true");
+        const sessionId =
+          sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
+        sessionStorage.setItem("visitor_session_id", sessionId);
 
         // Use ipapi.co to get location
         const res = await fetch("https://ipapi.co/json/").catch(() => null);
