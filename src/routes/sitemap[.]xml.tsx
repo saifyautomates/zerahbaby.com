@@ -1,21 +1,25 @@
 //
 import { createFileRoute } from "@tanstack/react-router";
 
+const BASE_URL = "https://zerahbaby.lovable.app";
+
 const STATIC_PATHS: Array<{ path: string; priority: string; changefreq: string }> = [
   { path: "/", priority: "1.0", changefreq: "daily" },
   { path: "/shop", priority: "0.9", changefreq: "daily" },
   { path: "/about", priority: "0.6", changefreq: "monthly" },
   { path: "/contact", priority: "0.6", changefreq: "monthly" },
+  { path: "/returns", priority: "0.4", changefreq: "yearly" },
+  { path: "/shipping-delivery", priority: "0.4", changefreq: "yearly" },
+  { path: "/cancellation-refund", priority: "0.4", changefreq: "yearly" },
+  { path: "/terms-conditions", priority: "0.3", changefreq: "yearly" },
+  { path: "/privacy-policy", priority: "0.3", changefreq: "yearly" },
   { path: "/cart", priority: "0.3", changefreq: "weekly" },
 ];
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const origin = new URL(request.url).origin;
-        const today = new Date().toISOString().slice(0, 10);
-
+      GET: async () => {
         let productUrls: string[] = [];
         try {
           // Safely access env vars across different platforms (Node/Vercel vs Vite/Cloudflare)
@@ -42,7 +46,7 @@ export const Route = createFileRoute("/sitemap.xml")({
                 .filter((r) => r.slug && r.slug.trim())
                 .map(
                   (r) =>
-                    `<url><loc>${origin}/product/${encodeURIComponent(r.slug)}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
+                    `<url><loc>${BASE_URL}/product/${encodeURIComponent(r.slug)}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
                 );
             }
           }
@@ -54,7 +58,7 @@ export const Route = createFileRoute("/sitemap.xml")({
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${STATIC_PATHS.map(
   (p) =>
-    `<url><loc>${origin}${p.path}</loc><lastmod>${today}</lastmod><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`,
+    `<url><loc>${BASE_URL}${p.path}</loc><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`,
 ).join("\n")}
 ${productUrls.join("\n")}
 </urlset>`;

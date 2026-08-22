@@ -3,6 +3,7 @@ import { Instagram, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSettings } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -22,7 +23,47 @@ export const Route = createFileRoute("/contact")({
         content: "Order tracking, returns, sizing advice and product questions.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://zerahbaby.lovable.app/contact" },
       { name: "twitter:card", content: "summary_large_image" },
+    ],
+    links: [{ rel: "canonical", href: "https://zerahbaby.lovable.app/contact" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          name: "Zerah Baby And Kid's",
+          url: "https://zerahbaby.lovable.app",
+          email: "hello@zerahkids.com",
+          telephone: ["+919057074777", "+919667571712"],
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura",
+            addressLocality: "Kota",
+            addressRegion: "Rajasthan",
+            postalCode: "324001",
+            addressCountry: "IN",
+          },
+          openingHoursSpecification: [
+            {
+              "@type": "OpeningHoursSpecification",
+              dayOfWeek: [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday",
+              ],
+              opens: "10:30",
+              closes: "22:00",
+            },
+          ],
+          sameAs: ["https://www.instagram.com/zerah_kids/"],
+        }),
+      },
     ],
   }),
   component: ContactPage,
@@ -37,8 +78,23 @@ function ContactPage() {
   const { contactEmail, contactPhone, brandName, storeAddress, storeHours, mapsUrl, instagramUrl } =
     useSettings();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Store the enquiry so it is never lost, even if the email client never opens.
+    const { error } = await supabase.from("contact_messages").insert({
+      name,
+      email,
+      order_number: orderNumber || null,
+      message,
+    });
+
+    if (error) {
+      toast.error("We couldn't send that message", {
+        description: "Please try again or email us directly.",
+      });
+      return;
+    }
 
     const subject = encodeURIComponent(
       orderNumber
@@ -53,8 +109,8 @@ function ContactPage() {
     window.open(`mailto:${contactEmail}?subject=${subject}&body=${body}`, "_self");
 
     setSent(true);
-    toast.success("Opening your email client…", {
-      description: "Your message details have been pre-filled. Just hit send!",
+    toast.success("Message received", {
+      description: "We've logged your enquiry and pre-filled your email client too.",
     });
   }
 
