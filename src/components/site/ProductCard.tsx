@@ -102,7 +102,7 @@ export function ProductCard({ product }: { product: Product }) {
             trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
           }}
-          className="focus-ring press mt-4 w-full rounded-full bg-primary py-2.5 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="focus-ring press mt-4 w-full rounded-full bg-primary py-3 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {product.stock === 0 ? "Out of stock" : "Add to bag"}
         </button>

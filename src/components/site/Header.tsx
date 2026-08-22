@@ -105,12 +105,12 @@ export function Header() {
       <div className="border-b border-border glass-header">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
           <button
-            className="focus-ring -ml-1 rounded-md p-2 text-foreground transition hover:bg-muted md:hidden"
+            className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
             aria-label="Toggle menu"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
           >
-            <Menu className="size-5" />
+            <Menu className="size-6" />
           </button>
 
           <Link

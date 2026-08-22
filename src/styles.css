@@ -476,17 +476,42 @@
 
 /* Splash Screen Custom Animations */
 @keyframes splash-logo-pop {
-  0% { transform: scale(0.2) rotate(-15deg); opacity: 0; }
-  60% { transform: scale(1.15) rotate(5deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  0% {
+    transform: scale(0.2) rotate(-15deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15) rotate(5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
 }
 @keyframes splash-text-reveal {
-  0% { transform: translateY(30px); opacity: 0; filter: blur(8px); }
-  100% { transform: translateY(0); opacity: 1; filter: blur(0); }
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+    filter: blur(8px);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 @keyframes splash-tagline {
-  0% { transform: translateY(20px); opacity: 0; letter-spacing: 0em; }
-  100% { transform: translateY(0); opacity: 1; letter-spacing: 0.1em; }
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+    letter-spacing: 0em;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    letter-spacing: 0.1em;
+  }
 }
 
 @utility splash-logo {

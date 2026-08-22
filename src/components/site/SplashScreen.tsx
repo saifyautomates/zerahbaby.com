@@ -55,9 +55,13 @@ export function SplashScreen() {
             className="size-24 rounded-full object-contain shadow-2xl shadow-primary/20 sm:size-32"
           />
         </div>
-        <h1 className="mt-8 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl splash-text-fast">
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-8 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl splash-text-fast"
+        >
           Welcome to {brandName} Store
-        </h1>
+        </div>
       </div>
     </div>
   );
