@@ -13,6 +13,8 @@ type ShopSearch = {
 
 import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
 
+import { useQuery } from "@tanstack/react-query";
+
 export const Route = createFileRoute("/shop")({
   validateSearch: (search: Record<string, unknown>): ShopSearch => ({
     category: typeof search["category"] === "string" ? (search["category"] as string) : undefined,
@@ -20,10 +22,11 @@ export const Route = createFileRoute("/shop")({
     q: typeof search["q"] === "string" && search["q"] ? (search["q"] as string) : undefined,
   }),
   loader: async ({ context }) => {
-    await Promise.all([
+    const [products, categories] = await Promise.all([
       context.queryClient.ensureQueryData(productsQueryOptions(false)),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
-    ]).catch(() => null);
+    ]).catch(() => [null, null]);
+    return { products, categories };
   },
   head: () => ({
     meta: [
@@ -47,8 +50,17 @@ export const Route = createFileRoute("/shop")({
 
 function ShopPage() {
   const { category, age, q } = Route.useSearch();
-  const { data: products, isLoading } = useProducts();
-  const { data: categories } = useCategories();
+  const loaderData = Route.useLoaderData();
+  
+  const { data: products, isLoading } = useQuery({
+    ...productsQueryOptions(false),
+    initialData: loaderData?.products ?? undefined,
+  });
+  const { data: categories } = useQuery({
+    ...categoriesQueryOptions(),
+    initialData: loaderData?.categories ?? undefined,
+  });
+  
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(20000);
   const [sort, setSort] = useState("popular");
