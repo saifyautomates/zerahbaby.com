@@ -13,7 +13,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { useState } from "react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo.jpg";
 import { ageGroups, useCategories, useSettings } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";

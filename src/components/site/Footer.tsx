@@ -1,7 +1,7 @@
 //
 import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, MapPin, MessageCircle } from "lucide-react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo.jpg";
 import { useCategories, useSettings } from "@/lib/store";
 
 export function Footer() {
