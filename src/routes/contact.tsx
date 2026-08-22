@@ -108,8 +108,8 @@ function ContactPage() {
     window.open(`mailto:${contactEmail}?subject=${subject}&body=${body}`, "_self");
 
     setSent(true);
-    toast.success("Opening your email client…", {
-      description: "Your message details have been pre-filled. Just hit send!",
+    toast.success("Message received", {
+      description: "We've logged your enquiry and pre-filled your email client too.",
     });
   }
 
