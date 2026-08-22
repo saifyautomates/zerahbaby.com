@@ -40,21 +40,49 @@ export const Route = createFileRoute("/product/$id")({
     const product = ctx.loaderData?.product;
     if (!product) return { meta: [{ title: "Product Not Found" }] };
 
+    const url = `https://zerahbaby.lovable.app/product/${ctx.params.id}`;
+    const description = product.description.substring(0, 155);
+    const image = /^https?:\/\//.test(product.image)
+      ? product.image
+      : `https://zerahbaby.lovable.app${product.image}`;
+
     return {
       meta: [
         { title: `${product.name} — Zerah Baby And Kid's Kota` },
-        {
-          name: "description",
-          content: product.description.substring(0, 155),
-        },
-        { property: "og:title", content: product.name },
-        {
-          property: "og:description",
-          content: product.description.substring(0, 155),
-        },
-        { property: "og:image", content: product.image },
+        { name: "description", content: description },
+        { property: "og:title", content: `${product.name} — Zerah Baby And Kid's` },
+        { property: "og:description", content: description },
+        { property: "og:image", content: image },
+        { name: "twitter:image", content: image },
+        { property: "og:url", content: url },
         { property: "og:type", content: "product" },
         { name: "twitter:card", content: "summary_large_image" },
+      ],
+      links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description,
+            image: [image],
+            brand: { "@type": "Brand", name: product.brand || "Zerah Baby And Kid's" },
+            sku: product.id,
+            offers: {
+              "@type": "Offer",
+              url,
+              priceCurrency: "INR",
+              price: product.price,
+              availability:
+                (product.stock ?? 0) > 0
+                  ? "https://schema.org/InStock"
+                  : "https://schema.org/OutOfStock",
+              seller: { "@type": "Organization", name: "Zerah Baby And Kid's" },
+            },
+          }),
+        },
       ],
     };
   },
