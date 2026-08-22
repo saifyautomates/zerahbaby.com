@@ -140,7 +140,7 @@ function OrderTimeline({ orderId }: { orderId: string }) {
           {history.map((h) => (
             <li key={h.id} className="relative">
               <span className="absolute -left-[1.35rem] top-1 size-2 rounded-full bg-primary" />
-              <p className="text-xs font-semibold capitalize">{h.status?.replace(/_/g, " ")}</p>
+              <p className="text-xs font-semibold capitalize">{h.new_status?.replace(/_/g, " ")}</p>
               <p className="text-[11px] text-muted-foreground">
                 {new Date(h.created_at).toLocaleString("en-IN")}
                 {h.note ? ` — ${h.note}` : ""}

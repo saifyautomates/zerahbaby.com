@@ -1,9 +1,27 @@
-import { useState } from "react";
+/**
+ * ProductForm — Enhanced product creation/edit form with:
+ * - Auto-generate SKU if empty
+ * - Auto-generate barcode if empty
+ * - Barcode preview in form
+ * - Post-creation print prompt (label + invoice)
+ */
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { GripVertical, Images, Star, Trash2, Upload } from "lucide-react";
-import { ageGroups, useCategories, useProducts, type Product } from "@/lib/store";
+import Barcode from "react-barcode";
+import {
+  Printer,
+  GripVertical,
+  Images,
+  Star,
+  Trash2,
+  Upload,
+  Check,
+  Tag,
+} from "lucide-react";
+import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
+import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useUploadToLibrary } from "@/lib/media-library";
 
 export type ProductDraft = {
@@ -21,12 +39,33 @@ export type ProductDraft = {
   stock: number;
   lowStockAt: number;
   sku: string;
+  barcode: string;
   description: string;
   highlights: string;
   isFeatured: boolean;
   isActive: boolean;
   sortOrder: number;
+  buyingPrice: number;
 };
+
+const CATEGORY_PREFIXES: Record<string, string> = {
+  clothing: "CL",
+  toys: "TY",
+  care: "CR",
+  gear: "GR",
+};
+
+/** Generate a unique SKU like ZR-CL-XXX */
+function generateSKU(category: string): string {
+  const prefix = CATEGORY_PREFIXES[category] ?? "GN";
+  const random = Math.floor(100 + Math.random() * 900);
+  return `ZR-${prefix}-${random}`;
+}
+
+/** Generate a unique 12-digit numeric barcode */
+function generateBarcode(): string {
+  return Math.floor(100000000000 + Math.random() * 900000000000).toString();
+}
 
 const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => ({
   slug: p?.id ?? "",
@@ -43,11 +82,13 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   stock: p?.stock ?? 10,
   lowStockAt: p?.lowStockAt ?? 5,
   sku: p?.sku ?? "",
+  barcode: p?.barcode ?? "",
   description: p?.description ?? "",
   highlights: (p?.highlights ?? []).join("\n"),
   isFeatured: p?.isFeatured ?? false,
   isActive: p?.isActive ?? true,
   sortOrder: p?.sortOrder ?? 0,
+  buyingPrice: p?.buyingPrice ?? 0,
 });
 
 const input =
@@ -75,9 +116,15 @@ export function ProductForm({
   const [uploading, setUploading] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [picker, setPicker] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
   const uploadToLibrary = useUploadToLibrary();
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  // The barcode/sku to preview (shows auto-generated values)
+  const previewSKU = draft.sku || generateSKU(draft.category);
+  const previewBarcode = draft.barcode || generateBarcode();
 
   async function addFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -110,6 +157,24 @@ export function ProductForm({
       images.splice(to, 0, moved);
       return { ...d, images, imageUrl: images[0] ?? d.imageUrl };
     });
+  }
+
+  function handleSave() {
+    // Auto-generate SKU and barcode if empty
+    const finalDraft = {
+      ...draft,
+      sku:
+        draft.sku.trim() || generateSKU(draft.category),
+      barcode:
+        draft.barcode.trim() || generateBarcode(),
+    };
+    onSave(finalDraft);
+
+    // Show post-creation prompt for NEW products
+    if (!product) {
+      // The onSave will be async — show prompt after a brief delay
+      setTimeout(() => setShowPostCreatePrompt(true), 500);
+    }
   }
 
   return createPortal(
@@ -284,14 +349,70 @@ export function ProductForm({
                 ))}
               </datalist>
             </label>
+
+            {/* SKU & Barcode with preview */}
             <label className="text-sm font-semibold">
               SKU
               <input
                 className={input}
                 value={draft.sku}
                 onChange={(e) => set("sku", e.target.value)}
+                placeholder={`Auto: ${generateSKU(draft.category)}`}
               />
             </label>
+            <label className="text-sm font-semibold">
+              Barcode
+              <input
+                className={input}
+                value={draft.barcode}
+                onChange={(e) => set("barcode", e.target.value)}
+                placeholder="Auto-generated if empty"
+              />
+            </label>
+
+            {/* Barcode Preview */}
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="size-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Label Preview
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Zérah Baby & Kids
+                </p>
+                <p className="text-xs font-semibold mt-1 text-center">
+                  {draft.name || "Product Name"}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-black">
+                    {formatPrice(draft.price || 0)}
+                  </span>
+                  {draft.mrp > draft.price && (
+                    <span className="text-[10px] text-muted-foreground line-through">
+                      {formatPrice(draft.mrp)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 scale-90">
+                  <Barcode
+                    value={draft.barcode || draft.sku || previewBarcode}
+                    format="CODE128"
+                    width={1.2}
+                    height={40}
+                    fontSize={10}
+                    margin={0}
+                    displayValue={true}
+                    background="transparent"
+                  />
+                </div>
+                <p className="mt-1 text-[9px] text-muted-foreground">
+                  SKU: {draft.sku || previewSKU}
+                </p>
+              </div>
+            </div>
+
             <label className="text-sm font-semibold">
               Brand
               <input
@@ -331,24 +452,82 @@ export function ProductForm({
                 ))}
               </select>
             </label>
-            <label className="text-sm font-semibold">
-              Price (₹)
-              <input
-                type="number"
-                className={input}
-                value={draft.price}
-                onChange={(e) => set("price", Number(e.target.value))}
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              MRP (₹)
-              <input
-                type="number"
-                className={input}
-                value={draft.mrp}
-                onChange={(e) => set("mrp", Number(e.target.value))}
-              />
-            </label>
+            {/* PRICING & PROFIT SECTION */}
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
+              <div className="flex items-center gap-2 mb-4">
+                <Tag className="size-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Pricing & Profit
+                </span>
+              </div>
+              
+              <div className="grid gap-4 sm:grid-cols-3 mb-6">
+                <label className="text-sm font-semibold">
+                  Buying Price (₹)
+                  <input
+                    type="number"
+                    min="0"
+                    className={input}
+                    value={draft.buyingPrice}
+                    onChange={(e) => set("buyingPrice", Math.max(0, Number(e.target.value)))}
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Selling Price (₹)
+                  <input
+                    type="number"
+                    min="0"
+                    className={input}
+                    value={draft.price}
+                    onChange={(e) => set("price", Math.max(0, Number(e.target.value)))}
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  MRP (₹)
+                  <input
+                    type="number"
+                    min="0"
+                    className={input}
+                    value={draft.mrp}
+                    onChange={(e) => set("mrp", Math.max(0, Number(e.target.value)))}
+                  />
+                </label>
+              </div>
+
+              {/* Profit Calculation Box */}
+              <div className="rounded-lg border border-border bg-white p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Expected Profit</p>
+                    <p className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                      {draft.price - draft.buyingPrice < 0 ? '-' : ''}
+                      {formatPrice(Math.abs(draft.price - draft.buyingPrice))}
+                    </p>
+                  </div>
+                  <div className="hidden sm:block w-px h-10 bg-border"></div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Profit Margin</p>
+                    <p className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                      {draft.buyingPrice > 0 
+                        ? (((draft.price - draft.buyingPrice) / draft.buyingPrice) * 100).toFixed(2) 
+                        : draft.price > 0 ? "100.00" : "0.00"}%
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Validation Warnings */}
+                {(draft.price > draft.mrp && draft.mrp > 0) && (
+                  <p className="mt-3 text-xs font-medium text-amber-600 flex items-center gap-1">
+                    ⚠️ Selling Price is higher than MRP.
+                  </p>
+                )}
+                {draft.price < draft.buyingPrice && (
+                  <p className="mt-3 text-xs font-medium text-destructive flex items-center gap-1">
+                    ⚠️ Warning: Selling Price is lower than Buying Price. This will result in a loss.
+                  </p>
+                )}
+              </div>
+            </div>
             <label className="text-sm font-semibold">
               Stock on hand
               <input
@@ -447,6 +626,14 @@ export function ProductForm({
         </div>
 
         <div className="shrink-0 border-t border-border p-6 flex justify-end gap-3 bg-muted/50">
+          {product && (
+            <button
+              onClick={() => setPrinting(true)}
+              className="mr-auto inline-flex items-center gap-2 rounded-full border border-border bg-white px-5 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              <Printer className="size-4" /> Print Label
+            </button>
+          )}
           <button
             onClick={onCancel}
             className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted"
@@ -454,7 +641,7 @@ export function ProductForm({
             Cancel
           </button>
           <button
-            onClick={() => onSave(draft)}
+            onClick={handleSave}
             disabled={saving || uploading || !draft.name || !draft.slug}
             className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
@@ -462,7 +649,51 @@ export function ProductForm({
           </button>
         </div>
       </div>
+
+      {/* Print Labels modal */}
+      {printing && product && (
+        <PrintLabelsModal products={[product]} onClose={() => setPrinting(false)} />
+      )}
+
+      {/* Post-creation prompt */}
+      {showPostCreatePrompt && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowPostCreatePrompt(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 mb-4">
+              <Check className="size-7 text-emerald-600" />
+            </div>
+            <h3 className="text-lg font-bold">Product Created!</h3>
+            <p className="text-sm text-muted-foreground mt-1 mb-6">
+              Would you like to print labels for this product?
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setShowPostCreatePrompt(false);
+                  setPrinting(true);
+                }}
+                className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
+              >
+                <Printer className="size-4 inline mr-2" />
+                Print Barcode Label
+              </button>
+              <button
+                onClick={() => setShowPostCreatePrompt(false)}
+                className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
-    document.body
+    document.body,
   );
 }

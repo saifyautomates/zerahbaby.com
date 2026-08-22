@@ -44,10 +44,25 @@ export function useSaveProduct() {
   return useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
       const row = draftToRow(draft);
-      const { error } = uuid
-        ? await supabase.from("products").update(row).eq("id", uuid)
-        : await supabase.from("products").insert(row);
-      if (error) throw error;
+      
+      // Save product
+      let productId = uuid;
+      if (uuid) {
+        const { error } = await supabase.from("products").update(row).eq("id", uuid);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("products").insert(row).select("id").single();
+        if (error) throw error;
+        productId = data.id;
+      }
+
+      // Save cost
+      if (productId) {
+        const { error: costError } = await supabase
+          .from("product_costs")
+          .upsert({ product_id: productId, buying_price: draft.buyingPrice });
+        if (costError) throw costError;
+      }
     },
     onSuccess: () => {
       toast.success("Saved to the live store");

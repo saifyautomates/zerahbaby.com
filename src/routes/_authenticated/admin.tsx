@@ -111,38 +111,6 @@ function AdminPage() {
     });
   }, [roleLoading, isAdmin, user, refetchRole]);
 
-  if (roleLoading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <h1 className="font-display text-2xl font-bold">Admin access needed</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          You're signed in as {user?.email}, which isn't an approved store admin account. Sign in
-          with your admin email, or ask an existing admin to add you.
-        </p>
-        <Link
-          to="/"
-          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
-        >
-          Back to the store
-        </Link>
-        <button
-          onClick={signOut}
-          className="mt-4 block w-full text-sm text-muted-foreground hover:text-primary"
-        >
-          Sign out
-        </button>
-      </div>
-    );
-  }
-
   // Real data for Orders badge
   const { data: onlineOrders = [] } = useAllOrders(true);
   const { data: posSales = [] } = useQuery({
@@ -177,6 +145,39 @@ function AdminPage() {
     }).length;
     return newOnline + newOffline;
   }, [onlineOrders, posSales, lastViewedOrdersTime]);
+
+  if (roleLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <h1 className="font-display text-2xl font-bold">Admin access needed</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You're signed in as {user?.email}, which isn't an approved store admin account. Sign in
+          with your admin email, or ask an existing admin to add you.
+        </p>
+        <Link
+          to="/"
+          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
+        >
+          Back to the store
+        </Link>
+        <button
+          onClick={signOut}
+          className="mt-4 block w-full text-sm text-muted-foreground hover:text-primary"
+        >
+          Sign out
+        </button>
+      </div>
+    );
+  }
+
 
   const NAVIGATION = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -397,7 +398,7 @@ function AdminPage() {
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
-            {tab === "dashboard" && <DashboardTab />}
+            {tab === "dashboard" && <DashboardTab onNavigate={setTab as any} />}
             {tab === "pos" && <POSTab />}
             {tab === "products" && <ProductsTab />}
             {tab === "hero" && <HeroMediaManager />}
@@ -428,14 +429,26 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
+  const [printingSingle, setPrintingSingle] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("sort_order");
-      if (error) throw error;
-      return (data as never[]).map((r) => mapProduct(r as never));
+      const [productsRes, costsRes] = await Promise.all([
+        supabase.from("products").select("*").order("sort_order"),
+        supabase.from("product_costs").select("product_id, buying_price")
+      ]);
+      
+      if (productsRes.error) throw productsRes.error;
+      
+      const costMap = new Map((costsRes.data || []).map(c => [c.product_id, c.buying_price]));
+      
+      return (productsRes.data as never[]).map((r: any) => {
+        const prod = mapProduct(r as never);
+        prod.buyingPrice = costMap.get(prod.uuid) || 0;
+        return prod;
+      });
     },
   });
 
@@ -461,6 +474,7 @@ function ProductsTab() {
         stock: Number(draft.stock),
         low_stock_at: Number(draft.lowStockAt),
         sku: draft.sku.trim(),
+        barcode: draft.barcode.trim(),
         description: draft.description,
         highlights: draft.highlights
           .split("\n")
@@ -470,10 +484,24 @@ function ProductsTab() {
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
       };
-      const { error } = uuid
-        ? await supabase.from("products").update(row).eq("id", uuid)
-        : await supabase.from("products").insert(row);
-      if (error) throw error;
+      // Save product
+      let productId = uuid;
+      if (uuid) {
+        const { error } = await supabase.from("products").update(row).eq("id", uuid);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("products").insert(row).select("id").single();
+        if (error) throw error;
+        productId = data.id;
+      }
+
+      // Save cost
+      if (productId) {
+        const { error: costError } = await supabase
+          .from("product_costs")
+          .upsert({ product_id: productId, buying_price: draft.buyingPrice });
+        if (costError) throw costError;
+      }
     },
     onSuccess: () => {
       toast.success("Product saved");
@@ -484,13 +512,53 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Archive (set is_active=false) instead of hard-delete
+  const archive = useMutation({
+    mutationFn: async (uuid: string) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: false })
+        .eq("id", uuid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Product archived (hidden from store)");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Hard-delete — will fail server-side if product has transactions
   const remove = useMutation({
     mutationFn: async (uuid: string) => {
       const { error } = await supabase.from("products").delete().eq("id", uuid);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Product deleted");
+      toast.success("Product permanently deleted");
+      invalidate();
+    },
+    onError: (e: Error) => {
+      // Server-side trigger prevents deletion of products with transactions
+      if (e.message.includes("historical transactions")) {
+        toast.error("Cannot delete — product has sales history. Archiving instead.", { duration: 5000 });
+      } else {
+        toast.error(e.message);
+      }
+    },
+  });
+
+  // Restore archived product
+  const restore = useMutation({
+    mutationFn: async (uuid: string) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: true })
+        .eq("id", uuid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Product restored and visible in store");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -499,7 +567,9 @@ function ProductsTab() {
   const list = useMemo(
     () =>
       (data ?? []).filter((p) =>
-        (p.name + p.brand + p.category + p.id).toLowerCase().includes(search.toLowerCase()),
+        (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
+          .toLowerCase()
+          .includes(search.toLowerCase()),
       ),
     [data, search],
   );
@@ -511,7 +581,7 @@ function ProductsTab() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder="Search products, SKU, barcode…"
             aria-label="Search products"
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 pl-9 text-sm text-gray-800 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
           />
@@ -543,9 +613,8 @@ function ProductsTab() {
             <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
               <tr>
                 <th className="px-5 py-4">Product</th>
-                <th className="px-5 py-4">Category</th>
-                <th className="px-5 py-4">Price</th>
-                <th className="px-5 py-4">MRP</th>
+                <th className="px-5 py-4">SKU / Barcode</th>
+                <th className="px-5 py-4">Pricing & Profit</th>
                 <th className="px-5 py-4">Stock</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4 text-right">Actions</th>
@@ -553,7 +622,7 @@ function ProductsTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {list.map((p) => (
-                <tr key={p.uuid} className="group transition-colors hover:bg-gray-50/50">
+                <tr key={p.uuid} className={`group transition-colors hover:bg-gray-50/50 ${!p.isActive ? "opacity-60" : ""}`}>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-4">
                       <img
@@ -575,10 +644,25 @@ function ProductsTab() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4 capitalize font-medium text-gray-700">{p.category}</td>
-                  <td className="px-5 py-4 font-semibold text-gray-900">{formatPrice(p.price)}</td>
-                  <td className="px-5 py-4 text-gray-400 line-through font-medium">
-                    {formatPrice(p.mrp)}
+                  <td className="px-5 py-4">
+                    <p className="font-mono text-xs font-semibold text-gray-900">{p.sku}</p>
+                    <p className="font-mono text-[10px] text-gray-500 mt-0.5">{p.barcode}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-between min-w-[120px]">
+                      <div>
+                        <p className="font-semibold text-gray-900" title="Selling Price">{formatPrice(p.price)}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5" title="Buying Price">Cost: {formatPrice(p.buyingPrice || 0)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-xs font-bold ${p.price - (p.buyingPrice || 0) < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                          {formatPrice(Math.abs(p.price - (p.buyingPrice || 0)))}
+                        </p>
+                        <p className={`text-[10px] font-medium ${p.price - (p.buyingPrice || 0) < 0 ? 'text-destructive' : 'text-emerald-500'}`}>
+                          {p.buyingPrice ? (((p.price - p.buyingPrice) / p.buyingPrice) * 100).toFixed(1) : (p.price > 0 ? "100.0" : "0.0")}%
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-5 py-4">
                     <span
@@ -601,23 +685,56 @@ function ProductsTab() {
                           : "bg-gray-100 text-gray-700 border border-gray-200"
                       }`}
                     >
-                      {p.isActive ? "Live" : "Hidden"}
+                      {p.isActive ? "Live" : "Archived"}
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <div className="flex justify-end gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <button
+                        onClick={() => setPrintingSingle(p)}
+                        aria-label={`Print label for ${p.name}`}
+                        title="Print Label"
+                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50"
+                      >
+                        <Printer className="size-4" />
+                      </button>
                       <button
                         onClick={() => setEditing(p)}
                         aria-label={`Edit ${p.name}`}
+                        title="Edit"
                         className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50"
                       >
                         <Pencil className="size-4" />
                       </button>
+                      {!p.isActive ? (
+                        <button
+                          onClick={() => restore.mutate(p.uuid)}
+                          aria-label={`Restore ${p.name}`}
+                          title="Restore to store"
+                          className="rounded-lg border border-emerald-200 bg-white p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
+                        >
+                          <Package className="size-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Archive "${p.name}"? It will be hidden from the store but kept in records.`))
+                              archive.mutate(p.uuid);
+                          }}
+                          aria-label={`Archive ${p.name}`}
+                          title="Archive (hide from store)"
+                          className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
+                        >
+                          <Package className="size-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          if (window.confirm(`Delete "${p.name}"?`)) remove.mutate(p.uuid);
+                          if (window.confirm(`Permanently delete "${p.name}"? This cannot be undone.\n\nNote: Products with sales history cannot be deleted.`))
+                            remove.mutate(p.uuid);
                         }}
                         aria-label={`Delete ${p.name}`}
+                        title="Delete permanently"
                         className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="size-4" />
@@ -629,7 +746,7 @@ function ProductsTab() {
               {list.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
                   >
                     No products found.
@@ -655,6 +772,10 @@ function ProductsTab() {
 
       {printingLabels && (
         <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
+      )}
+
+      {printingSingle && (
+        <PrintLabelsModal products={[printingSingle]} onClose={() => setPrintingSingle(null)} />
       )}
     </div>
   );

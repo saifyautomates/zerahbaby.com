@@ -33,7 +33,9 @@ export type Product = {
   stock: number;
   lowStockAt: number;
   sku: string;
+  barcode: string;
   images: string[];
+  buyingPrice?: number;
 };
 
 export type Category = {
@@ -66,6 +68,7 @@ type ProductRow = {
   stock?: number;
   low_stock_at?: number;
   sku?: string;
+  barcode?: string | null;
   images?: string[] | null;
 };
 
@@ -90,6 +93,7 @@ export const mapProduct = (row: ProductRow): Product => ({
   stock: row.stock ?? 0,
   lowStockAt: row.low_stock_at ?? 5,
   sku: row.sku ?? "",
+  barcode: row.barcode ?? "",
   images: (row.images ?? []).filter(Boolean),
 });
 
