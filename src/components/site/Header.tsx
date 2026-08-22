@@ -130,7 +130,7 @@ export function Header() {
             <span className="font-display text-base font-bold leading-none tracking-tight text-foreground sm:text-xl">
               Zérah <span className="text-primary">Baby</span>
               <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-[11px]">
-                And Kids
+                And Kid's
               </span>
             </span>
           </Link>
