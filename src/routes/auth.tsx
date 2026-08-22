@@ -120,16 +120,18 @@ function AuthPage() {
 
   async function onGoogleSignIn() {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/auth",
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/auth",
+      }
     });
-    if (result.error) {
+    
+    if (error) {
       setBusy(false);
-      toast.error("Google sign-in failed");
-      return;
+      toast.error("Google sign-in failed: " + error.message);
     }
-    if (result.redirected) return;
-    navigate({ to: items.length > 0 ? "/checkout" : "/" });
+    // Note: OAuth sign-in will redirect the page, so we don't need a manual navigate on success
   }
 
   return (
