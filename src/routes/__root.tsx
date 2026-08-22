@@ -107,6 +107,42 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@zerah_kids" },
+      { property: "og:site_name", content: "Zerah Baby And Kid's" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify([
+          {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Zerah Baby And Kid's",
+            url: "https://zerahbaby.lovable.app",
+            email: "hello@zerahkids.com",
+            telephone: "+919057074777",
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura",
+              addressLocality: "Kota",
+              addressRegion: "Rajasthan",
+              postalCode: "324001",
+              addressCountry: "IN",
+            },
+            sameAs: ["https://www.instagram.com/zerah_kids/"],
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Zerah Baby And Kid's",
+            url: "https://zerahbaby.lovable.app",
+            potentialAction: {
+              "@type": "SearchAction",
+              target: "https://zerahbaby.lovable.app/shop?q={search_term_string}",
+              "query-input": "required name=search_term_string",
+            },
+          },
+        ]),
+      },
     ],
     links: [
       {
