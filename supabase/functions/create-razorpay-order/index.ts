@@ -41,7 +41,7 @@ serve(async (req) => {
 
     const { data: order, error: orderError } = await adminClient
       .from("orders")
-      .select("id, user_id, total, currency")
+      .select("id, user_id, total")
       .eq("id", orderId)
       .single();
 
@@ -74,7 +74,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         amount: amountInPaise,
-        currency: order.currency || "INR",
+        currency: "INR",
         receipt: `receipt_${orderId.substring(0, 8)}`,
       }),
     });

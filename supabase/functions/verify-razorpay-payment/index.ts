@@ -61,7 +61,7 @@ serve(async (req) => {
     // Fetch the order to ensure it belongs to the user and hasn't already been processed
     const { data: order, error: orderError } = await adminClient
       .from("orders")
-      .select("id, user_id, payment_status")
+      .select("id, user_id, status")
       .eq("razorpay_order_id", razorpay_order_id)
       .single();
 
@@ -74,8 +74,8 @@ serve(async (req) => {
       throw new Error("Unauthorized access to this order");
     }
 
-    // If it's already paid, just return success
-    if (order.payment_status === "paid") {
+    // If it's already paid/processing, just return success
+    if (order.status === "processing" || order.status === "confirmed") {
       return new Response(JSON.stringify({ success: true, already_paid: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -86,7 +86,6 @@ serve(async (req) => {
     const { error: updateError } = await adminClient
       .from("orders")
       .update({
-        payment_status: "paid",
         status: "processing", // Or whatever the next logical state is
         razorpay_payment_id,
         razorpay_signature,
