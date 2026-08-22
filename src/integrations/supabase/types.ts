@@ -13,7 +13,7 @@ export type Database = {
     PostgrestVersion: "14.15"
   }
   graphql_public: {
-    Tables: {
+    Tables: { contact_messages: { Row: { id: string; created_at: string; name: string; email: string; order_number: string | null; message: string; }; Insert: { id?: string; created_at?: string; name: string; email: string; order_number?: string | null; message: string; }; Update: { id?: string; created_at?: string; name?: string; email?: string; order_number?: string | null; message?: string; }; Relationships: []; };
       [_ in never]: never
     }
     Views: {
@@ -38,7 +38,7 @@ export type Database = {
     }
   }
   public: {
-    Tables: {
+    Tables: { contact_messages: { Row: { id: string; created_at: string; name: string; email: string; order_number: string | null; message: string; }; Insert: { id?: string; created_at?: string; name: string; email: string; order_number?: string | null; message: string; }; Update: { id?: string; created_at?: string; name?: string; email?: string; order_number?: string | null; message?: string; }; Relationships: []; };
       admin_allowlist: {
         Row: {
           added_by: string | null
@@ -1676,3 +1676,4 @@ export const Constants = {
     },
   },
 } as const
+
