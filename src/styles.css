@@ -98,22 +98,17 @@
   --sidebar-border: oklch(0.9 0.012 78);
   --sidebar-ring: oklch(0.5 0.11 25);
 
-  /* Premium announcement bar: warm espresso clay with antique gold accents */
-  --announce-surface: linear-gradient(
-    90deg,
-    oklch(0.68 0.22 340) 0%,
-    oklch(0.62 0.2 300) 35%,
-    oklch(0.6 0.18 260) 65%,
-    oklch(0.68 0.15 235) 100%
-  );
-  --announce-foreground: oklch(0.99 0 0);
-  --announce-gold: oklch(0.85 0.14 85);
+  /* Playful vibrant announcement bar: pink to blue gradient */
+  --announce-surface: linear-gradient(90deg, #d946ef 0%, #a855f7 28%, #3b82f6 65%, #0ea5e9 100%);
+  --announce-foreground: #ffffff;
+  --announce-gold: #fde047;
+  --announce-gold-soft: rgba(253, 224, 71, 0.4);
   --announce-hairline: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in oklab, var(--announce-gold) 55%, transparent) 20%,
-    color-mix(in oklab, var(--announce-gold) 90%, transparent) 50%,
-    color-mix(in oklab, var(--announce-gold) 55%, transparent) 80%,
+    rgba(255, 255, 255, 0.4) 20%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.4) 80%,
     transparent 100%
   );
 }
@@ -151,15 +146,9 @@
   --sidebar-accent-foreground: oklch(0.96 0.008 85);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.66 0.12 30);
-  --announce-surface: linear-gradient(
-    90deg,
-    oklch(0.55 0.18 340) 0%,
-    oklch(0.5 0.16 300) 35%,
-    oklch(0.48 0.15 260) 65%,
-    oklch(0.55 0.12 235) 100%
-  );
-  --announce-foreground: oklch(0.99 0 0);
-  --announce-gold: oklch(0.82 0.12 85);
+  --announce-surface: linear-gradient(90deg, #c026d3 0%, #9333ea 28%, #2563eb 65%, #0284c7 100%);
+  --announce-foreground: #ffffff;
+  --announce-gold: #fde047;
 }
 
 @layer base {
@@ -354,7 +343,7 @@
   }
 }
 
-/* Premium announcement bar surface: espresso clay field, gold hairlines, slow sheen */
+/* Playful vibrant announcement bar: pink to blue gradient */
 @utility announce-bar {
   position: relative;
   isolation: isolate;
