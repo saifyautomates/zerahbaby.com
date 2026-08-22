@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
-import { useProducts, type Product } from "@/lib/store";
+import { useEffect, useState } from "react";
+import { useProducts } from "@/lib/store";
 import { ProductCard } from "@/components/site/ProductCard";
 
 export function RelatedProducts({
@@ -9,7 +9,18 @@ export function RelatedProducts({
   currentProductId: string;
   category: string;
 }) {
+  // Defer render to client-only to prevent SSR/client hydration mismatch.
+  // The product list is async (React Query) and is empty during SSR even when
+  // the loader prefetched it, causing the section to be absent in SSR HTML but
+  // present after client hydration — which throws a React hydration error.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { data: allProducts = [] } = useProducts();
+
+  if (!mounted) return null;
 
   const related = allProducts
     .filter((p) => p.category === category && p.id !== currentProductId)
