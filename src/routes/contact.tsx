@@ -77,8 +77,23 @@ function ContactPage() {
   const { contactEmail, contactPhone, brandName, storeAddress, storeHours, mapsUrl, instagramUrl } =
     useSettings();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Store the enquiry so it is never lost, even if the email client never opens.
+    const { error } = await supabase.from("contact_messages").insert({
+      name,
+      email,
+      order_number: orderNumber || null,
+      message,
+    });
+
+    if (error) {
+      toast.error("We couldn't send that message", {
+        description: "Please try again or email us directly.",
+      });
+      return;
+    }
 
     const subject = encodeURIComponent(
       orderNumber
