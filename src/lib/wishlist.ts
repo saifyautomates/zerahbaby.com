@@ -53,7 +53,11 @@ export function useWishlist() {
       const { error } = await supabase
         .from("wishlist_items")
         .insert({ wishlist_id: wishlistId, product_id: productId });
-      if (error) throw error;
+      
+      // Ignore unique constraint violation (23505) caused by spam-clicking toggle
+      if (error && error.code !== "23505") {
+        throw error;
+      }
     },
     onSuccess: invalidate,
   });

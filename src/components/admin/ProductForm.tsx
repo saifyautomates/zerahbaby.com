@@ -46,10 +46,10 @@ const CATEGORY_PREFIXES: Record<string, string> = {
   gear: "GR",
 };
 
-/** Generate a unique SKU like ZR-CL-XXX */
+/** Generate a unique SKU like ZR-CL-XXXXXX */
 function generateSKU(category: string): string {
   const prefix = CATEGORY_PREFIXES[category] ?? "GN";
-  const random = Math.floor(100 + Math.random() * 900);
+  const random = Math.floor(100000 + Math.random() * 900000);
   return `ZR-${prefix}-${random}`;
 }
 

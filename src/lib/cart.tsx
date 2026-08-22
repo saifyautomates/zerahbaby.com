@@ -122,6 +122,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Reset DB load flag if user changes (e.g., logout then login as another user)
+  useEffect(() => {
+    setHasLoadedFromDb(false);
+  }, [user?.id]);
+
   // On login: merge Supabase cart with localStorage cart
   useEffect(() => {
     if (!user || !products || products.length === 0 || hasLoadedFromDb) return;

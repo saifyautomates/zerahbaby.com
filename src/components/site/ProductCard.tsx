@@ -8,6 +8,7 @@ import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
 import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
@@ -23,19 +24,16 @@ export function ProductCard({ product }: { product: Product }) {
         params={{ id: product.id }}
         className="focus-ring relative block overflow-hidden bg-muted"
       >
-        <img
+        <ResponsiveMedia
           src={product.image}
           alt={product.name}
-          loading="lazy"
-          decoding="async"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           width={800}
           height={800}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="aspect-square w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.06]"
-          onError={(e) => {
-            const el = e.target as HTMLImageElement;
-            el.style.opacity = "0";
-          }}
+          fit="cover"
+          aspect="1/1"
+          containerClassName="w-full"
+          className="transition-transform duration-300 ease-out group-hover:scale-[1.06]"
         />
         {discountPct(product) > 0 && (
           <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground">

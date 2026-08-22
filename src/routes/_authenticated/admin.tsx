@@ -470,7 +470,6 @@ function ProductsTab() {
         age_group: draft.ageGroup,
         image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
         images: draft.images,
-        stock: Number(draft.stock),
         low_stock_at: Number(draft.lowStockAt),
         sku: draft.sku.trim(),
         barcode: draft.barcode.trim(),
@@ -483,6 +482,13 @@ function ProductsTab() {
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
       };
+      // Only include stock if it has been explicitly modified, to prevent 
+      // the 'Lost Update' race condition against incoming live sales.
+      const hasStockChanged = uuid ? Number(draft.stock) !== editing?.stock : true;
+      if (hasStockChanged) {
+        row.stock = Number(draft.stock);
+      }
+
       // Save product
       let productId = uuid;
       if (uuid) {

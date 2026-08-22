@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
 import { productsQueryOptions } from "@/lib/store";
 
@@ -78,16 +79,14 @@ function CartPage() {
         <ul className="space-y-4">
           {items.map(({ product, qty }) => (
             <li key={product.id} className="flex gap-4 rounded-2xl border border-border p-4">
-              <img
+              <ResponsiveMedia
                 src={product.image}
                 alt={product.name}
-                loading="lazy"
                 width={800}
                 height={800}
-                className="size-24 shrink-0 rounded-xl object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = "0";
-                }}
+                fit="cover"
+                aspect="1/1"
+                containerClassName="size-24 shrink-0 rounded-xl"
               />
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">

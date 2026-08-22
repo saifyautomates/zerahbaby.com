@@ -276,9 +276,11 @@ function CheckoutPage() {
               }
             },
             modal: {
-              ondismiss: () => {
+              ondismiss: async () => {
                 setSubmitting(false);
-                toast.error("Payment was cancelled. You can retry from your orders.");
+                toast.error("Payment was cancelled. Stock has been restored.");
+                // Immediately cancel order to restore stock, ignore errors silently since webhook is fallback
+                supabase.rpc("cancel_abandoned_order", { order_id: orderId }).then().catch(console.error);
                 navigate({ to: "/orders" });
               },
             },

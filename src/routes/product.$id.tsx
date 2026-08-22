@@ -28,6 +28,7 @@ import { ProductCard } from "@/components/site/ProductCard";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { RelatedProducts } from "@/components/site/RelatedProducts";
 import { RecentlyViewed } from "@/components/site/RecentlyViewed";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
 import { productsQueryOptions } from "@/lib/store";
 
@@ -220,38 +221,22 @@ function ProductPage() {
           <AdminProductControls product={product} />
           {(() => {
             const activeUrl = gallery[activeImage] ?? product.image;
-            const isVideo = activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
-            return isVideo ? (
-              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-muted">
-                <video
-                  src={activeUrl}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls
-                />
-              </div>
-            ) : (
-              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-muted">
-                <img
-                  src={activeUrl}
-                  alt={product.name}
-                  width={800}
-                  height={800}
-                  className="absolute inset-0 h-full w-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
+            const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+            return (
+              <ResponsiveMedia
+                src={activeUrl}
+                alt={product.name}
+                isVideo={isVideo}
+                fit="contain"
+                containerClassName="rounded-3xl border border-border"
+                aspect="1/1"
+              />
             );
           })()}
           {gallery.length > 1 && (
             <div className="mt-3 flex flex-wrap gap-3">
               {gallery.map((url, i) => {
-                const isVideo = url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+                const isVideo = !!url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
                 return (
                   <button
                     key={url}
@@ -261,19 +246,14 @@ function ProductPage() {
                       i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
                     }`}
                   >
-                    {isVideo ? (
-                      <video src={url} className="size-full object-cover" playsInline muted />
-                    ) : (
-                      <img
-                        src={url}
-                        alt=""
-                        loading="lazy"
-                        className="size-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.opacity = "0";
-                        }}
-                      />
-                    )}
+                    <ResponsiveMedia
+                      src={url}
+                      isVideo={isVideo}
+                      fit="cover"
+                      aspect="1/1"
+                      containerClassName="rounded-none h-full w-full"
+                      showPlaceholder={false}
+                    />
                   </button>
                 );
               })}

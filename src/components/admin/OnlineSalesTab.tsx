@@ -149,8 +149,9 @@ export function OnlineSalesTab() {
                       status: e.target.value as any,
                     })
                   }
+                  disabled={update.isPending}
                   aria-label={`Status for order ${order.id}`}
-                  className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm text-gray-800"
+                  className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm text-gray-800 disabled:opacity-50"
                 >
                   {orderStatuses.map((s) => (
                     <option key={s} value={s}>
