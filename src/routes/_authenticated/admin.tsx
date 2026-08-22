@@ -458,7 +458,7 @@ function ProductsTab() {
 
   const save = useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
-      const row = {
+      const row: any = {
         slug: draft.slug.trim(),
         name: draft.name.trim(),
         brand: draft.brand.trim(),
@@ -482,8 +482,7 @@ function ProductsTab() {
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
       };
-      // Only include stock if it has been explicitly modified, to prevent 
-      // the 'Lost Update' race condition against incoming live sales.
+
       const hasStockChanged = uuid ? Number(draft.stock) !== editing?.stock : true;
       if (hasStockChanged) {
         row.stock = Number(draft.stock);

@@ -10,15 +10,19 @@ test.describe("Zerah Baby And Kids - Admin Security & Functionality Tests", () =
   });
 
   test("Supabase RLS should prevent unauthenticated product creation", async ({ request }) => {
-    const response = await request.post(process.env.VITE_SUPABASE_URL + "/rest/v1/products" || "http://127.0.0.1:54321/rest/v1/products", {
-      data: {
-        name: "Hacked Product",
-        slug: "hacked",
+    const response = await request.post(
+      process.env.VITE_SUPABASE_URL + "/rest/v1/products" ||
+        "http://127.0.0.1:54321/rest/v1/products",
+      {
+        data: {
+          name: "Hacked Product",
+          slug: "hacked",
+        },
+        headers: {
+          apikey: process.env.VITE_SUPABASE_ANON_KEY || "",
+        },
       },
-      headers: {
-        apikey: process.env.VITE_SUPABASE_ANON_KEY || "",
-      }
-    });
+    );
     // Should be unauthorized or forbidden because of RLS
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });

@@ -150,8 +150,9 @@ export function MediaLibrary({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
+            disabled={uploading}
             onClick={() => fileInput.current?.click()}
-            className="focus-ring inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            className="focus-ring inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
           >
             {uploading ? (
               <Loader2 className="size-4 animate-spin" />
@@ -163,6 +164,7 @@ export function MediaLibrary({
           <input
             ref={fileInput}
             type="file"
+            disabled={uploading}
             accept={
               accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*"
             }

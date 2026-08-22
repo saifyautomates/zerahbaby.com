@@ -112,6 +112,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
               accept="image/*,video/*"
               multiple
               className="sr-only"
+              disabled={uploading}
               onChange={(e) => handleFiles(e.target.files)}
             />
           </label>
@@ -239,7 +240,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
       <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-6 border-t border-border bg-background p-6 flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={save.isPending}
+          disabled={save.isPending || uploading}
           onClick={() => save.mutate(slides, { onSuccess: () => onClose?.() })}
           className="focus-ring inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
         >

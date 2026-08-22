@@ -280,7 +280,7 @@ function CheckoutPage() {
                 setSubmitting(false);
                 toast.error("Payment was cancelled. Stock has been restored.");
                 // Immediately cancel order to restore stock, ignore errors silently since webhook is fallback
-                supabase.rpc("cancel_abandoned_order", { order_id: orderId }).then().catch(console.error);
+                void supabase.rpc("cancel_abandoned_order" as any, { order_id: orderId });
                 navigate({ to: "/orders" });
               },
             },

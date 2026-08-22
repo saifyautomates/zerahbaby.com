@@ -834,10 +834,10 @@ export function POSTab() {
                   completeSale();
                 }
               }}
-              disabled={placeSale.isPending || cart.length === 0}
+              disabled={placeSale.isPending || createCustomer.isPending || cart.length === 0}
               className="w-full rounded-xl bg-slate-900 py-4 text-sm font-bold text-white shadow-lg hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {placeSale.isPending ? (
+              {placeSale.isPending || createCustomer.isPending ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   Processing...
