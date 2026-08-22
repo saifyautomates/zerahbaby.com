@@ -56,7 +56,7 @@ export function SplashScreen() {
           />
         </div>
         <h1 className="mt-8 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl splash-text-fast">
-          Welcome to {brandName}
+          Welcome to {brandName} Store
         </h1>
       </div>
     </div>
