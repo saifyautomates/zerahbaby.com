@@ -284,6 +284,6 @@ export function HeroMediaDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

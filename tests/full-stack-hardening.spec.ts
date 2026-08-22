@@ -67,7 +67,9 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
     }
   });
 
-  test("5. Security: Protected Routes Redirection (Admin, Profile, Orders, Wishlist)", async ({ page }) => {
+  test("5. Security: Protected Routes Redirection (Admin, Profile, Orders, Wishlist)", async ({
+    page,
+  }) => {
     // Unauthenticated user attempting to access /admin
     await page.goto("/admin");
     await expect(page).toHaveURL(/.*\/auth/);

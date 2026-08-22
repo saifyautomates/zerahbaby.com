@@ -44,7 +44,7 @@ export function useSaveProduct() {
   return useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
       const row = draftToRow(draft);
-      
+
       // Save product
       let productId = uuid;
       if (uuid) {

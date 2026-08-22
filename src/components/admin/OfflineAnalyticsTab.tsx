@@ -74,10 +74,7 @@ export function OfflineAnalyticsTab() {
   const upiTotal = upiSales.reduce((s, o) => s + Number(o.total), 0);
   const cardTotal = cardSales.reduce((s, o) => s + Number(o.total), 0);
   const otherTotal = otherSales.reduce((s, o) => s + Number(o.total), 0);
-  const totalDiscount = (sales ?? []).reduce(
-    (sum, sale) => sum + Number(sale.discount ?? 0),
-    0,
-  );
+  const totalDiscount = (sales ?? []).reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
 
   // Top products
   const topProducts = useMemo(() => {
@@ -100,9 +97,7 @@ export function OfflineAnalyticsTab() {
 
   // Today's stats
   const today = new Date().toISOString().split("T")[0];
-  const todaySales = (sales ?? []).filter(
-    (s) => s.created_at.split("T")[0] === today,
-  );
+  const todaySales = (sales ?? []).filter((s) => s.created_at.split("T")[0] === today);
   const todayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
 
   return (
@@ -116,9 +111,7 @@ export function OfflineAnalyticsTab() {
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">
             {todaySales.length}
           </p>
-          <p className="mt-1 text-sm font-semibold text-[#8B2020]">
-            {formatPrice(todayRevenue)}
-          </p>
+          <p className="mt-1 text-sm font-semibold text-[#8B2020]">{formatPrice(todayRevenue)}</p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-2">
@@ -163,9 +156,7 @@ export function OfflineAnalyticsTab() {
               </span>
               <span className="font-bold">
                 {upiSales.length}{" "}
-                <span className="text-gray-400 font-normal text-xs">
-                  ({formatPrice(upiTotal)})
-                </span>
+                <span className="text-gray-400 font-normal text-xs">({formatPrice(upiTotal)})</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -210,17 +201,11 @@ export function OfflineAnalyticsTab() {
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#8B2020] text-[10px] font-bold text-white">
                     {i + 1}
                   </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {p.name}
-                  </span>
+                  <span className="text-sm font-semibold text-gray-900">{p.name}</span>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
-                  <span className="text-gray-500">
-                    {p.qty} sold
-                  </span>
-                  <span className="font-bold text-[#8B2020]">
-                    {formatPrice(p.revenue)}
-                  </span>
+                  <span className="text-gray-500">{p.qty} sold</span>
+                  <span className="font-bold text-[#8B2020]">{formatPrice(p.revenue)}</span>
                 </div>
               </div>
             ))}
@@ -250,9 +235,7 @@ export function OfflineAnalyticsTab() {
                   <td colSpan={7} className="p-0">
                     <div
                       className="flex items-center cursor-pointer transition-colors hover:bg-gray-50/50 px-5 py-4"
-                      onClick={() =>
-                        setExpandedSale(isExpanded ? null : sale.id)
-                      }
+                      onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
                     >
                       {isExpanded ? (
                         <ChevronDown className="size-4 text-gray-400 mr-3 shrink-0" />
@@ -270,9 +253,7 @@ export function OfflineAnalyticsTab() {
                           {sale.customer_name || "Guest"}
                         </span>
                         {sale.customer_phone && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            {sale.customer_phone}
-                          </span>
+                          <span className="text-xs text-gray-500 ml-2">{sale.customer_phone}</span>
                         )}
                       </span>
                       <span className="w-20 shrink-0">
@@ -308,41 +289,34 @@ export function OfflineAnalyticsTab() {
                             </tr>
                           </thead>
                           <tbody>
-                            {(sale.offline_sale_items ?? []).map(
-                              (item: SaleItem) => (
-                                <tr
-                                  key={item.id}
-                                  className="border-t border-gray-200"
-                                >
-                                  <td className="py-1.5 font-semibold text-gray-900">
-                                    {item.name}
-                                  </td>
-                                  <td className="py-1.5 font-mono text-gray-600">
-                                    {item.sku}
-                                  </td>
-                                  <td className="py-1.5 text-right text-gray-700">
-                                    {formatPrice(Number(item.price))}
-                                  </td>
-                                  <td className="py-1.5 text-right font-semibold">
-                                    {item.qty}
-                                  </td>
-                                  <td className="py-1.5 text-right font-bold text-gray-900">
-                                    {formatPrice(Number(item.subtotal))}
-                                  </td>
-                                </tr>
-                              ),
-                            )}
+                            {(sale.offline_sale_items ?? []).map((item: SaleItem) => (
+                              <tr key={item.id} className="border-t border-gray-200">
+                                <td className="py-1.5 font-semibold text-gray-900">{item.name}</td>
+                                <td className="py-1.5 font-mono text-gray-600">{item.sku}</td>
+                                <td className="py-1.5 text-right text-gray-700">
+                                  {formatPrice(Number(item.price))}
+                                </td>
+                                <td className="py-1.5 text-right font-semibold">{item.qty}</td>
+                                <td className="py-1.5 text-right font-bold text-gray-900">
+                                  {formatPrice(Number(item.subtotal))}
+                                </td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
 
                         <div className="mt-3 flex items-center justify-between">
                           <div className="text-xs text-gray-500 space-y-0.5">
-                            <p>
-                              Subtotal: {formatPrice(Number(sale.subtotal))}
-                            </p>
+                            <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
                             {Number(sale.discount) > 0 && (
                               <p className="text-green-700">
-                                Discount ({sale.discount_type === "percentage" ? `${sale.discount_value}%` : sale.discount_type === "fixed" ? `₹${sale.discount_value}` : ""}): −{formatPrice(Number(sale.discount))}
+                                Discount (
+                                {sale.discount_type === "percentage"
+                                  ? `${sale.discount_value}%`
+                                  : sale.discount_type === "fixed"
+                                    ? `₹${sale.discount_value}`
+                                    : ""}
+                                ): −{formatPrice(Number(sale.discount))}
                               </p>
                             )}
                             <p className="font-bold text-gray-900">

@@ -94,9 +94,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-[#8B2020] transition-colors">
                 {action.title}
               </h3>
-              <p className="text-xs text-gray-500 flex-1">
-                {action.description}
-              </p>
+              <p className="text-xs text-gray-500 flex-1">{action.description}</p>
               <div className="mt-4 flex items-center text-xs font-semibold text-gray-400 group-hover:text-[#8B2020] transition-colors">
                 <span>Go to {action.title.split(" ").pop()}</span>
                 <ArrowRight className="h-3 w-3 ml-1" />

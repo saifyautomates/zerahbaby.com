@@ -190,12 +190,16 @@ function RootComponent() {
     // Visitor Analytics Tracking
     const trackVisitor = async () => {
       // Don't track admin pages or if already tracked in this session
-      if (typeof window === "undefined" || isAdminRoute || sessionStorage.getItem("visitor_tracked")) return;
+      if (
+        typeof window === "undefined" ||
+        isAdminRoute ||
+        sessionStorage.getItem("visitor_tracked")
+      )
+        return;
 
       try {
         sessionStorage.setItem("visitor_tracked", "true");
-        const sessionId =
-          sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
+        const sessionId = sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
         sessionStorage.setItem("visitor_session_id", sessionId);
 
         // Safely record visitor without throwing on external IP service failure

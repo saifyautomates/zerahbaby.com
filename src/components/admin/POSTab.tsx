@@ -98,10 +98,7 @@ export function POSTab() {
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true);
+      const { data, error } = await supabase.from("products").select("*").eq("is_active", true);
       if (error) throw error;
       return (data as never[]).map((r) => mapProduct(r as never));
     },
@@ -192,10 +189,7 @@ export function POSTab() {
         }
 
         if (result.archived) {
-          toast.error(
-            `"${result.name}" is archived and unavailable for sale`,
-            { duration: 5000 },
-          );
+          toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
           return;
         }
 
@@ -235,16 +229,10 @@ export function POSTab() {
       const existing = prev.find((p) => p.product_id === item.product_id);
       if (existing) {
         if (existing.qty >= item.stock) {
-          toast.error(
-            `Cannot add more "${item.name}". Only ${item.stock} in stock.`,
-          );
+          toast.error(`Cannot add more "${item.name}". Only ${item.stock} in stock.`);
           return prev;
         }
-        return prev.map((p) =>
-          p.product_id === item.product_id
-            ? { ...p, qty: p.qty + 1 }
-            : p,
-        );
+        return prev.map((p) => (p.product_id === item.product_id ? { ...p, qty: p.qty + 1 } : p));
       }
       return [...prev, { ...item, qty: 1 }];
     });
@@ -312,9 +300,7 @@ export function POSTab() {
     try {
       const result = await placeSale.mutateAsync({
         customer_name:
-          customerMode === "walkin"
-            ? "Walk-in Customer"
-            : customerName || "Walk-in Customer",
+          customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
         customer_phone: customerPhone,
         customer_email: customerEmail,
         payment_method: paymentMethod,
@@ -385,9 +371,7 @@ export function POSTab() {
       <div className="flex flex-1 flex-col border-r border-border/50 min-w-0">
         {/* Scanner Header */}
         <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 p-4 gap-3">
-          <h2 className="font-display text-lg font-bold shrink-0">
-            POS Terminal
-          </h2>
+          <h2 className="font-display text-lg font-bold shrink-0">POS Terminal</h2>
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
             <Scan className="size-4 text-primary animate-pulse" />
             Scanner Active
@@ -453,18 +437,14 @@ export function POSTab() {
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">
-                        {p.name}
-                      </p>
+                      <p className="text-sm font-semibold truncate">{p.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
                       </p>
                     </div>
                     <span
                       className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        p.stock > 0
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-red-100 text-red-700"
+                        p.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
                       }`}
                     >
                       {p.stock > 0 ? `${p.stock}` : "OOS"}
@@ -482,9 +462,7 @@ export function POSTab() {
             <div className="flex h-full flex-col items-center justify-center text-muted-foreground py-16">
               <ShoppingBag className="size-12 opacity-20 mb-4" />
               <p className="font-semibold">Cart is empty</p>
-              <p className="text-xs mt-1">
-                Scan a barcode or search products to add items
-              </p>
+              <p className="text-xs mt-1">Scan a barcode or search products to add items</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -507,25 +485,15 @@ export function POSTab() {
                       className="border-b border-border/50 hover:bg-muted/30"
                     >
                       <td className="py-3">
-                        <p className="font-semibold text-sm leading-tight">
-                          {item.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {item.brand}
-                        </p>
+                        <p className="font-semibold text-sm leading-tight">{item.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{item.brand}</p>
                       </td>
-                      <td className="py-3 font-mono text-xs text-muted-foreground">
-                        {item.sku}
-                      </td>
-                      <td className="py-3 text-right font-semibold">
-                        {formatPrice(item.price)}
-                      </td>
+                      <td className="py-3 font-mono text-xs text-muted-foreground">{item.sku}</td>
+                      <td className="py-3 text-right font-semibold">{formatPrice(item.price)}</td>
                       <td className="py-3 text-center">
                         <span
                           className={`text-xs font-bold ${
-                            item.stock <= 5
-                              ? "text-amber-600"
-                              : "text-muted-foreground"
+                            item.stock <= 5 ? "text-amber-600" : "text-muted-foreground"
                           }`}
                         >
                           {item.stock}
@@ -534,9 +502,7 @@ export function POSTab() {
                       <td className="py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() =>
-                              updateQty(item.product_id, item.qty - 1)
-                            }
+                            onClick={() => updateQty(item.product_id, item.qty - 1)}
                             className="p-1 rounded-md hover:bg-muted border border-border"
                           >
                             <Minus className="size-3" />
@@ -545,19 +511,14 @@ export function POSTab() {
                             type="number"
                             value={item.qty}
                             onChange={(e) =>
-                              updateQty(
-                                item.product_id,
-                                parseInt(e.target.value) || 1,
-                              )
+                              updateQty(item.product_id, parseInt(e.target.value) || 1)
                             }
                             className="w-10 text-center text-sm font-bold rounded-md border border-border bg-background py-0.5"
                             min={1}
                             max={item.stock}
                           />
                           <button
-                            onClick={() =>
-                              updateQty(item.product_id, item.qty + 1)
-                            }
+                            onClick={() => updateQty(item.product_id, item.qty + 1)}
                             className="p-1 rounded-md hover:bg-muted border border-border"
                           >
                             <Plus className="size-3" />
@@ -590,9 +551,7 @@ export function POSTab() {
               <span className="text-muted-foreground">
                 {totalItems} item{totalItems !== 1 ? "s" : ""}
               </span>
-              <span className="font-bold text-lg">
-                {formatPrice(subtotal)}
-              </span>
+              <span className="font-bold text-lg">{formatPrice(subtotal)}</span>
             </div>
             <button
               onClick={() => setStep("checkout")}
@@ -613,10 +572,7 @@ export function POSTab() {
               <span className="text-3xl">👶</span>
             </div>
             <h2 className="text-xl font-bold text-foreground">
-              Zérah{" "}
-              <span className="text-[#d85c88] font-serif italic">
-                Baby & Kids
-              </span>
+              Zérah <span className="text-[#d85c88] font-serif italic">Baby & Kids</span>
             </h2>
             <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-muted-foreground mt-1">
               Point of Sale
@@ -672,14 +628,8 @@ export function POSTab() {
                   <input
                     type="number"
                     value={discountValue || ""}
-                    onChange={(e) =>
-                      setDiscountValue(Math.max(0, Number(e.target.value)))
-                    }
-                    placeholder={
-                      discountType === "percentage"
-                        ? "Enter %"
-                        : "Enter ₹ amount"
-                    }
+                    onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                    placeholder={discountType === "percentage" ? "Enter %" : "Enter ₹ amount"}
                     min={0}
                     max={discountType === "percentage" ? 100 : subtotal}
                     className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
@@ -729,8 +679,7 @@ export function POSTab() {
 
               {customerMode === "walkin" && (
                 <p className="text-xs text-muted-foreground text-center py-2">
-                  Sale will be recorded as{" "}
-                  <span className="font-bold">Walk-in Customer</span>
+                  Sale will be recorded as <span className="font-bold">Walk-in Customer</span>
                 </p>
               )}
 
@@ -763,9 +712,7 @@ export function POSTab() {
                         >
                           <div>
                             <p className="font-semibold">{c.name || "—"}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {c.phone}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{c.phone}</p>
                           </div>
                           <span className="text-xs text-muted-foreground">
                             {c.total_purchases} orders
@@ -846,29 +793,21 @@ export function POSTab() {
               <h3 className="text-sm font-bold mb-3">Order Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Items ({totalItems})
-                  </span>
+                  <span className="text-muted-foreground">Items ({totalItems})</span>
                   <span className="font-semibold">{formatPrice(subtotal)}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-700">
                     <span>
                       Discount
-                      {discountType === "percentage"
-                        ? ` (${discountValue}%)`
-                        : ""}
+                      {discountType === "percentage" ? ` (${discountValue}%)` : ""}
                     </span>
-                    <span className="font-semibold">
-                      −{formatPrice(discountAmount)}
-                    </span>
+                    <span className="font-semibold">−{formatPrice(discountAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-100 pt-2 text-lg">
                   <span className="font-bold">Total</span>
-                  <span className="font-black text-[#8B2020]">
-                    {formatPrice(total)}
-                  </span>
+                  <span className="font-black text-[#8B2020]">{formatPrice(total)}</span>
                 </div>
               </div>
             </div>
@@ -920,47 +859,33 @@ export function POSTab() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
                 <Check className="size-8 text-emerald-600" />
               </div>
-              <h2 className="text-2xl font-bold text-emerald-800">
-                Sale Complete!
-              </h2>
-              <p className="text-lg font-bold text-foreground mt-1">
-                {saleResult.sale_number}
-              </p>
+              <h2 className="text-2xl font-bold text-emerald-800">Sale Complete!</h2>
+              <p className="text-lg font-bold text-foreground mt-1">{saleResult.sale_number}</p>
             </div>
 
             {/* Sale Details */}
             <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Customer</span>
-                <span className="font-semibold">
-                  {saleResult.customer_name}
-                </span>
+                <span className="font-semibold">{saleResult.customer_name}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Payment</span>
-                <span className="font-semibold uppercase">
-                  {saleResult.payment_method}
-                </span>
+                <span className="font-semibold uppercase">{saleResult.payment_method}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Items</span>
-                <span className="font-semibold">
-                  {saleResult.items_count}
-                </span>
+                <span className="font-semibold">{saleResult.items_count}</span>
               </div>
               {saleResult.discount > 0 && (
                 <div className="flex justify-between text-sm text-green-700">
                   <span>Discount</span>
-                  <span className="font-semibold">
-                    −{formatPrice(saleResult.discount)}
-                  </span>
+                  <span className="font-semibold">−{formatPrice(saleResult.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg border-t border-gray-100 pt-3">
                 <span className="font-bold">Total Paid</span>
-                <span className="font-black text-[#8B2020]">
-                  {formatPrice(saleResult.total)}
-                </span>
+                <span className="font-black text-[#8B2020]">{formatPrice(saleResult.total)}</span>
               </div>
             </div>
 

@@ -412,6 +412,6 @@ export function MediaLibraryPicker({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

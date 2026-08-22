@@ -51,7 +51,7 @@ export const Route = createFileRoute("/shop")({
 function ShopPage() {
   const { category, age, q } = Route.useSearch();
   const loaderData = Route.useLoaderData();
-  
+
   const { data: products, isLoading } = useQuery({
     ...productsQueryOptions(false),
     initialData: loaderData?.products ?? undefined,
@@ -60,7 +60,7 @@ function ShopPage() {
     ...categoriesQueryOptions(),
     initialData: loaderData?.categories ?? undefined,
   });
-  
+
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(20000);
   const [sort, setSort] = useState("popular");

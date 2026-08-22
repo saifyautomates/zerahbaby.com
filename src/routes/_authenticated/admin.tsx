@@ -178,7 +178,6 @@ function AdminPage() {
     );
   }
 
-
   const NAVIGATION = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "pos", label: "POS (Offline)", icon: Scan },
@@ -437,13 +436,13 @@ function ProductsTab() {
     queryFn: async () => {
       const [productsRes, costsRes] = await Promise.all([
         supabase.from("products").select("*").order("sort_order"),
-        supabase.from("product_costs").select("product_id, buying_price")
+        supabase.from("product_costs").select("product_id, buying_price"),
       ]);
-      
+
       if (productsRes.error) throw productsRes.error;
-      
-      const costMap = new Map((costsRes.data || []).map(c => [c.product_id, c.buying_price]));
-      
+
+      const costMap = new Map((costsRes.data || []).map((c) => [c.product_id, c.buying_price]));
+
       return (productsRes.data as never[]).map((r: any) => {
         const prod = mapProduct(r as never);
         prod.buyingPrice = costMap.get(prod.uuid) || 0;
@@ -515,10 +514,7 @@ function ProductsTab() {
   // Archive (set is_active=false) instead of hard-delete
   const archive = useMutation({
     mutationFn: async (uuid: string) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ is_active: false })
-        .eq("id", uuid);
+      const { error } = await supabase.from("products").update({ is_active: false }).eq("id", uuid);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -541,7 +537,9 @@ function ProductsTab() {
     onError: (e: Error) => {
       // Server-side trigger prevents deletion of products with transactions
       if (e.message.includes("historical transactions")) {
-        toast.error("Cannot delete — product has sales history. Archiving instead.", { duration: 5000 });
+        toast.error("Cannot delete — product has sales history. Archiving instead.", {
+          duration: 5000,
+        });
       } else {
         toast.error(e.message);
       }
@@ -551,10 +549,7 @@ function ProductsTab() {
   // Restore archived product
   const restore = useMutation({
     mutationFn: async (uuid: string) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ is_active: true })
-        .eq("id", uuid);
+      const { error } = await supabase.from("products").update({ is_active: true }).eq("id", uuid);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -622,7 +617,10 @@ function ProductsTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {list.map((p) => (
-                <tr key={p.uuid} className={`group transition-colors hover:bg-gray-50/50 ${!p.isActive ? "opacity-60" : ""}`}>
+                <tr
+                  key={p.uuid}
+                  className={`group transition-colors hover:bg-gray-50/50 ${!p.isActive ? "opacity-60" : ""}`}
+                >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-4">
                       <img
@@ -651,15 +649,28 @@ function ProductsTab() {
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-between min-w-[120px]">
                       <div>
-                        <p className="font-semibold text-gray-900" title="Selling Price">{formatPrice(p.price)}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5" title="Buying Price">Cost: {formatPrice(p.buyingPrice || 0)}</p>
+                        <p className="font-semibold text-gray-900" title="Selling Price">
+                          {formatPrice(p.price)}
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-0.5" title="Buying Price">
+                          Cost: {formatPrice(p.buyingPrice || 0)}
+                        </p>
                       </div>
                       <div className="text-right">
-                        <p className={`text-xs font-bold ${p.price - (p.buyingPrice || 0) < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        <p
+                          className={`text-xs font-bold ${p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-600"}`}
+                        >
                           {formatPrice(Math.abs(p.price - (p.buyingPrice || 0)))}
                         </p>
-                        <p className={`text-[10px] font-medium ${p.price - (p.buyingPrice || 0) < 0 ? 'text-destructive' : 'text-emerald-500'}`}>
-                          {p.buyingPrice ? (((p.price - p.buyingPrice) / p.buyingPrice) * 100).toFixed(1) : (p.price > 0 ? "100.0" : "0.0")}%
+                        <p
+                          className={`text-[10px] font-medium ${p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-500"}`}
+                        >
+                          {p.buyingPrice
+                            ? (((p.price - p.buyingPrice) / p.buyingPrice) * 100).toFixed(1)
+                            : p.price > 0
+                              ? "100.0"
+                              : "0.0"}
+                          %
                         </p>
                       </div>
                     </div>
@@ -718,7 +729,11 @@ function ProductsTab() {
                       ) : (
                         <button
                           onClick={() => {
-                            if (window.confirm(`Archive "${p.name}"? It will be hidden from the store but kept in records.`))
+                            if (
+                              window.confirm(
+                                `Archive "${p.name}"? It will be hidden from the store but kept in records.`,
+                              )
+                            )
                               archive.mutate(p.uuid);
                           }}
                           aria-label={`Archive ${p.name}`}
@@ -730,7 +745,11 @@ function ProductsTab() {
                       )}
                       <button
                         onClick={() => {
-                          if (window.confirm(`Permanently delete "${p.name}"? This cannot be undone.\n\nNote: Products with sales history cannot be deleted.`))
+                          if (
+                            window.confirm(
+                              `Permanently delete "${p.name}"? This cannot be undone.\n\nNote: Products with sales history cannot be deleted.`,
+                            )
+                          )
                             remove.mutate(p.uuid);
                         }}
                         aria-label={`Delete ${p.name}`}

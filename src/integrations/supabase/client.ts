@@ -35,9 +35,7 @@ function createSupabaseClient() {
     process.env["SUPABASE_URL"] ||
     process.env["VITE_SUPABASE_URL"];
   const SUPABASE_URL =
-    rawUrl && rawUrl !== "undefined"
-      ? rawUrl
-      : "https://wbbatgbvizhghtkvuguf.supabase.co";
+    rawUrl && rawUrl !== "undefined" ? rawUrl : "https://wbbatgbvizhghtkvuguf.supabase.co";
 
   const rawKey =
     import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
@@ -45,9 +43,7 @@ function createSupabaseClient() {
     process.env["SUPABASE_PUBLISHABLE_KEY"] ||
     process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   const SUPABASE_PUBLISHABLE_KEY =
-    rawKey && rawKey !== "undefined"
-      ? rawKey
-      : "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP";
+    rawKey && rawKey !== "undefined" ? rawKey : "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP";
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {

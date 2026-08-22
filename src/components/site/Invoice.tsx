@@ -196,6 +196,6 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

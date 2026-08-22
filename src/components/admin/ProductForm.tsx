@@ -9,16 +9,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
-import {
-  Printer,
-  GripVertical,
-  Images,
-  Star,
-  Trash2,
-  Upload,
-  Check,
-  Tag,
-} from "lucide-react";
+import { Printer, GripVertical, Images, Star, Trash2, Upload, Check, Tag } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
@@ -163,10 +154,8 @@ export function ProductForm({
     // Auto-generate SKU and barcode if empty
     const finalDraft = {
       ...draft,
-      sku:
-        draft.sku.trim() || generateSKU(draft.category),
-      barcode:
-        draft.barcode.trim() || generateBarcode(),
+      sku: draft.sku.trim() || generateSKU(draft.category),
+      barcode: draft.barcode.trim() || generateBarcode(),
     };
     onSave(finalDraft);
 
@@ -386,9 +375,7 @@ export function ProductForm({
                   {draft.name || "Product Name"}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-black">
-                    {formatPrice(draft.price || 0)}
-                  </span>
+                  <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
                   {draft.mrp > draft.price && (
                     <span className="text-[10px] text-muted-foreground line-through">
                       {formatPrice(draft.mrp)}
@@ -460,7 +447,7 @@ export function ProductForm({
                   Pricing & Profit
                 </span>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-3 mb-6">
                 <label className="text-sm font-semibold">
                   Buying Price (₹)
@@ -499,31 +486,39 @@ export function ProductForm({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Expected Profit</p>
-                    <p className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
-                      {draft.price - draft.buyingPrice < 0 ? '-' : ''}
+                    <p
+                      className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? "text-destructive" : "text-emerald-600"}`}
+                    >
+                      {draft.price - draft.buyingPrice < 0 ? "-" : ""}
                       {formatPrice(Math.abs(draft.price - draft.buyingPrice))}
                     </p>
                   </div>
                   <div className="hidden sm:block w-px h-10 bg-border"></div>
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Profit Margin</p>
-                    <p className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
-                      {draft.buyingPrice > 0 
-                        ? (((draft.price - draft.buyingPrice) / draft.buyingPrice) * 100).toFixed(2) 
-                        : draft.price > 0 ? "100.00" : "0.00"}%
+                    <p
+                      className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? "text-destructive" : "text-emerald-600"}`}
+                    >
+                      {draft.buyingPrice > 0
+                        ? (((draft.price - draft.buyingPrice) / draft.buyingPrice) * 100).toFixed(2)
+                        : draft.price > 0
+                          ? "100.00"
+                          : "0.00"}
+                      %
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Validation Warnings */}
-                {(draft.price > draft.mrp && draft.mrp > 0) && (
+                {draft.price > draft.mrp && draft.mrp > 0 && (
                   <p className="mt-3 text-xs font-medium text-amber-600 flex items-center gap-1">
                     ⚠️ Selling Price is higher than MRP.
                   </p>
                 )}
                 {draft.price < draft.buyingPrice && (
                   <p className="mt-3 text-xs font-medium text-destructive flex items-center gap-1">
-                    ⚠️ Warning: Selling Price is lower than Buying Price. This will result in a loss.
+                    ⚠️ Warning: Selling Price is lower than Buying Price. This will result in a
+                    loss.
                   </p>
                 )}
               </div>

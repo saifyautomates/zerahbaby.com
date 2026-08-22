@@ -156,22 +156,19 @@ export function usePlaceOfflineSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: PlaceSaleInput): Promise<SaleResult> => {
-      const { data, error } = await (supabase.rpc as any)(
-        "place_offline_sale",
-        {
-          _customer_name: input.customer_name || "Walk-in Customer",
-          _customer_phone: input.customer_phone || "",
-          _customer_email: input.customer_email || "",
-          _payment_method: input.payment_method || "cash",
-          _notes: input.notes || "",
-          _discount: 0, // legacy param
-          _discount_type: input.discount_type || "none",
-          _discount_value: input.discount_value || 0,
-          _customer_id: input.customer_id || null,
-          _items: input.items,
-          _idempotency_key: input.idempotency_key || null,
-        },
-      );
+      const { data, error } = await (supabase.rpc as any)("place_offline_sale", {
+        _customer_name: input.customer_name || "Walk-in Customer",
+        _customer_phone: input.customer_phone || "",
+        _customer_email: input.customer_email || "",
+        _payment_method: input.payment_method || "cash",
+        _notes: input.notes || "",
+        _discount: 0, // legacy param
+        _discount_type: input.discount_type || "none",
+        _discount_value: input.discount_value || 0,
+        _customer_id: input.customer_id || null,
+        _items: input.items,
+        _idempotency_key: input.idempotency_key || null,
+      });
       if (error) throw new Error(error.message);
       return data as SaleResult;
     },
@@ -207,10 +204,9 @@ export function useSearchPOSCustomers() {
   return useMutation({
     mutationFn: async (query: string): Promise<POSCustomer[]> => {
       if (!query.trim()) return [];
-      const { data, error } = await (supabase.rpc as any)(
-        "search_pos_customers",
-        { _query: query.trim() },
-      );
+      const { data, error } = await (supabase.rpc as any)("search_pos_customers", {
+        _query: query.trim(),
+      });
       if (error) return [];
       return (data ?? []) as POSCustomer[];
     },

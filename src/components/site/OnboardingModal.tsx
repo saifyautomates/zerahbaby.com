@@ -7,7 +7,42 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 const INDIA_STATES = [
-  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
 ];
 
 export function OnboardingModal() {
@@ -15,7 +50,14 @@ export function OnboardingModal() {
   const { data: profile, isLoading } = useProfile(user?.id);
   const qc = useQueryClient();
 
-  const [form, setForm] = useState({ full_name: "", phone: "", address: "", city: "", state: "", pincode: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
   const [busy, setBusy] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
 
@@ -38,11 +80,11 @@ export function OnboardingModal() {
   if (!user || isLoading || !profile || !isOpen) return null;
 
   // Show if missing ANY critical profile info
-  const isProfileComplete = 
-    profile.full_name?.trim() && 
-    profile.phone?.trim() && 
-    profile.address?.trim() && 
-    profile.city?.trim() && 
+  const isProfileComplete =
+    profile.full_name?.trim() &&
+    profile.phone?.trim() &&
+    profile.address?.trim() &&
+    profile.city?.trim() &&
     profile.state?.trim();
 
   if (isProfileComplete) {
@@ -144,7 +186,9 @@ export function OnboardingModal() {
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
                 >
-                  <option value="" disabled>Select State</option>
+                  <option value="" disabled>
+                    Select State
+                  </option>
                   {INDIA_STATES.map((state) => (
                     <option key={state} value={state}>
                       {state}
@@ -165,7 +209,7 @@ export function OnboardingModal() {
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
               />
             </label>
-            
+
             <div className="pt-2">
               <button
                 type="submit"
@@ -179,6 +223,6 @@ export function OnboardingModal() {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -28,10 +28,7 @@ export function PrintLabelsModal({
   };
 
   const printableProducts = products.filter((p) => p.sku || p.barcode);
-  const totalLabels = printableProducts.reduce(
-    (sum, p) => sum + (quantities[p.uuid] ?? 1),
-    0,
-  );
+  const totalLabels = printableProducts.reduce((sum, p) => sum + (quantities[p.uuid] ?? 1), 0);
 
   // Expand products by quantity for printing
   const expandedLabels: Product[] = [];
@@ -55,12 +52,10 @@ export function PrintLabelsModal({
         {/* Header — hidden during print */}
         <div className="shrink-0 flex items-center justify-between border-b border-border/50 p-6 print:hidden">
           <div>
-            <h2 className="font-display text-2xl font-bold">
-              Print Product Labels
-            </h2>
+            <h2 className="font-display text-2xl font-bold">Print Product Labels</h2>
             <p className="text-sm text-muted-foreground">
-              {totalLabels} label{totalLabels !== 1 ? "s" : ""} •{" "}
-              {printableProducts.length} product{printableProducts.length !== 1 ? "s" : ""}
+              {totalLabels} label{totalLabels !== 1 ? "s" : ""} • {printableProducts.length} product
+              {printableProducts.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -113,9 +108,7 @@ export function PrintLabelsModal({
                 key={p.uuid}
                 className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2"
               >
-                <span className="flex-1 text-xs font-semibold truncate">
-                  {p.name}
-                </span>
+                <span className="flex-1 text-xs font-semibold truncate">{p.name}</span>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => setQty(p.uuid, (quantities[p.uuid] ?? 1) - 1)}
@@ -147,9 +140,7 @@ export function PrintLabelsModal({
         <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-white print:p-0">
           <div
             className={`mx-auto bg-white shadow-sm print:max-w-none print:p-0 print:shadow-none ${
-              layout === "thermal"
-                ? "max-w-[58mm] p-2"
-                : "max-w-[210mm] p-4"
+              layout === "thermal" ? "max-w-[58mm] p-2" : "max-w-[210mm] p-4"
             }`}
           >
             <div
@@ -206,9 +197,7 @@ export function PrintLabelsModal({
                       background="transparent"
                     />
                   </div>
-                  <p className="mt-1 text-[9px] font-medium text-slate-500">
-                    SKU: {product.sku}
-                  </p>
+                  <p className="mt-1 text-[9px] font-medium text-slate-500">SKU: {product.sku}</p>
                 </div>
               ))}
             </div>
@@ -221,9 +210,8 @@ export function PrintLabelsModal({
 
             {products.filter((p) => !p.sku && !p.barcode).length > 0 && (
               <p className="mt-8 text-center text-sm text-destructive print:hidden">
-                Warning:{" "}
-                {products.filter((p) => !p.sku && !p.barcode).length}{" "}
-                product(s) missing SKU and Barcode — excluded from this sheet.
+                Warning: {products.filter((p) => !p.sku && !p.barcode).length} product(s) missing
+                SKU and Barcode — excluded from this sheet.
               </p>
             )}
           </div>
