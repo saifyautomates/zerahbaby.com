@@ -16,6 +16,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
+import { SplashScreen } from "@/components/site/SplashScreen";
 import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
@@ -231,6 +232,7 @@ function RootComponent() {
         </div>
         <Toaster />
         <OnboardingModal />
+        <SplashScreen />
       </CartProvider>
     </QueryClientProvider>
   );

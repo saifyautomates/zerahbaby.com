@@ -1,89 +1,127 @@
-//
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Category } from "@/lib/store";
-
-const SPEED = 42; // px per second
 
 export function CategoryCarousel({ categories }: { categories: Category[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const offset = useRef(0);
-  const paused = useRef(false);
-  const halfWidth = useRef(0);
+  const [paddingLeft, setPaddingLeft] = useState(16);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
-  const loop = categories.length > 0 ? [...categories, ...categories] : [];
+  // Drag to scroll state
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+  const hasDragged = useRef(false);
 
   useEffect(() => {
-    const track = trackRef.current;
-    if (!track || categories.length === 0) return;
+    // Calculate padding left so that the carousel aligns with max-w-7xl
+    const calculatePadding = () => {
+      const vw = document.documentElement.clientWidth;
+      const maxW = 1280; // 80rem (max-w-7xl)
+      let px = 16; // px-4
+      if (vw >= 640) px = 24; // sm:px-6
+      if (vw >= 1024) px = 32; // lg:px-8
 
-    let raf = 0;
-    let last = performance.now();
-
-    const measure = () => {
-      halfWidth.current = track.scrollWidth / 2;
-    };
-    measure();
-
-    const ro = new ResizeObserver(measure);
-    ro.observe(track);
-
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const step = (now: number) => {
-      const dt = Math.min(now - last, 64) / 1000;
-      last = now;
-      if (!paused.current && !reduce && halfWidth.current > 0) {
-        offset.current += SPEED * dt;
+      if (vw > maxW) {
+        setPaddingLeft((vw - maxW) / 2 + px);
+      } else {
+        setPaddingLeft(px);
       }
-      if (halfWidth.current > 0) {
-        if (offset.current >= halfWidth.current) offset.current -= halfWidth.current;
-        if (offset.current < 0) offset.current += halfWidth.current;
-      }
-      track.style.transform = `translate3d(${-offset.current}px, 0, 0)`;
-      raf = requestAnimationFrame(step);
     };
-    raf = requestAnimationFrame(step);
 
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, [categories.length]);
+    calculatePadding();
+    window.addEventListener("resize", calculatePadding);
+    return () => window.removeEventListener("resize", calculatePadding);
+  }, []);
 
-  const nudge = (dir: 1 | -1) => {
-    const card = trackRef.current?.querySelector<HTMLElement>("[data-card]");
-    const amount = (card?.offsetWidth ?? 260) + 20;
-    offset.current += dir * amount;
+  const handleScroll = () => {
+    if (!viewportRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = viewportRef.current;
+    setCanScrollLeft(scrollLeft > 10);
+    setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 10);
+  };
+
+  useEffect(() => {
+    handleScroll();
+  }, [categories]);
+
+  const scroll = (dir: 1 | -1) => {
+    if (!viewportRef.current) return;
+    const card = viewportRef.current.querySelector<HTMLElement>("[data-card]");
+    const amount = (card?.offsetWidth ?? 300) + 24; // width + gap
+    viewportRef.current.scrollBy({ left: dir * amount, behavior: "smooth" });
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (!viewportRef.current) return;
+    isDragging.current = true;
+    hasDragged.current = false;
+    viewportRef.current.style.cursor = "grabbing";
+    viewportRef.current.style.scrollSnapType = "none"; // Disable snap while dragging
+    startX.current = e.pageX - viewportRef.current.offsetLeft;
+    scrollLeft.current = viewportRef.current.scrollLeft;
+  };
+
+  const onMouseLeave = () => {
+    if (!isDragging.current || !viewportRef.current) return;
+    isDragging.current = false;
+    viewportRef.current.style.cursor = "grab";
+    viewportRef.current.style.scrollSnapType = "x mandatory";
+  };
+
+  const onMouseUp = () => {
+    if (!isDragging.current || !viewportRef.current) return;
+    isDragging.current = false;
+    viewportRef.current.style.cursor = "grab";
+    viewportRef.current.style.scrollSnapType = "x mandatory";
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !viewportRef.current) return;
+    e.preventDefault(); // Prevent text selection
+    const x = e.pageX - viewportRef.current.offsetLeft;
+    const walk = (x - startX.current) * 2; // Scroll speed multiplier
+
+    if (Math.abs(walk) > 10) {
+      hasDragged.current = true;
+    }
+
+    viewportRef.current.scrollLeft = scrollLeft.current - walk;
   };
 
   if (categories.length === 0) return null;
 
   return (
-    <div
-      className="relative w-full overflow-hidden"
-      onMouseEnter={() => (paused.current = true)}
-      onMouseLeave={() => (paused.current = false)}
-      onTouchStart={() => (paused.current = true)}
-      onTouchEnd={() => (paused.current = false)}
-      onFocusCapture={() => (paused.current = true)}
-      onBlurCapture={() => (paused.current = false)}
-    >
+    <div className="group/carousel relative w-full overflow-hidden">
       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background to-transparent sm:w-16 lg:w-24" />
       <span className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background to-transparent sm:w-16 lg:w-24" />
-      <div ref={viewportRef} className="w-full overflow-hidden px-4 sm:px-6 lg:px-8">
-        <div ref={trackRef} className="flex w-max gap-4 will-change-transform sm:gap-6">
-          {loop.map((c, i) => (
+
+      <div
+        ref={viewportRef}
+        onScroll={handleScroll}
+        onMouseDown={onMouseDown}
+        onMouseLeave={onMouseLeave}
+        onMouseUp={onMouseUp}
+        onMouseMove={onMouseMove}
+        className="w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scrollbar-none pb-8 pt-4 cursor-grab active:cursor-grabbing"
+        style={{ paddingLeft: `${paddingLeft}px`, paddingRight: `${paddingLeft}px` }}
+      >
+        <div className="flex w-max gap-4 sm:gap-6 pointer-events-none sm:pointer-events-auto">
+          {categories.map((c) => (
             <Link
-              key={`${c.slug}-${i}`}
+              key={c.slug}
               data-card
               to="/shop"
               search={{ category: c.slug }}
-              aria-hidden={i >= categories.length}
-              tabIndex={i >= categories.length ? -1 : 0}
-              className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
+              onDragStart={(e) => e.preventDefault()}
+              onClick={(e) => {
+                if (hasDragged.current) {
+                  e.preventDefault();
+                }
+              }}
+              className="group relative w-[72vw] snap-center shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
             >
               <img
                 src={c.image}
@@ -107,7 +145,16 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                 </p>
                 <div className="mt-5 overflow-hidden">
                   <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
-                    Shop now <ChevronRight className="size-4" />
+                    Shop now
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-4">
+                      <path
+                        d="M6.75 3.5l4.5 4.5-4.5 4.5"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        stroke="currentColor"
+                      />
+                    </svg>
                   </span>
                 </div>
               </div>
@@ -116,22 +163,26 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        aria-label="Previous categories"
-        onClick={() => nudge(-1)}
-        className="absolute left-3 top-1/2 z-20 hidden size-12 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-xl backdrop-blur transition hover:scale-110 hover:bg-muted md:grid"
-      >
-        <ChevronLeft className="size-6" />
-      </button>
-      <button
-        type="button"
-        aria-label="Next categories"
-        onClick={() => nudge(1)}
-        className="absolute right-3 top-1/2 z-20 hidden size-12 -translate-y-1/2 place-items-center rounded-full border border-border bg-background/95 shadow-xl backdrop-blur transition hover:scale-110 hover:bg-muted md:grid"
-      >
-        <ChevronRight className="size-6" />
-      </button>
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-between px-4 opacity-0 transition-opacity duration-300 group-hover/carousel:opacity-100 sm:px-8">
+        <button
+          type="button"
+          onClick={() => scroll(-1)}
+          disabled={!canScrollLeft}
+          aria-label="Previous category"
+          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-background/90 text-foreground shadow-lg backdrop-blur transition-all hover:scale-105 hover:bg-background disabled:opacity-0"
+        >
+          <ChevronLeft className="size-6" />
+        </button>
+        <button
+          type="button"
+          onClick={() => scroll(1)}
+          disabled={!canScrollRight}
+          aria-label="Next category"
+          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-background/90 text-foreground shadow-lg backdrop-blur transition-all hover:scale-105 hover:bg-background disabled:opacity-0"
+        >
+          <ChevronRight className="size-6" />
+        </button>
+      </div>
     </div>
   );
 }
