@@ -1,7 +1,7 @@
 //
 import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, MapPin, MessageCircle } from "lucide-react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo.jpg";
 import { useCategories, useSettings } from "@/lib/store";
 
 export function Footer() {
@@ -35,7 +35,7 @@ export function Footer() {
               loading="lazy"
               width={40}
               height={40}
-              className="size-10 object-contain"
+              className="size-10 object-contain rounded-full"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.opacity = "0";
               }}

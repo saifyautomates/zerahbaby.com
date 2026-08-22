@@ -2,7 +2,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useSession } from "@/lib/auth";
@@ -142,7 +142,7 @@ function AuthPage() {
           alt="Zerah Baby And Kid's logo"
           width={64}
           height={64}
-          className="mx-auto mb-6 size-16 object-contain"
+          className="mx-auto mb-6 size-16 object-contain rounded-full"
           onError={(e) => {
             (e.target as HTMLImageElement).style.opacity = "0";
           }}

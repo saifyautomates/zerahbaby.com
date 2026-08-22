@@ -13,7 +13,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { useState } from "react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo.jpg";
 import { ageGroups, useCategories, useSettings } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
@@ -122,7 +122,7 @@ export function Header() {
               alt={`${brandName} logo`}
               width={40}
               height={40}
-              className="size-8 object-contain sm:size-10"
+              className="size-8 object-contain rounded-full sm:size-10"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.opacity = "0";
               }}
