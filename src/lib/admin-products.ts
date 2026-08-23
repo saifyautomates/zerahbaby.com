@@ -18,6 +18,7 @@ export const draftToRow = (draft: ProductDraft) => ({
   stock: Number(draft.stock),
   low_stock_at: Number(draft.lowStockAt),
   sku: draft.sku.trim(),
+  barcode: draft.barcode.trim(),
   description: draft.description,
   highlights: draft.highlights
     .split("\n")

@@ -84,7 +84,11 @@ serve(async (req) => {
     }
 
     // If it's already paid/processing, return success idempotently
-    if (order.payment_status === "paid" || order.status === "processing" || order.status === "confirmed") {
+    if (
+      order.payment_status === "paid" ||
+      order.status === "processing" ||
+      order.status === "confirmed"
+    ) {
       return new Response(JSON.stringify({ success: true, already_paid: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,

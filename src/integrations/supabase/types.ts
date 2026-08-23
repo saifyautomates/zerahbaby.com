@@ -692,6 +692,10 @@ export type Database = {
           tracking_url: string | null;
           updated_at: string;
           user_id: string;
+          razorpay_order_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
         };
         Insert: {
           address?: string;
@@ -728,6 +732,10 @@ export type Database = {
           tracking_url?: string | null;
           updated_at?: string;
           user_id: string;
+          razorpay_order_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
         };
         Update: {
           address?: string;
@@ -764,6 +772,10 @@ export type Database = {
           tracking_url?: string | null;
           updated_at?: string;
           user_id?: string;
+          razorpay_order_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
         };
         Relationships: [];
       };
@@ -1540,6 +1552,14 @@ export type Database = {
       sync_admin_from_allowlist: { Args: never; Returns: boolean };
       validate_coupon: {
         Args: { _code: string; _order_total: number; _user_id: string };
+        Returns: Json;
+      };
+      cancel_abandoned_order: {
+        Args: { order_id: string };
+        Returns: void;
+      };
+      cancel_customer_order: {
+        Args: { order_id: string; reason?: string };
         Returns: Json;
       };
     };

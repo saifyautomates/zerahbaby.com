@@ -64,7 +64,9 @@ serve(async (req) => {
     const razorpayKeySecret = rawKeySecret.trim();
 
     if (!razorpayKeyId || !razorpayKeySecret) {
-      console.error("[create-razorpay-order] Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET in secrets");
+      console.error(
+        "[create-razorpay-order] Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET in secrets",
+      );
       throw new Error("Razorpay credentials not configured on server");
     }
 
@@ -116,7 +118,10 @@ serve(async (req) => {
       .eq("id", orderId);
 
     if (updateError) {
-      console.error("[create-razorpay-order] Failed to update order with razorpay_order_id:", updateError);
+      console.error(
+        "[create-razorpay-order] Failed to update order with razorpay_order_id:",
+        updateError,
+      );
       throw updateError;
     }
 
