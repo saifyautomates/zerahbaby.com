@@ -233,15 +233,30 @@ function AuthPage() {
 
         {mode === "input" ? (
           <form onSubmit={onSendOtp} className="mt-6 space-y-4">
-            <input
-              type="text"
-              required
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder="Email or Mobile Number"
-              aria-label="Email or Mobile Number"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
-            />
+            <div className="relative flex items-center overflow-hidden rounded-xl border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              {contact.length > 0 && /^[\d+]/.test(contact) && (
+                <div className="flex items-center justify-center bg-muted/30 px-3 py-3 border-r border-border text-sm font-medium text-foreground/80">
+                  +91
+                </div>
+              )}
+              <input
+                id="auth-contact-input"
+                type="text"
+                required
+                value={contact}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  // Prevent double +91 if user pastes it
+                  if (/^[\d+]/.test(val)) {
+                    val = val.replace(/^\+91\s*/, "").replace(/^\+/, "");
+                  }
+                  setContact(val);
+                }}
+                placeholder="Email or Mobile Number"
+                aria-label="Email or Mobile Number"
+                className="w-full bg-transparent px-4 py-3 text-sm outline-none"
+              />
+            </div>
 
             <button
               disabled={busy || !contact}
