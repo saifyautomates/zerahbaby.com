@@ -55,7 +55,7 @@ import {
   calculateDiscount,
   generateIdempotencyKey,
 } from "@/lib/pos";
-import { POSReceipt } from "@/components/admin/POSReceipt";
+import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
 
@@ -90,8 +90,8 @@ export function POSTab() {
 
   // Sale result
   const [saleResult, setSaleResult] = useState<SaleResult | null>(null);
-  const [showReceipt, setShowReceipt] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
 
   // Products for manual search
@@ -317,6 +317,7 @@ export function POSTab() {
       }
 
       setSaleResult(result);
+      setIsReceiptModalOpen(true);
       setStep("success");
       toast.success(`Sale completed! ${result.sale_number}`);
     } catch (e) {
@@ -892,11 +893,11 @@ export function POSTab() {
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => setShowReceipt(true)}
+                onClick={() => setIsReceiptModalOpen(true)}
                 className="w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
               >
                 <Printer className="size-4" />
-                Print Receipt / Invoice
+                Reprint Thermal Receipt
               </button>
               <button
                 onClick={() => setShowLabels(true)}
@@ -918,12 +919,27 @@ export function POSTab() {
       </div>
 
       {/* Receipt Modal */}
-      {showReceipt && saleResult && (
-        <POSReceipt
-          sale={saleResult}
-          items={cart}
-          onClose={() => setShowReceipt(false)}
-          staffEmail={user?.email}
+      {isReceiptModalOpen && saleResult && (
+        <ThermalReceipt
+          sale={{
+            sale_number: saleResult.sale_number,
+            customer_name: saleResult.customer_name,
+            customer_phone: saleResult.customer_phone,
+            subtotal: saleResult.subtotal,
+            discount: saleResult.discount,
+            discount_type: saleResult.discount_type,
+            discount_value: saleResult.discount_value,
+            total: saleResult.total,
+            payment_method: saleResult.payment_method,
+          }}
+          items={cart.map((c) => ({
+            name: c.name,
+            sku: c.sku,
+            price: c.price,
+            qty: c.qty,
+          }))}
+          autoPrint={true}
+          onClose={() => setIsReceiptModalOpen(false)}
         />
       )}
 

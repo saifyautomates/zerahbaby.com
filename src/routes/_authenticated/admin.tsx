@@ -22,6 +22,10 @@ import {
   Printer,
   Scan,
   Megaphone,
+  Search,
+  Sun,
+  Bell,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -35,11 +39,10 @@ import { MediaLibrary } from "@/components/admin/MediaLibrary";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
-import { POSTab } from "@/components/admin/POSTab";
+import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
 import { DashboardTab } from "@/components/admin/DashboardTab";
 import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
-import { OfflineAnalyticsTab } from "@/components/admin/OfflineAnalyticsTab";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Settings2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -61,8 +64,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 type Tab =
   | "dashboard"
-  | "pos"
-  | "offline-analytics"
+  | "billing"
   | "products"
   | "hero"
   | "media"
@@ -135,7 +137,7 @@ function AdminPage() {
   });
 
   useEffect(() => {
-    if (tab === "orders" || tab === "pos") {
+    if (tab === "orders" || tab === "billing") {
       const now = Date.now();
       setLastViewedOrdersTime(now);
       localStorage.setItem("admin_last_viewed_orders", now.toString());
@@ -188,7 +190,7 @@ function AdminPage() {
 
   const NAVIGATION = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { key: "pos", label: "POS (Offline)", icon: Scan },
+    { key: "billing", label: "Print & Billing", icon: Settings2 },
     {
       key: "orders",
       label: "Orders",
@@ -227,19 +229,25 @@ function AdminPage() {
       >
         {/* Brand Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h1 className="font-sans text-xl font-bold tracking-tight text-gray-900">
-              ZÃ©rah <span className="text-[#8B2020]">Admin</span>
-            </h1>
-            <p className="text-[11px] text-gray-400 truncate max-w-[180px]">
-              {user?.email || "jackxparrowww@gmail.com"}
-            </p>
+          <div className="flex items-center gap-3">
+            {/* Logo mark */}
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#8B2020] shadow-sm">
+              <span className="text-white font-black text-sm tracking-tight">Z</span>
+            </div>
+            <div>
+              <h1 className="font-sans text-[15px] font-black tracking-tight text-gray-900 leading-none">
+                Zérah <span className="text-[#8B2020]">Admin</span>
+              </h1>
+              <p className="text-[10px] text-gray-400 truncate max-w-[140px] mt-0.5">
+                {user?.email || "store@zerahbaby.com"}
+              </p>
+            </div>
           </div>
           <button
             className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            Ã—
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -335,7 +343,6 @@ function AdminPage() {
               </p>
             </div>
           </div>
-
           {/* Right: Search, Theme, Notifications, User Profile */}
           <div className="flex items-center gap-3">
             {/* Search Input */}
@@ -343,54 +350,41 @@ function AdminPage() {
               <input
                 type="text"
                 placeholder="Search anything..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 pl-8 pr-9 py-1.5 text-xs text-gray-800 outline-none focus:border-gray-300 focus:bg-white transition-all"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 pl-8 pr-14 py-1.5 text-xs text-gray-800 outline-none focus:border-[#8B2020]/30 focus:bg-white focus:ring-2 focus:ring-[#8B2020]/10 transition-all"
               />
-              <span className="absolute left-2.5 top-2 text-gray-400 text-xs">ðŸ”</span>
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
               <kbd className="absolute right-2.5 top-1.5 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-gray-400">
-                âŒ˜K
+                Ctrl K
               </kbd>
             </div>
 
-            {/* Theme Toggle (Sun/Moon placeholder) */}
+            {/* Sun / Light mode indicator */}
             <button
-              aria-label="Notifications"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
+              aria-label="Toggle theme"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-amber-400 hover:bg-amber-50 transition"
             >
-              <span className="text-xs">â˜€ï¸</span>
+              <Sun className="h-4 w-4" />
             </button>
 
             {/* Notifications with badge */}
             <button
-              aria-label="Messages"
+              aria-label="Notifications"
               className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
             >
-              <span className="text-xs">ðŸ””</span>
+              <Bell className="h-4 w-4" />
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white">
                 8
               </span>
             </button>
 
             {/* User Profile Pill */}
-            <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-xs shadow-xs overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                  alt="User"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
+            <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
+              {/* Monogram avatar — no external image */}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B2020] to-[#c0392b] text-white font-black text-[11px] shadow-sm select-none">
+                SM
               </div>
               <div className="hidden md:block text-left leading-tight">
-                <p className="text-xs font-bold text-gray-900">
-                  {user?.email
-                    ? user.email
-                        .split("@")[0]
-                        .replace(/[._]/g, " ")
-                        .replace(/\b\w/g, (c) => c.toUpperCase())
-                    : "Jack Sparrow"}
-                </p>
+                <p className="text-xs font-bold text-gray-900">Sameer Mirza</p>
                 <p className="text-[10px] font-medium text-gray-400">Administrator</p>
               </div>
             </div>
@@ -401,12 +395,11 @@ function AdminPage() {
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
             {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
-            {tab === "pos" && <POSTab />}
+            {tab === "billing" && <BillingCenterTab />}
             {tab === "products" && <ProductsTab />}
             {tab === "hero" && <HeroMediaManager />}
             {tab === "media" && <MediaLibrary />}
             {tab === "orders" && <OnlineSalesTab />}
-            {tab === "offline-analytics" && <OfflineAnalyticsTab />}
             {tab === "customers" && <CustomersTab />}
             {tab === "categories" && <CategoriesTab />}
             {tab === "inventory" && <InventoryTab />}

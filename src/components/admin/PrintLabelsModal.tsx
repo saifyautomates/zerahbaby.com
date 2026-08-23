@@ -2,14 +2,16 @@
  * PrintLabelsModal — Enhanced label printing with quantity selector,
  * MRP display, thermal label option, and Code 128 barcodes.
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, Minus, Plus } from "lucide-react";
-import Barcode from "react-barcode";
+import { X, Printer, Minus, Plus, Settings2 } from "lucide-react";
 import type { Product } from "@/lib/store";
-import { formatPrice } from "@/lib/store";
-
-type LabelProduct = Product & { labelQty?: number };
+import {
+  LabelPrintEngine,
+  type LabelEntry,
+  type LabelType,
+  type LabelLayout,
+} from "./LabelPrintEngine";
 
 export function PrintLabelsModal({
   products,
@@ -21,23 +23,31 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid, 1])),
   );
-  const [layout, setLayout] = useState<"a4" | "thermal">("a4");
+  const [layout, setLayout] = useState<LabelLayout>("a4");
+  const [labelType, setLabelType] = useState<LabelType>("full");
+  const [showDiscount, setShowDiscount] = useState(false);
 
   const setQty = (uuid: string, qty: number) => {
-    setQuantities((prev) => ({ ...prev, [uuid]: Math.max(0, Math.min(200, qty)) }));
+    setQuantities((prev) => ({ ...prev, [uuid]: Math.max(0, Math.min(500, qty)) }));
   };
 
   const printableProducts = products.filter((p) => p.sku || p.barcode);
   const totalLabels = printableProducts.reduce((sum, p) => sum + (quantities[p.uuid] ?? 1), 0);
 
-  // Expand products by quantity for printing
-  const expandedLabels: Product[] = [];
-  for (const p of printableProducts) {
-    const qty = quantities[p.uuid] ?? 1;
-    for (let i = 0; i < qty; i++) {
-      expandedLabels.push(p);
-    }
-  }
+  const entries: LabelEntry[] = useMemo(() => {
+    return printableProducts.map((p) => ({
+      product: {
+        uuid: p.uuid,
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode,
+        price: p.price,
+        mrp: p.mrp,
+        stock: p.stock,
+      },
+      qty: quantities[p.uuid] ?? 1,
+    }));
+  }, [printableProducts, quantities]);
 
   return createPortal(
     <div
@@ -65,35 +75,73 @@ export function PrintLabelsModal({
                 onClick={() => setLayout("a4")}
                 className={`px-3 py-2 text-xs font-semibold transition-all ${
                   layout === "a4"
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-[#8B2020] text-white"
                     : "bg-background text-muted-foreground hover:bg-muted"
                 }`}
               >
-                A4 Sheet
+                A4 (Grid)
               </button>
               <button
-                onClick={() => setLayout("thermal")}
+                onClick={() => setLayout("thermal-80")}
                 className={`px-3 py-2 text-xs font-semibold transition-all ${
-                  layout === "thermal"
-                    ? "bg-primary text-primary-foreground"
+                  layout === "thermal-80"
+                    ? "bg-[#8B2020] text-white"
                     : "bg-background text-muted-foreground hover:bg-muted"
                 }`}
               >
-                Thermal
+                108mm Thermal
+              </button>
+              <button
+                onClick={() => setLayout("thermal-58")}
+                className={`px-3 py-2 text-xs font-semibold transition-all ${
+                  layout === "thermal-58"
+                    ? "bg-[#8B2020] text-white"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                58mm Thermal
               </button>
             </div>
             <button
               onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-5 py-2 text-sm font-semibold shadow-sm hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-5 py-2 text-sm font-semibold shadow-sm hover:bg-muted"
             >
               <X className="size-4" /> Cancel
             </button>
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#7a1c1c]"
             >
               <Printer className="size-4" /> Print Labels
             </button>
+          </div>
+        </div>
+
+        {/* Configuration Bar */}
+        <div className="shrink-0 border-b border-border/50 px-6 py-3 bg-gray-50/50 flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-2 text-sm text-gray-500 font-semibold">
+            <Settings2 className="size-4" /> Config
+          </div>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={labelType === "barcode-only"}
+                onChange={(e) => setLabelType(e.target.checked ? "barcode-only" : "full")}
+                className="rounded border-gray-300 text-[#8B2020] focus:ring-[#8B2020]"
+              />
+              Barcode Only
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDiscount}
+                onChange={(e) => setShowDiscount(e.target.checked)}
+                disabled={labelType === "barcode-only"}
+                className="rounded border-gray-300 text-[#8B2020] focus:ring-[#8B2020] disabled:opacity-50"
+              />
+              Show Discount %
+            </label>
           </div>
         </div>
 
@@ -140,76 +188,17 @@ export function PrintLabelsModal({
         <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-white print:p-0">
           <div
             className={`mx-auto bg-white shadow-sm print:max-w-none print:p-0 print:shadow-none ${
-              layout === "thermal" ? "max-w-[58mm] p-2" : "max-w-[210mm] p-4"
+              layout.startsWith("thermal") ? "max-w-[80mm] p-2" : "max-w-[210mm] p-4"
             }`}
           >
-            <div
-              className={
-                layout === "thermal"
-                  ? "flex flex-col gap-3"
-                  : "grid grid-cols-4 gap-4 print:grid-cols-4"
-              }
-            >
-              {expandedLabels.map((product, idx) => (
-                <div
-                  key={product.uuid + "-" + idx}
-                  className={`flex flex-col items-center justify-center text-center break-inside-avoid ${
-                    layout === "thermal"
-                      ? "py-3 border-b border-dashed border-slate-300"
-                      : "rounded-xl border-2 border-dashed border-slate-300 p-4 print:border-solid print:border-slate-200"
-                  }`}
-                >
-                  <p className="w-full truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Zérah Baby & Kids
-                  </p>
-                  <p
-                    className={`mt-1 w-full font-semibold leading-tight text-slate-900 ${
-                      layout === "thermal"
-                        ? "text-[11px] line-clamp-2"
-                        : "text-xs line-clamp-2 min-h-[2rem]"
-                    }`}
-                  >
-                    {product.name}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-900">
-                      {formatPrice(product.price)}
-                    </span>
-                    {product.mrp > product.price && (
-                      <span className="text-[10px] text-slate-400 line-through">
-                        {formatPrice(product.mrp)}
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className={`mt-2 w-full flex justify-center ${
-                      layout === "thermal" ? "scale-75" : "scale-90"
-                    }`}
-                  >
-                    <Barcode
-                      value={product.barcode || product.sku}
-                      format="CODE128"
-                      width={layout === "thermal" ? 1 : 1.2}
-                      height={layout === "thermal" ? 30 : 40}
-                      fontSize={layout === "thermal" ? 8 : 10}
-                      margin={0}
-                      displayValue={true}
-                      background="transparent"
-                    />
-                  </div>
-                  <p className="mt-1 text-[9px] font-medium text-slate-500">SKU: {product.sku}</p>
-                </div>
-              ))}
-            </div>
-
-            {expandedLabels.length === 0 && (
-              <p className="py-16 text-center text-sm text-muted-foreground">
-                No labels to print. Adjust quantities above.
-              </p>
-            )}
-
+            <LabelPrintEngine
+              entries={entries}
+              labelType={labelType}
+              layout={layout}
+              showDiscount={showDiscount}
+            />
             {products.filter((p) => !p.sku && !p.barcode).length > 0 && (
-              <p className="mt-8 text-center text-sm text-destructive print:hidden">
+              <p className="mt-8 text-center text-sm text-red-500 print:hidden">
                 Warning: {products.filter((p) => !p.sku && !p.barcode).length} product(s) missing
                 SKU and Barcode — excluded from this sheet.
               </p>
