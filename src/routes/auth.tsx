@@ -30,45 +30,63 @@ function AuthPage() {
   const { user } = useSession();
   const { items } = useCart();
 
-  // ─── State machine ───────────────────────────────────────────────────────────
-  // mode: 'input' = phone/email entry, 'verify' = OTP entry
+  // ─── UI State ─────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<"input" | "verify">("input");
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  // Tracks whether the OTP has likely expired so we show a banner
   const [otpExpired, setOtpExpired] = useState(false);
 
-  // Guard against concurrent requests (double-click, etc.)
-  const requestInFlight = useRef(false);
+  // ─── Interval-based countdown (avoids setTimeout chain / StrictMode double-fire)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownRef = useRef(0); // mirrors cooldown state, readable inside the interval cb
 
-  // ─── Cooldown tick ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (cooldown <= 0) return undefined;
-    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
-
-  // ─── Derived ─────────────────────────────────────────────────────────────────
-  const isEmail = contact.includes("@");
-
-  // Normalise phone to E.164 format (+91XXXXXXXXXX for India)
-  function normalisePhone(raw: string): string {
-    const trimmed = raw.trim();
-    if (trimmed.startsWith("+")) return trimmed;
-    return `+91${trimmed.replace(/^0+/, "")}`;
+  function startCooldown(seconds: number) {
+    // Always stop any existing interval before starting a new one
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    cooldownRef.current = seconds;
+    setCooldown(seconds);
+    intervalRef.current = setInterval(() => {
+      cooldownRef.current -= 1;
+      setCooldown(cooldownRef.current);
+      if (cooldownRef.current <= 0) {
+        clearInterval(intervalRef.current!);
+        intervalRef.current = null;
+      }
+    }, 1000);
   }
 
-  // ─── Redirect if already authenticated ───────────────────────────────────────
+  // Clear interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  // ─── Derived ──────────────────────────────────────────────────────────────────
+  const isEmail = contact.includes("@");
+
+  // Normalise phone → E.164 (+91XXXXXXXXXX for India)
+  function normalisePhone(raw: string): string {
+    const t = raw.trim();
+    if (t.startsWith("+")) return t;
+    return `+91${t.replace(/^0+/, "")}`;
+  }
+
+  // ─── Redirect when session arrives ────────────────────────────────────────────
   useEffect(() => {
     if (user) navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
   }, [user, items.length, navigate]);
 
-  // ─── Helper: issue a fresh OTP request ───────────────────────────────────────
-  async function issueOtp(): Promise<boolean> {
-    if (requestInFlight.current) return false;
-    requestInFlight.current = true;
+  // ─── SEND OTP (first time) ────────────────────────────────────────────────────
+  async function onSendOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contact.trim() || busy) return;
+
     setBusy(true);
     try {
       if (isEmail) {
@@ -84,68 +102,73 @@ function AuthPage() {
           options: { shouldCreateUser: true },
         });
         if (error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes("rate") || msg.includes("limit")) {
-            throw new Error("Too many OTP requests. Please wait a moment before trying again.");
+          const m = error.message.toLowerCase();
+          if (m.includes("rate") || m.includes("limit") || m.includes("after")) {
+            throw new Error("Too many OTP requests. Please wait a moment, then try again.");
           }
           throw error;
         }
       }
-      return true;
+      // Success: transition to verify screen
+      setOtp("");
+      setOtpExpired(false);
+      setMode("verify");
+      startCooldown(60);
+      toast.success(isEmail ? "OTP sent to your email!" : "OTP sent to your mobile!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
     } finally {
       setBusy(false);
-      requestInFlight.current = false;
     }
   }
 
-  // ─── RESEND OTP ──────────────────────────────────────────────────────────────
+  // ─── RESEND OTP ───────────────────────────────────────────────────────────────
   async function onResendOtp() {
-    if (cooldown > 0 || busy) return;
+    // Hard guards — button is also disabled in JSX, this is a safety net
+    if (busy || cooldown > 0) return;
+
+    setBusy(true);
     try {
-      const ok = await issueOtp();
-      if (ok) {
-        setOtp(""); // clear old OTP input
-        setOtpExpired(false); // clear expired banner
-        setCooldown(60); // fresh 60-second cooldown
-        toast.success("New OTP sent!");
+      // Direct call — no shared helper — guarantees a real new HTTP request
+      if (isEmail) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: contact.trim(),
+          options: { shouldCreateUser: true },
+        });
+        if (error) throw error;
+      } else {
+        const phone = normalisePhone(contact);
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: { shouldCreateUser: true },
+        });
+        if (error) {
+          const m = error.message.toLowerCase();
+          if (m.includes("rate") || m.includes("limit") || m.includes("after")) {
+            throw new Error("Too many requests. Please wait a moment before resending.");
+          }
+          throw error;
+        }
       }
+      // Success: clear old state, restart countdown
+      setOtp("");
+      setOtpExpired(false);
+      startCooldown(60);
+      toast.success("New OTP sent!");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to resend OTP. Please try again.";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
+    } finally {
+      // Always unblock, even on error — so user can retry
+      setBusy(false);
     }
   }
 
-  // ─── SEND OTP (first time) ───────────────────────────────────────────────────
-  async function onSendOtp(e: React.FormEvent) {
-    e.preventDefault();
-    if (!contact.trim()) {
-      toast.error("Please enter an email or mobile number");
-      return;
-    }
-    try {
-      const ok = await issueOtp();
-      if (ok) {
-        setOtp("");
-        setOtpExpired(false);
-        setCooldown(60);
-        setMode("verify");
-        toast.success(isEmail ? "OTP sent to your email!" : "OTP sent to your mobile!");
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to send OTP. Please try again.";
-      toast.error(msg);
-    }
-  }
-
-  // ─── VERIFY OTP ──────────────────────────────────────────────────────────────
+  // ─── VERIFY OTP ───────────────────────────────────────────────────────────────
   async function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     const token = otp.trim();
-    if (!token || token.length < 6) {
-      toast.error("Please enter the 6-digit OTP");
-      return;
-    }
-    if (busy) return;
+    if (token.length < 6 || busy) return;
+
     setBusy(true);
     try {
       if (isEmail) {
@@ -163,70 +186,75 @@ function AuthPage() {
           type: "sms",
         });
         if (error) {
-          const rawMsg = error.message.toLowerCase();
-          if (rawMsg.includes("expired") || rawMsg.includes("otp_expired")) {
-            setOtpExpired(true); // show banner so user knows to resend
-            setOtp(""); // clear stale digits
-            throw new Error("OTP has expired. Please tap Resend OTP to get a new one.");
-          }
-          if (
-            rawMsg.includes("invalid") ||
-            rawMsg.includes("incorrect") ||
-            rawMsg.includes("does not match")
-          ) {
-            throw new Error("Incorrect OTP. Please check and try again.");
-          }
-          if (rawMsg.includes("attempts") || rawMsg.includes("too many")) {
-            throw new Error("Too many incorrect attempts. Please request a new OTP.");
-          }
-          if (rawMsg.includes("already used") || rawMsg.includes("already been used")) {
+          const m = error.message.toLowerCase();
+          if (m.includes("expired") || m.includes("otp_expired")) {
             setOtpExpired(true);
             setOtp("");
-            throw new Error("That OTP has already been used. Please tap Resend OTP.");
+            throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
+          }
+          if (m.includes("already used") || m.includes("already been used")) {
+            setOtpExpired(true);
+            setOtp("");
+            throw new Error("This OTP has already been used. Tap “Resend OTP” for a new one.");
+          }
+          if (
+            m.includes("invalid") ||
+            m.includes("incorrect") ||
+            m.includes("does not match") ||
+            m.includes("token")
+          ) {
+            throw new Error("Incorrect OTP. Please double-check and try again.");
+          }
+          if (m.includes("attempts") || m.includes("too many")) {
+            throw new Error("Too many incorrect attempts. Please request a new OTP.");
           }
           throw error;
         }
       }
+      // Session is set by Supabase — useEffect watching `user` will redirect
       toast.success("Signed in successfully! Welcome to Zerah 🎉");
-      // useEffect watching `user` will redirect automatically
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Invalid OTP. Please try again.";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "Invalid OTP. Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  // ─── CHANGE NUMBER (full reset) ───────────────────────────────────────────────
+  // ─── CHANGE NUMBER (complete reset) ───────────────────────────────────────────
   function onChangeContact() {
+    // Stop the interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    cooldownRef.current = 0;
+    // Reset all OTP state
     setMode("input");
     setOtp("");
-    setCooldown(0); // ← critical: clear countdown so resend works fresh
+    setCooldown(0);
     setOtpExpired(false);
-    // Do NOT clear `contact` so the user can see/edit what they typed
+    // Keep `contact` so user can edit rather than retype
   }
 
+  // ─── GOOGLE SIGN-IN ───────────────────────────────────────────────────────────
   async function onGoogleSignIn() {
+    if (busy) return;
     setBusy(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // Redirect back to /auth so the session listener picks it up
         redirectTo: `${window.location.origin}/auth`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account",
-        },
+        queryParams: { access_type: "offline", prompt: "select_account" },
       },
     });
-
     if (error) {
       setBusy(false);
       toast.error("Google sign-in failed: " + error.message);
     }
-    // Google will redirect the page — no further action needed here
+    // Google will redirect — no further action needed
   }
 
+  // ─── RENDER ───────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <div className="rounded-3xl border border-border bg-card p-8">
@@ -249,6 +277,7 @@ function AuthPage() {
             : `We sent a secure code to ${contact}`}
         </p>
 
+        {/* ── INPUT MODE ── */}
         {mode === "input" ? (
           <form onSubmit={onSendOtp} className="mt-6 space-y-4">
             <div className="relative flex items-center overflow-hidden rounded-xl border border-border bg-background focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
@@ -264,7 +293,6 @@ function AuthPage() {
                 value={contact}
                 onChange={(e) => {
                   let val = e.target.value;
-                  // Prevent double +91 if user pastes it
                   if (/^[\d+]/.test(val)) {
                     val = val.replace(/^\+91\s*/, "").replace(/^\+/, "");
                   }
@@ -277,13 +305,16 @@ function AuthPage() {
             </div>
 
             <button
-              disabled={busy || !contact}
+              id="auth-send-otp-btn"
+              type="submit"
+              disabled={busy || !contact.trim()}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
-              {busy ? "Sending OTP..." : "Get OTP"}
+              {busy ? "Sending…" : "Get OTP"}
             </button>
           </form>
         ) : (
+          /* ── VERIFY MODE ── */
           <form onSubmit={onVerifyOtp} className="mt-6 space-y-4">
             {/* Expired OTP banner */}
             {otpExpired && (
@@ -291,6 +322,7 @@ function AuthPage() {
                 Your OTP has expired.{" "}
                 <button
                   type="button"
+                  id="auth-resend-from-banner-btn"
                   onClick={onResendOtp}
                   disabled={busy || cooldown > 0}
                   className="font-semibold underline disabled:opacity-50"
@@ -308,7 +340,7 @@ function AuthPage() {
               maxLength={6}
               value={otp}
               onChange={(e) => {
-                setOtpExpired(false); // dismiss banner as soon as user types
+                setOtpExpired(false); // typing dismisses the banner
                 setOtp(e.target.value.replace(/\D/g, ""));
               }}
               placeholder="6-digit code"
@@ -319,6 +351,7 @@ function AuthPage() {
 
             <button
               id="auth-verify-otp-btn"
+              type="submit"
               disabled={busy || otp.length < 6}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
@@ -347,6 +380,7 @@ function AuthPage() {
           </form>
         )}
 
+        {/* ── GOOGLE ── */}
         {mode === "input" && (
           <div className="mt-8 space-y-4">
             <div className="relative">
@@ -360,6 +394,7 @@ function AuthPage() {
 
             <button
               type="button"
+              id="auth-google-btn"
               onClick={onGoogleSignIn}
               disabled={busy}
               className="w-full rounded-full border border-border bg-background py-3 text-sm font-semibold transition hover:bg-muted disabled:opacity-60 flex items-center justify-center gap-2"
