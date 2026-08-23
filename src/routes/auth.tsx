@@ -179,18 +179,23 @@ function AuthPage() {
 
   async function onGoogleSignIn() {
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth`,
+      });
 
-    if (error) {
+      if (result && "error" in result && result.error) {
+        throw result.error instanceof Error
+          ? result.error
+          : new Error(String(result.error));
+      }
+
+      // If OAuth redirected, the page navigates away — nothing to do here.
+      // If it returned a session (popup-style), the onAuthStateChange in useSession will handle it.
+    } catch (err: unknown) {
       setBusy(false);
-      toast.error("Google sign-in failed: " + error.message);
+      toast.error("Google sign-in failed: " + (err as Error).message);
     }
-    // Note: OAuth sign-in will redirect the page, so we don't need a manual navigate on success
   }
 
   return (
