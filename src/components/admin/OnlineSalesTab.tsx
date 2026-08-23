@@ -105,6 +105,21 @@ export function OnlineSalesTab() {
                   <span className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 border border-gray-200">
                     {order.payment_method || "cod"}
                   </span>
+                  {order.payment_status && (
+                    <span
+                      className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider border ${
+                        order.payment_status === "paid"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : order.payment_status === "refunded"
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : order.payment_status === "failed"
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      Payment: {order.payment_status}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs font-medium text-gray-500">
                   {new Date(order.created_at).toLocaleString("en-IN")}
@@ -130,6 +145,20 @@ export function OnlineSalesTab() {
                     </p>
                   </div>
                 </div>
+
+                {order.status === "cancelled" && (
+                  <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-800">
+                    <p className="font-bold text-red-900">
+                      Order Cancelled
+                      {order.cancelled_at &&
+                        ` on ${new Date(order.cancelled_at).toLocaleString("en-IN")}`}
+                    </p>
+                    {order.cancellation_reason && (
+                      <p className="mt-0.5">Reason: “{order.cancellation_reason}”</p>
+                    )}
+                  </div>
+                )}
+
                 {order.notes && (
                   <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 p-3.5 text-sm text-amber-700">
                     <strong>Note:</strong> “{order.notes}”

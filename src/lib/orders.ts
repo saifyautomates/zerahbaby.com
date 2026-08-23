@@ -25,6 +25,8 @@ export type Order = {
   landmark: string;
   alt_phone: string;
   payment_method: string;
+  payment_status?: string;
+  fulfillment_status?: string;
   invoice_no: string | null;
   subtotal: number;
   shipping: number;
@@ -33,6 +35,9 @@ export type Order = {
   total: number;
   status: string;
   notes: string;
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
   created_at: string;
   order_items: OrderItem[];
 };
@@ -49,6 +54,19 @@ export const orderStatuses = [
   "cancelled",
   "returned",
 ];
+
+export const CANCELLABLE_ORDER_STATUSES = [
+  "placed",
+  "pending",
+  "confirmed",
+  "processing",
+  "packed",
+] as const;
+
+export function isOrderCancellable(status: string | undefined): boolean {
+  if (!status) return false;
+  return (CANCELLABLE_ORDER_STATUSES as readonly string[]).includes(status.toLowerCase());
+}
 
 export type Profile = {
   id: string;
@@ -210,6 +228,32 @@ export function usePlaceOrder() {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * Customer order cancellation hook.
+ * Executes cancel_customer_order RPC atomically, ensuring stock restoration
+ * and timeline logging.
+ */
+export function useCancelCustomerOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc("cancel_customer_order", {
+        order_id: orderId,
+        reason: reason || undefined,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
     },
   });
 }

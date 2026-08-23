@@ -1,9 +1,11 @@
 //
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 import { useProducts, formatPrice } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
-import { useMyOrders } from "@/lib/orders";
+import { useMyOrders, useCancelCustomerOrder, isOrderCancellable, type Order } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,11 +24,21 @@ export const Route = createFileRoute("/_authenticated/orders")({
   component: OrdersPage,
 });
 
+const CANCELLATION_REASONS = [
+  "Changed my mind",
+  "Ordered by mistake",
+  "Found a different product / cheaper alternative",
+  "Delivery taking too long",
+  "Incorrect shipping address",
+  "Other",
+];
+
 function OrdersPage() {
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
   const { data: orders, isLoading } = useMyOrders(user?.id);
   const { data: products } = useProducts();
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -47,69 +59,265 @@ function OrdersPage() {
         </div>
       )}
 
-      <ul className="mt-8 space-y-4">
-        {(orders ?? []).map((order) => (
-          <li key={order.id} className="rounded-2xl border border-border p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
-              <div>
-                <p className="text-sm font-semibold">#{order.id.slice(0, 8).toUpperCase()}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(order.created_at).toLocaleString("en-IN")}
+      <ul className="mt-8 space-y-5">
+        {(orders ?? []).map((order) => {
+          const cancellable = isOrderCancellable(order.status);
+          const isCancelled = order.status === "cancelled";
+
+          return (
+            <li
+              key={order.id}
+              className={`rounded-2xl border p-5 transition-all ${
+                isCancelled ? "border-border/60 bg-muted/20 opacity-90" : "border-border bg-card"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">#{order.id.slice(0, 8).toUpperCase()}</p>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+                      {order.payment_method || "cod"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {new Date(order.created_at).toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                      isCancelled
+                        ? "bg-destructive/15 text-destructive border border-destructive/20"
+                        : order.status === "delivered"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          : order.status === "shipped" || order.status === "out_for_delivery"
+                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                            : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    {order.status.replace(/_/g, " ")}
+                  </span>
+
+                  {cancellable && (
+                    <button
+                      type="button"
+                      onClick={() => setCancellingOrder(order)}
+                      className="rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive transition hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40"
+                    >
+                      Cancel order
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Timeline */}
+              <OrderTimeline orderId={order.id} />
+
+              {/* Cancellation & Refund Alert Banner */}
+              {isCancelled && (
+                <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-foreground">
+                  <p className="font-semibold text-destructive">
+                    Order Cancelled
+                    {order.cancelled_at &&
+                      ` on ${new Date(order.cancelled_at).toLocaleString("en-IN")}`}
+                  </p>
+                  {order.cancellation_reason && (
+                    <p className="mt-0.5 text-muted-foreground">
+                      Reason: “{order.cancellation_reason}”
+                    </p>
+                  )}
+                  {order.payment_status === "paid" && (
+                    <p className="mt-1 font-medium text-amber-700">
+                      Payment was completed online. Your refund will be credited to your original
+                      payment method in 5-7 business days.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <ul className="mt-4 space-y-4">
+                {order.order_items.map((item) => {
+                  const product = products?.find((p) => p.id === item.product_slug);
+                  return (
+                    <li key={item.id} className="flex gap-4">
+                      <Link
+                        to="/product/$id"
+                        params={{ id: item.product_slug }}
+                        className="group flex flex-1 gap-4"
+                      >
+                        {product ? (
+                          <img
+                            src={product.image}
+                            alt={item.name}
+                            className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.opacity = "0";
+                            }}
+                          />
+                        ) : (
+                          <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />
+                        )}
+                        <div className="flex flex-1 flex-col justify-center">
+                          <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                            {item.name}
+                          </span>
+                          <span className="mt-1 text-xs text-muted-foreground">
+                            Qty: {item.qty} · {formatPrice(Number(item.price))} each
+                          </span>
+                        </div>
+                      </Link>
+                      <div className="flex items-center text-sm font-semibold">
+                        {formatPrice(Number(item.price) * item.qty)}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                {isAdmin && <InvoiceBox order={order} />}
+                <p className="ml-auto text-sm font-bold">
+                  Total {formatPrice(Number(order.total))}
                 </p>
               </div>
-              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold capitalize text-secondary-foreground">
-                {order.status}
-              </span>
-            </div>
-
-            {/* Status Timeline */}
-            <OrderTimeline orderId={order.id} />
-
-            <ul className="mt-4 space-y-4">
-              {order.order_items.map((item) => {
-                const product = products?.find((p) => p.id === item.product_slug);
-                return (
-                  <li key={item.id} className="flex gap-4">
-                    <Link
-                      to="/product/$id"
-                      params={{ id: item.product_slug }}
-                      className="group flex flex-1 gap-4"
-                    >
-                      {product ? (
-                        <img
-                          src={product.image}
-                          alt={item.name}
-                          className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.opacity = "0";
-                          }}
-                        />
-                      ) : (
-                        <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />
-                      )}
-                      <div className="flex flex-1 flex-col justify-center">
-                        <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                          {item.name}
-                        </span>
-                        <span className="mt-1 text-xs text-muted-foreground">
-                          Qty: {item.qty} · {formatPrice(Number(item.price))} each
-                        </span>
-                      </div>
-                    </Link>
-                    <div className="flex items-center text-sm font-semibold">
-                      {formatPrice(Number(item.price) * item.qty)}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-              {isAdmin && <InvoiceBox order={order} />}
-              <p className="ml-auto text-sm font-bold">Total {formatPrice(Number(order.total))}</p>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
+
+      {/* Cancellation Confirmation Dialog */}
+      {cancellingOrder && (
+        <CancelOrderModal order={cancellingOrder} onClose={() => setCancellingOrder(null)} />
+      )}
+    </div>
+  );
+}
+
+function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const [selectedReason, setSelectedReason] = useState(CANCELLATION_REASONS[0]);
+  const [customReason, setCustomReason] = useState("");
+  const cancelOrder = useCancelCustomerOrder();
+
+  const isOther = selectedReason === "Other";
+  const finalReason = isOther
+    ? customReason.trim() || "Other reason specified by customer"
+    : selectedReason;
+
+  async function handleConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    if (cancelOrder.isPending) return;
+
+    try {
+      await cancelOrder.mutateAsync({
+        orderId: order.id,
+        reason: finalReason,
+      });
+      toast.success("Your order has been cancelled.");
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as Error).message || "Failed to cancel order";
+      toast.error(msg);
+    }
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+    >
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
+        <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+          <div>
+            <h2 id="cancel-modal-title" className="font-display text-xl font-bold text-foreground">
+              Cancel Order #{order.id.slice(0, 8).toUpperCase()}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Orders can be cancelled before shipment. Items will be returned to stock.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={cancelOrder.isPending}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleConfirm} className="mt-5 space-y-4">
+          <div>
+            <label
+              htmlFor="cancel-reason-select"
+              className="block text-xs font-semibold text-foreground"
+            >
+              Reason for cancellation (optional)
+            </label>
+            <select
+              id="cancel-reason-select"
+              value={selectedReason}
+              onChange={(e) => setSelectedReason(e.target.value)}
+              disabled={cancelOrder.isPending}
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+            >
+              {CANCELLATION_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {isOther && (
+            <div>
+              <label
+                htmlFor="custom-reason-input"
+                className="block text-xs font-semibold text-foreground"
+              >
+                Please tell us more
+              </label>
+              <textarea
+                id="custom-reason-input"
+                rows={2}
+                required
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                placeholder="Why would you like to cancel?"
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          )}
+
+          {order.payment_status === "paid" && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <strong>Refund Notice:</strong> Since this order was paid online, your payment of{" "}
+              {formatPrice(Number(order.total))} will be automatically refunded to your original
+              payment method within 5-7 business days.
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={cancelOrder.isPending}
+              className="rounded-full border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50"
+            >
+              Keep Order
+            </button>
+            <button
+              type="submit"
+              disabled={cancelOrder.isPending}
+              className="inline-flex items-center justify-center rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {cancelOrder.isPending ? "Cancelling…" : "Confirm Cancellation"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
