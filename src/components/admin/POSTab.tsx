@@ -311,7 +311,6 @@ export function POSTab() {
     [/* run only on mount */],
   );
 
-
   function addToCart(item: POSCartItem) {
     setCart((prev) => {
       const existing = prev.find((p) => p.product_id === item.product_id);

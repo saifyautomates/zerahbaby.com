@@ -50,6 +50,13 @@ function AuthPage() {
   // We determine if it's an email or phone based on a simple regex
   const isEmail = contact.includes("@");
 
+  // Normalise phone to E.164 format (+91XXXXXXXXXX for India)
+  function normalisePhone(raw: string): string {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("+")) return trimmed;
+    return `+91${trimmed.replace(/^0+/, "")}`;
+  }
+
   useEffect(() => {
     // If the user is logged in, redirect them
     if (user) navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
@@ -57,14 +64,8 @@ function AuthPage() {
 
   async function onResendOtp() {
     if (cooldown > 0) return;
-
     setBusy(true);
     try {
-      let phone = contact.trim();
-      if (!isEmail && !phone.startsWith("+")) {
-        phone = `+91${phone}`;
-      }
-
       if (isEmail) {
         const { error } = await supabase.auth.signInWithOtp({
           email: contact.trim(),
@@ -72,18 +73,23 @@ function AuthPage() {
         });
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.functions.invoke("msg91-auth", {
-          body: { action: "resend", phone },
+        const phone = normalisePhone(contact);
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: { shouldCreateUser: true },
         });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
+        if (error) {
+          if (error.message.toLowerCase().includes("rate")) {
+            throw new Error("Too many OTP requests. Please wait before trying again.");
+          }
+          throw error;
+        }
       }
-
       toast.success("OTP resent successfully!");
       setCooldown(60);
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Failed to resend OTP");
+      const msg = err instanceof Error ? err.message : "Failed to resend OTP.";
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -91,43 +97,42 @@ function AuthPage() {
 
   async function onSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!contact.trim()) {
-      toast.error("Please enter an email or phone number");
+    const raw = contact.trim();
+    if (!raw) {
+      toast.error("Please enter an email or mobile number");
       return;
     }
 
     setBusy(true);
     try {
       if (isEmail) {
+        // Email OTP via Supabase Auth
         const { error } = await supabase.auth.signInWithOtp({
-          email: contact.trim(),
-          options: {
-            // No redirect, we handle it purely in-app with the code
-            shouldCreateUser: true,
-          },
+          email: raw,
+          options: { shouldCreateUser: true },
         });
         if (error) throw error;
         toast.success("OTP sent to your email!");
       } else {
-        // Assume phone number.
-        let phone = contact.trim();
-        if (!phone.startsWith("+")) {
-          phone = `+91${phone}`; // Default to India for this store
-        }
-
-        const { data, error } = await supabase.functions.invoke("msg91-auth", {
-          body: { action: "send", phone },
+        // Phone OTP via Supabase Auth → MiniMoth SMS Hook
+        const phone = normalisePhone(raw);
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: { shouldCreateUser: true },
         });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-
-        toast.success("OTP sent to your phone via SMS!");
-        setCooldown(60); // 60 seconds cooldown for resend
+        if (error) {
+          if (error.message.toLowerCase().includes("rate")) {
+            throw new Error("Too many OTP requests. Please wait before trying again.");
+          }
+          throw error;
+        }
+        toast.success("OTP sent to your mobile!");
+        setCooldown(60);
       }
       setMode("verify");
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Failed to send OTP");
+      const msg = err instanceof Error ? err.message : "Failed to send OTP. Please try again.";
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -135,42 +140,49 @@ function AuthPage() {
 
   async function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!otp.trim()) {
-      toast.error("Please enter the OTP");
+    const token = otp.trim();
+    if (!token || token.length < 6) {
+      toast.error("Please enter the 6-digit OTP");
       return;
     }
 
     setBusy(true);
     try {
-      let phone = contact.trim();
-      if (!isEmail && !phone.startsWith("+")) {
-        phone = `+91${phone}`;
-      }
-
       if (isEmail) {
+        // Email OTP verification via Supabase Auth
         const { error } = await supabase.auth.verifyOtp({
           email: contact.trim(),
-          token: otp.trim(),
+          token,
           type: "email",
         });
         if (error) throw error;
       } else {
-        // Phone OTP verification via Edge Function
-        const { data, error } = await supabase.functions.invoke("msg91-auth", {
-          body: { action: "verify", phone, otp: otp.trim() },
+        // Phone OTP verification via Supabase Auth (MiniMoth SMS Hook)
+        const phone = normalisePhone(contact);
+        const { error } = await supabase.auth.verifyOtp({
+          phone,
+          token,
+          type: "sms",
         });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-
-        // Edge function returns the session object. We set it locally.
-        const sessionError = await supabase.auth.setSession(data.session);
-        if (sessionError.error) throw sessionError.error;
+        if (error) {
+          const msg = error.message.toLowerCase();
+          if (msg.includes("expired")) {
+            throw new Error("OTP has expired. Please request a new one.");
+          }
+          if (msg.includes("invalid") || msg.includes("incorrect") || msg.includes("wrong")) {
+            throw new Error("Incorrect OTP. Please check and try again.");
+          }
+          if (msg.includes("attempts")) {
+            throw new Error("Too many incorrect attempts. Please request a new OTP.");
+          }
+          throw error;
+        }
       }
-      toast.success("Signed in successfully!");
-      // The session hook will automatically redirect them in the useEffect
+      toast.success("Signed in successfully! Welcome to Zerah 🎉");
+      // The useEffect watching `user` will automatically redirect once session is set
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Invalid OTP code");
+      const msg = err instanceof Error ? err.message : "Invalid OTP. Please try again.";
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -241,13 +253,16 @@ function AuthPage() {
         ) : (
           <form onSubmit={onVerifyOtp} className="mt-6 space-y-4">
             <input
+              id="auth-otp-input"
               type="text"
+              inputMode="numeric"
               required
               maxLength={6}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
               placeholder="6-digit code"
               aria-label="OTP Code"
+              autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
             />
 
@@ -261,7 +276,10 @@ function AuthPage() {
             <div className="flex items-center justify-between px-2 pt-2 text-sm text-muted-foreground">
               <button
                 type="button"
-                onClick={() => setMode("input")}
+                onClick={() => {
+                  setMode("input");
+                  setOtp("");
+                }}
                 className="font-medium hover:text-primary"
               >
                 Change {isEmail ? "email" : "number"}
