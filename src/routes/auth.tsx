@@ -37,6 +37,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [otpExpired, setOtpExpired] = useState(false);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
 
   // ─── Interval-based countdown (avoids setTimeout chain / StrictMode double-fire)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -67,6 +68,13 @@ function AuthPage() {
     };
   }, []);
 
+  // Auto-focus OTP input when entering verify mode
+  useEffect(() => {
+    if (mode === "verify") {
+      setTimeout(() => otpInputRef.current?.focus(), 100);
+    }
+  }, [mode]);
+
   // ─── Derived ──────────────────────────────────────────────────────────────────
   const isEmail = contact.includes("@");
 
@@ -85,18 +93,33 @@ function AuthPage() {
   // ─── SEND OTP (first time) ────────────────────────────────────────────────────
   async function onSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!contact.trim() || busy) return;
+    const raw = contact.trim();
+    if (!raw || busy) return;
+
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(raw)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+    } else {
+      const cleanPhone = raw.replace(/\D/g, "");
+      if (cleanPhone.length < 10) {
+        toast.error("Please enter a valid 10-digit mobile number");
+        return;
+      }
+    }
 
     setBusy(true);
     try {
       if (isEmail) {
         const { error } = await supabase.auth.signInWithOtp({
-          email: contact.trim(),
+          email: raw,
           options: { shouldCreateUser: true },
         });
         if (error) throw error;
       } else {
-        const phone = normalisePhone(contact);
+        const phone = normalisePhone(raw);
         const { error } = await supabase.auth.signInWithOtp({
           phone,
           options: { shouldCreateUser: true },
@@ -114,7 +137,9 @@ function AuthPage() {
       setOtpExpired(false);
       setMode("verify");
       startCooldown(60);
-      toast.success(isEmail ? "OTP sent to your email!" : "OTP sent to your mobile!");
+      toast.success(
+        isEmail ? "6-digit OTP sent to your email!" : "6-digit OTP sent to your mobile!",
+      );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
     } finally {
@@ -154,7 +179,7 @@ function AuthPage() {
       setOtp("");
       setOtpExpired(false);
       startCooldown(60);
-      toast.success("New OTP sent!");
+      toast.success("New 6-digit OTP sent!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
     } finally {
@@ -177,7 +202,33 @@ function AuthPage() {
           token,
           type: "email",
         });
-        if (error) throw error;
+        if (error) {
+          const m = error.message.toLowerCase();
+          if (m.includes("expired") || m.includes("otp_expired")) {
+            setOtpExpired(true);
+            setOtp("");
+            throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
+          }
+          if (m.includes("already used") || m.includes("already been used")) {
+            setOtpExpired(true);
+            setOtp("");
+            throw new Error("This OTP has already been used. Tap “Resend OTP” for a new one.");
+          }
+          if (
+            m.includes("invalid") ||
+            m.includes("incorrect") ||
+            m.includes("does not match") ||
+            m.includes("token")
+          ) {
+            throw new Error(
+              "Incorrect OTP. Please check your email for the 6-digit code and try again.",
+            );
+          }
+          if (m.includes("attempts") || m.includes("too many")) {
+            throw new Error("Too many incorrect attempts. Please request a new OTP.");
+          }
+          throw error;
+        }
       } else {
         const phone = normalisePhone(contact);
         const { error } = await supabase.auth.verifyOtp({
@@ -269,12 +320,12 @@ function AuthPage() {
           }}
         />
         <h1 className="mt-4 text-center font-display text-2xl font-bold">
-          {mode === "input" ? "Sign in to Zerah" : "Enter OTP"}
+          {mode === "input" ? "Sign in to Zerah" : "Enter Verification Code"}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"
             ? "Enter your email or mobile number to continue"
-            : `We sent a secure code to ${contact}`}
+            : `We sent a 6-digit code to ${contact}`}
         </p>
 
         {/* ── INPUT MODE ── */}
@@ -310,7 +361,7 @@ function AuthPage() {
               disabled={busy || !contact.trim()}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
-              {busy ? "Sending…" : "Get OTP"}
+              {busy ? "Sending OTP…" : "Get OTP"}
             </button>
           </form>
         ) : (
@@ -333,6 +384,7 @@ function AuthPage() {
             )}
 
             <input
+              ref={otpInputRef}
               id="auth-otp-input"
               type="text"
               inputMode="numeric"
@@ -343,7 +395,7 @@ function AuthPage() {
                 setOtpExpired(false); // typing dismisses the banner
                 setOtp(e.target.value.replace(/\D/g, ""));
               }}
-              placeholder="6-digit code"
+              placeholder="Enter 6-digit code"
               aria-label="OTP Code"
               autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
