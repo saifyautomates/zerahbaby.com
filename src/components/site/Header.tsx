@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Truck,
   Sparkle,
-  BadgeCheck,
 } from "lucide-react";
 import { useState } from "react";
 import logo from "@/assets/zerah-logo.jpg";
@@ -136,11 +135,11 @@ export function Header() {
           </Link>
 
           <form
-            className="ml-auto hidden flex-1 items-center md:flex"
+            className="hidden flex-1 items-center mx-4 md:flex lg:mx-8"
             onSubmit={submitSearch}
             role="search"
           >
-            <div className="relative w-full max-w-xl">
+            <div className="relative w-full max-w-md lg:max-w-xl mx-auto">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
@@ -304,7 +303,12 @@ export function Header() {
           </form>
         )}
 
-        <div className={cn("border-t border-border md:block", open ? "block" : "hidden")}>
+        <div
+          className={cn(
+            "border-t border-border md:block md:bg-transparent",
+            open ? "block bg-background shadow-lg md:shadow-none pb-4 md:pb-0" : "hidden",
+          )}
+        >
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-2 text-sm font-medium md:flex-row md:items-center md:gap-6">
             <Link
               to="/shop"

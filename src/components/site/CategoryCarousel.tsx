@@ -14,6 +14,51 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
   const hasDragged = useRef(false);
+  const isHovered = useRef(false);
+  const lastInteractionTime = useRef(0);
+  const fractionalScroll = useRef(0);
+
+  const markInteraction = () => {
+    lastInteractionTime.current = Date.now();
+  };
+
+  // Continuous auto-scroll logic
+  useEffect(() => {
+    let animationId: number;
+    let lastTime = performance.now();
+
+    const loop = (time: number) => {
+      const dt = time - lastTime;
+      lastTime = time;
+
+      if (!isDragging.current && !isHovered.current && viewportRef.current) {
+        const timeSinceInteraction = Date.now() - lastInteractionTime.current;
+        if (timeSinceInteraction > 2000) {
+          const { scrollLeft, scrollWidth, clientWidth } = viewportRef.current;
+          const maxScroll = scrollWidth - clientWidth;
+          
+          if (maxScroll > 0) {
+            if (scrollLeft >= maxScroll - 1) {
+              viewportRef.current.scrollLeft = 0;
+            } else {
+              // Scroll at roughly 30px per second
+              const scrollAmount = (30 * dt) / 1000;
+              fractionalScroll.current += scrollAmount;
+              if (fractionalScroll.current >= 1) {
+                const pixels = Math.floor(fractionalScroll.current);
+                viewportRef.current.scrollLeft += pixels;
+                fractionalScroll.current -= pixels;
+              }
+            }
+          }
+        }
+      }
+      animationId = requestAnimationFrame(loop);
+    };
+
+    animationId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animationId);
+  }, [categories]);
 
   useEffect(() => {
     // Calculate padding left so that the carousel aligns with max-w-7xl
@@ -58,8 +103,8 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
     if (!viewportRef.current) return;
     isDragging.current = true;
     hasDragged.current = false;
+    markInteraction();
     viewportRef.current.style.cursor = "grabbing";
-    viewportRef.current.style.scrollSnapType = "none"; // Disable snap while dragging
     startX.current = e.pageX - viewportRef.current.offsetLeft;
     scrollLeft.current = viewportRef.current.scrollLeft;
   };
@@ -68,19 +113,18 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
     if (!isDragging.current || !viewportRef.current) return;
     isDragging.current = false;
     viewportRef.current.style.cursor = "grab";
-    viewportRef.current.style.scrollSnapType = "x mandatory";
   };
 
   const onMouseUp = () => {
     if (!isDragging.current || !viewportRef.current) return;
     isDragging.current = false;
     viewportRef.current.style.cursor = "grab";
-    viewportRef.current.style.scrollSnapType = "x mandatory";
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
     if (!isDragging.current || !viewportRef.current) return;
     e.preventDefault(); // Prevent text selection
+    markInteraction();
     const x = e.pageX - viewportRef.current.offsetLeft;
     const walk = (x - startX.current) * 2; // Scroll speed multiplier
 
@@ -94,18 +138,32 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
   if (categories.length === 0) return null;
 
   return (
-    <div className="group/carousel relative w-full overflow-hidden">
+    <div
+      className="group/carousel relative w-full overflow-hidden"
+      onMouseEnter={() => {
+        isHovered.current = true;
+      }}
+      onMouseLeave={() => {
+        isHovered.current = false;
+      }}
+    >
       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background to-transparent sm:w-16 lg:w-24" />
       <span className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background to-transparent sm:w-16 lg:w-24" />
 
       <div
         ref={viewportRef}
-        onScroll={handleScroll}
+        onScroll={(e) => {
+          // Only mark interaction if it's a native user scroll, not our own animation
+          // But it's tricky to distinguish. For now, we rely on touch events and dragging.
+          handleScroll();
+        }}
+        onTouchStart={markInteraction}
+        onTouchMove={markInteraction}
         onMouseDown={onMouseDown}
         onMouseLeave={onMouseLeave}
         onMouseUp={onMouseUp}
         onMouseMove={onMouseMove}
-        className="w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scrollbar-none pb-8 pt-4 cursor-grab active:cursor-grabbing"
+        className="w-full overflow-x-auto overflow-y-hidden scrollbar-none pb-8 pt-4 cursor-grab active:cursor-grabbing"
         style={{ paddingLeft: `${paddingLeft}px`, paddingRight: `${paddingLeft}px` }}
       >
         <div className="flex w-max gap-4 sm:gap-6 pointer-events-none sm:pointer-events-auto">
@@ -121,7 +179,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                   e.preventDefault();
                 }
               }}
-              className="group relative w-[72vw] snap-center shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
+              className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
             >
               <img
                 src={c.image}

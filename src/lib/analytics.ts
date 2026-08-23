@@ -1,4 +1,3 @@
-//
 import { supabase } from "@/integrations/supabase/client";
 
 /** Tracks a user event for analytics. Fire-and-forget — never blocks UI. */

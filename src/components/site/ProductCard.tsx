@@ -60,11 +60,11 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
       )}
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         <p className="text-[0.65rem] font-semibold uppercase tracking-widest text-muted-foreground">
           {product.brand}
         </p>
-        <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">
+        <h3 className="mt-1 line-clamp-2 text-xs sm:text-sm font-semibold leading-snug">
           <Link
             to="/product/$id"
             params={{ id: product.id }}
@@ -74,7 +74,7 @@ export function ProductCard({ product }: { product: Product }) {
           </Link>
         </h3>
 
-        <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
           <Star className="size-3.5 fill-accent text-accent" />
           <span className="font-semibold text-foreground">{product.rating}</span>
           <span>({product.reviews.toLocaleString("en-IN")})</span>
@@ -84,11 +84,11 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="font-display text-base font-bold tracking-tight">
+          <span className="font-display text-sm sm:text-base font-bold tracking-tight">
             {formatPrice(product.price)}
           </span>
           {product.mrp > product.price && (
-            <span className="text-xs text-muted-foreground line-through">
+            <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
               {formatPrice(product.mrp)}
             </span>
           )}
@@ -102,9 +102,11 @@ export function ProductCard({ product }: { product: Product }) {
             trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
           }}
-          className="focus-ring press mt-4 w-full rounded-full bg-primary py-3 text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="focus-ring press mt-auto pt-4 w-full"
         >
-          {product.stock === 0 ? "Out of stock" : "Add to bag"}
+          <div className="w-full rounded-full bg-primary py-2 sm:py-3 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-center">
+            {product.stock === 0 ? "Out of stock" : "Add to bag"}
+          </div>
         </button>
       </div>
     </article>

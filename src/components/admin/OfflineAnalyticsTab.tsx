@@ -51,7 +51,18 @@ export function OfflineAnalyticsTab() {
   const { data: sales, isLoading } = useQuery({
     queryKey: ["offline-sales"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (q: string) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean },
+              ) => Promise<{ data: Sale[] | null; error: unknown }>;
+            };
+          };
+        }
+      )
         .from("offline_sales")
         .select("*, offline_sale_items(*)")
         .order("created_at", { ascending: false });

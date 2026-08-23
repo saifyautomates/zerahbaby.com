@@ -234,7 +234,7 @@ function ProductPage() {
             );
           })()}
           {gallery.length > 1 && (
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-3 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 sm:flex-wrap sm:overflow-visible sm:snap-none sm:pb-0">
               {gallery.map((url, i) => {
                 const isVideo = !!url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
                 return (
@@ -242,7 +242,7 @@ function ProductPage() {
                     key={url}
                     onClick={() => setActiveImage(i)}
                     aria-label={`View media ${i + 1}`}
-                    className={`size-16 overflow-hidden rounded-xl border-2 transition ${
+                    className={`size-16 shrink-0 snap-start overflow-hidden rounded-xl border-2 transition ${
                       i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
                     }`}
                   >

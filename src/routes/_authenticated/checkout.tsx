@@ -238,7 +238,11 @@ function CheckoutPage() {
               email: orderPayload.email,
               contact: orderPayload.phone,
             },
-            handler: async (response: any) => {
+            handler: async (response: {
+              razorpay_order_id: string;
+              razorpay_payment_id: string;
+              razorpay_signature: string;
+            }) => {
               try {
                 toast.loading("Verifying payment...", { id: "payment-verify" });
                 const { error: verifyError } = await supabase.functions.invoke(
@@ -262,12 +266,12 @@ function CheckoutPage() {
                     payment: "online",
                   },
                 });
-                clear();
+                await clear();
                 toast.success("Payment successful! Your order is placed.", {
                   id: "payment-verify",
                 });
                 navigate({ to: "/orders" });
-              } catch (verifyErr: any) {
+              } catch (verifyErr: unknown) {
                 toast.error("Payment verification failed. Please contact support.", {
                   id: "payment-verify",
                 });
@@ -280,7 +284,11 @@ function CheckoutPage() {
                 setSubmitting(false);
                 toast.error("Payment was cancelled. Stock has been restored.");
                 // Immediately cancel order to restore stock, ignore errors silently since webhook is fallback
-                void supabase.rpc("cancel_abandoned_order" as any, { order_id: orderId });
+                void (
+                  supabase as unknown as {
+                    rpc: (name: string, args: { order_id: string }) => Promise<void>;
+                  }
+                ).rpc("cancel_abandoned_order", { order_id: orderId });
                 navigate({ to: "/orders" });
               },
             },
@@ -289,14 +297,22 @@ function CheckoutPage() {
             },
           };
 
-          const rzp = new (window as any).Razorpay(options);
-          rzp.on("payment.failed", (response: any) => {
+          type RazorpayInstance = {
+            on: (event: string, cb: (res: { error: { description: string } }) => void) => void;
+            open: () => void;
+          };
+          const rzp = new (
+            window as unknown as {
+              Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
+            }
+          ).Razorpay(options as Record<string, unknown>);
+          rzp.on("payment.failed", (response: { error: { description: string } }) => {
             toast.error(response.error.description || "Payment failed");
           });
           rzp.open();
           return; // Do not proceed to standard success yet
-        } catch (paymentErr: any) {
-          toast.error(paymentErr.message || "Could not start payment");
+        } catch (paymentErr: unknown) {
+          toast.error((paymentErr as Error).message || "Could not start payment");
           navigate({ to: "/orders" });
           return;
         }
@@ -310,7 +326,7 @@ function CheckoutPage() {
           payment: form.payment_method,
         },
       });
-      clear();
+      await clear();
       toast.success("Order placed! Your invoice is ready in My orders.");
       navigate({ to: "/orders" });
     } catch (err) {
@@ -328,7 +344,9 @@ function CheckoutPage() {
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div
+        className={`mt-8 grid gap-8 lg:grid-cols-[1fr_340px] transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
+      >
         <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border p-5 sm:p-6">
           <div className="flex items-center justify-between border-b border-border pb-4">
             <h2 className="text-lg font-bold">Delivery Address</h2>
@@ -480,7 +498,7 @@ function CheckoutPage() {
           </p>
         </form>
 
-        <aside className="h-fit rounded-2xl border border-border p-6">
+        <aside className="h-fit rounded-2xl border border-border p-6 lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Your order</h2>
           <ul className="mt-4 space-y-3 text-sm">
             {items.map(({ product, qty }) => (

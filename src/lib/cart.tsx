@@ -218,9 +218,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
         }),
       remove: (id) => setLines((prev) => prev.filter((l) => l.id !== id)),
-      clear: () => {
+      clear: async () => {
         setLines([]);
         setCoupon(null);
+        if (user) {
+          const { data: cart } = await supabase
+            .from("carts")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (cart) {
+            await supabase.from("cart_items").delete().eq("cart_id", cart.id);
+          }
+        }
       },
       applyCoupon: async (code: string) => {
         if (!user) {

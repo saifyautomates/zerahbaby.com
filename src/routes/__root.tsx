@@ -208,7 +208,15 @@ function RootComponent() {
         sessionStorage.setItem("visitor_session_id", sessionId);
 
         // Safely record visitor without throwing on external IP service failure
-        await (supabase as any)
+        await (
+          supabase as unknown as {
+            from: (t: string) => {
+              insert: (r: Record<string, unknown>) => {
+                catch: (fn: () => null) => Promise<unknown>;
+              };
+            };
+          }
+        )
           .from("website_visitors")
           .insert({
             session_id: sessionId,

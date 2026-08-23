@@ -115,7 +115,12 @@ export type BarcodeResult = {
 };
 
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
-  const { data, error } = await (supabase.rpc as any)("lookup_barcode", {
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: BarcodeResult; error: { message: string } | null }>
+  )("lookup_barcode", {
     _code: code.trim(),
   });
   if (error) throw new Error(error.message);
@@ -156,7 +161,12 @@ export function usePlaceOfflineSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: PlaceSaleInput): Promise<SaleResult> => {
-      const { data, error } = await (supabase.rpc as any)("place_offline_sale", {
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: SaleResult; error: { message: string } | null }>
+      )("place_offline_sale", {
         _customer_name: input.customer_name || "Walk-in Customer",
         _customer_phone: input.customer_phone || "",
         _customer_email: input.customer_email || "",
@@ -189,7 +199,20 @@ export function usePOSCustomers() {
   return useQuery({
     queryKey: ["pos-customers"],
     queryFn: async (): Promise<POSCustomer[]> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (q: string) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean },
+              ) => {
+                limit: (n: number) => Promise<{ data: POSCustomer[] | null; error: unknown }>;
+              };
+            };
+          };
+        }
+      )
         .from("pos_customers")
         .select("*")
         .order("updated_at", { ascending: false })
@@ -204,7 +227,12 @@ export function useSearchPOSCustomers() {
   return useMutation({
     mutationFn: async (query: string): Promise<POSCustomer[]> => {
       if (!query.trim()) return [];
-      const { data, error } = await (supabase.rpc as any)("search_pos_customers", {
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: POSCustomer[] | null; error: unknown }>
+      )("search_pos_customers", {
         _query: query.trim(),
       });
       if (error) return [];
@@ -221,7 +249,20 @@ export function useCreatePOSCustomer() {
       phone: string;
       email?: string;
     }): Promise<POSCustomer> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            insert: (r: Record<string, unknown>) => {
+              select: () => {
+                single: () => Promise<{
+                  data: POSCustomer | null;
+                  error: { message: string } | null;
+                }>;
+              };
+            };
+          };
+        }
+      )
         .from("pos_customers")
         .insert({
           name: customer.name.trim(),
@@ -247,7 +288,18 @@ export function useOfflineSaleHistory() {
   return useQuery({
     queryKey: ["offline-sales"],
     queryFn: async (): Promise<OfflineSale[]> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (q: string) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean },
+              ) => Promise<{ data: OfflineSale[] | null; error: unknown }>;
+            };
+          };
+        }
+      )
         .from("offline_sales")
         .select("*, offline_sale_items(*)")
         .order("created_at", { ascending: false });

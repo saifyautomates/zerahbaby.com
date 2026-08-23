@@ -39,6 +39,7 @@ supabase/.temp/
 
 # Test artifacts
 screenshots/
+lighthouse-report.html
 test-results/
 playwright-report/
 take-screenshots.cjs

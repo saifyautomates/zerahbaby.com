@@ -13,8 +13,11 @@ export function OnlineSalesTab() {
   const [filter, setFilter] = useState("all");
 
   const update = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: any }) => {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: status as any })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -133,7 +136,7 @@ export function OnlineSalesTab() {
                   </div>
                 )}
                 <div className="mt-5 border-t border-gray-100 pt-5">
-                  <InvoiceBox order={order as any} />
+                  <InvoiceBox order={order} />
                 </div>
               </div>
 
@@ -146,7 +149,7 @@ export function OnlineSalesTab() {
                   onChange={(e) =>
                     update.mutate({
                       id: order.id,
-                      status: e.target.value as any,
+                      status: e.target.value,
                     })
                   }
                   disabled={update.isPending}

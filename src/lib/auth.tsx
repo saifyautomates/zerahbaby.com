@@ -1,5 +1,4 @@
-//
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Session, User } from "@supabase/gotrue-js";
 import { supabase } from "@/integrations/supabase/client";

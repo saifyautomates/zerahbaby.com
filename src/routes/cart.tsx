@@ -148,7 +148,7 @@ function CartPage() {
           </li>
         </ul>
 
-        <aside className="h-fit rounded-2xl border border-border p-6">
+        <aside className="h-fit rounded-2xl border border-border p-6 lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Order summary</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">

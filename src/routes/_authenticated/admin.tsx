@@ -18,11 +18,9 @@ import {
   Images,
   FolderOpen,
   Tag,
-  MessageSquare,
   Star,
   Printer,
   Scan,
-  FileText,
   Megaphone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,12 +44,12 @@ import { BarChart3 } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Store Admin — Zerah Baby And Kid's" },
+      { title: "Store Admin â€” Zerah Baby And Kid's" },
       {
         name: "description",
         content: "Manage products, categories and store settings for Zerah Baby And Kid's.",
       },
-      { property: "og:title", content: "Store Admin — Zerah Baby And Kid's" },
+      { property: "og:title", content: "Store Admin â€” Zerah Baby And Kid's" },
       { property: "og:description", content: "Manage the Zerah Baby And Kid's catalogue." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -76,7 +74,6 @@ type Tab =
   | "coupons"
   | "reviews"
   | "inventory"
-  | "reports"
   | "analytics"
   | "marketing";
 
@@ -116,9 +113,20 @@ function AdminPage() {
   const { data: posSales = [] } = useQuery({
     queryKey: ["offline-sales"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("offline_sales").select("*");
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (q: string) => Promise<{
+              data: Array<{ created_at: string } & Record<string, unknown>> | null;
+              error: unknown;
+            }>;
+          };
+        }
+      )
+        .from("offline_sales")
+        .select("*");
       if (error) return [];
-      return (data ?? []) as Array<{ created_at: string; [key: string]: any }>;
+      return (data ?? []) as Array<{ created_at: string } & Record<string, unknown>>;
     },
   });
 
@@ -149,7 +157,7 @@ function AdminPage() {
   if (roleLoading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
-        Loading…
+        Loadingâ€¦
       </div>
     );
   }
@@ -190,14 +198,13 @@ function AdminPage() {
     { key: "products", label: "Products", icon: Package },
     { key: "categories", label: "Categories", icon: Layers },
     { key: "customers", label: "Customers", icon: Users },
-    { key: "inventory", label: "Inventory", icon: Package },
+    { key: "inventory", label: "Inventory", icon: Layers },
     { key: "coupons", label: "Coupons", icon: Tag },
     { key: "reviews", label: "Reviews", icon: Star },
     { key: "hero", label: "Hero Media", icon: Images },
     { key: "media", label: "Media Library", icon: FolderOpen },
-    { key: "reports", label: "Reports", icon: FileText, hasSubmenu: true },
-    { key: "analytics", label: "Analytics", icon: BarChart3, hasSubmenu: true },
-    { key: "marketing", label: "Marketing", icon: Megaphone, hasSubmenu: true },
+    { key: "analytics", label: "Analytics", icon: BarChart3 },
+    { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "settings", label: "Settings", icon: Settings },
     { key: "admins", label: "Admins", icon: Shield },
   ];
@@ -222,7 +229,7 @@ function AdminPage() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
             <h1 className="font-sans text-xl font-bold tracking-tight text-gray-900">
-              Zérah <span className="text-[#8B2020]">Admin</span>
+              ZÃ©rah <span className="text-[#8B2020]">Admin</span>
             </h1>
             <p className="text-[11px] text-gray-400 truncate max-w-[180px]">
               {user?.email || "jackxparrowww@gmail.com"}
@@ -232,13 +239,13 @@ function AdminPage() {
             className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            ×
+            Ã—
           </button>
         </div>
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {NAVIGATION.map(({ key, label, icon: Icon, badge, hasSubmenu }) => {
+          {NAVIGATION.map(({ key, label, icon: Icon, badge }) => {
             const isActive = tab === key;
             return (
               <button
@@ -266,10 +273,6 @@ function AdminPage() {
                   <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-bold text-white">
                     {badge}
                   </span>
-                )}
-
-                {hasSubmenu && !badge && (
-                  <span className="text-gray-400 group-hover:text-gray-600 text-[10px]">▾</span>
                 )}
               </button>
             );
@@ -342,9 +345,9 @@ function AdminPage() {
                 placeholder="Search anything..."
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/70 pl-8 pr-9 py-1.5 text-xs text-gray-800 outline-none focus:border-gray-300 focus:bg-white transition-all"
               />
-              <span className="absolute left-2.5 top-2 text-gray-400 text-xs">🔍</span>
+              <span className="absolute left-2.5 top-2 text-gray-400 text-xs">ðŸ”</span>
               <kbd className="absolute right-2.5 top-1.5 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-gray-400">
-                ⌘K
+                âŒ˜K
               </kbd>
             </div>
 
@@ -353,7 +356,7 @@ function AdminPage() {
               aria-label="Notifications"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
             >
-              <span className="text-xs">☀️</span>
+              <span className="text-xs">â˜€ï¸</span>
             </button>
 
             {/* Notifications with badge */}
@@ -361,7 +364,7 @@ function AdminPage() {
               aria-label="Messages"
               className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
             >
-              <span className="text-xs">🔔</span>
+              <span className="text-xs">ðŸ””</span>
               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white">
                 8
               </span>
@@ -397,7 +400,7 @@ function AdminPage() {
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
-            {tab === "dashboard" && <DashboardTab onNavigate={setTab as any} />}
+            {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
             {tab === "pos" && <POSTab />}
             {tab === "products" && <ProductsTab />}
             {tab === "hero" && <HeroMediaManager />}
@@ -406,10 +409,9 @@ function AdminPage() {
             {tab === "offline-analytics" && <OfflineAnalyticsTab />}
             {tab === "customers" && <CustomersTab />}
             {tab === "categories" && <CategoriesTab />}
-            {tab === "inventory" && <ProductsTab />}
-            {tab === "reports" && <OfflineAnalyticsTab />}
-            {tab === "analytics" && <OfflineAnalyticsTab />}
-            {tab === "marketing" && <HeroMediaManager />}
+            {tab === "inventory" && <InventoryTab />}
+            {tab === "analytics" && <SiteAnalyticsTab />}
+            {tab === "marketing" && <MarketingTab />}
             {tab === "settings" && <SettingsTab />}
             {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
             {tab === "coupons" && <CouponsTab />}
@@ -458,7 +460,7 @@ function ProductsTab() {
 
   const save = useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
-      const row: any = {
+      const row: Record<string, unknown> = {
         slug: draft.slug.trim(),
         name: draft.name.trim(),
         brand: draft.brand.trim(),
@@ -491,10 +493,17 @@ function ProductsTab() {
       // Save product
       let productId = uuid;
       if (uuid) {
-        const { error } = await supabase.from("products").update(row).eq("id", uuid);
+        const { error } = await supabase
+          .from("products")
+          .update(row as any)
+          .eq("id", uuid);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("products").insert(row).select("id").single();
+        const { data, error } = await supabase
+          .from("products")
+          .insert(row as any)
+          .select("id")
+          .single();
         if (error) throw error;
         productId = data.id;
       }
@@ -529,7 +538,7 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Hard-delete — will fail server-side if product has transactions
+  // Hard-delete â€” will fail server-side if product has transactions
   const remove = useMutation({
     mutationFn: async (uuid: string) => {
       const { error } = await supabase.from("products").delete().eq("id", uuid);
@@ -542,7 +551,7 @@ function ProductsTab() {
     onError: (e: Error) => {
       // Server-side trigger prevents deletion of products with transactions
       if (e.message.includes("historical transactions")) {
-        toast.error("Cannot delete — product has sales history. Archiving instead.", {
+        toast.error("Cannot delete â€” product has sales history. Archiving instead.", {
           duration: 5000,
         });
       } else {
@@ -581,11 +590,11 @@ function ProductsTab() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products, SKU, barcode…"
+            placeholder="Search products, SKU, barcodeâ€¦"
             aria-label="Search products"
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 pl-9 text-sm text-gray-800 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
           />
-          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
+          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ”</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -642,7 +651,7 @@ function ProductsTab() {
                       <div>
                         <p className="font-semibold text-gray-900">{p.name}</p>
                         <p className="text-xs font-medium text-gray-500 mt-0.5">
-                          {p.brand} <span className="opacity-50">•</span> {p.id}
+                          {p.brand} <span className="opacity-50">â€¢</span> {p.id}
                         </p>
                       </div>
                     </div>
@@ -1130,7 +1139,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
       toast.success(
         result === "granted"
           ? "Admin access granted"
-          : "Added to the admin list — they become admin the next time they sign in",
+          : "Added to the admin list â€” they become admin the next time they sign in",
       );
       setEmail("");
       qc.invalidateQueries({ queryKey: ["admin-list"] });
@@ -1172,7 +1181,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
             disabled={!email.includes("@") || grant.isPending}
             className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {grant.isPending ? "Adding…" : "Make admin"}
+            {grant.isPending ? "Addingâ€¦" : "Make admin"}
           </button>
         </div>
       </div>
@@ -1270,7 +1279,7 @@ function CustomersTab() {
             return (
               <tr key={c.id} className="group transition-colors hover:bg-gray-50/50 align-top">
                 <td className="px-5 py-4">
-                  <span className="font-semibold text-gray-900">{c.full_name || "—"}</span>
+                  <span className="font-semibold text-gray-900">{c.full_name || "â€”"}</span>
                   <span className="block max-w-xs text-xs text-gray-500 mt-1 whitespace-normal">
                     {c.address}
                   </span>
@@ -1386,7 +1395,7 @@ function CouponsTab() {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="text-sm font-semibold text-gray-900">
-              Min order value (₹)
+              Min order value (â‚¹)
               <input
                 type="number"
                 min={0}
@@ -1396,7 +1405,7 @@ function CouponsTab() {
               />
             </label>
             <label className="text-sm font-semibold text-gray-900">
-              Max discount (₹, 0=unlimited)
+              Max discount (â‚¹, 0=unlimited)
               <input
                 type="number"
                 min={0}
@@ -1422,7 +1431,7 @@ function CouponsTab() {
               disabled={createCoupon.isPending}
               className="rounded-xl bg-[#8B2020] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c] disabled:opacity-50"
             >
-              {createCoupon.isPending ? "Creating…" : "Create coupon"}
+              {createCoupon.isPending ? "Creatingâ€¦" : "Create coupon"}
             </button>
             <button
               type="button"
@@ -1460,12 +1469,14 @@ function CouponsTab() {
                 <td className="px-5 py-4 font-medium text-gray-700">
                   {c.discount_type === "percentage"
                     ? `${c.discount_value}%`
-                    : `₹${c.discount_value}`}
+                    : `â‚¹${c.discount_value}`}
                   {c.maximum_discount > 0 && (
-                    <span className="text-xs text-gray-500 ml-1">(max ₹{c.maximum_discount})</span>
+                    <span className="text-xs text-gray-500 ml-1">
+                      (max â‚¹{c.maximum_discount})
+                    </span>
                   )}
                 </td>
-                <td className="px-5 py-4 text-gray-700">₹{c.minimum_order_value}</td>
+                <td className="px-5 py-4 text-gray-700">â‚¹{c.minimum_order_value}</td>
                 <td className="px-5 py-4 font-medium text-gray-700">
                   {c.usage_count}
                   {c.usage_limit > 0 ? <span className="text-gray-400">/{c.usage_limit}</span> : ""}
@@ -1552,7 +1563,7 @@ function ReviewsTab() {
         ))}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading reviews…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading reviewsâ€¦</p>}
 
       {filtered.length === 0 && !isLoading && (
         <p className="rounded-2xl border border-border p-10 text-center text-sm text-muted-foreground">
@@ -1586,7 +1597,7 @@ function ReviewsTab() {
                     {review.status}
                   </span>
                   {review.verified_purchase && (
-                    <span className="text-xs text-muted-foreground">✓ Verified</span>
+                    <span className="text-xs text-muted-foreground">âœ“ Verified</span>
                   )}
                 </div>
                 {review.products && (
@@ -1628,6 +1639,405 @@ function ReviewsTab() {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* ---------------- Inventory ---------------- */
+function InventoryTab() {
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["inventory-products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, slug, name, brand, category, stock, low_stock_at, sku, is_active")
+        .order("stock", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const updateStock = useMutation({
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      const { error } = await supabase.from("products").update({ stock }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Stock updated");
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const totalSKUs = products.length;
+  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.low_stock_at).length;
+  const outOfStock = products.filter((p) => p.stock === 0).length;
+
+  const filtered = products.filter((p) => {
+    if (filter === "low") return p.stock > 0 && p.stock <= p.low_stock_at;
+    if (filter === "out") return p.stock === 0;
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total SKUs</p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">{totalSKUs}</p>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Low Stock</p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600">{lowStock}</p>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Out of Stock
+          </p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-red-600">{outOfStock}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        {(["all", "low", "out"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`rounded-xl border px-4 py-2 text-xs font-semibold capitalize transition-all ${
+              filter === f
+                ? "border-[#8B2020] bg-red-50 text-[#8B2020] shadow-sm"
+                : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : "All"}
+          </button>
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50/50 text-xs uppercase text-gray-500 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 font-semibold tracking-wider">Product</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">SKU</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Category</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Stock</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Threshold</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    Loading...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    No products found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((product) => (
+                  <InventoryRow
+                    key={product.id}
+                    product={product}
+                    onSave={(val) => updateStock.mutate({ id: product.id, stock: val })}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InventoryRow({ product, onSave }: { product: any; onSave: (val: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(product.stock);
+
+  const isOut = product.stock === 0;
+  const isLow = product.stock > 0 && product.stock <= product.low_stock_at;
+
+  return (
+    <tr className="hover:bg-gray-50/50 transition-colors">
+      <td className="px-6 py-4">
+        <div className="font-semibold text-gray-900">{product.name}</div>
+        <div className="text-xs text-gray-400">{product.brand}</div>
+      </td>
+      <td className="px-6 py-4 font-mono text-xs text-gray-500">{product.sku}</td>
+      <td className="px-6 py-4 text-gray-500">{product.category}</td>
+      <td className="px-6 py-4">
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              value={val}
+              onChange={(e) => setVal(Number(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onSave(val);
+                  setEditing(false);
+                }
+              }}
+              autoFocus
+              className="w-16 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#8B2020] focus:ring-1 focus:ring-[#8B2020]"
+            />
+            <button
+              onClick={() => {
+                onSave(val);
+                setEditing(false);
+              }}
+              className="rounded bg-gray-100 p-1 text-green-600 hover:bg-green-100"
+            >
+              ✓
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditing(true)}
+            className={`font-semibold hover:underline ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-gray-900"}`}
+          >
+            {product.stock}
+          </button>
+        )}
+      </td>
+      <td className="px-6 py-4 text-gray-500">{product.low_stock_at}</td>
+      <td className="px-6 py-4">
+        {isOut ? (
+          <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2 py-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
+            Out of stock
+          </span>
+        ) : isLow ? (
+          <span className="inline-flex rounded-full bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] font-bold tracking-wider text-amber-600 uppercase">
+            Low stock
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full bg-green-50 border border-green-200 px-2 py-1 text-[10px] font-bold tracking-wider text-green-600 uppercase">
+            In stock
+          </span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/* ---------------- Site Analytics ---------------- */
+function SiteAnalyticsTab() {
+  const { data: visitors = [], isLoading } = useQuery({
+    queryKey: ["visitor-analytics"],
+    queryFn: async () => {
+      const { data, error, count } = await (supabase as any)
+        .from("website_visitors")
+        .select("id, session_id, country, created_at", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return Object.assign(data, { count: count || data.length });
+    },
+    staleTime: 60_000,
+  });
+
+  const totalCount = (visitors as any).count ?? 0;
+  const lastVisit = visitors[0]
+    ? new Date(visitors[0].created_at).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "—";
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Total Visitors
+          </p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">{totalCount}</p>
+        </div>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Last Visit</p>
+          <p className="mt-2 text-xl font-bold tracking-tight text-gray-700">{lastVisit}</p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50/50 text-xs uppercase text-gray-500 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 font-semibold tracking-wider">Session</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Country</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Visited At</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-gray-400">
+                    Loading...
+                  </td>
+                </tr>
+              ) : visitors.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-gray-400">
+                    No visitor data recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                visitors.map((v: any) => (
+                  <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-mono text-xs">{v.session_id.slice(0, 8)}…</td>
+                    <td className="px-6 py-4">{v.country}</td>
+                    <td className="px-6 py-4">
+                      {new Date(v.created_at).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Marketing ---------------- */
+function MarketingTab() {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    announcement: "",
+    instagram_url: "",
+    facebook_url: "",
+    whatsapp_url: "",
+  });
+
+  const { isLoading } = useQuery({
+    queryKey: ["site_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("key, value");
+      if (error) throw error;
+      const map = Object.fromEntries(data.map((d: any) => [d.key, d.value]));
+      setForm((prev) => ({
+        ...prev,
+        announcement: map.announcement ?? "",
+        instagram_url: map.instagram_url ?? "",
+        facebook_url: map.facebook_url ?? "",
+        whatsapp_url: map.whatsapp_url ?? "",
+      }));
+      return map;
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const promises = Object.entries(form).map(([key, value]) =>
+        supabase.from("site_settings").upsert({ key, value }),
+      );
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast.success("Marketing settings saved");
+      qc.invalidateQueries({ queryKey: ["site_settings"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <form
+        className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Marketing & Links</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage your announcement bar and social media profiles.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-sm text-gray-500">Loading settings...</div>
+        ) : (
+          <div className="space-y-4">
+            <label className="block text-sm font-semibold text-gray-900">
+              Announcement Bar
+              <input
+                value={form.announcement}
+                onChange={(e) => setForm({ ...form, announcement: e.target.value })}
+                placeholder="Free shipping on orders above ₹1499"
+                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+              />
+            </label>
+            <label className="block text-sm font-semibold text-gray-900">
+              Instagram URL
+              <input
+                type="url"
+                value={form.instagram_url}
+                onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
+                placeholder="https://instagram.com/zerahbaby"
+                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+              />
+            </label>
+            <label className="block text-sm font-semibold text-gray-900">
+              Facebook URL
+              <input
+                type="url"
+                value={form.facebook_url}
+                onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
+                placeholder="https://facebook.com/zerahbaby"
+                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+              />
+            </label>
+            <label className="block text-sm font-semibold text-gray-900">
+              WhatsApp URL
+              <input
+                type="url"
+                value={form.whatsapp_url}
+                onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
+                placeholder="https://wa.me/91XXXXXXXXXX"
+                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="rounded-xl bg-[#8B2020] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#6b1818] disabled:opacity-50"
+          >
+            {save.isPending ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

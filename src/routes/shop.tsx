@@ -1,5 +1,4 @@
-//
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
@@ -110,7 +109,7 @@ function ShopPage() {
       </nav>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-3xl font-bold">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold">
           {activeCategory?.name ?? "All products"}
         </h1>
         <AdminAddProduct

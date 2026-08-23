@@ -80,8 +80,8 @@ function AuthPage() {
         toast.success("OTP sent to your phone via SMS!");
       }
       setMode("verify");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send OTP");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to send OTP");
     } finally {
       setBusy(false);
     }
@@ -111,8 +111,8 @@ function AuthPage() {
       if (error) throw error;
       toast.success("Signed in successfully!");
       // The session hook will automatically redirect them in the useEffect
-    } catch (err: any) {
-      toast.error(err.message || "Invalid OTP code");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Invalid OTP code");
     } finally {
       setBusy(false);
     }
