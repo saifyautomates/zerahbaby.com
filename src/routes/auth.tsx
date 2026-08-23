@@ -1,6 +1,6 @@
 //
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,24 +30,27 @@ function AuthPage() {
   const { user } = useSession();
   const { items } = useCart();
 
-  // States: 'input' -> entering contact info, 'verify' -> entering OTP
+  // ─── State machine ───────────────────────────────────────────────────────────
+  // mode: 'input' = phone/email entry, 'verify' = OTP entry
   const [mode, setMode] = useState<"input" | "verify">("input");
-
-  // We use a single input for both Email and Phone
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  // Tracks whether the OTP has likely expired so we show a banner
+  const [otpExpired, setOtpExpired] = useState(false);
 
+  // Guard against concurrent requests (double-click, etc.)
+  const requestInFlight = useRef(false);
+
+  // ─── Cooldown tick ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (cooldown > 0) {
-      const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
+    if (cooldown <= 0) return undefined;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [cooldown]);
 
-  // We determine if it's an email or phone based on a simple regex
+  // ─── Derived ─────────────────────────────────────────────────────────────────
   const isEmail = contact.includes("@");
 
   // Normalise phone to E.164 format (+91XXXXXXXXXX for India)
@@ -57,13 +60,15 @@ function AuthPage() {
     return `+91${trimmed.replace(/^0+/, "")}`;
   }
 
+  // ─── Redirect if already authenticated ───────────────────────────────────────
   useEffect(() => {
-    // If the user is logged in, redirect them
     if (user) navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
   }, [user, items.length, navigate]);
 
-  async function onResendOtp() {
-    if (cooldown > 0) return;
+  // ─── Helper: issue a fresh OTP request ───────────────────────────────────────
+  async function issueOtp(): Promise<boolean> {
+    if (requestInFlight.current) return false;
+    requestInFlight.current = true;
     setBusy(true);
     try {
       if (isEmail) {
@@ -79,65 +84,60 @@ function AuthPage() {
           options: { shouldCreateUser: true },
         });
         if (error) {
-          if (error.message.toLowerCase().includes("rate")) {
-            throw new Error("Too many OTP requests. Please wait before trying again.");
+          const msg = error.message.toLowerCase();
+          if (msg.includes("rate") || msg.includes("limit")) {
+            throw new Error("Too many OTP requests. Please wait a moment before trying again.");
           }
           throw error;
         }
       }
-      toast.success("OTP resent successfully!");
-      setCooldown(60);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to resend OTP.";
-      toast.error(msg);
+      return true;
     } finally {
       setBusy(false);
+      requestInFlight.current = false;
     }
   }
 
+  // ─── RESEND OTP ──────────────────────────────────────────────────────────────
+  async function onResendOtp() {
+    if (cooldown > 0 || busy) return;
+    try {
+      const ok = await issueOtp();
+      if (ok) {
+        setOtp(""); // clear old OTP input
+        setOtpExpired(false); // clear expired banner
+        setCooldown(60); // fresh 60-second cooldown
+        toast.success("New OTP sent!");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to resend OTP. Please try again.";
+      toast.error(msg);
+    }
+  }
+
+  // ─── SEND OTP (first time) ───────────────────────────────────────────────────
   async function onSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    const raw = contact.trim();
-    if (!raw) {
+    if (!contact.trim()) {
       toast.error("Please enter an email or mobile number");
       return;
     }
-
-    setBusy(true);
     try {
-      if (isEmail) {
-        // Email OTP via Supabase Auth
-        const { error } = await supabase.auth.signInWithOtp({
-          email: raw,
-          options: { shouldCreateUser: true },
-        });
-        if (error) throw error;
-        toast.success("OTP sent to your email!");
-      } else {
-        // Phone OTP via Supabase Auth → MiniMoth SMS Hook
-        const phone = normalisePhone(raw);
-        const { error } = await supabase.auth.signInWithOtp({
-          phone,
-          options: { shouldCreateUser: true },
-        });
-        if (error) {
-          if (error.message.toLowerCase().includes("rate")) {
-            throw new Error("Too many OTP requests. Please wait before trying again.");
-          }
-          throw error;
-        }
-        toast.success("OTP sent to your mobile!");
+      const ok = await issueOtp();
+      if (ok) {
+        setOtp("");
+        setOtpExpired(false);
         setCooldown(60);
+        setMode("verify");
+        toast.success(isEmail ? "OTP sent to your email!" : "OTP sent to your mobile!");
       }
-      setMode("verify");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send OTP. Please try again.";
       toast.error(msg);
-    } finally {
-      setBusy(false);
     }
   }
 
+  // ─── VERIFY OTP ──────────────────────────────────────────────────────────────
   async function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     const token = otp.trim();
@@ -145,11 +145,10 @@ function AuthPage() {
       toast.error("Please enter the 6-digit OTP");
       return;
     }
-
+    if (busy) return;
     setBusy(true);
     try {
       if (isEmail) {
-        // Email OTP verification via Supabase Auth
         const { error } = await supabase.auth.verifyOtp({
           email: contact.trim(),
           token,
@@ -157,7 +156,6 @@ function AuthPage() {
         });
         if (error) throw error;
       } else {
-        // Phone OTP verification via Supabase Auth (MiniMoth SMS Hook)
         const phone = normalisePhone(contact);
         const { error } = await supabase.auth.verifyOtp({
           phone,
@@ -165,27 +163,47 @@ function AuthPage() {
           type: "sms",
         });
         if (error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes("expired")) {
-            throw new Error("OTP has expired. Please request a new one.");
+          const rawMsg = error.message.toLowerCase();
+          if (rawMsg.includes("expired") || rawMsg.includes("otp_expired")) {
+            setOtpExpired(true); // show banner so user knows to resend
+            setOtp(""); // clear stale digits
+            throw new Error("OTP has expired. Please tap Resend OTP to get a new one.");
           }
-          if (msg.includes("invalid") || msg.includes("incorrect") || msg.includes("wrong")) {
+          if (
+            rawMsg.includes("invalid") ||
+            rawMsg.includes("incorrect") ||
+            rawMsg.includes("does not match")
+          ) {
             throw new Error("Incorrect OTP. Please check and try again.");
           }
-          if (msg.includes("attempts")) {
+          if (rawMsg.includes("attempts") || rawMsg.includes("too many")) {
             throw new Error("Too many incorrect attempts. Please request a new OTP.");
+          }
+          if (rawMsg.includes("already used") || rawMsg.includes("already been used")) {
+            setOtpExpired(true);
+            setOtp("");
+            throw new Error("That OTP has already been used. Please tap Resend OTP.");
           }
           throw error;
         }
       }
       toast.success("Signed in successfully! Welcome to Zerah 🎉");
-      // The useEffect watching `user` will automatically redirect once session is set
+      // useEffect watching `user` will redirect automatically
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Invalid OTP. Please try again.";
       toast.error(msg);
     } finally {
       setBusy(false);
     }
+  }
+
+  // ─── CHANGE NUMBER (full reset) ───────────────────────────────────────────────
+  function onChangeContact() {
+    setMode("input");
+    setOtp("");
+    setCooldown(0); // ← critical: clear countdown so resend works fresh
+    setOtpExpired(false);
+    // Do NOT clear `contact` so the user can see/edit what they typed
   }
 
   async function onGoogleSignIn() {
@@ -267,6 +285,21 @@ function AuthPage() {
           </form>
         ) : (
           <form onSubmit={onVerifyOtp} className="mt-6 space-y-4">
+            {/* Expired OTP banner */}
+            {otpExpired && (
+              <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive text-center">
+                Your OTP has expired.{" "}
+                <button
+                  type="button"
+                  onClick={onResendOtp}
+                  disabled={busy || cooldown > 0}
+                  className="font-semibold underline disabled:opacity-50"
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : "Tap here to get a new one"}
+                </button>
+              </div>
+            )}
+
             <input
               id="auth-otp-input"
               type="text"
@@ -274,7 +307,10 @@ function AuthPage() {
               required
               maxLength={6}
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => {
+                setOtpExpired(false); // dismiss banner as soon as user types
+                setOtp(e.target.value.replace(/\D/g, ""));
+              }}
               placeholder="6-digit code"
               aria-label="OTP Code"
               autoComplete="one-time-code"
@@ -282,25 +318,25 @@ function AuthPage() {
             />
 
             <button
+              id="auth-verify-otp-btn"
               disabled={busy || otp.length < 6}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
-              {busy ? "Verifying..." : "Verify & Sign In"}
+              {busy ? "Verifying…" : "Verify & Sign In"}
             </button>
 
             <div className="flex items-center justify-between px-2 pt-2 text-sm text-muted-foreground">
               <button
                 type="button"
-                onClick={() => {
-                  setMode("input");
-                  setOtp("");
-                }}
+                id="auth-change-contact-btn"
+                onClick={onChangeContact}
                 className="font-medium hover:text-primary"
               >
                 Change {isEmail ? "email" : "number"}
               </button>
               <button
                 type="button"
+                id="auth-resend-otp-btn"
                 onClick={onResendOtp}
                 disabled={busy || cooldown > 0}
                 className="font-medium text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
