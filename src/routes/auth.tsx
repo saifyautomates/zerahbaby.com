@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useSession } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 
@@ -179,23 +178,23 @@ function AuthPage() {
 
   async function onGoogleSignIn() {
     setBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth`,
-      });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        // Redirect back to /auth so the session listener picks it up
+        redirectTo: `${window.location.origin}/auth`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
+    });
 
-      if (result && "error" in result && result.error) {
-        throw result.error instanceof Error
-          ? result.error
-          : new Error(String(result.error));
-      }
-
-      // If OAuth redirected, the page navigates away — nothing to do here.
-      // If it returned a session (popup-style), the onAuthStateChange in useSession will handle it.
-    } catch (err: unknown) {
+    if (error) {
       setBusy(false);
-      toast.error("Google sign-in failed: " + (err as Error).message);
+      toast.error("Google sign-in failed: " + error.message);
     }
+    // Google will redirect the page — no further action needed here
   }
 
   return (
