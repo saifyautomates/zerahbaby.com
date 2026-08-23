@@ -204,6 +204,11 @@ function CheckoutPage() {
       if (form.payment_method === "online") {
         setSubmitting(true);
         try {
+          const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+          if (!razorpayKey) {
+            throw new Error("Razorpay Key ID is not configured in client environment");
+          }
+
           // Load Razorpay Script
           await new Promise((resolve, reject) => {
             if (document.getElementById("razorpay-script")) return resolve(true);
@@ -211,23 +216,38 @@ function CheckoutPage() {
             script.id = "razorpay-script";
             script.src = "https://checkout.razorpay.com/v1/checkout.js";
             script.onload = resolve;
-            script.onerror = reject;
+            script.onerror = () =>
+              reject(new Error("Failed to load Razorpay SDK. Please check your connection."));
             document.body.appendChild(script);
           });
 
-          // Create Razorpay Order
+          // Create Razorpay Order via Edge Function
           const { data: createData, error: createError } = await supabase.functions.invoke(
             "create-razorpay-order",
             { body: { orderId } },
           );
 
           if (createError || !createData?.rzp_order_id) {
-            throw new Error(createError?.message || "Failed to initialize payment");
+            let errorMsg = "Failed to initialize payment gateway";
+            if (createError) {
+              try {
+                const ctx = (createError as { context?: Response }).context;
+                if (ctx && typeof ctx.json === "function") {
+                  const errorBody = await ctx.clone().json();
+                  if (errorBody?.error) {
+                    errorMsg = errorBody.error;
+                  }
+                }
+              } catch {
+                errorMsg = createError.message || errorMsg;
+              }
+            }
+            throw new Error(errorMsg);
           }
 
-          // Open Razorpay Checkout
+          // Open Razorpay Checkout Modal
           const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+            key: razorpayKey,
             amount: Math.round(finalTotal * 100),
             currency: "INR",
             name: "Zerah Baby And Kid's",
@@ -256,7 +276,19 @@ function CheckoutPage() {
                   },
                 );
 
-                if (verifyError) throw verifyError;
+                if (verifyError) {
+                  let vErrorMsg = "Payment verification failed";
+                  try {
+                    const vCtx = (verifyError as { context?: Response }).context;
+                    if (vCtx && typeof vCtx.json === "function") {
+                      const vBody = await vCtx.clone().json();
+                      if (vBody?.error) vErrorMsg = vBody.error;
+                    }
+                  } catch {
+                    vErrorMsg = verifyError.message || vErrorMsg;
+                  }
+                  throw new Error(vErrorMsg);
+                }
 
                 trackEvent("order_created", {
                   metadata: {
@@ -272,10 +304,10 @@ function CheckoutPage() {
                 });
                 navigate({ to: "/orders" });
               } catch (verifyErr: unknown) {
-                toast.error("Payment verification failed. Please contact support.", {
+                const msg = (verifyErr as Error).message || "Payment verification failed";
+                toast.error(`${msg}. If amount was deducted, it will be automatically confirmed.`, {
                   id: "payment-verify",
                 });
-                // Still redirect to orders so they can see the pending order
                 navigate({ to: "/orders" });
               }
             },
@@ -283,17 +315,19 @@ function CheckoutPage() {
               ondismiss: async () => {
                 setSubmitting(false);
                 toast.error("Payment was cancelled. Stock has been restored.");
-                // Immediately cancel order to restore stock, ignore errors silently since webhook is fallback
-                void (
-                  supabase as unknown as {
-                    rpc: (name: string, args: { order_id: string }) => Promise<void>;
-                  }
-                ).rpc("cancel_abandoned_order", { order_id: orderId });
-                navigate({ to: "/orders" });
+                try {
+                  await (
+                    supabase as unknown as {
+                      rpc: (name: string, args: { order_id: string }) => Promise<void>;
+                    }
+                  ).rpc("cancel_abandoned_order", { order_id: orderId });
+                } catch (dismissErr) {
+                  console.warn("[Checkout] Failed to cancel order on dismiss:", dismissErr);
+                }
               },
             },
             theme: {
-              color: "#db2777", // tailwind pink-600
+              color: "#db2777", // pink-600
             },
           };
 
@@ -307,13 +341,33 @@ function CheckoutPage() {
             }
           ).Razorpay(options as Record<string, unknown>);
           rzp.on("payment.failed", (response: { error: { description: string } }) => {
-            toast.error(response.error.description || "Payment failed");
+            toast.error(response.error?.description || "Payment failed at gateway");
           });
           rzp.open();
-          return; // Do not proceed to standard success yet
+          return; // Do not proceed to standard COD success
         } catch (paymentErr: unknown) {
-          toast.error((paymentErr as Error).message || "Could not start payment");
-          navigate({ to: "/orders" });
+          setSubmitting(false);
+          const rawMessage = (paymentErr as Error).message || "Could not start payment";
+          console.error("[Checkout] Online payment initialization error:", rawMessage);
+
+          // Restore stock and mark order cancelled so inventory is not drained
+          try {
+            await (
+              supabase as unknown as {
+                rpc: (name: string, args: { order_id: string }) => Promise<void>;
+              }
+            ).rpc("cancel_abandoned_order", { order_id: orderId });
+          } catch (cancelErr) {
+            console.warn("[Checkout] Failed to cancel order after init failure:", cancelErr);
+          }
+
+          toast.error(
+            rawMessage.includes("credentials") ||
+              rawMessage.includes("Authentication") ||
+              rawMessage.includes("status 401")
+              ? "Payment gateway is currently unavailable. Please try Cash on Delivery or contact support."
+              : `Payment initialization error: ${rawMessage}.`,
+          );
           return;
         }
       }

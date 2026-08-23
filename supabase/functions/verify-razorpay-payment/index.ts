@@ -16,9 +16,13 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization header");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")?.trim() || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      throw new Error("Supabase server credentials not configured");
+    }
 
     // Create a client with the user's JWT to verify they are authenticated
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -39,19 +43,24 @@ serve(async (req) => {
       throw new Error("Missing razorpay verification fields");
     }
 
-    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+    const razorpayKeySecret = rawKeySecret.trim();
     if (!razorpayKeySecret) {
-      throw new Error("Razorpay credentials not configured");
+      throw new Error("Razorpay credentials not configured on server");
     }
 
     // Verify Signature
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", razorpayKeySecret)
-      .update(body.toString())
+      .update(body)
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
+      console.error("[verify-razorpay-payment] Signature mismatch:", {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+      });
       throw new Error("Invalid payment signature");
     }
 
@@ -61,12 +70,12 @@ serve(async (req) => {
     // Fetch the order to ensure it belongs to the user and hasn't already been processed
     const { data: order, error: orderError } = await adminClient
       .from("orders")
-      .select("id, user_id, status")
+      .select("id, user_id, status, payment_status")
       .eq("razorpay_order_id", razorpay_order_id)
       .single();
 
     if (orderError || !order) {
-      throw new Error("Order not found");
+      throw new Error("Order not found for the given Razorpay order ID");
     }
 
     // Verify order belongs to the user
@@ -74,25 +83,27 @@ serve(async (req) => {
       throw new Error("Unauthorized access to this order");
     }
 
-    // If it's already paid/processing, just return success
-    if (order.status === "processing" || order.status === "confirmed") {
+    // If it's already paid/processing, return success idempotently
+    if (order.payment_status === "paid" || order.status === "processing" || order.status === "confirmed") {
       return new Response(JSON.stringify({ success: true, already_paid: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    // Update order status to paid
+    // Update order status to paid / processing
     const { error: updateError } = await adminClient
       .from("orders")
       .update({
-        status: "processing", // Or whatever the next logical state is
+        status: "processing",
+        payment_status: "paid",
         razorpay_payment_id,
         razorpay_signature,
       })
       .eq("id", order.id);
 
     if (updateError) {
+      console.error("[verify-razorpay-payment] Failed to update order status:", updateError);
       throw updateError;
     }
 
@@ -100,9 +111,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error: any) {
-    console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = (error as Error).message || "Payment verification failed";
+    console.error("[verify-razorpay-payment] Error:", message);
+    return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });

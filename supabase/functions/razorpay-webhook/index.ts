@@ -16,9 +16,10 @@ serve(async (req) => {
     const signature = req.headers.get("X-Razorpay-Signature");
     // Razorpay sends event id in header as x-razorpay-event-id
     const eventId = req.headers.get("X-Razorpay-Event-Id");
-    const secret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
+    const secret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET")?.trim() || "";
 
     if (!signature || !secret || !eventId) {
+      console.error("[razorpay-webhook] Missing required headers or webhook secret");
       return new Response(JSON.stringify({ error: "Missing signature, secret, or event ID" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -32,6 +33,7 @@ serve(async (req) => {
     const expectedSignature = crypto.createHmac("sha256", secret).update(bodyText).digest("hex");
 
     if (expectedSignature !== signature) {
+      console.error("[razorpay-webhook] Invalid signature mismatch");
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -42,8 +44,8 @@ serve(async (req) => {
 
     // Create supabase client with Service Role Key to bypass RLS for webhook updates
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      (Deno.env.get("SUPABASE_URL") ?? "").trim(),
+      (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim(),
     );
 
     // 1. Check idempotency
@@ -68,16 +70,16 @@ serve(async (req) => {
         payload: payload,
       });
       if (insertError) {
-        // If it's a unique constraint violation, someone else inserted it right now. We can safely ignore or retry.
-        console.warn("Possible duplicate event insertion", insertError);
+        console.warn("[razorpay-webhook] Possible duplicate event insertion:", insertError);
       }
     }
 
     // 2. Process event
-    let processError = null;
+    let processError: Error | null = null;
     try {
       if (payload.event === "payment.captured" || payload.event === "order.paid") {
-        let orderId, paymentId;
+        let orderId: string | undefined;
+        let paymentId: string | undefined;
 
         if (payload.event === "payment.captured") {
           paymentId = payload.payload.payment.entity.id;
@@ -92,11 +94,10 @@ serve(async (req) => {
             .from("orders")
             .update({
               payment_status: "paid",
-              status: "processing", // Or keep whatever status is required
+              status: "processing",
               razorpay_payment_id: paymentId,
             })
             .eq("razorpay_order_id", orderId)
-            // don't overwrite if already confirmed or shipped
             .neq("payment_status", "paid");
 
           if (error) throw error;
@@ -110,15 +111,16 @@ serve(async (req) => {
             .from("orders")
             .update({
               payment_status: "failed",
+              status: "cancelled",
               razorpay_payment_id: paymentId,
             })
             .eq("razorpay_order_id", orderId)
-            .neq("payment_status", "paid"); // Don't fail if already paid
+            .neq("payment_status", "paid");
         }
       }
-      // Add refund processing here if needed based on `refund.processed`
-    } catch (err: any) {
-      processError = err;
+    } catch (err: unknown) {
+      processError = err as Error;
+      console.error("[razorpay-webhook] Event processing error:", processError);
     }
 
     // 3. Update event status
@@ -139,9 +141,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error: any) {
-    console.error(error);
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = (error as Error).message || "Webhook processing failed";
+    console.error("[razorpay-webhook] Error:", message);
+    return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
