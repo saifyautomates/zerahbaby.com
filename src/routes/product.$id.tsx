@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Star,
@@ -11,6 +11,7 @@ import {
   Link2,
   MessageCircle,
   Instagram,
+  Lock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,6 +24,8 @@ import { discountPct, formatPrice, useProducts, type Product } from "@/lib/store
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProductReviews, useSubmitReview } from "@/lib/reviews";
+import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
+import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
@@ -96,8 +99,10 @@ function ProductPage() {
   const { data: products, isLoading: productsLoading } = useProducts();
   const { add, items } = useCart();
   const { user } = useSession();
+  const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [showBuyNowModal, setShowBuyNowModal] = useState(false);
 
   const list = products ?? [];
   const product = list.find((p) => p.id === id) ?? loaderData?.product;
@@ -403,23 +408,31 @@ function ProductPage() {
                     {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
                   </button>
                   {!soldOut && !maxed && (
-                    <Link
-                      to="/cart"
-                      onClick={(e) => {
+                    <button
+                      type="button"
+                      onClick={() => {
                         if (qty > remaining) {
-                          e.preventDefault();
                           toast.error("Not enough stock", {
                             description: `You can only add ${remaining} more.`,
                           });
                           return;
                         }
-                        add(product.id, qty);
+                        if (!user) {
+                          toast.info("Please log in to proceed with Buy Now");
+
+                          navigate({
+                            to: "/auth",
+                            search: { redirect: `/product/${product.id}` } as any,
+                          });
+                          return;
+                        }
                         trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
+                        setShowBuyNowModal(true);
                       }}
-                      className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted"
+                      className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
                       Buy now
-                    </Link>
+                    </button>
                   )}
                 </>
               );
@@ -443,6 +456,16 @@ function ProductPage() {
           </div>
         </div>
       </div>
+
+      {/* Buy Now Direct Checkout Modal */}
+      {showBuyNowModal && product && (
+        <BuyNowModal
+          product={product}
+          qty={qty}
+          user={user}
+          onClose={() => setShowBuyNowModal(false)}
+        />
+      )}
 
       {/* Reviews Section */}
       {product && <ReviewsSection product={product} user={user} />}
@@ -602,5 +625,488 @@ function ReviewsSection({
         </form>
       )}
     </section>
+  );
+}
+
+function BuyNowModal({
+  product,
+  qty,
+  user,
+  onClose,
+}: {
+  product: Product;
+  qty: number;
+  user: { id: string; email?: string } | null;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const { data: profile } = useProfile(user?.id);
+  const saveProfile = useSaveProfile(user?.id);
+  const placeOrder = usePlaceOrder();
+
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "",
+    phone: "",
+    alt_phone: "",
+    address: "",
+    address_line2: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+    notes: "",
+  });
+
+  const [editAddress, setEditAddress] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    setForm((f) => ({
+      ...f,
+      full_name: f.full_name || profile.full_name || "",
+      phone: f.phone || profile.phone || "",
+      address: f.address || profile.address || "",
+      city: f.city || profile.city || "",
+      state: f.state || profile.state || "",
+      pincode: f.pincode || profile.pincode || "",
+    }));
+  }, [profile]);
+
+  const hasSavedAddress = Boolean(
+    profile?.full_name &&
+    profile?.phone &&
+    profile?.address &&
+    profile?.city &&
+    profile?.state &&
+    profile?.pincode,
+  );
+
+  const isFormComplete = Boolean(
+    form.full_name.trim() &&
+    form.phone.trim() &&
+    form.address.trim() &&
+    form.city.trim() &&
+    form.state.trim() &&
+    form.pincode.trim(),
+  );
+
+  const subtotal = product.price * qty;
+  const shipping = subtotal >= 999 ? 0 : 79;
+  const finalTotal = subtotal + shipping;
+
+  async function handleBuyNowPayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || submitting) return;
+
+    if (!isFormComplete) {
+      toast.error("Please fill in all delivery address fields");
+      setEditAddress(true);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(form.pincode.trim())) {
+      toast.error("Enter a valid 6-digit pincode");
+      setEditAddress(true);
+      return;
+    }
+
+    if (!/^[\d\s+-]{10,15}$/.test(form.phone.trim())) {
+      toast.error("Enter a valid 10-digit phone number");
+      setEditAddress(true);
+      return;
+    }
+
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!razorpayKey) {
+      toast.error("Razorpay Key ID is not configured in client environment");
+      return;
+    }
+
+    setSubmitting(true);
+
+    let orderId = "";
+    try {
+      // Save profile address changes
+      await saveProfile.mutateAsync({
+        full_name: form.full_name.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
+      });
+
+      // Place single-item order securely via server RPC
+      orderId = await placeOrder.mutateAsync({
+        userId: user.id,
+        email: user.email ?? "",
+        full_name: form.full_name.trim(),
+        phone: form.phone.trim(),
+        alt_phone: form.alt_phone.trim(),
+        address: form.address.trim(),
+        address_line2: form.address_line2.trim(),
+        landmark: form.landmark.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
+        payment_method: "online",
+        notes: form.notes.trim(),
+        subtotal,
+        shipping,
+        discount: 0,
+        items: [
+          {
+            product_slug: product.id,
+            name: product.name,
+            image_url: product.image,
+            price: product.price,
+            qty,
+          },
+        ],
+      });
+
+      // Load Razorpay Script
+      await new Promise((resolve, reject) => {
+        if (document.getElementById("razorpay-script")) return resolve(true);
+        const script = document.createElement("script");
+        script.id = "razorpay-script";
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = resolve;
+        script.onerror = () =>
+          reject(new Error("Failed to load Razorpay SDK. Please check your connection."));
+        document.body.appendChild(script);
+      });
+
+      // Create Razorpay Order via Edge Function
+      const { data: createData, error: createError } = await supabase.functions.invoke(
+        "create-razorpay-order",
+        { body: { orderId } },
+      );
+
+      if (createError || !createData?.rzp_order_id) {
+        let errorMsg = "Failed to initialize payment gateway";
+        if (createError) {
+          try {
+            const ctx = (createError as { context?: Response }).context;
+            if (ctx && typeof ctx.json === "function") {
+              const errorBody = await ctx.clone().json();
+              if (errorBody?.error) errorMsg = errorBody.error;
+            }
+          } catch {
+            errorMsg = createError.message || errorMsg;
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      // Launch Razorpay Checkout Modal
+      const options = {
+        key: razorpayKey,
+        amount: Math.round(finalTotal * 100),
+        currency: "INR",
+        name: "Zerah Baby And Kid's",
+        description: `${qty} × ${product.name}`,
+        order_id: createData.rzp_order_id,
+        prefill: {
+          name: form.full_name.trim(),
+          email: user.email,
+          contact: form.phone.trim(),
+        },
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            toast.loading("Verifying payment...", { id: "buy-now-verify" });
+            const { error: verifyError } = await supabase.functions.invoke(
+              "verify-razorpay-payment",
+              {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                },
+              },
+            );
+
+            if (verifyError) {
+              let vErrorMsg = "Payment verification failed";
+              try {
+                const vCtx = (verifyError as { context?: Response }).context;
+                if (vCtx && typeof vCtx.json === "function") {
+                  const vBody = await vCtx.clone().json();
+                  if (vBody?.error) vErrorMsg = vBody.error;
+                }
+              } catch {
+                vErrorMsg = verifyError.message || vErrorMsg;
+              }
+              throw new Error(vErrorMsg);
+            }
+
+            trackEvent("order_created", {
+              metadata: {
+                orderId,
+                total: finalTotal,
+                payment: "online",
+                source: "buy_now",
+              },
+            });
+            toast.success("Payment successful! Your order has been placed.", {
+              id: "buy-now-verify",
+            });
+            onClose();
+            navigate({ to: "/orders" });
+          } catch (verifyErr: unknown) {
+            const msg = (verifyErr as Error).message || "Payment verification failed";
+            toast.error(`${msg}. If amount was deducted, it will be automatically confirmed.`, {
+              id: "buy-now-verify",
+            });
+            onClose();
+            navigate({ to: "/orders" });
+          }
+        },
+        modal: {
+          ondismiss: async () => {
+            setSubmitting(false);
+            toast.error("Payment was cancelled. Stock has been restored.");
+            try {
+              await (
+                supabase as unknown as {
+                  rpc: (name: string, args: { order_id: string }) => Promise<void>;
+                }
+              ).rpc("cancel_abandoned_order", { order_id: orderId });
+            } catch (dismissErr) {
+              console.warn("[BuyNow] Failed to cancel abandoned order on dismiss:", dismissErr);
+            }
+          },
+        },
+        theme: {
+          color: "#db2777",
+        },
+      };
+
+      type RazorpayInstance = {
+        on: (event: string, cb: (res: { error: { description: string } }) => void) => void;
+        open: () => void;
+      };
+      const rzp = new (
+        window as unknown as {
+          Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
+        }
+      ).Razorpay(options as Record<string, unknown>);
+      rzp.on("payment.failed", (response: { error: { description: string } }) => {
+        toast.error(response.error?.description || "Payment failed at gateway");
+      });
+      rzp.open();
+    } catch (err: unknown) {
+      setSubmitting(false);
+      const rawMessage = (err as Error).message || "Could not start payment";
+      console.error("[BuyNow] Payment initiation error:", rawMessage);
+
+      if (orderId) {
+        try {
+          await (
+            supabase as unknown as {
+              rpc: (name: string, args: { order_id: string }) => Promise<void>;
+            }
+          ).rpc("cancel_abandoned_order", { order_id: orderId });
+        } catch (cancelErr) {
+          console.warn("[BuyNow] Failed to cancel order after error:", cancelErr);
+        }
+      }
+
+      toast.error(
+        rawMessage.includes("credentials") ||
+          rawMessage.includes("Authentication") ||
+          rawMessage.includes("status 401")
+          ? "Payment gateway is currently unavailable. Please try again later or contact support."
+          : `Payment initialization error: ${rawMessage}`,
+      );
+    }
+  }
+
+  const field =
+    "w-full rounded-xl border border-border bg-background px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-primary transition";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="buy-now-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+    >
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
+        <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+          <div>
+            <h2 id="buy-now-title" className="font-display text-xl font-bold text-foreground">
+              Quick Buy
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Direct checkout powered by Razorpay
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Product preview */}
+        <div className="mt-4 flex items-center gap-3.5 rounded-2xl border border-border bg-muted/30 p-3.5">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="size-16 rounded-xl border border-border object-cover"
+          />
+          <div className="flex-1 min-w-0">
+            <h3 className="truncate text-sm font-semibold text-foreground">{product.name}</h3>
+            <p className="text-xs text-muted-foreground">
+              Qty: {qty} · {formatPrice(product.price)} each
+            </p>
+            <p className="mt-0.5 text-xs font-bold text-primary">
+              Subtotal: {formatPrice(subtotal)}
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleBuyNowPayment} className="mt-5 space-y-4">
+          {/* Delivery Address Section */}
+          <div className="rounded-2xl border border-border p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Delivery Address
+              </span>
+              {hasSavedAddress && (
+                <button
+                  type="button"
+                  onClick={() => setEditAddress(!editAddress)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  {editAddress ? "Use saved" : "Change"}
+                </button>
+              )}
+            </div>
+
+            {!editAddress && hasSavedAddress ? (
+              <div className="mt-2.5 text-xs text-foreground leading-relaxed">
+                <p className="font-semibold">{form.full_name || profile?.full_name}</p>
+                <p className="text-muted-foreground">{form.phone || profile?.phone}</p>
+                <p className="mt-1 text-muted-foreground">
+                  {[form.address, form.city, form.state, form.pincode].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-2.5">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    required
+                    type="text"
+                    placeholder="Full Name *"
+                    value={form.full_name}
+                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                    className={field}
+                  />
+                  <input
+                    required
+                    type="tel"
+                    placeholder="10-digit Phone *"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className={field}
+                  />
+                </div>
+                <input
+                  required
+                  type="text"
+                  placeholder="Street Address / House No. *"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  className={field}
+                />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <input
+                    required
+                    type="text"
+                    placeholder="City *"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    className={field}
+                  />
+                  <input
+                    required
+                    type="text"
+                    placeholder="State *"
+                    value={form.state}
+                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    className={field}
+                  />
+                  <input
+                    required
+                    type="text"
+                    maxLength={6}
+                    placeholder="6-digit Pincode *"
+                    value={form.pincode}
+                    onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                    className={field}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Price Breakdown */}
+          <div className="rounded-2xl border border-border p-4 space-y-2 text-xs">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Items Total ({qty} items)</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Shipping Delivery</span>
+              <span>
+                {shipping === 0 ? (
+                  <strong className="text-emerald-600 font-semibold">FREE</strong>
+                ) : (
+                  formatPrice(shipping)
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-2 text-sm font-bold text-foreground">
+              <span>Payable Amount</span>
+              <span className="text-primary font-extrabold">{formatPrice(finalTotal)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Lock className="size-3 text-emerald-600" /> 256-Bit SSL Encrypted Razorpay Checkout
+            </span>
+          </div>
+
+          <div className="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-full border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              {submitting ? "Opening Razorpay…" : `Pay ${formatPrice(finalTotal)}`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
