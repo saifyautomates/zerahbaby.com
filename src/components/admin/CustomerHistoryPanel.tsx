@@ -88,7 +88,10 @@ export function CustomerHistoryPanel() {
         supabase as unknown as {
           from: (t: string) => {
             select: (q: string) => {
-              eq: (col: string, val: string) => {
+              eq: (
+                col: string,
+                val: string,
+              ) => {
                 order: (
                   col: string,
                   opts: { ascending: boolean },
@@ -168,9 +171,7 @@ export function CustomerHistoryPanel() {
         {/* Results dropdown */}
         {searchQuery.trim().length >= 2 && !selectedCustomer && (
           <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-            {searchLoading && (
-              <div className="px-4 py-3 text-sm text-gray-400">Searching…</div>
-            )}
+            {searchLoading && <div className="px-4 py-3 text-sm text-gray-400">Searching…</div>}
             {!searchLoading && customers.length === 0 && (
               <div className="px-4 py-3 text-sm text-gray-400">No customers found</div>
             )}
@@ -216,7 +217,9 @@ export function CustomerHistoryPanel() {
             <div className="flex gap-4 text-center">
               <div>
                 <p className="text-xs text-gray-500">Purchases</p>
-                <p className="font-black text-lg text-gray-900">{selectedCustomer.total_purchases}</p>
+                <p className="font-black text-lg text-gray-900">
+                  {selectedCustomer.total_purchases}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Total Spent</p>
@@ -237,9 +240,7 @@ export function CustomerHistoryPanel() {
               <Receipt className="h-4 w-4 text-[#8B2020]" />
               Purchase History
             </h3>
-            {salesLoading && (
-              <span className="text-xs text-gray-400">Loading…</span>
-            )}
+            {salesLoading && <span className="text-xs text-gray-400">Loading…</span>}
           </div>
 
           {sales.length === 0 && !salesLoading && (
@@ -255,9 +256,7 @@ export function CustomerHistoryPanel() {
                 {/* Sale row */}
                 <div className="flex items-center gap-4 px-5 py-3.5">
                   <button
-                    onClick={() =>
-                      setExpandedSale(expandedSale === sale.id ? null : sale.id)
-                    }
+                    onClick={() => setExpandedSale(expandedSale === sale.id ? null : sale.id)}
                     className="shrink-0 text-gray-400 hover:text-gray-600"
                   >
                     {expandedSale === sale.id ? (
@@ -269,9 +268,7 @@ export function CustomerHistoryPanel() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-gray-900">
-                        {sale.sale_number}
-                      </span>
+                      <span className="text-sm font-bold text-gray-900">{sale.sale_number}</span>
                       <span className="text-[10px] font-semibold uppercase rounded-full px-2 py-0.5 bg-gray-100 text-gray-600">
                         {sale.payment_method}
                       </span>

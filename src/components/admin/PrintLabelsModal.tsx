@@ -23,7 +23,7 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid, 1])),
   );
-  const [layout, setLayout] = useState<LabelLayout>("a4");
+  const [layout, setLayout] = useState<LabelLayout>("thermal-108");
   const [labelType, setLabelType] = useState<LabelType>("full");
   const [showDiscount, setShowDiscount] = useState(false);
 
@@ -82,9 +82,9 @@ export function PrintLabelsModal({
                 A4 (Grid)
               </button>
               <button
-                onClick={() => setLayout("thermal-80")}
+                onClick={() => setLayout("thermal-108")}
                 className={`px-3 py-2 text-xs font-semibold transition-all ${
-                  layout === "thermal-80"
+                  layout === "thermal-108"
                     ? "bg-[#8B2020] text-white"
                     : "bg-background text-muted-foreground hover:bg-muted"
                 }`}

@@ -87,6 +87,7 @@ export type SaleResult = {
   discount_value: number;
   payment_method: string;
   customer_name: string;
+  customer_phone?: string;
   items_count: number;
   duplicate: boolean;
 };
@@ -180,7 +181,10 @@ export function usePlaceOfflineSale() {
         _idempotency_key: input.idempotency_key || null,
       });
       if (error) throw new Error(error.message);
-      return data as SaleResult;
+      return {
+        ...(data as SaleResult),
+        customer_phone: input.customer_phone || "",
+      };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });

@@ -13,7 +13,7 @@ import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
 
 export type LabelType = "barcode-only" | "full";
-export type LabelLayout = "a4" | "thermal-58" | "thermal-80";
+export type LabelLayout = "a4" | "thermal-58" | "thermal-108";
 
 export type LabelProduct = {
   uuid: string;
@@ -208,11 +208,11 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
               : ""
           }
 
-          /* Thermal 80mm (HGR HT-300X) */
+          /* Thermal 108mm (HGR HT-300X) */
           ${
-            layout === "thermal-80"
-              ? `@page { size: 80mm auto; margin: 3mm; }
-                 .label-cell { page-break-inside: avoid; width: 74mm; }`
+            layout === "thermal-108"
+              ? `@page { size: 108mm auto; margin: 3mm; }
+                 .label-cell { page-break-inside: avoid; width: 100mm; }`
               : ""
           }
         }

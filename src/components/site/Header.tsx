@@ -12,7 +12,7 @@ import {
   Sparkle,
 } from "lucide-react";
 import { useState } from "react";
-import logo from "@/assets/zerah-logo.jpg";
+import logo from "@/assets/zerah-logo.png";
 import { ageGroups, useCategories, useSettings } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";

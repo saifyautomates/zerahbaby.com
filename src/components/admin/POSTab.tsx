@@ -42,6 +42,8 @@ import {
   X,
   UserPlus,
   Phone,
+  Send,
+  Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice } from "@/lib/store";
@@ -72,6 +74,10 @@ export function POSTab() {
   const [scanValue, setScanValue] = useState("");
   const [scanLoading, setScanLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+
+  // Quick Order State
+  const [quickOrderProduct, setQuickOrderProduct] = useState("");
+  const [quickOrderPrice, setQuickOrderPrice] = useState("");
 
   // Discount state
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
@@ -109,6 +115,58 @@ export function POSTab() {
   const createCustomer = useCreatePOSCustomer();
   const placeSale = usePlaceOfflineSale();
 
+  const handleAddCustomToCart = () => {
+    if (!quickOrderProduct || !quickOrderPrice) {
+      toast.error("Please provide product name and price");
+      return false;
+    }
+    const price = parseFloat(quickOrderPrice);
+    if (isNaN(price) || price <= 0) {
+      toast.error("Invalid price");
+      return false;
+    }
+
+    setCart((prev) => [
+      ...prev,
+      {
+        product_id: `custom-${Date.now()}`,
+        slug: "custom",
+        name: quickOrderProduct,
+        brand: "Custom Item",
+        category: "Custom",
+        price: price,
+        mrp: price,
+        stock: 1,
+        sku: "CUSTOM",
+        barcode: "",
+        image_url: null,
+        age_group: "All",
+        qty: 1,
+        isCustom: true,
+      },
+    ]);
+
+    setQuickOrderProduct("");
+    setQuickOrderPrice("");
+    toast.success("Custom item added to cart");
+    return true;
+  };
+
+  const handleQuickCheckout = () => {
+    if (quickOrderProduct || quickOrderPrice) {
+      const added = handleAddCustomToCart();
+      if (!added) return;
+    }
+
+    if (cart.length === 0 && !quickOrderProduct) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    setCustomerMode("walkin");
+    setStep("checkout");
+  };
+
   // Cart calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const discountAmount = calculateDiscount(subtotal, discountType, discountValue);
@@ -132,48 +190,6 @@ export function POSTab() {
     }
     return undefined;
   }, [step]);
-
-  // Hardware barcode scanner: captures rapid keystrokes globally
-  useEffect(() => {
-    let buffer = "";
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only capture when step is cart and no input is focused (except scan input)
-      if (step !== "cart") return;
-      const target = e.target as HTMLElement;
-      const isScanInput = target === scanInputRef.current;
-      const isOtherInput =
-        (target instanceof HTMLInputElement ||
-          target instanceof HTMLTextAreaElement ||
-          target instanceof HTMLSelectElement) &&
-        !isScanInput;
-      if (isOtherInput) return;
-
-      if (e.key === "Enter" && buffer.trim().length > 0) {
-        e.preventDefault();
-        const code = buffer.trim();
-        buffer = "";
-        setScanValue("");
-        handleScan(code);
-        return;
-      }
-
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        buffer += e.key;
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          buffer = "";
-        }, 150);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      clearTimeout(timeoutId);
-    };
-  }, [step, cart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scan handler
   const handleScan = useCallback(
@@ -223,6 +239,78 @@ export function POSTab() {
     },
     [cart], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Hardware barcode scanner: captures rapid keystrokes globally
+  useEffect(() => {
+    let buffer = "";
+    let lastTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (step !== "cart") return;
+      const target = e.target as HTMLElement;
+      const isScanInput = target === scanInputRef.current;
+      const isOtherInput =
+        (target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement) &&
+        !isScanInput;
+
+      const now = Date.now();
+      // Reset buffer if keystrokes are slow (human typing is usually > 50ms per key)
+      if (now - lastTime > 60) {
+        buffer = "";
+      }
+      lastTime = now;
+
+      // Only care about single character keys
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        buffer += e.key;
+      }
+
+      if (e.key === "Enter" && buffer.trim().length >= 6) {
+        // Most barcodes are > 6 chars
+        e.preventDefault();
+        const code = buffer.trim();
+        buffer = "";
+        setScanValue("");
+
+        // If the user accidentally scanned while focused in the custom product input,
+        // the barcode digits were typed into React's state. We clear the quick order product
+        // to remove the accidentally typed barcode.
+        if (isOtherInput && target instanceof HTMLInputElement) {
+          setQuickOrderProduct("");
+          setQuickOrderPrice("");
+          target.value = "";
+          target.blur(); // Remove focus so next scan goes to global
+        }
+
+        handleScan(code);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [step, cart, handleScan]);
+
+  // Process any barcode scanned globally before this tab was mounted
+  useEffect(
+    () => {
+      const pendingCode = (window as any).__PENDING_BARCODE;
+      if (pendingCode) {
+        delete (window as any).__PENDING_BARCODE;
+        // Slight delay to ensure the cart state is fully initialized
+        setTimeout(() => {
+          setScanValue("");
+          handleScan(pendingCode);
+        }, 50);
+      }
+    },
+    [/* run only on mount */],
+  );
+
 
   function addToCart(item: POSCartItem) {
     setCart((prev) => {
@@ -367,7 +455,7 @@ export function POSTab() {
   }, [customerSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex min-h-[80dvh] flex-col rounded-2xl border border-border/50 bg-background lg:flex-row">
+    <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-background lg:flex-row overflow-hidden">
       {/* ====== LEFT PANEL: Cart & Scanning ====== */}
       <div className="flex flex-1 flex-col border-r border-border/50 min-w-0">
         {/* Scanner Header */}
@@ -486,8 +574,32 @@ export function POSTab() {
                       className="border-b border-border/50 hover:bg-muted/30"
                     >
                       <td className="py-3">
-                        <p className="font-semibold text-sm leading-tight">{item.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.brand}</p>
+                        <div className="flex items-center gap-3">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              loading="lazy"
+                              className="size-10 rounded-lg border border-border object-cover shrink-0 cursor-pointer hover:opacity-80 transition"
+                              onClick={() => window.open(`/product/${item.slug}`, "_blank")}
+                            />
+                          ) : (
+                            <div className="size-10 rounded-lg border border-border bg-muted/50 shrink-0 flex items-center justify-center">
+                              <span className="text-[10px] text-muted-foreground uppercase">
+                                {item.name.substring(0, 2)}
+                              </span>
+                            </div>
+                          )}
+                          <div>
+                            <p
+                              className="font-semibold text-sm leading-tight cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                              onClick={() => window.open(`/product/${item.slug}`, "_blank")}
+                            >
+                              {item.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{item.brand}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 font-mono text-xs text-muted-foreground">{item.sku}</td>
                       <td className="py-3 text-right font-semibold">{formatPrice(item.price)}</td>
@@ -568,18 +680,123 @@ export function POSTab() {
       {/* ====== RIGHT PANEL: Checkout / Success ====== */}
       <div className="flex w-full flex-col bg-gradient-to-b from-[#fdf2f7] to-white lg:w-[28rem] overflow-y-auto">
         {step === "cart" && (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-muted-foreground">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fce4ef] mb-4">
-              <span className="text-3xl">👶</span>
+          <div className="flex flex-col items-center h-full pt-10 pb-16 text-center text-muted-foreground w-full">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fce4ef] mb-3">
+              <span className="text-2xl">👶</span>
             </div>
-            <h2 className="text-xl font-bold text-foreground">
-              Zérah <span className="text-[#d85c88] font-serif italic">Baby & Kids</span>
+            <h2 className="text-2xl font-bold text-gray-900 font-serif">
+              Zerah <span className="text-[#c8466b] italic">Baby & Kids</span>
             </h2>
-            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-muted-foreground mt-1">
-              Point of Sale
+            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-gray-400 mt-1 mb-8">
+              PREMIUM CHILDREN'S CLOTHING
             </p>
-            <p className="mt-6 text-sm">
-              Scan products or add them manually, then proceed to checkout.
+
+            <div className="flex items-center justify-center gap-0 w-full px-16 mb-8 max-w-sm">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fce4ef] text-[#c8466b] border border-[#c8466b] text-[11px] font-bold z-10 shrink-0">
+                1
+              </div>
+              <div className="h-px flex-1 bg-gray-200"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 text-[11px] font-bold z-10 shrink-0">
+                2
+              </div>
+              <div className="h-px flex-1 bg-gray-200"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 text-[11px] font-bold z-10 shrink-0">
+                3
+              </div>
+              <div className="h-px flex-1 bg-gray-200"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 z-10 shrink-0">
+                <Star className="size-3 text-gray-400" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mx-6 mb-8 relative text-left w-full max-w-[340px]">
+              <h3 className="text-lg font-serif font-bold text-gray-900 leading-tight">
+                Customer Details
+              </h3>
+              <p className="text-xs text-gray-500 mb-6 mt-1">
+                Fill in your information to place an order
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    Full Name <span className="text-[#c8466b]">*</span>
+                  </label>
+                  <input
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    WhatsApp Number <span className="text-[#c8466b]">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-1.5 bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2.5 text-sm shrink-0">
+                      <span>🇮🇳</span> <span className="text-gray-500">+91</span>
+                    </div>
+                    <input
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="9XXXXXXXXX"
+                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    Product Name <span className="text-[#c8466b]">*</span>
+                  </label>
+                  <div className="relative">
+                    <Package className="absolute left-3 top-3 size-4 text-gray-400" />
+                    <input
+                      value={quickOrderProduct}
+                      onChange={(e) => setQuickOrderProduct(e.target.value)}
+                      placeholder="What would you like to order?"
+                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    Price (₹) <span className="text-[#c8466b]">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-2.5 text-gray-400 font-serif">₹</span>
+                    <input
+                      type="number"
+                      value={quickOrderPrice}
+                      onChange={(e) => setQuickOrderPrice(e.target.value)}
+                      placeholder="0"
+                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleAddCustomToCart}
+                    className="w-1/2 bg-[#fce4ef] text-[#c8466b] rounded-xl py-3.5 flex items-center justify-center gap-2 font-semibold text-sm hover:bg-[#fad1e1] transition shadow-sm"
+                  >
+                    <Plus className="size-4" /> Add to Cart
+                  </button>
+                  <button
+                    onClick={handleQuickCheckout}
+                    className="w-1/2 bg-[#c8466b] text-white rounded-xl py-3.5 flex items-center justify-center gap-2 font-semibold text-sm hover:bg-[#b03d5e] transition shadow-sm"
+                  >
+                    <Send className="size-4" /> Checkout
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+              Made with ♥ for tiny humans
             </p>
           </div>
         )}

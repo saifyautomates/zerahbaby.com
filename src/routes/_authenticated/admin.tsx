@@ -22,11 +22,13 @@ import {
   Printer,
   Scan,
   Megaphone,
+  MessageSquare,
   Search,
   Sun,
   Bell,
   X,
 } from "lucide-react";
+import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
@@ -40,6 +42,7 @@ import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
+import { SMSLogsTab } from "@/components/admin/SMSLogsTab";
 import { DashboardTab } from "@/components/admin/DashboardTab";
 import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
 import { BarChart3, Settings2 } from "lucide-react";
@@ -47,12 +50,12 @@ import { BarChart3, Settings2 } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Store Admin â€” Zerah Baby And Kid's" },
+      { title: "Store Admin — Zerah Baby And Kid's" },
       {
         name: "description",
         content: "Manage products, categories and store settings for Zerah Baby And Kid's.",
       },
-      { property: "og:title", content: "Store Admin â€” Zerah Baby And Kid's" },
+      { property: "og:title", content: "Store Admin — Zerah Baby And Kid's" },
       { property: "og:description", content: "Manage the Zerah Baby And Kid's catalogue." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -77,7 +80,8 @@ type Tab =
   | "reviews"
   | "inventory"
   | "analytics"
-  | "marketing";
+  | "marketing"
+  | "sms";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -95,6 +99,57 @@ function AdminPage() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
+  // Global hardware barcode scanner logic
+  useEffect(() => {
+    let buffer = "";
+    let lastTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If we are already on the POS (billing) tab, let POSTab handle it to avoid duplicate triggers
+      if (tab === "billing") return;
+
+      const target = e.target as HTMLElement;
+      const isInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement;
+
+      const now = Date.now();
+      // Reset buffer if keystrokes are slow (human typing is usually > 50ms per key)
+      if (now - lastTime > 60) {
+        buffer = "";
+      }
+      lastTime = now;
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        buffer += e.key;
+      }
+
+      if (e.key === "Enter" && buffer.trim().length >= 6) {
+        // Most barcodes are > 6 chars
+        e.preventDefault();
+        const code = buffer.trim();
+        buffer = "";
+
+        // If typed into an input accidentally, clear the input so the barcode string isn't left behind
+        if (isInput && target instanceof HTMLInputElement) {
+          target.value = "";
+          target.blur();
+        }
+
+        // Pass it to the POS system globally and switch tab
+        (window as any).__PENDING_BARCODE = code;
+        setTab("billing");
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [tab]);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -159,7 +214,7 @@ function AdminPage() {
   if (roleLoading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
-        Loadingâ€¦
+        Loading…
       </div>
     );
   }
@@ -206,6 +261,7 @@ function AdminPage() {
     { key: "hero", label: "Hero Media", icon: Images },
     { key: "media", label: "Media Library", icon: FolderOpen },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
+    { key: "sms", label: "SMS Logs", icon: MessageSquare },
     { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "settings", label: "Settings", icon: Settings },
     { key: "admins", label: "Admins", icon: Shield },
@@ -231,9 +287,14 @@ function AdminPage() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
             {/* Logo mark */}
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#8B2020] shadow-sm">
-              <span className="text-white font-black text-sm tracking-tight">Z</span>
-            </div>
+            <img
+              src={logo}
+              alt="Zerah"
+              className="h-10 w-10 rounded-full object-cover shadow-sm border border-gray-100"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.opacity = "0";
+              }}
+            />
             <div>
               <h1 className="font-sans text-[15px] font-black tracking-tight text-gray-900 leading-none">
                 Zérah <span className="text-[#8B2020]">Admin</span>
@@ -406,6 +467,7 @@ function AdminPage() {
             {tab === "analytics" && <SiteAnalyticsTab />}
             {tab === "marketing" && <MarketingTab />}
             {tab === "settings" && <SettingsTab />}
+            {tab === "sms" && <SMSLogsTab />}
             {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
             {tab === "coupons" && <CouponsTab />}
             {tab === "reviews" && <ReviewsTab />}

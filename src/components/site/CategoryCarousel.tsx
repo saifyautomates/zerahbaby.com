@@ -36,7 +36,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         if (timeSinceInteraction > 2000) {
           const { scrollLeft, scrollWidth, clientWidth } = viewportRef.current;
           const maxScroll = scrollWidth - clientWidth;
-          
+
           if (maxScroll > 0) {
             if (scrollLeft >= maxScroll - 1) {
               viewportRef.current.scrollLeft = 0;

@@ -2,7 +2,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import logo from "@/assets/zerah-logo.jpg";
+import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useSession } from "@/lib/auth";
@@ -38,6 +38,15 @@ function AuthPage() {
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [cooldown]);
 
   // We determine if it's an email or phone based on a simple regex
   const isEmail = contact.includes("@");
@@ -46,6 +55,40 @@ function AuthPage() {
     // If the user is logged in, redirect them
     if (user) navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
   }, [user, items.length, navigate]);
+
+  async function onResendOtp() {
+    if (cooldown > 0) return;
+
+    setBusy(true);
+    try {
+      let phone = contact.trim();
+      if (!isEmail && !phone.startsWith("+")) {
+        phone = `+91${phone}`;
+      }
+
+      if (isEmail) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: contact.trim(),
+          options: { shouldCreateUser: true },
+        });
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "resend", phone },
+        });
+
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+      }
+
+      toast.success("OTP resent successfully!");
+      setCooldown(60);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to resend OTP");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onSendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -68,16 +111,20 @@ function AuthPage() {
         toast.success("OTP sent to your email!");
       } else {
         // Assume phone number.
-        // Supabase requires E.164 format. We append +91 if they didn't provide a country code.
         let phone = contact.trim();
         if (!phone.startsWith("+")) {
           phone = `+91${phone}`; // Default to India for this store
         }
-        const { error } = await supabase.auth.signInWithOtp({
-          phone,
+
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "send", phone },
         });
+
         if (error) throw error;
+        if (data.error) throw new Error(data.error);
+
         toast.success("OTP sent to your phone via SMS!");
+        setCooldown(60); // 60 seconds cooldown for resend
       }
       setMode("verify");
     } catch (err: unknown) {
@@ -101,14 +148,26 @@ function AuthPage() {
         phone = `+91${phone}`;
       }
 
-      const { error } = await supabase.auth.verifyOtp({
-        email: isEmail ? contact.trim() : undefined,
-        phone: !isEmail ? phone : undefined,
-        token: otp.trim(),
-        type: isEmail ? "email" : "sms",
-      });
+      if (isEmail) {
+        const { error } = await supabase.auth.verifyOtp({
+          email: contact.trim(),
+          token: otp.trim(),
+          type: "email",
+        });
+        if (error) throw error;
+      } else {
+        // Phone OTP verification via Edge Function
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "verify", phone, otp: otp.trim() },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+
+        // Edge function returns the session object. We set it locally.
+        const sessionError = await supabase.auth.setSession(data.session);
+        if (sessionError.error) throw sessionError.error;
+      }
       toast.success("Signed in successfully!");
       // The session hook will automatically redirect them in the useEffect
     } catch (err: unknown) {
@@ -205,11 +264,11 @@ function AuthPage() {
               </button>
               <button
                 type="button"
-                onClick={onSendOtp}
-                disabled={busy}
-                className="font-medium text-primary hover:underline"
+                onClick={onResendOtp}
+                disabled={busy || cooldown > 0}
+                className="font-medium text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
               >
-                Resend OTP
+                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
               </button>
             </div>
           </form>

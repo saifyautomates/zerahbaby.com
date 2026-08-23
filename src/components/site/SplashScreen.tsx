@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import logo from "@/assets/zerah-logo.jpg";
+import logo from "@/assets/zerah-logo.png";
 import { useSettings } from "@/lib/store";
 
 export function SplashScreen() {

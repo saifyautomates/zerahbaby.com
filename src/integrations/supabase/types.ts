@@ -1426,6 +1426,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      sms_logs: {
+        Row: {
+          id: string;
+          created_at: string;
+          order_id: string | null;
+          phone: string;
+          message_type: string;
+          provider_status: string | null;
+          error_details: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          order_id?: string | null;
+          phone: string;
+          message_type: string;
+          provider_status?: string | null;
+          error_details?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          order_id?: string | null;
+          phone?: string;
+          message_type?: string;
+          provider_status?: string | null;
+          error_details?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
