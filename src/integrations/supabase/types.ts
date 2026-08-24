@@ -33,6 +33,45 @@ export type Database = {
   };
   public: {
     Tables: {
+      admin_order_deletion_logs: {
+        Row: {
+          id: string;
+          order_id: string;
+          order_number: string | null;
+          user_id: string | null;
+          customer_name: string | null;
+          customer_email: string | null;
+          total: number | null;
+          cancellation_reason: string | null;
+          deleted_by: string;
+          deleted_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          order_number?: string | null;
+          user_id?: string | null;
+          customer_name?: string | null;
+          customer_email?: string | null;
+          total?: number | null;
+          cancellation_reason?: string | null;
+          deleted_by: string;
+          deleted_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          order_number?: string | null;
+          user_id?: string | null;
+          customer_name?: string | null;
+          customer_email?: string | null;
+          total?: number | null;
+          cancellation_reason?: string | null;
+          deleted_by?: string;
+          deleted_at?: string;
+        };
+        Relationships: [];
+      };
       contact_messages: {
         Row: {
           id: string;
@@ -1534,6 +1573,12 @@ export type Database = {
     };
     Functions: {
       claim_admin: { Args: never; Returns: boolean };
+      delete_cancelled_order: {
+        Args: {
+          _order_id: string;
+        };
+        Returns: Json;
+      };
       ensure_profile: { Args: never; Returns: undefined };
       generate_pos_sale_number: { Args: never; Returns: string };
       grant_admin_by_email: { Args: { _email: string }; Returns: string };

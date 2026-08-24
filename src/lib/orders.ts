@@ -285,3 +285,30 @@ export function useRetryOrderNotification() {
     },
   });
 }
+
+/**
+ * Admin hook to permanently delete a cancelled order.
+ * Strictly verifies admin role and current 'cancelled' status on the backend.
+ */
+export function useDeleteCancelledOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc("delete_cancelled_order", {
+        _order_id: orderId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Cancelled order deleted successfully.");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Unable to delete this order. No changes were made.");
+    },
+  });
+}

@@ -3,16 +3,25 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { useAllOrders, orderStatuses, useRetryOrderNotification } from "@/lib/orders";
+import {
+  useAllOrders,
+  orderStatuses,
+  useRetryOrderNotification,
+  useDeleteCancelledOrder,
+  type Order,
+} from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { formatPrice } from "@/lib/store";
-import { MailCheck, MailWarning, RotateCcw } from "lucide-react";
+import { MailCheck, MailWarning, RotateCcw, Trash2, AlertTriangle, X, Loader2 } from "lucide-react";
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useAllOrders(true);
   const [filter, setFilter] = useState("all");
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+
   const retryNotification = useRetryOrderNotification();
+  const deleteOrder = useDeleteCancelledOrder();
 
   const update = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -28,6 +37,16 @@ export function OnlineSalesTab() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  async function handleConfirmDelete() {
+    if (!orderToDelete) return;
+    try {
+      await deleteOrder.mutateAsync(orderToDelete.id);
+      setOrderToDelete(null);
+    } catch {
+      // Error toast already triggered in useDeleteCancelledOrder
+    }
+  }
 
   // Filter out POS orders (historical)
   const onlineOrdersData = (data ?? []).filter((o) => o.notes !== "POS Order");
@@ -221,11 +240,123 @@ export function OnlineSalesTab() {
                     </option>
                   ))}
                 </select>
+
+                {/* Secure Admin Delete Action for Cancelled Orders Only */}
+                {order.status === "cancelled" && (
+                  <button
+                    type="button"
+                    onClick={() => setOrderToDelete(order)}
+                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete Permanently
+                  </button>
+                )}
               </div>
             </div>
           </li>
         ))}
       </ul>
+
+      {/* ─── CONFIRMATION MODAL ──────────────────────────────── */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={() => {
+                if (!deleteOrder.isPending) setOrderToDelete(null);
+              }}
+              disabled={deleteOrder.isPending}
+              aria-label="Close modal"
+              className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted transition disabled:opacity-50"
+            >
+              <X className="size-4" />
+            </button>
+
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                <AlertTriangle className="size-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-display text-lg font-bold text-foreground">
+                  Delete cancelled order?
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                  This permanently removes this cancelled order and its order items from the
+                  database. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Order Details Card */}
+            <div className="mt-5 rounded-2xl border border-border bg-muted/40 p-4 text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="font-semibold text-muted-foreground">Order ID</span>
+                <span className="font-mono font-bold text-foreground">
+                  #{orderToDelete.id.slice(0, 8).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-semibold text-muted-foreground">Customer</span>
+                <span className="font-medium text-foreground">{orderToDelete.full_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-semibold text-muted-foreground">Order Total</span>
+                <span className="font-bold text-foreground">
+                  {formatPrice(Number(orderToDelete.total))}
+                </span>
+              </div>
+              {orderToDelete.cancelled_at && (
+                <div className="flex justify-between">
+                  <span className="font-semibold text-muted-foreground">Cancelled On</span>
+                  <span className="font-medium text-foreground">
+                    {new Date(orderToDelete.cancelled_at).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+              {orderToDelete.cancellation_reason && (
+                <div className="pt-1 border-t border-border/60">
+                  <span className="font-semibold text-muted-foreground">Reason: </span>
+                  <span className="italic text-foreground">
+                    “{orderToDelete.cancellation_reason}”
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                disabled={deleteOrder.isPending}
+                className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteOrder.isPending}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-rose-700 transition disabled:opacity-60"
+              >
+                {deleteOrder.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-4" />
+                    Delete Permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
