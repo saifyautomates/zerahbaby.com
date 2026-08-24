@@ -35,7 +35,7 @@ import {
   Calendar,
   Download,
   FileText,
-  Check,
+  DollarSign,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,7 +140,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, price, stock, name, image_url, is_active");
+        .select("id, price, stock, name, image_url, is_active, slug, product_costs(buying_price)");
       if (error) return [];
       return data ?? [];
     },
@@ -319,7 +319,42 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       };
     });
 
+    // All-time Metrics (Full Logic)
+    let allTimeOnlineRevenue = 0;
+    let allTimeOnlineCogs = 0;
+    validOrders.forEach((o: any) => {
+      const orderTotal = Number(o.total || 0);
+      allTimeOnlineRevenue += orderTotal;
+      o.order_items?.forEach((item: any) => {
+        const prod = products.find((p: any) => p.slug === item.product_slug);
+        const costs = prod?.product_costs;
+        const bp = Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price;
+        const buyingPrice = Number(bp || 0);
+        allTimeOnlineCogs += buyingPrice * Number(item.qty || 1);
+      });
+    });
+
+    let allTimePosRevenue = 0;
+    let allTimePosCogs = 0;
+    posSales.forEach((s: any) => {
+      const saleTotal = Number(s.total || 0);
+      allTimePosRevenue += saleTotal;
+      s.offline_sale_items?.forEach((item: any) => {
+        const prod = products.find((p: any) => p.id === item.product_id);
+        const costs = prod?.product_costs;
+        const bp = Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price;
+        const buyingPrice = Number(bp || 0);
+        allTimePosCogs += buyingPrice * Number(item.quantity || 1);
+      });
+    });
+
+    const totalRevenueAllTime = allTimeOnlineRevenue + allTimePosRevenue;
+    const totalCogsAllTime = allTimeOnlineCogs + allTimePosCogs;
+    const netProfitAllTime = totalRevenueAllTime - totalCogsAllTime;
+
     return {
+      totalRevenueAllTime,
+      netProfitAllTime,
       revenue,
       ordersCount,
       visitorsCount: currVisitors,
@@ -775,8 +810,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </div>
 
-      {/* Secondary 4-Item Metric Strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 rounded-2xl bg-card p-4 shadow-sm border border-border">
+      {/* Secondary 6-Item Metric Strip */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6 rounded-2xl bg-card p-4 shadow-sm border border-border">
         <div className="flex items-center gap-3 p-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <Package className="h-5 w-5" />
@@ -819,10 +854,34 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             <Percent className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">
-              Active Catalog Items
-            </p>
-            <h4 className="text-sm font-bold text-foreground truncate">{products.length} SKUs</h4>
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Active Catalog</p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {stats.lowStockCount + stats.outOfStockCount > 0
+                ? `${products.filter((p) => p.is_active).length} SKUs`
+                : `${products.length} SKUs`}
+            </h4>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Total Revenue</p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {formatPrice(stats.totalRevenueAllTime)}
+            </h4>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <DollarSign className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Net Profit</p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {formatPrice(stats.netProfitAllTime)}
+            </h4>
           </div>
         </div>
       </div>
