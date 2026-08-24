@@ -113,21 +113,8 @@ function AdminPage() {
   }, []);
   const shortcutLabel = isMac ? "⌘K" : "Ctrl K";
 
-  // Dynamic admin name and 2-letter initials
-  const adminName = profile?.full_name || user?.email?.split("@")[0] || "Administrator";
-  const initials = useMemo(() => {
-    if (profile?.full_name) {
-      const parts = profile.full_name.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-      }
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return "AD";
-  }, [profile, user]);
+  // Dynamic admin name
+  const adminName = "Sameer";
 
   // Global shortcut (Ctrl+K / Cmd+K) to toggle Search
   useEffect(() => {
@@ -637,10 +624,10 @@ function AdminPage() {
               )}
             </div>
 
-            {/* Authenticated Admin Profile Monogram */}
+            {/* Authenticated Admin Profile Brand Logo & Name */}
             <div className="flex items-center gap-2.5 pl-3 border-l border-border">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B2020] to-[#c0392b] text-white font-black text-[11px] shadow-xs select-none">
-                {initials}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-white shadow-xs overflow-hidden select-none p-1">
+                <img src={logo} alt="Zerah Baby & Kids" className="h-full w-full object-contain" />
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-foreground truncate max-w-32">{adminName}</p>
