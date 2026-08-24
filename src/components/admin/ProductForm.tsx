@@ -9,10 +9,21 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
-import { Printer, GripVertical, Images, Star, Trash2, Upload, Check, Tag } from "lucide-react";
+import {
+  Printer,
+  GripVertical,
+  Images,
+  Star,
+  Trash2,
+  Upload,
+  Check,
+  Tag,
+  Settings2,
+} from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+import { useDirectLabelPrint } from "@/lib/label-printer";
 import { useUploadToLibrary } from "@/lib/media-library";
 
 export type ProductDraft = {
@@ -109,6 +120,7 @@ export function ProductForm({
   const [picker, setPicker] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
+  const { printLabel, isPrinting: isDirectPrinting } = useDirectLabelPrint();
   const uploadToLibrary = useUploadToLibrary();
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -622,16 +634,31 @@ export function ProductForm({
 
         <div className="shrink-0 border-t border-border p-6 flex justify-end gap-3 bg-muted/50">
           {product && (
-            <button
-              onClick={() => setPrinting(true)}
-              className="mr-auto inline-flex items-center gap-2 rounded-full border border-border bg-white px-5 py-2 text-sm font-semibold hover:bg-muted"
-            >
-              <Printer className="size-4" /> Print Label
-            </button>
+            <div className="mr-auto inline-flex items-center rounded-full border border-border bg-white shadow-2xs overflow-hidden">
+              <button
+                type="button"
+                onClick={() => printLabel(product)}
+                disabled={isDirectPrinting}
+                title="Print Label (1-Click Direct Print)"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50"
+              >
+                <Printer className="size-4 text-[#8B2020]" />
+                <span>Print Label</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrinting(true)}
+                title="More print options (Customize quantities & format)"
+                className="px-2.5 py-2 text-xs border-l border-border text-gray-500 hover:bg-gray-50 transition cursor-pointer"
+              >
+                <Settings2 className="size-3.5" />
+              </button>
+            </div>
           )}
           <button
+            type="button"
             onClick={onCancel}
-            className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted"
+            className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted cursor-pointer"
           >
             Cancel
           </button>

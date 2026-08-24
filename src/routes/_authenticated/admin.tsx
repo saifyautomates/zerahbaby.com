@@ -45,6 +45,7 @@ import { MediaLibrary } from "@/components/admin/MediaLibrary";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+import { useDirectLabelPrint } from "@/lib/label-printer";
 import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
 import { SMSLogsTab } from "@/components/admin/SMSLogsTab";
 import { DashboardTab } from "@/components/admin/DashboardTab";
@@ -670,8 +671,8 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
-  const [printingSingle, setPrintingSingle] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
+  const { printLabel, isPrinting } = useDirectLabelPrint();
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
@@ -837,15 +838,27 @@ function ProductsTab() {
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ”</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setPrintingLabels(true)}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
-          >
-            <Printer className="size-4 text-gray-500" /> Print Labels
-          </button>
+          <div className="inline-flex rounded-xl border border-gray-200 bg-white shadow-2xs overflow-hidden">
+            <button
+              onClick={() => printLabel(list)}
+              disabled={isPrinting || list.length === 0}
+              title="Print labels directly for visible products (1-Click)"
+              className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition cursor-pointer disabled:opacity-50"
+            >
+              <Printer className="size-4 text-gray-500" />
+              <span>Print Labels</span>
+            </button>
+            <button
+              onClick={() => setPrintingLabels(true)}
+              title="Advanced Print (Custom quantities, layout, discounts)"
+              className="px-2.5 py-2 text-xs border-l border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition cursor-pointer"
+            >
+              <Settings2 className="size-3.5" />
+            </button>
+          </div>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c]"
+            className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-[#7a1c1c] cursor-pointer"
           >
             <Plus className="size-4" /> Add product
           </button>
@@ -956,10 +969,11 @@ function ProductsTab() {
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                       <button
-                        onClick={() => setPrintingSingle(p)}
+                        onClick={() => printLabel(p)}
+                        disabled={isPrinting}
                         aria-label={`Print label for ${p.name}`}
-                        title="Print Label"
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50"
+                        title="Print Label (1-Click Direct Print)"
+                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
                       >
                         <Printer className="size-4" />
                       </button>
@@ -1045,10 +1059,6 @@ function ProductsTab() {
 
       {printingLabels && (
         <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
-      )}
-
-      {printingSingle && (
-        <PrintLabelsModal products={[printingSingle]} onClose={() => setPrintingSingle(null)} />
       )}
     </div>
   );

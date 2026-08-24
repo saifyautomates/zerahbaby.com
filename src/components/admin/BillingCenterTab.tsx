@@ -7,6 +7,7 @@ import { POSReturnsTab } from "./POSReturnsTab";
 import { OfflineAnalyticsTab } from "./OfflineAnalyticsTab";
 import { CustomerHistoryPanel } from "./CustomerHistoryPanel";
 import { PrintLabelsModal } from "./PrintLabelsModal";
+import { useDirectLabelPrint } from "@/lib/label-printer";
 import {
   Scan,
   Printer,
@@ -16,6 +17,7 @@ import {
   CheckSquare,
   Square,
   RotateCcw,
+  Settings2,
 } from "lucide-react";
 
 type BillingTab = "pos" | "returns" | "labels" | "sales" | "customers";
@@ -108,6 +110,7 @@ function LabelPrintingSubTab() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [printingLabels, setPrintingLabels] = useState(false);
+  const { printLabel, isPrinting } = useDirectLabelPrint();
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["admin-products"],
@@ -161,13 +164,27 @@ function LabelPrintingSubTab() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-gray-500">{selectedIds.size} selected</span>
-          <button
-            onClick={() => setPrintingLabels(true)}
-            disabled={selectedIds.size === 0}
-            className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#7a1c1c] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Printer className="size-4" /> Configure & Print
-          </button>
+          <div className="inline-flex rounded-xl border border-border bg-white shadow-2xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => printLabel(selectedProducts)}
+              disabled={selectedIds.size === 0 || isPrinting}
+              title="Print selected labels directly (1-Click)"
+              className="flex items-center gap-2 bg-[#8B2020] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#7a1c1c] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <Printer className="size-4" />
+              <span>Print Labels</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrintingLabels(true)}
+              disabled={selectedIds.size === 0}
+              title="Advanced Print (Custom quantities & layouts)"
+              className="bg-[#7a1c1c] px-2.5 py-2.5 text-white/90 hover:text-white transition border-l border-white/20 disabled:opacity-50 cursor-pointer"
+            >
+              <Settings2 className="size-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 

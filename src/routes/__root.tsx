@@ -191,6 +191,8 @@ function RootShell({ children }: { children: ReactNode }) {
 import { trackEvent } from "@/lib/analytics";
 import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 
+import { DirectLabelPrintHost } from "@/components/admin/LabelPrintEngine";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -259,6 +261,7 @@ function RootComponent() {
           {!isAdminRoute && <Footer />}
         </div>
         <Toaster />
+        <DirectLabelPrintHost />
         <OnboardingModal />
         <SplashScreen />
       </CartProvider>
