@@ -425,6 +425,118 @@ function renderTestEmail(): { subject: string; html: string } {
   return { subject, html };
 }
 
+function renderOfflineReturnEmail(
+  ret: Record<string, any>,
+  items: Array<Record<string, any>>,
+): { subject: string; html: string } {
+  const returnNumber = ret.return_number || "POS-RETURN";
+  const dateStr = new Date(ret.created_at || Date.now()).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const refundAmount = Number(ret.refund_amount || 0);
+  const refundMethod = (ret.refund_method || "cash").toUpperCase();
+  const customerName = ret.customer_name || "Walk-in Customer";
+  const customerPhone = ret.customer_phone || "Not provided";
+  const returnReason = ret.return_reason || "Customer changed mind";
+  const notes = ret.notes || "";
+  const totalUnits = items.reduce((sum, item) => sum + Number(item.qty || 1), 0);
+
+  const itemsHtml = items
+    .map((item) => {
+      const name = item.name || "Product";
+      const sku = item.sku ? `SKU: ${item.sku}` : "";
+      const barcode = item.barcode ? `Barcode: ${item.barcode}` : "";
+      const variant = item.variant_info ? `Variant: ${item.variant_info}` : "";
+      const meta = [sku, barcode, variant].filter(Boolean).join(" | ");
+      const qty = Number(item.qty || 1);
+      const price = Number(item.refund_price || 0);
+      const lineTotal = Number(item.subtotal || price * qty);
+
+      return `
+      <tr>
+        <td>
+          <div style="font-weight:600; color:#0f172a;">${escapeHtml(name)}</div>
+          ${meta ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">${escapeHtml(meta)}</div>` : ""}
+          <div style="font-size:11px; color:#16a34a; font-weight:600; margin-top:2px;">+${qty} restocked to inventory</div>
+        </td>
+        <td style="text-align:center; font-weight:600;">${qty}</td>
+        <td class="text-right">${formatCurrency(price)}</td>
+        <td class="text-right" style="font-weight:600;">${formatCurrency(lineTotal)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const bodyContent = `
+    <div class="meta-box">
+      <div class="meta-row">
+        <span class="meta-label">Return Reference:</span>
+        <span class="meta-value" style="color:#b91c1c; font-weight:700;">${escapeHtml(returnNumber)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Date & Time:</span>
+        <span class="meta-value">${escapeHtml(dateStr)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Customer Name:</span>
+        <span class="meta-value">${escapeHtml(customerName)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Customer Phone:</span>
+        <span class="meta-value">${escapeHtml(customerPhone)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Refund Method:</span>
+        <span class="meta-value" style="color:#0284c7; font-weight:700;">${escapeHtml(refundMethod)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Return Reason:</span>
+        <span class="meta-value" style="color:#dc2626;">${escapeHtml(returnReason)}</span>
+      </div>
+      ${
+        notes
+          ? `
+      <div class="meta-row">
+        <span class="meta-label">Notes:</span>
+        <span class="meta-value">${escapeHtml(notes)}</span>
+      </div>`
+          : ""
+      }
+      <div class="meta-row">
+        <span class="meta-label">Inventory Status:</span>
+        <span class="meta-value" style="color:#16a34a; font-weight:700;">+${totalUnits} units restocked</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:700; margin:24px 0 10px 0; color:#334155;">Items Returned (${items.length})</h3>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Qty</th>
+          <th class="text-right">Unit Refund</th>
+          <th class="text-right">Line Refund</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+
+    <div class="totals-box" style="background:#fef2f2; border:1px solid #fecaca;">
+      <div class="total-row grand-total" style="color:#b91c1c; border-top:none; padding-top:0; margin-top:0;">
+        <span>Total Refunded Amount:</span>
+        <span>${formatCurrency(refundAmount)}</span>
+      </div>
+    </div>
+  `;
+
+  const subject = `Offline Return — ${formatCurrency(refundAmount)} — ${returnNumber}`;
+  const html = getBaseLayout(subject, "Offline POS Return", "#fee2e2", "#991b1b", bodyContent);
+
+  return { subject, html };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main Edge Function Handler                                        */
 /* ------------------------------------------------------------------ */
@@ -451,9 +563,9 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { type, order_id, sale_id, force_retry, recipient: customRecipient } = payload;
+    const { type, order_id, sale_id, return_id, force_retry, recipient: customRecipient } = payload;
 
-    if (!type || !["offline_sale", "online_order", "test"].includes(type)) {
+    if (!type || !["offline_sale", "online_order", "offline_return", "test"].includes(type)) {
       return new Response(JSON.stringify({ error: "Invalid or missing notification type" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -609,6 +721,53 @@ serve(async (req) => {
       const rendered = renderOnlineSaleEmail(order, items || [], costsMap);
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
+    } else if (type === "offline_return") {
+      if (!return_id) throw new Error("Missing return_id for offline return notification");
+      if (!notifyOffline && !force_retry) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Offline notifications disabled in settings",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // Fetch offline return
+      const { data: retRecord, error: retErr } = await adminClient
+        .from("offline_returns")
+        .select("*")
+        .eq("id", return_id)
+        .single();
+      if (retErr || !retRecord)
+        throw new Error(`Offline return not found: ${retErr?.message || "unknown"}`);
+
+      // Idempotency check
+      if (retRecord.owner_notification_status === "sent" && !force_retry) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Notification already sent for this return",
+            duplicate: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // Fetch return items
+      const { data: items, error: itemsErr } = await adminClient
+        .from("offline_return_items")
+        .select("*")
+        .eq("return_id", return_id);
+      if (itemsErr) throw itemsErr;
+
+      referenceId = retRecord.id;
+      referenceNumber = retRecord.return_number;
+      totalAmount = Number(retRecord.refund_amount);
+
+      const rendered = renderOfflineReturnEmail(retRecord, items || []);
+      emailSubject = rendered.subject;
+      emailHtml = rendered.html;
     }
 
     // 3. Dispatch Email via Resend REST API
@@ -667,6 +826,14 @@ serve(async (req) => {
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", order_id);
+    } else if (type === "offline_return" && return_id) {
+      await adminClient
+        .from("offline_returns")
+        .update({
+          owner_notification_status: isSuccess ? "sent" : "failed",
+          owner_notified_at: isSuccess ? new Date().toISOString() : null,
+        })
+        .eq("id", return_id);
     }
 
     // Log to owner_notification_logs

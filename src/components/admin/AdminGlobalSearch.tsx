@@ -47,6 +47,13 @@ const QUICK_NAV_ACTIONS: SearchResultItem[] = [
     tab: "billing",
   },
   {
+    id: "nav-returns",
+    category: "navigation",
+    title: "Offline POS Returns",
+    subtitle: "Process barcode returns, inventory restock, and refunds",
+    tab: "billing",
+  },
+  {
     id: "nav-products",
     category: "navigation",
     title: "Product Catalogue",

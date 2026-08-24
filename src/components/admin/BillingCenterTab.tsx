@@ -3,56 +3,81 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, type Product, formatPrice } from "@/lib/store";
 import { POSTab } from "./POSTab";
+import { POSReturnsTab } from "./POSReturnsTab";
 import { OfflineAnalyticsTab } from "./OfflineAnalyticsTab";
 import { CustomerHistoryPanel } from "./CustomerHistoryPanel";
 import { PrintLabelsModal } from "./PrintLabelsModal";
-import { Scan, Printer, Receipt, Users, Search, CheckSquare, Square } from "lucide-react";
+import {
+  Scan,
+  Printer,
+  Receipt,
+  Users,
+  Search,
+  CheckSquare,
+  Square,
+  RotateCcw,
+} from "lucide-react";
 
-type BillingTab = "pos" | "labels" | "sales" | "customers";
+type BillingTab = "pos" | "returns" | "labels" | "sales" | "customers";
 
-export function BillingCenterTab() {
-  const [activeTab, setActiveTab] = useState<BillingTab>("pos");
+export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: BillingTab }) {
+  const [activeTab, setActiveTab] = useState<BillingTab>(initialSubTab);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-120px)] bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
       {/* Header & Sub-navigation */}
-      <div className="shrink-0 flex items-center gap-6 border-b border-gray-100 px-6 bg-gray-50/50 pt-2">
+      <div className="shrink-0 flex items-center gap-6 border-b border-border px-6 bg-muted/20 pt-2 overflow-x-auto">
         <button
+          type="button"
           onClick={() => setActiveTab("pos")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
             activeTab === "pos"
-              ? "border-[#8B2020] text-[#8B2020]"
-              : "border-transparent text-gray-500 hover:text-gray-900"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Scan className="size-4" /> POS Terminal
         </button>
         <button
+          type="button"
+          onClick={() => setActiveTab("returns")}
+          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
+            activeTab === "returns"
+              ? "border-rose-600 text-rose-600 dark:text-rose-400"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <RotateCcw className="size-4" /> Returns
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("labels")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
             activeTab === "labels"
-              ? "border-[#8B2020] text-[#8B2020]"
-              : "border-transparent text-gray-500 hover:text-gray-900"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Printer className="size-4" /> Bulk Labels
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("sales")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
             activeTab === "sales"
-              ? "border-[#8B2020] text-[#8B2020]"
-              : "border-transparent text-gray-500 hover:text-gray-900"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Receipt className="size-4" /> Sales History
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("customers")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
             activeTab === "customers"
-              ? "border-[#8B2020] text-[#8B2020]"
-              : "border-transparent text-gray-500 hover:text-gray-900"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Users className="size-4" /> Customers
@@ -60,8 +85,9 @@ export function BillingCenterTab() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col p-4 bg-gray-50/30">
+      <div className="flex-1 overflow-hidden flex flex-col p-4 bg-muted/10">
         {activeTab === "pos" && <POSTab />}
+        {activeTab === "returns" && <POSReturnsTab />}
         {activeTab === "labels" && <LabelPrintingSubTab />}
         {activeTab === "sales" && (
           <div className="overflow-y-auto h-full pr-2 pb-10">
