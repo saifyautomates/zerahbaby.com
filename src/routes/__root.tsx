@@ -189,12 +189,23 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 import { trackEvent } from "@/lib/analytics";
+import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const location = router.state.location;
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    // Global barcode scanner listener: navigate to admin POS if scanned anywhere
+    const unbindScanner = initGlobalBarcodeScanner((_code) => {
+      if (!location.pathname.startsWith("/admin")) {
+        router.navigate({ to: "/admin" });
+      }
+    });
+    return unbindScanner;
+  }, [location.pathname, router]);
 
   useEffect(() => {
     // Visitor Analytics Tracking

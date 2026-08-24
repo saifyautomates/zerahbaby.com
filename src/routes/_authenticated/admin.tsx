@@ -52,6 +52,7 @@ import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
 import { AdminGlobalSearch } from "@/components/admin/AdminGlobalSearch";
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
+import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -165,55 +166,14 @@ function AdminPage() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
 
-  // Global hardware barcode scanner logic
+  // Global hardware barcode scanner logic: instantly switches to POS from any admin page
   useEffect(() => {
-    let buffer = "";
-    let lastTime = Date.now();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // If we are already on the POS (billing) tab, let POSTab handle it to avoid duplicate triggers
-      if (tab === "billing") return;
-
-      const target = e.target as HTMLElement;
-      const isInput =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement;
-
-      const now = Date.now();
-      // Reset buffer if keystrokes are slow (human typing is usually > 50ms per key)
-      if (now - lastTime > 60) {
-        buffer = "";
-      }
-      lastTime = now;
-
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        buffer += e.key;
-      }
-
-      if (e.key === "Enter" && buffer.trim().length >= 6) {
-        // Most barcodes are > 6 chars
-        e.preventDefault();
-        const code = buffer.trim();
-        buffer = "";
-
-        // If typed into an input accidentally, clear the input so the barcode string isn't left behind
-        if (isInput && target instanceof HTMLInputElement) {
-          target.value = "";
-          target.blur();
-        }
-
-        // Pass it to the POS system globally and switch tab
-        (window as any).__PENDING_BARCODE = code;
+    const unbind = initGlobalBarcodeScanner((_code) => {
+      if (tab !== "billing") {
         setTab("billing");
-        return;
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    });
+    return unbind;
   }, [tab]);
 
   async function signOut() {

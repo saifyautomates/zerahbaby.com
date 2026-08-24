@@ -21,6 +21,8 @@ import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
+import { playScanSuccess, playScanError } from "@/lib/audio";
+import { useGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 import {
   Plus,
   Minus,
@@ -192,137 +194,84 @@ export function POSTab() {
   }, [step]);
 
   // Scan handler
-  const handleScan = useCallback(
-    async (code: string) => {
-      if (!code.trim()) return;
-      setScanLoading(true);
-      try {
-        const result = await lookupBarcode(code);
+  const handleScan = useCallback(async (code: string) => {
+    const cleanCode = code.trim();
+    if (!cleanCode) return;
+    setScanLoading(true);
+    try {
+      const result = await lookupBarcode(cleanCode);
 
-        if (!result.found) {
-          toast.error(`Product not found: ${code}`);
-          return;
-        }
-
-        if (result.archived) {
-          toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
-          return;
-        }
-
-        if ((result.stock ?? 0) <= 0) {
-          toast.error(`"${result.name}" is out of stock!`);
-          return;
-        }
-
-        addToCart({
-          product_id: result.product_id!,
-          slug: result.slug!,
-          name: result.name!,
-          brand: result.brand ?? "",
-          category: result.category ?? "",
-          price: result.price!,
-          mrp: result.mrp ?? result.price!,
-          stock: result.stock!,
-          sku: result.sku ?? "",
-          barcode: result.barcode ?? "",
-          image_url: result.image_url ?? null,
-          age_group: result.age_group ?? "",
-          qty: 1,
+      if (!result || !result.found) {
+        playScanError();
+        toast.error(`Product not found for barcode: ${cleanCode}`, {
+          description: "Check if the barcode is assigned or search product catalogue manually.",
         });
-
-        toast.success(`Added: ${result.name}`);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Scan failed");
-      } finally {
-        setScanLoading(false);
-      }
-    },
-    [cart], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-
-  // Hardware barcode scanner: captures rapid keystrokes globally
-  useEffect(() => {
-    let buffer = "";
-    let lastTime = Date.now();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (step !== "cart") return;
-      const target = e.target as HTMLElement;
-      const isScanInput = target === scanInputRef.current;
-      const isOtherInput =
-        (target instanceof HTMLInputElement ||
-          target instanceof HTMLTextAreaElement ||
-          target instanceof HTMLSelectElement) &&
-        !isScanInput;
-
-      const now = Date.now();
-      // Reset buffer if keystrokes are slow (human typing is usually > 50ms per key)
-      if (now - lastTime > 60) {
-        buffer = "";
-      }
-      lastTime = now;
-
-      // Only care about single character keys
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        buffer += e.key;
-      }
-
-      if (e.key === "Enter" && buffer.trim().length >= 6) {
-        // Most barcodes are > 6 chars
-        e.preventDefault();
-        const code = buffer.trim();
-        buffer = "";
-        setScanValue("");
-
-        // If the user accidentally scanned while focused in the custom product input,
-        // the barcode digits were typed into React's state. We clear the quick order product
-        // to remove the accidentally typed barcode.
-        if (isOtherInput && target instanceof HTMLInputElement) {
-          setQuickOrderProduct("");
-          setQuickOrderPrice("");
-          target.value = "";
-          target.blur(); // Remove focus so next scan goes to global
-        }
-
-        handleScan(code);
         return;
       }
-    };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [step, cart, handleScan]);
-
-  // Process any barcode scanned globally before this tab was mounted
-  useEffect(
-    () => {
-      const pendingCode = (window as any).__PENDING_BARCODE;
-      if (pendingCode) {
-        delete (window as any).__PENDING_BARCODE;
-        // Slight delay to ensure the cart state is fully initialized
-        setTimeout(() => {
-          setScanValue("");
-          handleScan(pendingCode);
-        }, 50);
+      if (result.archived) {
+        playScanError();
+        toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
+        return;
       }
-    },
-    [/* run only on mount */],
-  );
 
-  function addToCart(item: POSCartItem) {
+      if ((result.stock ?? 0) <= 0) {
+        playScanError();
+        toast.error(`"${result.name}" is out of stock!`, {
+          description: "Cannot add out-of-stock items to a new POS sale.",
+        });
+        return;
+      }
+
+      const added = addToCart({
+        product_id: result.product_id!,
+        slug: result.slug!,
+        name: result.name!,
+        brand: result.brand ?? "",
+        category: result.category ?? "",
+        price: result.price!,
+        mrp: result.mrp ?? result.price!,
+        stock: result.stock!,
+        sku: result.sku ?? "",
+        barcode: result.barcode ?? "",
+        image_url: result.image_url ?? null,
+        age_group: result.age_group ?? "",
+        qty: 1,
+      });
+
+      if (added) {
+        playScanSuccess();
+        toast.success(`Scanned: ${result.name}`, {
+          description: `₹${result.price} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
+        });
+      }
+    } catch (e) {
+      playScanError();
+      toast.error(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanLoading(false);
+    }
+  }, []);
+
+  // Hook into centralized hardware scanner events (also drains queued scans on mount)
+  useGlobalBarcodeScanner(handleScan);
+
+  function addToCart(item: POSCartItem): boolean {
+    let added = true;
     setCart((prev) => {
       const existing = prev.find((p) => p.product_id === item.product_id);
       if (existing) {
         if (existing.qty >= item.stock) {
+          playScanError();
           toast.error(`Cannot add more "${item.name}". Only ${item.stock} in stock.`);
+          added = false;
           return prev;
         }
         return prev.map((p) => (p.product_id === item.product_id ? { ...p, qty: p.qty + 1 } : p));
       }
       return [...prev, { ...item, qty: 1 }];
     });
+    return added;
   }
 
   function addProductManually(product: Product) {
