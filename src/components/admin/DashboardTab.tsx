@@ -981,7 +981,13 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             </div>
           </div>
           <div className="relative h-[180px] w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-base font-extrabold text-foreground">
+                {formatPrice(stats.revenue)}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium">Total</span>
+            </div>
+            <ResponsiveContainer width="100%" height="100%" className="relative z-10">
               <PieChart>
                 <Pie
                   data={paymentBreakdown}
@@ -1006,12 +1012,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-base font-extrabold text-foreground">
-                {formatPrice(stats.revenue)}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-medium">Total</span>
-            </div>
           </div>
           <div className="flex items-center justify-center gap-6 mt-2 text-xs">
             <div className="flex items-center gap-2">
