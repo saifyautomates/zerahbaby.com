@@ -131,7 +131,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .from("website_visitors")
         .select("*");
       if (error) return [];
-      return (data ?? []) as WebsiteVisitor[];
+      const v = (data ?? []) as WebsiteVisitor[];
+      return v.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
   });
 
@@ -1256,6 +1257,62 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Website Visitors Section */}
+      <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Website Visitors</h3>
+            <p className="text-[11px] text-muted-foreground">
+              Total Recorded Visits:{" "}
+              <span className="font-bold text-foreground">{visitors.length}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            <Users className="h-3.5 w-3.5" />
+            <span>{stats.visitorsCount} this period</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground font-medium">
+                <th className="pb-2.5">Date & Time</th>
+                <th className="pb-2.5">Location</th>
+                <th className="pb-2.5">Source</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {visitors.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-8 text-center text-xs text-muted-foreground">
+                    No visitor data available.
+                  </td>
+                </tr>
+              ) : (
+                visitors.slice(0, 10).map((v, idx) => {
+                  const location = [v.city, v.region, v.country].filter(Boolean).join(", ");
+                  return (
+                    <tr key={idx} className="hover:bg-muted/50 transition-colors">
+                      <td className="py-2.5 font-medium text-foreground">
+                        {format(new Date(v.created_at), "MMM dd, hh:mm a")}
+                      </td>
+                      <td className="py-2.5 text-muted-foreground">
+                        {location || "Unknown Location"}
+                      </td>
+                      <td className="py-2.5">
+                        <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          Direct
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
