@@ -360,23 +360,13 @@ export function useDeleteCancelledOrder() {
         );
       }
 
-      // Use secure edge function to bypass RLS and perform cascading deletion with audit log
-      const { error: funcErr } = await supabase.functions.invoke("delete-cancelled-order", {
-        body: { order_id: orderId },
+      // Use secure RPC to bypass RLS and perform cascading deletion
+      const { error: rpcErr } = await supabase.rpc("delete_cancelled_order", {
+        _order_id: orderId,
       });
 
-      if (funcErr) {
-        let errorMsg = "Failed to delete cancelled order.";
-        try {
-          const ctx = (funcErr as any).context;
-          if (ctx && typeof ctx.json === "function") {
-            const errorBody = await ctx.clone().json();
-            if (errorBody?.error) errorMsg = errorBody.error;
-          }
-        } catch {
-          errorMsg = funcErr.message || errorMsg;
-        }
-        throw new Error(errorMsg);
+      if (rpcErr) {
+        throw new Error(rpcErr.message || "Failed to delete cancelled order.");
       }
 
       return { success: true, message: "Cancelled order deleted successfully." };
