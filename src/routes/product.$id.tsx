@@ -800,11 +800,14 @@ function BuyNowModal({
         throw new Error(errorMsg);
       }
 
+      const razorpayKey =
+        createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
+
       // Launch Razorpay Checkout Modal
       const options = {
         key: razorpayKey,
-        amount: Math.round(finalTotal * 100),
-        currency: "INR",
+        amount: createData.amount || Math.round(finalTotal * 100),
+        currency: createData.currency || "INR",
         name: "Zerah Baby And Kid's",
         description: `${qty} × ${product.name}`,
         order_id: createData.rzp_order_id,

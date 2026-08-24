@@ -204,11 +204,6 @@ function CheckoutPage() {
       if (form.payment_method === "online") {
         setSubmitting(true);
         try {
-          const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-          if (!razorpayKey) {
-            throw new Error("Razorpay Key ID is not configured in client environment");
-          }
-
           // Load Razorpay Script
           await new Promise((resolve, reject) => {
             if (document.getElementById("razorpay-script")) return resolve(true);
@@ -245,11 +240,14 @@ function CheckoutPage() {
             throw new Error(errorMsg);
           }
 
+          const razorpayKey =
+            createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
+
           // Open Razorpay Checkout Modal
           const options = {
             key: razorpayKey,
-            amount: Math.round(finalTotal * 100),
-            currency: "INR",
+            amount: createData.amount || Math.round(finalTotal * 100),
+            currency: createData.currency || "INR",
             name: "Zerah Baby And Kid's",
             description: "Order Payment",
             order_id: createData.rzp_order_id,
