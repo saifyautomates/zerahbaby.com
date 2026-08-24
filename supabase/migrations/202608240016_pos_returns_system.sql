@@ -46,6 +46,7 @@ GRANT SELECT, INSERT, UPDATE ON public.offline_returns TO authenticated;
 GRANT ALL ON public.offline_returns TO service_role;
 ALTER TABLE public.offline_returns ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins manage offline returns" ON public.offline_returns;
 CREATE POLICY "admins manage offline returns" ON public.offline_returns
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
@@ -79,6 +80,7 @@ GRANT SELECT, INSERT, UPDATE ON public.offline_return_items TO authenticated;
 GRANT ALL ON public.offline_return_items TO service_role;
 ALTER TABLE public.offline_return_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins manage offline return items" ON public.offline_return_items;
 CREATE POLICY "admins manage offline return items" ON public.offline_return_items
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))

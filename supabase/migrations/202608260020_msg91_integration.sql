@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.sms_logs (
 -- Admins can view sms logs
 ALTER TABLE public.sms_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins manage sms_logs" ON public.sms_logs;
 CREATE POLICY "admins manage sms_logs" 
 ON public.sms_logs 
 FOR ALL TO authenticated

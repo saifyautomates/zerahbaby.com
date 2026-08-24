@@ -17,7 +17,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'orders' AND policyname = 'admins delete cancelled orders'
   ) THEN
-    CREATE POLICY "admins delete cancelled orders"
+    DROP POLICY IF EXISTS "admins delete cancelled orders" ON public.orders;
+CREATE POLICY "admins delete cancelled orders"
       ON public.orders
       FOR DELETE
       TO authenticated
@@ -28,7 +29,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'order_items' AND policyname = 'admins delete order items'
   ) THEN
-    CREATE POLICY "admins delete order items"
+    DROP POLICY IF EXISTS "admins delete order items" ON public.order_items;
+CREATE POLICY "admins delete order items"
       ON public.order_items
       FOR DELETE
       TO authenticated
@@ -39,7 +41,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'order_status_history' AND policyname = 'admins delete order status history'
   ) THEN
-    CREATE POLICY "admins delete order status history"
+    DROP POLICY IF EXISTS "admins delete order status history" ON public.order_status_history;
+CREATE POLICY "admins delete order status history"
       ON public.order_status_history
       FOR DELETE
       TO authenticated
@@ -50,7 +53,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'payments' AND policyname = 'admins delete payments'
   ) THEN
-    CREATE POLICY "admins delete payments"
+    DROP POLICY IF EXISTS "admins delete payments" ON public.payments;
+CREATE POLICY "admins delete payments"
       ON public.payments
       FOR DELETE
       TO authenticated
@@ -61,7 +65,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'coupon_usage' AND policyname = 'admins delete coupon usage'
   ) THEN
-    CREATE POLICY "admins delete coupon usage"
+    DROP POLICY IF EXISTS "admins delete coupon usage" ON public.coupon_usage;
+CREATE POLICY "admins delete coupon usage"
       ON public.coupon_usage
       FOR DELETE
       TO authenticated

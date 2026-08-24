@@ -36,6 +36,7 @@ ON public.owner_notification_logs (event_type, reference_id);
 -- 4. Enable RLS
 ALTER TABLE public.owner_notification_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can view and manage notification logs" ON public.owner_notification_logs;
 CREATE POLICY "Admins can view and manage notification logs"
 ON public.owner_notification_logs
 FOR ALL

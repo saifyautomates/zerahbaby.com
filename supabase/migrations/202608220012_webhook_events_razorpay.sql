@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.webhook_events (
 -- RLS: Only admins/service role can access
 ALTER TABLE public.webhook_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins manage webhook_events" ON public.webhook_events;
 CREATE POLICY "admins manage webhook_events" 
 ON public.webhook_events 
 FOR ALL TO authenticated

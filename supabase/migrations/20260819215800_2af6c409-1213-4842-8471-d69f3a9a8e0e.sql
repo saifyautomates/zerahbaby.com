@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.carts (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.carts TO authenticated;
 GRANT ALL ON public.carts TO service_role;
 ALTER TABLE public.carts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own cart" ON public.carts;
 CREATE POLICY "own cart" ON public.carts FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS public.cart_items (
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.cart_items (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.cart_items TO authenticated;
 GRANT ALL ON public.cart_items TO service_role;
 ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own cart items" ON public.cart_items;
 CREATE POLICY "own cart items" ON public.cart_items FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.carts c WHERE c.id = cart_items.cart_id AND c.user_id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM public.carts c WHERE c.id = cart_items.cart_id AND c.user_id = auth.uid()));
@@ -38,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.wishlists (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wishlists TO authenticated;
 GRANT ALL ON public.wishlists TO service_role;
 ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own wishlist" ON public.wishlists;
 CREATE POLICY "own wishlist" ON public.wishlists FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS public.wishlist_items (
@@ -50,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.wishlist_items (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wishlist_items TO authenticated;
 GRANT ALL ON public.wishlist_items TO service_role;
 ALTER TABLE public.wishlist_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own wishlist items" ON public.wishlist_items;
 CREATE POLICY "own wishlist items" ON public.wishlist_items FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.wishlists w WHERE w.id = wishlist_items.wishlist_id AND w.user_id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM public.wishlists w WHERE w.id = wishlist_items.wishlist_id AND w.user_id = auth.uid()));
@@ -73,6 +77,7 @@ CREATE TABLE IF NOT EXISTS public.user_addresses (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_addresses TO authenticated;
 GRANT ALL ON public.user_addresses TO service_role;
 ALTER TABLE public.user_addresses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own addresses" ON public.user_addresses;
 CREATE POLICY "own addresses" ON public.user_addresses FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- reviews
@@ -94,11 +99,16 @@ GRANT SELECT ON public.reviews TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.reviews TO authenticated;
 GRANT ALL ON public.reviews TO service_role;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "approved reviews anon read" ON public.reviews;
 CREATE POLICY "approved reviews anon read" ON public.reviews FOR SELECT TO anon USING (status = 'approved');
+DROP POLICY IF EXISTS "reviews auth read" ON public.reviews;
 CREATE POLICY "reviews auth read" ON public.reviews FOR SELECT TO authenticated
   USING (status = 'approved' OR user_id = auth.uid() OR has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS "own review insert" ON public.reviews;
 CREATE POLICY "own review insert" ON public.reviews FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "own review update" ON public.reviews;
 CREATE POLICY "own review update" ON public.reviews FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins manage reviews" ON public.reviews;
 CREATE POLICY "admins manage reviews" ON public.reviews FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
@@ -121,6 +131,7 @@ CREATE TABLE IF NOT EXISTS public.coupons (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.coupons TO authenticated;
 GRANT ALL ON public.coupons TO service_role;
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins manage coupons" ON public.coupons;
 CREATE POLICY "admins manage coupons" ON public.coupons FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin'::app_role)) WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
@@ -134,9 +145,11 @@ CREATE TABLE IF NOT EXISTS public.coupon_redemptions (
 GRANT SELECT ON public.coupon_redemptions TO authenticated;
 GRANT ALL ON public.coupon_redemptions TO service_role;
 ALTER TABLE public.coupon_redemptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own redemptions read" ON public.coupon_redemptions;
 CREATE POLICY "own redemptions read" ON public.coupon_redemptions FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR has_role(auth.uid(), 'admin'::app_role));
 
+DROP FUNCTION IF EXISTS public.validate_coupon(text, uuid, numeric);
 CREATE OR REPLACE FUNCTION public.validate_coupon(_code text, _user_id uuid, _order_total numeric)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -189,6 +202,7 @@ CREATE TABLE IF NOT EXISTS public.order_status_history (
 GRANT SELECT ON public.order_status_history TO authenticated;
 GRANT ALL ON public.order_status_history TO service_role;
 ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "order history read" ON public.order_status_history;
 CREATE POLICY "order history read" ON public.order_status_history FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_status_history.order_id AND (o.user_id = auth.uid() OR has_role(auth.uid(), 'admin'::app_role))));
 

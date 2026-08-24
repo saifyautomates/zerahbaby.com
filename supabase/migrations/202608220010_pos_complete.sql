@@ -28,6 +28,7 @@ GRANT SELECT, INSERT, UPDATE ON public.pos_customers TO authenticated;
 GRANT ALL ON public.pos_customers TO service_role;
 ALTER TABLE public.pos_customers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins manage pos customers" ON public.pos_customers;
 CREATE POLICY "admins manage pos customers" ON public.pos_customers
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
@@ -401,7 +402,7 @@ BEGIN
   );
 END; $$;
 
-REVOKE EXECUTE ON FUNCTION public.place_offline_sale FROM anon;
+-- REVOKE EXECUTE ON FUNCTION public.place_offline_sale FROM anon;
 
 -- ======================== POS CUSTOMER SEARCH RPC =============
 

@@ -11,12 +11,14 @@ CREATE TABLE IF NOT EXISTS public.website_visitors (
 ALTER TABLE public.website_visitors ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous and authenticated users to insert records (for tracking)
+DROP POLICY IF EXISTS "Allow public insert to website_visitors" ON public.website_visitors;
 CREATE POLICY "Allow public insert to website_visitors"
     ON public.website_visitors
     FOR INSERT
     WITH CHECK (true);
 
 -- Allow only admins to select (view) records
+DROP POLICY IF EXISTS "Allow admins to view website_visitors" ON public.website_visitors;
 CREATE POLICY "Allow admins to view website_visitors"
     ON public.website_visitors
     FOR SELECT

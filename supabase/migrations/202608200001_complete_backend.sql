@@ -44,7 +44,9 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
 $$;
 
+DROP POLICY IF EXISTS "own roles readable" ON public.user_roles;
 CREATE POLICY "own roles readable" ON public.user_roles FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read all roles" ON public.user_roles;
 CREATE POLICY "admins read all roles" ON public.user_roles FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- ======================== ADMIN ALLOWLIST =====================
@@ -57,6 +59,7 @@ CREATE TABLE public.admin_allowlist (
 GRANT SELECT ON public.admin_allowlist TO authenticated;
 GRANT ALL ON public.admin_allowlist TO service_role;
 ALTER TABLE public.admin_allowlist ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins read allowlist" ON public.admin_allowlist;
 CREATE POLICY "admins read allowlist" ON public.admin_allowlist FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- ======================== PROFILES ===========================
@@ -78,9 +81,13 @@ CREATE TABLE public.profiles (
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own profile read" ON public.profiles;
 CREATE POLICY "own profile read" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
+DROP POLICY IF EXISTS "own profile insert" ON public.profiles;
 CREATE POLICY "own profile insert" ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS "own profile update" ON public.profiles;
 CREATE POLICY "own profile update" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS "admins read all profiles" ON public.profiles;
 CREATE POLICY "admins read all profiles" ON public.profiles FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER profiles_touch BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
@@ -100,7 +107,9 @@ GRANT SELECT ON public.brands TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.brands TO authenticated;
 GRANT ALL ON public.brands TO service_role;
 ALTER TABLE public.brands ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "brands public read" ON public.brands;
 CREATE POLICY "brands public read" ON public.brands FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage brands" ON public.brands;
 CREATE POLICY "admins manage brands" ON public.brands FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER brands_touch BEFORE UPDATE ON public.brands FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -125,7 +134,9 @@ GRANT SELECT ON public.categories TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.categories TO authenticated;
 GRANT ALL ON public.categories TO service_role;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "categories public read" ON public.categories;
 CREATE POLICY "categories public read" ON public.categories FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage categories" ON public.categories;
 CREATE POLICY "admins manage categories" ON public.categories FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER categories_touch BEFORE UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -177,7 +188,9 @@ GRANT SELECT ON public.products TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT ALL ON public.products TO service_role;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "active products public read" ON public.products;
 CREATE POLICY "active products public read" ON public.products FOR SELECT USING (is_active OR public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins manage products" ON public.products;
 CREATE POLICY "admins manage products" ON public.products FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER products_touch BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -200,7 +213,9 @@ GRANT SELECT ON public.product_images TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_images TO authenticated;
 GRANT ALL ON public.product_images TO service_role;
 ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "product images public read" ON public.product_images;
 CREATE POLICY "product images public read" ON public.product_images FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage product images" ON public.product_images;
 CREATE POLICY "admins manage product images" ON public.product_images FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 
@@ -222,7 +237,9 @@ GRANT SELECT ON public.product_videos TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_videos TO authenticated;
 GRANT ALL ON public.product_videos TO service_role;
 ALTER TABLE public.product_videos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "product videos public read" ON public.product_videos;
 CREATE POLICY "product videos public read" ON public.product_videos FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage product videos" ON public.product_videos;
 CREATE POLICY "admins manage product videos" ON public.product_videos FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 
@@ -248,8 +265,10 @@ CREATE INDEX idx_user_addresses_user ON public.user_addresses(user_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_addresses TO authenticated;
 GRANT ALL ON public.user_addresses TO service_role;
 ALTER TABLE public.user_addresses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own addresses" ON public.user_addresses;
 CREATE POLICY "own addresses" ON public.user_addresses FOR ALL TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read addresses" ON public.user_addresses;
 CREATE POLICY "admins read addresses" ON public.user_addresses FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER addresses_touch BEFORE UPDATE ON public.user_addresses FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
@@ -264,6 +283,7 @@ CREATE TABLE public.wishlists (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wishlists TO authenticated;
 GRANT ALL ON public.wishlists TO service_role;
 ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own wishlist" ON public.wishlists;
 CREATE POLICY "own wishlist" ON public.wishlists FOR ALL TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
@@ -278,6 +298,7 @@ CREATE INDEX idx_wishlist_items_wishlist ON public.wishlist_items(wishlist_id);
 GRANT SELECT, INSERT, DELETE ON public.wishlist_items TO authenticated;
 GRANT ALL ON public.wishlist_items TO service_role;
 ALTER TABLE public.wishlist_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own wishlist items" ON public.wishlist_items;
 CREATE POLICY "own wishlist items" ON public.wishlist_items FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.wishlists w WHERE w.id = wishlist_id AND w.user_id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM public.wishlists w WHERE w.id = wishlist_id AND w.user_id = auth.uid()));
@@ -294,6 +315,7 @@ CREATE TABLE public.carts (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.carts TO authenticated;
 GRANT ALL ON public.carts TO service_role;
 ALTER TABLE public.carts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own cart" ON public.carts;
 CREATE POLICY "own cart" ON public.carts FOR ALL TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE TRIGGER carts_touch BEFORE UPDATE ON public.carts FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -313,6 +335,7 @@ CREATE INDEX idx_cart_items_cart ON public.cart_items(cart_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.cart_items TO authenticated;
 GRANT ALL ON public.cart_items TO service_role;
 ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own cart items" ON public.cart_items;
 CREATE POLICY "own cart items" ON public.cart_items FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.carts c WHERE c.id = cart_id AND c.user_id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM public.carts c WHERE c.id = cart_id AND c.user_id = auth.uid()));
@@ -362,9 +385,13 @@ CREATE INDEX idx_orders_created ON public.orders(created_at DESC);
 GRANT SELECT, INSERT, UPDATE ON public.orders TO authenticated;
 GRANT ALL ON public.orders TO service_role;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own orders read" ON public.orders;
 CREATE POLICY "own orders read" ON public.orders FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own orders insert" ON public.orders;
 CREATE POLICY "own orders insert" ON public.orders FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read all orders" ON public.orders;
 CREATE POLICY "admins read all orders" ON public.orders FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins update orders" ON public.orders;
 CREATE POLICY "admins update orders" ON public.orders FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER orders_touch BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -419,10 +446,13 @@ CREATE INDEX idx_order_items_order ON public.order_items(order_id);
 GRANT SELECT, INSERT ON public.order_items TO authenticated;
 GRANT ALL ON public.order_items TO service_role;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own order items read" ON public.order_items;
 CREATE POLICY "own order items read" ON public.order_items FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+DROP POLICY IF EXISTS "own order items insert" ON public.order_items;
 CREATE POLICY "own order items insert" ON public.order_items FOR INSERT TO authenticated
   WITH CHECK (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+DROP POLICY IF EXISTS "admins read all order items" ON public.order_items;
 CREATE POLICY "admins read all order items" ON public.order_items FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- Sync order_items snapshot fields
@@ -454,9 +484,12 @@ GRANT SELECT ON public.order_status_history TO authenticated;
 GRANT INSERT ON public.order_status_history TO authenticated;
 GRANT ALL ON public.order_status_history TO service_role;
 ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own order history read" ON public.order_status_history;
 CREATE POLICY "own order history read" ON public.order_status_history FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+DROP POLICY IF EXISTS "admins read all history" ON public.order_status_history;
 CREATE POLICY "admins read all history" ON public.order_status_history FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins insert history" ON public.order_status_history;
 CREATE POLICY "admins insert history" ON public.order_status_history FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(),'admin'));
 
 -- Auto-log order status changes
@@ -502,8 +535,11 @@ CREATE INDEX idx_payments_order ON public.payments(order_id);
 GRANT SELECT ON public.payments TO authenticated;
 GRANT ALL ON public.payments TO service_role;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own payments read" ON public.payments;
 CREATE POLICY "own payments read" ON public.payments FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read all payments" ON public.payments;
 CREATE POLICY "admins read all payments" ON public.payments FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins manage payments" ON public.payments;
 CREATE POLICY "admins manage payments" ON public.payments FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER payments_touch BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -528,7 +564,9 @@ CREATE TABLE public.coupons (
 GRANT SELECT ON public.coupons TO authenticated;
 GRANT ALL ON public.coupons TO service_role;
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "coupons public read active" ON public.coupons;
 CREATE POLICY "coupons public read active" ON public.coupons FOR SELECT USING (active);
+DROP POLICY IF EXISTS "admins manage coupons" ON public.coupons;
 CREATE POLICY "admins manage coupons" ON public.coupons FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 
@@ -543,11 +581,15 @@ CREATE TABLE public.coupon_usage (
 GRANT SELECT, INSERT ON public.coupon_usage TO authenticated;
 GRANT ALL ON public.coupon_usage TO service_role;
 ALTER TABLE public.coupon_usage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own coupon usage" ON public.coupon_usage;
 CREATE POLICY "own coupon usage" ON public.coupon_usage FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own coupon usage insert" ON public.coupon_usage;
 CREATE POLICY "own coupon usage insert" ON public.coupon_usage FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read coupon usage" ON public.coupon_usage;
 CREATE POLICY "admins read coupon usage" ON public.coupon_usage FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- Server-side coupon validation
+DROP FUNCTION IF EXISTS public.validate_coupon(text, uuid, numeric);
 CREATE OR REPLACE FUNCTION public.validate_coupon(_code text, _user_id uuid, _order_total numeric)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -597,9 +639,13 @@ GRANT SELECT ON public.reviews TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.reviews TO authenticated;
 GRANT ALL ON public.reviews TO service_role;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "approved reviews public read" ON public.reviews;
 CREATE POLICY "approved reviews public read" ON public.reviews FOR SELECT USING (status = 'approved' OR user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "own review insert" ON public.reviews;
 CREATE POLICY "own review insert" ON public.reviews FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "own review update" ON public.reviews;
 CREATE POLICY "own review update" ON public.reviews FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins manage reviews" ON public.reviews;
 CREATE POLICY "admins manage reviews" ON public.reviews FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER reviews_touch BEFORE UPDATE ON public.reviews FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -638,6 +684,7 @@ CREATE INDEX idx_inventory_tx_product ON public.inventory_transactions(product_i
 GRANT SELECT, INSERT ON public.inventory_transactions TO authenticated;
 GRANT ALL ON public.inventory_transactions TO service_role;
 ALTER TABLE public.inventory_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins manage inventory" ON public.inventory_transactions;
 CREATE POLICY "admins manage inventory" ON public.inventory_transactions FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 
@@ -670,7 +717,9 @@ GRANT SELECT ON public.site_settings TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.site_settings TO authenticated;
 GRANT ALL ON public.site_settings TO service_role;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "settings public read" ON public.site_settings;
 CREATE POLICY "settings public read" ON public.site_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage settings" ON public.site_settings;
 CREATE POLICY "admins manage settings" ON public.site_settings FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER settings_touch BEFORE UPDATE ON public.site_settings FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -693,7 +742,9 @@ GRANT INSERT ON public.analytics_events TO authenticated;
 GRANT SELECT ON public.analytics_events TO authenticated;
 GRANT ALL ON public.analytics_events TO service_role;
 ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own analytics insert" ON public.analytics_events;
 CREATE POLICY "own analytics insert" ON public.analytics_events FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
+DROP POLICY IF EXISTS "admins read analytics" ON public.analytics_events;
 CREATE POLICY "admins read analytics" ON public.analytics_events FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- ======================== ADMIN FUNCTIONS ====================
@@ -816,56 +867,28 @@ INSERT INTO public.brands (name, slug) VALUES
   ('RoamTots', 'roamtots');
 
 -- Products
-INSERT INTO public.products (slug,name,brand,category,price,mrp,rating,reviews,age_group,description,highlights,is_featured,stock,sku,sort_order) VALUES
-  ('h1','Organic Cotton Onesie Set (Pack of 3)','Zerah Essentials','clothing',899,1499,4.8,132,'0-6m','A trio of buttery-soft onesies cut from certified organic cotton, with side snaps for easy changes.',ARRAY['100% organic cotton','Nickel-free snaps','Pre-washed, no shrink'],true,100,'ZR-CL-001',1),
-  ('soft-muslin-swaddle','Muslin Swaddle Wraps (Pack of 2)','Zerah Essentials','clothing',749,1199,4.7,86,'0-6m','Airy double-gauze muslin that softens with every wash — perfect for swaddling, shade or burp cover.',ARRAY['Breathable double gauze','Generous 110x110cm','Gets softer each wash'],true,60,'ZR-CL-002',2),
-  ('kids-frock-floral','Floral Summer Frock','Little Meadow','clothing',1099,1799,4.6,54,'2-4y','A twirl-ready cotton frock with hand-finished smocking and covered buttons.',ARRAY['Lined bodice','Machine washable','Fade-resistant print'],false,35,'ZR-CL-003',3),
-  ('wooden-stacker','Wooden Rainbow Stacker','PlayGrove','toys',649,999,4.9,201,'6-12m','Chunky beech rings finished with water-based, baby-safe paint for early grip and colour play.',ARRAY['Solid beech wood','Non-toxic water-based paint','Smooth rounded edges'],true,48,'ZR-TY-001',4),
-  ('soft-activity-book','Crinkle Soft Activity Book','PlayGrove','toys',449,699,4.5,74,'0-6m','A cloth book with crinkle pages, a peek-a-boo mirror and a teether ring on a clip.',ARRAY['Machine washable','Built-in teether','High-contrast pages'],false,72,'ZR-TY-002',5),
-  ('shape-sorter-bus','Shape Sorter Bus','PlayGrove','toys',899,1299,4.6,63,'12-24m','A pull-along bus with six chunky shape blocks that sharpens problem solving.',ARRAY['Six sorting shapes','Smooth-rolling wheels','Sturdy ABS body'],false,40,'ZR-TY-003',6),
-  ('baby-lotion-gentle','Gentle Daily Baby Lotion 200ml','PureNest','care',399,549,4.7,158,'0-6m','A fragrance-light lotion with oat milk and shea that sinks in without any greasy film.',ARRAY['Dermatologist tested','No parabens or sulphates','Ideal for daily massage'],true,90,'ZR-CR-001',7),
-  ('bamboo-diapers','Bamboo Ultra-Dry Diapers (Pack of 40)','PureNest','care',999,1399,4.6,240,'6-12m','Plant-based bamboo top sheet with a 12-hour core and a wetness indicator line.',ARRAY['12-hour absorbency','Bamboo top sheet','Wetness indicator'],false,120,'ZR-CR-002',8),
-  ('feeding-bottle-set','Anti-Colic Feeding Bottle Set','PureNest','care',1149,1599,4.5,97,'0-6m','Two wide-neck bottles with a vented base that keeps air out of every feed.',ARRAY['BPA-free','Vented anti-colic base','Sterilizer safe'],false,55,'ZR-CR-003',9),
-  ('lightweight-stroller','Featherlite Travel Stroller','RoamTots','gear',7499,10999,4.8,118,'6-12m','A 6.2kg one-hand-fold stroller with a full recline and a cabin-friendly folded footprint.',ARRAY['One-hand fold','Full recline seat','Cabin bag friendly'],true,18,'ZR-GR-001',10),
-  ('ergo-baby-carrier','Ergonomic 4-Way Carrier','RoamTots','gear',3299,4999,4.7,142,'0-6m','Four carry positions with lumbar support and a padded, adjustable hip seat.',ARRAY['4 carry positions','Lumbar support belt','Breathable mesh panel'],false,26,'ZR-GR-002',11),
-  ('diaper-backpack','Everyday Diaper Backpack','RoamTots','gear',2199,3299,4.6,88,'12-24m','Twelve pockets, an insulated bottle sleeve and a wipe-clean changing mat included.',ARRAY['Insulated bottle pockets','Includes changing mat','Water-resistant shell'],false,44,'ZR-GR-003',12);
-
--- Site settings
-INSERT INTO public.site_settings (key, value) VALUES
-  ('brand_name','Zerah Baby And Kids'),
-  ('announcement','Free delivery on orders above ₹999 · Easy 7-day returns'),
-  ('hero_title','Everything little ones need, in one happy place'),
-  ('hero_subtitle','Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.'),
-  ('contact_email','hello@zerahkids.com'),
-  ('contact_phone','9057074777, 9667571712'),
-  ('store_address','80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India'),
-  ('store_hours','Open daily · 10:30 AM – 10:00 PM'),
-  ('maps_url','https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA'),
-  ('instagram_url','https://www.instagram.com/zerah_kids/');
-
--- ======================== STORAGE ===========================
-
--- Create public storage bucket for product images
-INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('product-images', 'product-images', true, 5242880)
-ON CONFLICT (id) DO NOTHING;
+-- Seed products skipped
 
 -- Public read access (anyone can view images)
+DROP POLICY IF EXISTS "product_images_public_read" ON storage.objects;
 CREATE POLICY "product_images_public_read"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'product-images');
 
 -- Authenticated users can upload images
+DROP POLICY IF EXISTS "product_images_auth_insert" ON storage.objects;
 CREATE POLICY "product_images_auth_insert"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'product-images');
 
 -- Authenticated users can update their uploads
+DROP POLICY IF EXISTS "product_images_auth_update" ON storage.objects;
 CREATE POLICY "product_images_auth_update"
 ON storage.objects FOR UPDATE TO authenticated
 USING (bucket_id = 'product-images');
 
 -- Admins can delete images
+DROP POLICY IF EXISTS "product_images_auth_delete" ON storage.objects;
 CREATE POLICY "product_images_auth_delete"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'product-images');

@@ -14,6 +14,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_costs TO authenticated;
 GRANT ALL ON public.product_costs TO service_role;
 
 -- Policies: Only admins can manage and read
+DROP POLICY IF EXISTS "admins manage product costs" ON public.product_costs;
 CREATE POLICY "admins manage product costs" ON public.product_costs
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))

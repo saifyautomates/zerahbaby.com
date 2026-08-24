@@ -17,7 +17,9 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
 $$;
 
+DROP POLICY IF EXISTS "own roles readable" ON public.user_roles;
 CREATE POLICY "own roles readable" ON public.user_roles FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read roles" ON public.user_roles;
 CREATE POLICY "admins read roles" ON public.user_roles FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 CREATE TABLE public.admin_allowlist (
@@ -28,6 +30,7 @@ CREATE TABLE public.admin_allowlist (
 GRANT SELECT ON public.admin_allowlist TO authenticated;
 GRANT ALL ON public.admin_allowlist TO service_role;
 ALTER TABLE public.admin_allowlist ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins read allowlist" ON public.admin_allowlist;
 CREATE POLICY "admins read allowlist" ON public.admin_allowlist FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- updated_at helper
@@ -50,7 +53,9 @@ GRANT SELECT ON public.categories TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.categories TO authenticated;
 GRANT ALL ON public.categories TO service_role;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "categories public read" ON public.categories;
 CREATE POLICY "categories public read" ON public.categories FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage categories" ON public.categories;
 CREATE POLICY "admins manage categories" ON public.categories FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER categories_touch BEFORE UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -84,7 +89,9 @@ GRANT SELECT ON public.products TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 GRANT ALL ON public.products TO service_role;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "active products public read" ON public.products;
 CREATE POLICY "active products public read" ON public.products FOR SELECT USING (is_active OR public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins manage products" ON public.products;
 CREATE POLICY "admins manage products" ON public.products FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER products_touch BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -99,7 +106,9 @@ GRANT SELECT ON public.site_settings TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.site_settings TO authenticated;
 GRANT ALL ON public.site_settings TO service_role;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "settings public read" ON public.site_settings;
 CREATE POLICY "settings public read" ON public.site_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "admins manage settings" ON public.site_settings;
 CREATE POLICY "admins manage settings" ON public.site_settings FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER settings_touch BEFORE UPDATE ON public.site_settings FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -120,8 +129,10 @@ CREATE TABLE public.profiles (
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own profile" ON public.profiles;
 CREATE POLICY "own profile" ON public.profiles FOR ALL TO authenticated
   USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS "admins read profiles" ON public.profiles;
 CREATE POLICY "admins read profiles" ON public.profiles FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER profiles_touch BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
@@ -152,9 +163,13 @@ CREATE TABLE public.orders (
 GRANT SELECT, INSERT, UPDATE ON public.orders TO authenticated;
 GRANT ALL ON public.orders TO service_role;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own orders read" ON public.orders;
 CREATE POLICY "own orders read" ON public.orders FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "own orders insert" ON public.orders;
 CREATE POLICY "own orders insert" ON public.orders FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read orders" ON public.orders;
 CREATE POLICY "admins read orders" ON public.orders FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "admins update orders" ON public.orders;
 CREATE POLICY "admins update orders" ON public.orders FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER orders_touch BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -172,10 +187,13 @@ CREATE TABLE public.order_items (
 GRANT SELECT, INSERT ON public.order_items TO authenticated;
 GRANT ALL ON public.order_items TO service_role;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own order items read" ON public.order_items;
 CREATE POLICY "own order items read" ON public.order_items FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+DROP POLICY IF EXISTS "own order items insert" ON public.order_items;
 CREATE POLICY "own order items insert" ON public.order_items FOR INSERT TO authenticated
   WITH CHECK (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
+DROP POLICY IF EXISTS "admins read order items" ON public.order_items;
 CREATE POLICY "admins read order items" ON public.order_items FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'));
 
 -- Helper functions used by the app

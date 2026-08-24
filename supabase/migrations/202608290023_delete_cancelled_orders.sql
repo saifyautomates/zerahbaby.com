@@ -27,12 +27,14 @@ CREATE INDEX IF NOT EXISTS idx_admin_order_deletion_logs_deleted_by
 -- Enable RLS on audit table (admins only)
 ALTER TABLE public.admin_order_deletion_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admins read deletion logs" ON public.admin_order_deletion_logs;
 CREATE POLICY "admins read deletion logs"
   ON public.admin_order_deletion_logs
   FOR SELECT
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "admins insert deletion logs" ON public.admin_order_deletion_logs;
 CREATE POLICY "admins insert deletion logs"
   ON public.admin_order_deletion_logs
   FOR INSERT
@@ -49,7 +51,8 @@ BEGIN
     SELECT 1 FROM pg_policies 
     WHERE tablename = 'orders' AND policyname = 'admins delete cancelled orders'
   ) THEN
-    CREATE POLICY "admins delete cancelled orders"
+    DROP POLICY IF EXISTS "admins delete cancelled orders" ON public.orders;
+CREATE POLICY "admins delete cancelled orders"
       ON public.orders
       FOR DELETE
       TO authenticated

@@ -42,6 +42,11 @@ export type Order = {
   owner_notified_at?: string | null;
   created_at: string;
   order_items: OrderItem[];
+  shiprocket_order_id?: number | null;
+  shiprocket_shipment_id?: number | null;
+  awb_code?: string | null;
+  courier_name?: string | null;
+  shiprocket_status?: string | null;
 };
 
 export const orderStatuses = [
@@ -383,3 +388,64 @@ export function useDeleteCancelledOrder() {
     },
   });
 }
+
+/**
+ * Shiprocket Integration Hooks
+ */
+export function useCreateShiprocketShipment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
+        body: { action: "create_shipment", orderId },
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Shiprocket shipment created!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to create shipment"),
+  });
+}
+
+export function useGenerateShiprocketAWB() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
+        body: { action: "generate_awb", orderId },
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("AWB Generated successfully!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to generate AWB"),
+  });
+}
+
+export function useRequestShiprocketPickup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
+        body: { action: "request_pickup", orderId },
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Pickup requested successfully!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to request pickup"),
+  });
+}
+

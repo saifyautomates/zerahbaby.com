@@ -23,6 +23,7 @@ CREATE INDEX idx_offline_sales_created_by ON public.offline_sales(created_by);
 GRANT SELECT, INSERT, UPDATE ON public.offline_sales TO authenticated;
 GRANT ALL ON public.offline_sales TO service_role;
 ALTER TABLE public.offline_sales ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins manage offline sales" ON public.offline_sales;
 CREATE POLICY "admins manage offline sales" ON public.offline_sales FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER offline_sales_touch BEFORE UPDATE ON public.offline_sales FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -48,6 +49,7 @@ CREATE INDEX idx_offline_sale_items_product ON public.offline_sale_items(product
 GRANT SELECT, INSERT, UPDATE ON public.offline_sale_items TO authenticated;
 GRANT ALL ON public.offline_sale_items TO service_role;
 ALTER TABLE public.offline_sale_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins manage offline sale items" ON public.offline_sale_items;
 CREATE POLICY "admins manage offline sale items" ON public.offline_sale_items FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 

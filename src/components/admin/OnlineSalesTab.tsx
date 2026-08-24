@@ -12,7 +12,12 @@ import {
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { formatPrice } from "@/lib/store";
-import { MailCheck, MailWarning, RotateCcw, Trash2, AlertTriangle, X, Loader2 } from "lucide-react";
+import { 
+  useCreateShiprocketShipment, 
+  useGenerateShiprocketAWB, 
+  useRequestShiprocketPickup 
+} from "@/lib/orders";
+import { MailCheck, MailWarning, RotateCcw, Trash2, AlertTriangle, X, Loader2, Truck, PackageCheck, Send } from "lucide-react";
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
@@ -22,6 +27,9 @@ export function OnlineSalesTab() {
 
   const retryNotification = useRetryOrderNotification();
   const deleteOrder = useDeleteCancelledOrder();
+  const createShipment = useCreateShiprocketShipment();
+  const generateAwb = useGenerateShiprocketAWB();
+  const requestPickup = useRequestShiprocketPickup();
 
   const update = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -315,6 +323,52 @@ export function OnlineSalesTab() {
                     </option>
                   ))}
                 </select>
+
+                {/* Shiprocket Actions */}
+                {order.payment_status === "paid" && order.status !== "cancelled" && (
+                  <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
+                    {!order.shiprocket_order_id ? (
+                      <button
+                        type="button"
+                        onClick={() => createShipment.mutate(order.id)}
+                        disabled={createShipment.isPending || order.status === "cancelled"}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-sm disabled:opacity-50"
+                      >
+                        {createShipment.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <PackageCheck className="size-3.5" />}
+                        Push to Shiprocket
+                      </button>
+                    ) : !order.awb_code ? (
+                      <button
+                        type="button"
+                        onClick={() => generateAwb.mutate(order.id)}
+                        disabled={generateAwb.isPending}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                      >
+                        {generateAwb.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                        Generate AWB
+                      </button>
+                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" && order.shiprocket_status !== "SHIPPED" && order.shiprocket_status !== "DELIVERED" ? (
+                      <button
+                        type="button"
+                        onClick={() => requestPickup.mutate(order.id)}
+                        disabled={requestPickup.isPending}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                      >
+                        {requestPickup.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Truck className="size-3.5" />}
+                        Request Pickup
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Shiprocket AWB</p>
+                        <p className="text-xs font-bold text-foreground mt-0.5">{order.awb_code}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{order.courier_name}</p>
+                        <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
+                          {order.shiprocket_status}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Secure Admin Delete Action for Cancelled Orders Only */}
                 {order.status === "cancelled" && (

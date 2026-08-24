@@ -12,6 +12,8 @@ GRANT INSERT ON public.analytics_events TO anon;
 GRANT INSERT, SELECT ON public.analytics_events TO authenticated;
 GRANT ALL ON public.analytics_events TO service_role;
 ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anyone can log events" ON public.analytics_events;
 CREATE POLICY "anyone can log events" ON public.analytics_events FOR INSERT TO anon, authenticated WITH CHECK (user_id IS NULL OR user_id = auth.uid());
+DROP POLICY IF EXISTS "admins read events" ON public.analytics_events;
 CREATE POLICY "admins read events" ON public.analytics_events FOR SELECT TO authenticated USING (has_role(auth.uid(), 'admin'::app_role));
 CREATE INDEX IF NOT EXISTS analytics_events_created_at_idx ON public.analytics_events (created_at DESC);

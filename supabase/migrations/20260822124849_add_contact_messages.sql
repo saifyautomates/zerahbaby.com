@@ -1,4 +1,4 @@
-CREATE TABLE contact_messages (
+CREATE TABLE IF NOT EXISTS contact_messages (
     id uuid default uuid_generate_v4() primary key,
     created_at timestamp with time zone default now() not null,
     name text not null,
@@ -9,5 +9,7 @@ CREATE TABLE contact_messages (
 
 ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can insert contact messages" ON public.contact_messages;
 CREATE POLICY "Anyone can insert contact messages" ON contact_messages FOR INSERT TO public WITH CHECK (true);
+DROP POLICY IF EXISTS "Admins can view contact messages" ON public.contact_messages;
 CREATE POLICY "Admins can view contact messages" ON contact_messages FOR SELECT TO authenticated USING (has_role(auth.uid(), 'admin'));
