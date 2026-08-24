@@ -443,12 +443,12 @@ function AdminPage() {
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top Navbar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md lg:px-6">
+        {/* Top Navbar with explicit z-30 stacking context */}
+        <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md lg:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden cursor-pointer"
               aria-label="Open sidebar menu"
             >
               <svg
@@ -486,7 +486,7 @@ function AdminPage() {
               type="button"
               onClick={() => setIsSearchOpen(true)}
               aria-label="Global search"
-              className="flex h-8 w-8 sm:hidden items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-muted transition"
+              className="flex h-8 w-8 sm:hidden items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-muted transition cursor-pointer"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -518,7 +518,7 @@ function AdminPage() {
               onClick={toggleTheme}
               aria-label={`Toggle theme: currently ${isDark ? "Dark" : "Light"}`}
               title={`Switch to ${isDark ? "Light" : "Dark"} mode`}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs cursor-pointer"
             >
               {isDark ? (
                 <Moon className="h-4 w-4 text-indigo-400" />
@@ -534,7 +534,7 @@ function AdminPage() {
                 onClick={() => setIsNotifOpen((prev) => !prev)}
                 aria-label={`Notifications (${unreadCount} unread)`}
                 title="Notifications"
-                className={`relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs ${
+                className={`relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs cursor-pointer ${
                   isNotifOpen ? "ring-2 ring-primary/20 border-primary" : ""
                 }`}
               >
@@ -548,7 +548,11 @@ function AdminPage() {
 
               {/* Notifications Dropdown Popover */}
               {isNotifOpen && (
-                <div className="absolute right-0 top-10 z-50 w-80 sm:w-96 overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150">
+                <div
+                  role="region"
+                  aria-label="Notification Center"
+                  className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-11 z-50 sm:w-[400px] max-w-[420px] overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150"
+                >
                   <div className="flex items-center justify-between border-b border-border p-4 bg-muted/20">
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-bold text-foreground">Notifications</h4>
@@ -562,14 +566,14 @@ function AdminPage() {
                       <button
                         type="button"
                         onClick={markAllAsRead}
-                        className="text-xs font-semibold text-primary hover:underline"
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                       >
                         Mark all as read
                       </button>
                     )}
                   </div>
 
-                  <div className="max-h-96 overflow-y-auto p-2 divide-y divide-border/30">
+                  <div className="max-h-[min(440px,calc(100vh-140px))] overflow-y-auto p-2 divide-y divide-border/30">
                     {notifications.length === 0 ? (
                       <div className="py-8 text-center">
                         <Bell className="mx-auto size-6 text-muted-foreground/40" />
@@ -589,7 +593,7 @@ function AdminPage() {
                                 setTab(notif.tab as Tab);
                                 setIsNotifOpen(false);
                               }}
-                              className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
+                              className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition cursor-pointer ${
                                 notif.read
                                   ? "opacity-60 hover:opacity-100 hover:bg-muted/40"
                                   : "bg-muted/40 hover:bg-muted"
@@ -616,7 +620,7 @@ function AdminPage() {
                                     })}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 break-words">
                                   {notif.message}
                                 </p>
                               </div>
