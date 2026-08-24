@@ -852,15 +852,15 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 data={stats.chartDays}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="dateStr"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `₹${v}`}
@@ -868,12 +868,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <Tooltip
                   formatter={(val: number) => [`₹${val}`, ""]}
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    borderColor: "hsl(var(--border))",
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)",
                     borderRadius: "12px",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     fontSize: "12px",
-                    color: "hsl(var(--foreground))",
+                    color: "var(--foreground)",
                   }}
                 />
                 <Line
@@ -929,27 +929,27 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 data={stats.chartDays}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="dateStr"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
                   formatter={(val: number) => [`${val} visitors`, ""]}
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    borderColor: "hsl(var(--border))",
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)",
                     borderRadius: "12px",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     fontSize: "12px",
-                    color: "hsl(var(--foreground))",
+                    color: "var(--foreground)",
                   }}
                 />
                 <Line
@@ -1005,8 +1005,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <Tooltip
                   formatter={(val: number) => [formatPrice(val), ""]}
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    borderColor: "hsl(var(--border))",
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)",
                     borderRadius: "10px",
                   }}
                 />
