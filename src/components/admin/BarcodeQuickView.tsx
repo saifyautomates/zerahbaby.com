@@ -94,7 +94,9 @@ export function BarcodeQuickView({
                 <p className="text-sm text-amber-700 bg-amber-50 rounded-full px-3 py-1 mt-1 inline-block">
                   Archived — not available for sale
                 </p>
-                {result.sku && <p className="text-xs text-muted-foreground mt-1">SKU: {result.sku}</p>}
+                {result.sku && (
+                  <p className="text-xs text-muted-foreground mt-1">SKU: {result.sku}</p>
+                )}
               </div>
               <button
                 onClick={onScanNext}
@@ -122,7 +124,9 @@ export function BarcodeQuickView({
                 <p className="font-bold text-foreground text-sm leading-tight line-clamp-2">
                   {result.name}
                 </p>
-                {result.brand && <p className="text-xs text-muted-foreground mt-0.5">{result.brand}</p>}
+                {result.brand && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{result.brand}</p>
+                )}
 
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
                   <span className="text-base font-black text-foreground">

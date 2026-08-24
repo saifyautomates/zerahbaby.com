@@ -53,7 +53,7 @@ import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
 import { AdminGlobalSearch } from "@/components/admin/AdminGlobalSearch";
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
-import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
+import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -87,7 +87,6 @@ type Tab =
   | "coupons"
   | "reviews"
   | "inventory"
-  | "analytics"
   | "marketing"
   | "sms";
 
@@ -156,6 +155,10 @@ function AdminPage() {
 
   // Global hardware barcode scanner logic: instantly switches to POS from any admin page
   useEffect(() => {
+    if (hasPendingScans() && tab !== "billing") {
+      setTab("billing");
+    }
+
     const unbind = initGlobalBarcodeScanner((_code) => {
       if (tab !== "billing") {
         setTab("billing");
@@ -273,7 +276,6 @@ function AdminPage() {
     { key: "reviews", label: "Reviews", icon: Star },
     { key: "hero", label: "Hero Media", icon: Images },
     { key: "media", label: "Media Library", icon: FolderOpen },
-    { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "sms", label: "SMS Logs", icon: MessageSquare },
     { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "settings", label: "Settings", icon: Settings },
@@ -650,7 +652,6 @@ function AdminPage() {
             {tab === "customers" && <CustomersTab />}
             {tab === "categories" && <CategoriesTab />}
             {tab === "inventory" && <InventoryTab />}
-            {tab === "analytics" && <SiteAnalyticsTab />}
             {tab === "marketing" && <MarketingTab />}
             {tab === "settings" && <SettingsTab />}
             {tab === "sms" && <SMSLogsTab />}
@@ -838,7 +839,7 @@ function ProductsTab() {
             aria-label="Search products"
             className="w-full rounded-xl border border-border bg-card px-4 py-2 pl-9 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
           />
-          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ”</span>
+          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ” </span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
@@ -914,7 +915,9 @@ function ProductsTab() {
                   </td>
                   <td className="px-5 py-4">
                     <p className="font-mono text-xs font-semibold text-foreground">{p.sku}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{p.barcode}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                      {p.barcode}
+                    </p>
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-between min-w-[120px]">
@@ -922,7 +925,10 @@ function ProductsTab() {
                         <p className="font-semibold text-foreground" title="Selling Price">
                           {formatPrice(p.price)}
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5" title="Buying Price">
+                        <p
+                          className="text-[10px] text-muted-foreground mt-0.5"
+                          title="Buying Price"
+                        >
                           Cost: {formatPrice(p.buyingPrice || 0)}
                         </p>
                       </div>
@@ -1643,7 +1649,9 @@ function CustomersTab() {
                 <td className="px-5 py-4 text-xs text-muted-foreground font-medium">
                   {new Date(c.created_at).toLocaleDateString("en-IN")}
                 </td>
-                <td className="px-5 py-4 text-right font-medium text-muted-foreground">{s.count}</td>
+                <td className="px-5 py-4 text-right font-medium text-muted-foreground">
+                  {s.count}
+                </td>
                 <td className="px-5 py-4 text-right font-semibold text-foreground">
                   {formatPrice(s.spend)}
                 </td>
@@ -1652,7 +1660,10 @@ function CustomersTab() {
           })}
           {!isLoading && (customers ?? []).length === 0 && (
             <tr>
-              <td colSpan={5} className="px-5 py-16 text-center text-sm font-medium text-muted-foreground">
+              <td
+                colSpan={5}
+                className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
+              >
                 No customers yet.
               </td>
             </tr>
@@ -1687,7 +1698,9 @@ function CouponsTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{(coupons ?? []).length} coupon(s)</p>
+        <p className="text-sm font-medium text-muted-foreground">
+          {(coupons ?? []).length} coupon(s)
+        </p>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c]"
@@ -1925,10 +1938,7 @@ function ReviewsTab() {
 
       <ul className="space-y-3">
         {filtered.map((review) => (
-          <li
-            key={review.id}
-            className="rounded-2xl border border-gray-100 bg-card p-5 shadow-2xs"
-          >
+          <li key={review.id} className="rounded-2xl border border-gray-100 bg-card p-5 shadow-2xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2045,13 +2055,14 @@ function ReviewsTab() {
 function InventoryTab() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["inventory-products"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, slug, name, brand, category, stock, low_stock_at, sku, is_active")
+        .select("id, slug, name, brand, category, stock, low_stock_at, sku, is_active, image_url")
         .order("stock", { ascending: true });
       if (error) throw error;
       return data;
@@ -2086,11 +2097,15 @@ function InventoryTab() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total SKUs</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Total SKUs
+          </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalSKUs}</p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Low Stock</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Low Stock
+          </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600">{lowStock}</p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
@@ -2122,6 +2137,7 @@ function InventoryTab() {
           <table className="w-full text-left text-sm text-muted-foreground">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-gray-100">
               <tr>
+                <th className="px-6 py-4 font-semibold tracking-wider w-16">Image</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Product</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">SKU</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Category</th>
@@ -2149,6 +2165,7 @@ function InventoryTab() {
                     key={product.id}
                     product={product}
                     onSave={(val) => updateStock.mutate({ id: product.id, stock: val })}
+                    onImageClick={(url) => setSelectedImage(url)}
                   />
                 ))
               )}
@@ -2156,11 +2173,33 @@ function InventoryTab() {
           </table>
         </div>
       </div>
+
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <img
+            src={selectedImage}
+            alt="Product Preview"
+            className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain bg-white"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function InventoryRow({ product, onSave }: { product: any; onSave: (val: number) => void }) {
+function InventoryRow({
+  product,
+  onSave,
+  onImageClick,
+}: {
+  product: any;
+  onSave: (val: number) => void;
+  onImageClick?: (url: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(product.stock);
 
@@ -2169,6 +2208,24 @@ function InventoryRow({ product, onSave }: { product: any; onSave: (val: number)
 
   return (
     <tr className="hover:bg-muted/50 transition-colors">
+      <td className="px-6 py-4">
+        {product.image_url ? (
+          <button
+            onClick={() => onImageClick?.(imageFor(product.slug, product.image_url))}
+            className="hover:opacity-80 transition-opacity"
+          >
+            <img
+              src={imageFor(product.slug, product.image_url)}
+              alt={product.name}
+              className="size-10 rounded-lg object-cover border border-border"
+            />
+          </button>
+        ) : (
+          <div className="size-10 rounded-lg bg-muted flex items-center justify-center border border-border">
+            <Package className="size-4 text-muted-foreground opacity-50" />
+          </div>
+        )}
+      </td>
       <td className="px-6 py-4">
         <div className="font-semibold text-foreground">{product.name}</div>
         <div className="text-xs text-gray-400">{product.brand}</div>
@@ -2228,98 +2285,6 @@ function InventoryRow({ product, onSave }: { product: any; onSave: (val: number)
         )}
       </td>
     </tr>
-  );
-}
-
-/* ---------------- Site Analytics ---------------- */
-function SiteAnalyticsTab() {
-  const { data: visitors = [], isLoading } = useQuery({
-    queryKey: ["visitor-analytics"],
-    queryFn: async () => {
-      const { data, error, count } = await (supabase as any)
-        .from("website_visitors")
-        .select("id, session_id, country, created_at", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return Object.assign(data, { count: count || data.length });
-    },
-    staleTime: 60_000,
-  });
-
-  const totalCount = (visitors as any).count ?? 0;
-  const lastVisit = visitors[0]
-    ? new Date(visitors[0].created_at).toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })
-    : "—";
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Total Visitors
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalCount}</p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Visit</p>
-          <p className="mt-2 text-xl font-bold tracking-tight text-muted-foreground">{lastVisit}</p>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-muted-foreground">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-4 font-semibold tracking-wider">Session</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Country</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Visited At</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
-              ) : visitors.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-400">
-                    No visitor data recorded yet.
-                  </td>
-                </tr>
-              ) : (
-                visitors.map((v: any) => (
-                  <tr key={v.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs">{v.session_id.slice(0, 8)}…</td>
-                    <td className="px-6 py-4">{v.country}</td>
-                    <td className="px-6 py-4">
-                      {new Date(v.created_at).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   );
 }
 

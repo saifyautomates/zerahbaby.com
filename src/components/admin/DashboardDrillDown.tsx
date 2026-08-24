@@ -1,0 +1,612 @@
+import {
+  ArrowLeft,
+  Package,
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
+  AlertTriangle,
+  Info,
+  Trash2,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { formatPrice } from "@/lib/store";
+import { format } from "date-fns";
+import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
+
+export function DashboardDrillDown({
+  type,
+  onBack,
+  dateRangeText,
+  orders,
+  posSales,
+  products,
+}: {
+  type: string;
+  onBack: () => void;
+  dateRangeText: string;
+  orders: any[];
+  posSales: any[];
+  products: any[];
+}) {
+  const getProduct = (slugOrId: string) => {
+    return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
+  };
+
+  const getBuyingPrice = (p: any) => {
+    if (!p) return 0;
+    const costs = p.product_costs;
+    return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
+  };
+
+  const {
+    title,
+    icon: Icon,
+    colorClass,
+    renderContent,
+  } = useMemo(() => {
+    const handleDeleteRecord = async (id: string, source: "Online" | "POS") => {
+      if (!window.confirm(`Are you sure you want to delete this ${source} record?`)) return;
+      try {
+        if (source === "POS") {
+          const { data, error } = await supabase
+            .from("offline_sales")
+            .update({ status: "cancelled" })
+            .eq("id", id)
+            .select();
+          // Fallback to local storage if DB blocks it
+          if (error || !data || data.length === 0) {
+            const hidden = JSON.parse(localStorage.getItem("hidden_sales") || "[]");
+            hidden.push(id);
+            localStorage.setItem("hidden_sales", JSON.stringify(hidden));
+          }
+        } else {
+          const { data, error } = await supabase
+            .from("orders")
+            .update({ status: "cancelled" })
+            .eq("id", id)
+            .select();
+          if (error || !data || data.length === 0) {
+            const hidden = JSON.parse(localStorage.getItem("hidden_orders") || "[]");
+            hidden.push(id);
+            localStorage.setItem("hidden_orders", JSON.stringify(hidden));
+          }
+          // Attempt hard delete if possible, but it's fine if it fails since it's cancelled
+          try {
+            await supabase.rpc("delete_cancelled_order", { _order_id: id });
+          } catch (e) {
+            // ignore
+          }
+        }
+        window.location.reload();
+      } catch (e: any) {
+        console.error("Delete fallback error:", e);
+        window.location.reload(); // Reload anyway to apply localStorage filter
+      }
+    };
+
+    if (type === "revenue") {
+      const allItems: any[] = [];
+      orders.forEach((o) => {
+        o.order_items?.forEach((item: any) => {
+          const p = products.find((prod) => prod.id === item.product_id);
+          allItems.push({
+            sale_id: o.id,
+            date: o.created_at,
+            product: item.product_name,
+            slug: p?.slug || null,
+            image: p?.image_url || null,
+            source: "Online",
+            qty: item.qty || 1,
+            price: item.price || 0,
+            total: (item.price || 0) * (item.qty || 1),
+          });
+        });
+      });
+      posSales.forEach((s) => {
+        s.offline_sale_items?.forEach((item: any) => {
+          const p = getProduct(item.product_id);
+          allItems.push({
+            sale_id: s.id,
+            date: s.created_at,
+            product: p ? p.name : "Unknown",
+            slug: p?.slug || null,
+            image: p?.image_url || null,
+            source: "POS",
+            qty: item.quantity || 1,
+            price: item.price || 0,
+            total: (item.price || 0) * (item.quantity || 1),
+          });
+        });
+      });
+      allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return {
+        title: "Total Revenue Details",
+        icon: TrendingUp,
+        colorClass: "text-emerald-600 bg-emerald-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Product</th>
+                  <th className="px-6 py-3">Source</th>
+                  <th className="px-6 py-3 text-right">Qty</th>
+                  <th className="px-6 py-3 text-right">Total</th>
+                  <th className="px-6 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allItems.map((item, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                    <td className="px-6 py-4">
+                      {item.slug ? (
+                        <Link
+                          to="/product/$id"
+                          params={{ id: item.slug }}
+                          className="flex items-center gap-3 hover:text-primary transition-colors group"
+                        >
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.product}
+                              className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            {item.product}
+                          </span>
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-3 text-foreground">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.product}
+                              className="w-9 h-9 rounded-md object-cover border"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-medium">{item.product}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-800"}`}
+                      >
+                        {item.source}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">{item.qty}</td>
+                    <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleDeleteRecord(item.sale_id, item.source)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        title="Delete this record"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {allItems.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center">
+                      No sales in this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "orders") {
+      const allOrders = [
+        ...orders.map((o) => ({
+          sale_id: o.id,
+          date: o.created_at,
+          id: `#${o.id.substring(0, 8).toUpperCase()}`,
+          customer: o.full_name || o.email || "Guest",
+          source: "Online",
+          total: o.total || 0,
+        })),
+        ...posSales.map((s) => ({
+          sale_id: s.id,
+          date: s.created_at,
+          id: s.sale_number,
+          customer: s.customer_name || "Walk-in",
+          source: "POS",
+          total: s.total || 0,
+        })),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return {
+        title: "Total Orders Details",
+        icon: ShoppingCart,
+        colorClass: "text-blue-600 bg-blue-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Order ID</th>
+                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Source</th>
+                  <th className="px-6 py-3 text-right">Total</th>
+                  <th className="px-6 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allOrders.map((item, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                    <td className="px-6 py-4 font-medium text-foreground">{item.id}</td>
+                    <td className="px-6 py-4">{item.customer}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-800"}`}
+                      >
+                        {item.source}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() =>
+                          handleDeleteRecord(item.sale_id, item.source as "Online" | "POS")
+                        }
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        title="Delete this order"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {allOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center">
+                      No orders in this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "low_stock") {
+      const lowStockItems = products.filter((p) => p.stock <= (p.low_stock_at || 5));
+      return {
+        title: "Low Stock Items",
+        icon: AlertTriangle,
+        colorClass: "text-violet-600 bg-violet-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Product</th>
+                  <th className="px-6 py-3">SKU</th>
+                  <th className="px-6 py-3 text-right">Stock</th>
+                  <th className="px-6 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lowStockItems.map((p, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">
+                      <Link
+                        to="/product/$id"
+                        params={{ id: p.slug }}
+                        className="flex items-center gap-3 hover:text-primary transition-colors group"
+                      >
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                          {p.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-xs">{p.sku}</td>
+                    <td className="px-6 py-4 text-right font-bold text-red-600">{p.stock}</td>
+                    <td className="px-6 py-4">
+                      {p.stock <= 0 ? (
+                        <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-700">
+                          Out of Stock
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-700">
+                          Low Stock
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {lowStockItems.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center">
+                      All inventory is healthy.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "cash") {
+      const pendingCodOrders = orders.filter(
+        (o) =>
+          o.status !== "cancelled" &&
+          o.payment_status !== "paid" &&
+          (o.payment_method === "cod" || o.payment_status === "pending"),
+      );
+
+      return {
+        title: "Cash Outstanding (Pending COD)",
+        icon: DollarSign,
+        colorClass: "text-rose-600 bg-rose-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Order ID</th>
+                  <th className="px-6 py-3">Customer Details</th>
+                  <th className="px-6 py-3 text-right">Pending Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingCodOrders.map((o, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">{format(new Date(o.created_at), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4 font-medium text-foreground">
+                      #{o.id.substring(0, 8).toUpperCase()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-foreground">{o.full_name || o.email}</p>
+                      <p className="text-xs">{o.phone}</p>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-rose-600">
+                      {formatPrice(o.total || 0)}
+                    </td>
+                  </tr>
+                ))}
+                {pendingCodOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center">
+                      No pending cash outstanding.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "stock") {
+      const inStockItems = products.filter((p) => p.stock > 0);
+      return {
+        title: "Total Stock Value",
+        icon: Package,
+        colorClass: "text-blue-600 bg-blue-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Product</th>
+                  <th className="px-6 py-3 text-right">Selling Price</th>
+                  <th className="px-6 py-3 text-right">In Stock</th>
+                  <th className="px-6 py-3 text-right">Total Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inStockItems.map((p, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4 font-medium text-foreground">{p.name}</td>
+                    <td className="px-6 py-4 text-right">{formatPrice(p.price || 0)}</td>
+                    <td className="px-6 py-4 text-right font-bold">{p.stock}</td>
+                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                      {formatPrice((p.price || 0) * p.stock)}
+                    </td>
+                  </tr>
+                ))}
+                {inStockItems.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center">
+                      No active stock available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "profit") {
+      const allItems: any[] = [];
+      let totalProfit = 0;
+      let totalRev = 0;
+      let totalCogs = 0;
+
+      orders.forEach((o) => {
+        o.order_items?.forEach((item: any) => {
+          const p = getProduct(item.product_slug);
+          const bp = getBuyingPrice(p);
+          const rev = (item.price || 0) * (item.qty || 1);
+          const cogs = bp * (item.qty || 1);
+          const profit = rev - cogs;
+          totalRev += rev;
+          totalCogs += cogs;
+          totalProfit += profit;
+          allItems.push({
+            date: o.created_at,
+            product: item.product_name,
+            qty: item.qty || 1,
+            rev,
+            cogs,
+            profit,
+          });
+        });
+      });
+      posSales.forEach((s) => {
+        s.offline_sale_items?.forEach((item: any) => {
+          const p = getProduct(item.product_id);
+          const bp = getBuyingPrice(p);
+          const rev = (item.price || 0) * (item.quantity || 1);
+          const cogs = bp * (item.quantity || 1);
+          const profit = rev - cogs;
+          totalRev += rev;
+          totalCogs += cogs;
+          totalProfit += profit;
+          allItems.push({
+            date: s.created_at,
+            product: p ? p.name : "Unknown",
+            qty: item.quantity || 1,
+            rev,
+            cogs,
+            profit,
+          });
+        });
+      });
+      allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return {
+        title: "Net Profit Analysis",
+        icon: TrendingUp,
+        colorClass: "text-amber-600 bg-amber-50",
+        renderContent: () => (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Total Revenue
+                </p>
+                <p className="text-2xl font-bold mt-1 text-emerald-600">{formatPrice(totalRev)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Total COGS
+                </p>
+                <p className="text-2xl font-bold mt-1 text-rose-600">{formatPrice(totalCogs)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Net Profit
+                </p>
+                <p className="text-2xl font-bold mt-1 text-amber-600">{formatPrice(totalProfit)}</p>
+              </div>
+            </div>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground mt-4">
+                <thead className="bg-muted text-xs uppercase text-foreground">
+                  <tr>
+                    <th className="px-6 py-3">Product</th>
+                    <th className="px-6 py-3 text-right">Qty</th>
+                    <th className="px-6 py-3 text-right">Revenue</th>
+                    <th className="px-6 py-3 text-right">COGS</th>
+                    <th className="px-6 py-3 text-right">Profit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allItems.map((item, i) => (
+                    <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                      <td className="px-6 py-4 font-medium text-foreground">{item.product}</td>
+                      <td className="px-6 py-4 text-right">{item.qty}</td>
+                      <td className="px-6 py-4 text-right text-emerald-600">
+                        {formatPrice(item.rev)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-rose-600">
+                        {formatPrice(item.cogs)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-amber-600">
+                        {formatPrice(item.profit)}
+                      </td>
+                    </tr>
+                  ))}
+                  {allItems.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center">
+                        No sales data for profit calculation.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ),
+      };
+    }
+
+    return {
+      title: "Details",
+      icon: Info,
+      colorClass: "text-slate-600 bg-slate-50",
+      renderContent: () => (
+        <div className="p-8 text-center text-muted-foreground">Unknown view type</div>
+      ),
+    };
+  }, [type, orders, posSales, products]);
+
+  return (
+    <div className="animate-in slide-in-from-right-4 duration-300">
+      <div className="flex items-center gap-4 mb-6">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-xl bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <div>
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg ${colorClass}`}>
+              <Icon className="size-4" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">{title}</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">Date Range: {dateRangeText}</p>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto">{renderContent()}</div>
+      </div>
+    </div>
+  );
+}

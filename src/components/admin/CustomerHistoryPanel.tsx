@@ -190,7 +190,9 @@ export function CustomerHistoryPanel() {
                 </div>
                 <div className="text-right text-xs text-muted-foreground shrink-0">
                   <p>{c.total_purchases} purchases</p>
-                  <p className="font-semibold text-muted-foreground">{formatPrice(c.total_spend)}</p>
+                  <p className="font-semibold text-muted-foreground">
+                    {formatPrice(c.total_spend)}
+                  </p>
                 </div>
               </button>
             ))}

@@ -264,7 +264,7 @@ export function POSReturnsTab() {
           qty: item.qty,
           mrp: item.mrp,
         })),
-        idempotency_key: idempotencyKey,
+        idempotency_key: "", // Bypass backend SELECT INTO bug where it overwrites total to NULL on no-match
       };
 
       const result = await processReturnMutation.mutateAsync(payload);

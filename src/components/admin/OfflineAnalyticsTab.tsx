@@ -2,7 +2,7 @@
  * OfflineAnalyticsTab — Enhanced POS analytics with payment method breakdown,
  * per-sale receipt printing, sale details expansion, and top products view.
  */
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice, imageFor } from "@/lib/store";
@@ -361,146 +361,154 @@ export function OfflineAnalyticsTab() {
             {(sales ?? []).map((sale) => {
               const isExpanded = expandedSale === sale.id;
               return (
-                <tr key={sale.id} className="group">
-                  <td colSpan={7} className="p-0">
-                    <div
-                      className="flex items-center cursor-pointer transition-colors hover:bg-muted/40 px-5 py-4"
-                      onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
-                    >
+                <React.Fragment key={sale.id}>
+                  <tr
+                    className="group cursor-pointer transition-colors hover:bg-muted/40"
+                    onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
+                  >
+                    <td className="px-5 py-4 w-8">
                       {isExpanded ? (
-                        <ChevronDown className="size-4 text-muted-foreground mr-3 shrink-0" />
+                        <ChevronDown className="size-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="size-4 text-muted-foreground mr-3 shrink-0" />
+                        <ChevronRight className="size-4 text-muted-foreground" />
                       )}
-                      <span className="font-bold text-foreground w-36 shrink-0 font-mono">
-                        {sale.sale_number}
+                    </td>
+                    <td className="px-5 py-4 font-bold text-foreground font-mono">
+                      {sale.sale_number}
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground font-medium text-xs">
+                      {new Date(sale.created_at).toLocaleString("en-IN")}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-semibold text-foreground">
+                        {sale.customer_name || "Guest"}
                       </span>
-                      <span className="text-muted-foreground font-medium w-44 shrink-0 text-xs">
-                        {new Date(sale.created_at).toLocaleString("en-IN")}
-                      </span>
-                      <span className="flex-1 min-w-0">
-                        <span className="font-semibold text-foreground">
-                          {sale.customer_name || "Guest"}
+                      {sale.customer_phone && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {sale.customer_phone}
                         </span>
-                        {sale.customer_phone && (
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {sale.customer_phone}
-                          </span>
-                        )}
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
+                        {sale.payment_method}
                       </span>
-                      <span className="w-20 shrink-0">
-                        <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
-                          {sale.payment_method}
+                    </td>
+                    <td className="px-5 py-4 text-sm">
+                      {Number(sale.discount) > 0 ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          −{formatPrice(Number(sale.discount))}
                         </span>
-                      </span>
-                      <span className="w-28 shrink-0 text-sm">
-                        {Number(sale.discount) > 0 ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                            −{formatPrice(Number(sale.discount))}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </span>
-                      <span className="w-28 text-right font-bold text-primary shrink-0">
-                        {formatPrice(Number(sale.total))}
-                      </span>
-                    </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-right font-bold text-primary">
+                      {formatPrice(Number(sale.total))}
+                    </td>
+                  </tr>
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <tr className="bg-muted/10">
+                      <td colSpan={7} className="p-0">
+                        <div className="border-t border-border px-8 py-4">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-muted-foreground font-bold uppercase tracking-wider">
+                                <th className="py-2 text-left">Product</th>
+                                <th className="py-2 text-left">SKU</th>
+                                <th className="py-2 text-right">Price</th>
+                                <th className="py-2 text-right">Qty</th>
+                                <th className="py-2 text-right">Subtotal</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/40">
+                              {(sale.offline_sale_items ?? []).map((item: SaleItem) => {
+                                const prod = resolveProduct(item);
+                                const itemImg = imageFor(
+                                  prod?.category || "clothing",
+                                  prod?.image_url,
+                                );
+                                const slug = prod?.slug || item.product_slug || item.sku;
 
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="border-t border-border bg-muted/20 px-8 py-4">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-muted-foreground font-bold uppercase tracking-wider">
-                              <th className="py-2 text-left">Product</th>
-                              <th className="py-2 text-left">SKU</th>
-                              <th className="py-2 text-right">Price</th>
-                              <th className="py-2 text-right">Qty</th>
-                              <th className="py-2 text-right">Subtotal</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/40">
-                            {(sale.offline_sale_items ?? []).map((item: SaleItem) => {
-                              const prod = resolveProduct(item);
-                              const itemImg = imageFor(
-                                prod?.category || "clothing",
-                                prod?.image_url,
-                              );
-                              const slug = prod?.slug || item.product_slug || item.sku;
-
-                              return (
-                                <tr key={item.id} className="hover:bg-muted/30 transition">
-                                  <td className="py-2.5 font-semibold text-foreground">
-                                    <div
-                                      className="flex items-center gap-2.5 cursor-pointer group/item"
-                                      onClick={() => {
-                                        if (slug) window.open(`/product/${slug}`, "_blank");
-                                      }}
-                                      title={`Open "${item.name}" in store`}
-                                    >
-                                      <div className="size-9 rounded-lg border border-border bg-card overflow-hidden shrink-0">
-                                        <img
-                                          src={itemImg}
-                                          alt={item.name}
-                                          className="h-full w-full object-cover group-hover/item:scale-105 transition"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).src = clothing;
-                                          }}
-                                        />
+                                return (
+                                  <tr
+                                    key={item.id || item.product_id || item.sku}
+                                    className="hover:bg-muted/30 transition-colors"
+                                  >
+                                    <td className="py-2.5 font-semibold text-foreground">
+                                      <div
+                                        className="flex items-center gap-2.5 cursor-pointer group/item"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (slug) window.open(`/product/${slug}`, "_blank");
+                                        }}
+                                        title={`Open "${item.name}" in store`}
+                                      >
+                                        <div className="size-9 rounded-lg border border-border bg-card overflow-hidden shrink-0">
+                                          <img
+                                            src={itemImg}
+                                            alt={item.name}
+                                            className="h-full w-full object-cover group-hover/item:scale-105 transition"
+                                            onError={(e) => {
+                                              (e.target as HTMLImageElement).src = clothing;
+                                            }}
+                                          />
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-xs text-foreground group-hover/item:text-primary transition-colors flex items-center gap-1">
+                                            <span>{item.name}</span>
+                                          </p>
+                                          <p className="text-[10px] text-muted-foreground font-mono">
+                                            {item.sku}
+                                          </p>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <p className="font-bold text-xs text-foreground group-hover/item:text-primary transition-colors flex items-center gap-1">
-                                          <span>{item.name}</span>
-                                          <ExternalLink className="size-2.5 opacity-0 group-hover/item:opacity-100 transition-opacity" />
-                                        </p>
-                                        <p className="text-[10px] text-muted-foreground font-mono">
-                                          {item.sku}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 font-mono text-xs text-muted-foreground">
-                                    {item.sku || "—"}
-                                  </td>
-                                  <td className="py-2.5 text-right font-medium text-foreground">
-                                    {formatPrice(Number(item.price))}
-                                  </td>
-                                  <td className="py-2.5 text-right font-bold text-foreground">
-                                    {item.qty}
-                                  </td>
-                                  <td className="py-2.5 text-right font-extrabold text-foreground">
-                                    {formatPrice(Number(item.subtotal))}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                    </td>
+                                    <td className="py-2.5 font-mono text-xs text-muted-foreground">
+                                      {item.sku || "—"}
+                                    </td>
+                                    <td className="py-2.5 text-right font-medium text-foreground">
+                                      {formatPrice(Number(item.price))}
+                                    </td>
+                                    <td className="py-2.5 text-right font-bold text-foreground">
+                                      {item.qty}
+                                    </td>
+                                    <td className="py-2.5 text-right font-extrabold text-foreground">
+                                      {formatPrice(
+                                        Number(item.subtotal || Number(item.price) * item.qty),
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
-                            {Number(sale.discount) > 0 && (
-                              <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                Discount (
-                                {sale.discount_type === "percentage"
-                                  ? `${sale.discount_value}%`
-                                  : sale.discount_type === "fixed"
-                                    ? `₹${sale.discount_value}`
-                                    : ""}
-                                ): −{formatPrice(Number(sale.discount))}
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground space-y-0.5">
+                              <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
+                              {Number(sale.discount) > 0 && (
+                                <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  Discount (
+                                  {sale.discount_type === "percentage"
+                                    ? `${sale.discount_value}%`
+                                    : sale.discount_type === "fixed"
+                                      ? `₹${sale.discount_value}`
+                                      : ""}
+                                  ): −{formatPrice(Number(sale.discount))}
+                                </p>
+                              )}
+                              <p className="font-bold text-foreground text-sm">
+                                Total: {formatPrice(Number(sale.total))}
                               </p>
-                            )}
-                            <p className="font-bold text-foreground text-sm">
-                              Total: {formatPrice(Number(sale.total))}
-                            </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
             {!isLoading && (sales ?? []).length === 0 && (

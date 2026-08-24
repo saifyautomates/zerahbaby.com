@@ -163,7 +163,9 @@ function LabelPrintingSubTab() {
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-muted-foreground">{selectedIds.size} selected</span>
+          <span className="text-sm font-semibold text-muted-foreground">
+            {selectedIds.size} selected
+          </span>
           <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
               type="button"
@@ -261,8 +263,12 @@ function LabelPrintingSubTab() {
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <p className="font-mono text-xs font-semibold text-foreground">{p.sku || "—"}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground">{p.barcode || "—"}</p>
+                    <p className="font-mono text-xs font-semibold text-foreground">
+                      {p.sku || "—"}
+                    </p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      {p.barcode || "—"}
+                    </p>
                   </td>
                   <td className="px-5 py-3">
                     <p className="font-semibold">{formatPrice(p.price)}</p>

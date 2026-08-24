@@ -22,13 +22,14 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { Link } from "@tanstack/react-router";
 import {
   TrendingUp,
+  Package,
   Users,
   AlertTriangle,
   ShoppingCart,
   Percent,
-  Package,
   Info,
   ChevronDown,
   MoreVertical,
@@ -36,9 +37,12 @@ import {
   Download,
   FileText,
   DollarSign,
+  Trash2,
+  Check,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardDrillDown } from "./DashboardDrillDown";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -86,6 +90,7 @@ function calculateDelta(current: number, prev: number, periodLabel: string) {
 }
 
 export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const [activeDrillDown, setActiveDrillDown] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DateRangePreset>("7d");
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
@@ -105,7 +110,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   // Authoritative Queries
   const { data: orders = [], isLoading: ordersLoading } = useAllOrders(true);
-  const { data: posSales = [], isLoading: posLoading } = useQuery<OfflineSale[]>({
+  const { data: rawPosSales = [], isLoading: posLoading } = useQuery<OfflineSale[]>({
     queryKey: ["offline-sales"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -115,6 +120,21 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       return (data ?? []) as unknown as OfflineSale[];
     },
   });
+
+  const posSales = useMemo(() => {
+    let hiddenSales: string[] = [];
+    try {
+      hiddenSales = JSON.parse(localStorage.getItem("hidden_sales") || "[]");
+    } catch (e) {}
+
+    return rawPosSales.filter(
+      (s: any) =>
+        s.status !== "cancelled" &&
+        !hiddenSales.includes(s.id) &&
+        s.offline_sale_items &&
+        s.offline_sale_items.length > 0,
+    );
+  }, [rawPosSales]);
 
   const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
@@ -229,11 +249,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   // Authoritative KPI Metrics Calculation
   const stats = useMemo(() => {
     // 1. Valid paid / non-cancelled online orders
+    let hiddenOrders: string[] = [];
+    try {
+      hiddenOrders = JSON.parse(localStorage.getItem("hidden_orders") || "[]");
+    } catch (e) {}
+
     const validOrders = orders.filter(
       (o: Order) =>
         o.status !== "cancelled" &&
         o.payment_status !== "failed" &&
-        o.payment_status !== "refunded",
+        o.payment_status !== "refunded" &&
+        !hiddenOrders.includes(o.id),
     );
 
     // Current period sales
@@ -248,6 +274,31 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     const currOnlineRevenue = currOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const currPosRevenue = currPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
     const revenue = currOnlineRevenue + currPosRevenue;
+
+    // Period Metrics (Net Profit)
+    let currOnlineCogs = 0;
+    currOrders.forEach((o: any) => {
+      o.order_items?.forEach((item: any) => {
+        const prod = products.find((p: any) => p.slug === item.product_slug);
+        const bp = Array.isArray(prod?.product_costs)
+          ? prod?.product_costs[0]?.buying_price
+          : prod?.product_costs?.buying_price;
+        currOnlineCogs += Number(bp || 0) * Number(item.qty || 1);
+      });
+    });
+
+    let currPosCogs = 0;
+    currPos.forEach((s: any) => {
+      s.offline_sale_items?.forEach((item: any) => {
+        const prod = products.find((p: any) => p.id === item.product_id);
+        const bp = Array.isArray(prod?.product_costs)
+          ? prod?.product_costs[0]?.buying_price
+          : prod?.product_costs?.buying_price;
+        currPosCogs += Number(bp || 0) * Number(item.quantity || 1);
+      });
+    });
+
+    const netProfit = revenue - (currOnlineCogs + currPosCogs);
     const ordersCount = currOrders.length + currPos.length;
 
     // Previous metrics
@@ -356,6 +407,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     return {
       totalRevenueAllTime,
       netProfitAllTime,
+      netProfit,
       revenue,
       ordersCount,
       visitorsCount: currVisitors,
@@ -379,13 +431,13 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     const total = stats.revenue;
     if (total <= 0) {
       return [
-        { name: "POS / Offline", value: 0, color: "#0f172a" },
-        { name: "Online Paid", value: 0, color: "#2563eb" },
+        { name: "POS / Offline", value: 0, color: "#10b981" },
+        { name: "Online Paid", value: 0, color: "#6366f1" },
       ];
     }
     return [
-      { name: "POS / Offline", value: stats.cashSales, color: "#0f172a" },
-      { name: "Online Paid", value: stats.onlineSales, color: "#2563eb" },
+      { name: "POS / Offline", value: stats.cashSales, color: "#10b981" },
+      { name: "Online Paid", value: stats.onlineSales, color: "#6366f1" },
     ];
   }, [stats.revenue, stats.cashSales, stats.onlineSales]);
 
@@ -421,6 +473,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       .slice(0, 5)
       .map((p) => ({
         name: p.name || "Product",
+        slug: p.slug,
+        image: p.image_url || null,
         stock: Number(p.stock || 0),
         price: Number(p.price || 0),
       }));
@@ -491,6 +545,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (activeDrillDown) {
+    return (
+      <DashboardDrillDown
+        type={activeDrillDown}
+        onBack={() => setActiveDrillDown(null)}
+        dateRangeText={dateRangeText}
+        orders={orders.filter((o) => inCurrentPeriod(o.created_at))}
+        posSales={posSales.filter((s) => inCurrentPeriod(s.created_at))}
+        products={products}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 text-foreground animate-in fade-in duration-150">
@@ -563,17 +630,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
 
           {/* Download CSV Report Button */}
-          <button
-            type="button"
-            onClick={handleDownloadReport}
-            title="Download CSV sales report"
-            aria-label="Download CSV sales report"
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
-          >
-            <Download className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">Download Report</span>
-            <span className="sm:hidden">Export</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadReport}
+              title="Download CSV sales report"
+              aria-label="Download CSV sales report"
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="hidden sm:inline">Download Report</span>
+              <span className="sm:hidden">Export</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -583,11 +652,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div
           role="button"
           tabIndex={0}
-          onClick={() => onNavigate?.("analytics")}
+          onClick={() => setActiveDrillDown("revenue")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onNavigate?.("analytics");
+              setActiveDrillDown("revenue");
             }
           }}
           aria-label={`Total Revenue: ${formatPrice(stats.revenue)}. Click to open Analytics.`}
@@ -615,7 +684,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate?.("analytics");
+                setActiveDrillDown("revenue");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -628,11 +697,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div
           role="button"
           tabIndex={0}
-          onClick={() => onNavigate?.("orders")}
+          onClick={() => setActiveDrillDown("orders")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onNavigate?.("orders");
+              setActiveDrillDown("orders");
             }
           }}
           aria-label={`Total Orders: ${stats.ordersCount}. Click to open Orders.`}
@@ -658,7 +727,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate?.("orders");
+                setActiveDrillDown("orders");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -667,45 +736,43 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
-        {/* 3. Today's / Period Visitors Card (Warm Amber) */}
+        {/* 3. Period Net Profit Card (Warm Amber) */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => onNavigate?.("analytics")}
+          onClick={() => setActiveDrillDown("profit")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onNavigate?.("analytics");
+              setActiveDrillDown("profit");
             }
           }}
-          aria-label={`Visitors: ${stats.visitorsCount}. Click to open Visitor Analytics.`}
+          aria-label={`Net Profit: ${formatPrice(stats.netProfit)}. Click to open Profit Analysis.`}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">
-                {datePreset === "today" ? "Today's Visitors" : "Store Visitors"}
+                {datePreset === "today" ? "Today's Net Profit" : "Period Net Profit"}
               </p>
               <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : stats.visitorsCount}
+                {isAnyLoading ? "..." : formatPrice(stats.netProfit)}
               </h3>
               <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {datePreset === "today" ? "Today's Traffic" : "Period Traffic"}
+                {datePreset === "today" ? "Today's Earnings" : "Period Earnings"}
               </p>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <Users className="h-10 w-10" />
+              <span className="text-3xl select-none">📈</span>
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
-            <span className="font-semibold text-white truncate mr-2">
-              {stats.visitorsDelta.text}
-            </span>
+            <span className="font-semibold text-white truncate mr-2">Based on COGS</span>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate?.("analytics");
+                setActiveDrillDown("profit");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -714,19 +781,18 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
-        {/* 4. Low Stock Items Card (Deep Violet) */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => onNavigate?.("inventory")}
+          onClick={() => setActiveDrillDown("low_stock")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onNavigate?.("inventory");
+              setActiveDrillDown("low_stock");
             }
           }}
           aria-label={`Low Stock Items: ${stats.lowStockCount}. Click to open Inventory.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-violet-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-violet-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-slate-800/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
@@ -754,7 +820,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate?.("inventory");
+                setActiveDrillDown("low_stock");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -767,11 +833,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div
           role="button"
           tabIndex={0}
-          onClick={() => onNavigate?.("orders")}
+          onClick={() => setActiveDrillDown("cash")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onNavigate?.("orders");
+              setActiveDrillDown("cash");
             }
           }}
           aria-label={`Cash Outstanding: ${formatPrice(stats.cashOutstanding)}. Click to view pending COD orders.`}
@@ -801,7 +867,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate?.("orders");
+                setActiveDrillDown("cash");
               }}
               className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
             >
@@ -813,7 +879,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
       {/* Secondary 6-Item Metric Strip */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6 rounded-2xl bg-card p-4 shadow-sm border border-border">
-        <div className="flex items-center gap-3 p-2">
+        <div
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
+          onClick={() => setActiveDrillDown("stock")}
+        >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <Package className="h-5 w-5" />
           </div>
@@ -1075,14 +1144,14 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
           <div className="flex items-center justify-center gap-6 mt-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#0f172a]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#10b981]" />
               <span className="text-muted-foreground font-medium">
                 POS:{" "}
                 <span className="text-foreground font-bold">{formatPrice(stats.cashSales)}</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#2563eb]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#6366f1]" />
               <span className="text-muted-foreground font-medium">
                 Online:{" "}
                 <span className="text-foreground font-bold">{formatPrice(stats.onlineSales)}</span>
@@ -1198,7 +1267,27 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                       className="hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <td className="py-2.5">
-                        <span className="font-semibold text-foreground line-clamp-1">{p.name}</span>
+                        <Link
+                          to="/product/$id"
+                          params={{ id: p.slug }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 hover:text-primary transition-colors group"
+                        >
+                          {p.image ? (
+                            <img
+                              src={p.image}
+                              alt={p.name}
+                              className="w-8 h-8 rounded object-cover border group-hover:border-primary/50 transition-colors"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                            {p.name}
+                          </span>
+                        </Link>
                       </td>
                       <td className="py-2.5 text-center font-bold">
                         <span

@@ -326,7 +326,9 @@ export function ReviewModal({
                       ) : (
                         <>
                           <ImageIcon className="size-5 text-gray-400 group-hover:text-[#8B2020]" />
-                          <span className="text-[10px] font-bold text-muted-foreground mt-1">+ Photo</span>
+                          <span className="text-[10px] font-bold text-muted-foreground mt-1">
+                            + Photo
+                          </span>
                         </>
                       )}
                     </label>

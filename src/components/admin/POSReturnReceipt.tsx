@@ -144,7 +144,9 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
         <div className="thermal-body overflow-y-auto p-5 print:p-0 print:overflow-visible font-mono text-xs text-foreground bg-card">
           {/* Store header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-foreground">ZÉRAH BABY &amp; KIDS</p>
+            <p className="text-sm font-black tracking-tight text-foreground">
+              ZÉRAH BABY &amp; KIDS
+            </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Offline POS Returns</p>
             <p className="text-[10px] text-muted-foreground">Kota, Rajasthan 324001</p>
             <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
@@ -244,7 +246,9 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               <span className="text-right max-w-[60%] truncate">{returnData.return_reason}</span>
             </div>
             {returnData.notes && (
-              <div className="text-[9px] text-muted-foreground italic pt-0.5">Note: {returnData.notes}</div>
+              <div className="text-[9px] text-muted-foreground italic pt-0.5">
+                Note: {returnData.notes}
+              </div>
             )}
           </div>
 

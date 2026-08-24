@@ -131,7 +131,9 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
         <div className="thermal-body overflow-y-auto p-4 print:p-0 print:overflow-visible">
           {/* Store header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-foreground">ZÉRAH BABY &amp; KIDS</p>
+            <p className="text-sm font-black tracking-tight text-foreground">
+              ZÉRAH BABY &amp; KIDS
+            </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Premium Children's Clothing</p>
             <p className="text-[10px] text-muted-foreground">Gordhanpura, Kota, Rajasthan 324001</p>
             <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>

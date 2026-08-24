@@ -41,83 +41,123 @@ export function hasPendingScans(): boolean {
  * It identifies hardware barcode scans, prevents form submission, strips digits if typed into an input,
  * and broadcasts the custom event 'zerah:barcode-scan'.
  */
+let globalBuffer = "";
+let globalLastKeyTime = 0;
+let isGlobalListenerBound = false;
+
+const globalCallbacks = new Set<(code: string) => void>();
+let lastFiredCode = "";
+let lastFiredTime = 0;
+
+const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  // Ignore modifier combinations (Ctrl, Alt, Meta)
+  if (e.ctrlKey || e.metaKey || e.altKey) {
+    globalBuffer = "";
+    return;
+  }
+
+  const now = Date.now();
+
+  // Barcode scanners typically terminate the sequence with 'Enter'
+  if (e.key === "Enter") {
+    const code = globalBuffer.trim();
+    const interval = now - globalLastKeyTime;
+
+    if (code.length >= MIN_BARCODE_LENGTH && interval <= 120) {
+      if (code === lastFiredCode && now - lastFiredTime < 300) {
+        e.preventDefault();
+        e.stopPropagation();
+        globalBuffer = "";
+        return;
+      }
+      lastFiredCode = code;
+      lastFiredTime = now;
+
+      // We have a confirmed barcode burst!
+      e.preventDefault();
+      e.stopPropagation();
+
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement;
+
+      // If the scanner inadvertently typed into an active input field, clean up the input
+      if (isInput && target instanceof HTMLInputElement) {
+        if (target.value === code || target.value.endsWith(code)) {
+          const newValue = target.value.slice(0, -code.length);
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            "value",
+          )?.set;
+
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(target, newValue);
+            target.dispatchEvent(new Event("input", { bubbles: true }));
+          } else {
+            target.value = newValue;
+            target.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        }
+        target.blur();
+      }
+
+      globalBuffer = "";
+
+      // Push to pending queue
+      pushPendingScan(code);
+
+      // Dispatch custom event to all listeners
+      const event = new CustomEvent<BarcodeScanDetail>(SCANNER_EVENT_NAME, {
+        detail: { code, timestamp: now },
+      });
+      window.dispatchEvent(event);
+
+      // Call all registered explicit callbacks
+      globalCallbacks.forEach((cb) => cb(code));
+    } else {
+      globalBuffer = "";
+    }
+    return;
+  }
+
+  // Only process printable single characters
+  if (e.key.length === 1) {
+    const interval = now - globalLastKeyTime;
+    globalLastKeyTime = now;
+
+    // If interval between keys is too slow, start a new buffer
+    if (interval > MAX_KEY_INTERVAL_MS) {
+      globalBuffer = e.key;
+    } else {
+      globalBuffer += e.key;
+    }
+  }
+};
+
+/**
+ * Initializes the global barcode listener that listens to window keydown events.
+ * It identifies hardware barcode scans, prevents form submission, strips digits if typed into an input,
+ * and broadcasts the custom event 'zerah:barcode-scan'.
+ */
 export function initGlobalBarcodeScanner(onScan?: (code: string) => void): () => void {
   if (typeof window === "undefined") return () => {};
 
-  let buffer = "";
-  let lastKeyTime = 0;
+  if (onScan) {
+    globalCallbacks.add(onScan);
+  }
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Ignore modifier combinations (Ctrl, Alt, Meta)
-    if (e.ctrlKey || e.metaKey || e.altKey) {
-      buffer = "";
-      return;
-    }
+  if (!isGlobalListenerBound) {
+    window.addEventListener("keydown", handleGlobalKeyDown, true);
+    isGlobalListenerBound = true;
+  }
 
-    const now = Date.now();
-
-    // Barcode scanners typically terminate the sequence with 'Enter'
-    if (e.key === "Enter") {
-      const code = buffer.trim();
-      const interval = now - lastKeyTime;
-
-      if (code.length >= MIN_BARCODE_LENGTH && interval <= 120) {
-        // We have a confirmed barcode burst!
-        e.preventDefault();
-        e.stopPropagation();
-
-        const target = e.target as HTMLElement | null;
-        const isInput =
-          target instanceof HTMLInputElement ||
-          target instanceof HTMLTextAreaElement ||
-          target instanceof HTMLSelectElement;
-
-        // If the scanner inadvertently typed into an active input field, clean up the input
-        if (isInput && target instanceof HTMLInputElement) {
-          if (target.value === code || target.value.endsWith(code)) {
-            target.value = target.value.slice(0, -code.length);
-            target.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          target.blur();
-        }
-
-        buffer = "";
-
-        // Push to pending queue
-        pushPendingScan(code);
-
-        // Dispatch custom event to all listeners
-        const event = new CustomEvent<BarcodeScanDetail>(SCANNER_EVENT_NAME, {
-          detail: { code, timestamp: now },
-        });
-        window.dispatchEvent(event);
-
-        if (onScan) {
-          onScan(code);
-        }
-      } else {
-        buffer = "";
-      }
-      return;
-    }
-
-    // Only process printable single characters
-    if (e.key.length === 1) {
-      const interval = now - lastKeyTime;
-      lastKeyTime = now;
-
-      // If interval between keys is too slow, start a new buffer
-      if (interval > MAX_KEY_INTERVAL_MS) {
-        buffer = e.key;
-      } else {
-        buffer += e.key;
-      }
-    }
-  };
-
-  window.addEventListener("keydown", handleKeyDown, true);
   return () => {
-    window.removeEventListener("keydown", handleKeyDown, true);
+    if (onScan) {
+      globalCallbacks.delete(onScan);
+    }
+    // We intentionally keep the global listener bound for the lifetime of the app
   };
 }
 

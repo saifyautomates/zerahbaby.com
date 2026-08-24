@@ -249,7 +249,9 @@ export function OnlineSalesTab() {
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm font-bold text-foreground">{order.full_name}</p>
-                    <p className="text-sm font-medium text-muted-foreground mt-0.5">{order.email}</p>
+                    <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                      {order.email}
+                    </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {order.phone}{" "}
                       {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}

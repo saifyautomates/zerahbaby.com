@@ -597,7 +597,9 @@ function ReviewsSection({
                   );
                 })}
               </div>
-              <span className="text-xs font-semibold text-muted-foreground mt-1">out of 5 stars</span>
+              <span className="text-xs font-semibold text-muted-foreground mt-1">
+                out of 5 stars
+              </span>
             </div>
           </div>
 
