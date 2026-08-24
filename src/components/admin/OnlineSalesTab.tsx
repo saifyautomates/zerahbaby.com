@@ -50,35 +50,83 @@ export function OnlineSalesTab() {
 
   // Filter out POS orders (historical)
   const onlineOrdersData = (data ?? []).filter((o) => o.notes !== "POS Order");
-  const orders = onlineOrdersData.filter((o) => filter === "all" || o.status === filter);
+
+  // Helper to test if an order was placed within the last 24 hours
+  const isWithinLast24Hours = (createdAt: string) => {
+    const orderTime = new Date(createdAt).getTime();
+    const now = Date.now();
+    return !isNaN(orderTime) && now - orderTime <= 24 * 60 * 60 * 1000;
+  };
+
+  const newOrders24hCount = onlineOrdersData.filter((o) =>
+    isWithinLast24Hours(o.created_at),
+  ).length;
+
+  const orders = onlineOrdersData.filter((o) => {
+    if (filter === "new_orders") {
+      return isWithinLast24Hours(o.created_at);
+    }
+    if (filter === "all") return true;
+    return o.status === filter;
+  });
+
   const revenue = onlineOrdersData
     .filter((o) => o.status !== "cancelled")
     .reduce((sum, o) => sum + Number(o.total), 0);
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Online Orders
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* New Orders in last 24 hours */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setFilter("new_orders")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFilter("new_orders");
+            }
+          }}
+          className={`relative overflow-hidden rounded-2xl border bg-card p-5 shadow-xs transition-all hover:shadow-md cursor-pointer ${
+            filter === "new_orders" ? "border-primary ring-2 ring-primary/20" : "border-border"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            New Orders (24h)
           </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
+            {newOrders24hCount}
+          </p>
+          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            Past 24 hours
+          </p>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Total Online Orders
+          </p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
             {onlineOrdersData.length}
           </p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Online Revenue
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-[#8B2020]">
             {formatPrice(revenue)}
           </p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Awaiting action
           </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
             {
               onlineOrdersData.filter((o) => o.status === "placed" || o.status === "processing")
                 .length
@@ -87,17 +135,41 @@ export function OnlineSalesTab() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* New Orders (24h) Filter Button before 'All' */}
+          <button
+            type="button"
+            onClick={() => setFilter("new_orders")}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              filter === "new_orders"
+                ? "bg-[#8B2020] text-white shadow-sm ring-2 ring-[#8B2020]/20"
+                : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800/50"
+            }`}
+          >
+            <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>New Orders</span>
+            <span
+              className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                filter === "new_orders"
+                  ? "bg-white/20 text-white"
+                  : "bg-amber-200/60 dark:bg-amber-800/60 text-amber-900 dark:text-amber-200"
+              }`}
+            >
+              {newOrders24hCount}
+            </span>
+          </button>
+
           {["all", "placed", "processing", "packed", "shipped", "delivered", "cancelled"].map(
             (s) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => setFilter(s)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all ${
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all cursor-pointer ${
                   filter === s
                     ? "bg-[#8B2020] text-white shadow-sm"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
                 {s}
@@ -105,8 +177,9 @@ export function OnlineSalesTab() {
             ),
           )}
         </div>
-        <p className="text-xs font-medium text-gray-500">
+        <p className="text-xs font-medium text-muted-foreground">
           Showing {orders.length} of {onlineOrdersData.length} online orders
+          {filter === "new_orders" && " (placed in last 24 hours)"}
         </p>
       </div>
 
