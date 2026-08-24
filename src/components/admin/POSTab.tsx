@@ -400,6 +400,8 @@ export function POSTab() {
   useEffect(() => {
     if (customerSearchQuery.trim().length >= 2) {
       searchCustomers.mutate(customerSearchQuery);
+    } else {
+      searchCustomers.reset();
     }
   }, [customerSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -862,10 +864,21 @@ export function POSTab() {
                       value={customerSearchQuery}
                       onChange={(e) => setCustomerSearchQuery(e.target.value)}
                       placeholder="Search by phone or name..."
-                      className="w-full rounded-xl border border-border bg-muted pl-9 pr-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
+                      className="w-full rounded-xl border border-border bg-muted pl-9 pr-9 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
                     />
+                    {customerSearchQuery && (
+                      <button
+                        onClick={() => {
+                          setCustomerSearchQuery("");
+                          searchCustomers.reset();
+                        }}
+                        className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {(searchCustomers.data ?? []).length > 0 && (
+                  {customerSearchQuery.trim().length > 0 && (searchCustomers.data ?? []).length > 0 && (
                     <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card">
                       {searchCustomers.data!.map((c) => (
                         <button
