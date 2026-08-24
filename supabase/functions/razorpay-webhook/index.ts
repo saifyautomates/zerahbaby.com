@@ -18,9 +18,7 @@ serve(async (req) => {
       req.headers.get("X-Razorpay-Signature") || req.headers.get("x-razorpay-signature");
     const eventIdHeader =
       req.headers.get("X-Razorpay-Event-Id") || req.headers.get("x-razorpay-event-id");
-    const secret = (
-      Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "zerahKids_Razorpay_Webhook_8fK2mP9xL7qR4vT6"
-    ).trim();
+    const secret = (Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "").trim();
 
     if (!signature) {
       console.error("[razorpay-webhook] Missing X-Razorpay-Signature header");

@@ -54,7 +54,7 @@ serve(async (req) => {
     }
 
     // 3. Resolve Secret & Compute HMAC SHA-256 Signature
-    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "yAEF52zeK3qVZjGEZ4l7SMwG";
+    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
     const razorpayKeySecret = rawKeySecret.trim();
 
     if (!razorpayKeySecret) {

@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 import crypto from "node:crypto";
 
 test.describe("Razorpay Production Integration Suite", () => {
-  const TEST_SECRET = "yAEF52zeK3qVZjGEZ4l7SMwG";
-  const TEST_WEBHOOK_SECRET = "zerahKids_Razorpay_Webhook_8fK2mP9xL7qR4vT6";
+  const TEST_SECRET = "test_secret_key";
+  const TEST_WEBHOOK_SECRET = "test_webhook_secret";
 
   test("1. Server-Side HMAC-SHA256 Signature Verification Logic", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -132,7 +132,7 @@ test.describe("Razorpay Production Integration Suite", () => {
         clientEnvKey?: string,
         fallbackKey?: string,
       ) {
-        return createDataKey || clientEnvKey || fallbackKey || "rzp_live_TSOPbz5nCb4pLb";
+        return createDataKey || clientEnvKey || fallbackKey || "";
       }
 
       return {
@@ -144,7 +144,7 @@ test.describe("Razorpay Production Integration Suite", () => {
 
     expect(keyResolution.fromBackend).toBe("rzp_live_from_backend");
     expect(keyResolution.fromEnv).toBe("rzp_live_from_env");
-    expect(keyResolution.fromFallback).toBe("rzp_live_TSOPbz5nCb4pLb");
+    expect(keyResolution.fromFallback).toBe("");
   });
 
   test("5. Checkout Payment Options & Script Loading Resilience", async ({ page }) => {

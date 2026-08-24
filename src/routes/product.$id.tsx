@@ -1058,8 +1058,7 @@ function BuyNowModal({
         throw new Error(errorMsg);
       }
 
-      const razorpayKey =
-        createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
+      const razorpayKey = createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 
       // Launch Razorpay Checkout Modal
       const options = {

@@ -76,8 +76,8 @@ serve(async (req) => {
     }
 
     // 5. Resolve Razorpay API Credentials
-    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "rzp_live_TSOPbz5nCb4pLb";
-    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "yAEF52zeK3qVZjGEZ4l7SMwG";
+    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
+    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
     const razorpayKeyId = rawKeyId.trim();
     const razorpayKeySecret = rawKeySecret.trim();
 

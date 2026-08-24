@@ -14,6 +14,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id ON public.orders (razo
 
 -- 3. Upsert safe public Razorpay Key ID into site_settings
 INSERT INTO public.site_settings (key, value)
-VALUES ('razorpay_key_id', '"rzp_live_TSOPbz5nCb4pLb"'::jsonb)
+VALUES ('razorpay_key_id', '""'::jsonb)
 ON CONFLICT (key) DO UPDATE
 SET value = EXCLUDED.value;
