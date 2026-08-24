@@ -1111,11 +1111,15 @@ const SETTING_LABELS: Record<string, string> = {
   instagram_url: "Instagram URL",
   facebook_url: "Facebook URL",
   whatsapp_url: "WhatsApp link",
+  owner_notification_email: "Owner Sale Alert Email (Recipient)",
+  owner_notify_offline_sales: "Enable Offline POS Sale Alerts (true/false)",
+  owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
 };
 
 function SettingsTab() {
   const qc = useQueryClient();
   const [values, setValues] = useState<Record<string, string> | null>(null);
+  const [testingEmail, setTestingEmail] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["admin-settings"],
@@ -1145,19 +1149,114 @@ function SettingsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  async function onSendTestNotification() {
+    setTestingEmail(true);
+    try {
+      const targetEmail =
+        current.owner_notification_email || current.contact_email || "hello@zerahkids.com";
+      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
+        body: { type: "test", recipient: targetEmail },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
+      toast.success(`Test email sent to ${targetEmail}!`);
+    } catch (err: unknown) {
+      toast.error(`Test email failed: ${(err as Error).message}`);
+    } finally {
+      setTestingEmail(false);
+    }
+  }
+
   return (
-    <div className="max-w-2xl space-y-4">
-      {Object.keys(current).map((key) => (
-        <label key={key} className="block">
-          <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
-          <textarea
-            rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
-            value={current[key]}
-            onChange={(e) => setValues({ ...current, [key]: e.target.value })}
-            className="mt-1 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
-      ))}
+    <div className="max-w-2xl space-y-8">
+      {/* ─── SALE NOTIFICATIONS CARD ──────────────────────────── */}
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold">Owner Sale Notifications</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Receive automatic email alerts on every offline POS sale &amp; online paid order via
+              Resend.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onSendTestNotification}
+            disabled={testingEmail}
+            className="rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+          >
+            {testingEmail ? "Sending Test…" : "Send Test Email"}
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Recipient Email Address
+            </span>
+            <input
+              type="email"
+              value={current.owner_notification_email ?? ""}
+              onChange={(e) => setValues({ ...current, owner_notification_email: e.target.value })}
+              placeholder="e.g. owner@zerahkids.com"
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer">
+              <span className="text-sm font-medium">Offline POS Sale Alerts</span>
+              <input
+                type="checkbox"
+                checked={current.owner_notify_offline_sales !== "false"}
+                onChange={(e) =>
+                  setValues({
+                    ...current,
+                    owner_notify_offline_sales: e.target.checked ? "true" : "false",
+                  })
+                }
+                className="size-4 accent-primary"
+              />
+            </label>
+
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer">
+              <span className="text-sm font-medium">Online Paid Order Alerts</span>
+              <input
+                type="checkbox"
+                checked={current.owner_notify_online_sales !== "false"}
+                onChange={(e) =>
+                  setValues({
+                    ...current,
+                    owner_notify_online_sales: e.target.checked ? "true" : "false",
+                  })
+                }
+                className="size-4 accent-primary"
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── GENERAL STORE SETTINGS ───────────────────────────── */}
+      <div className="space-y-4">
+        <h3 className="font-display text-lg font-bold">General Store Information</h3>
+        {Object.keys(current)
+          .filter((k) => !k.startsWith("owner_notify"))
+          .map((key) => (
+            <label key={key} className="block">
+              <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
+              <textarea
+                rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
+                value={current[key]}
+                onChange={(e) => setValues({ ...current, [key]: e.target.value })}
+                className="mt-1 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </label>
+          ))}
+      </div>
+
       <button
         onClick={() => save.mutate()}
         disabled={save.isPending}

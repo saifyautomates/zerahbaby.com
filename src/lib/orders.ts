@@ -1,5 +1,5 @@
-//
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 export type OrderItem = {
@@ -38,6 +38,8 @@ export type Order = {
   cancellation_reason?: string | null;
   cancelled_at?: string | null;
   cancelled_by?: string | null;
+  owner_notification_status?: string | null;
+  owner_notified_at?: string | null;
   created_at: string;
   order_items: OrderItem[];
 };
@@ -254,6 +256,32 @@ export function useCancelCustomerOrder() {
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
+    },
+  });
+}
+
+/**
+ * Manual retry hook for resending owner notification email for online orders.
+ */
+export function useRetryOrderNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
+        body: { type: "online_order", order_id: orderId, force_retry: true },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Owner notification email sent!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Failed to send email notification: ${e.message}`);
     },
   });
 }

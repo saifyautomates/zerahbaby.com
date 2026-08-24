@@ -111,6 +111,26 @@ serve(async (req) => {
       throw updateError;
     }
 
+    // Asynchronously trigger owner sale notification (failure must not fail payment verification)
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          type: "online_order",
+          order_id: order.id,
+        }),
+      });
+    } catch (notifyErr) {
+      console.warn(
+        "[verify-razorpay-payment] Owner notification trigger failed (non-blocking):",
+        notifyErr,
+      );
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

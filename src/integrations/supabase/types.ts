@@ -500,6 +500,8 @@ export type Database = {
           subtotal: number;
           total: number;
           updated_at: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
         };
         Insert: {
           created_at?: string;
@@ -519,6 +521,8 @@ export type Database = {
           subtotal?: number;
           total?: number;
           updated_at?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
         };
         Update: {
           created_at?: string;
@@ -538,6 +542,8 @@ export type Database = {
           subtotal?: number;
           total?: number;
           updated_at?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
         };
         Relationships: [
           {
@@ -696,6 +702,8 @@ export type Database = {
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
         };
         Insert: {
           address?: string;
@@ -736,6 +744,8 @@ export type Database = {
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
         };
         Update: {
           address?: string;
@@ -776,6 +786,56 @@ export type Database = {
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
+        };
+        Relationships: [];
+      };
+      owner_notification_logs: {
+        Row: {
+          id: string;
+          event_type: string;
+          reference_id: string | null;
+          reference_number: string | null;
+          recipient: string;
+          status: string;
+          total: number | null;
+          provider: string | null;
+          provider_message_id: string | null;
+          error_message: string | null;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_type: string;
+          reference_id?: string | null;
+          reference_number?: string | null;
+          recipient: string;
+          status?: string;
+          total?: number | null;
+          provider?: string | null;
+          provider_message_id?: string | null;
+          error_message?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_type?: string;
+          reference_id?: string | null;
+          reference_number?: string | null;
+          recipient?: string;
+          status?: string;
+          total?: number | null;
+          provider?: string | null;
+          provider_message_id?: string | null;
+          error_message?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

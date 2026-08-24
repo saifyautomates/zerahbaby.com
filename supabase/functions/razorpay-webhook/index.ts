@@ -90,7 +90,7 @@ serve(async (req) => {
         }
 
         if (orderId) {
-          const { error } = await supabaseClient
+          const { data: updatedOrder, error } = await supabaseClient
             .from("orders")
             .update({
               payment_status: "paid",
@@ -98,9 +98,34 @@ serve(async (req) => {
               razorpay_payment_id: paymentId,
             })
             .eq("razorpay_order_id", orderId)
-            .neq("payment_status", "paid");
+            .neq("payment_status", "paid")
+            .select("id")
+            .maybeSingle();
 
           if (error) throw error;
+
+          if (updatedOrder?.id) {
+            try {
+              const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").trim();
+              const serviceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+              await fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify({
+                  type: "online_order",
+                  order_id: updatedOrder.id,
+                }),
+              });
+            } catch (notifyErr) {
+              console.warn(
+                "[razorpay-webhook] Notification trigger error (non-blocking):",
+                notifyErr,
+              );
+            }
+          }
         }
       } else if (payload.event === "payment.failed") {
         const paymentId = payload.payload.payment.entity.id;

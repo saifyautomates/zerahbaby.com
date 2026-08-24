@@ -57,6 +57,8 @@ export type OfflineSale = {
   notes: string;
   customer_id: string | null;
   created_by: string;
+  owner_notification_status?: string | null;
+  owner_notified_at?: string | null;
   created_at: string;
   updated_at: string;
   offline_sale_items?: OfflineSaleItem[];
@@ -180,17 +182,53 @@ export function usePlaceOfflineSale() {
         _items: input.items,
         _idempotency_key: input.idempotency_key || null,
       });
-      if (error) throw new Error(error.message);
-      return {
+      const result = {
         ...(data as SaleResult),
         customer_phone: input.customer_phone || "",
       };
+
+      // Asynchronously trigger owner sale notification email (non-blocking)
+      if (result.sale_id && !result.duplicate) {
+        supabase.functions
+          .invoke("send-owner-sale-notification", {
+            body: { type: "offline_sale", sale_id: result.sale_id },
+          })
+          .catch((err) => {
+            console.warn("[pos] Owner sale notification trigger error:", err);
+          });
+      }
+
+      return result;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
+    },
+  });
+}
+
+/** Manual retry hook for resending owner notification email */
+export function useRetrySaleNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (saleId: string) => {
+      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
+        body: { type: "offline_sale", sale_id: saleId, force_retry: true },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Owner notification email sent!");
+      qc.invalidateQueries({ queryKey: ["offline-sales"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Failed to send email notification: ${e.message}`);
     },
   });
 }
