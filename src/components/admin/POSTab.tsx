@@ -636,7 +636,7 @@ export function POSTab() {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fce4ef] mb-3">
               <span className="text-2xl">👶</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 font-serif">
+            <h2 className="text-2xl font-bold text-foreground font-serif">
               Zerah <span className="text-[#c8466b] italic">Baby & Kids</span>
             </h2>
             <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-gray-400 mt-1 mb-8">
@@ -647,60 +647,60 @@ export function POSTab() {
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fce4ef] text-[#c8466b] border border-[#c8466b] text-[11px] font-bold z-10 shrink-0">
                 1
               </div>
-              <div className="h-px flex-1 bg-gray-200"></div>
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 text-[11px] font-bold z-10 shrink-0">
+              <div className="h-px flex-1 bg-muted"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card text-gray-400 border border-border text-[11px] font-bold z-10 shrink-0">
                 2
               </div>
-              <div className="h-px flex-1 bg-gray-200"></div>
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 text-[11px] font-bold z-10 shrink-0">
+              <div className="h-px flex-1 bg-muted"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card text-gray-400 border border-border text-[11px] font-bold z-10 shrink-0">
                 3
               </div>
-              <div className="h-px flex-1 bg-gray-200"></div>
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-400 border border-gray-200 z-10 shrink-0">
+              <div className="h-px flex-1 bg-muted"></div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card text-gray-400 border border-border z-10 shrink-0">
                 <Star className="size-3 text-gray-400" />
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mx-6 mb-8 relative text-left w-full max-w-[340px]">
-              <h3 className="text-lg font-serif font-bold text-gray-900 leading-tight">
+            <div className="bg-card rounded-3xl p-6 shadow-sm border border-gray-100 mx-6 mb-8 relative text-left w-full max-w-[340px]">
+              <h3 className="text-lg font-serif font-bold text-foreground leading-tight">
                 Customer Details
               </h3>
-              <p className="text-xs text-gray-500 mb-6 mt-1">
+              <p className="text-xs text-muted-foreground mb-6 mt-1">
                 Fill in your information to place an order
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                     Full Name <span className="text-[#c8466b]">*</span>
                   </label>
                   <input
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                    className="w-full bg-muted/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                     WhatsApp Number <span className="text-[#c8466b]">*</span>
                   </label>
                   <div className="flex gap-2">
-                    <div className="flex items-center gap-1.5 bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2.5 text-sm shrink-0">
-                      <span>🇮🇳</span> <span className="text-gray-500">+91</span>
+                    <div className="flex items-center gap-1.5 bg-muted/50 border border-gray-100 rounded-xl px-3 py-2.5 text-sm shrink-0">
+                      <span>🇮🇳</span> <span className="text-muted-foreground">+91</span>
                     </div>
                     <input
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="9XXXXXXXXX"
-                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                      className="w-full bg-muted/50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                     Product Name <span className="text-[#c8466b]">*</span>
                   </label>
                   <div className="relative">
@@ -709,13 +709,13 @@ export function POSTab() {
                       value={quickOrderProduct}
                       onChange={(e) => setQuickOrderProduct(e.target.value)}
                       placeholder="What would you like to order?"
-                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                      className="w-full bg-muted/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                     Price (₹) <span className="text-[#c8466b]">*</span>
                   </label>
                   <div className="relative">
@@ -725,7 +725,7 @@ export function POSTab() {
                       value={quickOrderPrice}
                       onChange={(e) => setQuickOrderPrice(e.target.value)}
                       placeholder="0"
-                      className="w-full bg-gray-50/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-gray-900 placeholder:text-gray-400"
+                      className="w-full bg-muted/50 border border-gray-100 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#c8466b] focus:ring-1 focus:ring-[#c8466b] text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -767,7 +767,7 @@ export function POSTab() {
             </div>
 
             {/* Discount Section */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold mb-3">Discount</h3>
               <div className="flex gap-2 mb-3">
                 {(
@@ -786,7 +786,7 @@ export function POSTab() {
                     className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                       discountType === type
                         ? "bg-[#8B2020] text-white shadow-sm"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-muted text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     {label}
@@ -802,7 +802,7 @@ export function POSTab() {
                     placeholder={discountType === "percentage" ? "Enter %" : "Enter ₹ amount"}
                     min={0}
                     max={discountType === "percentage" ? 100 : subtotal}
-                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
+                    className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
                   />
                   {discountAmount > 0 && (
                     <span className="text-sm font-bold text-green-700">
@@ -814,7 +814,7 @@ export function POSTab() {
             </div>
 
             {/* Customer Section */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold mb-3">Customer</h3>
               <div className="flex gap-2 mb-3">
                 {(
@@ -838,7 +838,7 @@ export function POSTab() {
                     className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
                       customerMode === mode
                         ? "bg-[#8B2020] text-white shadow-sm"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-muted text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     <Icon className="size-3" />
@@ -862,11 +862,11 @@ export function POSTab() {
                       value={customerSearchQuery}
                       onChange={(e) => setCustomerSearchQuery(e.target.value)}
                       placeholder="Search by phone or name..."
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
+                      className="w-full rounded-xl border border-border bg-muted pl-9 pr-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
                     />
                   </div>
                   {(searchCustomers.data ?? []).length > 0 && (
-                    <div className="max-h-32 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card">
                       {searchCustomers.data!.map((c) => (
                         <button
                           key={c.id}
@@ -878,7 +878,7 @@ export function POSTab() {
                             setCustomerSearchQuery("");
                             toast.success(`Customer: ${c.name}`);
                           }}
-                          className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                          className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted border-b border-gray-100 last:border-0"
                         >
                           <div>
                             <p className="font-semibold">{c.name || "—"}</p>
@@ -918,20 +918,20 @@ export function POSTab() {
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Customer name"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
                   />
                   <input
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="Phone number"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
                   />
                 </div>
               )}
             </div>
 
             {/* Payment Section */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold mb-3">Payment Method</h3>
               <div className="grid grid-cols-2 gap-2">
                 {(
@@ -948,7 +948,7 @@ export function POSTab() {
                     className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
                       paymentMethod === method
                         ? "bg-[#8B2020] text-white shadow-sm"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-muted text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     <Icon className="size-4" />
@@ -959,7 +959,7 @@ export function POSTab() {
             </div>
 
             {/* Summary */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold mb-3">Order Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -1034,7 +1034,7 @@ export function POSTab() {
             </div>
 
             {/* Sale Details */}
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
+            <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Customer</span>
                 <span className="font-semibold">{saleResult.customer_name}</span>
@@ -1070,7 +1070,7 @@ export function POSTab() {
               </button>
               <button
                 onClick={() => setShowLabels(true)}
-                className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                className="w-full rounded-xl border border-border bg-card py-3 text-sm font-bold text-muted-foreground shadow-sm hover:bg-muted transition-all flex items-center justify-center gap-2"
               >
                 <ReceiptText className="size-4" />
                 Print Barcode Labels

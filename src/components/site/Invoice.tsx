@@ -36,13 +36,13 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-card print:p-0"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-white shadow-2xl overflow-hidden print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none"
+        className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-card shadow-2xl overflow-hidden print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:p-0 print:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex-1 min-h-0 overflow-y-auto p-8 print:p-0 print:overflow-visible">
@@ -182,7 +182,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           <div className="mt-8 flex justify-end gap-3 print:hidden">
             <button
               onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-card px-6 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
             >
               <X className="size-4" /> Close
             </button>

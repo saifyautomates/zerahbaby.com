@@ -82,15 +82,15 @@ function BarcodeOnlyLabel({ product, layout }: { product: LabelProduct; layout: 
     <div
       className={`label-cell flex flex-col items-center justify-center text-center break-inside-avoid ${
         isThermal
-          ? "py-2 px-1 border-b border-dashed border-gray-300 print:border-solid print:border-gray-200"
-          : "rounded border-2 border-dashed border-gray-300 p-2 print:border-solid print:border-gray-200"
+          ? "py-2 px-1 border-b border-dashed border-border print:border-solid print:border-border"
+          : "rounded border-2 border-dashed border-border p-2 print:border-solid print:border-border"
       }`}
       style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
     >
-      <p className="text-[8px] font-bold uppercase tracking-wider text-gray-600 truncate w-full">
+      <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground truncate w-full">
         Zérah Baby &amp; Kids
       </p>
-      <p className="text-[9px] font-semibold text-gray-900 truncate w-full mt-0.5">
+      <p className="text-[9px] font-semibold text-foreground truncate w-full mt-0.5">
         {product.name}
       </p>
       <div className="mt-1 w-full flex justify-center overflow-hidden">
@@ -105,7 +105,7 @@ function BarcodeOnlyLabel({ product, layout }: { product: LabelProduct; layout: 
           background="transparent"
         />
       </div>
-      <p className="text-[8px] text-gray-500 mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
+      <p className="text-[8px] text-muted-foreground mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
     </div>
   );
 }
@@ -132,19 +132,19 @@ function FullProductLabel({
     <div
       className={`label-cell flex flex-col items-center justify-center text-center break-inside-avoid ${
         isThermal
-          ? "py-2.5 px-1 border-b border-dashed border-gray-300 print:border-solid print:border-gray-200"
-          : "rounded border-2 border-dashed border-gray-300 p-2 print:border-solid print:border-gray-200"
+          ? "py-2.5 px-1 border-b border-dashed border-border print:border-solid print:border-border"
+          : "rounded border-2 border-dashed border-border p-2 print:border-solid print:border-border"
       }`}
       style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
     >
       {/* Store name */}
-      <p className="text-[8px] font-bold uppercase tracking-wider text-gray-600 truncate w-full">
+      <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground truncate w-full">
         Zérah Baby &amp; Kids
       </p>
 
       {/* Product name */}
       <p
-        className={`font-bold leading-tight text-gray-900 w-full mt-0.5 ${
+        className={`font-bold leading-tight text-foreground w-full mt-0.5 ${
           is58
             ? "text-[9px] line-clamp-1"
             : is108
@@ -156,11 +156,11 @@ function FullProductLabel({
       </p>
 
       {/* SKU */}
-      <p className="text-[8px] text-gray-500 mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
+      <p className="text-[8px] text-muted-foreground mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
 
       {/* Prices */}
       <div className="mt-1 flex items-center gap-1.5 justify-center flex-wrap">
-        <span className="text-[12px] font-black text-gray-900">{formatPrice(product.price)}</span>
+        <span className="text-[12px] font-black text-foreground">{formatPrice(product.price)}</span>
         {hasMrp && (
           <span className="text-[9px] text-gray-400 line-through">{formatPrice(product.mrp)}</span>
         )}
@@ -300,7 +300,7 @@ export function DirectLabelPrintHost() {
   return createPortal(
     <div
       id="direct-label-print-portal"
-      className="hidden print:block fixed inset-0 z-[9999] bg-white p-0 text-black"
+      className="hidden print:block fixed inset-0 z-[9999] bg-card p-0 text-foreground"
     >
       <style>{`
         @media print {

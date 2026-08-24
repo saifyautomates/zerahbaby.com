@@ -530,10 +530,10 @@ function ReviewsSection({
     <section className="mt-16 pt-10 border-t border-gray-100" id="customer-reviews">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
             Ratings & Reviews
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Genuine verified customer reviews from parents who bought this item
           </p>
         </div>
@@ -542,7 +542,7 @@ function ReviewsSection({
         <div>
           {user ? (
             isCheckingPurchase ? (
-              <div className="h-10 w-36 bg-gray-100 animate-pulse rounded-full" />
+              <div className="h-10 w-36 bg-muted animate-pulse rounded-full" />
             ) : isVerifiedBuyer ? (
               <button
                 type="button"
@@ -561,7 +561,7 @@ function ReviewsSection({
           ) : (
             <Link
               to="/auth"
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-border text-muted-foreground font-semibold text-xs hover:bg-muted transition"
             >
               <span>Sign in to review product</span>
             </Link>
@@ -570,11 +570,11 @@ function ReviewsSection({
       </div>
 
       {/* Ratings & Breakdown Hero Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-8 bg-gray-50/70 rounded-3xl border border-gray-100 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-8 bg-muted/70 rounded-3xl border border-gray-100 mb-8">
         {/* Left Column: Overall Score */}
-        <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-gray-200/80 lg:pr-8">
+        <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-border/80 lg:pr-8">
           <div className="flex items-center gap-3">
-            <span className="font-display text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">
+            <span className="font-display text-4xl sm:text-5xl font-black text-foreground tracking-tight">
               {stats.totalRatings > 0
                 ? stats.averageRating
                 : product.rating > 0
@@ -597,11 +597,11 @@ function ReviewsSection({
                   );
                 })}
               </div>
-              <span className="text-xs font-semibold text-gray-500 mt-1">out of 5 stars</span>
+              <span className="text-xs font-semibold text-muted-foreground mt-1">out of 5 stars</span>
             </div>
           </div>
 
-          <p className="mt-3 text-xs sm:text-sm font-semibold text-gray-700">
+          <p className="mt-3 text-xs sm:text-sm font-semibold text-muted-foreground">
             {stats.totalRatings.toLocaleString("en-IN")} Verified Ratings &{" "}
             {stats.totalReviews.toLocaleString("en-IN")} Reviews
           </p>
@@ -625,14 +625,14 @@ function ReviewsSection({
                 type="button"
                 onClick={() => setFilterStar(filterStar === star ? "all" : star)}
                 className={`w-full flex items-center gap-3 text-xs font-bold transition p-1 rounded-lg text-left cursor-pointer ${
-                  isCurrentFilter ? "bg-white shadow-2xs" : "hover:bg-white/60"
+                  isCurrentFilter ? "bg-card shadow-2xs" : "hover:bg-card/60"
                 }`}
               >
-                <span className="w-12 shrink-0 text-gray-700 flex items-center gap-1">
+                <span className="w-12 shrink-0 text-muted-foreground flex items-center gap-1">
                   <span>{star}</span>
                   <Star className="size-3 fill-[#f59e0b] text-[#f59e0b]" />
                 </span>
-                <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       star >= 4 ? "bg-[#388E3C]" : star === 3 ? "bg-[#f59e0b]" : "bg-[#e53935]"
@@ -640,7 +640,7 @@ function ReviewsSection({
                     style={{ width: `${bar.pct}%` }}
                   />
                 </div>
-                <span className="w-12 text-right shrink-0 text-gray-500 font-semibold text-[11px]">
+                <span className="w-12 text-right shrink-0 text-muted-foreground font-semibold text-[11px]">
                   {bar.count}
                 </span>
               </button>
@@ -653,7 +653,7 @@ function ReviewsSection({
       {stats.allImages.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Camera className="size-4 text-[#8B2020]" />
               <span>Customer Photos ({stats.allImages.length})</span>
             </h3>
@@ -673,7 +673,7 @@ function ReviewsSection({
                 key={i}
                 type="button"
                 onClick={() => setSelectedPhoto(img.url)}
-                className="group relative size-20 sm:size-24 rounded-2xl overflow-hidden border-2 border-gray-200 hover:border-[#8B2020] shrink-0 transition hover:scale-105 cursor-pointer shadow-2xs"
+                className="group relative size-20 sm:size-24 rounded-2xl overflow-hidden border-2 border-border hover:border-[#8B2020] shrink-0 transition hover:scale-105 cursor-pointer shadow-2xs"
               >
                 <img src={img.url} alt={img.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -696,7 +696,7 @@ function ReviewsSection({
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
                 filterStar === "all"
                   ? "bg-[#8B2020] text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-muted text-muted-foreground hover:bg-muted"
               }`}
             >
               All ({reviews.length})
@@ -708,7 +708,7 @@ function ReviewsSection({
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                   filterStar === "photos"
                     ? "bg-[#8B2020] text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-muted text-muted-foreground hover:bg-muted"
                 }`}
               >
                 <Camera className="size-3" />
@@ -726,7 +726,7 @@ function ReviewsSection({
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
                     filterStar === s
                       ? "bg-[#8B2020] text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-muted text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {s} ★ ({count})
@@ -736,11 +736,11 @@ function ReviewsSection({
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-gray-500 font-semibold">Sort by:</span>
+            <span className="text-xs text-muted-foreground font-semibold">Sort by:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="text-xs font-bold text-gray-800 bg-white border border-gray-200 rounded-xl px-3 py-1.5 outline-hidden focus:border-[#8B2020] cursor-pointer"
+              className="text-xs font-bold text-foreground bg-card border border-border rounded-xl px-3 py-1.5 outline-hidden focus:border-[#8B2020] cursor-pointer"
             >
               <option value="recent">Most Recent</option>
               <option value="rating_desc">Highest Rating</option>
@@ -758,7 +758,7 @@ function ReviewsSection({
           {filteredReviews.map((review) => (
             <div
               key={review.id}
-              className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-2xs hover:border-gray-200 transition"
+              className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-card shadow-2xs hover:border-border transition"
             >
               {/* Reviewer Header */}
               <div className="flex items-center justify-between gap-3">
@@ -768,7 +768,7 @@ function ReviewsSection({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-900">
+                      <span className="text-sm font-bold text-foreground">
                         {review.user_name || "Verified Customer"}
                       </span>
                       {review.verified_purchase && (
@@ -805,9 +805,9 @@ function ReviewsSection({
 
               {/* Review Title & Comment */}
               {review.title && (
-                <h4 className="mt-3 text-sm font-bold text-gray-900">{review.title}</h4>
+                <h4 className="mt-3 text-sm font-bold text-foreground">{review.title}</h4>
               )}
-              <p className="mt-1.5 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {review.comment}
               </p>
 
@@ -819,7 +819,7 @@ function ReviewsSection({
                       key={idx}
                       type="button"
                       onClick={() => setSelectedPhoto(imgUrl)}
-                      className="group relative size-16 sm:size-20 rounded-xl overflow-hidden border border-gray-200 hover:border-[#8B2020] transition hover:scale-105 cursor-pointer"
+                      className="group relative size-16 sm:size-20 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105 cursor-pointer"
                     >
                       <img
                         src={imgUrl}
@@ -835,10 +835,10 @@ function ReviewsSection({
           ))}
         </div>
       ) : (
-        <div className="py-12 px-6 rounded-3xl border border-gray-100 bg-gray-50/50 text-center space-y-3">
+        <div className="py-12 px-6 rounded-3xl border border-gray-100 bg-muted/50 text-center space-y-3">
           <Star className="size-10 text-gray-300 mx-auto" />
-          <h3 className="text-base font-bold text-gray-800">No reviews found</h3>
-          <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto">
+          <h3 className="text-base font-bold text-foreground">No reviews found</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
             {filterStar !== "all"
               ? "No reviews match the selected filter."
               : "Be the first verified buyer to share feedback on this product!"}

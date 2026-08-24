@@ -149,8 +149,8 @@ export function CustomerHistoryPanel() {
       )}
 
       {/* Search bar */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+      <div className="rounded-2xl border border-gray-100 bg-card p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
           <User className="h-4 w-4 text-[#8B2020]" />
           Customer Lookup
         </h3>
@@ -164,7 +164,7 @@ export function CustomerHistoryPanel() {
               setSelectedCustomer(null);
             }}
             placeholder="Search by name or mobile number…"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-4 py-2 text-sm text-gray-800 outline-none focus:border-[#8B2020]/30 focus:bg-white focus:ring-2 focus:ring-[#8B2020]/10 transition-all"
+            className="w-full rounded-xl border border-border bg-muted pl-9 pr-4 py-2 text-sm text-foreground outline-none focus:border-[#8B2020]/30 focus:bg-card focus:ring-2 focus:ring-[#8B2020]/10 transition-all"
           />
         </div>
 
@@ -179,18 +179,18 @@ export function CustomerHistoryPanel() {
               <button
                 key={c.id}
                 onClick={() => handleSelectCustomer(c)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted transition-colors border-b border-gray-50 last:border-0"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8B2020]/10 text-[#8B2020] font-bold text-sm shrink-0">
                   {c.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
-                  <p className="text-xs text-gray-500">{c.phone}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.phone}</p>
                 </div>
-                <div className="text-right text-xs text-gray-500 shrink-0">
+                <div className="text-right text-xs text-muted-foreground shrink-0">
                   <p>{c.total_purchases} purchases</p>
-                  <p className="font-semibold text-gray-700">{formatPrice(c.total_spend)}</p>
+                  <p className="font-semibold text-muted-foreground">{formatPrice(c.total_spend)}</p>
                 </div>
               </button>
             ))}
@@ -207,8 +207,8 @@ export function CustomerHistoryPanel() {
                 {selectedCustomer.name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="font-bold text-gray-900">{selectedCustomer.name}</p>
-                <div className="flex items-center gap-1 text-xs text-gray-600">
+                <p className="font-bold text-foreground">{selectedCustomer.name}</p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="h-3 w-3" />
                   {selectedCustomer.phone}
                 </div>
@@ -216,13 +216,13 @@ export function CustomerHistoryPanel() {
             </div>
             <div className="flex gap-4 text-center">
               <div>
-                <p className="text-xs text-gray-500">Purchases</p>
-                <p className="font-black text-lg text-gray-900">
+                <p className="text-xs text-muted-foreground">Purchases</p>
+                <p className="font-black text-lg text-foreground">
                   {selectedCustomer.total_purchases}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Total Spent</p>
+                <p className="text-xs text-muted-foreground">Total Spent</p>
                 <p className="font-black text-lg text-[#8B2020]">
                   {formatPrice(selectedCustomer.total_spend)}
                 </p>
@@ -234,9 +234,9 @@ export function CustomerHistoryPanel() {
 
       {/* Purchase history */}
       {selectedCustomer && (
-        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 bg-card shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Receipt className="h-4 w-4 text-[#8B2020]" />
               Purchase History
             </h3>
@@ -257,7 +257,7 @@ export function CustomerHistoryPanel() {
                 <div className="flex items-center gap-4 px-5 py-3.5">
                   <button
                     onClick={() => setExpandedSale(expandedSale === sale.id ? null : sale.id)}
-                    className="shrink-0 text-gray-400 hover:text-gray-600"
+                    className="shrink-0 text-gray-400 hover:text-muted-foreground"
                   >
                     {expandedSale === sale.id ? (
                       <ChevronDown className="h-4 w-4" />
@@ -268,12 +268,12 @@ export function CustomerHistoryPanel() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-gray-900">{sale.sale_number}</span>
-                      <span className="text-[10px] font-semibold uppercase rounded-full px-2 py-0.5 bg-gray-100 text-gray-600">
+                      <span className="text-sm font-bold text-foreground">{sale.sale_number}</span>
+                      <span className="text-[10px] font-semibold uppercase rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
                         {sale.payment_method}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                       <Calendar className="h-3 w-3" />
                       {new Date(sale.created_at).toLocaleDateString("en-IN", {
                         day: "2-digit",
@@ -286,8 +286,8 @@ export function CustomerHistoryPanel() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="font-black text-gray-900">{formatPrice(sale.total)}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-black text-foreground">{formatPrice(sale.total)}</p>
+                    <p className="text-xs text-muted-foreground">
                       {(sale.offline_sale_items ?? []).length} item
                       {(sale.offline_sale_items ?? []).length !== 1 ? "s" : ""}
                     </p>
@@ -295,7 +295,7 @@ export function CustomerHistoryPanel() {
 
                   <button
                     onClick={() => handleReprint(sale)}
-                    className="shrink-0 flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
                   >
                     <Printer className="h-3 w-3" />
                     Reprint
@@ -304,7 +304,7 @@ export function CustomerHistoryPanel() {
 
                 {/* Expanded items */}
                 {expandedSale === sale.id && (
-                  <div className="bg-gray-50 px-12 pb-4 pt-2">
+                  <div className="bg-muted px-12 pb-4 pt-2">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-gray-400 uppercase tracking-wider">
@@ -317,23 +317,23 @@ export function CustomerHistoryPanel() {
                       <tbody className="divide-y divide-gray-100">
                         {(sale.offline_sale_items ?? []).map((item) => (
                           <tr key={item.id}>
-                            <td className="py-1.5 text-gray-900 font-medium pr-2">{item.name}</td>
-                            <td className="py-1.5 text-right text-gray-600">{item.qty}</td>
-                            <td className="py-1.5 text-right text-gray-600">
+                            <td className="py-1.5 text-foreground font-medium pr-2">{item.name}</td>
+                            <td className="py-1.5 text-right text-muted-foreground">{item.qty}</td>
+                            <td className="py-1.5 text-right text-muted-foreground">
                               {formatPrice(item.price)}
                             </td>
-                            <td className="py-1.5 text-right font-semibold text-gray-900">
+                            <td className="py-1.5 text-right font-semibold text-foreground">
                               {formatPrice(item.subtotal)}
                             </td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="border-t border-gray-200">
+                      <tfoot className="border-t border-border">
                         <tr>
-                          <td colSpan={3} className="pt-2 text-gray-500">
+                          <td colSpan={3} className="pt-2 text-muted-foreground">
                             Subtotal
                           </td>
-                          <td className="pt-2 text-right text-gray-900">
+                          <td className="pt-2 text-right text-foreground">
                             {formatPrice(sale.subtotal)}
                           </td>
                         </tr>
@@ -348,10 +348,10 @@ export function CustomerHistoryPanel() {
                           </tr>
                         )}
                         <tr className="font-bold">
-                          <td colSpan={3} className="pt-1 text-gray-900">
+                          <td colSpan={3} className="pt-1 text-foreground">
                             Total
                           </td>
-                          <td className="pt-1 text-right text-gray-900">
+                          <td className="pt-1 text-right text-foreground">
                             {formatPrice(sale.total)}
                           </td>
                         </tr>

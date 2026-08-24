@@ -83,12 +83,12 @@ export function PrintLabelsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-card print:p-0"
       role="dialog"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-5xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none"
+        className="flex w-full max-w-5xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-card print:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — hidden during print */}
@@ -160,7 +160,7 @@ export function PrintLabelsModal({
         </div>
 
         {/* Configuration Bar */}
-        <div className="shrink-0 border-b border-border/50 px-6 py-3 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="shrink-0 border-b border-border/50 px-6 py-3 bg-muted/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
             <Settings2 className="size-3.5" />
             <span>Format: {layout.toUpperCase()}</span>
@@ -174,7 +174,7 @@ export function PrintLabelsModal({
                 type="checkbox"
                 checked={labelType === "barcode-only"}
                 onChange={(e) => handleLabelTypeChange(e.target.checked ? "barcode-only" : "full")}
-                className="rounded border-gray-300 text-[#8B2020] focus:ring-[#8B2020]"
+                className="rounded border-border text-[#8B2020] focus:ring-[#8B2020]"
               />
               Barcode Only
             </label>
@@ -184,7 +184,7 @@ export function PrintLabelsModal({
                 checked={showDiscount}
                 onChange={(e) => handleDiscountChange(e.target.checked)}
                 disabled={labelType === "barcode-only"}
-                className="rounded border-gray-300 text-[#8B2020] focus:ring-[#8B2020] disabled:opacity-50"
+                className="rounded border-border text-[#8B2020] focus:ring-[#8B2020] disabled:opacity-50"
               />
               Show Discount %
             </label>
@@ -203,16 +203,16 @@ export function PrintLabelsModal({
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-2 rounded-2xl border border-border bg-white px-3 py-1.5 shadow-2xs"
+                  className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-1.5 shadow-2xs"
                 >
-                  <span className="text-xs font-semibold text-gray-800 max-w-[140px] truncate">
+                  <span className="text-xs font-semibold text-foreground max-w-[140px] truncate">
                     {p.name}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setQty(key, q - 1)}
-                      className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-muted/50 hover:bg-muted text-gray-600 cursor-pointer"
+                      className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-muted/50 hover:bg-muted text-muted-foreground cursor-pointer"
                     >
                       <Minus className="size-3" />
                     </button>
@@ -227,7 +227,7 @@ export function PrintLabelsModal({
                     <button
                       type="button"
                       onClick={() => setQty(key, q + 1)}
-                      className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-muted/50 hover:bg-muted text-gray-600 cursor-pointer"
+                      className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-muted/50 hover:bg-muted text-muted-foreground cursor-pointer"
                     >
                       <Plus className="size-3" />
                     </button>
@@ -240,7 +240,7 @@ export function PrintLabelsModal({
 
         {/* Preview Engine Area */}
         <div className="flex-1 overflow-y-auto p-6 bg-muted/10 print:p-0 print:overflow-visible">
-          <div className="max-w-xl mx-auto rounded-2xl bg-white border border-border/60 p-6 shadow-xs print:border-0 print:shadow-none print:p-0 print:max-w-none">
+          <div className="max-w-xl mx-auto rounded-2xl bg-card border border-border/60 p-6 shadow-xs print:border-0 print:shadow-none print:p-0 print:max-w-none">
             <LabelPrintEngine
               entries={entries}
               labelType={labelType}

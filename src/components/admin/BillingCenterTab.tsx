@@ -151,20 +151,20 @@ function LabelPrintingSubTab() {
   }, [products, selectedIds]);
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
+    <div className="flex flex-col h-full bg-card rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-card">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-2.5 size-4 text-gray-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products to print..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-4 py-2 text-sm outline-none focus:border-[#8B2020] transition-colors shadow-sm"
+            className="w-full rounded-xl border border-border bg-muted pl-9 pr-4 py-2 text-sm outline-none focus:border-[#8B2020] transition-colors shadow-sm"
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-gray-500">{selectedIds.size} selected</span>
-          <div className="inline-flex rounded-xl border border-border bg-white shadow-2xs overflow-hidden">
+          <span className="text-sm font-semibold text-muted-foreground">{selectedIds.size} selected</span>
+          <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
               type="button"
               onClick={() => printLabel(selectedProducts)}
@@ -188,12 +188,12 @@ function LabelPrintingSubTab() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-50/30">
+      <div className="flex-1 overflow-auto bg-muted/30">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-white text-[11px] font-bold uppercase tracking-wider text-gray-500 sticky top-0 border-b border-gray-200 z-10 shadow-sm">
+          <thead className="bg-card text-[11px] font-bold uppercase tracking-wider text-muted-foreground sticky top-0 border-b border-border z-10 shadow-sm">
             <tr>
               <th className="px-5 py-3 w-10 text-center">
-                <button onClick={toggleAll} className="text-gray-400 hover:text-gray-700">
+                <button onClick={toggleAll} className="text-gray-400 hover:text-muted-foreground">
                   {selectedIds.size === list.length && list.length > 0 ? (
                     <CheckSquare className="size-4 text-[#8B2020]" />
                   ) : (
@@ -207,7 +207,7 @@ function LabelPrintingSubTab() {
               <th className="px-5 py-3 text-center">Stock</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100 bg-card">
             {isLoading && (
               <tr>
                 <td colSpan={5} className="px-5 py-16 text-center">
@@ -219,7 +219,7 @@ function LabelPrintingSubTab() {
             )}
             {!isLoading && list.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-16 text-center text-gray-500">
+                <td colSpan={5} className="px-5 py-16 text-center text-muted-foreground">
                   No products found.
                 </td>
               </tr>
@@ -230,7 +230,7 @@ function LabelPrintingSubTab() {
                 <tr
                   key={p.uuid}
                   onClick={() => toggleOne(p.uuid)}
-                  className={`cursor-pointer transition-colors hover:bg-gray-50 ${
+                  className={`cursor-pointer transition-colors hover:bg-muted ${
                     isSelected ? "bg-[#8B2020]/5" : ""
                   }`}
                 >
@@ -253,16 +253,16 @@ function LabelPrintingSubTab() {
                         }}
                       />
                       <div>
-                        <p className="font-semibold text-gray-900 leading-tight">{p.name}</p>
-                        <p className="text-[10px] text-gray-500">
+                        <p className="font-semibold text-foreground leading-tight">{p.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
                           {p.brand} {p.category && `• ${p.category}`}
                         </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <p className="font-mono text-xs font-semibold text-gray-900">{p.sku || "—"}</p>
-                    <p className="font-mono text-[10px] text-gray-500">{p.barcode || "—"}</p>
+                    <p className="font-mono text-xs font-semibold text-foreground">{p.sku || "—"}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">{p.barcode || "—"}</p>
                   </td>
                   <td className="px-5 py-3">
                     <p className="font-semibold">{formatPrice(p.price)}</p>

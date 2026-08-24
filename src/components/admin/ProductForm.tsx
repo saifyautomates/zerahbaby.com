@@ -494,7 +494,7 @@ export function ProductForm({
               </div>
 
               {/* Profit Calculation Box */}
-              <div className="rounded-lg border border-border bg-white p-4">
+              <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Expected Profit</p>
@@ -613,13 +613,13 @@ export function ProductForm({
 
         <div className="shrink-0 border-t border-border p-6 flex justify-end gap-3 bg-muted/50">
           {product && (
-            <div className="mr-auto inline-flex items-center rounded-full border border-border bg-white shadow-2xs overflow-hidden">
+            <div className="mr-auto inline-flex items-center rounded-full border border-border bg-card shadow-2xs overflow-hidden">
               <button
                 type="button"
                 onClick={() => printLabel(product)}
                 disabled={isDirectPrinting}
                 title="Print Label (1-Click Direct Print)"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
               >
                 <Printer className="size-4 text-[#8B2020]" />
                 <span>Print Label</span>
@@ -628,7 +628,7 @@ export function ProductForm({
                 type="button"
                 onClick={() => setPrinting(true)}
                 title="More print options (Customize quantities & format)"
-                className="px-2.5 py-2 text-xs border-l border-border text-gray-500 hover:bg-gray-50 transition cursor-pointer"
+                className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted transition cursor-pointer"
               >
                 <Settings2 className="size-3.5" />
               </button>
@@ -663,7 +663,7 @@ export function ProductForm({
           onClick={() => setShowPostCreatePrompt(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center"
+            className="bg-card rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 mb-4">
@@ -686,7 +686,7 @@ export function ProductForm({
               </button>
               <button
                 onClick={() => setShowPostCreatePrompt(false)}
-                className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
               >
                 Skip for now
               </button>

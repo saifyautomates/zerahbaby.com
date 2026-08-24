@@ -101,19 +101,19 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
 
       <div
         id="thermal-receipt-portal"
-        className="flex w-full max-w-sm flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl print:rounded-none print:border-0 print:shadow-none print:max-w-none print:w-[100mm]"
+        className="flex w-full max-w-sm flex-col rounded-2xl border border-border bg-card shadow-2xl print:rounded-none print:border-0 print:shadow-none print:max-w-none print:w-[100mm]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Screen header (hidden during print) ── */}
         <div className="thermal-no-print flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Thermal Receipt</h2>
-            <p className="text-xs text-gray-500">{sale.sale_number}</p>
+            <h2 className="text-base font-bold text-foreground">Thermal Receipt</h2>
+            <p className="text-xs text-muted-foreground">{sale.sale_number}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted"
             >
               <X className="h-4 w-4" />
             </button>
@@ -131,21 +131,21 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
         <div className="thermal-body overflow-y-auto p-4 print:p-0 print:overflow-visible">
           {/* Store header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-gray-900">ZÉRAH BABY &amp; KIDS</p>
-            <p className="text-[10px] text-gray-600 mt-0.5">Premium Children's Clothing</p>
-            <p className="text-[10px] text-gray-500">Gordhanpura, Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-gray-500">Ph: 9057074777</p>
+            <p className="text-sm font-black tracking-tight text-foreground">ZÉRAH BABY &amp; KIDS</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Premium Children's Clothing</p>
+            <p className="text-[10px] text-muted-foreground">Gordhanpura, Kota, Rajasthan 324001</p>
+            <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
           </div>
 
           {/* Invoice details */}
           <div className="text-[11px] space-y-0.5 mb-3">
             <div className="flex justify-between">
-              <span className="text-gray-600">Invoice</span>
-              <span className="font-bold text-gray-900">{sale.sale_number}</span>
+              <span className="text-muted-foreground">Invoice</span>
+              <span className="font-bold text-foreground">{sale.sale_number}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Date</span>
-              <span className="text-gray-900">
+              <span className="text-muted-foreground">Date</span>
+              <span className="text-foreground">
                 {date.toLocaleDateString("en-IN", {
                   day: "2-digit",
                   month: "2-digit",
@@ -154,8 +154,8 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Time</span>
-              <span className="text-gray-900">
+              <span className="text-muted-foreground">Time</span>
+              <span className="text-foreground">
                 {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
@@ -164,15 +164,15 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
           {/* Customer */}
           <div className="border-t border-dashed border-gray-400 pt-2 pb-2 mb-2 text-[11px]">
             <div className="flex justify-between">
-              <span className="text-gray-600">Customer</span>
-              <span className="font-semibold text-gray-900 text-right max-w-[55%] truncate">
+              <span className="text-muted-foreground">Customer</span>
+              <span className="font-semibold text-foreground text-right max-w-[55%] truncate">
                 {sale.customer_name}
               </span>
             </div>
             {sale.customer_phone && sale.customer_phone.trim() !== "" && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Mobile</span>
-                <span className="text-gray-900">{sale.customer_phone}</span>
+                <span className="text-muted-foreground">Mobile</span>
+                <span className="text-foreground">{sale.customer_phone}</span>
               </div>
             )}
           </div>
@@ -185,14 +185,14 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
             {items.map((item, i) => (
               <div key={i}>
                 <div className="flex justify-between gap-1">
-                  <span className="flex-1 font-semibold text-gray-900 leading-tight truncate">
+                  <span className="flex-1 font-semibold text-foreground leading-tight truncate">
                     {item.name}
                   </span>
-                  <span className="shrink-0 font-semibold text-gray-900">
+                  <span className="shrink-0 font-semibold text-foreground">
                     {formatPrice(item.price * item.qty)}
                   </span>
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-500">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>
                     {formatPrice(item.price)} × {item.qty}
                   </span>
@@ -207,8 +207,8 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
           {/* Totals */}
           <div className="text-[11px] space-y-0.5">
             <div className="flex justify-between">
-              <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900">{formatPrice(sale.subtotal)}</span>
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-foreground">{formatPrice(sale.subtotal)}</span>
             </div>
             {sale.discount > 0 && (
               <div className="flex justify-between text-green-700">
@@ -224,12 +224,12 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
               </div>
             )}
             <div className="flex justify-between pt-1 border-t border-gray-900">
-              <span className="thermal-total-row font-black text-gray-900 text-sm">TOTAL</span>
-              <span className="thermal-total-row font-black text-gray-900 text-sm">
+              <span className="thermal-total-row font-black text-foreground text-sm">TOTAL</span>
+              <span className="thermal-total-row font-black text-foreground text-sm">
                 {formatPrice(sale.total)}
               </span>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-600 pt-0.5">
+            <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
               <span>Payment</span>
               <span className="font-bold uppercase">{sale.payment_method}</span>
             </div>
@@ -239,7 +239,7 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
           <div className="thermal-divider border-t border-dashed border-gray-400 my-3" />
 
           {/* Footer */}
-          <div className="text-center text-[10px] text-gray-600 space-y-0.5">
+          <div className="text-center text-[10px] text-muted-foreground space-y-0.5">
             <p className="font-bold">Thank You For Shopping!</p>
             <p>Exchange/Return within 7 days with receipt.</p>
             <p className="mt-1">Visit us again · zerah_kids</p>

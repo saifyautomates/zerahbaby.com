@@ -144,11 +144,11 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
         <div className="thermal-body overflow-y-auto p-5 print:p-0 print:overflow-visible font-mono text-xs text-foreground bg-card">
           {/* Store header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-gray-900">ZÉRAH BABY &amp; KIDS</p>
-            <p className="text-[10px] text-gray-600 mt-0.5">Offline POS Returns</p>
-            <p className="text-[10px] text-gray-500">Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-gray-500">Ph: 9057074777</p>
-            <div className="mt-2 inline-block rounded border border-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900">
+            <p className="text-sm font-black tracking-tight text-foreground">ZÉRAH BABY &amp; KIDS</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Offline POS Returns</p>
+            <p className="text-[10px] text-muted-foreground">Kota, Rajasthan 324001</p>
+            <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
+            <div className="mt-2 inline-block rounded border border-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
               RETURN RECEIPT
             </div>
           </div>
@@ -156,12 +156,12 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
           {/* Return details */}
           <div className="text-[11px] space-y-0.5 mb-3">
             <div className="flex justify-between">
-              <span className="text-gray-600">Return #</span>
-              <span className="font-bold text-gray-900">{returnData.return_number}</span>
+              <span className="text-muted-foreground">Return #</span>
+              <span className="font-bold text-foreground">{returnData.return_number}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Date</span>
-              <span className="text-gray-900">
+              <span className="text-muted-foreground">Date</span>
+              <span className="text-foreground">
                 {date.toLocaleDateString("en-IN", {
                   day: "2-digit",
                   month: "2-digit",
@@ -170,8 +170,8 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Time</span>
-              <span className="text-gray-900">
+              <span className="text-muted-foreground">Time</span>
+              <span className="text-foreground">
                 {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
@@ -180,22 +180,22 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
           {/* Customer */}
           <div className="border-t border-dashed border-gray-400 pt-2 pb-2 mb-2 text-[11px]">
             <div className="flex justify-between">
-              <span className="text-gray-600">Customer</span>
-              <span className="font-semibold text-gray-900 text-right max-w-[55%] truncate">
+              <span className="text-muted-foreground">Customer</span>
+              <span className="font-semibold text-foreground text-right max-w-[55%] truncate">
                 {returnData.customer_name}
               </span>
             </div>
             {returnData.customer_phone && returnData.customer_phone.trim() !== "" && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Mobile</span>
-                <span className="text-gray-900">{returnData.customer_phone}</span>
+                <span className="text-muted-foreground">Mobile</span>
+                <span className="text-foreground">{returnData.customer_phone}</span>
               </div>
             )}
           </div>
 
           {/* Items Header */}
           <div className="border-t border-dashed border-gray-400 pt-2 pb-1">
-            <div className="flex justify-between text-[10px] font-bold text-gray-700 uppercase">
+            <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
               <span className="w-[50%]">Item Returned</span>
               <span className="w-[20%] text-center">Qty</span>
               <span className="w-[30%] text-right">Refund</span>
@@ -208,16 +208,16 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               <div key={idx}>
                 <div className="flex justify-between items-start">
                   <div className="w-[50%] pr-1">
-                    <p className="font-bold text-gray-900 line-clamp-2 leading-tight">
+                    <p className="font-bold text-foreground line-clamp-2 leading-tight">
                       {item.name}
                     </p>
                     {item.variant_info && (
-                      <p className="text-[9px] text-gray-500">{item.variant_info}</p>
+                      <p className="text-[9px] text-muted-foreground">{item.variant_info}</p>
                     )}
                     {item.barcode && <p className="text-[9px] text-gray-400">{item.barcode}</p>}
                   </div>
-                  <span className="w-[20%] text-center font-bold text-gray-900">{item.qty}</span>
-                  <span className="w-[30%] text-right font-bold text-gray-900">
+                  <span className="w-[20%] text-center font-bold text-foreground">{item.qty}</span>
+                  <span className="w-[30%] text-right font-bold text-foreground">
                     {formatPrice(item.subtotal)}
                   </span>
                 </div>
@@ -227,11 +227,11 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
 
           {/* Refund Totals & Method */}
           <div className="border-t-2 border-dashed border-gray-900 mt-2 pt-2 space-y-1 text-[11px]">
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-muted-foreground">
               <span>Total Units Restocked</span>
-              <span className="font-bold text-gray-900">+{totalItemsCount}</span>
+              <span className="font-bold text-foreground">+{totalItemsCount}</span>
             </div>
-            <div className="flex justify-between text-[13px] font-black text-gray-900 pt-1 border-t border-dashed border-gray-300">
+            <div className="flex justify-between text-[13px] font-black text-foreground pt-1 border-t border-dashed border-border">
               <span>TOTAL REFUNDED</span>
               <span>{formatPrice(returnData.refund_amount)}</span>
             </div>
@@ -239,17 +239,17 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               <span>Refund Method</span>
               <span className="uppercase">{returnData.refund_method}</span>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-600 pt-0.5">
+            <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
               <span>Reason</span>
               <span className="text-right max-w-[60%] truncate">{returnData.return_reason}</span>
             </div>
             {returnData.notes && (
-              <div className="text-[9px] text-gray-500 italic pt-0.5">Note: {returnData.notes}</div>
+              <div className="text-[9px] text-muted-foreground italic pt-0.5">Note: {returnData.notes}</div>
             )}
           </div>
 
           {/* Footer Note */}
-          <div className="border-t border-dashed border-gray-400 mt-3 pt-2 text-center text-[10px] text-gray-600">
+          <div className="border-t border-dashed border-gray-400 mt-3 pt-2 text-center text-[10px] text-muted-foreground">
             <p className="font-semibold text-emerald-800">✓ Inventory Restocked</p>
             <p className="mt-1">Thank you for visiting Zérah Baby &amp; Kids!</p>
           </div>

@@ -130,29 +130,29 @@ export function ReviewModal({
         }
       }}
     >
-      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-card rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-muted/50">
           <div className="flex items-center gap-3 min-w-0">
             {product.image && (
               <img
                 src={product.image}
                 alt={product.name}
-                className="size-11 rounded-xl object-cover border border-gray-200 shrink-0"
+                className="size-11 rounded-xl object-cover border border-border shrink-0"
               />
             )}
             <div className="min-w-0">
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2e7d32] bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
                 <ShieldCheck className="size-3" /> Certified Buyer
               </span>
-              <h2 className="text-sm font-bold text-gray-900 truncate mt-0.5">{product.name}</h2>
+              <h2 className="text-sm font-bold text-foreground truncate mt-0.5">{product.name}</h2>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close review dialog"
-            className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition cursor-pointer"
+            className="p-2 text-gray-400 hover:text-muted-foreground rounded-full hover:bg-muted transition cursor-pointer"
           >
             <X className="size-5" />
           </button>
@@ -166,8 +166,8 @@ export function ReviewModal({
                 <CheckCircle2 className="size-9" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Review Submitted!</h3>
-                <p className="text-sm text-gray-500 max-w-md mx-auto mt-1.5">
+                <h3 className="text-xl font-bold text-foreground">Review Submitted!</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1.5">
                   Thank you for helping other parents make great choices for their little ones! Your
                   verified review is being processed and will appear shortly.
                 </p>
@@ -203,8 +203,8 @@ export function ReviewModal({
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Star Rating Selector */}
-              <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-5 text-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              <div className="rounded-2xl border border-gray-100 bg-muted/50 p-5 text-center">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Rate this product
                 </p>
                 <div className="flex items-center justify-center gap-2 mt-3">
@@ -235,13 +235,13 @@ export function ReviewModal({
                   <span className={`text-sm font-bold ${activeLevel.color}`}>
                     {activeLevel.label}
                   </span>
-                  <span className="text-xs text-gray-500 ml-1.5">({activeLevel.desc})</span>
+                  <span className="text-xs text-muted-foreground ml-1.5">({activeLevel.desc})</span>
                 </div>
               </div>
 
               {/* Review Title */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Review Headline <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <input
@@ -250,14 +250,14 @@ export function ReviewModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Super soft fabric, fits perfectly!"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-hidden focus:border-[#8B2020] focus:ring-2 focus:ring-red-100 transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-card text-sm outline-hidden focus:border-[#8B2020] focus:ring-2 focus:ring-red-100 transition"
                 />
               </div>
 
               {/* Review Comment */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Detailed Review <span className="text-red-500">*</span>
                   </label>
                   <span className="text-[11px] text-gray-400">{comment.length}/1000</span>
@@ -269,14 +269,14 @@ export function ReviewModal({
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Tell us about the fabric quality, comfort, fit, stitching, and why you love or disliked it..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm outline-hidden focus:border-[#8B2020] focus:ring-2 focus:ring-red-100 transition"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-card text-sm outline-hidden focus:border-[#8B2020] focus:ring-2 focus:ring-red-100 transition"
                 />
               </div>
 
               {/* Photo Upload Section */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Add Photos{" "}
                     <span className="text-gray-400 font-normal">
                       ({images.length}/{MAX_PHOTOS})
@@ -291,7 +291,7 @@ export function ReviewModal({
                   {images.map((img, idx) => (
                     <div
                       key={idx}
-                      className="group relative aspect-square rounded-xl border border-gray-200 overflow-hidden bg-gray-100"
+                      className="group relative aspect-square rounded-xl border border-border overflow-hidden bg-muted"
                     >
                       <img
                         src={img}
@@ -311,7 +311,7 @@ export function ReviewModal({
 
                   {images.length < MAX_PHOTOS && (
                     <label
-                      className={`aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-[#8B2020] hover:bg-red-50/20 flex flex-col items-center justify-center p-2 text-center transition cursor-pointer ${isUploading ? "opacity-60 pointer-events-none" : ""}`}
+                      className={`aspect-square rounded-xl border-2 border-dashed border-border hover:border-[#8B2020] hover:bg-red-50/20 flex flex-col items-center justify-center p-2 text-center transition cursor-pointer ${isUploading ? "opacity-60 pointer-events-none" : ""}`}
                     >
                       <input
                         ref={fileInputRef}
@@ -326,7 +326,7 @@ export function ReviewModal({
                       ) : (
                         <>
                           <ImageIcon className="size-5 text-gray-400 group-hover:text-[#8B2020]" />
-                          <span className="text-[10px] font-bold text-gray-600 mt-1">+ Photo</span>
+                          <span className="text-[10px] font-bold text-muted-foreground mt-1">+ Photo</span>
                         </>
                       )}
                     </label>
@@ -339,7 +339,7 @@ export function ReviewModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition cursor-pointer"
                 >
                   Cancel
                 </button>

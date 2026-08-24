@@ -152,7 +152,7 @@ export function OnlineSalesTab() {
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
                 filter === "new_orders"
-                  ? "bg-white/20 text-white"
+                  ? "bg-card/20 text-white"
                   : "bg-amber-200/60 dark:bg-amber-800/60 text-amber-900 dark:text-amber-200"
               }`}
             >
@@ -188,8 +188,8 @@ export function OnlineSalesTab() {
       )}
 
       {!isLoading && orders.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-gray-200 p-12 text-center">
-          <p className="text-sm font-semibold text-gray-700">No online orders found</p>
+        <div className="rounded-3xl border border-dashed border-border p-12 text-center">
+          <p className="text-sm font-semibold text-muted-foreground">No online orders found</p>
           <p className="mt-1 text-xs text-gray-400">
             Online customer checkout orders will appear here automatically.
           </p>
@@ -200,12 +200,12 @@ export function OnlineSalesTab() {
         {orders.map((order) => (
           <li
             key={order.id}
-            className="overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-gray-200"
+            className="overflow-hidden rounded-3xl border border-gray-100 bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border"
           >
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="font-mono text-sm font-bold text-gray-900">
+                  <span className="font-mono text-sm font-bold text-foreground">
                     #{order.id.slice(0, 8).toUpperCase()}
                   </span>
                   <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
@@ -243,20 +243,20 @@ export function OnlineSalesTab() {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs font-medium text-gray-500">
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
                   {new Date(order.created_at).toLocaleString("en-IN")}
                 </p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{order.full_name}</p>
-                    <p className="text-sm font-medium text-gray-600 mt-0.5">{order.email}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="text-sm font-bold text-foreground">{order.full_name}</p>
+                    <p className="text-sm font-medium text-muted-foreground mt-0.5">{order.email}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {order.phone}{" "}
                       {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
                     </p>
                   </div>
                   <div>
-                    <p className="max-w-xs text-sm text-gray-600 leading-relaxed">
+                    <p className="max-w-xs text-sm text-muted-foreground leading-relaxed">
                       {order.address}
                       {order.address_line2 ? `, ${order.address_line2}` : ""}
                       {order.landmark ? `, near ${order.landmark}` : ""}
@@ -292,7 +292,7 @@ export function OnlineSalesTab() {
               </div>
 
               <div className="text-right sm:w-48">
-                <p className="text-xl font-extrabold text-gray-900">
+                <p className="text-xl font-extrabold text-foreground">
                   {formatPrice(Number(order.total))}
                 </p>
                 <select
@@ -305,7 +305,7 @@ export function OnlineSalesTab() {
                   }
                   disabled={update.isPending}
                   aria-label={`Status for order ${order.id}`}
-                  className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm text-gray-800 disabled:opacity-50"
+                  className="mt-3 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm text-foreground disabled:opacity-50"
                 >
                   {orderStatuses.map((s) => (
                     <option key={s} value={s}>

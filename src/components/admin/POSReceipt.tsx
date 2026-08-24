@@ -19,12 +19,12 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 p-4 sm:p-6 backdrop-blur-sm print:block print:bg-card print:p-0"
       role="dialog"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-3xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:shadow-none"
+        className="flex w-full max-w-3xl max-h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — hidden during print */}
@@ -52,8 +52,8 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
         </div>
 
         {/* Printable Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-white print:p-0">
-          <div className="mx-auto max-w-[210mm] bg-white p-8 shadow-sm print:max-w-none print:shadow-none">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 p-8 print:overflow-visible print:bg-card print:p-0">
+          <div className="mx-auto max-w-[210mm] bg-card p-8 shadow-sm print:max-w-none print:shadow-none">
             {/* Branding Header */}
             <div className="text-center border-b-2 border-slate-900 pb-4 mb-6">
               <h1 className="text-3xl font-bold tracking-tight text-slate-900">

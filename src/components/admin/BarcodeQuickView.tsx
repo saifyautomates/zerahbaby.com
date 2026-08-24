@@ -38,18 +38,18 @@ export function BarcodeQuickView({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-2xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl border border-gray-100 bg-card shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2">
             <ScanLine className="h-4 w-4 text-[#8B2020]" />
-            <span className="text-sm font-bold text-gray-900">Scanned Product</span>
+            <span className="text-sm font-bold text-foreground">Scanned Product</span>
           </div>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-muted"
           >
             <X className="h-4 w-4" />
           </button>
@@ -64,10 +64,10 @@ export function BarcodeQuickView({
                 <AlertTriangle className="h-7 w-7 text-red-500" />
               </div>
               <div>
-                <p className="font-bold text-gray-900 text-base">Product Not Found</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="font-bold text-foreground text-base">Product Not Found</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   Scanned:{" "}
-                  <code className="bg-gray-100 rounded px-1.5 py-0.5 text-xs font-mono">
+                  <code className="bg-muted rounded px-1.5 py-0.5 text-xs font-mono">
                     {scannedCode}
                   </code>
                 </p>
@@ -75,7 +75,7 @@ export function BarcodeQuickView({
               <div className="flex gap-2 mt-2 w-full">
                 <button
                   onClick={onScanNext}
-                  className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  className="flex-1 rounded-xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
                 >
                   Try Again
                 </button>
@@ -90,15 +90,15 @@ export function BarcodeQuickView({
                 <Package className="h-7 w-7 text-amber-500" />
               </div>
               <div>
-                <p className="font-bold text-gray-900">{result.name}</p>
+                <p className="font-bold text-foreground">{result.name}</p>
                 <p className="text-sm text-amber-700 bg-amber-50 rounded-full px-3 py-1 mt-1 inline-block">
                   Archived — not available for sale
                 </p>
-                {result.sku && <p className="text-xs text-gray-500 mt-1">SKU: {result.sku}</p>}
+                {result.sku && <p className="text-xs text-muted-foreground mt-1">SKU: {result.sku}</p>}
               </div>
               <button
                 onClick={onScanNext}
-                className="rounded-xl border border-gray-200 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 w-full"
+                className="rounded-xl border border-border px-6 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted w-full"
               >
                 Scan Next
               </button>
@@ -109,7 +109,7 @@ export function BarcodeQuickView({
           {result?.found && !result.archived && (
             <div className="flex gap-4">
               {/* Product image */}
-              <div className="shrink-0 h-20 w-20 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+              <div className="shrink-0 h-20 w-20 rounded-xl overflow-hidden border border-gray-100 bg-muted">
                 <img
                   src={imageFor(result.category ?? "clothing", result.image_url)}
                   alt={result.name}
@@ -119,13 +119,13 @@ export function BarcodeQuickView({
 
               {/* Details */}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">
+                <p className="font-bold text-foreground text-sm leading-tight line-clamp-2">
                   {result.name}
                 </p>
-                {result.brand && <p className="text-xs text-gray-500 mt-0.5">{result.brand}</p>}
+                {result.brand && <p className="text-xs text-muted-foreground mt-0.5">{result.brand}</p>}
 
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <span className="text-base font-black text-gray-900">
+                  <span className="text-base font-black text-foreground">
                     {formatPrice(result.price ?? 0)}
                   </span>
                   {(result.mrp ?? 0) > (result.price ?? 0) && (
@@ -137,7 +137,7 @@ export function BarcodeQuickView({
 
                 <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
                   {result.sku && (
-                    <span className="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 font-mono">
+                    <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono">
                       SKU: {result.sku}
                     </span>
                   )}
@@ -180,7 +180,7 @@ export function BarcodeQuickView({
                 {onViewProduct && result.slug && (
                   <button
                     onClick={() => onViewProduct(result.slug!)}
-                    className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
                   >
                     View Product
                   </button>
@@ -190,7 +190,7 @@ export function BarcodeQuickView({
                     onScanNext();
                     onClose();
                   }}
-                  className="flex-1 flex items-center justify-center gap-1 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
                 >
                   <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                   Scan Next

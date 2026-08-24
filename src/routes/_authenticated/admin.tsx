@@ -333,7 +333,7 @@ function AdminPage() {
                 {item.key === "orders" && unreadCount > 0 && (
                   <span
                     className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      active ? "bg-white text-primary" : "bg-rose-500 text-white"
+                      active ? "bg-card text-primary" : "bg-rose-500 text-white"
                     }`}
                   >
                     {unreadCount}
@@ -627,7 +627,7 @@ function AdminPage() {
 
             {/* Authenticated Admin Profile Brand Logo & Name */}
             <div className="flex items-center gap-2.5 pl-3 border-l border-border">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-white shadow-xs overflow-hidden select-none p-1">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card shadow-xs overflow-hidden select-none p-1">
                 <img src={logo} alt="Zerah Baby & Kids" className="h-full w-full object-contain" />
               </div>
               <div className="hidden md:block text-left leading-tight">
@@ -836,25 +836,25 @@ function ProductsTab() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products, SKU, barcodeâ€¦"
             aria-label="Search products"
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 pl-9 text-sm text-gray-800 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+            className="w-full rounded-xl border border-border bg-card px-4 py-2 pl-9 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
           />
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ”</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <div className="inline-flex rounded-xl border border-gray-200 bg-white shadow-2xs overflow-hidden">
+          <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
               onClick={() => printLabel(list)}
               disabled={isPrinting || list.length === 0}
               title="Print labels directly for visible products (1-Click)"
-              className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
             >
-              <Printer className="size-4 text-gray-500" />
+              <Printer className="size-4 text-muted-foreground" />
               <span>Print Labels</span>
             </button>
             <button
               onClick={() => setPrintingLabels(true)}
               title="Advanced Print (Custom quantities, layout, discounts)"
-              className="px-2.5 py-2 text-xs border-l border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition cursor-pointer"
+              className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
             >
               <Settings2 className="size-3.5" />
             </button>
@@ -873,9 +873,9 @@ function ProductsTab() {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-card shadow-sm">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+            <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-gray-100">
               <tr>
                 <th className="px-5 py-4">Product</th>
                 <th className="px-5 py-4">SKU / Barcode</th>
@@ -889,7 +889,7 @@ function ProductsTab() {
               {list.map((p) => (
                 <tr
                   key={p.uuid}
-                  className={`group transition-colors hover:bg-gray-50/50 ${!p.isActive ? "opacity-60" : ""}`}
+                  className={`group transition-colors hover:bg-muted/50 ${!p.isActive ? "opacity-60" : ""}`}
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-4">
@@ -905,24 +905,24 @@ function ProductsTab() {
                         }}
                       />
                       <div>
-                        <p className="font-semibold text-gray-900">{p.name}</p>
-                        <p className="text-xs font-medium text-gray-500 mt-0.5">
+                        <p className="font-semibold text-foreground">{p.name}</p>
+                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
                           {p.brand} <span className="opacity-50">â€¢</span> {p.id}
                         </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <p className="font-mono text-xs font-semibold text-gray-900">{p.sku}</p>
-                    <p className="font-mono text-[10px] text-gray-500 mt-0.5">{p.barcode}</p>
+                    <p className="font-mono text-xs font-semibold text-foreground">{p.sku}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{p.barcode}</p>
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-between min-w-[120px]">
                       <div>
-                        <p className="font-semibold text-gray-900" title="Selling Price">
+                        <p className="font-semibold text-foreground" title="Selling Price">
                           {formatPrice(p.price)}
                         </p>
-                        <p className="text-[10px] text-gray-500 mt-0.5" title="Buying Price">
+                        <p className="text-[10px] text-muted-foreground mt-0.5" title="Buying Price">
                           Cost: {formatPrice(p.buyingPrice || 0)}
                         </p>
                       </div>
@@ -963,7 +963,7 @@ function ProductsTab() {
                       className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
                         p.isActive
                           ? "bg-blue-50 text-blue-700 border border-blue-200"
-                          : "bg-gray-100 text-gray-700 border border-gray-200"
+                          : "bg-muted text-muted-foreground border border-border"
                       }`}
                     >
                       {p.isActive ? "Live" : "Archived"}
@@ -976,7 +976,7 @@ function ProductsTab() {
                         disabled={isPrinting}
                         aria-label={`Print label for ${p.name}`}
                         title="Print Label (1-Click Direct Print)"
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
+                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
                       >
                         <Printer className="size-4" />
                       </button>
@@ -984,7 +984,7 @@ function ProductsTab() {
                         onClick={() => setEditing(p)}
                         aria-label={`Edit ${p.name}`}
                         title="Edit"
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50"
+                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted"
                       >
                         <Pencil className="size-4" />
                       </button>
@@ -993,7 +993,7 @@ function ProductsTab() {
                           onClick={() => restore.mutate(p.uuid)}
                           aria-label={`Restore ${p.name}`}
                           title="Restore to store"
-                          className="rounded-lg border border-emerald-200 bg-white p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
+                          className="rounded-lg border border-emerald-200 bg-card p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
                         >
                           <Package className="size-4" />
                         </button>
@@ -1009,7 +1009,7 @@ function ProductsTab() {
                           }}
                           aria-label={`Archive ${p.name}`}
                           title="Archive (hide from store)"
-                          className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
                         >
                           <Package className="size-4" />
                         </button>
@@ -1025,7 +1025,7 @@ function ProductsTab() {
                         }}
                         aria-label={`Delete ${p.name}`}
                         title="Delete permanently"
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
+                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -1155,7 +1155,7 @@ function CategoriesTab() {
   });
 
   const input =
-    "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm placeholder:text-gray-400";
+    "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm placeholder:text-muted-foreground";
 
   return (
     <div className="space-y-8">
@@ -1172,8 +1172,8 @@ function CategoriesTab() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900">Add a category</h2>
+      <div className="rounded-2xl border border-gray-100 bg-card p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-foreground">Add a category</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <input
             className={input}
@@ -1235,10 +1235,10 @@ function CategoryRowEditor({
 }) {
   const [value, setValue] = useState(row);
   const input =
-    "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm placeholder:text-gray-400";
+    "w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm placeholder:text-muted-foreground";
 
   return (
-    <div className="grid items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[64px_1fr_1fr_1fr_80px_auto] transition-all hover:border-gray-200">
+    <div className="grid items-center gap-4 rounded-2xl border border-gray-100 bg-card p-4 shadow-sm lg:grid-cols-[64px_1fr_1fr_1fr_80px_auto] transition-all hover:border-border">
       <img
         src={imageFor(value.slug, value.image_url)}
         alt=""
@@ -1614,9 +1614,9 @@ function CustomersTab() {
   }, [orders]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
       <table className="w-full text-left text-sm whitespace-nowrap">
-        <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+        <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-gray-100">
           <tr>
             <th className="px-5 py-4">Customer</th>
             <th className="px-5 py-4">Contact</th>
@@ -1629,22 +1629,22 @@ function CustomersTab() {
           {(customers ?? []).map((c) => {
             const s = stats.get(c.id) ?? { count: 0, spend: 0 };
             return (
-              <tr key={c.id} className="group transition-colors hover:bg-gray-50/50 align-top">
+              <tr key={c.id} className="group transition-colors hover:bg-muted/50 align-top">
                 <td className="px-5 py-4">
-                  <span className="font-semibold text-gray-900">{c.full_name || "â€”"}</span>
-                  <span className="block max-w-xs text-xs text-gray-500 mt-1 whitespace-normal">
+                  <span className="font-semibold text-foreground">{c.full_name || "â€”"}</span>
+                  <span className="block max-w-xs text-xs text-muted-foreground mt-1 whitespace-normal">
                     {c.address}
                   </span>
                 </td>
                 <td className="px-5 py-4">
-                  <span className="text-gray-900 font-medium">{c.email}</span>
-                  <span className="block text-xs text-gray-500 mt-1">{c.phone}</span>
+                  <span className="text-foreground font-medium">{c.email}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">{c.phone}</span>
                 </td>
-                <td className="px-5 py-4 text-xs text-gray-500 font-medium">
+                <td className="px-5 py-4 text-xs text-muted-foreground font-medium">
                   {new Date(c.created_at).toLocaleDateString("en-IN")}
                 </td>
-                <td className="px-5 py-4 text-right font-medium text-gray-700">{s.count}</td>
-                <td className="px-5 py-4 text-right font-semibold text-gray-900">
+                <td className="px-5 py-4 text-right font-medium text-muted-foreground">{s.count}</td>
+                <td className="px-5 py-4 text-right font-semibold text-foreground">
                   {formatPrice(s.spend)}
                 </td>
               </tr>
@@ -1652,7 +1652,7 @@ function CustomersTab() {
           })}
           {!isLoading && (customers ?? []).length === 0 && (
             <tr>
-              <td colSpan={5} className="px-5 py-16 text-center text-sm font-medium text-gray-500">
+              <td colSpan={5} className="px-5 py-16 text-center text-sm font-medium text-muted-foreground">
                 No customers yet.
               </td>
             </tr>
@@ -1687,7 +1687,7 @@ function CouponsTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-500">{(coupons ?? []).length} coupon(s)</p>
+        <p className="text-sm font-medium text-muted-foreground">{(coupons ?? []).length} coupon(s)</p>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7a1c1c]"
@@ -1698,7 +1698,7 @@ function CouponsTab() {
 
       {showForm && (
         <form
-          className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+          className="space-y-4 rounded-2xl border border-gray-100 bg-card p-6 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
             createCoupon.mutate(form, {
@@ -1710,30 +1710,30 @@ function CouponsTab() {
           }}
         >
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Code
               <input
                 required
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                 placeholder="WELCOME10"
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Type
               <select
                 value={form.discount_type}
                 onChange={(e) =>
                   setForm({ ...form, discount_type: e.target.value as "percentage" | "fixed" })
                 }
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               >
                 <option value="percentage">Percentage</option>
                 <option value="fixed">Fixed amount</option>
               </select>
             </label>
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Value
               <input
                 type="number"
@@ -1741,39 +1741,39 @@ function CouponsTab() {
                 min={1}
                 value={form.discount_value}
                 onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Min order value (â‚¹)
               <input
                 type="number"
                 min={0}
                 value={form.minimum_order_value}
                 onChange={(e) => setForm({ ...form, minimum_order_value: Number(e.target.value) })}
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Max discount (â‚¹, 0=unlimited)
               <input
                 type="number"
                 min={0}
                 value={form.maximum_discount}
                 onChange={(e) => setForm({ ...form, maximum_discount: Number(e.target.value) })}
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="text-sm font-semibold text-gray-900">
+            <label className="text-sm font-semibold text-foreground">
               Usage limit (0=unlimited)
               <input
                 type="number"
                 min={0}
                 value={form.usage_limit}
                 onChange={(e) => setForm({ ...form, usage_limit: Number(e.target.value) })}
-                className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
           </div>
@@ -1788,7 +1788,7 @@ function CouponsTab() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+              className="rounded-xl border border-border bg-card px-6 py-2.5 text-sm font-semibold text-muted-foreground shadow-sm transition hover:bg-muted"
             >
               Cancel
             </button>
@@ -1802,9 +1802,9 @@ function CouponsTab() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-card shadow-sm">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+          <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-gray-100">
             <tr>
               <th className="px-5 py-4">Code</th>
               <th className="px-5 py-4">Discount</th>
@@ -1816,27 +1816,27 @@ function CouponsTab() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {(coupons ?? []).map((c) => (
-              <tr key={c.id} className="group transition-colors hover:bg-gray-50/50">
-                <td className="px-5 py-4 font-mono font-bold text-gray-900">{c.code}</td>
-                <td className="px-5 py-4 font-medium text-gray-700">
+              <tr key={c.id} className="group transition-colors hover:bg-muted/50">
+                <td className="px-5 py-4 font-mono font-bold text-foreground">{c.code}</td>
+                <td className="px-5 py-4 font-medium text-muted-foreground">
                   {c.discount_type === "percentage"
                     ? `${c.discount_value}%`
                     : `â‚¹${c.discount_value}`}
                   {c.maximum_discount > 0 && (
-                    <span className="text-xs text-gray-500 ml-1">
+                    <span className="text-xs text-muted-foreground ml-1">
                       (max â‚¹{c.maximum_discount})
                     </span>
                   )}
                 </td>
-                <td className="px-5 py-4 text-gray-700">â‚¹{c.minimum_order_value}</td>
-                <td className="px-5 py-4 font-medium text-gray-700">
+                <td className="px-5 py-4 text-muted-foreground">â‚¹{c.minimum_order_value}</td>
+                <td className="px-5 py-4 font-medium text-muted-foreground">
                   {c.usage_count}
                   {c.usage_limit > 0 ? <span className="text-gray-400">/{c.usage_limit}</span> : ""}
                 </td>
                 <td className="px-5 py-4">
                   <button
                     onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
-                    className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${c.active ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100" : "bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"}`}
+                    className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${c.active ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100" : "bg-muted text-muted-foreground border border-border hover:bg-muted"}`}
                   >
                     {c.active ? "Active" : "Inactive"}
                   </button>
@@ -1844,7 +1844,7 @@ function CouponsTab() {
                 <td className="px-5 py-4 text-right">
                   <button
                     onClick={() => deleteCoupon.mutate(c.id)}
-                    className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
+                    className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -1855,7 +1855,7 @@ function CouponsTab() {
               <tr>
                 <td
                   colSpan={6}
-                  className="px-5 py-16 text-center text-sm font-medium text-gray-500"
+                  className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
                 >
                   No coupons yet. Create one to get started.
                 </td>
@@ -1927,7 +1927,7 @@ function ReviewsTab() {
         {filtered.map((review) => (
           <li
             key={review.id}
-            className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs"
+            className="rounded-2xl border border-gray-100 bg-card p-5 shadow-2xs"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -1961,7 +1961,7 @@ function ReviewsTab() {
                     <span className="text-xs text-muted-foreground">Unverified</span>
                   )}
                   {review.user_name && (
-                    <span className="text-xs font-bold text-gray-700">
+                    <span className="text-xs font-bold text-muted-foreground">
                       by {review.user_name}
                       {review.user_phone ? ` (${review.user_phone})` : ""}
                     </span>
@@ -1970,13 +1970,13 @@ function ReviewsTab() {
                 {review.products && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Product:{" "}
-                    <span className="font-semibold text-gray-900">{review.products.name}</span>
+                    <span className="font-semibold text-foreground">{review.products.name}</span>
                   </p>
                 )}
                 {review.title && (
-                  <p className="mt-2 text-sm font-semibold text-gray-900">{review.title}</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">{review.title}</p>
                 )}
-                <p className="mt-1 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                <p className="mt-1 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                   {review.comment}
                 </p>
 
@@ -1989,7 +1989,7 @@ function ReviewsTab() {
                         href={imgUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group relative size-14 rounded-xl overflow-hidden border border-gray-200 hover:border-[#8B2020] transition hover:scale-105"
+                        className="group relative size-14 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105"
                       >
                         <img
                           src={imgUrl}
@@ -2017,7 +2017,7 @@ function ReviewsTab() {
                 {review.status !== "rejected" && (
                   <button
                     onClick={() => updateStatus.mutate({ id: review.id, status: "rejected" })}
-                    className="rounded-xl border border-gray-200 px-3.5 py-1.5 text-xs font-semibold hover:bg-gray-50 transition cursor-pointer"
+                    className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-semibold hover:bg-muted transition cursor-pointer"
                   >
                     Reject
                   </button>
@@ -2085,16 +2085,16 @@ function InventoryTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total SKUs</p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">{totalSKUs}</p>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total SKUs</p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalSKUs}</p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Low Stock</p>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Low Stock</p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600">{lowStock}</p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Out of Stock
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-red-600">{outOfStock}</p>
@@ -2109,7 +2109,7 @@ function InventoryTab() {
             className={`rounded-xl border px-4 py-2 text-xs font-semibold capitalize transition-all ${
               filter === f
                 ? "border-[#8B2020] bg-red-50 text-[#8B2020] shadow-sm"
-                : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : "All"}
@@ -2117,10 +2117,10 @@ function InventoryTab() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50/50 text-xs uppercase text-gray-500 border-b border-gray-100">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold tracking-wider">Product</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">SKU</th>
@@ -2168,13 +2168,13 @@ function InventoryRow({ product, onSave }: { product: any; onSave: (val: number)
   const isLow = product.stock > 0 && product.stock <= product.low_stock_at;
 
   return (
-    <tr className="hover:bg-gray-50/50 transition-colors">
+    <tr className="hover:bg-muted/50 transition-colors">
       <td className="px-6 py-4">
-        <div className="font-semibold text-gray-900">{product.name}</div>
+        <div className="font-semibold text-foreground">{product.name}</div>
         <div className="text-xs text-gray-400">{product.brand}</div>
       </td>
-      <td className="px-6 py-4 font-mono text-xs text-gray-500">{product.sku}</td>
-      <td className="px-6 py-4 text-gray-500">{product.category}</td>
+      <td className="px-6 py-4 font-mono text-xs text-muted-foreground">{product.sku}</td>
+      <td className="px-6 py-4 text-muted-foreground">{product.category}</td>
       <td className="px-6 py-4">
         {editing ? (
           <div className="flex items-center gap-2">
@@ -2190,14 +2190,14 @@ function InventoryRow({ product, onSave }: { product: any; onSave: (val: number)
                 }
               }}
               autoFocus
-              className="w-16 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#8B2020] focus:ring-1 focus:ring-[#8B2020]"
+              className="w-16 rounded border border-border px-2 py-1 text-sm outline-none focus:border-[#8B2020] focus:ring-1 focus:ring-[#8B2020]"
             />
             <button
               onClick={() => {
                 onSave(val);
                 setEditing(false);
               }}
-              className="rounded bg-gray-100 p-1 text-green-600 hover:bg-green-100"
+              className="rounded bg-muted p-1 text-green-600 hover:bg-green-100"
             >
               ✓
             </button>
@@ -2205,13 +2205,13 @@ function InventoryRow({ product, onSave }: { product: any; onSave: (val: number)
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className={`font-semibold hover:underline ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-gray-900"}`}
+            className={`font-semibold hover:underline ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-foreground"}`}
           >
             {product.stock}
           </button>
         )}
       </td>
-      <td className="px-6 py-4 text-gray-500">{product.low_stock_at}</td>
+      <td className="px-6 py-4 text-muted-foreground">{product.low_stock_at}</td>
       <td className="px-6 py-4">
         {isOut ? (
           <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2 py-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
@@ -2262,22 +2262,22 @@ function SiteAnalyticsTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Total Visitors
           </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-gray-900">{totalCount}</p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalCount}</p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Last Visit</p>
-          <p className="mt-2 text-xl font-bold tracking-tight text-gray-700">{lastVisit}</p>
+        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Visit</p>
+          <p className="mt-2 text-xl font-bold tracking-tight text-muted-foreground">{lastVisit}</p>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50/50 text-xs uppercase text-gray-500 border-b border-gray-100">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 font-semibold tracking-wider">Session</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Country</th>
@@ -2299,7 +2299,7 @@ function SiteAnalyticsTab() {
                 </tr>
               ) : (
                 visitors.map((v: any) => (
-                  <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                  <tr key={v.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4 font-mono text-xs">{v.session_id.slice(0, 8)}…</td>
                     <td className="px-6 py-4">{v.country}</td>
                     <td className="px-6 py-4">
@@ -2367,60 +2367,60 @@ function MarketingTab() {
   return (
     <div className="mx-auto max-w-3xl">
       <form
-        className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+        className="space-y-6 rounded-2xl border border-gray-100 bg-card p-6 shadow-sm sm:p-8"
         onSubmit={(e) => {
           e.preventDefault();
           save.mutate();
         }}
       >
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Marketing & Links</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-lg font-bold text-foreground">Marketing & Links</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage your announcement bar and social media profiles.
           </p>
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading settings...</div>
+          <div className="py-8 text-center text-sm text-muted-foreground">Loading settings...</div>
         ) : (
           <div className="space-y-4">
-            <label className="block text-sm font-semibold text-gray-900">
+            <label className="block text-sm font-semibold text-foreground">
               Announcement Bar
               <input
                 value={form.announcement}
                 onChange={(e) => setForm({ ...form, announcement: e.target.value })}
                 placeholder="Free shipping on orders above ₹1499"
-                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="block text-sm font-semibold text-gray-900">
+            <label className="block text-sm font-semibold text-foreground">
               Instagram URL
               <input
                 type="url"
                 value={form.instagram_url}
                 onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
                 placeholder="https://instagram.com/zerahbaby"
-                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="block text-sm font-semibold text-gray-900">
+            <label className="block text-sm font-semibold text-foreground">
               Facebook URL
               <input
                 type="url"
                 value={form.facebook_url}
                 onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
                 placeholder="https://facebook.com/zerahbaby"
-                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
-            <label className="block text-sm font-semibold text-gray-900">
+            <label className="block text-sm font-semibold text-foreground">
               WhatsApp URL
               <input
                 type="url"
                 value={form.whatsapp_url}
                 onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
                 placeholder="https://wa.me/91XXXXXXXXXX"
-                className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-gray-300 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
               />
             </label>
           </div>
