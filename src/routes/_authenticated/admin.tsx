@@ -270,7 +270,7 @@ function AdminPage() {
 
   const NAVIGATION: Array<{ key: Tab; label: string; icon: typeof BarChart3; badge?: string }> = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { key: "billing", label: "Print & Billing", icon: Settings2 },
+    { key: "billing", label: "Offline Billing", icon: Settings2 },
     {
       key: "orders",
       label: "Orders",
