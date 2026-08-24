@@ -48,7 +48,8 @@ import {
   Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { type Product, mapProduct, formatPrice } from "@/lib/store";
+import { type Product, mapProduct, formatPrice, imageFor } from "@/lib/store";
+import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
   type SaleResult,
@@ -290,7 +291,7 @@ export function POSTab() {
       stock: product.stock,
       sku: product.sku,
       barcode: product.barcode,
-      image_url: product.imageUrl,
+      image_url: product.imageUrl || product.image,
       age_group: product.ageGroup,
       qty: 1,
     });
@@ -463,18 +464,18 @@ export function POSTab() {
                   <button
                     key={p.uuid}
                     onClick={() => addProductManually(p)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0 cursor-pointer"
                   >
                     <img
-                      src={p.image}
-                      alt=""
-                      className="size-8 rounded-lg object-cover"
+                      src={imageFor(p.category, p.imageUrl || p.image)}
+                      alt={p.name}
+                      className="size-9 rounded-lg object-cover border border-border shrink-0"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = "0";
+                        (e.target as HTMLImageElement).src = clothing;
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{p.name}</p>
+                      <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
                       </p>
@@ -519,33 +520,36 @@ export function POSTab() {
                   {cart.map((item) => (
                     <tr
                       key={item.product_id}
-                      className="border-b border-border/50 hover:bg-muted/30"
+                      className="border-b border-border/50 hover:bg-muted/30 transition"
                     >
                       <td className="py-3">
                         <div className="flex items-center gap-3">
-                          {item.image_url ? (
+                          <div
+                            className="size-11 rounded-xl border border-border bg-card overflow-hidden shrink-0 cursor-pointer hover:opacity-85 hover:border-primary/50 transition group/thumb"
+                            onClick={() => window.open(`/product/${item.slug}`, "_blank")}
+                            title={`Open "${item.name}" in store`}
+                          >
                             <img
-                              src={item.image_url}
+                              src={imageFor(item.category || "clothing", item.image_url)}
                               alt={item.name}
                               loading="lazy"
-                              className="size-10 rounded-lg border border-border object-cover shrink-0 cursor-pointer hover:opacity-80 transition"
-                              onClick={() => window.open(`/product/${item.slug}`, "_blank")}
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = clothing;
+                              }}
                             />
-                          ) : (
-                            <div className="size-10 rounded-lg border border-border bg-muted/50 shrink-0 flex items-center justify-center">
-                              <span className="text-[10px] text-muted-foreground uppercase">
-                                {item.name.substring(0, 2)}
-                              </span>
-                            </div>
-                          )}
+                          </div>
                           <div>
                             <p
-                              className="font-semibold text-sm leading-tight cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                              className="font-semibold text-sm leading-tight cursor-pointer hover:text-primary hover:underline transition-colors"
                               onClick={() => window.open(`/product/${item.slug}`, "_blank")}
+                              title={`Open "${item.name}" in store`}
                             >
                               {item.name}
                             </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{item.brand}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
+                              {item.brand || "Zerah Baby"}
+                            </p>
                           </div>
                         </div>
                       </td>
