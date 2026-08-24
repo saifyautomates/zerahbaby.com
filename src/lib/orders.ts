@@ -360,19 +360,23 @@ export function useDeleteCancelledOrder() {
         );
       }
 
-      // Delete dependent records first to satisfy foreign key constraints
-      await supabase.from("order_items").delete().eq("order_id", orderId);
-      await supabase.from("order_status_history").delete().eq("order_id", orderId);
-      await supabase.from("payments").delete().eq("order_id", orderId);
+      // Use secure edge function to bypass RLS and perform cascading deletion with audit log
+      const { error: funcErr } = await supabase.functions.invoke("delete-cancelled-order", {
+        body: { order_id: orderId },
+      });
 
-      const { error: deleteErr } = await supabase
-        .from("orders")
-        .delete()
-        .eq("id", orderId)
-        .eq("status", "cancelled");
-
-      if (deleteErr) {
-        throw new Error(deleteErr.message || "Failed to delete cancelled order.");
+      if (funcErr) {
+        let errorMsg = "Failed to delete cancelled order.";
+        try {
+          const ctx = (funcErr as any).context;
+          if (ctx && typeof ctx.json === "function") {
+            const errorBody = await ctx.clone().json();
+            if (errorBody?.error) errorMsg = errorBody.error;
+          }
+        } catch {
+          errorMsg = funcErr.message || errorMsg;
+        }
+        throw new Error(errorMsg);
       }
 
       return { success: true, message: "Cancelled order deleted successfully." };
