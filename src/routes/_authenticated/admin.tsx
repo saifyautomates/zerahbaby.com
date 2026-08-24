@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -25,8 +25,12 @@ import {
   MessageSquare,
   Search,
   Sun,
+  Moon,
   Bell,
+  AlertCircle,
   X,
+  BarChart3,
+  Settings2,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +38,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
-import { useAllOrders, useCustomers, orderStatuses } from "@/lib/orders";
+import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { HeroMediaManager } from "@/components/admin/HeroMediaManager";
 import { MediaLibrary } from "@/components/admin/MediaLibrary";
@@ -45,7 +49,9 @@ import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
 import { SMSLogsTab } from "@/components/admin/SMSLogsTab";
 import { DashboardTab } from "@/components/admin/DashboardTab";
 import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
-import { BarChart3, Settings2 } from "lucide-react";
+import { AdminGlobalSearch } from "@/components/admin/AdminGlobalSearch";
+import { useTheme } from "@/lib/theme";
+import { useAdminNotifications } from "@/lib/admin-notifications";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -88,13 +94,72 @@ function AdminPage() {
   const qc = useQueryClient();
   const { user } = useSession();
   const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
+  const { data: profile } = useProfile(user?.id);
+
   const [tab, setTab] = useState<Tab>("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile menu on ESC
+  const { theme, isDark, toggleTheme } = useTheme();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useAdminNotifications();
+
+  // Detect OS for shortcut badge
+  const isMac = useMemo(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+    return /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  }, []);
+  const shortcutLabel = isMac ? "⌘K" : "Ctrl K";
+
+  // Dynamic admin name and 2-letter initials
+  const adminName = profile?.full_name || user?.email?.split("@")[0] || "Administrator";
+  const initials = useMemo(() => {
+    if (profile?.full_name) {
+      const parts = profile.full_name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      }
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return "AD";
+  }, [profile, user]);
+
+  // Global shortcut (Ctrl+K / Cmd+K) to toggle Search
+  useEffect(() => {
+    const handleShortcut = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  // Close notifications on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    if (isNotifOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isNotifOpen]);
+
+  // Close mobile menu or notifications on ESC
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsMobileMenuOpen(false);
+      if (e.key === "Escape") {
+        setIsMobileMenuOpen(false);
+        setIsNotifOpen(false);
+      }
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
@@ -243,7 +308,7 @@ function AdminPage() {
     );
   }
 
-  const NAVIGATION = [
+  const NAVIGATION: Array<{ key: Tab; label: string; icon: typeof BarChart3; badge?: string }> = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "billing", label: "Print & Billing", icon: Settings2 },
     {
@@ -268,7 +333,13 @@ function AdminPage() {
   ];
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#f8fafc] text-slate-800 antialiased selection:bg-primary/20">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground antialiased selection:bg-primary/20">
+      {/* ─── GLOBAL COMMAND PALETTE SEARCH MODAL ─────────────── */}
+      <AdminGlobalSearch
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigate={(targetTab) => setTab(targetTab as Tab)}
+      />
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
@@ -277,70 +348,47 @@ function AdminPage() {
         />
       )}
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[240px] flex flex-col border-r border-gray-100 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            {/* Logo mark */}
-            <img
-              src={logo}
-              alt="Zerah"
-              className="h-10 w-10 rounded-full object-cover shadow-sm border border-gray-100"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.opacity = "0";
-              }}
-            />
-            <div>
-              <h1 className="font-sans text-[15px] font-black tracking-tight text-gray-900 leading-none">
-                Zérah <span className="text-[#8B2020]">Admin</span>
-              </h1>
-              <p className="text-[10px] text-gray-400 truncate max-w-[140px] mt-0.5">
-                {user?.email || "store@zerahbaby.com"}
-              </p>
-            </div>
+        <div className="flex h-16 items-center gap-3 border-b border-border px-6">
+          <img src={logo} alt="Zérah Baby &amp; Kids" className="h-8 w-auto object-contain" />
+          <div className="leading-tight">
+            <span className="font-display text-sm font-black tracking-wide text-foreground">
+              Zérah Baby &amp; Kids
+            </span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Administration
+            </span>
           </div>
-          <button
-            className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
-        {/* Navigation Items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {NAVIGATION.map(({ key, label, icon: Icon, badge }) => {
-            const isActive = tab === key;
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {NAVIGATION.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.key;
             return (
               <button
-                key={key}
-                onClick={() => {
-                  setTab(key as Tab);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 ${
-                  isActive
-                    ? "bg-[#8B2020] text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                key={item.key}
+                onClick={() => setTab(item.key)}
+                className={`group flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all ${
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Icon
-                    className={`h-4 w-4 shrink-0 transition-colors ${
-                      isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"
+                <Icon
+                  className={`h-4 w-4 transition-transform ${active ? "scale-110" : "group-hover:scale-110"}`}
+                />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.key === "orders" && unreadCount > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      active ? "bg-white text-primary" : "bg-rose-500 text-white"
                     }`}
-                  />
-                  <span className="truncate">{label}</span>
-                </div>
-
-                {badge && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#e11d48] px-1 text-[10px] font-bold text-white">
-                    {badge}
+                  >
+                    {unreadCount}
                   </span>
                 )}
               </button>
@@ -348,34 +396,100 @@ function AdminPage() {
           })}
         </nav>
 
-        {/* Bottom Actions */}
-        <div className="flex flex-col gap-2 border-t border-gray-100 p-3 bg-white">
+        {/* Bottom user action */}
+        <div className="border-t border-border p-3">
           <Link
             to="/"
-            className="group flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+            className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition"
           >
-            <Store className="h-4 w-4 text-gray-400 group-hover:text-gray-700" />
-            View Store
+            <Store className="h-4 w-4" />
+            <span>View live store</span>
           </Link>
           <button
-            onClick={signOut}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+            onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/" }))}
+            className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-xs font-bold text-destructive hover:bg-destructive/10 transition"
           >
-            <LogOut className="h-4 w-4 text-gray-400 group-hover:text-red-500" />
-            Sign Out
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
           </button>
         </div>
       </aside>
 
+      {/* Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-2.5">
+                <img src={logo} alt="Zérah Baby &amp; Kids" className="h-7 w-auto object-contain" />
+                <span className="font-display text-sm font-black text-foreground">Admin Menu</span>
+              </div>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted transition"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <nav className="mt-4 flex-1 overflow-y-auto space-y-1">
+              {NAVIGATION.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      setTab(item.key);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="border-t border-border pt-4 space-y-1">
+              <Link
+                to="/"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
+              >
+                <Store className="h-4 w-4" />
+                <span>View live store</span>
+              </Link>
+              <button
+                onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/" }))}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0 flex flex-col h-[100dvh] overflow-hidden relative">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-3.5 shadow-xs">
-          {/* Left: Title & Subtitle */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Top Navbar */}
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md lg:px-6">
           <div className="flex items-center gap-3">
             <button
-              className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 lg:hidden"
               onClick={() => setIsMobileMenuOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted lg:hidden"
+              aria-label="Open sidebar menu"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -394,59 +508,179 @@ function AdminPage() {
               </svg>
             </button>
             <div>
-              <h1 className="text-xl font-extrabold text-gray-900 tracking-tight capitalize">
+              <h1 className="text-xl font-extrabold text-foreground tracking-tight capitalize">
                 {NAVIGATION.find((t) => t.key === tab)?.label || "Dashboard"}
               </h1>
-              <p className="text-[11px] text-gray-400 font-medium">
+              <p className="text-[11px] text-muted-foreground font-medium">
                 {tab === "dashboard"
                   ? "Overview of your store performance"
                   : `Manage ${tab} and settings`}
               </p>
             </div>
           </div>
-          {/* Right: Search, Theme, Notifications, User Profile */}
-          <div className="flex items-center gap-3">
-            {/* Search Input */}
-            <div className="relative hidden sm:block w-56 md:w-64">
-              <input
-                type="text"
-                placeholder="Search anything..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 pl-8 pr-14 py-1.5 text-xs text-gray-800 outline-none focus:border-[#8B2020]/30 focus:bg-white focus:ring-2 focus:ring-[#8B2020]/10 transition-all"
-              />
-              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
-              <kbd className="absolute right-2.5 top-1.5 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-gray-400">
-                Ctrl K
+
+          {/* Right: Functional Search, Theme Toggle, Notification Bell, User Monogram */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Mobile Search Button */}
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Global search"
+              className="flex h-8 w-8 sm:hidden items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-muted transition"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
+            {/* Desktop Search Input Trigger */}
+            <div
+              onClick={() => setIsSearchOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsSearchOpen(true);
+                }
+              }}
+              aria-label="Global search (Ctrl+K or Cmd+K)"
+              className="relative hidden sm:flex items-center w-56 md:w-64 rounded-xl border border-border bg-muted/40 pl-8 pr-14 py-1.5 text-xs text-muted-foreground hover:border-primary/50 hover:bg-card cursor-pointer transition-all shadow-xs"
+            >
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+              <span className="truncate">Search anything…</span>
+              <kbd className="absolute right-2 top-1.5 rounded border border-border bg-card px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground shadow-xs">
+                {shortcutLabel}
               </kbd>
             </div>
 
-            {/* Sun / Light mode indicator */}
+            {/* Theme Toggle Button */}
             <button
-              aria-label="Toggle theme"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-amber-400 hover:bg-amber-50 transition"
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Toggle theme: currently ${isDark ? "Dark" : "Light"}`}
+              title={`Switch to ${isDark ? "Light" : "Dark"} mode`}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs"
             >
-              <Sun className="h-4 w-4" />
+              {isDark ? (
+                <Moon className="h-4 w-4 text-indigo-400" />
+              ) : (
+                <Sun className="h-4 w-4 text-amber-500" />
+              )}
             </button>
 
-            {/* Notifications with badge */}
-            <button
-              aria-label="Notifications"
-              className="relative flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white">
-                8
-              </span>
-            </button>
+            {/* Notification Bell with Live Dynamic Count & Dropdown */}
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() => setIsNotifOpen((prev) => !prev)}
+                aria-label={`Notifications (${unreadCount} unread)`}
+                title="Notifications"
+                className={`relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted transition shadow-xs ${
+                  isNotifOpen ? "ring-2 ring-primary/20 border-primary" : ""
+                }`}
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white shadow-xs animate-in zoom-in">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {/* User Profile Pill */}
-            <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
-              {/* Monogram avatar — no external image */}
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B2020] to-[#c0392b] text-white font-black text-[11px] shadow-sm select-none">
-                SM
+              {/* Notifications Dropdown Popover */}
+              {isNotifOpen && (
+                <div className="absolute right-0 top-10 z-50 w-80 sm:w-96 overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between border-b border-border p-4 bg-muted/20">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-foreground">Notifications</h4>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                          {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllAsRead}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto p-2 divide-y divide-border/30">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <Bell className="mx-auto size-6 text-muted-foreground/40" />
+                        <p className="mt-2 text-xs font-semibold text-foreground">All caught up!</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          No recent alerts or pending order actions.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {notifications.map((notif) => (
+                          <li key={notif.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                markAsRead(notif.id);
+                                setTab(notif.tab as Tab);
+                                setIsNotifOpen(false);
+                              }}
+                              className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition ${
+                                notif.read
+                                  ? "opacity-60 hover:opacity-100 hover:bg-muted/40"
+                                  : "bg-muted/40 hover:bg-muted"
+                              }`}
+                            >
+                              <div
+                                className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs ${
+                                  notif.priority === "high"
+                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                                    : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                }`}
+                              >
+                                <AlertCircle className="size-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className="truncate text-xs font-bold text-foreground">
+                                    {notif.title}
+                                  </p>
+                                  <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
+                                    {new Date(notif.timestamp).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                                  {notif.message}
+                                </p>
+                              </div>
+                              {!notif.read && (
+                                <span className="size-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Authenticated Admin Profile Monogram */}
+            <div className="flex items-center gap-2.5 pl-3 border-l border-border">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B2020] to-[#c0392b] text-white font-black text-[11px] shadow-xs select-none">
+                {initials}
               </div>
               <div className="hidden md:block text-left leading-tight">
-                <p className="text-xs font-bold text-gray-900">Sameer Mirza</p>
-                <p className="text-[10px] font-medium text-gray-400">Administrator</p>
+                <p className="text-xs font-bold text-foreground truncate max-w-32">{adminName}</p>
+                <p className="text-[10px] font-medium text-muted-foreground">Administrator</p>
               </div>
             </div>
           </div>
@@ -473,7 +707,7 @@ function AdminPage() {
             {tab === "reviews" && <ReviewsTab />}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

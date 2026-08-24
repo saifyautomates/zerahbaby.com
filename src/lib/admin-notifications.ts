@@ -1,0 +1,220 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export type AdminNotificationType =
+  | "order_new"
+  | "order_cancelled"
+  | "order_failed"
+  | "inventory_low"
+  | "email_failed"
+  | "contact_message";
+
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  title: string;
+  message: string;
+  timestamp: string;
+  tab: string;
+  filter?: string;
+  read: boolean;
+  priority: "high" | "normal" | "low";
+}
+
+const READ_NOTIFS_STORAGE_KEY = "zerah-admin-read-notifs";
+
+function getStoredReadIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(READ_NOTIFS_STORAGE_KEY);
+    if (raw) {
+      return new Set(JSON.parse(raw));
+    }
+  } catch {
+    // Ignore storage parse error
+  }
+  return new Set();
+}
+
+function persistReadIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(READ_NOTIFS_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // Ignore storage write error
+  }
+}
+
+export function useAdminNotifications() {
+  const qc = useQueryClient();
+  const [readIds, setReadIds] = useState<Set<string>>(() => getStoredReadIds());
+
+  // 1. Fetch actionable orders (placed, processing, cancelled, or failed payment)
+  const { data: rawOrders = [] } = useQuery({
+    queryKey: ["admin-notif-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          "id, full_name, total, status, payment_status, cancellation_reason, created_at, cancelled_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  // 2. Fetch low-stock products (stock <= 5)
+  const { data: rawLowStock = [] } = useQuery({
+    queryKey: ["admin-notif-low-stock"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, slug, stock, sku")
+        .lte("stock", 5)
+        .order("stock", { ascending: true })
+        .limit(10);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  // 3. Fetch failed owner notification emails
+  const { data: rawFailedLogs = [] } = useQuery({
+    queryKey: ["admin-notif-failed-emails"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("owner_notification_logs")
+        .select("id, reference_number, event_type, created_at, error_message")
+        .eq("status", "failed")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  // Combine and sort notifications
+  const notifications = useMemo<AdminNotification[]>(() => {
+    const list: AdminNotification[] = [];
+
+    // Process Orders
+    for (const ord of rawOrders) {
+      const shortId = ord.id.slice(0, 8).toUpperCase();
+      if (ord.status === "placed" || ord.status === "processing") {
+        list.push({
+          id: `order-new-${ord.id}`,
+          type: "order_new",
+          title: `New Online Order #${shortId}`,
+          message: `${ord.full_name || "Customer"} placed an order (₹${ord.total})`,
+          timestamp: ord.created_at,
+          tab: "orders",
+          filter: ord.status,
+          read: readIds.has(`order-new-${ord.id}`),
+          priority: "high",
+        });
+      } else if (ord.status === "cancelled") {
+        list.push({
+          id: `order-cancel-${ord.id}`,
+          type: "order_cancelled",
+          title: `Order Cancelled #${shortId}`,
+          message: `${ord.full_name || "Customer"}: ${ord.cancellation_reason || "No reason given"}`,
+          timestamp: ord.cancelled_at || ord.created_at,
+          tab: "orders",
+          filter: "cancelled",
+          read: readIds.has(`order-cancel-${ord.id}`),
+          priority: "normal",
+        });
+      }
+
+      if (ord.payment_status === "failed") {
+        list.push({
+          id: `order-failed-${ord.id}`,
+          type: "order_failed",
+          title: `Payment Failed #${shortId}`,
+          message: `Payment attempt failed for ${ord.full_name}`,
+          timestamp: ord.created_at,
+          tab: "orders",
+          filter: "all",
+          read: readIds.has(`order-failed-${ord.id}`),
+          priority: "high",
+        });
+      }
+    }
+
+    // Process Low Stock
+    for (const prod of rawLowStock) {
+      list.push({
+        id: `stock-${prod.id}`,
+        type: "inventory_low",
+        title: `Low Stock Alert`,
+        message: `"${prod.name}" has only ${prod.stock} unit${prod.stock === 1 ? "" : "s"} left in stock.`,
+        timestamp: new Date().toISOString(),
+        tab: "products",
+        read: readIds.has(`stock-${prod.id}`),
+        priority: prod.stock === 0 ? "high" : "normal",
+      });
+    }
+
+    // Process Failed Emails
+    for (const log of rawFailedLogs) {
+      list.push({
+        id: `email-failed-${log.id}`,
+        type: "email_failed",
+        title: `Owner Email Failed`,
+        message: `Alert for ${log.reference_number || log.event_type} failed: ${log.error_message || "Delivery error"}`,
+        timestamp: log.created_at,
+        tab: "orders",
+        read: readIds.has(`email-failed-${log.id}`),
+        priority: "normal",
+      });
+    }
+
+    // Sort by unread first, then date descending
+    return list.sort((a, b) => {
+      if (a.read !== b.read) return a.read ? 1 : -1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [rawOrders, rawLowStock, rawFailedLogs, readIds]);
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
+
+  const markAsRead = useCallback((id: string) => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      persistReadIds(next);
+      return next;
+    });
+  }, []);
+
+  const markAllAsRead = useCallback(() => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      notifications.forEach((n) => next.add(n.id));
+      persistReadIds(next);
+      return next;
+    });
+  }, [notifications]);
+
+  const refresh = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
+    qc.invalidateQueries({ queryKey: ["admin-notif-low-stock"] });
+    qc.invalidateQueries({ queryKey: ["admin-notif-failed-emails"] });
+  }, [qc]);
+
+  return {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    refresh,
+  };
+}
