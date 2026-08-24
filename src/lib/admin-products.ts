@@ -3,31 +3,38 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 
-export const draftToRow = (draft: ProductDraft) => ({
-  slug: draft.slug.trim(),
-  name: draft.name.trim(),
-  brand: draft.brand.trim(),
-  category: draft.category,
-  price: Number(draft.price),
-  mrp: Number(draft.mrp),
-  rating: Number(draft.rating),
-  reviews: Number(draft.reviews),
-  age_group: draft.ageGroup,
-  image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
-  images: draft.images,
-  stock: Number(draft.stock),
-  low_stock_at: Number(draft.lowStockAt),
-  sku: draft.sku.trim(),
-  barcode: draft.barcode.trim(),
-  description: draft.description,
-  highlights: draft.highlights
-    .split("\n")
-    .map((h) => h.trim())
-    .filter(Boolean),
-  is_featured: draft.isFeatured,
-  is_active: draft.isActive,
-  sort_order: Number(draft.sortOrder),
-});
+export const draftToRow = (draft: ProductDraft, isNew = false) => {
+  const row: Record<string, unknown> = {
+    slug: draft.slug.trim(),
+    name: draft.name.trim(),
+    brand: draft.brand.trim(),
+    category: draft.category,
+    price: Number(draft.price),
+    mrp: Number(draft.mrp),
+    age_group: draft.ageGroup,
+    image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
+    images: draft.images,
+    stock: Number(draft.stock),
+    low_stock_at: Number(draft.lowStockAt),
+    sku: draft.sku.trim(),
+    barcode: draft.barcode.trim(),
+    description: draft.description,
+    highlights: draft.highlights
+      .split("\n")
+      .map((h) => h.trim())
+      .filter(Boolean),
+    is_featured: draft.isFeatured,
+    is_active: draft.isActive,
+    sort_order: Number(draft.sortOrder),
+  };
+
+  if (isNew) {
+    row.rating = 0;
+    row.reviews = 0;
+  }
+
+  return row;
+};
 
 function useInvalidateCatalogue() {
   const qc = useQueryClient();
@@ -48,10 +55,17 @@ export function useSaveProduct() {
       // Save product
       let productId = uuid;
       if (uuid) {
-        const { error } = await supabase.from("products").update(row).eq("id", uuid);
+        const { error } = await supabase
+          .from("products")
+          .update(row as any)
+          .eq("id", uuid);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("products").insert(row).select("id").single();
+        const { data, error } = await supabase
+          .from("products")
+          .insert(row as any)
+          .select("id")
+          .single();
         if (error) throw error;
         productId = data.id;
       }

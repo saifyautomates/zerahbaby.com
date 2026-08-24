@@ -1,4 +1,3 @@
-//
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,9 +15,20 @@ export type Review = {
   status: "pending" | "approved" | "rejected";
   created_at: string;
   updated_at: string;
+  helpful_count?: number;
+  user_name?: string;
 };
 
-/** Fetch approved reviews for a product */
+export type ReviewStats = {
+  averageRating: number;
+  totalRatings: number;
+  totalReviews: number;
+  recommendPct: number;
+  breakdown: Record<1 | 2 | 3 | 4 | 5, { count: number; pct: number }>;
+  allImages: Array<{ url: string; reviewId: string; rating: number; title: string }>;
+};
+
+/** Fetch approved reviews for a product with user profile info */
 export function useProductReviews(productId: string | undefined) {
   return useQuery({
     queryKey: ["reviews", productId],
@@ -26,45 +36,242 @@ export function useProductReviews(productId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reviews")
-        .select("*")
+        .select("*, profiles:user_id(full_name)")
         .eq("product_id", productId!)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return (data ?? []) as Review[];
+
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        product_id: r.product_id,
+        user_id: r.user_id,
+        order_id: r.order_id,
+        rating: Number(r.rating) || 5,
+        title: r.title || "",
+        comment: r.comment || "",
+        images: Array.isArray(r.images) ? r.images : [],
+        verified_purchase: Boolean(r.verified_purchase),
+        status: r.status,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        user_name: r.profiles?.full_name || "Verified Customer",
+      })) as Review[];
     },
   });
 }
 
-/** Submit a review */
+/** Check if the current authenticated user has purchased this specific product */
+export function useCanUserReviewProduct(
+  productId: string | undefined,
+  productSlug?: string,
+  userId?: string,
+) {
+  return useQuery({
+    queryKey: ["can-review-product", productId, productSlug, userId],
+    enabled: Boolean(userId && (productId || productSlug)),
+    queryFn: async () => {
+      if (!userId || (!productId && !productSlug)) {
+        return {
+          canReview: false,
+          isVerifiedBuyer: false,
+          orderId: null as string | null,
+          hasAlreadyReviewed: false,
+          existingReview: null as Review | null,
+        };
+      }
+
+      // 1. Check if user already submitted a review for this product
+      let existingReviewQuery = supabase.from("reviews").select("*").eq("user_id", userId);
+
+      if (productId) {
+        existingReviewQuery = existingReviewQuery.eq("product_id", productId);
+      }
+
+      const { data: existingReviews } = await existingReviewQuery.limit(1);
+      const existingReview =
+        existingReviews && existingReviews.length > 0 ? (existingReviews[0] as Review) : null;
+
+      // 2. Query user's non-cancelled orders with order items
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("id, status, order_items(product_id, product_slug)")
+        .eq("user_id", userId)
+        .neq("status", "cancelled");
+
+      if (error) {
+        console.warn("Could not verify customer orders:", error);
+        return {
+          canReview: false,
+          isVerifiedBuyer: false,
+          orderId: null,
+          hasAlreadyReviewed: Boolean(existingReview),
+          existingReview,
+        };
+      }
+
+      // Check if any order item matches this product's UUID or slug
+      let matchedOrderId: string | null = null;
+
+      if (orders && Array.isArray(orders)) {
+        for (const order of orders) {
+          const items = Array.isArray(order.order_items) ? order.order_items : [];
+          const matched = items.some((item: any) => {
+            if (productId && (item.product_id === productId || item.product_slug === productId)) {
+              return true;
+            }
+            if (
+              productSlug &&
+              (item.product_slug === productSlug || item.product_id === productSlug)
+            ) {
+              return true;
+            }
+            return false;
+          });
+
+          if (matched) {
+            matchedOrderId = order.id;
+            break;
+          }
+        }
+      }
+
+      const isVerifiedBuyer = Boolean(matchedOrderId);
+
+      return {
+        canReview: isVerifiedBuyer,
+        isVerifiedBuyer,
+        orderId: matchedOrderId,
+        hasAlreadyReviewed: Boolean(existingReview),
+        existingReview,
+      };
+    },
+  });
+}
+
+/** Calculate summary statistics, star breakdowns, and customer gallery images */
+export function calculateReviewStats(reviews: Review[] = []): ReviewStats {
+  const total = reviews.length;
+  if (total === 0) {
+    return {
+      averageRating: 0,
+      totalRatings: 0,
+      totalReviews: 0,
+      recommendPct: 0,
+      breakdown: {
+        5: { count: 0, pct: 0 },
+        4: { count: 0, pct: 0 },
+        3: { count: 0, pct: 0 },
+        2: { count: 0, pct: 0 },
+        1: { count: 0, pct: 0 },
+      },
+      allImages: [],
+    };
+  }
+
+  let sum = 0;
+  let recommendCount = 0;
+  const counts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const allImages: ReviewStats["allImages"] = [];
+
+  for (const r of reviews) {
+    const star = Math.min(5, Math.max(1, Math.round(r.rating))) as 1 | 2 | 3 | 4 | 5;
+    counts[star] = (counts[star] || 0) + 1;
+    sum += r.rating;
+    if (r.rating >= 4) recommendCount++;
+
+    if (Array.isArray(r.images)) {
+      for (const img of r.images) {
+        if (img && typeof img === "string" && img.startsWith("http")) {
+          allImages.push({
+            url: img,
+            reviewId: r.id,
+            rating: r.rating,
+            title: r.title || "Customer photo",
+          });
+        }
+      }
+    }
+  }
+
+  const averageRating = Number((sum / total).toFixed(1));
+  const recommendPct = Math.round((recommendCount / total) * 100);
+
+  const breakdown: ReviewStats["breakdown"] = {
+    5: { count: counts[5], pct: Math.round((counts[5] / total) * 100) },
+    4: { count: counts[4], pct: Math.round((counts[4] / total) * 100) },
+    3: { count: counts[3], pct: Math.round((counts[3] / total) * 100) },
+    2: { count: counts[2], pct: Math.round((counts[2] / total) * 100) },
+    1: { count: counts[1], pct: Math.round((counts[1] / total) * 100) },
+  };
+
+  return {
+    averageRating,
+    totalRatings: total,
+    totalReviews: reviews.filter((r) => r.comment && r.comment.trim().length > 0).length,
+    recommendPct,
+    breakdown,
+    allImages,
+  };
+}
+
+/** Submit or update a verified product review */
 export function useSubmitReview() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       product_id: string;
       user_id: string;
-      order_id?: string;
+      order_id?: string | null;
       rating: number;
       title: string;
       comment: string;
+      images?: string[];
+      review_id?: string;
     }) => {
-      // Check if user has purchased the product
-      const verified = input.order_id ? true : false;
-      const { error } = await supabase.from("reviews").insert({
-        product_id: input.product_id,
-        user_id: input.user_id,
-        order_id: input.order_id ?? null,
-        rating: input.rating,
-        title: input.title,
-        comment: input.comment,
-        verified_purchase: verified,
-        status: "pending",
-      });
-      if (error) throw error;
+      const verified = Boolean(input.order_id);
+      const images = Array.isArray(input.images) ? input.images.filter(Boolean) : [];
+
+      if (input.review_id) {
+        // Update existing review
+        const { error } = await supabase
+          .from("reviews")
+          .update({
+            rating: input.rating,
+            title: input.title.trim(),
+            comment: input.comment.trim(),
+            images,
+            order_id: input.order_id ?? null,
+            verified_purchase: verified,
+            status: "pending",
+          })
+          .eq("id", input.review_id)
+          .eq("user_id", input.user_id);
+
+        if (error) throw error;
+      } else {
+        // Insert new review
+        const { error } = await supabase.from("reviews").insert({
+          product_id: input.product_id,
+          user_id: input.user_id,
+          order_id: input.order_id ?? null,
+          rating: input.rating,
+          title: input.title.trim(),
+          comment: input.comment.trim(),
+          images,
+          verified_purchase: verified,
+          status: "pending",
+        });
+
+        if (error) throw error;
+      }
     },
     onSuccess: (_, vars) => {
-      toast.success("Review submitted! It will appear after moderation.");
+      toast.success("Thank you! Your verified review has been submitted.");
       qc.invalidateQueries({ queryKey: ["reviews", vars.product_id] });
+      qc.invalidateQueries({ queryKey: ["can-review-product", vars.product_id] });
+      qc.invalidateQueries({ queryKey: ["admin-reviews"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -78,10 +285,21 @@ export function useAllReviews(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reviews")
-        .select("*, products:product_id(name, slug)")
+        .select("*, products:product_id(name, slug), profiles:user_id(full_name, phone)")
         .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return (data ?? []) as (Review & { products: { name: string; slug: string } | null })[];
+
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        images: Array.isArray(r.images) ? r.images : [],
+        user_name: r.profiles?.full_name || "Customer",
+        user_phone: r.profiles?.phone || "",
+      })) as (Review & {
+        products: { name: string; slug: string } | null;
+        user_name?: string;
+        user_phone?: string;
+      })[];
     },
   });
 }
@@ -95,8 +313,11 @@ export function useUpdateReviewStatus() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Review updated");
+      toast.success("Review updated successfully");
       qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -113,6 +334,9 @@ export function useDeleteReview() {
     onSuccess: () => {
       toast.success("Review deleted");
       qc.invalidateQueries({ queryKey: ["admin-reviews"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

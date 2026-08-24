@@ -12,6 +12,12 @@ import {
   MessageCircle,
   Instagram,
   Lock,
+  ThumbsUp,
+  Camera,
+  Check,
+  CheckCircle2,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,7 +29,13 @@ import { toast } from "sonner";
 import { discountPct, formatPrice, useProducts, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
-import { useProductReviews, useSubmitReview } from "@/lib/reviews";
+import {
+  useProductReviews,
+  useCanUserReviewProduct,
+  calculateReviewStats,
+  type Review,
+} from "@/lib/reviews";
+import { ReviewModal } from "@/components/site/ReviewModal";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
@@ -483,146 +495,392 @@ function ReviewsSection({
   product: Product;
   user: ReturnType<typeof useSession>["user"];
 }) {
-  const { data: reviews } = useProductReviews(product.uuid);
-  const submitReview = useSubmitReview();
-  const [showForm, setShowForm] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [title, setTitle] = useState("");
-  const [comment, setComment] = useState("");
+  const { data: reviews = [], isLoading } = useProductReviews(product.uuid);
+  const { data: canReviewData, isLoading: isCheckingPurchase } = useCanUserReviewProduct(
+    product.uuid,
+    product.id,
+    user?.id,
+  );
+  const isVerifiedBuyer = canReviewData?.isVerifiedBuyer ?? false;
+  const orderId = canReviewData?.orderId ?? null;
+  const hasAlreadyReviewed = canReviewData?.hasAlreadyReviewed ?? false;
+  const existingReview = canReviewData?.existingReview ?? null;
+
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [filterStar, setFilterStar] = useState<number | "all" | "photos">("all");
+  const [sortBy, setSortBy] = useState<"recent" | "rating_desc" | "rating_asc">("recent");
+
+  const stats = calculateReviewStats(reviews);
+
+  // Filter & sort reviews
+  const filteredReviews = reviews
+    .filter((r) => {
+      if (filterStar === "all") return true;
+      if (filterStar === "photos") return r.images && r.images.length > 0;
+      return Math.round(r.rating) === filterStar;
+    })
+    .sort((a, b) => {
+      if (sortBy === "rating_desc") return b.rating - a.rating;
+      if (sortBy === "rating_asc") return a.rating - b.rating;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   return (
-    <section className="mt-16">
-      <h2 className="font-display text-2xl font-bold">Customer Reviews</h2>
+    <section className="mt-16 pt-10 border-t border-gray-100" id="customer-reviews">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">
+            Ratings & Reviews
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Genuine verified customer reviews from parents who bought this item
+          </p>
+        </div>
 
-      {reviews && reviews.length > 0 ? (
-        <div className="mt-6 space-y-4">
-          {reviews.map((review) => (
-            <div key={review.id} className="rounded-2xl border border-border p-5">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
+        {/* Verified Purchase Gating Action */}
+        <div>
+          {user ? (
+            isCheckingPurchase ? (
+              <div className="h-10 w-36 bg-gray-100 animate-pulse rounded-full" />
+            ) : isVerifiedBuyer ? (
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-sm shadow-xs hover:bg-[#7a1c1c] transition hover:scale-102 cursor-pointer"
+              >
+                <Star className="size-4 fill-white" />
+                <span>{hasAlreadyReviewed ? "Edit Your Review" : "Rate & Review Product"}</span>
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+                <ShieldCheck className="size-4 text-amber-600 shrink-0" />
+                <span>Only verified buyers can write a review</span>
+              </div>
+            )
+          ) : (
+            <Link
+              to="/auth"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-gray-300 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition"
+            >
+              <span>Sign in to review product</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Ratings & Breakdown Hero Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-8 bg-gray-50/70 rounded-3xl border border-gray-100 mb-8">
+        {/* Left Column: Overall Score */}
+        <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-gray-200/80 lg:pr-8">
+          <div className="flex items-center gap-3">
+            <span className="font-display text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">
+              {stats.totalRatings > 0
+                ? stats.averageRating
+                : product.rating > 0
+                  ? product.rating
+                  : "—"}
+            </span>
+            <div className="flex flex-col items-start">
+              <div className="flex items-center gap-0.5 text-amber-400">
+                {[1, 2, 3, 4, 5].map((s) => {
+                  const currentAvg = stats.totalRatings > 0 ? stats.averageRating : product.rating;
+                  return (
                     <Star
-                      key={i}
-                      className={`size-4 ${i < review.rating ? "fill-accent text-accent" : "text-muted-foreground"}`}
+                      key={s}
+                      className={`size-4 sm:size-5 ${
+                        s <= Math.round(currentAvg || 0)
+                          ? "fill-[#f59e0b] text-[#f59e0b]"
+                          : "text-gray-300"
+                      }`}
                     />
+                  );
+                })}
+              </div>
+              <span className="text-xs font-semibold text-gray-500 mt-1">out of 5 stars</span>
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs sm:text-sm font-semibold text-gray-700">
+            {stats.totalRatings.toLocaleString("en-IN")} Verified Ratings &{" "}
+            {stats.totalReviews.toLocaleString("en-IN")} Reviews
+          </p>
+
+          {stats.totalRatings > 0 && stats.recommendPct > 0 && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+              <Check className="size-3.5" />
+              <span>{stats.recommendPct}% of buyers recommend this product</span>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: 5-Tier Star Distribution Bars */}
+        <div className="lg:col-span-8 flex flex-col justify-center space-y-2.5">
+          {[5, 4, 3, 2, 1].map((star) => {
+            const bar = stats.breakdown[star as 1 | 2 | 3 | 4 | 5];
+            const isCurrentFilter = filterStar === star;
+            return (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFilterStar(filterStar === star ? "all" : star)}
+                className={`w-full flex items-center gap-3 text-xs font-bold transition p-1 rounded-lg text-left cursor-pointer ${
+                  isCurrentFilter ? "bg-white shadow-2xs" : "hover:bg-white/60"
+                }`}
+              >
+                <span className="w-12 shrink-0 text-gray-700 flex items-center gap-1">
+                  <span>{star}</span>
+                  <Star className="size-3 fill-[#f59e0b] text-[#f59e0b]" />
+                </span>
+                <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      star >= 4 ? "bg-[#388E3C]" : star === 3 ? "bg-[#f59e0b]" : "bg-[#e53935]"
+                    }`}
+                    style={{ width: `${bar.pct}%` }}
+                  />
+                </div>
+                <span className="w-12 text-right shrink-0 text-gray-500 font-semibold text-[11px]">
+                  {bar.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Customer Photos Gallery Strip */}
+      {stats.allImages.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Camera className="size-4 text-[#8B2020]" />
+              <span>Customer Photos ({stats.allImages.length})</span>
+            </h3>
+            {filterStar !== "photos" && (
+              <button
+                type="button"
+                onClick={() => setFilterStar("photos")}
+                className="text-xs font-bold text-[#8B2020] hover:underline cursor-pointer"
+              >
+                View all photos
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
+            {stats.allImages.map((img, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedPhoto(img.url)}
+                className="group relative size-20 sm:size-24 rounded-2xl overflow-hidden border-2 border-gray-200 hover:border-[#8B2020] shrink-0 transition hover:scale-105 cursor-pointer shadow-2xs"
+              >
+                <img src={img.url} alt={img.title} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-bold flex items-center gap-0.5">
+                  ★ {img.rating}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filter and Sort Bar */}
+      {reviews.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-6 border-b border-gray-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterStar("all")}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                filterStar === "all"
+                  ? "bg-[#8B2020] text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              All ({reviews.length})
+            </button>
+            {stats.allImages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilterStar("photos")}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  filterStar === "photos"
+                    ? "bg-[#8B2020] text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Camera className="size-3" />
+                <span>With Photos ({stats.allImages.length})</span>
+              </button>
+            )}
+            {[5, 4, 3, 2, 1].map((s) => {
+              const count = stats.breakdown[s as 1 | 2 | 3 | 4 | 5].count;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setFilterStar(s)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                    filterStar === s
+                      ? "bg-[#8B2020] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {s} ★ ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-gray-500 font-semibold">Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="text-xs font-bold text-gray-800 bg-white border border-gray-200 rounded-xl px-3 py-1.5 outline-hidden focus:border-[#8B2020] cursor-pointer"
+            >
+              <option value="recent">Most Recent</option>
+              <option value="rating_desc">Highest Rating</option>
+              <option value="rating_asc">Lowest Rating</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Review List */}
+      {isLoading ? (
+        <div className="py-12 text-center text-gray-400 text-sm">Loading reviews...</div>
+      ) : filteredReviews.length > 0 ? (
+        <div className="space-y-5">
+          {filteredReviews.map((review) => (
+            <div
+              key={review.id}
+              className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white shadow-2xs hover:border-gray-200 transition"
+            >
+              {/* Reviewer Header */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-full bg-[#8B2020]/10 text-[#8B2020] font-bold text-xs flex items-center justify-center border border-[#8B2020]/20">
+                    {(review.user_name || "C").slice(0, 1).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">
+                        {review.user_name || "Verified Customer"}
+                      </span>
+                      {review.verified_purchase && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#2e7d32] bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
+                          <ShieldCheck className="size-3" /> Certified Buyer
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-gray-400">
+                      Reviewed on{" "}
+                      {new Date(review.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Rating Badge */}
+                <div
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black text-white ${
+                    review.rating >= 4
+                      ? "bg-[#388E3C]"
+                      : review.rating === 3
+                        ? "bg-[#f59e0b]"
+                        : "bg-[#e53935]"
+                  }`}
+                >
+                  <span>{review.rating}</span>
+                  <Star className="size-3 fill-white" />
+                </div>
+              </div>
+
+              {/* Review Title & Comment */}
+              {review.title && (
+                <h4 className="mt-3 text-sm font-bold text-gray-900">{review.title}</h4>
+              )}
+              <p className="mt-1.5 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                {review.comment}
+              </p>
+
+              {/* Customer Uploaded Photos */}
+              {review.images && review.images.length > 0 && (
+                <div className="flex flex-wrap gap-2.5 mt-3 pt-2">
+                  {review.images.map((imgUrl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedPhoto(imgUrl)}
+                      className="group relative size-16 sm:size-20 rounded-xl overflow-hidden border border-gray-200 hover:border-[#8B2020] transition hover:scale-105 cursor-pointer"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Review photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    </button>
                   ))}
                 </div>
-                {review.verified_purchase && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                    Verified Purchase
-                  </span>
-                )}
-              </div>
-              {review.title && <p className="mt-2 text-sm font-semibold">{review.title}</p>}
-              <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {new Date(review.created_at).toLocaleDateString("en-IN")}
-              </p>
+              )}
             </div>
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">
-          No reviews yet. Be the first to review this product!
-        </p>
-      )}
-
-      {submitted && (
-        <div className="mt-8 rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center shadow-sm">
-          <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-primary/10">
-            <Star className="size-6 fill-primary text-primary" />
-          </div>
-          <h3 className="font-display text-xl font-bold text-foreground">
-            Thank you for your review! 🌟
-          </h3>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Your feedback helps us grow and helps other parents make great choices! If you love what
-            we do, would you mind taking 10 seconds to share your experience on Google?
+        <div className="py-12 px-6 rounded-3xl border border-gray-100 bg-gray-50/50 text-center space-y-3">
+          <Star className="size-10 text-gray-300 mx-auto" />
+          <h3 className="text-base font-bold text-gray-800">No reviews found</h3>
+          <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto">
+            {filterStar !== "all"
+              ? "No reviews match the selected filter."
+              : "Be the first verified buyer to share feedback on this product!"}
           </p>
-          <a
-            href="https://maps.app.goo.gl/79nYYFUSWre5ymHT6"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#4285F4] px-6 py-3 text-sm font-bold text-white shadow-md transition-transform hover:scale-105 hover:bg-[#3367D6]"
-          >
-            Review us on Google Maps
-          </a>
         </div>
       )}
 
-      {user && !showForm && !submitted && (
-        <button
-          onClick={() => setShowForm(true)}
-          className="mt-4 rounded-full border border-primary px-6 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
-        >
-          Write a review
-        </button>
+      {/* Review Modal */}
+      {showReviewModal && (
+        <ReviewModal
+          product={product}
+          user={user}
+          orderId={orderId}
+          existingReview={existingReview}
+          onClose={() => setShowReviewModal(false)}
+        />
       )}
 
-      {showForm && user && !submitted && (
-        <form
-          className="mt-4 space-y-3 rounded-2xl border border-border p-5"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await submitReview.mutateAsync({
-              product_id: product.uuid,
-              user_id: user.id,
-              rating,
-              title: title.trim(),
-              comment: comment.trim(),
-            });
-            setShowForm(false);
-            setSubmitted(true);
-            setTitle("");
-            setComment("");
-            setRating(5);
-          }}
+      {/* Full-Screen Photo Lightbox */}
+      {selectedPhoto && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setSelectedPhoto(null)}
         >
-          <div>
-            <p className="text-sm font-semibold">Rating</p>
-            <div className="mt-1 flex gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <button key={i} type="button" onClick={() => setRating(i + 1)}>
-                  <Star
-                    className={`size-6 cursor-pointer transition ${i < rating ? "fill-accent text-accent" : "text-muted-foreground hover:text-accent"}`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Review title (optional)"
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <textarea
-            required
-            rows={3}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Share your experience with this product..."
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={submitReview.isPending}
-              className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-            >
-              {submitReview.isPending ? "Submitting..." : "Submit review"}
-            </button>
+          <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition hover:bg-muted"
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white rounded-full bg-black/50 hover:bg-black/80 transition cursor-pointer"
             >
-              Cancel
+              <X className="size-6" />
             </button>
+            <img
+              src={selectedPhoto}
+              alt="Enlarged review photo"
+              className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
-        </form>
+        </div>
       )}
     </section>
   );

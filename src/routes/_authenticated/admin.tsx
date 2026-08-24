@@ -708,8 +708,6 @@ function ProductsTab() {
         category: draft.category,
         price: Number(draft.price),
         mrp: Number(draft.mrp),
-        rating: Number(draft.rating),
-        reviews: Number(draft.reviews),
         age_group: draft.ageGroup,
         image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
         images: draft.images,
@@ -725,6 +723,11 @@ function ProductsTab() {
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
       };
+
+      if (!uuid) {
+        row.rating = 0;
+        row.reviews = 0;
+      }
 
       const hasStockChanged = uuid ? Number(draft.stock) !== editing?.stock : true;
       if (hasStockChanged) {
@@ -1922,15 +1925,20 @@ function ReviewsTab() {
 
       <ul className="space-y-3">
         {filtered.map((review) => (
-          <li key={review.id} className="rounded-2xl border border-border p-5">
+          <li
+            key={review.id}
+            className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
-                        className={`size-4 ${i < review.rating ? "fill-accent text-accent" : "text-muted-foreground"}`}
+                        className={`size-4 ${
+                          i < review.rating ? "fill-[#f59e0b] text-[#f59e0b]" : "text-gray-200"
+                        }`}
                       />
                     ))}
                   </div>
@@ -1945,26 +1953,63 @@ function ReviewsTab() {
                   >
                     {review.status}
                   </span>
-                  {review.verified_purchase && (
-                    <span className="text-xs text-muted-foreground">âœ“ Verified</span>
+                  {review.verified_purchase ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      ✓ Certified Buyer
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Unverified</span>
+                  )}
+                  {review.user_name && (
+                    <span className="text-xs font-bold text-gray-700">
+                      by {review.user_name}
+                      {review.user_phone ? ` (${review.user_phone})` : ""}
+                    </span>
                   )}
                 </div>
                 {review.products && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Product: <span className="font-semibold">{review.products.name}</span>
+                    Product:{" "}
+                    <span className="font-semibold text-gray-900">{review.products.name}</span>
                   </p>
                 )}
-                {review.title && <p className="mt-2 text-sm font-semibold">{review.title}</p>}
-                <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                {review.title && (
+                  <p className="mt-2 text-sm font-semibold text-gray-900">{review.title}</p>
+                )}
+                <p className="mt-1 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                  {review.comment}
+                </p>
+
+                {/* Photo Attachments */}
+                {review.images && review.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3 pt-2">
+                    {review.images.map((imgUrl: string, idx: number) => (
+                      <a
+                        key={idx}
+                        href={imgUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative size-14 rounded-xl overflow-hidden border border-gray-200 hover:border-[#8B2020] transition hover:scale-105"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Review photo ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                <p className="mt-2 text-xs text-gray-400">
                   {new Date(review.created_at).toLocaleString("en-IN")}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 {review.status !== "approved" && (
                   <button
                     onClick={() => updateStatus.mutate({ id: review.id, status: "approved" })}
-                    className="rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-green-700"
+                    className="rounded-xl bg-[#388E3C] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-green-700 cursor-pointer shadow-2xs"
                   >
                     Approve
                   </button>
@@ -1972,14 +2017,18 @@ function ReviewsTab() {
                 {review.status !== "rejected" && (
                   <button
                     onClick={() => updateStatus.mutate({ id: review.id, status: "rejected" })}
-                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-muted"
+                    className="rounded-xl border border-gray-200 px-3.5 py-1.5 text-xs font-semibold hover:bg-gray-50 transition cursor-pointer"
                   >
                     Reject
                   </button>
                 )}
                 <button
-                  onClick={() => deleteReview.mutate(review.id)}
-                  className="rounded-full border border-destructive px-3 py-1.5 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
+                  onClick={() => {
+                    if (window.confirm("Delete this review permanently?")) {
+                      deleteReview.mutate(review.id);
+                    }
+                  }}
+                  className="rounded-xl border border-red-200 text-red-600 px-3.5 py-1.5 text-xs font-semibold hover:bg-red-50 transition cursor-pointer"
                 >
                   Delete
                 </button>

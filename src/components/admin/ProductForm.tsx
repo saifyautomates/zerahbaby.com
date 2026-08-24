@@ -33,8 +33,8 @@ export type ProductDraft = {
   category: string;
   price: number;
   mrp: number;
-  rating: number;
-  reviews: number;
+  rating?: number;
+  reviews?: number;
   ageGroup: string;
   imageUrl: string;
   images: string[];
@@ -76,7 +76,7 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   category: p?.category ?? defaultCategory ?? "clothing",
   price: p?.price ?? 0,
   mrp: p?.mrp ?? 0,
-  rating: p?.rating ?? 4.5,
+  rating: p?.rating ?? 0,
   reviews: p?.reviews ?? 0,
   ageGroup: p?.ageGroup ?? "0-6m",
   imageUrl: p?.imageUrl ?? "",
@@ -553,27 +553,6 @@ export function ProductForm({
                 className={input}
                 value={draft.lowStockAt}
                 onChange={(e) => set("lowStockAt", Number(e.target.value))}
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              Rating
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="5"
-                className={input}
-                value={draft.rating}
-                onChange={(e) => set("rating", Number(e.target.value))}
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              Reviews
-              <input
-                type="number"
-                className={input}
-                value={draft.reviews}
-                onChange={(e) => set("reviews", Number(e.target.value))}
               />
             </label>
             <label className="text-sm font-semibold">

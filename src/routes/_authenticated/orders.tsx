@@ -7,6 +7,8 @@ import { useProducts, formatPrice } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
 import { useMyOrders, useCancelCustomerOrder, isOrderCancellable, type Order } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
+import { ReviewModal } from "@/components/site/ReviewModal";
+import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/orders")({
@@ -33,17 +35,36 @@ const CANCELLATION_REASONS = [
   "Other",
 ];
 
+const statusColors: Record<string, string> = {
+  pending: "bg-secondary text-secondary-foreground",
+  processing: "bg-blue-100 text-blue-800 border border-blue-200",
+  shipped: "bg-blue-100 text-blue-800 border border-blue-200",
+  out_for_delivery: "bg-blue-100 text-blue-800 border border-blue-200",
+  delivered: "bg-emerald-100 text-emerald-800 border border-emerald-200",
+  cancelled: "bg-destructive/15 text-destructive border border-destructive/20",
+};
+
 function OrdersPage() {
   const { user } = useSession();
-  const { data: isAdmin } = useIsAdmin(user?.id);
   const { data: orders, isLoading } = useMyOrders(user?.id);
   const { data: products } = useProducts();
+  const { data: isAdmin } = useIsAdmin(user?.id);
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [reviewingProduct, setReviewingProduct] = useState<{
+    product: { id: string; uuid: string; name: string; image?: string; brand?: string };
+    orderId: string;
+  } | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="font-display text-3xl font-bold">My orders</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
+    <div className="container mx-auto max-w-4xl px-4 py-10">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-3xl font-bold">My Orders</h1>
+        {orders && orders.length > 0 && (
+          <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+            {orders.length} order{orders.length > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
 
       {isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading…</p>}
 
@@ -86,14 +107,8 @@ function OrdersPage() {
 
                 <div className="flex items-center gap-2.5">
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-                      isCancelled
-                        ? "bg-destructive/15 text-destructive border border-destructive/20"
-                        : order.status === "delivered"
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                          : order.status === "shipped" || order.status === "out_for_delivery"
-                            ? "bg-blue-100 text-blue-800 border border-blue-200"
-                            : "bg-secondary text-secondary-foreground"
+                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                      statusColors[order.status] ?? "bg-muted text-muted-foreground"
                     }`}
                   >
                     {order.status.replace(/_/g, " ")}
@@ -103,9 +118,9 @@ function OrdersPage() {
                     <button
                       type="button"
                       onClick={() => setCancellingOrder(order)}
-                      className="rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive transition hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40"
+                      className="rounded-full border border-destructive/30 bg-destructive/5 px-3 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40"
                     >
-                      Cancel order
+                      Cancel Order
                     </button>
                   )}
                 </div>
@@ -116,7 +131,7 @@ function OrdersPage() {
 
               {/* Cancellation & Refund Alert Banner */}
               {isCancelled && (
-                <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-foreground">
+                <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs">
                   <p className="font-semibold text-destructive">
                     Order Cancelled
                     {order.cancelled_at &&
@@ -136,39 +151,72 @@ function OrdersPage() {
                 </div>
               )}
 
-              <ul className="mt-4 space-y-4">
+              <ul className="mt-4 space-y-3">
                 {order.order_items.map((item) => {
                   const product = products?.find((p) => p.id === item.product_slug);
                   return (
-                    <li key={item.id} className="flex gap-4">
+                    <li
+                      key={item.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-muted/20 border border-border/50"
+                    >
                       <Link
                         to="/product/$id"
                         params={{ id: item.product_slug }}
-                        className="group flex flex-1 gap-4"
+                        className="group flex flex-1 items-center gap-4 min-w-0"
                       >
                         {product ? (
                           <img
                             src={product.image}
                             alt={item.name}
-                            className="size-16 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80"
+                            className="size-14 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80 shrink-0"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.opacity = "0";
                             }}
                           />
                         ) : (
-                          <div className="size-16 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80" />
+                          <div className="size-14 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80 shrink-0" />
                         )}
-                        <div className="flex flex-1 flex-col justify-center">
-                          <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                        <div className="flex flex-1 flex-col justify-center min-w-0">
+                          <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary truncate">
                             {item.name}
                           </span>
-                          <span className="mt-1 text-xs text-muted-foreground">
+                          <span className="mt-0.5 text-xs text-muted-foreground">
                             Qty: {item.qty} · {formatPrice(Number(item.price))} each
                           </span>
                         </div>
                       </Link>
-                      <div className="flex items-center text-sm font-semibold">
-                        {formatPrice(Number(item.price) * item.qty)}
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                        <div className="text-sm font-bold">
+                          {formatPrice(Number(item.price) * item.qty)}
+                        </div>
+
+                        {!isCancelled && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const prodObj = product
+                                ? {
+                                    id: product.id,
+                                    uuid: product.uuid,
+                                    name: product.name,
+                                    image: product.image,
+                                    brand: product.brand,
+                                  }
+                                : {
+                                    id: item.product_slug,
+                                    uuid: item.product_slug,
+                                    name: item.name,
+                                    image: item.image_url ?? undefined,
+                                  };
+                              setReviewingProduct({ product: prodObj, orderId: order.id });
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#8B2020]/30 bg-red-50/50 text-[#8B2020] text-xs font-bold hover:bg-[#8B2020] hover:text-white transition cursor-pointer shadow-2xs"
+                          >
+                            <Star className="size-3.5 fill-current" />
+                            <span>Rate & Review</span>
+                          </button>
+                        )}
                       </div>
                     </li>
                   );
@@ -189,6 +237,16 @@ function OrdersPage() {
       {/* Cancellation Confirmation Dialog */}
       {cancellingOrder && (
         <CancelOrderModal order={cancellingOrder} onClose={() => setCancellingOrder(null)} />
+      )}
+
+      {/* Review Modal Dialog */}
+      {reviewingProduct && (
+        <ReviewModal
+          product={reviewingProduct.product}
+          user={user}
+          orderId={reviewingProduct.orderId}
+          onClose={() => setReviewingProduct(null)}
+        />
       )}
     </div>
   );
