@@ -1,6 +1,14 @@
-import { useState, useMemo } from "react";
-import { format, subDays, isSameDay, parseISO } from "date-fns";
-import { useAllOrders } from "@/lib/orders";
+import { useState, useMemo, useRef, useEffect } from "react";
+import {
+  format,
+  subDays,
+  subMonths,
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
+import { useAllOrders, type Order } from "@/lib/orders";
 import { formatPrice } from "@/lib/store";
 import {
   LineChart,
@@ -16,12 +24,10 @@ import {
 } from "recharts";
 import {
   TrendingUp,
-  TrendingDown,
   Users,
   AlertTriangle,
   ShoppingCart,
   Percent,
-  Scale,
   Package,
   Info,
   ChevronDown,
@@ -29,6 +35,7 @@ import {
   Calendar,
   Download,
   FileText,
+  Check,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,344 +47,803 @@ type WebsiteVisitor = {
   country: string | null;
 };
 
-export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
-  const [timeRange, setTimeRange] = useState("30");
+type OfflineSale = {
+  id: string;
+  sale_number: string;
+  customer_name: string;
+  customer_phone: string;
+  total: number;
+  payment_method: string;
+  created_at: string;
+  notes?: string;
+};
 
-  const { data: orders = [] } = useAllOrders(true);
-  const { data: posSales = [] } = useQuery({
+type DateRangePreset = "today" | "yesterday" | "7d" | "30d" | "this_month" | "all";
+
+const DATE_RANGE_OPTIONS: { key: DateRangePreset; label: string; subLabel: string }[] = [
+  { key: "today", label: "Today", subLabel: "Today's activity" },
+  { key: "yesterday", label: "Yesterday", subLabel: "Yesterday's activity" },
+  { key: "7d", label: "Last 7 Days", subLabel: "Past 7 days" },
+  { key: "30d", label: "Last 30 Days", subLabel: "Past 30 days" },
+  { key: "this_month", label: "This Month", subLabel: "Month to date" },
+  { key: "all", label: "All Time", subLabel: "Entire history" },
+];
+
+function calculateDelta(current: number, prev: number, periodLabel: string) {
+  if (prev === 0) {
+    if (current > 0) return { text: `↑ 100% vs ${periodLabel}`, isPositive: true };
+    return { text: `0% vs ${periodLabel}`, isPositive: true };
+  }
+  const pct = ((current - prev) / prev) * 100;
+  const rounded = Math.abs(Math.round(pct * 10) / 10);
+  if (pct > 0) {
+    return { text: `↑ ${rounded}% vs ${periodLabel}`, isPositive: true };
+  }
+  if (pct < 0) {
+    return { text: `↓ ${rounded}% vs ${periodLabel}`, isPositive: false };
+  }
+  return { text: `0% vs ${periodLabel}`, isPositive: true };
+}
+
+export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const [datePreset, setDatePreset] = useState<DateRangePreset>("7d");
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close date dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(e.target as Node)) {
+        setIsDateDropdownOpen(false);
+      }
+    };
+    if (isDateDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDateDropdownOpen]);
+
+  // Authoritative Queries
+  const { data: orders = [], isLoading: ordersLoading } = useAllOrders(true);
+  const { data: posSales = [], isLoading: posLoading } = useQuery<OfflineSale[]>({
     queryKey: ["offline-sales"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("offline_sales")
         .select("*, offline_sale_items(*)");
       if (error) return [];
-      return (data ?? []) as any[];
+      return (data ?? []) as unknown as OfflineSale[];
     },
   });
 
-  const { data: visitors = [] } = useQuery({
+  const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("website_visitors").select("*");
-      if (error) throw error;
-      return data as WebsiteVisitor[];
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (
+              cols: string,
+            ) => Promise<{ data: WebsiteVisitor[] | null; error: { message: string } | null }>;
+          };
+        }
+      )
+        .from("website_visitors")
+        .select("*");
+      if (error) return [];
+      return (data ?? []) as WebsiteVisitor[];
     },
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["admin-products-count"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, price, stock, name, image_url");
+        .select("id, price, stock, name, image_url, is_active");
       if (error) return [];
       return data ?? [];
     },
   });
 
-  const stats = useMemo(() => {
-    const allSales = [...orders, ...posSales];
-    const onlineOrders = orders.filter((o) => !o.notes?.includes("POS Order"));
-    const offlineOrders = [...orders.filter((o) => o.notes?.includes("POS Order")), ...posSales];
+  const isAnyLoading = ordersLoading || posLoading || visitorsLoading || productsLoading;
 
-    const rawRevenue = allSales.reduce((sum, o) => sum + Number(o.total || 0), 0);
-    const totalOrdersCount = allSales.length;
-    const visitorsCount = visitors.length;
-    const lowStockCount = products.filter((p: any) => (p.stock || 0) <= 3).length;
-    const avgOrder = totalOrdersCount > 0 ? rawRevenue / totalOrdersCount : 0;
-    const stockValue = products.reduce(
-      (sum: number, p: any) => sum + Number(p.price || 0) * Number(p.stock || 0),
-      0,
-    );
-    const onlineSales = onlineOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-    const cashSales = offlineOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+  // Date Range Bounds & Comparison Windows
+  const { dateRangeText, compareLabel, inCurrentPeriod, inPrevPeriod } = useMemo(() => {
+    const now = new Date();
+    let start: Date;
+    let end: Date = endOfDay(now);
+    let prevStart: Date;
+    let prevEnd: Date;
+    let text = "";
+    let comp = "last period";
 
-    const today = new Date();
-    const chartDays = Array.from({ length: 9 }).map((_, i) => ({
-      dateStr: format(subDays(today, 8 - i), "MMM dd"),
-      online: i === 8 ? onlineSales : 0,
-      offline: i === 8 ? cashSales : 0,
-      visitors: i === 8 ? visitorsCount : 0,
-    }));
+    switch (datePreset) {
+      case "today":
+        start = startOfDay(now);
+        prevStart = startOfDay(subDays(now, 1));
+        prevEnd = endOfDay(subDays(now, 1));
+        text = `Today, ${format(now, "MMM dd, yyyy")}`;
+        comp = "yesterday";
+        break;
+      case "yesterday":
+        start = startOfDay(subDays(now, 1));
+        end = endOfDay(subDays(now, 1));
+        prevStart = startOfDay(subDays(now, 2));
+        prevEnd = endOfDay(subDays(now, 2));
+        text = `Yesterday, ${format(subDays(now, 1), "MMM dd, yyyy")}`;
+        comp = "prev day";
+        break;
+      case "7d":
+        start = startOfDay(subDays(now, 6));
+        prevStart = startOfDay(subDays(now, 13));
+        prevEnd = endOfDay(subDays(now, 7));
+        text = `${format(subDays(now, 6), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
+        comp = "last 7 days";
+        break;
+      case "30d":
+        start = startOfDay(subDays(now, 29));
+        prevStart = startOfDay(subDays(now, 59));
+        prevEnd = endOfDay(subDays(now, 30));
+        text = `${format(subDays(now, 29), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
+        comp = "last 30 days";
+        break;
+      case "this_month":
+        start = startOfMonth(now);
+        prevStart = startOfMonth(subMonths(now, 1));
+        prevEnd = endOfMonth(subMonths(now, 1));
+        text = `${format(startOfMonth(now), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
+        comp = "last month";
+        break;
+      case "all":
+      default:
+        start = new Date(0);
+        prevStart = new Date(0);
+        prevEnd = new Date(0);
+        text = `All Time (Since Launch)`;
+        comp = "all time";
+        break;
+    }
+
+    const inCurr = (dateStr: string | null | undefined) => {
+      if (!dateStr) return false;
+      const t = new Date(dateStr).getTime();
+      return t >= start.getTime() && t <= end.getTime();
+    };
+
+    const inPrev = (dateStr: string | null | undefined) => {
+      if (!dateStr || datePreset === "all") return false;
+      const t = new Date(dateStr).getTime();
+      return t >= prevStart.getTime() && t <= prevEnd.getTime();
+    };
 
     return {
-      revenue: rawRevenue,
-      orders: totalOrdersCount,
-      visitors: visitorsCount,
-      lowStock: lowStockCount,
-      avgOrder,
-      stockValue,
-      chartDays,
-      onlineSales,
-      cashSales,
+      dateRangeText: text,
+      compareLabel: comp,
+      inCurrentPeriod: inCurr,
+      inPrevPeriod: inPrev,
     };
-  }, [orders, posSales, visitors, products]);
+  }, [datePreset]);
 
-  const paymentBreakdown =
-    stats.revenue > 0
-      ? [
-          { name: "Cash/Offline", value: stats.cashSales, color: "#0f172a" },
-          { name: "Online", value: stats.onlineSales, color: "#2563eb" },
-        ]
-      : [
-          { name: "Cash/Offline", value: 0, color: "#0f172a" },
-          { name: "Online", value: 0, color: "#2563eb" },
-        ];
+  // Authoritative KPI Metrics Calculation
+  const stats = useMemo(() => {
+    // 1. Valid paid / non-cancelled online orders
+    const validOrders = orders.filter(
+      (o: Order) =>
+        o.status !== "cancelled" &&
+        o.payment_status !== "failed" &&
+        o.payment_status !== "refunded",
+    );
 
+    // Current period sales
+    const currOrders = validOrders.filter((o) => inCurrentPeriod(o.created_at));
+    const currPos = posSales.filter((s) => inCurrentPeriod(s.created_at));
+
+    // Previous period sales (for comparative delta)
+    const prevOrders = validOrders.filter((o) => inPrevPeriod(o.created_at));
+    const prevPos = posSales.filter((s) => inPrevPeriod(s.created_at));
+
+    // Current metrics
+    const currOnlineRevenue = currOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const currPosRevenue = currPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
+    const revenue = currOnlineRevenue + currPosRevenue;
+    const ordersCount = currOrders.length + currPos.length;
+
+    // Previous metrics
+    const prevOnlineRevenue = prevOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const prevPosRevenue = prevPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
+    const prevRevenue = prevOnlineRevenue + prevPosRevenue;
+    const prevOrdersCount = prevOrders.length + prevPos.length;
+
+    // Visitors
+    const currVisitors = visitors.filter((v) => inCurrentPeriod(v.created_at)).length;
+    const prevVisitors = visitors.filter((v) => inPrevPeriod(v.created_at)).length;
+
+    // Low stock items (live catalog inventory <= 5)
+    const lowStockItems = products.filter((p) => Number(p.stock ?? 0) <= 5);
+    const lowStockCount = lowStockItems.length;
+    const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
+
+    // Cash Outstanding: Active uncancelled COD orders and pending payments
+    const pendingCodOrders = orders.filter(
+      (o) =>
+        o.status !== "cancelled" &&
+        o.payment_status !== "paid" &&
+        (o.payment_method === "cod" || o.payment_status === "pending"),
+    );
+    const cashOutstanding = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+    // Overall catalog value & average order
+    const totalCatalogValue = products.reduce(
+      (sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0),
+      0,
+    );
+    const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0;
+
+    // Deltas
+    const revenueDelta = calculateDelta(revenue, prevRevenue, compareLabel);
+    const ordersDelta = calculateDelta(ordersCount, prevOrdersCount, compareLabel);
+    const visitorsDelta = calculateDelta(currVisitors, prevVisitors, compareLabel);
+
+    // Dynamic Chart Days (Last 7 or 9 segments)
+    const today = new Date();
+    const chartDays = Array.from({ length: 7 }).map((_, i) => {
+      const d = subDays(today, 6 - i);
+      const dayStart = startOfDay(d).getTime();
+      const dayEnd = endOfDay(d).getTime();
+
+      const dayOnline = validOrders
+        .filter((o) => {
+          const t = new Date(o.created_at).getTime();
+          return t >= dayStart && t <= dayEnd;
+        })
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+      const dayPos = posSales
+        .filter((s) => {
+          const t = new Date(s.created_at).getTime();
+          return t >= dayStart && t <= dayEnd;
+        })
+        .reduce((sum, s) => sum + Number(s.total || 0), 0);
+
+      const dayVis = visitors.filter((v) => {
+        const t = new Date(v.created_at).getTime();
+        return t >= dayStart && t <= dayEnd;
+      }).length;
+
+      return {
+        dateStr: format(d, "MMM dd"),
+        online: dayOnline,
+        offline: dayPos,
+        visitors: dayVis,
+      };
+    });
+
+    return {
+      revenue,
+      ordersCount,
+      visitorsCount: currVisitors,
+      lowStockCount,
+      outOfStockCount,
+      cashOutstanding,
+      pendingCodCount: pendingCodOrders.length,
+      revenueDelta,
+      ordersDelta,
+      visitorsDelta,
+      onlineSales: currOnlineRevenue,
+      cashSales: currPosRevenue,
+      totalCatalogValue,
+      avgOrderValue,
+      chartDays,
+    };
+  }, [orders, posSales, visitors, products, inCurrentPeriod, inPrevPeriod, compareLabel]);
+
+  // Payment Breakdown for Donut Chart
+  const paymentBreakdown = useMemo(() => {
+    const total = stats.revenue;
+    if (total <= 0) {
+      return [
+        { name: "POS / Offline", value: 0, color: "#0f172a" },
+        { name: "Online Paid", value: 0, color: "#2563eb" },
+      ];
+    }
+    return [
+      { name: "POS / Offline", value: stats.cashSales, color: "#0f172a" },
+      { name: "Online Paid", value: stats.onlineSales, color: "#2563eb" },
+    ];
+  }, [stats.revenue, stats.cashSales, stats.onlineSales]);
+
+  // Recent Orders List
   const recentOrders = useMemo(() => {
-    return [...orders, ...posSales]
+    const onlineMapped = orders.map((o) => ({
+      id: `#${o.id.toString().substring(0, 8).toUpperCase()}`,
+      customer: o.full_name || o.email || "Customer",
+      amount: Number(o.total || 0),
+      status: o.status || "placed",
+      source: "Online",
+      created_at: o.created_at,
+    }));
+
+    const posMapped = posSales.map((s) => ({
+      id: s.sale_number || `#${s.id.toString().substring(0, 8).toUpperCase()}`,
+      customer: s.customer_name || "Walk-in Customer",
+      amount: Number(s.total || 0),
+      status: "completed",
+      source: "POS",
+      created_at: s.created_at,
+    }));
+
+    return [...onlineMapped, ...posMapped]
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      .slice(0, 5)
-      .map((o) => ({
-        id: `#${o.id.toString().substring(0, 6)}`,
-        customer: o.full_name || o.customer_name || o.email || "Guest",
-        amount: Number(o.total || 0),
-        status: o.status || "Completed",
-        source: o.notes?.includes("POS Order") ? "POS" : "Online",
-      }));
+      .slice(0, 5);
   }, [orders, posSales]);
 
-  const topSelling = useMemo(() => {
+  // Top Selling / Critical Products
+  const topProducts = useMemo(() => {
     return [...products]
-      .sort((a, b) => Number((a as any).stock || 0) - Number((b as any).stock || 0))
+      .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
       .slice(0, 5)
       .map((p) => ({
-        name: (p as any).name || "Unknown",
-        sold: 0,
-        revenue: Number((p as any).price || 0),
+        name: p.name || "Product",
+        stock: Number(p.stock || 0),
+        price: Number(p.price || 0),
       }));
   }, [products]);
 
+  // Recent Activity Feed
   const recentActivity = useMemo(() => {
     const activities: Array<{ title: string; time: string; icon: typeof FileText; color: string }> =
       [];
     if (orders.length > 0) {
       activities.push({
-        title: `New order from ${orders[0].email || "Customer"}`,
-        time: "Recently",
+        title: `Order from ${orders[0].full_name || orders[0].email || "Customer"}`,
+        time: format(new Date(orders[0].created_at), "MMM dd, hh:mm a"),
         icon: FileText,
-        color: "text-blue-500 bg-blue-50",
+        color: "text-blue-500 bg-blue-50 dark:bg-blue-950/50",
       });
     }
-    visitors.slice(0, 3).forEach((v) => {
+    if (posSales.length > 0) {
+      activities.push({
+        title: `POS sale ${posSales[0].sale_number || "completed"} (${formatPrice(posSales[0].total)})`,
+        time: format(new Date(posSales[0].created_at), "MMM dd, hh:mm a"),
+        icon: ShoppingCart,
+        color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
+      });
+    }
+    visitors.slice(0, 2).forEach((v) => {
       const loc = [v.city, v.region, v.country].filter(Boolean).join(", ");
       activities.push({
-        title: loc ? `New visitor from ${loc}` : "New visitor session",
+        title: loc ? `Visitor from ${loc}` : "New visitor session",
         time: format(new Date(v.created_at), "MMM dd, hh:mm a"),
         icon: Users,
-        color: "text-cyan-500 bg-cyan-50",
+        color: "text-amber-500 bg-amber-50 dark:bg-amber-950/50",
       });
     });
     if (activities.length === 0) {
       activities.push({
-        title: "Dashboard loaded",
-        time: "Just now",
-        icon: FileText,
-        color: "text-gray-500 bg-gray-50",
+        title: "Store operational",
+        time: "Live",
+        icon: Check,
+        color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
       });
     }
     return activities;
-  }, [orders, visitors]);
+  }, [orders, posSales, visitors]);
 
-  const sparklineData = {
-    customers: [0, 0, 0, 0, 0, stats.visitors],
-    returning: [0, 0, 0, 0, 0, 0],
-    refunds: [0, 0, 0, 0, 0, 0],
-    abandoned: [0, 0, 0, 0, 0, 0],
-    products: [0, 0, 0, 0, 0, products.length],
-    reviews: [0, 0, 0, 0, 0, 0],
-  };
-
+  // CSV Report Generator
   const handleDownloadReport = () => {
     const allSales = [...orders, ...posSales];
-    let csv = "Order ID,Date,Status,Total,Source\n";
+    let csv = "Order / Sale ID,Date,Status,Total,Source,Customer\n";
     allSales.forEach((o) => {
-      const isPOS = o.notes?.includes("POS Order") || !o.user_id;
-      const source = isPOS ? "Offline/POS" : "Online";
+      const isPOS = "sale_number" in o;
+      const id = isPOS ? (o as OfflineSale).sale_number : (o as Order).id;
+      const source = isPOS ? "Offline / POS" : "Online";
       const total = o.total || 0;
-      const status = o.status || "completed";
+      const status = isPOS ? "completed" : (o as Order).status || "placed";
       const date = format(new Date(o.created_at), "yyyy-MM-dd HH:mm");
-      csv += `${o.id},${date},${status},${total},${source}\n`;
+      const customer = isPOS
+        ? (o as OfflineSale).customer_name || "Walk-in"
+        : (o as Order).full_name || (o as Order).email || "Guest";
+      csv += `"${id}","${date}","${status}",${total},"${source}","${customer}"\n`;
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sales-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = `zerah-sales-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="space-y-6 text-[#1e293b]">
-      {/* Date and Action Bar */}
-      <div className="flex flex-wrap items-center justify-end gap-3 -mt-2 mb-4">
-        <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition">
-          <Calendar className="h-3.5 w-3.5 text-gray-500" />
-          <span>Aug 15, 2026 - Aug 21, 2026</span>
-          <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-        </button>
-        <button
-          onClick={handleDownloadReport}
-          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition"
-        >
-          <Download className="h-3.5 w-3.5 text-gray-500" />
-          <span>Download Report</span>
-        </button>
+    <div className="space-y-6 text-foreground animate-in fade-in duration-150">
+      {/* Date Range Selector and Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 -mt-1 mb-4">
+        <div>
+          <h2 className="text-lg font-black tracking-tight text-foreground font-display">
+            Executive Performance Overview
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Live store statistics synchronized across online e-commerce and offline POS.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Interactive Date Range Dropdown */}
+          <div className="relative" ref={dateDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDateDropdownOpen((prev) => !prev)}
+              aria-expanded={isDateDropdownOpen}
+              aria-label={`Selected date range: ${dateRangeText}`}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
+            >
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-none">{dateRangeText}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+                  isDateDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isDateDropdownOpen && (
+              <div className="absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl animate-in zoom-in-95 duration-100">
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border mb-1">
+                  Select Period
+                </div>
+                {DATE_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setDatePreset(opt.key);
+                      setIsDateDropdownOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition text-left ${
+                      datePreset === opt.key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <div>
+                      <p>{opt.label}</p>
+                      <p
+                        className={`text-[10px] ${
+                          datePreset === opt.key
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {opt.subLabel}
+                      </p>
+                    </div>
+                    {datePreset === opt.key && <Check className="h-3.5 w-3.5 shrink-0 ml-2" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Download CSV Report Button */}
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            title="Download CSV sales report"
+            aria-label="Download CSV sales report"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="hidden sm:inline">Download Report</span>
+            <span className="sm:hidden">Export</span>
+          </button>
+        </div>
       </div>
 
-      {/* Top 5 Vibrant Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="relative overflow-hidden rounded-2xl bg-[#16a34a] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
+      {/* Top 5 Vibrant, Clickable, Fully-Responsive KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        {/* 1. Total Revenue Card (Emerald Green) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.("analytics")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onNavigate?.("analytics");
+            }
+          }}
+          aria-label={`Total Revenue: ${formatPrice(stats.revenue)}. Click to open Analytics.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Total Revenue</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">
-                {formatPrice(stats.revenue)}
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : formatPrice(stats.revenue)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5">Today's Sales</p>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">
+                {datePreset === "today" ? "Today's Sales" : "Period Sales"}
+              </p>
             </div>
-            <div className="opacity-20">
-              <span className="text-4xl font-serif">₹</span>
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
+              <span className="text-4xl font-serif leading-none select-none">₹</span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/10 text-[11px]">
-            <span className="font-semibold text-white">↑ 100% vs last 7 days</span>
-            <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
-              More info <Info className="h-3 w-3" />
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">
+              {stats.revenueDelta.text}
             </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.("analytics");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl bg-[#2563eb] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
+        {/* 2. Total Orders Card (Royal Blue) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.("orders")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onNavigate?.("orders");
+            }
+          }}
+          aria-label={`Total Orders: ${stats.ordersCount}. Click to open Orders.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-blue-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Total Orders</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">{stats.orders}</h3>
-              <p className="text-[11px] text-white/80 mt-0.5">Today's Orders</p>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : stats.ordersCount}
+              </h3>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">
+                {datePreset === "today" ? "Today's Orders" : "Period Orders"}
+              </p>
             </div>
-            <div className="opacity-20">
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
               <FileText className="h-10 w-10" />
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/10 text-[11px]">
-            <span className="font-semibold text-white">↑ 33.3% vs last 7 days</span>
-            <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
-              More info <Info className="h-3 w-3" />
-            </span>
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">{stats.ordersDelta.text}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.("orders");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl bg-[#f59e0b] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
+        {/* 3. Today's / Period Visitors Card (Warm Amber) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.("analytics")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onNavigate?.("analytics");
+            }
+          }}
+          aria-label={`Visitors: ${stats.visitorsCount}. Click to open Visitor Analytics.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
           <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-white/90">Today's Visitors</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">{stats.visitors}</h3>
-              <p className="text-[11px] text-white/80 mt-0.5">Today's Visitors</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-white/90">
+                {datePreset === "today" ? "Today's Visitors" : "Store Visitors"}
+              </p>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : stats.visitorsCount}
+              </h3>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">
+                {datePreset === "today" ? "Today's Traffic" : "Period Traffic"}
+              </p>
             </div>
-            <div className="opacity-20">
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
               <Users className="h-10 w-10" />
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/10 text-[11px]">
-            <span className="font-semibold text-white">↑ 100% vs yesterday</span>
-            <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
-              More info <Info className="h-3 w-3" />
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">
+              {stats.visitorsDelta.text}
             </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.("analytics");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl bg-[#7c3aed] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
+        {/* 4. Low Stock Items Card (Deep Violet) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.("inventory")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onNavigate?.("inventory");
+            }
+          }}
+          aria-label={`Low Stock Items: ${stats.lowStockCount}. Click to open Inventory.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-violet-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-violet-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Low Stock Items</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">{stats.lowStock}</h3>
-              <p className="text-[11px] text-white/80 mt-0.5">
-                {stats.lowStock > 0 ? "Requires attention" : "All good"}
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : stats.lowStockCount}
+              </h3>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">
+                {stats.lowStockCount > 0
+                  ? `${stats.lowStockCount} items need reorder`
+                  : "All inventory healthy"}
               </p>
             </div>
-            <div className="opacity-20">
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
               <AlertTriangle className="h-10 w-10" />
             </div>
           </div>
-          <div className="flex items-center justify-end pt-3 border-t border-white/10 text-[11px]">
-            <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
-              More info <Info className="h-3 w-3" />
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">
+              {stats.outOfStockCount > 0
+                ? `${stats.outOfStockCount} out of stock`
+                : "Stock alert (≤5)"}
             </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.("inventory");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl bg-[#dc2626] p-5 text-white shadow-sm flex flex-col justify-between min-h-[140px]">
+        {/* 5. Cash Outstanding Card (Crimson Red) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate?.("orders")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onNavigate?.("orders");
+            }
+          }}
+          aria-label={`Cash Outstanding: ${formatPrice(stats.cashOutstanding)}. Click to view pending COD orders.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white/90">Cash Outstanding</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1">₹0.00</h3>
-              <p className="text-[11px] text-white/80 mt-0.5">No dues</p>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : formatPrice(stats.cashOutstanding)}
+              </h3>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">
+                {stats.pendingCodCount > 0
+                  ? `${stats.pendingCodCount} orders pending COD`
+                  : "No pending dues"}
+              </p>
             </div>
-            <div className="opacity-20">
-              <span className="text-3xl">💰</span>
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
+              <span className="text-3xl select-none">💰</span>
             </div>
           </div>
-          <div className="flex items-center justify-end pt-3 border-t border-white/10 text-[11px]">
-            <span className="text-white/80 hover:text-white cursor-pointer flex items-center gap-0.5">
-              More info <Info className="h-3 w-3" />
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">
+              {stats.pendingCodCount > 0 ? "Pending collection" : "Zero balance due"}
             </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.("orders");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Secondary 4-Item White Strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
+      {/* Secondary 4-Item Metric Strip */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 rounded-2xl bg-card p-4 shadow-sm border border-border">
         <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <Package className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-gray-500">Stock Value</p>
-            <h4 className="text-sm font-bold text-gray-900">{formatPrice(stats.stockValue)}</h4>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              Total Stock Value
+            </p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {formatPrice(stats.totalCatalogValue)}
+            </h4>
           </div>
         </div>
         <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <TrendingUp className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-gray-500">Month Revenue</p>
-            <h4 className="text-sm font-bold text-gray-900">{formatPrice(stats.revenue)}</h4>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Period Revenue</p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {formatPrice(stats.revenue)}
+            </h4>
           </div>
         </div>
         <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
             <ShoppingCart className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-gray-500">Average Order Value</p>
-            <h4 className="text-sm font-bold text-gray-900">{formatPrice(stats.avgOrder)}</h4>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              Avg Order Value
+            </p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {formatPrice(stats.avgOrderValue)}
+            </h4>
           </div>
         </div>
         <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
             <Percent className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-gray-500">Conversion Rate</p>
-            <div className="flex items-center gap-1.5">
-              <h4 className="text-sm font-bold text-gray-900">2.45%</h4>
-              <span className="text-[10px] font-semibold text-emerald-600">↑ 12.5%</span>
-            </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              Active Catalog Items
+            </p>
+            <h4 className="text-sm font-bold text-foreground truncate">{products.length} SKUs</h4>
           </div>
         </div>
       </div>
 
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 flex flex-col">
+        {/* Sales Trend Line Chart */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Sales Over Time (Last 30 Days)</h3>
-            <button className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50">
-              <span>Last 30 Days</span>
-              <ChevronDown className="h-3 w-3 text-gray-400" />
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Sales Trend (Last 7 Days)</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Online Orders vs Offline POS Sales
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("analytics")}
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Analytics <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
           <div className="h-[220px] w-full">
@@ -386,15 +852,15 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 data={stats.chartDays}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="dateStr"
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `₹${v}`}
@@ -402,10 +868,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <Tooltip
                   formatter={(val: number) => [`₹${val}`, ""]}
                   contentStyle={{
-                    borderRadius: "10px",
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     fontSize: "12px",
+                    color: "hsl(var(--foreground))",
                   }}
                 />
                 <Line
@@ -421,31 +889,38 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   type="monotone"
                   dataKey="offline"
                   name="POS Sales"
-                  stroke="#f97316"
+                  stroke="#16a34a"
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: "#f97316" }}
+                  dot={{ r: 3, fill: "#16a34a" }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="flex items-center justify-center gap-6 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
-              <span className="text-gray-600 font-medium">Online Sales</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+              <span className="text-muted-foreground font-medium">Online Sales</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#f97316]" />
-              <span className="text-gray-600 font-medium">POS Sales</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-[#16a34a]" />
+              <span className="text-muted-foreground font-medium">POS Sales</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 flex flex-col">
+        {/* Visitors Trend Line Chart */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Visitors Over Time (Last 30 Days)</h3>
-            <button className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50">
-              <span>Last 30 Days</span>
-              <ChevronDown className="h-3 w-3 text-gray-400" />
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Traffic Trend (Last 7 Days)</h3>
+              <p className="text-[11px] text-muted-foreground">Unique Website Visitors</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("analytics")}
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Traffic <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
           <div className="h-[220px] w-full">
@@ -454,30 +929,36 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 data={stats.chartDays}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="dateStr"
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <Tooltip
                   formatter={(val: number) => [`${val} visitors`, ""]}
                   contentStyle={{
-                    borderRadius: "10px",
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     fontSize: "12px",
+                    color: "hsl(var(--foreground))",
                   }}
                 />
                 <Line
                   type="monotone"
                   dataKey="visitors"
                   name="Unique Visitors"
-                  stroke="#10b981"
+                  stroke="#f59e0b"
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: "#10b981" }}
+                  dot={{ r: 3, fill: "#f59e0b" }}
                   activeDot={{ r: 5 }}
                 />
               </LineChart>
@@ -485,19 +966,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
           <div className="flex items-center justify-center gap-6 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#10b981]" />
-              <span className="text-gray-600 font-medium">Unique Visitors</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
+              <span className="text-muted-foreground font-medium">Unique Visitors</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 flex flex-col">
+        {/* Payment Channels Breakdown */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Sales by Payment Method</h3>
-            <button className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50">
-              <span>This Month</span>
-              <ChevronDown className="h-3 w-3 text-gray-400" />
-            </button>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Sales by Channel</h3>
+              <p className="text-[11px] text-muted-foreground">Revenue share breakdown</p>
+            </div>
           </div>
           <div className="relative h-[180px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -515,37 +996,36 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  formatter={(val: number) => [formatPrice(val), ""]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "10px",
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-base font-extrabold text-gray-900">
+              <span className="text-base font-extrabold text-foreground">
                 {formatPrice(stats.revenue)}
               </span>
-              <span className="text-[10px] text-gray-400 font-medium">Total</span>
+              <span className="text-[10px] text-muted-foreground font-medium">Total</span>
             </div>
           </div>
           <div className="flex items-center justify-center gap-6 mt-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-sm bg-[#0f172a]" />
-              <span className="text-gray-700 font-medium">
-                Cash{" "}
-                <span className="text-gray-400 text-[11px]">
-                  {stats.revenue > 0
-                    ? `${formatPrice(stats.cashSales)} (${((stats.cashSales / stats.revenue) * 100).toFixed(1)}%)`
-                    : "₹0.00 (0%)"}
-                </span>
+              <span className="text-muted-foreground font-medium">
+                POS:{" "}
+                <span className="text-foreground font-bold">{formatPrice(stats.cashSales)}</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-sm bg-[#2563eb]" />
-              <span className="text-gray-700 font-medium">
-                Card{" "}
-                <span className="text-gray-400 text-[11px]">
-                  {stats.revenue > 0
-                    ? `${formatPrice(stats.onlineSales)} (${((stats.onlineSales / stats.revenue) * 100).toFixed(1)}%)`
-                    : "₹0.00 (0%)"}
-                </span>
+              <span className="text-muted-foreground font-medium">
+                Online:{" "}
+                <span className="text-foreground font-bold">{formatPrice(stats.onlineSales)}</span>
               </span>
             </div>
           </div>
@@ -554,59 +1034,63 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
       {/* Middle Section: Recent Orders | Top Products | Recent Activity */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+        {/* Recent Orders List */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Recent Orders</h3>
+            <h3 className="text-sm font-bold text-foreground">Recent Orders</h3>
             <button
+              type="button"
               onClick={() => onNavigate?.("orders")}
-              className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800"
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
               <span>View All</span>
-              <ChevronDown className="h-3 w-3" />
+              <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-medium">
+                <tr className="border-b border-border text-muted-foreground font-medium">
                   <th className="pb-2.5">Order ID</th>
                   <th className="pb-2.5">Customer</th>
                   <th className="pb-2.5">Amount</th>
-                  <th className="pb-2.5">Status</th>
                   <th className="pb-2.5">Source</th>
                   <th className="pb-2.5"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-border">
                 {recentOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs text-gray-400">
-                      No orders yet.
+                    <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
+                      No orders recorded yet.
                     </td>
                   </tr>
                 ) : (
                   recentOrders.map((o) => (
-                    <tr key={o.id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="py-2.5 font-bold text-gray-900">{o.id}</td>
-                      <td className="py-2.5 text-gray-600">{o.customer}</td>
-                      <td className="py-2.5 font-semibold text-gray-900">
-                        ₹{o.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    <tr
+                      key={o.id}
+                      onClick={() => onNavigate?.("orders")}
+                      className="hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
+                      <td className="py-2.5 font-bold text-foreground">{o.id}</td>
+                      <td className="py-2.5 text-muted-foreground truncate max-w-[100px]">
+                        {o.customer}
+                      </td>
+                      <td className="py-2.5 font-semibold text-foreground">
+                        {formatPrice(o.amount)}
                       </td>
                       <td className="py-2.5">
                         <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${o.status === "Completed" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
-                        >
-                          {o.status}
-                        </span>
-                      </td>
-                      <td className="py-2.5">
-                        <span
-                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${o.source === "Online" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"}`}
+                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                            o.source === "Online"
+                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          }`}
                         >
                           {o.source}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right text-gray-400 hover:text-gray-600 cursor-pointer">
+                      <td className="py-2.5 text-right text-muted-foreground">
                         <MoreVertical className="h-3.5 w-3.5 inline" />
                       </td>
                     </tr>
@@ -617,47 +1101,60 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+        {/* Low Stock Watchlist */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Top Selling Products</h3>
+            <h3 className="text-sm font-bold text-foreground">Low Stock Watchlist</h3>
             <button
-              onClick={() => onNavigate?.("products")}
-              className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800"
+              type="button"
+              onClick={() => onNavigate?.("inventory")}
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
-              <span>View All</span>
-              <ChevronDown className="h-3 w-3" />
+              <span>Inventory</span>
+              <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-medium">
+                <tr className="border-b border-border text-muted-foreground font-medium">
                   <th className="pb-2.5">Product</th>
-                  <th className="pb-2.5 text-center">Sold</th>
+                  <th className="pb-2.5 text-center">Stock</th>
                   <th className="pb-2.5 text-right">Price</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {topSelling.length === 0 ? (
+              <tbody className="divide-y divide-border">
+                {topProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="py-8 text-center text-xs text-gray-400">
-                      No products yet.
+                    <td colSpan={3} className="py-8 text-center text-xs text-muted-foreground">
+                      All product inventory healthy.
                     </td>
                   </tr>
                 ) : (
-                  topSelling.map((p) => (
-                    <tr key={p.name} className="hover:bg-gray-50/80 transition-colors">
+                  topProducts.map((p, idx) => (
+                    <tr
+                      key={idx}
+                      onClick={() => onNavigate?.("inventory")}
+                      className="hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
                       <td className="py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-sm">
-                            🏷️
-                          </span>
-                          <span className="font-semibold text-gray-800 line-clamp-1">{p.name}</span>
-                        </div>
+                        <span className="font-semibold text-foreground line-clamp-1">{p.name}</span>
                       </td>
-                      <td className="py-2.5 text-center font-medium text-gray-600">{p.sold}</td>
-                      <td className="py-2.5 text-right font-bold text-gray-900">
-                        ₹{p.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      <td className="py-2.5 text-center font-bold">
+                        <span
+                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] ${
+                            p.stock <= 0
+                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 font-extrabold"
+                              : p.stock <= 5
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
+                                : "text-foreground"
+                          }`}
+                        >
+                          {p.stock <= 0 ? "Out of stock" : `${p.stock} left`}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right font-bold text-foreground">
+                        {formatPrice(p.price)}
                       </td>
                     </tr>
                   ))
@@ -667,12 +1164,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+        {/* Live Activity Feed */}
+        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-900">Recent Activity</h3>
-            <button className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800">
+            <h3 className="text-sm font-bold text-foreground">Recent Activity</h3>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("orders")}
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
               <span>View All</span>
-              <ChevronDown className="h-3 w-3" />
+              <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
           <div className="space-y-3.5">
@@ -680,100 +1182,22 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               const Icon = act.icon;
               return (
                 <div key={i} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${act.color}`}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </div>
-                    <span className="font-medium text-gray-700 line-clamp-1">{act.title}</span>
+                    <span className="font-medium text-foreground truncate">{act.title}</span>
                   </div>
-                  <span className="text-[11px] text-gray-400 shrink-0 ml-2">{act.time}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                    {act.time}
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
-      </div>
-
-      {/* Bottom Sparkline Cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          {
-            label: "Total Customers",
-            value: "128",
-            change: "↑ 8.5%",
-            changeColor: "text-emerald-600",
-            data: sparklineData.customers,
-            stroke: "#3b82f6",
-          },
-          {
-            label: "Returning Customers",
-            value: "24",
-            change: "↑ 20%",
-            changeColor: "text-emerald-600",
-            data: sparklineData.returning,
-            stroke: "#06b6d4",
-          },
-          {
-            label: "Refunds",
-            value: "₹0.00",
-            change: "↓ 0%",
-            changeColor: "text-red-500",
-            data: sparklineData.refunds,
-            stroke: "#ef4444",
-          },
-          {
-            label: "Abandoned Carts",
-            value: "7",
-            change: "↓ 5%",
-            changeColor: "text-red-500",
-            data: sparklineData.abandoned,
-            stroke: "#f97316",
-          },
-          {
-            label: "Total Products",
-            value: String(products.length),
-            change: "↑ 6.2%",
-            changeColor: "text-emerald-600",
-            data: sparklineData.products,
-            stroke: "#8b5cf6",
-          },
-          {
-            label: "Reviews",
-            value: "32",
-            change: "↑ 14.5%",
-            changeColor: "text-emerald-600",
-            data: sparklineData.reviews,
-            stroke: "#10b981",
-          },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100 flex flex-col justify-between"
-          >
-            <div>
-              <p className="text-[11px] font-medium text-gray-500">{card.label}</p>
-              <h4 className="text-xl font-bold text-gray-900 mt-1">{card.value}</h4>
-              <p className={`text-[10px] font-semibold mt-0.5 ${card.changeColor}`}>
-                {card.change} <span className="text-gray-400 font-normal">vs last 7 days</span>
-              </p>
-            </div>
-            <div className="h-10 w-full mt-3">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={card.data.map((v, i) => ({ i, v }))}>
-                  <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke={card.stroke}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
