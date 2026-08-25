@@ -584,7 +584,13 @@ export function DashboardDrillDown({
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
                         {p.image_url ? (
-                          <a href={p.image_url} target="_blank" rel="noreferrer" title="Click to enlarge" className="shrink-0">
+                          <a
+                            href={p.image_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Click to enlarge"
+                            className="shrink-0"
+                          >
                             <img
                               src={p.image_url}
                               alt={p.name}
@@ -606,7 +612,9 @@ export function DashboardDrillDown({
                           >
                             {p.name}
                           </Link>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.brand} &bull; {p.category}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {p.brand} &bull; {p.category}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -615,7 +623,9 @@ export function DashboardDrillDown({
                       {formatPrice(p.price)}
                     </td>
                     <td className="px-6 py-4 text-right font-medium">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.stock <= 0 ? 'bg-red-100 text-red-700' : p.stock <= (p.low_stock_at || 5) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.stock <= 0 ? "bg-red-100 text-red-700" : p.stock <= (p.low_stock_at || 5) ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+                      >
                         {p.stock} in stock
                       </span>
                     </td>

@@ -85,7 +85,9 @@ export function ProductCard({ product }: { product: Product }) {
               <span>({product.reviews.toLocaleString("en-IN")})</span>
             </>
           )}
-          <span className={`${product.reviews > 0 ? "ml-auto" : ""} rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-semibold`}>
+          <span
+            className={`${product.reviews > 0 ? "ml-auto" : ""} rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-semibold`}
+          >
             {product.ageGroup}
           </span>
         </div>

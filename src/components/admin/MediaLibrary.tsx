@@ -190,8 +190,12 @@ export function MediaLibrary({
       <div className="rounded-2xl border border-dashed border-primary/50 bg-secondary/40 p-4">
         <p className="text-sm font-semibold">Add to the library</p>
         <p className="mt-1 mb-3 text-xs leading-relaxed text-muted-foreground font-normal">
-          <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Yahan upload ki hui photos aur videos aapki main media gallery me save ho jati hain, jinhe aap baad me website par kahin bhi (jaise products ya banner me) use kar sakte hain. <br/>
-          <span className="font-semibold text-foreground">💡 Tip: Aap apne computer se koi bhi file sidhe yahan drag & drop kar sakte hain!</span>
+          <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Yahan upload
+          ki hui photos aur videos aapki main media gallery me save ho jati hain, jinhe aap baad me
+          website par kahin bhi (jaise products ya banner me) use kar sakte hain. <br />
+          <span className="font-semibold text-foreground">
+            💡 Tip: Aap apne computer se koi bhi file sidhe yahan drag & drop kar sakte hain!
+          </span>
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button

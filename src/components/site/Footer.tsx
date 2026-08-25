@@ -40,7 +40,9 @@ export function Footer() {
                 (e.target as HTMLImageElement).style.opacity = "0";
               }}
             />
-            <span className="font-display text-lg font-bold whitespace-pre-wrap leading-[1.1]">{brandName}</span>
+            <span className="font-display text-lg font-bold whitespace-pre-wrap leading-[1.1]">
+              {brandName}
+            </span>
           </div>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground text-pretty">
             A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by

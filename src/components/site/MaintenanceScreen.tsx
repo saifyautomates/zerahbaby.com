@@ -119,7 +119,9 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
                 }}
                 autoFocus
               />
-              {errorMsg && <p className="mb-4 text-sm font-semibold text-destructive text-left">{errorMsg}</p>}
+              {errorMsg && (
+                <p className="mb-4 text-sm font-semibold text-destructive text-left">{errorMsg}</p>
+              )}
               <button
                 type="submit"
                 disabled={!passcode.trim()}

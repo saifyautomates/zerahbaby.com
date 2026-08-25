@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-import fs from 'fs';
+import { createClient } from "@supabase/supabase-js";
+import * as dotenv from "dotenv";
+import fs from "fs";
 
-dotenv.config({ path: '.env.local' });
+dotenv.config({ path: ".env.local" });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -17,10 +17,10 @@ const supabase = createClient(supabaseUrl, serviceKey);
 
 async function inspectSupabase() {
   console.log("Starting Supabase Audit...");
-  
+
   const report = {
     tables: [],
-    storage: []
+    storage: [],
   };
 
   try {
@@ -35,29 +35,44 @@ async function inspectSupabase() {
     // OR if we can't, we just log what we know.
     // A better way is to use the supabase client to fetch types, but since we're in JS,
     // let's just attempt a basic fetch on the tables the user mentioned.
-    
+
     const tablesToAudit = [
-      'products', 'product_images', 'product_videos', 'product_costs',
-      'categories', 'profiles', 'user_roles', 'user_addresses',
-      'wishlist_items', 'wishlists', 'reviews', 'orders', 'order_items',
-      'pos_customers', 'pos_daily_token_seq', 'sms_logs', 'shiprocket_tokens',
-      'site_settings', 'webhook_events', 'website_visitors'
+      "products",
+      "product_images",
+      "product_videos",
+      "product_costs",
+      "categories",
+      "profiles",
+      "user_roles",
+      "user_addresses",
+      "wishlist_items",
+      "wishlists",
+      "reviews",
+      "orders",
+      "order_items",
+      "pos_customers",
+      "pos_daily_token_seq",
+      "sms_logs",
+      "shiprocket_tokens",
+      "site_settings",
+      "webhook_events",
+      "website_visitors",
     ];
 
     for (const table of tablesToAudit) {
-        console.log(`Checking table: ${table}`);
-        const { data, error } = await supabase.from(table).select('*').limit(1);
-        if (error) {
-            report.tables.push({ table, status: 'Error', error: error.message });
-        } else {
-            const columns = data.length > 0 ? Object.keys(data[0]) : 'Empty Table, cannot infer columns via REST';
-            report.tables.push({ table, status: 'OK', columns });
-        }
+      console.log(`Checking table: ${table}`);
+      const { data, error } = await supabase.from(table).select("*").limit(1);
+      if (error) {
+        report.tables.push({ table, status: "Error", error: error.message });
+      } else {
+        const columns =
+          data.length > 0 ? Object.keys(data[0]) : "Empty Table, cannot infer columns via REST";
+        report.tables.push({ table, status: "OK", columns });
+      }
     }
 
-    fs.writeFileSync('supabase_audit_report.json', JSON.stringify(report, null, 2));
+    fs.writeFileSync("supabase_audit_report.json", JSON.stringify(report, null, 2));
     console.log("Audit report written to supabase_audit_report.json");
-
   } catch (err) {
     console.error("Audit failed:", err);
   }

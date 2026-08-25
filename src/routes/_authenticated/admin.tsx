@@ -1146,9 +1146,11 @@ const SETTING_LABELS: Record<string, string> = {
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
   brand_name: "Yahan se website ka main naam (logo text) aur footer text change hoga.",
-  announcement: "Website ke sabse upar dikhne wali patti (Announcement bar). Agar aap ise pura khali chhod denge, toh yeh bar website se completely gayab ho jayegi.",
+  announcement:
+    "Website ke sabse upar dikhne wali patti (Announcement bar). Agar aap ise pura khali chhod denge, toh yeh bar website se completely gayab ho jayegi.",
   hero_title: "Homepage par aane wala sabse bada main title yahan se change hota hai.",
-  hero_subtitle: "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
+  hero_subtitle:
+    "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
   contact_email: "Website ke footer aur contact page me dikhne wala aapka Email ID.",
   contact_phone: "Website ke footer aur contact page me dikhne wala Phone/Mobile number.",
   store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
@@ -1334,7 +1336,10 @@ function SettingsTab() {
         {Object.keys(SETTING_LABELS)
           .filter((k) => !k.startsWith("owner_"))
           .map((key) => (
-            <div key={key} className="block border-b border-border/40 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0">
+            <div
+              key={key}
+              className="block border-b border-border/40 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0"
+            >
               <label className="block">
                 <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
                 {SETTING_DESCRIPTIONS[key] && (
@@ -2250,7 +2255,9 @@ function MarketingTab() {
               <label className="block text-sm font-semibold text-foreground">
                 Announcement Bar
                 <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Website ke sabse upar dikhne wali patti. Khali chhodne par yeh bar website se completely gayab ho jayegi.
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                  Website ke sabse upar dikhne wali patti. Khali chhodne par yeh bar website se
+                  completely gayab ho jayegi.
                 </p>
                 <input
                   value={form.announcement}
@@ -2264,7 +2271,8 @@ function MarketingTab() {
               <label className="block text-sm font-semibold text-foreground">
                 Instagram URL
                 <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Footer aur baki jagah par Instagram icon ka link yahan se badlega.
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                  Footer aur baki jagah par Instagram icon ka link yahan se badlega.
                 </p>
                 <input
                   type="url"
@@ -2279,7 +2287,8 @@ function MarketingTab() {
               <label className="block text-sm font-semibold text-foreground">
                 Facebook URL
                 <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Footer aur baki jagah par Facebook icon ka link yahan se badlega.
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                  Footer aur baki jagah par Facebook icon ka link yahan se badlega.
                 </p>
                 <input
                   type="url"
@@ -2294,7 +2303,8 @@ function MarketingTab() {
               <label className="block text-sm font-semibold text-foreground">
                 WhatsApp URL
                 <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Website par WhatsApp icon ka link yahan dale.
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                  Website par WhatsApp icon ka link yahan dale.
                 </p>
                 <input
                   type="url"

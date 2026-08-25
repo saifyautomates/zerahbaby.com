@@ -920,7 +920,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             </h4>
           </div>
         </div>
-        <div 
+        <div
           className="flex items-center gap-3 p-2 cursor-pointer transition hover:bg-muted/50 rounded-xl"
           onClick={() => setActiveDrillDown("active-catalog")}
         >
