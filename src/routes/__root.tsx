@@ -213,6 +213,7 @@ function MaintenanceGuard({
   useEffect(() => {
     let typed = "";
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.length !== 1) return; // ignore shift, capslock, etc
       typed += e.key.toLowerCase();
       if (typed.length > 4) typed = typed.slice(-4);
       if (typed === "saif") {

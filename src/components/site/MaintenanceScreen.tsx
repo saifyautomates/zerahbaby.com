@@ -9,7 +9,14 @@ export function MaintenanceScreen() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
       <div className="max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out flex flex-col items-center">
         {/* Logo */}
-        <div className="mb-8 overflow-hidden rounded-2xl bg-white p-4 shadow-sm border border-border">
+        <div
+          className="mb-8 overflow-hidden rounded-2xl bg-white p-4 shadow-sm border border-border cursor-pointer select-none"
+          title="Double tap to login as admin"
+          onDoubleClick={() => {
+            localStorage.setItem("bypass_maintenance", "true");
+            window.location.reload();
+          }}
+        >
           <img
             src={settings?.logo_url || logoUrl}
             alt="Store Logo"
