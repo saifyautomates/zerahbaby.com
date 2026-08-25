@@ -561,6 +561,80 @@ export function DashboardDrillDown({
       };
     }
 
+    if (type === "active-catalog") {
+      const activeItems = products.filter((p) => p.is_active);
+      return {
+        title: "Active Catalog",
+        icon: Package,
+        colorClass: "text-amber-600 bg-amber-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Product Image & Name</th>
+                  <th className="px-6 py-3">SKU</th>
+                  <th className="px-6 py-3 text-right">Price</th>
+                  <th className="px-6 py-3 text-right">Stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeItems.map((p, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        {p.image_url ? (
+                          <a href={p.image_url} target="_blank" rel="noreferrer" title="Click to enlarge" className="shrink-0">
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-12 h-12 rounded-lg object-cover border cursor-zoom-in shadow-sm hover:scale-105 transition-transform"
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center border shrink-0">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <Link
+                            to="/product/$id"
+                            params={{ id: p.slug || p.id }}
+                            className="font-medium text-foreground hover:text-primary transition-colors text-base"
+                          >
+                            {p.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.brand} &bull; {p.category}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-sm">{p.sku}</td>
+                    <td className="px-6 py-4 text-right font-bold text-foreground text-sm">
+                      {formatPrice(p.price)}
+                    </td>
+                    <td className="px-6 py-4 text-right font-medium">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.stock <= 0 ? 'bg-red-100 text-red-700' : p.stock <= (p.low_stock_at || 5) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {p.stock} in stock
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {activeItems.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-base">
+                      No active products found in the catalog.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
     return {
       title: "Details",
       icon: Info,

@@ -920,7 +920,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             </h4>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-2">
+        <div 
+          className="flex items-center gap-3 p-2 cursor-pointer transition hover:bg-muted/50 rounded-xl"
+          onClick={() => setActiveDrillDown("active-catalog")}
+        >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
             <Percent className="h-5 w-5" />
           </div>

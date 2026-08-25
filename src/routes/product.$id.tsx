@@ -335,13 +335,17 @@ function ProductPage() {
           </div>
 
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 font-semibold">
-              <Star className="size-3.5 fill-accent text-accent" />
-              {product.rating}
-            </span>
-            <span className="text-muted-foreground">
-              {product.reviews.toLocaleString("en-IN")} reviews
-            </span>
+            {product.reviews > 0 && (
+              <>
+                <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 font-semibold">
+                  <Star className="size-3.5 fill-accent text-accent" />
+                  {product.rating}
+                </span>
+                <span className="text-muted-foreground">
+                  {product.reviews.toLocaleString("en-IN")} reviews
+                </span>
+              </>
+            )}
             <span className="rounded-full bg-muted px-2 py-1 text-xs">Ages {product.ageGroup}</span>
           </div>
 

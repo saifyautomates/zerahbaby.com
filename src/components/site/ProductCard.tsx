@@ -78,10 +78,14 @@ export function ProductCard({ product }: { product: Product }) {
         </h3>
 
         <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
-          <Star className="size-3.5 fill-accent text-accent" />
-          <span className="font-semibold text-foreground">{product.rating}</span>
-          <span>({product.reviews.toLocaleString("en-IN")})</span>
-          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-semibold">
+          {product.reviews > 0 && (
+            <>
+              <Star className="size-3.5 fill-accent text-accent" />
+              <span className="font-semibold text-foreground">{product.rating}</span>
+              <span>({product.reviews.toLocaleString("en-IN")})</span>
+            </>
+          )}
+          <span className={`${product.reviews > 0 ? "ml-auto" : ""} rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-semibold`}>
             {product.ageGroup}
           </span>
         </div>

@@ -60,7 +60,7 @@ export function SplashScreen() {
           aria-live="polite"
           className="mt-8 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl splash-text-fast"
         >
-          Welcome to {brandName} Store
+          Welcome to Zérah Baby And Kids Store
         </div>
       </div>
     </div>

@@ -578,7 +578,7 @@ export function ProductForm({
                 onChange={(e) => set("isFeatured", e.target.checked)}
                 className="size-4 accent-[var(--primary)]"
               />
-              Featured
+              Featured <span className="text-muted-foreground font-normal ml-1">(Website ke homepage par special section me dikhega)</span>
             </label>
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input
@@ -587,7 +587,7 @@ export function ProductForm({
                 onChange={(e) => set("isActive", e.target.checked)}
                 className="size-4 accent-[var(--primary)]"
               />
-              Visible in store
+              Visible in store <span className="text-muted-foreground font-normal ml-1">(Customer ko website par dikhega aur wo khareed payenge)</span>
             </label>
           </div>
         </div>

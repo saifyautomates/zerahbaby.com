@@ -79,12 +79,15 @@ function useRecentSearches() {
   return { recent, addSearch, removeSearch };
 }
 
+import { CategoriesTab } from "@/components/admin/CategoriesManager";
+
 export function Header() {
   const { count } = useCart();
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const navigate = useNavigate();
@@ -600,15 +603,17 @@ export function Header() {
                   </Link>
                 ))}
                 {isAdmin && adminMode && (
-                  <Link
-                    to="/admin"
-                    hash="categories"
+                  <button
+                    type="button"
                     className="focus-ring whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground"
                     title="Manage Categories"
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      setOpen(false);
+                      setShowCategoryModal(true);
+                    }}
                   >
                     + Add / Edit
-                  </Link>
+                  </button>
                 )}
               </div>
             </div>
@@ -657,6 +662,23 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl bg-background shadow-2xl p-6 border border-border">
+            <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+              <h2 className="text-xl font-black font-display tracking-tight text-foreground">Manage Categories</h2>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="rounded-full p-2 bg-muted hover:bg-muted-foreground/20 transition-colors"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <CategoriesTab />
+          </div>
+        </div>
+      )}
     </header>
   );
 }

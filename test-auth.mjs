@@ -1,34 +1,58 @@
-import { chromium } from 'playwright';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 
-(async () => {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const client = createClient(supabaseUrl, supabaseKey);
 
-  console.log("Navigating to auth page...");
-  await page.goto('http://localhost:8080/auth');
+async function testAuth() {
+  console.log("Testing Supabase Auth...");
+  const testEmail = `test.user.${Date.now()}@example.com`;
+  const testPassword = 'TestPassword123!';
 
-  console.log("Testing Email OTP Flow...");
-  await page.fill('#auth-contact-input', 'test-auth-robot@example.com');
-  await page.click('#auth-send-otp-btn');
-  
   try {
-    const success = await page.waitForSelector('text="6-digit OTP sent to your email!"', { timeout: 3000 }).catch(() => null);
-    if (success) {
-      console.log("Email OTP success message appeared.");
-    } else {
-      // Try to read any toast error
-      const toast = await page.locator('[data-sonner-toast]').first();
-      const text = await toast.textContent({ timeout: 2000 }).catch(() => null);
-      if (text) {
-         console.log("Email OTP failed with toast error: " + text);
-      } else {
-         console.log("Email OTP failed silently.");
-      }
-    }
-  } catch(e) {
-    console.log("Error checking toast.", e);
-  }
+    // 1. Test Sign Up
+    console.log(`Attempting to sign up: ${testEmail}`);
+    const { data: signUpData, error: signUpError } = await client.auth.signUp({
+      email: testEmail,
+      password: testPassword,
+    });
 
-  await browser.close();
-})();
+    if (signUpError) {
+      console.error("❌ Sign Up Failed:", signUpError.message);
+      return;
+    }
+    
+    console.log("✅ Sign Up Successful!", signUpData.user ? `User ID: ${signUpData.user.id}` : "");
+
+    // 2. Test Sign In
+    console.log(`Attempting to sign in: ${testEmail}`);
+    const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+    });
+
+    if (signInError) {
+        console.error("❌ Sign In Failed:", signInError.message);
+        return;
+    }
+    
+    console.log("✅ Sign In Successful! Session Token established.");
+
+    // 3. Test Session Delete (Sign Out)
+    const { error: signOutError } = await client.auth.signOut();
+    if (signOutError) {
+        console.error("❌ Sign Out Failed:", signOutError.message);
+        return;
+    }
+    console.log("✅ Sign Out Successful!");
+    
+    console.log("\n🚀 COMPLETE! Supabase Auth is fully operational.");
+
+  } catch (err) {
+    console.error("Unexpected error during auth test:", err);
+  }
+}
+
+testAuth();

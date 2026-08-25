@@ -69,6 +69,7 @@ function FilterPanel({
   inStockOnly: boolean;
   onInStockToggle: () => void;
   onClearAll: () => void;
+  hasActiveFilters: boolean;
   ageGroupsList: string[];
   selectedAgeGroups: string[];
   onAgeGroupToggle: (age: string) => void;

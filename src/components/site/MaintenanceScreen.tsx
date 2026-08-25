@@ -3,10 +3,7 @@ import { Mail, Phone } from "lucide-react";
 import logoUrl from "@/assets/zerah-logo.png"; // Fallback logo
 
 export function MaintenanceScreen() {
-  const { data: settings } = useSettings();
-
-  const email = settings?.contact_email || "hello@zerahkids.com";
-  const phone = settings?.contact_phone || "+91 9999999999";
+  const { contactEmail: email, contactPhone: phone, settings } = useSettings();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
