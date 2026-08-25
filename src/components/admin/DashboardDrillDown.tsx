@@ -39,6 +39,18 @@ export function DashboardDrillDown({
     return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
   };
 
+  const getProductImage = (p: any) => {
+    if (!p) return null;
+    if (p.image) return p.image;
+    if (p.image_url) return p.image_url;
+    if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
+      const sorted = [...p.product_images].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const primary = sorted.find((img) => img.is_primary) || sorted[0];
+      return primary?.public_url || null;
+    }
+    return null;
+  };
+
   const {
     title,
     icon: Icon,
@@ -75,7 +87,7 @@ export function DashboardDrillDown({
             date: o.created_at,
             product: item.product_name,
             slug: p?.slug || null,
-            image: p?.image_url || null,
+            image: getProductImage(p),
             source: "Online",
             qty: item.qty || 1,
             price: item.price || 0,
@@ -91,7 +103,7 @@ export function DashboardDrillDown({
             date: s.created_at,
             product: p ? p.name : "Unknown",
             slug: p?.slug || null,
-            image: p?.image_url || null,
+            image: getProductImage(p),
             source: "POS",
             qty: item.quantity || 1,
             price: item.price || 0,
@@ -303,9 +315,9 @@ export function DashboardDrillDown({
                         params={{ id: p.slug }}
                         className="flex items-center gap-3 hover:text-primary transition-colors group"
                       >
-                        {p.image_url ? (
+                        {getProductImage(p) ? (
                           <img
-                            src={p.image_url}
+                            src={getProductImage(p)}
                             alt={p.name}
                             loading="lazy"
                             decoding="async"
@@ -429,9 +441,9 @@ export function DashboardDrillDown({
                         params={{ id: p.id || p.slug }}
                         className="flex items-center gap-3 hover:text-primary transition-colors group"
                       >
-                        {p.image ? (
+                        {getProductImage(p) ? (
                           <img
-                            src={p.image}
+                            src={getProductImage(p)}
                             alt={p.name}
                             loading="lazy"
                             decoding="async"
@@ -488,7 +500,7 @@ export function DashboardDrillDown({
             date: o.created_at,
             product: item.product_name,
             slug: item.product_slug,
-            image: p?.image || p?.image_url,
+            image: getProductImage(p),
             qty: item.qty || 1,
             rev,
             cogs,
@@ -635,16 +647,16 @@ export function DashboardDrillDown({
                   <tr key={i} className="border-b bg-background hover:bg-muted/50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
-                        {p.image_url ? (
+                        {getProductImage(p) ? (
                           <a
-                            href={p.image_url}
+                            href={getProductImage(p)}
                             target="_blank"
                             rel="noreferrer"
                             title="Click to enlarge"
                             className="shrink-0"
                           >
                             <img
-                              src={p.image_url}
+                              src={getProductImage(p)}
                               alt={p.name}
                               loading="lazy"
                               decoding="async"
