@@ -3,7 +3,7 @@ import { Mail, Phone, Lock, X } from "lucide-react";
 import logoUrl from "@/assets/zerah-logo.png"; // Fallback logo
 import { useState, useEffect } from "react";
 
-export function MaintenanceScreen() {
+export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
   const { contactEmail: email, contactPhone: phone, settings } = useSettings();
   const [clicks, setClicks] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -20,7 +20,7 @@ export function MaintenanceScreen() {
   const handleLogoClick = () => {
     const newClicks = clicks + 1;
     setClicks(newClicks);
-    if (newClicks >= 3) {
+    if (newClicks >= 5) {
       setShowPrompt(true);
       setClicks(0);
     }
@@ -29,8 +29,7 @@ export function MaintenanceScreen() {
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (passcode.trim().toLowerCase() === "saif") {
-      localStorage.setItem("bypass_maintenance", "true");
-      window.location.reload();
+      if (onBypass) onBypass();
     } else {
       setErrorMsg("Incorrect passcode");
       setPasscode("");

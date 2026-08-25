@@ -203,12 +203,7 @@ function MaintenanceGuard({
   isAdminRoute: boolean;
 }) {
   const { data: settings, isLoading } = useSettings();
-  const [bypass, setBypass] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("bypass_maintenance") === "true";
-    }
-    return false;
-  });
+  const [bypass, setBypass] = useState(false);
 
   useEffect(() => {
     let typed = "";
@@ -217,7 +212,6 @@ function MaintenanceGuard({
       typed += e.key.toLowerCase();
       if (typed.length > 4) typed = typed.slice(-4);
       if (typed === "saif") {
-        localStorage.setItem("bypass_maintenance", "true");
         setBypass(true);
       }
     };
@@ -228,7 +222,7 @@ function MaintenanceGuard({
   if (isAdminRoute || isLoading || bypass) return <>{children}</>;
 
   if (settings?.maintenance_mode === "true") {
-    return <MaintenanceScreen />;
+    return <MaintenanceScreen onBypass={() => setBypass(true)} />;
   }
 
   return <>{children}</>;
