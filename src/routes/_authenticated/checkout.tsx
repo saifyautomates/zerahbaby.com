@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -102,11 +103,11 @@ function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center animate-in fade-in zoom-in-95 duration-500">
         <h1 className="font-display text-3xl font-bold">Nothing to check out</h1>
         <Link
           to="/shop"
-          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
+          className="focus-ring press mt-8 inline-block rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
         >
           Start shopping
         </Link>
@@ -396,9 +397,12 @@ function CheckoutPage() {
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 
       <div
-        className={`mt-8 grid gap-8 lg:grid-cols-[1fr_340px] transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
+        className={`mt-8 grid gap-8 lg:grid-cols-[1fr_360px] transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
       >
-        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border p-5 sm:p-6">
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-5 sm:p-8"
+        >
           <div className="flex items-center justify-between border-b border-border pb-4">
             <h2 className="text-lg font-bold">Delivery Address</h2>
             {hasSavedAddress && (
@@ -540,7 +544,7 @@ function CheckoutPage() {
           </div>
           <button
             disabled={busy}
-            className="press mt-2 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+            className="focus-ring press mt-4 w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none"
           >
             {busy ? "Placing order…" : `Place order · ${formatPrice(finalTotal)}`}
           </button>
@@ -549,15 +553,25 @@ function CheckoutPage() {
           </p>
         </form>
 
-        <aside className="h-fit rounded-2xl border border-border p-6 lg:sticky lg:top-24">
+        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Your order</h2>
-          <ul className="mt-4 space-y-3 text-sm">
+          <ul className="mt-4 space-y-4 text-sm">
             {items.map(({ product, qty }) => (
-              <li key={product.id} className="flex justify-between gap-3">
-                <span className="text-muted-foreground">
-                  {product.name} × {qty}
-                </span>
-                <span className="font-semibold">{formatPrice(product.price * qty)}</span>
+              <li key={product.id} className="flex gap-4 items-center">
+                <ResponsiveMedia
+                  src={product.image}
+                  alt={product.name}
+                  width={200}
+                  height={200}
+                  fit="cover"
+                  aspect="1/1"
+                  containerClassName="size-16 shrink-0 rounded-xl shadow-sm border border-border/50"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{product.name}</p>
+                  <p className="text-muted-foreground text-xs">Qty: {qty}</p>
+                </div>
+                <span className="font-semibold shrink-0">{formatPrice(product.price * qty)}</span>
               </li>
             ))}
           </ul>

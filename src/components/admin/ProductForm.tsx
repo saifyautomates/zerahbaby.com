@@ -21,10 +21,9 @@ import {
   Settings2,
 } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
-import { MediaLibraryPicker } from "@/components/admin/MediaLibrary";
+import { uploadMedia } from "@/lib/uploads";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
-import { useUploadToLibrary } from "@/lib/media-library";
 
 export type ProductDraft = {
   slug: string;
@@ -117,11 +116,9 @@ export function ProductForm({
   const { data: allProducts } = useProducts();
   const [uploading, setUploading] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [picker, setPicker] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
   const { printLabel, isPrinting: isDirectPrinting } = useDirectLabelPrint();
-  const uploadToLibrary = useUploadToLibrary();
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -138,13 +135,17 @@ export function ProductForm({
     }
     setUploading(true);
     try {
-      const assets = await uploadToLibrary(Array.from(files).slice(0, room));
-      const urls = assets.map((a) => a.url);
+      const prefix = product ? product.uuid : "drafts";
+      const uploadedUrls: string[] = [];
+      for (const file of Array.from(files).slice(0, room)) {
+        const url = await uploadMedia(file, prefix);
+        uploadedUrls.push(url);
+      }
       setDraft((d) => {
-        const images = [...d.images, ...urls].slice(0, MAX_IMAGES);
+        const images = [...d.images, ...uploadedUrls].slice(0, MAX_IMAGES);
         return { ...d, images, imageUrl: d.imageUrl || images[0] || "" };
       });
-      toast.success(`${urls.length} image${urls.length > 1 ? "s" : ""} uploaded`);
+      toast.success(`${uploadedUrls.length} image${uploadedUrls.length > 1 ? "s" : ""} uploaded`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -185,19 +186,6 @@ export function ProductForm({
       aria-modal="true"
       onClick={onCancel}
     >
-      {picker && (
-        <MediaLibraryPicker
-          title="Pick product media"
-          accept="all"
-          onClose={() => setPicker(false)}
-          onSelect={(assets) =>
-            setDraft((d) => {
-              const images = [...d.images, ...assets.map((a) => a.url)].slice(0, MAX_IMAGES);
-              return { ...d, images, imageUrl: d.imageUrl || images[0] || "" };
-            })
-          }
-        />
-      )}
       <div
         className="flex flex-col w-full max-w-3xl max-h-full rounded-3xl border border-border bg-card shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -234,13 +222,6 @@ export function ProductForm({
                   }}
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => setPicker(true)}
-                className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:bg-muted"
-              >
-                <Images className="size-4" /> Choose from library
-              </button>
             </div>
 
             <div

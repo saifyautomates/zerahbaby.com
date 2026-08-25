@@ -176,6 +176,21 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
               </div>
             </div>
 
+            {/* Token Number */}
+            {sale.pos_token_number != null && (
+              <div className="mt-8 border-2 border-slate-900 rounded-lg p-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 mb-2">
+                  Walk-in Customer Token
+                </p>
+                <p className="text-6xl font-black text-slate-900 leading-none">
+                  {sale.pos_token_number}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-2">
+                  TOKEN NUMBER
+                </p>
+              </div>
+            )}
+
             {/* Footer */}
             <div className="mt-10 pt-4 border-t border-slate-200 text-center text-xs text-slate-500">
               <p className="font-semibold">Thank you for shopping with Zérah Baby & Kids!</p>

@@ -115,6 +115,8 @@ export function BarcodeQuickView({
                 <img
                   src={imageFor(result.category ?? "clothing", result.image_url)}
                   alt={result.name}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               </div>

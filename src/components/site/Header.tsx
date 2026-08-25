@@ -10,10 +10,12 @@ import {
   ShieldCheck,
   Truck,
   Sparkle,
+  X,
+  History,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import logo from "@/assets/zerah-logo.png";
-import { ageGroups, useCategories, useSettings } from "@/lib/store";
+import { ageGroups, useCategories, useSettings, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useAdminMode } from "@/lib/admin-mode";
@@ -27,30 +29,121 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+
+// Simple debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// Recent searches hook
+function useRecentSearches() {
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("recent_searches");
+      if (stored) setRecent(JSON.parse(stored));
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const addSearch = (term: string) => {
+    const t = term.trim();
+    if (!t) return;
+    const next = [t, ...recent.filter((x) => x !== t)].slice(0, 5);
+    setRecent(next);
+    try {
+      localStorage.setItem("recent_searches", JSON.stringify(next));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const removeSearch = (term: string) => {
+    const next = recent.filter((x) => x !== term);
+    setRecent(next);
+    try {
+      localStorage.setItem("recent_searches", JSON.stringify(next));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  return { recent, addSearch, removeSearch };
+}
 
 export function Header() {
   const { count } = useCart();
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   const navigate = useNavigate();
   const { data: categories } = useCategories();
+  const { data: products } = useProducts();
   const { brandName, announcement } = useSettings();
   const { user } = useSession();
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
   const { productIds: wishlistIds } = useWishlist();
+
+  const { recent, addSearch, removeSearch } = useRecentSearches();
+  const debouncedTerm = useDebounce(term, 300);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filter products for suggestions
+  const suggestions = (() => {
+    if (!products || !debouncedTerm.trim()) return [];
+    const query = debouncedTerm.trim().toLowerCase();
+    return products
+      .filter((p) =>
+        [p.name, p.brand, p.category, p.description]
+          .filter(Boolean)
+          .some((val) => String(val).toLowerCase().includes(query)),
+      )
+      .slice(0, 4); // Show top 4 matches
+  })();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate({ to: "/" });
   };
 
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = term.trim();
+  function submitSearch(e: React.FormEvent, forceTerm?: string) {
+    e?.preventDefault();
+    const q = (forceTerm ?? term).trim();
+    if (q) addSearch(q);
     setOpen(false);
     setSearchOpen(false);
+    setShowSuggestions(false);
+    setTerm(q);
     navigate({ to: "/shop", search: q ? { q } : {} });
+  }
+
+  function handleSuggestionClick(productId: string) {
+    if (term.trim()) addSearch(term.trim());
+    setOpen(false);
+    setSearchOpen(false);
+    setShowSuggestions(false);
+    navigate({ to: "/product/$id", params: { id: String(productId) } });
   }
 
   return (
@@ -61,45 +154,47 @@ export function Header() {
       >
         Skip to main content
       </a>
-      <div className="announce-bar">
-        <span className="announce-sheen" aria-hidden />
-        <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5">
-          {/* Desktop left trust badge */}
-          <div className="hidden flex-1 items-center gap-2 lg:flex">
-            <span className="announce-pill">
-              <Truck className="size-3 announce-gold-text" aria-hidden />
-              Pan-India shipping
-            </span>
-          </div>
-
-          {/* Center announcement — marquee on mobile, static on desktop */}
-          <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
-            <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
-              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
-              <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)]">
-                {announcement}
+      {announcement && announcement.trim().length > 0 && (
+        <div className="announce-bar">
+          <span className="announce-sheen" aria-hidden />
+          <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5">
+            {/* Desktop left trust badge */}
+            <div className="hidden flex-1 items-center gap-2 lg:flex">
+              <span className="announce-pill">
+                <Truck className="size-3 announce-gold-text" aria-hidden />
+                Pan-India shipping
               </span>
-              <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
-            </p>
-            <div className="group relative w-full lg:hidden" aria-label="Announcement">
-              <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap">
-                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
-                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+            </div>
+
+            {/* Center announcement — marquee on mobile, static on desktop */}
+            <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
+              <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
+                <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+                <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)]">
                   {announcement}
-                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
-                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                  {announcement}
-                  <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                </span>
+                <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
+              </p>
+              <div className="group relative w-full lg:hidden" aria-label="Announcement">
+                <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap">
+                  <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
+                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                    {announcement}
+                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
+                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                    {announcement}
+                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="hidden flex-1 items-center justify-end gap-2 lg:flex"></div>
+            <div className="hidden flex-1 items-center justify-end gap-2 lg:flex"></div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="border-b border-border glass-header">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
@@ -126,31 +221,120 @@ export function Header() {
                 (e.target as HTMLImageElement).style.opacity = "0";
               }}
             />
-            <span className="font-display text-base font-bold leading-none tracking-tight text-foreground sm:text-xl">
-              Zérah <span className="text-primary">Baby</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:text-[11px]">
-                And Kid's
-              </span>
+            <span className="font-display text-base font-bold leading-[1.1] tracking-tight text-foreground sm:text-xl whitespace-pre-wrap">
+              {brandName}
             </span>
           </Link>
 
-          <form
-            className="hidden flex-1 items-center mx-4 md:flex lg:mx-8"
-            onSubmit={submitSearch}
-            role="search"
-          >
-            <div className="relative w-full max-w-md lg:max-w-xl mx-auto">
+          <div className="hidden flex-1 items-center mx-4 md:flex lg:mx-8 relative" ref={searchRef}>
+            <form
+              className="w-full max-w-md lg:max-w-xl mx-auto relative z-10"
+              onSubmit={(e) => submitSearch(e)}
+              role="search"
+            >
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
                 value={term}
-                onChange={(e) => setTerm(e.target.value)}
+                onChange={(e) => {
+                  setTerm(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
                 placeholder="Search for onesies, strollers, diapers…"
                 aria-label="Search products"
                 className="w-full rounded-full border border-border bg-muted/60 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
               />
-            </div>
-          </form>
+            </form>
+
+            {/* Desktop Autocomplete Dropdown */}
+            {showSuggestions && (term.trim() || recent.length > 0) && (
+              <div className="absolute left-1/2 top-full mt-2 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-2xl border border-border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                {!term.trim() && recent.length > 0 && (
+                  <div className="p-2">
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Recent Searches
+                    </h3>
+                    <ul className="space-y-1">
+                      {recent.map((r) => (
+                        <li
+                          key={r}
+                          className="flex items-center justify-between group rounded-lg transition hover:bg-muted"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              submitSearch({ preventDefault: () => {} } as React.FormEvent, r)
+                            }
+                            className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left"
+                          >
+                            <History className="size-4 text-muted-foreground" /> {r}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSearch(r);
+                            }}
+                            className="p-2 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
+                            aria-label="Remove search"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {term.trim() && suggestions.length === 0 && (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No results for "{term}"
+                  </div>
+                )}
+                {term.trim() && suggestions.length > 0 && (
+                  <div className="p-1">
+                    <h3 className="mb-2 px-2 pt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Products
+                    </h3>
+                    <ul className="space-y-1">
+                      {suggestions.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSuggestionClick(p.id)}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-muted"
+                          >
+                            <ResponsiveMedia
+                              src={p.image}
+                              alt={p.name}
+                              width={40}
+                              height={40}
+                              fit="cover"
+                              aspect="1/1"
+                              containerClassName="size-10 shrink-0 rounded-lg bg-card"
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate text-sm font-semibold">{p.name}</span>
+                              <span className="truncate text-xs text-muted-foreground">
+                                {p.brand}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={(e) => submitSearch(e as unknown as React.FormEvent)}
+                      className="mt-2 w-full rounded-lg bg-primary/5 py-2.5 text-center text-sm font-semibold text-primary transition hover:bg-primary/10"
+                    >
+                      See all results for "{term}"
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <nav className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0">
             {/* Mobile Search Toggle */}
@@ -283,87 +467,190 @@ export function Header() {
         </div>
 
         {searchOpen && (
-          <form
-            className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden"
-            onSubmit={submitSearch}
-            role="search"
-          >
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="search"
-                value={term}
-                autoFocus
-                onChange={(e) => setTerm(e.target.value)}
-                placeholder="Search products…"
-                aria-label="Search products"
-                className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
-              />
-            </div>
-          </form>
+          <div className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden">
+            <form onSubmit={(e) => submitSearch(e)} role="search">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="search"
+                  value={term}
+                  autoFocus
+                  onChange={(e) => setTerm(e.target.value)}
+                  placeholder="Search products…"
+                  aria-label="Search products"
+                  className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
+                />
+              </div>
+            </form>
+            {/* Mobile Suggestions */}
+            {(term.trim() || recent.length > 0) && (
+              <div className="mt-2 rounded-2xl border border-border bg-background p-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                {!term.trim() && recent.length > 0 && (
+                  <div className="p-2">
+                    <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Recent
+                    </h3>
+                    <ul className="space-y-1">
+                      {recent.map((r) => (
+                        <li
+                          key={r}
+                          className="flex items-center justify-between group rounded-lg hover:bg-muted"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              submitSearch({ preventDefault: () => {} } as React.FormEvent, r)
+                            }
+                            className="flex-1 flex items-center gap-2 px-2 py-2 text-sm text-left"
+                          >
+                            <History className="size-4 text-muted-foreground" /> {r}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSearch(r);
+                            }}
+                            className="p-2 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {term.trim() && suggestions.length === 0 && (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No results for "{term}"
+                  </div>
+                )}
+                {term.trim() && suggestions.length > 0 && (
+                  <div className="p-1">
+                    <h3 className="mb-2 px-2 pt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Products
+                    </h3>
+                    <ul className="space-y-1">
+                      {suggestions.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSuggestionClick(p.id)}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted"
+                          >
+                            <ResponsiveMedia
+                              src={p.image}
+                              alt={p.name}
+                              width={40}
+                              height={40}
+                              fit="cover"
+                              aspect="1/1"
+                              containerClassName="size-10 shrink-0 rounded-lg bg-card"
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate text-sm font-semibold">{p.name}</span>
+                              <span className="truncate text-xs text-muted-foreground">
+                                {p.brand}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         <div
           className={cn(
-            "border-t border-border md:block md:bg-transparent",
-            open ? "block bg-background shadow-lg md:shadow-none pb-4 md:pb-0" : "hidden",
+            "border-t border-border/60 bg-background/95 backdrop-blur-md transition-all duration-300 md:block",
+            open ? "block shadow-premium-md" : "hidden",
           )}
         >
-          <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-2 text-sm font-medium md:flex-row md:items-center md:gap-6">
-            <Link
-              to="/shop"
-              search={{}}
-              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
-              activeProps={{ className: "text-primary after:scale-x-100" }}
-              onClick={() => setOpen(false)}
-            >
-              All Products
-            </Link>
-            {(categories ?? []).map((c) => (
-              <Link
-                key={c.slug}
-                to="/shop"
-                search={{ category: c.slug }}
-                className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
-                activeProps={{ className: "text-primary after:scale-x-100" }}
-                onClick={() => setOpen(false)}
-              >
-                {c.name}
-              </Link>
-            ))}
-            <Link
-              to="/about"
-              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
-              activeProps={{ className: "text-primary after:scale-x-100" }}
-              onClick={() => setOpen(false)}
-            >
-              About
-            </Link>
-            <Link
-              to="/contact"
-              className="focus-ring relative w-fit py-1.5 transition-colors duration-300 after:absolute after:inset-x-0 after:bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:text-primary hover:after:scale-x-100"
-              activeProps={{ className: "text-primary after:scale-x-100" }}
-              onClick={() => setOpen(false)}
-            >
-              Contact
-            </Link>
-
-            <div className="flex items-center gap-2 py-1.5 md:ml-auto">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Age
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {ageGroups.map((a) => (
+          <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center">
+            {/* Scrollable Categories Area */}
+            <div className="flex-1 overflow-x-auto no-scrollbar py-3 px-4">
+              <div className="flex w-max items-center gap-2 sm:gap-3">
+                <Link
+                  to="/shop"
+                  search={{}}
+                  className="focus-ring whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 bg-muted/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-md"
+                  activeProps={{
+                    className: "bg-primary text-primary-foreground shadow-premium-sm",
+                  }}
+                  onClick={() => setOpen(false)}
+                >
+                  All Products
+                </Link>
+                {(categories ?? []).map((c) => (
                   <Link
-                    key={a}
+                    key={c.slug}
                     to="/shop"
-                    search={{ age: a }}
-                    className="focus-ring rounded-full border border-border px-2.5 py-1 text-xs font-semibold transition duration-300 hover:-translate-y-0.5 hover:border-primary hover:text-primary"
+                    search={{ category: c.slug }}
+                    className="focus-ring whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 bg-muted/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-md"
+                    activeProps={{
+                      className: "bg-primary text-primary-foreground shadow-premium-sm",
+                    }}
                     onClick={() => setOpen(false)}
                   >
-                    {a}
-                  </Link>
+                    {c.name}
                 ))}
+                {isAdmin && adminMode && (
+                  <Link
+                    to="/admin"
+                    hash="categories"
+                    className="focus-ring whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground"
+                    title="Manage Categories"
+                    onClick={() => setOpen(false)}
+                  >
+                    + Add / Edit
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop Navigation Links & Age Filters */}
+            <div className="flex flex-col border-t border-border/50 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:pl-0">
+              <div className="flex gap-6 md:mr-6 text-sm font-semibold">
+                <Link
+                  to="/about"
+                  className="focus-ring transition-colors hover:text-primary"
+                  onClick={() => setOpen(false)}
+                >
+                  About
+                </Link>
+                <Link
+                  to="/contact"
+                  className="focus-ring transition-colors hover:text-primary"
+                  onClick={() => setOpen(false)}
+                >
+                  Contact
+                </Link>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2 md:mt-0 md:border-l md:border-border/50 md:pl-6">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground hidden lg:inline">
+                  Age
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ageGroups.map((a) => (
+                    <Link
+                      key={a}
+                      to="/shop"
+                      search={{ age: a }}
+                      className="focus-ring rounded-full border border-border px-3 py-1 text-xs font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      activeProps={{
+                        className: "border-primary bg-primary text-primary-foreground",
+                      }}
+                      onClick={() => setOpen(false)}
+                    >
+                      {a}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -710,8 +710,6 @@ function ProductsTab() {
         price: Number(draft.price),
         mrp: Number(draft.mrp),
         age_group: draft.ageGroup,
-        image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
-        images: draft.images,
         low_stock_at: Number(draft.lowStockAt),
         sku: draft.sku.trim(),
         barcode: draft.barcode.trim(),
@@ -759,6 +757,56 @@ function ProductsTab() {
           .from("product_costs")
           .upsert({ product_id: productId, buying_price: draft.buyingPrice });
         if (costError) throw costError;
+
+        // Sync product_images
+        const allUrls = new Set<string>();
+        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
+        draft.images.forEach((img) => {
+          if (img.trim()) allUrls.add(img.trim());
+        });
+
+        const urlsArray = Array.from(allUrls);
+        const { data: existing } = await supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", productId);
+
+        const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
+        for (const del of toDelete) {
+          await supabase.from("product_images").delete().eq("id", del.id);
+          if (del.storage_path) {
+            await supabase.rpc("delete_storage_object", {
+              bucket: "product-images",
+              object_path: del.storage_path,
+            });
+          }
+        }
+
+        for (let i = 0; i < urlsArray.length; i++) {
+          const url = urlsArray[i];
+          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+          const existingRow = (existing || []).find((e) => e.public_url === url);
+
+          if (existingRow) {
+            await supabase
+              .from("product_images")
+              .update({ is_primary: isPrimary, sort_order: i })
+              .eq("id", existingRow.id);
+          } else {
+            let storagePath = "";
+            if (url.includes("product-images/")) {
+              storagePath = url.split("product-images/")[1];
+            }
+            await supabase.from("product_images").insert({
+              product_id: productId,
+              public_url: url,
+              storage_path: storagePath,
+              alt_text: draft.name,
+              is_primary: isPrimary,
+              sort_order: i,
+            });
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -1320,6 +1368,37 @@ const SETTING_LABELS: Record<string, string> = {
   owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
 };
 
+const SETTING_DESCRIPTIONS: Record<string, string> = {
+  brand_name: "Yahan se website ka main naam (logo text) aur footer text change hoga.",
+  announcement: "Website ke sabse upar dikhne wali patti (Announcement bar). Agar aap ise pura khali chhod denge, toh yeh bar website se completely gayab ho jayegi.",
+  hero_title: "Homepage par aane wala sabse bada main title yahan se change hota hai.",
+  hero_subtitle: "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
+  contact_email: "Website ke footer aur contact page me dikhne wala aapka Email ID.",
+  contact_phone: "Website ke footer aur contact page me dikhne wala Phone/Mobile number.",
+  store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
+  store_hours: "Dukaan khulne aur band hone ka samay (yeh Footer me dikhta hai).",
+  maps_url: "Footer me location icon par click karne se jo Google Maps open hoga, uska link.",
+  instagram_url: "Footer aur baki jagah par Instagram icon ka link.",
+  facebook_url: "Footer aur baki jagah par Facebook icon ka link.",
+  whatsapp_url: "Website par WhatsApp icon ka link yahan dale.",
+};
+const DEFAULT_SETTINGS: Record<string, string> = {
+  brand_name: "Zerah Baby And Kid's",
+  announcement: "Free delivery on orders above ₹999 · Easy 7-day returns",
+  hero_title: "Everything little ones need, in one happy place",
+  hero_subtitle:
+    "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
+  contact_email: "hello@zerahkids.com",
+  contact_phone: "9057074777, 9667571712",
+  store_address:
+    "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
+  store_hours: "Open daily · 10:30 AM – 10:00 PM",
+  maps_url: "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
+  instagram_url: "https://www.instagram.com/zerah_kids/",
+  facebook_url: "",
+  whatsapp_url: "",
+};
+
 function SettingsTab() {
   const qc = useQueryClient();
   const [values, setValues] = useState<Record<string, string> | null>(null);
@@ -1443,21 +1522,59 @@ function SettingsTab() {
         </div>
       </div>
 
-      {/* ─── GENERAL STORE SETTINGS ───────────────────────────── */}
+      {/* ─── MAINTENANCE MODE ─────────────────────────────────── */}
+      <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-lg font-bold text-destructive">Maintenance Mode</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              When enabled, the entire storefront is blocked with a maintenance screen. (Admins can
+              still access the site).
+            </p>
+          </div>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input
+              type="checkbox"
+              className="peer sr-only"
+              checked={current.maintenance_mode === "true"}
+              onChange={(e) =>
+                setValues({
+                  ...current,
+                  maintenance_mode: e.target.checked ? "true" : "false",
+                })
+              }
+            />
+            <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-destructive peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-destructive/30"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* ─── GENERAL STORE SETTINGS & TEXT CONTROL ───────────────────────────── */}
       <div className="space-y-4">
-        <h3 className="font-display text-lg font-bold">General Store Information</h3>
-        {Object.keys(current)
-          .filter((k) => !k.startsWith("owner_notify"))
+        <h3 className="font-display text-lg font-bold">Storefront Text Content</h3>
+        <p className="text-xs text-muted-foreground pb-2">
+          Update the textual content across your storefront here. Changes sync instantly.
+        </p>
+        {Object.keys(SETTING_LABELS)
+          .filter((k) => !k.startsWith("owner_"))
           .map((key) => (
-            <label key={key} className="block">
-              <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
-              <textarea
-                rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
-                value={current[key]}
-                onChange={(e) => setValues({ ...current, [key]: e.target.value })}
-                className="mt-1 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
+            <div key={key} className="block border-b border-border/40 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0">
+              <label className="block">
+                <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
+                {SETTING_DESCRIPTIONS[key] && (
+                  <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                    {SETTING_DESCRIPTIONS[key]}
+                  </p>
+                )}
+                <textarea
+                  rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
+                  value={current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")}
+                  onChange={(e) => setValues({ ...current, [key]: e.target.value })}
+                  className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </label>
+            </div>
           ))}
       </div>
 
@@ -2062,7 +2179,9 @@ function InventoryTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, slug, name, brand, category, stock, low_stock_at, sku, is_active, image_url")
+        .select(
+          "id, slug, name, brand, category, stock, low_stock_at, sku, is_active, product_images(public_url, is_primary, sort_order)",
+        )
         .order("stock", { ascending: true });
       if (error) throw error;
       return data;
@@ -2209,20 +2328,22 @@ function InventoryRow({
   return (
     <tr className="hover:bg-muted/50 transition-colors">
       <td className="px-6 py-4">
-        {product.image_url ? (
+        {product.product_images?.[0]?.public_url ? (
           <button
-            onClick={() => onImageClick?.(imageFor(product.slug, product.image_url))}
+            onClick={() =>
+              onImageClick?.(imageFor(product.slug, product.product_images?.[0]?.public_url))
+            }
             className="hover:opacity-80 transition-opacity"
           >
             <img
-              src={imageFor(product.slug, product.image_url)}
+              src={imageFor(product.slug, product.product_images?.[0]?.public_url)}
               alt={product.name}
               className="size-10 rounded-lg object-cover border border-border"
             />
           </button>
         ) : (
-          <div className="size-10 rounded-lg bg-muted flex items-center justify-center border border-border">
-            <Package className="size-4 text-muted-foreground opacity-50" />
+          <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground border border-border">
+            <Package className="size-5" />
           </div>
         )}
       </td>
@@ -2349,45 +2470,65 @@ function MarketingTab() {
           <div className="py-8 text-center text-sm text-muted-foreground">Loading settings...</div>
         ) : (
           <div className="space-y-4">
-            <label className="block text-sm font-semibold text-foreground">
-              Announcement Bar
-              <input
-                value={form.announcement}
-                onChange={(e) => setForm({ ...form, announcement: e.target.value })}
-                placeholder="Free shipping on orders above ₹1499"
-                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-              />
-            </label>
-            <label className="block text-sm font-semibold text-foreground">
-              Instagram URL
-              <input
-                type="url"
-                value={form.instagram_url}
-                onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
-                placeholder="https://instagram.com/zerahbaby"
-                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-              />
-            </label>
-            <label className="block text-sm font-semibold text-foreground">
-              Facebook URL
-              <input
-                type="url"
-                value={form.facebook_url}
-                onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
-                placeholder="https://facebook.com/zerahbaby"
-                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-              />
-            </label>
-            <label className="block text-sm font-semibold text-foreground">
-              WhatsApp URL
-              <input
-                type="url"
-                value={form.whatsapp_url}
-                onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
-                placeholder="https://wa.me/91XXXXXXXXXX"
-                className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-              />
-            </label>
+            <div className="block border-b border-border/40 pb-5">
+              <label className="block text-sm font-semibold text-foreground">
+                Announcement Bar
+                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Website ke sabse upar dikhne wali patti. Khali chhodne par yeh bar website se completely gayab ho jayegi.
+                </p>
+                <input
+                  value={form.announcement}
+                  onChange={(e) => setForm({ ...form, announcement: e.target.value })}
+                  placeholder="Free shipping on orders above ₹1499"
+                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
+                />
+              </label>
+            </div>
+            <div className="block border-b border-border/40 pb-5">
+              <label className="block text-sm font-semibold text-foreground">
+                Instagram URL
+                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Footer aur baki jagah par Instagram icon ka link yahan se badlega.
+                </p>
+                <input
+                  type="url"
+                  value={form.instagram_url}
+                  onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
+                  placeholder="https://instagram.com/zerahbaby"
+                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
+                />
+              </label>
+            </div>
+            <div className="block border-b border-border/40 pb-5">
+              <label className="block text-sm font-semibold text-foreground">
+                Facebook URL
+                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Footer aur baki jagah par Facebook icon ka link yahan se badlega.
+                </p>
+                <input
+                  type="url"
+                  value={form.facebook_url}
+                  onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
+                  placeholder="https://facebook.com/zerahbaby"
+                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
+                />
+              </label>
+            </div>
+            <div className="block">
+              <label className="block text-sm font-semibold text-foreground">
+                WhatsApp URL
+                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
+                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Website par WhatsApp icon ka link yahan dale.
+                </p>
+                <input
+                  type="url"
+                  value={form.whatsapp_url}
+                  onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
+                  placeholder="https://wa.me/91XXXXXXXXXX"
+                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
+                />
+              </label>
+            </div>
           </div>
         )}
 

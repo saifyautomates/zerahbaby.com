@@ -23,6 +23,8 @@ export type ThermalReceiptSale = {
   discount_value: number;
   total: number;
   payment_method: string;
+  /** Daily sequential walk-in token number (1, 2, 3...). Only set for offline POS sales. */
+  pos_token_number?: number | null;
 };
 
 export type ThermalReceiptItem = {
@@ -239,6 +241,26 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
 
           {/* Divider */}
           <div className="thermal-divider border-t border-dashed border-gray-400 my-3" />
+
+          {/* ── TOKEN NUMBER ── */}
+          {sale.pos_token_number != null && (
+            <>
+              <div className="thermal-divider border-t-2 border-gray-900 my-2" />
+              <div className="text-center my-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
+                  Walk-in Token
+                </p>
+                <p
+                  className="font-black text-foreground"
+                  style={{ fontSize: "28px", lineHeight: "1.1", letterSpacing: "-0.5px" }}
+                >
+                  {sale.pos_token_number}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">TOKEN NUMBER</p>
+              </div>
+              <div className="thermal-divider border-t-2 border-gray-900 my-2" />
+            </>
+          )}
 
           {/* Footer */}
           <div className="text-center text-[10px] text-muted-foreground space-y-0.5">

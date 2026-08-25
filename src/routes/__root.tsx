@@ -190,8 +190,28 @@ function RootShell({ children }: { children: ReactNode }) {
 
 import { trackEvent } from "@/lib/analytics";
 import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
+import { useSettings } from "@/lib/store";
+import { MaintenanceScreen } from "@/components/site/MaintenanceScreen";
 
 import { DirectLabelPrintHost } from "@/components/admin/LabelPrintEngine";
+
+function MaintenanceGuard({
+  children,
+  isAdminRoute,
+}: {
+  children: ReactNode;
+  isAdminRoute: boolean;
+}) {
+  const { data: settings, isLoading } = useSettings();
+
+  if (isAdminRoute || isLoading) return <>{children}</>;
+
+  if (settings?.maintenance_mode === "true") {
+    return <MaintenanceScreen />;
+  }
+
+  return <>{children}</>;
+}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -252,14 +272,16 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <CartProvider>
-        <div className="flex min-h-[100dvh] flex-col">
-          {!isAdminRoute && <Header />}
-          <main id="main" className="flex-1 fade-in-soft bg-muted/20">
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </main>
-          {!isAdminRoute && <Footer />}
-        </div>
+        <MaintenanceGuard isAdminRoute={isAdminRoute}>
+          <div className="flex min-h-[100dvh] flex-col">
+            {!isAdminRoute && <Header />}
+            <main id="main" className="flex-1 fade-in-soft bg-muted/20">
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </main>
+            {!isAdminRoute && <Footer />}
+          </div>
+        </MaintenanceGuard>
         <Toaster />
         <DirectLabelPrintHost />
         <OnboardingModal />

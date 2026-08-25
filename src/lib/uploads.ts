@@ -27,7 +27,7 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 /** Uploads any media file (image or video) to storage and returns a public URL. */
-export async function uploadMedia(file: File): Promise<string> {
+export async function uploadMedia(file: File, pathPrefix?: string): Promise<string> {
   // Validate MIME type
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
     throw new Error(
@@ -47,7 +47,8 @@ export async function uploadMedia(file: File): Promise<string> {
     throw new Error("File size must be under 10 MB.");
   }
 
-  const path = `${crypto.randomUUID()}.${ext}`;
+  const filename = `${crypto.randomUUID()}.${ext}`;
+  const path = pathPrefix ? `${pathPrefix}/${filename}` : filename;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "31536000",

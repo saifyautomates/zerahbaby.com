@@ -104,6 +104,16 @@ const QUICK_NAV_ACTIONS: SearchResultItem[] = [
   },
 ];
 
+// Simple debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 interface AdminGlobalSearchProps {
   isOpen: boolean;
   onClose: () => void;
@@ -112,6 +122,7 @@ interface AdminGlobalSearchProps {
 
 export function AdminGlobalSearch({ isOpen, onClose, onNavigate }: AdminGlobalSearchProps) {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 150);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -191,7 +202,7 @@ export function AdminGlobalSearch({ isOpen, onClose, onNavigate }: AdminGlobalSe
 
   // Filter & match items
   const results = useMemo<SearchResultItem[]>(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
 
     if (!q) {
       // Return default quick actions when query is empty

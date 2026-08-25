@@ -49,39 +49,19 @@ export function DashboardDrillDown({
       if (!window.confirm(`Are you sure you want to delete this ${source} record?`)) return;
       try {
         if (source === "POS") {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("offline_sales")
             .update({ status: "cancelled" })
-            .eq("id", id)
-            .select();
-          // Fallback to local storage if DB blocks it
-          if (error || !data || data.length === 0) {
-            const hidden = JSON.parse(localStorage.getItem("hidden_sales") || "[]");
-            hidden.push(id);
-            localStorage.setItem("hidden_sales", JSON.stringify(hidden));
-          }
+            .eq("id", id);
+          if (error) throw error;
         } else {
-          const { data, error } = await supabase
-            .from("orders")
-            .update({ status: "cancelled" })
-            .eq("id", id)
-            .select();
-          if (error || !data || data.length === 0) {
-            const hidden = JSON.parse(localStorage.getItem("hidden_orders") || "[]");
-            hidden.push(id);
-            localStorage.setItem("hidden_orders", JSON.stringify(hidden));
-          }
-          // Attempt hard delete if possible, but it's fine if it fails since it's cancelled
-          try {
-            await supabase.rpc("delete_cancelled_order", { _order_id: id });
-          } catch (e) {
-            // ignore
-          }
+          // Hard delete for online cancelled orders using our new RPC
+          await supabase.rpc("delete_cancelled_order", { _order_id: id });
         }
         window.location.reload();
       } catch (e: any) {
-        console.error("Delete fallback error:", e);
-        window.location.reload(); // Reload anyway to apply localStorage filter
+        console.error("Delete failed:", e);
+        alert(e.message || "Failed to delete record from Supabase.");
       }
     };
 
@@ -153,6 +133,8 @@ export function DashboardDrillDown({
                             <img
                               src={item.image}
                               alt={item.product}
+                              loading="lazy"
+                              decoding="async"
                               className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
                             />
                           ) : (
@@ -170,6 +152,8 @@ export function DashboardDrillDown({
                             <img
                               src={item.image}
                               alt={item.product}
+                              loading="lazy"
+                              decoding="async"
                               className="w-9 h-9 rounded-md object-cover border"
                             />
                           ) : (
@@ -323,6 +307,8 @@ export function DashboardDrillDown({
                           <img
                             src={p.image_url}
                             alt={p.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
                           />
                         ) : (

@@ -209,9 +209,20 @@ export function usePlaceOrder() {
         qty: item.qty,
       }));
 
-      // The generated client types can briefly lag a newly migrated RPC.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc("place_order", {
+      // Add a 15-second timeout to prevent hung checkouts
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Order placement timed out. Please check your internet connection and try again.",
+              ),
+            ),
+          15000,
+        ),
+      );
+
+      const rpcPromise = supabase.rpc("place_order", {
         _full_name: input.full_name,
         _email: input.email,
         _phone: input.phone,
@@ -227,6 +238,8 @@ export function usePlaceOrder() {
         _coupon_code: input.coupon_code || undefined,
         _items: rpcItems,
       });
+
+      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
       if (error) throw error;
       return (data as { order_id: string }).order_id;
@@ -248,8 +261,7 @@ export function useCancelCustomerOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc("cancel_customer_order", {
+      const { data, error } = await supabase.rpc("cancel_customer_order", {
         order_id: orderId,
         reason: reason || undefined,
       });
@@ -324,13 +336,9 @@ export function useDeleteCancelledOrder() {
 
       // 2. Try Supabase RPC Function
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
-          "delete_cancelled_order",
-          {
-            _order_id: orderId,
-          },
-        );
+        const { data: rpcData, error: rpcError } = await supabase.rpc("delete_cancelled_order", {
+          _order_id: orderId,
+        });
         if (!rpcError && rpcData) {
           return rpcData;
         }
@@ -448,4 +456,3 @@ export function useRequestShiprocketPickup() {
     onError: (e: Error) => toast.error(e.message || "Failed to request pickup"),
   });
 }
-

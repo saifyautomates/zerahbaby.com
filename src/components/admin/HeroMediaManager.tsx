@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, FolderOpen, ImagePlus, Loader2, Trash2, Video, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,8 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
   const { data: libraryAssets } = useMediaLibrary();
   const saveLibrary = useSaveMediaLibrary();
 
+  const [isDragging, setIsDragging] = useState(false);
+
   useEffect(() => {
     if (data) setSlides(data);
   }, [data]);
@@ -58,7 +60,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
         alt: a.name,
       }));
       setSlides((s) => [...s, ...added]);
-      toast.success(`${added.length} file(s) uploaded — remember to save`);
+      toast.success(`${added.length} media added to hero`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -78,8 +80,44 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
     setLinkUrl("");
   }
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   return (
-    <div className="space-y-6">
+    <div 
+      className="space-y-6 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-50 rounded-2xl bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center bg-card p-6 rounded-2xl shadow-premium-lg">
+            <ImagePlus className="size-12 text-primary animate-bounce" />
+            <p className="mt-3 font-display font-bold text-xl text-primary">Drop media here</p>
+            <p className="text-sm text-muted-foreground">Release to upload instantly to Hero</p>
+          </div>
+        </div>
+      )}
       {picker && (
         <MediaLibraryPicker
           title="Pick hero media"
@@ -94,9 +132,9 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
       )}
       <div className="rounded-2xl border border-dashed border-primary/50 bg-secondary/40 p-4">
         <p className="text-sm font-semibold">Add hero media</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Everything
-          is saved to your store backend and shows for all visitors.
+        <p className="mt-1 mb-3 text-xs leading-relaxed text-muted-foreground font-normal">
+          <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Website ke homepage par jo sabse bada banner/image/video aata hai, wo yahan se upload hota hai. Ye upload ki hui media backend par safe rahegi.<br/>
+          <span className="font-semibold text-foreground">💡 Tip: Aap apne computer se koi bhi photo/video sidhe yahan drag & drop kar sakte hain!</span>
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">

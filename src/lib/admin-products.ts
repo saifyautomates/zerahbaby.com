@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProductDraft } from "@/components/admin/ProductForm";
+import type { TablesInsert } from "@/integrations/supabase/types";
 
 export const draftToRow = (draft: ProductDraft, isNew = false) => {
   const row: Record<string, unknown> = {
@@ -12,8 +13,6 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     price: Number(draft.price),
     mrp: Number(draft.mrp),
     age_group: draft.ageGroup,
-    image_url: (draft.imageUrl.trim() || draft.images[0]) ?? null,
-    images: draft.images,
     stock: Number(draft.stock),
     low_stock_at: Number(draft.lowStockAt),
     sku: draft.sku.trim(),
@@ -57,13 +56,13 @@ export function useSaveProduct() {
       if (uuid) {
         const { error } = await supabase
           .from("products")
-          .update(row as any)
+          .update(row as TablesInsert<"products">)
           .eq("id", uuid);
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("products")
-          .insert(row as any)
+          .insert(row as TablesInsert<"products">)
           .select("id")
           .single();
         if (error) throw error;
@@ -76,6 +75,57 @@ export function useSaveProduct() {
           .from("product_costs")
           .upsert({ product_id: productId, buying_price: draft.buyingPrice });
         if (costError) throw costError;
+
+        // Sync product_images
+        const allUrls = new Set<string>();
+        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
+        draft.images.forEach((img) => {
+          if (img.trim()) allUrls.add(img.trim());
+        });
+
+        const urlsArray = Array.from(allUrls);
+        const { data: existing } = await supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", productId);
+
+        const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
+        for (const del of toDelete) {
+          await supabase.from("product_images").delete().eq("id", del.id);
+          if (del.storage_path) {
+            await supabase.rpc("delete_storage_object", {
+              bucket: "product-images",
+              object_path: del.storage_path,
+            });
+          }
+        }
+
+        for (let i = 0; i < urlsArray.length; i++) {
+          const url = urlsArray[i];
+          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+          const existingRow = (existing || []).find((e) => e.public_url === url);
+
+          if (existingRow) {
+            await supabase
+              .from("product_images")
+              .update({ is_primary: isPrimary, sort_order: i })
+              .eq("id", existingRow.id);
+          } else {
+            // We can optionally extract a storage path if the URL points to our bucket
+            let storagePath = "";
+            if (url.includes("product-images/")) {
+              storagePath = url.split("product-images/")[1];
+            }
+            await supabase.from("product_images").insert({
+              product_id: productId,
+              public_url: url,
+              storage_path: storagePath,
+              alt_text: draft.name,
+              is_primary: isPrimary,
+              sort_order: i,
+            });
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -90,6 +140,23 @@ export function useDeleteProduct() {
   const invalidate = useInvalidateCatalogue();
   return useMutation({
     mutationFn: async (uuid: string) => {
+      // 1. Fetch related images to delete from storage first
+      const { data: images } = await supabase
+        .from("product_images")
+        .select("storage_path")
+        .eq("product_id", uuid);
+      if (images) {
+        for (const img of images) {
+          if (img.storage_path) {
+            await supabase.rpc("delete_storage_object", {
+              bucket: "product-images",
+              object_path: img.storage_path,
+            });
+          }
+        }
+      }
+
+      // 2. Delete the product (cascades to product_images table)
       const { error } = await supabase.from("products").delete().eq("id", uuid);
       if (error) throw error;
     },

@@ -473,6 +473,8 @@ export function POSTab() {
                     <img
                       src={imageFor(p.category, p.imageUrl || p.image)}
                       alt={p.name}
+                      loading="lazy"
+                      decoding="async"
                       className="size-9 rounded-lg object-cover border border-border shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = clothing;
@@ -959,6 +961,21 @@ export function POSTab() {
                 </div>
               </div>
 
+              {/* Token Number — prominently displayed for cashier/customer */}
+              {saleResult.pos_token_number != null && (
+                <div className="rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 mb-2">
+                    Walk-in Token
+                  </p>
+                  <p className="text-7xl font-black text-slate-900 leading-none">
+                    {saleResult.pos_token_number}
+                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mt-2">
+                    Token Number
+                  </p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
@@ -1001,6 +1018,7 @@ export function POSTab() {
             discount_value: saleResult.discount_value,
             total: saleResult.total,
             payment_method: saleResult.payment_method,
+            pos_token_number: saleResult.pos_token_number,
           }}
           items={cart.map((c) => ({
             name: c.name,

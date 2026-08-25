@@ -1,6 +1,7 @@
 /**
  * OfflineAnalyticsTab — Enhanced POS analytics with payment method breakdown,
  * per-sale receipt printing, sale details expansion, and top products view.
+ * Includes Customer Footfall analytics powered by the POS token system.
  */
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -18,7 +19,19 @@ import {
   TrendingUp,
   Package,
   ExternalLink,
+  Users,
+  Clock,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 type SaleItem = {
   id: string;
@@ -45,8 +58,36 @@ type Sale = {
   total: number;
   payment_method: string;
   created_at: string;
+  /** Daily sequential walk-in token (1, 2, 3...). Resets each IST calendar day. */
+  pos_token_number: number | null;
+  /** IST calendar date string (YYYY-MM-DD) for this token. */
+  pos_token_date: string | null;
   offline_sale_items?: SaleItem[];
 };
+
+/** Convert a UTC ISO timestamp to IST (UTC+5:30) and return hour 0-23 */
+function utcToISTHour(utcISOString: string): number {
+  const d = new Date(utcISOString);
+  // IST = UTC + 5h30m = UTC + 330 minutes
+  const istMs = d.getTime() + 330 * 60 * 1000;
+  return new Date(istMs).getUTCHours();
+}
+
+/** Get the IST date string (YYYY-MM-DD) for a UTC ISO timestamp */
+function utcToISTDate(utcISOString: string): string {
+  const d = new Date(utcISOString);
+  const istMs = d.getTime() + 330 * 60 * 1000;
+  const ist = new Date(istMs);
+  const y = ist.getUTCFullYear();
+  const m = String(ist.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(ist.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Current IST date string (YYYY-MM-DD) */
+function todayIST(): string {
+  return utcToISTDate(new Date().toISOString());
+}
 
 export function OfflineAnalyticsTab() {
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
@@ -57,7 +98,9 @@ export function OfflineAnalyticsTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, slug, name, sku, barcode, brand, category, price, stock, image_url");
+        .select(
+          "id, slug, name, sku, barcode, brand, category, price, stock, product_images(public_url, is_primary, sort_order)",
+        );
       if (error) return [];
       return data ?? [];
     },
@@ -117,6 +160,46 @@ export function OfflineAnalyticsTab() {
     },
   });
 
+  // ──────────── Customer Footfall Analytics ────────────
+  const today = todayIST();
+
+  /** Sales for today (IST) */
+  const todaySales = useMemo(
+    () => (sales ?? []).filter((s) => utcToISTDate(s.created_at) === today),
+    [sales, today],
+  );
+
+  /** Average customers per active-sales-day */
+  const avgCustomersPerDay = useMemo(() => {
+    const allSales = sales ?? [];
+    if (allSales.length === 0) return 0;
+    const uniqueDays = new Set(allSales.map((s) => utcToISTDate(s.created_at)));
+    return Math.round((allSales.length / uniqueDays.size) * 10) / 10;
+  }, [sales]);
+
+  /** Hourly footfall for today (IST) — 24 buckets */
+  const hourlyFootfall = useMemo(() => {
+    const buckets = Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      label: h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`,
+      customers: 0,
+    }));
+    for (const s of todaySales) {
+      const h = utcToISTHour(s.created_at);
+      buckets[h].customers += 1;
+    }
+    return buckets;
+  }, [todaySales]);
+
+  const peakHour = useMemo(
+    () =>
+      hourlyFootfall.reduce(
+        (best, b) => (b.customers > best.customers ? b : best),
+        hourlyFootfall[0],
+      ),
+    [hourlyFootfall],
+  );
+
   // Stats
   const totalRevenue = (sales ?? []).reduce((sum, sale) => sum + Number(sale.total), 0);
   const totalSalesCount = (sales ?? []).length;
@@ -132,6 +215,9 @@ export function OfflineAnalyticsTab() {
   const cardTotal = cardSales.reduce((s, o) => s + Number(o.total), 0);
   const otherTotal = otherSales.reduce((s, o) => s + Number(o.total), 0);
   const totalDiscount = (sales ?? []).reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
+
+  // Today's revenue
+  const todayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
 
   // Top products with rich metadata
   const topProducts = useMemo(() => {
@@ -172,13 +258,115 @@ export function OfflineAnalyticsTab() {
       .slice(0, 5);
   }, [sales]);
 
-  // Today's stats
-  const today = new Date().toISOString().split("T")[0];
-  const todaySales = (sales ?? []).filter((s) => s.created_at.split("T")[0] === today);
-  const todayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
-
   return (
     <div className="space-y-6">
+      {/* ══════════════════════════════════════════════════
+          CUSTOMER FOOTFALL ANALYTICS
+          Powered by the POS Token System (IST timezone)
+          ══════════════════════════════════════════════════ */}
+      <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+        <div className="px-5 pt-5 pb-3 border-b border-border/60">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Users className="size-4 text-indigo-600" />
+            Customer Footfall — Today (IST)
+          </h3>
+        </div>
+
+        {/* Footfall Summary Cards */}
+        <div className="grid grid-cols-3 divide-x divide-border/60">
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+              Customers Today
+            </p>
+            <p className="text-4xl font-black text-indigo-600 leading-none">{todaySales.length}</p>
+            <p className="text-xs text-muted-foreground mt-1 font-medium">
+              {todaySales.length === 1 ? "walk-in today" : "walk-ins today"}
+            </p>
+          </div>
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+              Avg Customers / Day
+            </p>
+            <p className="text-4xl font-black text-foreground leading-none">{avgCustomersPerDay}</p>
+            <p className="text-xs text-muted-foreground mt-1 font-medium">
+              across active sales days
+            </p>
+          </div>
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+              Peak Hour Today
+            </p>
+            {peakHour.customers > 0 ? (
+              <>
+                <p className="text-4xl font-black text-amber-600 leading-none">
+                  {peakHour.label.toUpperCase()}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-medium">
+                  {peakHour.customers} {peakHour.customers === 1 ? "customer" : "customers"}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">No sales yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Hourly Footfall Chart */}
+        <div className="px-5 pb-5">
+          <div className="flex items-center gap-2 mb-3 mt-2">
+            <Clock className="size-3.5 text-muted-foreground" />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Hourly Footfall (IST)
+            </p>
+          </div>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={hourlyFootfall} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
+                tickLine={false}
+                axisLine={false}
+                interval={2}
+              />
+              <YAxis
+                tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ fill: "hsl(var(--muted))", radius: 4 }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload as { label: string; customers: number };
+                  return (
+                    <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-lg text-xs">
+                      <p className="font-bold text-foreground">{d.label.toUpperCase()}</p>
+                      <p className="text-muted-foreground">
+                        {d.customers} {d.customers === 1 ? "customer" : "customers"}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="customers" radius={[3, 3, 0, 0]} maxBarSize={20}>
+                {hourlyFootfall.map((entry, index) => (
+                  <Cell
+                    key={index}
+                    fill={
+                      entry.customers === peakHour.customers && entry.customers > 0
+                        ? "hsl(239, 84%, 67%)"
+                        : "hsl(239, 84%, 80%)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
@@ -280,7 +468,7 @@ export function OfflineAnalyticsTab() {
               const matchedProduct = resolveProduct(p);
               const imgUrl = imageFor(
                 matchedProduct?.category || "clothing",
-                matchedProduct?.image_url,
+                (matchedProduct as any)?.product_images?.[0]?.public_url,
               );
               const slug = matchedProduct?.slug || p.product_slug || p.sku;
 
@@ -349,8 +537,9 @@ export function OfflineAnalyticsTab() {
           <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
               <th className="px-5 py-4 w-8"></th>
+              <th className="px-5 py-4">Token</th>
               <th className="px-5 py-4">Receipt No</th>
-              <th className="px-5 py-4">Date</th>
+              <th className="px-5 py-4">Date (IST)</th>
               <th className="px-5 py-4">Customer</th>
               <th className="px-5 py-4">Payment</th>
               <th className="px-5 py-4">Discount</th>
@@ -371,6 +560,16 @@ export function OfflineAnalyticsTab() {
                         <ChevronDown className="size-4 text-muted-foreground" />
                       ) : (
                         <ChevronRight className="size-4 text-muted-foreground" />
+                      )}
+                    </td>
+                    {/* Token badge */}
+                    <td className="px-5 py-4">
+                      {sale.pos_token_number != null ? (
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-800 font-black text-sm border border-indigo-200">
+                          {sale.pos_token_number}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </td>
                     <td className="px-5 py-4 font-bold text-foreground font-mono">
@@ -410,7 +609,7 @@ export function OfflineAnalyticsTab() {
                   {/* Expanded Details */}
                   {isExpanded && (
                     <tr className="bg-muted/10">
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <div className="border-t border-border px-8 py-4">
                           <table className="w-full text-xs">
                             <thead>
@@ -427,7 +626,7 @@ export function OfflineAnalyticsTab() {
                                 const prod = resolveProduct(item);
                                 const itemImg = imageFor(
                                   prod?.category || "clothing",
-                                  prod?.image_url,
+                                  (prod as any)?.product_images?.[0]?.public_url,
                                 );
                                 const slug = prod?.slug || item.product_slug || item.sku;
 
@@ -449,6 +648,8 @@ export function OfflineAnalyticsTab() {
                                           <img
                                             src={itemImg}
                                             alt={item.name}
+                                            loading="lazy"
+                                            decoding="async"
                                             className="h-full w-full object-cover group-hover/item:scale-105 transition"
                                             onError={(e) => {
                                               (e.target as HTMLImageElement).src = clothing;
@@ -514,7 +715,7 @@ export function OfflineAnalyticsTab() {
             {!isLoading && (sales ?? []).length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
                 >
                   No POS sales yet.
@@ -523,7 +724,7 @@ export function OfflineAnalyticsTab() {
             )}
             {isLoading && (
               <tr>
-                <td colSpan={7} className="px-5 py-16 text-center">
+                <td colSpan={8} className="px-5 py-16 text-center">
                   <div className="flex justify-center">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
                   </div>

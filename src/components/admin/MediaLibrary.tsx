@@ -1,6 +1,16 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useCallback, type DragEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, ImagePlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ImagePlus,
+  Loader2,
+  Search,
+  Trash2,
+  Video,
+  X,
+  UploadCloud,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   collectTags,
@@ -77,6 +87,7 @@ export function MediaLibrary({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkType, setLinkType] = useState<"image" | "video">("image");
   const [pendingDelete, setPendingDelete] = useState<MediaAsset | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const assets = useMemo(() => data ?? [], [data]);
@@ -136,16 +147,51 @@ export function MediaLibrary({
     );
   }
 
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    [upload, handleFiles],
+  );
+
   const chosen = assets.filter((a) => selected.includes(a.id));
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-50 rounded-2xl bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center bg-card p-6 rounded-2xl shadow-premium-lg">
+            <UploadCloud className="size-12 text-primary animate-bounce" />
+            <p className="mt-3 font-display font-bold text-xl text-primary">Drop media here</p>
+            <p className="text-sm text-muted-foreground">Release to upload instantly</p>
+          </div>
+        </div>
+      )}
       {/* Add media */}
       <div className="rounded-2xl border border-dashed border-primary/50 bg-secondary/40 p-4">
         <p className="text-sm font-semibold">Add to the library</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Upload photos or videos, or paste a link (YouTube, Vimeo or a direct file URL). Assets
-          here can be reused on any page.
+        <p className="mt-1 mb-3 text-xs leading-relaxed text-muted-foreground font-normal">
+          <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span> Yahan upload ki hui photos aur videos aapki main media gallery me save ho jati hain, jinhe aap baad me website par kahin bhi (jaise products ya banner me) use kar sakte hain. <br/>
+          <span className="font-semibold text-foreground">💡 Tip: Aap apne computer se koi bhi file sidhe yahan drag & drop kar sakte hain!</span>
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button

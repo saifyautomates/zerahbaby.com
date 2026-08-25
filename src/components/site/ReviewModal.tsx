@@ -138,6 +138,8 @@ export function ReviewModal({
               <img
                 src={product.image}
                 alt={product.name}
+                loading="lazy"
+                decoding="async"
                 className="size-11 rounded-xl object-cover border border-border shrink-0"
               />
             )}
@@ -296,6 +298,8 @@ export function ReviewModal({
                       <img
                         src={img}
                         alt={`Upload ${idx + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       <button

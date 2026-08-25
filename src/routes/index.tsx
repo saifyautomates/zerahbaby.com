@@ -1,7 +1,7 @@
 //
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Truck, RotateCcw, Sparkles, Star, Images } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Truck, RotateCcw, Sparkles, ShieldCheck, Images, Star } from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
 import { useAdminMode } from "@/lib/admin-mode";
@@ -11,6 +11,8 @@ import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard"
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
 import { AdminAddProduct, AdminEditableText } from "@/components/admin/InlineAdmin";
 import heroFallback from "@/assets/hero-baby.jpg";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
 
@@ -43,9 +45,10 @@ export const Route = createFileRoute("/")({
 });
 
 const perks = [
-  { icon: Truck, title: "Free delivery", text: "On every order above ₹999" },
-  { icon: RotateCcw, title: "7-day returns", text: "Unused, unwashed, original packaging" },
-  { icon: Sparkles, title: "Gentle materials", text: "Organic & non-toxic first" },
+  { icon: Sparkles, title: "100% Organic", text: "Safe & non-toxic for babies" },
+  { icon: Truck, title: "Fast Delivery", text: "Free shipping over ₹999" },
+  { icon: RotateCcw, title: "7-Day Returns", text: "Easy and hassle-free" },
+  { icon: ShieldCheck, title: "Secure Payments", text: "100% safe checkout" },
 ];
 
 /** Shown until an admin uploads their own hero photos or videos. */
@@ -65,6 +68,48 @@ function Index() {
   const { data: heroSlides } = useHeroMedia();
   const { adminMode } = useAdminMode();
   const [heroEditor, setHeroEditor] = useState(false);
+
+  // Hydration fix
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const { data: realReviews } = useQuery({
+    queryKey: ["homepage-reviews"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("reviews")
+        .select("rating, comment, profiles(full_name)")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(3);
+      return data;
+    },
+  });
+
+  const displayReviews =
+    realReviews && realReviews.length > 0
+      ? realReviews.map((r) => ({
+          name: (r.profiles as any)?.full_name || "Verified Parent",
+          text: r.comment,
+          rating: r.rating,
+        }))
+      : [
+          {
+            name: "Ananya R.",
+            text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now.",
+            rating: 5,
+          },
+          {
+            name: "Vikram S.",
+            text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant.",
+            rating: 5,
+          },
+          {
+            name: "Meera J.",
+            text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
+            rating: 5,
+          },
+        ];
 
   const slides = heroSlides && heroSlides.length > 0 ? heroSlides : defaultHeroSlides;
   const hasMedia = slides.length > 0;
@@ -97,8 +142,8 @@ function Index() {
         <div
           className={`relative z-10 mx-auto flex max-w-4xl flex-col items-center px-4 text-center ${
             hasMedia
-              ? "min-h-[74svh] justify-center py-16 sm:py-24 md:min-h-[78vh] md:py-32"
-              : "py-14 sm:py-20 md:py-28"
+              ? "min-h-[74svh] justify-center pt-16 pb-24 sm:py-24 md:min-h-[78vh] md:py-32"
+              : "pt-14 pb-20 sm:py-20 md:py-28"
           }`}
         >
           <span
@@ -181,19 +226,22 @@ function Index() {
 
       {heroEditor && <HeroMediaDialog onClose={() => setHeroEditor(false)} />}
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-          {perks.map((perk) => (
+      <section className="mx-auto max-w-7xl px-4 py-12 relative z-20 -mt-10 lg:-mt-16">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {perks.map((perk, i) => (
             <li
               key={perk.title}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/20 hover:shadow-sm"
+              className={`flex items-center gap-4 rounded-3xl border border-border/50 bg-background/80 backdrop-blur-xl p-5 shadow-premium-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-premium-hover animate-in fade-in slide-in-from-bottom-4`}
+              style={{ animationDelay: `${i * 100}ms`, animationFillMode: "both" }}
             >
-              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <perk.icon className="size-5" />
+              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <perk.icon className="size-6" />
               </span>
               <span>
-                <span className="block text-sm font-bold">{perk.title}</span>
-                <span className="block text-xs text-muted-foreground">{perk.text}</span>
+                <span className="block text-sm font-bold text-foreground">{perk.title}</span>
+                <span className="block text-[11px] font-semibold tracking-wide text-muted-foreground mt-0.5">
+                  {perk.text}
+                </span>
               </span>
             </li>
           ))}
@@ -270,27 +318,17 @@ function Index() {
           </p>
         </div>
         <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {[
-            {
-              name: "Ananya R.",
-              text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now.",
-            },
-            {
-              name: "Vikram S.",
-              text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant.",
-            },
-            {
-              name: "Meera J.",
-              text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
-            },
-          ].map((r) => (
+          {displayReviews.map((r, idx) => (
             <figure
-              key={r.name}
+              key={idx}
               className="rounded-2xl border border-border bg-card p-6 transition hover:border-primary/20 hover:shadow-sm"
             >
               <div className="flex gap-0.5 text-accent">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="size-4 fill-accent" />
+                  <Star
+                    key={i}
+                    className={`size-4 ${i < r.rating ? "fill-accent" : "text-muted"}`}
+                  />
                 ))}
               </div>
               <blockquote className="mt-3 text-sm leading-relaxed text-muted-foreground">

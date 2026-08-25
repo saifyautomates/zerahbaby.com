@@ -56,14 +56,17 @@ function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center animate-in fade-in zoom-in-95 duration-500">
+        <div className="mb-6 mx-auto grid size-24 place-items-center rounded-full bg-primary/10">
+          <Trash2 className="size-10 text-primary" />
+        </div>
         <h1 className="font-display text-3xl font-bold">Your bag is empty</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Add a few essentials and they'll show up here.
         </p>
         <Link
           to="/shop"
-          className="press mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+          className="focus-ring press mt-8 inline-block rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
         >
           Start shopping
         </Link>
@@ -77,8 +80,12 @@ function CartPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
         <ul className="space-y-4">
-          {items.map(({ product, qty }) => (
-            <li key={product.id} className="flex gap-4 rounded-2xl border border-border p-4">
+          {items.map(({ product, qty }, i) => (
+            <li
+              key={product.id}
+              className="flex gap-4 rounded-2xl border border-border p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+              style={{ animationDelay: `${i * 75}ms` }}
+            >
               <ResponsiveMedia
                 src={product.image}
                 alt={product.name}
@@ -141,14 +148,14 @@ function CartPage() {
           <li>
             <button
               onClick={clear}
-              className="text-xs text-muted-foreground hover:text-destructive"
+              className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-destructive transition-colors underline decoration-border underline-offset-4"
             >
               Clear bag
             </button>
           </li>
         </ul>
 
-        <aside className="h-fit rounded-2xl border border-border p-6 lg:sticky lg:top-24">
+        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Order summary</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
@@ -167,7 +174,11 @@ function CartPage() {
                 <dt className="flex items-center gap-2">
                   Code: {coupon.code}
                   <button
-                    onClick={removeCoupon}
+                    onClick={() => {
+                      removeCoupon();
+                      setCouponInput("");
+                      toast.success("Coupon removed");
+                    }}
                     className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-destructive underline"
                   >
                     Remove
@@ -224,7 +235,7 @@ function CartPage() {
           {user ? (
             <Link
               to="/checkout"
-              className="press mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
             >
               Proceed to checkout
             </Link>
@@ -232,8 +243,9 @@ function CartPage() {
             <>
               <Link
                 to="/auth"
+                search={{ redirect: "/checkout" } as any}
                 onClick={() => toast.info("Please sign in to place your order")}
-                className="press mt-6 block w-full rounded-full bg-primary py-3 text-center text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
               >
                 Sign in to check out
               </Link>

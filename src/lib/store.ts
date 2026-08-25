@@ -58,7 +58,6 @@ type ProductRow = {
   rating: number;
   reviews: number;
   age_group: string;
-  image_url: string | null;
   description: string;
   highlights: string[];
   is_featured: boolean;
@@ -68,33 +67,42 @@ type ProductRow = {
   low_stock_at?: number;
   sku?: string;
   barcode?: string | null;
-  images?: string[] | null;
+  product_images?: { public_url: string; is_primary: boolean; sort_order: number }[] | null;
 };
 
-export const mapProduct = (row: ProductRow): Product => ({
-  uuid: row.id,
-  id: row.slug,
-  name: row.name,
-  brand: row.brand,
-  category: row.category,
-  price: Number(row.price),
-  mrp: Number(row.mrp),
-  rating: Number(row.rating),
-  reviews: row.reviews,
-  ageGroup: row.age_group,
-  image: imageFor(row.category, row.image_url),
-  imageUrl: row.image_url,
-  description: row.description,
-  highlights: row.highlights ?? [],
-  isFeatured: row.is_featured,
-  isActive: row.is_active,
-  sortOrder: row.sort_order,
-  stock: row.stock ?? 0,
-  lowStockAt: row.low_stock_at ?? 5,
-  sku: row.sku ?? "",
-  barcode: row.barcode ?? "",
-  images: (row.images ?? []).filter(Boolean),
-});
+export const mapProduct = (row: ProductRow): Product => {
+  const dbImages = row.product_images
+    ? [...row.product_images].sort((a, b) => a.sort_order - b.sort_order)
+    : [];
+  const primaryImage = dbImages.find((img) => img.is_primary) || dbImages[0];
+  const imageUrl = primaryImage ? primaryImage.public_url : null;
+  const imageList = dbImages.map((img) => img.public_url);
+
+  return {
+    uuid: row.id,
+    id: row.slug,
+    name: row.name,
+    brand: row.brand,
+    category: row.category,
+    price: Number(row.price),
+    mrp: Number(row.mrp),
+    rating: Number(row.rating),
+    reviews: row.reviews,
+    ageGroup: row.age_group,
+    image: imageFor(row.category, imageUrl),
+    imageUrl,
+    description: row.description,
+    highlights: row.highlights ?? [],
+    isFeatured: row.is_featured,
+    isActive: row.is_active,
+    sortOrder: row.sort_order,
+    stock: row.stock ?? 0,
+    lowStockAt: row.low_stock_at ?? 5,
+    sku: row.sku ?? "",
+    barcode: row.barcode ?? "",
+    images: imageList,
+  };
+};
 
 export const formatPrice = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -107,7 +115,10 @@ export const discountPct = (product: { price: number; mrp: number }) =>
   product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
 
 async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
-  let query = supabase.from("products").select("*").order("sort_order", { ascending: true });
+  let query = supabase
+    .from("products")
+    .select("*, product_images(public_url, is_primary, sort_order)")
+    .order("sort_order", { ascending: true });
   if (!includeInactive) query = query.eq("is_active", true);
   const { data, error } = await query;
   if (error) throw error;
@@ -140,7 +151,7 @@ async function fetchSettings(): Promise<Record<string, string>> {
 export const productsQueryOptions = (includeInactive = false) => ({
   queryKey: ["products", includeInactive] as const,
   queryFn: () => fetchProducts(includeInactive),
-  staleTime: 30_000,
+  staleTime: 1000 * 60 * 5, // 5 minutes caching for ultra-fast navigation
 });
 
 export const fallbackCategories: Category[] = [
@@ -185,7 +196,7 @@ export const fallbackCategories: Category[] = [
 export const categoriesQueryOptions = () => ({
   queryKey: ["categories"] as const,
   queryFn: fetchCategories,
-  staleTime: 60_000,
+  staleTime: 1000 * 60 * 60, // 1 hour caching for categories
   initialData: fallbackCategories,
   initialDataUpdatedAt: 0,
 });
@@ -193,7 +204,7 @@ export const categoriesQueryOptions = () => ({
 export const settingsQueryOptions = () => ({
   queryKey: ["site_settings"] as const,
   queryFn: fetchSettings,
-  staleTime: 60_000,
+  staleTime: 1000 * 60, // 1 minute caching for site settings so updates sync faster
 });
 
 export function useProducts(includeInactive = false) {

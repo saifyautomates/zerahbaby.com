@@ -59,6 +59,10 @@ export type OfflineSale = {
   created_by: string;
   owner_notification_status?: string | null;
   owner_notified_at?: string | null;
+  /** Daily sequential walk-in token (1, 2, 3...). Resets each IST calendar day. */
+  pos_token_number: number | null;
+  /** IST calendar date this token belongs to. */
+  pos_token_date: string | null;
   created_at: string;
   updated_at: string;
   offline_sale_items?: OfflineSaleItem[];
@@ -92,6 +96,10 @@ export type SaleResult = {
   customer_phone?: string;
   items_count: number;
   duplicate: boolean;
+  /** Daily sequential walk-in token number (1, 2, 3...). Always present on a completed POS sale. */
+  pos_token_number: number | null;
+  /** IST calendar date string (YYYY-MM-DD) for the token. */
+  pos_token_date: string | null;
 };
 
 /* ------------------------------------------------------------------ */

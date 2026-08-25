@@ -40,7 +40,7 @@ export function Footer() {
                 (e.target as HTMLImageElement).style.opacity = "0";
               }}
             />
-            <span className="font-display text-lg font-bold">{brandName}</span>
+            <span className="font-display text-lg font-bold whitespace-pre-wrap leading-[1.1]">{brandName}</span>
           </div>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground text-pretty">
             A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by
@@ -133,7 +133,7 @@ export function Footer() {
               </a>
             </div>
             <div>
-              <span className="font-semibold text-foreground">Contact NO. :</span>{" "}
+              <span className="font-semibold text-foreground">Phone:</span>{" "}
               {(contactPhone || "").split(",").map((phone, i, arr) => (
                 <span key={phone}>
                   <a href={`tel:${phone.trim()}`} className="transition-colors hover:text-primary">

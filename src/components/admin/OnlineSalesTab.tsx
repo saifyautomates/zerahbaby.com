@@ -12,17 +12,30 @@ import {
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { formatPrice } from "@/lib/store";
-import { 
-  useCreateShiprocketShipment, 
-  useGenerateShiprocketAWB, 
-  useRequestShiprocketPickup 
+import {
+  useCreateShiprocketShipment,
+  useGenerateShiprocketAWB,
+  useRequestShiprocketPickup,
 } from "@/lib/orders";
-import { MailCheck, MailWarning, RotateCcw, Trash2, AlertTriangle, X, Loader2, Truck, PackageCheck, Send } from "lucide-react";
+import {
+  MailCheck,
+  MailWarning,
+  RotateCcw,
+  Trash2,
+  AlertTriangle,
+  X,
+  Loader2,
+  Truck,
+  PackageCheck,
+  Send,
+} from "lucide-react";
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useAllOrders(true);
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 25;
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
   const retryNotification = useRetryOrderNotification();
@@ -148,7 +161,10 @@ export function OnlineSalesTab() {
           {/* New Orders (24h) Filter Button before 'All' */}
           <button
             type="button"
-            onClick={() => setFilter("new_orders")}
+            onClick={() => {
+              setFilter("new_orders");
+              setPage(1);
+            }}
             className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filter === "new_orders"
                 ? "bg-[#8B2020] text-white shadow-sm ring-2 ring-[#8B2020]/20"
@@ -173,7 +189,10 @@ export function OnlineSalesTab() {
               <button
                 key={s}
                 type="button"
-                onClick={() => setFilter(s)}
+                onClick={() => {
+                  setFilter(s);
+                  setPage(1);
+                }}
                 className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all cursor-pointer ${
                   filter === s
                     ? "bg-[#8B2020] text-white shadow-sm"
@@ -186,7 +205,8 @@ export function OnlineSalesTab() {
           )}
         </div>
         <p className="text-xs font-medium text-muted-foreground">
-          Showing {orders.length} of {onlineOrdersData.length} online orders
+          Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
+          of {orders.length} online orders
           {filter === "new_orders" && " (placed in last 24 hours)"}
         </p>
       </div>
@@ -205,7 +225,7 @@ export function OnlineSalesTab() {
       )}
 
       <ul className="space-y-4">
-        {orders.map((order) => (
+        {orders.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE).map((order) => (
           <li
             key={order.id}
             className="overflow-hidden rounded-3xl border border-gray-100 bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border"
@@ -334,7 +354,11 @@ export function OnlineSalesTab() {
                         disabled={createShipment.isPending || order.status === "cancelled"}
                         className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-sm disabled:opacity-50"
                       >
-                        {createShipment.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <PackageCheck className="size-3.5" />}
+                        {createShipment.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <PackageCheck className="size-3.5" />
+                        )}
                         Push to Shiprocket
                       </button>
                     ) : !order.awb_code ? (
@@ -344,24 +368,38 @@ export function OnlineSalesTab() {
                         disabled={generateAwb.isPending}
                         className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
                       >
-                        {generateAwb.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                        {generateAwb.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Send className="size-3.5" />
+                        )}
                         Generate AWB
                       </button>
-                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" && order.shiprocket_status !== "SHIPPED" && order.shiprocket_status !== "DELIVERED" ? (
+                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
+                      order.shiprocket_status !== "SHIPPED" &&
+                      order.shiprocket_status !== "DELIVERED" ? (
                       <button
                         type="button"
                         onClick={() => requestPickup.mutate(order.id)}
                         disabled={requestPickup.isPending}
                         className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
                       >
-                        {requestPickup.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Truck className="size-3.5" />}
+                        {requestPickup.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Truck className="size-3.5" />
+                        )}
                         Request Pickup
                       </button>
                     ) : (
                       <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Shiprocket AWB</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Shiprocket AWB
+                        </p>
                         <p className="text-xs font-bold text-foreground mt-0.5">{order.awb_code}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{order.courier_name}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {order.courier_name}
+                        </p>
                         <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
                           {order.shiprocket_status}
                         </p>
@@ -386,6 +424,32 @@ export function OnlineSalesTab() {
           </li>
         ))}
       </ul>
+
+      {Math.ceil(orders.length / ITEMS_PER_PAGE) > 1 && (
+        <div className="flex items-center justify-between border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-semibold transition hover:bg-muted disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-medium text-muted-foreground">
+            Page {page} of {Math.ceil(orders.length / ITEMS_PER_PAGE)}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((p) => Math.min(Math.ceil(orders.length / ITEMS_PER_PAGE), p + 1))
+            }
+            disabled={page === Math.ceil(orders.length / ITEMS_PER_PAGE)}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-semibold transition hover:bg-muted disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* ─── CONFIRMATION MODAL ──────────────────────────────── */}
       {orderToDelete && (

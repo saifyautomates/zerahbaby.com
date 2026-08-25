@@ -39,6 +39,8 @@ import {
   DollarSign,
   Trash2,
   Check,
+  Eye,
+  Activity,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -122,17 +124,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   });
 
   const posSales = useMemo(() => {
-    let hiddenSales: string[] = [];
-    try {
-      hiddenSales = JSON.parse(localStorage.getItem("hidden_sales") || "[]");
-    } catch (e) {}
-
     return rawPosSales.filter(
       (s: any) =>
-        s.status !== "cancelled" &&
-        !hiddenSales.includes(s.id) &&
-        s.offline_sale_items &&
-        s.offline_sale_items.length > 0,
+        s.status !== "cancelled" && s.offline_sale_items && s.offline_sale_items.length > 0,
     );
   }, [rawPosSales]);
 
@@ -161,7 +155,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, price, stock, name, image_url, is_active, slug, product_costs(buying_price)");
+        .select(
+          "id, price, stock, name, is_active, slug, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
+        );
       if (error) return [];
       return data ?? [];
     },
@@ -249,17 +245,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   // Authoritative KPI Metrics Calculation
   const stats = useMemo(() => {
     // 1. Valid paid / non-cancelled online orders
-    let hiddenOrders: string[] = [];
-    try {
-      hiddenOrders = JSON.parse(localStorage.getItem("hidden_orders") || "[]");
-    } catch (e) {}
-
     const validOrders = orders.filter(
       (o: Order) =>
         o.status !== "cancelled" &&
         o.payment_status !== "failed" &&
-        o.payment_status !== "refunded" &&
-        !hiddenOrders.includes(o.id),
+        o.payment_status !== "refunded",
     );
 
     // Current period sales
@@ -471,54 +461,65 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     return [...products]
       .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
       .slice(0, 5)
-      .map((p) => ({
+      .map((p: any) => ({
         name: p.name || "Product",
         slug: p.slug,
-        image: p.image_url || null,
+        image: p.product_images?.[0]?.public_url || null,
         stock: Number(p.stock || 0),
         price: Number(p.price || 0),
       }));
   }, [products]);
 
+  const { data: rawEvents = [] } = useQuery({
+    queryKey: ["admin-analytics-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("analytics_events")
+        .select("event_name, created_at, products(name), profiles(full_name)")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return data ?? [];
+    },
+  });
+
   // Recent Activity Feed
   const recentActivity = useMemo(() => {
-    const activities: Array<{ title: string; time: string; icon: typeof FileText; color: string }> =
-      [];
-    if (orders.length > 0) {
-      activities.push({
-        title: `Order from ${orders[0].full_name || orders[0].email || "Customer"}`,
-        time: format(new Date(orders[0].created_at), "MMM dd, hh:mm a"),
-        icon: FileText,
-        color: "text-blue-500 bg-blue-50 dark:bg-blue-950/50",
-      });
+    if (rawEvents.length === 0) {
+      return [
+        {
+          title: "Store operational",
+          time: "Live",
+          icon: Check,
+          color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
+        },
+      ];
     }
-    if (posSales.length > 0) {
-      activities.push({
-        title: `POS sale ${posSales[0].sale_number || "completed"} (${formatPrice(posSales[0].total)})`,
-        time: format(new Date(posSales[0].created_at), "MMM dd, hh:mm a"),
-        icon: ShoppingCart,
-        color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
-      });
-    }
-    visitors.slice(0, 2).forEach((v) => {
-      const loc = [v.city, v.region, v.country].filter(Boolean).join(", ");
-      activities.push({
-        title: loc ? `Visitor from ${loc}` : "New visitor session",
-        time: format(new Date(v.created_at), "MMM dd, hh:mm a"),
-        icon: Users,
-        color: "text-amber-500 bg-amber-50 dark:bg-amber-950/50",
-      });
+    return rawEvents.map((ev) => {
+      let icon = Activity;
+      let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
+      let title = ev.event_name;
+
+      if (ev.event_name === "view_product") {
+        title = `${(ev.profiles as any)?.full_name || "A visitor"} viewed ${(ev.products as any)?.name || "a product"}`;
+        icon = Eye;
+        color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
+      } else if (ev.event_name === "add_to_cart") {
+        title = `${(ev.profiles as any)?.full_name || "A visitor"} added ${(ev.products as any)?.name || "item"} to cart`;
+        icon = ShoppingCart;
+        color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
+      } else {
+        title = `${(ev.profiles as any)?.full_name || "A visitor"} performed ${ev.event_name}`;
+      }
+
+      return {
+        title,
+        time: format(new Date(ev.created_at), "MMM dd, hh:mm a"),
+        icon,
+        color,
+      };
     });
-    if (activities.length === 0) {
-      activities.push({
-        title: "Store operational",
-        time: "Live",
-        icon: Check,
-        color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
-      });
-    }
-    return activities;
-  }, [orders, posSales, visitors]);
+  }, [rawEvents]);
 
   // CSV Report Generator
   const handleDownloadReport = () => {
@@ -1277,6 +1278,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                             <img
                               src={p.image}
                               alt={p.name}
+                              loading="lazy"
+                              decoding="async"
                               className="w-8 h-8 rounded object-cover border group-hover:border-primary/50 transition-colors"
                             />
                           ) : (

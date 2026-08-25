@@ -2,6 +2,7 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 import { discountPct, formatPrice, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
@@ -11,19 +12,21 @@ import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
 export function ProductCard({ product }: { product: Product }) {
+  const [isAdding, setIsAdding] = useState(false);
   const { add } = useCart();
   const { user } = useSession();
   const { isWishlisted, toggle } = useWishlist();
   const wishlisted = user ? isWishlisted(product.uuid) : false;
 
   return (
-    <article className="lift group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card hover:border-primary/30">
+    <article className="lift group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/30 hover:shadow-premium-hover">
       <AdminProductControls product={product} />
       <Link
         to="/product/$id"
         params={{ id: product.id }}
         className="focus-ring relative block overflow-hidden bg-muted"
       >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 mix-blend-multiply" />
         <ResponsiveMedia
           src={product.image}
           alt={product.name}
@@ -33,10 +36,10 @@ export function ProductCard({ product }: { product: Product }) {
           fit="cover"
           aspect="1/1"
           containerClassName="w-full"
-          className="transition-transform duration-300 ease-out group-hover:scale-[1.06]"
+          className="transition-transform duration-700 ease-out group-hover:scale-[1.08]"
         />
         {discountPct(product) > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground">
+          <span className="absolute left-3 top-3 rounded-full bg-destructive/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
             {discountPct(product)}% off
           </span>
         )}
@@ -52,10 +55,10 @@ export function ProductCard({ product }: { product: Product }) {
             toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
           }}
           aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          className="press absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur transition hover:bg-background hover:scale-110"
+          className="press absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-white/90 backdrop-blur-md shadow-premium-sm transition-all duration-300 hover:scale-110 hover:bg-white"
         >
           <Heart
-            className={`size-4 transition ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
+            className={`size-4 transition-colors duration-300 ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground group-hover/btn:text-red-400"}`}
           />
         </button>
       )}
@@ -95,17 +98,21 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <button
-          disabled={product.stock === 0}
+          disabled={product.stock === 0 || isAdding}
           onClick={() => {
-            if (product.stock === 0) return;
+            if (product.stock === 0 || isAdding) return;
+            setIsAdding(true);
             add(product.id);
             trackEvent("add_to_cart", { productId: product.uuid });
             toast.success("Added to bag", { description: product.name });
+            setTimeout(() => setIsAdding(false), 500);
           }}
           className="focus-ring press mt-auto pt-4 w-full"
         >
-          <div className="w-full rounded-full bg-primary py-2 sm:py-3 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground transition duration-300 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-center">
-            {product.stock === 0 ? "Out of stock" : "Add to bag"}
+          <div
+            className={`w-full rounded-full py-2.5 sm:py-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 ${isAdding ? "bg-primary/80 text-primary-foreground/90 scale-95" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium-sm hover:shadow-premium-md"} disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {product.stock === 0 ? "Out of stock" : isAdding ? "Added!" : "Add to bag"}
           </div>
         </button>
       </div>

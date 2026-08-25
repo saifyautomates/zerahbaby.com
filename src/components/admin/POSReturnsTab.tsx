@@ -425,6 +425,8 @@ export function POSReturnsTab() {
                             <img
                               src={p.imageUrl || p.image}
                               alt={p.name}
+                              loading="lazy"
+                              decoding="async"
                               className="h-8 w-8 rounded-lg object-cover"
                             />
                           ) : (
@@ -492,6 +494,8 @@ export function POSReturnsTab() {
                           <img
                             src={item.image_url}
                             alt={item.name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-10 w-10 rounded-xl object-cover shrink-0 border border-border"
                           />
                         ) : (

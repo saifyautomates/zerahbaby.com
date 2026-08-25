@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing Supabase credentials");
     }
@@ -67,7 +67,8 @@ serve(async (req) => {
       // Need new token
       const srEmail = Deno.env.get("SHIPROCKET_EMAIL")?.trim();
       const srPassword = Deno.env.get("SHIPROCKET_PASSWORD")?.trim();
-      const srBaseUrl = Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
+      const srBaseUrl =
+        Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
 
       if (!srEmail || !srPassword) {
         throw new Error("Shiprocket credentials not configured");
@@ -97,14 +98,15 @@ serve(async (req) => {
     };
 
     const srToken = await getShiprocketToken();
-    const srBaseUrl = Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
+    const srBaseUrl =
+      Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${srToken}`,
     };
 
     // --- Process Actions ---
-    
+
     // Fetch authoritative order details
     const { data: order, error: orderError } = await adminClient
       .from("orders")
@@ -122,10 +124,12 @@ serve(async (req) => {
       // Fetch order items to build payload
       const { data: items } = await adminClient
         .from("order_items")
-        .select(`
+        .select(
+          `
           quantity, price, mrp,
           products ( name, sku, stock )
-        `)
+        `,
+        )
         .eq("order_id", orderId);
 
       const orderItems = (items || []).map((i: any) => ({
@@ -145,12 +149,12 @@ serve(async (req) => {
       // Calculate safe names and addresses
       const firstName = order.full_name.split(" ")[0];
       const lastName = order.full_name.split(" ").slice(1).join(" ") || firstName;
-      
+
       const isCod = order.payment_method === "cod" || order.payment_method === "COD";
 
       const payload = {
         order_id: String(order.id).substring(0, 20), // SR requires max 20 chars
-        order_date: new Date(order.created_at).toISOString().split('T')[0],
+        order_date: new Date(order.created_at).toISOString().split("T")[0],
         pickup_location: "Primary", // Usually configured in SR panel
         billing_customer_name: firstName,
         billing_last_name: lastName,
@@ -185,17 +189,26 @@ serve(async (req) => {
       }
 
       // Save to database
-      await adminClient.from("orders").update({
-        shiprocket_order_id: srData.order_id,
-        shiprocket_shipment_id: srData.shipment_id,
-        shiprocket_status: "NEW",
-      }).eq("id", orderId);
+      await adminClient
+        .from("orders")
+        .update({
+          shiprocket_order_id: srData.order_id,
+          shiprocket_shipment_id: srData.shipment_id,
+          shiprocket_status: "NEW",
+        })
+        .eq("id", orderId);
 
-      return new Response(JSON.stringify({ success: true, shiprocket_order_id: srData.order_id, shiprocket_shipment_id: srData.shipment_id }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-
+      return new Response(
+        JSON.stringify({
+          success: true,
+          shiprocket_order_id: srData.order_id,
+          shiprocket_shipment_id: srData.shipment_id,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     } else if (action === "generate_awb") {
       if (!order.shiprocket_shipment_id) throw new Error("Shipment ID missing");
       if (order.awb_code) throw new Error("AWB already generated");
@@ -220,18 +233,23 @@ serve(async (req) => {
 
       if (!awbCode) throw new Error("AWB code not returned by Shiprocket");
 
-      await adminClient.from("orders").update({
-        awb_code: awbCode,
-        courier_name: courierName || "Assigned",
-        shiprocket_status: "AWB_GENERATED",
-        status: "processing" // Auto-update store order status
-      }).eq("id", orderId);
+      await adminClient
+        .from("orders")
+        .update({
+          awb_code: awbCode,
+          courier_name: courierName || "Assigned",
+          shiprocket_status: "AWB_GENERATED",
+          status: "processing", // Auto-update store order status
+        })
+        .eq("id", orderId);
 
-      return new Response(JSON.stringify({ success: true, awb_code: awbCode, courier_name: courierName }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-
+      return new Response(
+        JSON.stringify({ success: true, awb_code: awbCode, courier_name: courierName }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     } else if (action === "request_pickup") {
       if (!order.shiprocket_shipment_id) throw new Error("Shipment ID missing");
 
@@ -239,30 +257,31 @@ serve(async (req) => {
         method: "POST",
         headers,
         body: JSON.stringify({
-          shipment_id: [order.shiprocket_shipment_id]
+          shipment_id: [order.shiprocket_shipment_id],
         }),
       });
 
       const srData = await res.json();
       if (!res.ok) {
-         console.error("Shiprocket Pickup Error:", srData);
-         throw new Error(srData.message || "Failed to request pickup");
+        console.error("Shiprocket Pickup Error:", srData);
+        throw new Error(srData.message || "Failed to request pickup");
       }
 
-      await adminClient.from("orders").update({
-        shiprocket_status: "PICKUP_SCHEDULED",
-        status: "packed" // Auto-update store order status
-      }).eq("id", orderId);
+      await adminClient
+        .from("orders")
+        .update({
+          shiprocket_status: "PICKUP_SCHEDULED",
+          status: "packed", // Auto-update store order status
+        })
+        .eq("id", orderId);
 
       return new Response(JSON.stringify({ success: true, pickup_status: srData.pickup_status }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
-
     } else {
       throw new Error(`Unknown action: ${action}`);
     }
-
   } catch (error: any) {
     console.error("[shiprocket-api] Error:", error.message);
     return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), {

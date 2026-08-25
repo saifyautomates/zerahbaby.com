@@ -33,72 +33,6 @@ export type Database = {
   };
   public: {
     Tables: {
-      admin_order_deletion_logs: {
-        Row: {
-          id: string;
-          order_id: string;
-          order_number: string | null;
-          user_id: string | null;
-          customer_name: string | null;
-          customer_email: string | null;
-          total: number | null;
-          cancellation_reason: string | null;
-          deleted_by: string;
-          deleted_at: string;
-        };
-        Insert: {
-          id?: string;
-          order_id: string;
-          order_number?: string | null;
-          user_id?: string | null;
-          customer_name?: string | null;
-          customer_email?: string | null;
-          total?: number | null;
-          cancellation_reason?: string | null;
-          deleted_by: string;
-          deleted_at?: string;
-        };
-        Update: {
-          id?: string;
-          order_id?: string;
-          order_number?: string | null;
-          user_id?: string | null;
-          customer_name?: string | null;
-          customer_email?: string | null;
-          total?: number | null;
-          cancellation_reason?: string | null;
-          deleted_by?: string;
-          deleted_at?: string;
-        };
-        Relationships: [];
-      };
-      contact_messages: {
-        Row: {
-          id: string;
-          created_at: string;
-          name: string;
-          email: string;
-          order_number: string | null;
-          message: string;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          name: string;
-          email: string;
-          order_number?: string | null;
-          message: string;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          name?: string;
-          email?: string;
-          order_number?: string | null;
-          message?: string;
-        };
-        Relationships: [];
-      };
       admin_allowlist: {
         Row: {
           added_by: string | null;
@@ -114,6 +48,45 @@ export type Database = {
           added_by?: string | null;
           created_at?: string;
           email?: string;
+        };
+        Relationships: [];
+      };
+      admin_order_deletion_logs: {
+        Row: {
+          cancellation_reason: string | null;
+          customer_email: string | null;
+          customer_name: string | null;
+          deleted_at: string;
+          deleted_by: string;
+          id: string;
+          order_id: string;
+          order_number: string | null;
+          total: number | null;
+          user_id: string | null;
+        };
+        Insert: {
+          cancellation_reason?: string | null;
+          customer_email?: string | null;
+          customer_name?: string | null;
+          deleted_at?: string;
+          deleted_by: string;
+          id?: string;
+          order_id: string;
+          order_number?: string | null;
+          total?: number | null;
+          user_id?: string | null;
+        };
+        Update: {
+          cancellation_reason?: string | null;
+          customer_email?: string | null;
+          customer_name?: string | null;
+          deleted_at?: string;
+          deleted_by?: string;
+          id?: string;
+          order_id?: string;
+          order_number?: string | null;
+          total?: number | null;
+          user_id?: string | null;
         };
         Relationships: [];
       };
@@ -323,6 +296,36 @@ export type Database = {
           },
         ];
       };
+      contact_messages: {
+        Row: {
+          created_at: string;
+          email: string;
+          handled: boolean;
+          id: string;
+          message: string;
+          name: string;
+          order_number: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          handled?: boolean;
+          id?: string;
+          message: string;
+          name: string;
+          order_number?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          handled?: boolean;
+          id?: string;
+          message?: string;
+          name?: string;
+          order_number?: string | null;
+        };
+        Relationships: [];
+      };
       coupon_usage: {
         Row: {
           coupon_id: string;
@@ -457,6 +460,137 @@ export type Database = {
           },
         ];
       };
+      offline_return_items: {
+        Row: {
+          barcode: string;
+          created_at: string;
+          id: string;
+          mrp_snapshot: number;
+          name: string;
+          product_id: string | null;
+          product_slug: string;
+          qty: number;
+          refund_price: number;
+          return_id: string;
+          sku: string;
+          subtotal: number;
+          variant_info: string;
+        };
+        Insert: {
+          barcode?: string;
+          created_at?: string;
+          id?: string;
+          mrp_snapshot?: number;
+          name?: string;
+          product_id?: string | null;
+          product_slug?: string;
+          qty?: number;
+          refund_price?: number;
+          return_id: string;
+          sku?: string;
+          subtotal?: number;
+          variant_info?: string;
+        };
+        Update: {
+          barcode?: string;
+          created_at?: string;
+          id?: string;
+          mrp_snapshot?: number;
+          name?: string;
+          product_id?: string | null;
+          product_slug?: string;
+          qty?: number;
+          refund_price?: number;
+          return_id?: string;
+          sku?: string;
+          subtotal?: number;
+          variant_info?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "offline_return_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offline_return_items_return_id_fkey";
+            columns: ["return_id"];
+            isOneToOne: false;
+            referencedRelation: "offline_returns";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      offline_returns: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          customer_email: string;
+          customer_id: string | null;
+          customer_name: string;
+          customer_phone: string;
+          id: string;
+          notes: string;
+          owner_notification_status: string | null;
+          owner_notified_at: string | null;
+          refund_amount: number;
+          refund_method: string;
+          refund_status: string;
+          return_number: string;
+          return_reason: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          customer_email?: string;
+          customer_id?: string | null;
+          customer_name?: string;
+          customer_phone?: string;
+          id?: string;
+          notes?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
+          refund_amount?: number;
+          refund_method?: string;
+          refund_status?: string;
+          return_number: string;
+          return_reason?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          customer_email?: string;
+          customer_id?: string | null;
+          customer_name?: string;
+          customer_phone?: string;
+          id?: string;
+          notes?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
+          refund_amount?: number;
+          refund_method?: string;
+          refund_status?: string;
+          return_number?: string;
+          return_reason?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "offline_returns_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "pos_customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       offline_sale_items: {
         Row: {
           barcode_snapshot: string;
@@ -533,14 +667,14 @@ export type Database = {
           discount_value: number;
           id: string;
           notes: string;
+          owner_notification_status: string | null;
+          owner_notified_at: string | null;
           payment_method: string;
           sale_number: string;
           status: string;
           subtotal: number;
           total: number;
           updated_at: string;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Insert: {
           created_at?: string;
@@ -554,14 +688,14 @@ export type Database = {
           discount_value?: number;
           id?: string;
           notes?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
           payment_method?: string;
           sale_number?: string;
           status?: string;
           subtotal?: number;
           total?: number;
           updated_at?: string;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Update: {
           created_at?: string;
@@ -575,14 +709,14 @@ export type Database = {
           discount_value?: number;
           id?: string;
           notes?: string;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
           payment_method?: string;
           sale_number?: string;
           status?: string;
           subtotal?: number;
           total?: number;
           updated_at?: string;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Relationships: [
           {
@@ -706,9 +840,14 @@ export type Database = {
           address: string;
           address_line2: string;
           alt_phone: string;
+          awb_code: string | null;
           billing_address_snapshot: Json | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           city: string;
           coupon_code: string | null;
+          courier_name: string | null;
           created_at: string;
           currency: string;
           customer_phone: string;
@@ -721,13 +860,21 @@ export type Database = {
           landmark: string;
           notes: string;
           order_number: string | null;
+          owner_notification_status: string | null;
+          owner_notified_at: string | null;
           payment_method: string;
           payment_status: Database["public"]["Enums"]["payment_status"];
           phone: string;
           pincode: string;
+          razorpay_order_id: string | null;
+          razorpay_payment_id: string | null;
+          razorpay_signature: string | null;
           shipping: number;
           shipping_address_snapshot: Json | null;
           shipping_fee: number;
+          shiprocket_order_id: number | null;
+          shiprocket_shipment_id: number | null;
+          shiprocket_status: string | null;
           state: string;
           status: Database["public"]["Enums"]["order_status"];
           subtotal: number;
@@ -737,20 +884,19 @@ export type Database = {
           tracking_url: string | null;
           updated_at: string;
           user_id: string;
-          razorpay_order_id?: string | null;
-          cancellation_reason?: string | null;
-          cancelled_at?: string | null;
-          cancelled_by?: string | null;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Insert: {
           address?: string;
           address_line2?: string;
           alt_phone?: string;
+          awb_code?: string | null;
           billing_address_snapshot?: Json | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           city?: string;
           coupon_code?: string | null;
+          courier_name?: string | null;
           created_at?: string;
           currency?: string;
           customer_phone?: string;
@@ -763,13 +909,21 @@ export type Database = {
           landmark?: string;
           notes?: string;
           order_number?: string | null;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
           payment_method?: string;
           payment_status?: Database["public"]["Enums"]["payment_status"];
           phone?: string;
           pincode?: string;
+          razorpay_order_id?: string | null;
+          razorpay_payment_id?: string | null;
+          razorpay_signature?: string | null;
           shipping?: number;
           shipping_address_snapshot?: Json | null;
           shipping_fee?: number;
+          shiprocket_order_id?: number | null;
+          shiprocket_shipment_id?: number | null;
+          shiprocket_status?: string | null;
           state?: string;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
@@ -779,20 +933,19 @@ export type Database = {
           tracking_url?: string | null;
           updated_at?: string;
           user_id: string;
-          razorpay_order_id?: string | null;
-          cancellation_reason?: string | null;
-          cancelled_at?: string | null;
-          cancelled_by?: string | null;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Update: {
           address?: string;
           address_line2?: string;
           alt_phone?: string;
+          awb_code?: string | null;
           billing_address_snapshot?: Json | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           city?: string;
           coupon_code?: string | null;
+          courier_name?: string | null;
           created_at?: string;
           currency?: string;
           customer_phone?: string;
@@ -805,13 +958,21 @@ export type Database = {
           landmark?: string;
           notes?: string;
           order_number?: string | null;
+          owner_notification_status?: string | null;
+          owner_notified_at?: string | null;
           payment_method?: string;
           payment_status?: Database["public"]["Enums"]["payment_status"];
           phone?: string;
           pincode?: string;
+          razorpay_order_id?: string | null;
+          razorpay_payment_id?: string | null;
+          razorpay_signature?: string | null;
           shipping?: number;
           shipping_address_snapshot?: Json | null;
           shipping_fee?: number;
+          shiprocket_order_id?: number | null;
+          shiprocket_shipment_id?: number | null;
+          shiprocket_status?: string | null;
           state?: string;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
@@ -821,60 +982,54 @@ export type Database = {
           tracking_url?: string | null;
           updated_at?: string;
           user_id?: string;
-          razorpay_order_id?: string | null;
-          cancellation_reason?: string | null;
-          cancelled_at?: string | null;
-          cancelled_by?: string | null;
-          owner_notification_status?: string | null;
-          owner_notified_at?: string | null;
         };
         Relationships: [];
       };
       owner_notification_logs: {
         Row: {
-          id: string;
+          created_at: string | null;
+          error_message: string | null;
           event_type: string;
-          reference_id: string | null;
-          reference_number: string | null;
-          recipient: string;
-          status: string;
-          total: number | null;
+          id: string;
           provider: string | null;
           provider_message_id: string | null;
-          error_message: string | null;
+          recipient: string;
+          reference_id: string | null;
+          reference_number: string | null;
           sent_at: string | null;
-          created_at: string;
-          updated_at: string;
+          status: string;
+          total: number | null;
+          updated_at: string | null;
         };
         Insert: {
-          id?: string;
+          created_at?: string | null;
+          error_message?: string | null;
           event_type: string;
-          reference_id?: string | null;
-          reference_number?: string | null;
-          recipient: string;
-          status?: string;
-          total?: number | null;
+          id?: string;
           provider?: string | null;
           provider_message_id?: string | null;
-          error_message?: string | null;
+          recipient: string;
+          reference_id?: string | null;
+          reference_number?: string | null;
           sent_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          status?: string;
+          total?: number | null;
+          updated_at?: string | null;
         };
         Update: {
-          id?: string;
+          created_at?: string | null;
+          error_message?: string | null;
           event_type?: string;
-          reference_id?: string | null;
-          reference_number?: string | null;
-          recipient?: string;
-          status?: string;
-          total?: number | null;
+          id?: string;
           provider?: string | null;
           provider_message_id?: string | null;
-          error_message?: string | null;
+          recipient?: string;
+          reference_id?: string | null;
+          reference_number?: string | null;
           sent_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
+          status?: string;
+          total?: number | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -1093,24 +1248,18 @@ export type Database = {
           brand_id: string | null;
           category: string;
           category_id: string | null;
-          compare_at_price: number;
           created_at: string;
           description: string;
-          featured: boolean;
           highlights: string[];
           id: string;
-          image_url: string | null;
-          images: string[];
           is_active: boolean;
           is_featured: boolean;
           low_stock_at: number;
-          low_stock_threshold: number;
           mrp: number;
           name: string;
           new_arrival: boolean;
           price: number;
           rating: number;
-          review_count: number;
           reviews: number;
           seo_description: string;
           seo_title: string;
@@ -1120,7 +1269,6 @@ export type Database = {
           sort_order: number;
           status: Database["public"]["Enums"]["product_status"];
           stock: number;
-          stock_quantity: number;
           updated_at: string;
         };
         Insert: {
@@ -1131,10 +1279,8 @@ export type Database = {
           brand_id?: string | null;
           category?: string;
           category_id?: string | null;
-          compare_at_price?: number;
           created_at?: string;
           description?: string;
-          featured?: boolean;
           highlights?: string[];
           id?: string;
           image_url?: string | null;
@@ -1142,13 +1288,11 @@ export type Database = {
           is_active?: boolean;
           is_featured?: boolean;
           low_stock_at?: number;
-          low_stock_threshold?: number;
           mrp?: number;
           name: string;
           new_arrival?: boolean;
           price?: number;
           rating?: number;
-          review_count?: number;
           reviews?: number;
           seo_description?: string;
           seo_title?: string;
@@ -1158,7 +1302,6 @@ export type Database = {
           sort_order?: number;
           status?: Database["public"]["Enums"]["product_status"];
           stock?: number;
-          stock_quantity?: number;
           updated_at?: string;
         };
         Update: {
@@ -1169,10 +1312,8 @@ export type Database = {
           brand_id?: string | null;
           category?: string;
           category_id?: string | null;
-          compare_at_price?: number;
           created_at?: string;
           description?: string;
-          featured?: boolean;
           highlights?: string[];
           id?: string;
           image_url?: string | null;
@@ -1180,13 +1321,11 @@ export type Database = {
           is_active?: boolean;
           is_featured?: boolean;
           low_stock_at?: number;
-          low_stock_threshold?: number;
           mrp?: number;
           name?: string;
           new_arrival?: boolean;
           price?: number;
           rating?: number;
-          review_count?: number;
           reviews?: number;
           seo_description?: string;
           seo_title?: string;
@@ -1196,7 +1335,6 @@ export type Database = {
           sort_order?: number;
           status?: Database["public"]["Enums"]["product_status"];
           stock?: number;
-          stock_quantity?: number;
           updated_at?: string;
         };
         Relationships: [
@@ -1321,6 +1459,27 @@ export type Database = {
           },
         ];
       };
+      shiprocket_tokens: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          id: number;
+          token: string;
+        };
+        Insert: {
+          created_at?: string;
+          expires_at: string;
+          id?: number;
+          token: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          id?: number;
+          token?: string;
+        };
+        Relationships: [];
+      };
       site_settings: {
         Row: {
           key: string;
@@ -1339,41 +1498,43 @@ export type Database = {
         };
         Relationships: [];
       };
-      test_col: {
+      sms_logs: {
         Row: {
-          id: number | null;
-          public: string | null;
-          secret: string | null;
+          created_at: string;
+          error_details: string | null;
+          id: string;
+          message_type: string;
+          order_id: string | null;
+          phone: string;
+          provider_status: string | null;
         };
         Insert: {
-          id?: number | null;
-          public?: string | null;
-          secret?: string | null;
+          created_at?: string;
+          error_details?: string | null;
+          id?: string;
+          message_type: string;
+          order_id?: string | null;
+          phone: string;
+          provider_status?: string | null;
         };
         Update: {
-          id?: number | null;
-          public?: string | null;
-          secret?: string | null;
+          created_at?: string;
+          error_details?: string | null;
+          id?: string;
+          message_type?: string;
+          order_id?: string | null;
+          phone?: string;
+          provider_status?: string | null;
         };
-        Relationships: [];
-      };
-      test_col3: {
-        Row: {
-          id: number | null;
-          public: string | null;
-          secret: string | null;
-        };
-        Insert: {
-          id?: number | null;
-          public?: string | null;
-          secret?: string | null;
-        };
-        Update: {
-          id?: number | null;
-          public?: string | null;
-          secret?: string | null;
-        };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "sms_logs_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_addresses: {
         Row: {
@@ -1480,6 +1641,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      website_visitors: {
+        Row: {
+          city: string | null;
+          country: string | null;
+          created_at: string;
+          id: string;
+          region: string | null;
+          session_id: string;
+        };
+        Insert: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          id?: string;
+          region?: string | null;
+          session_id: string;
+        };
+        Update: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          id?: string;
+          region?: string | null;
+          session_id?: string;
+        };
+        Relationships: [];
+      };
       wishlist_items: {
         Row: {
           created_at: string;
@@ -1537,49 +1725,27 @@ export type Database = {
         };
         Relationships: [];
       };
-      sms_logs: {
-        Row: {
-          id: string;
-          created_at: string;
-          order_id: string | null;
-          phone: string;
-          message_type: string;
-          provider_status: string | null;
-          error_details: string | null;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          order_id?: string | null;
-          phone: string;
-          message_type: string;
-          provider_status?: string | null;
-          error_details?: string | null;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          order_id?: string | null;
-          phone?: string;
-          message_type?: string;
-          provider_status?: string | null;
-          error_details?: string | null;
-        };
-        Relationships: [];
-      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      claim_admin: { Args: never; Returns: boolean };
-      delete_cancelled_order: {
-        Args: {
-          _order_id: string;
-        };
+      cancel_abandoned_order: { Args: { order_id: string }; Returns: undefined };
+      cancel_customer_order: {
+        Args: { order_id: string; reason?: string };
         Returns: Json;
       };
+      claim_admin: { Args: never; Returns: boolean };
+      delete_cancelled_order: { Args: { _order_id: string }; Returns: Json };
+      delete_storage_object: {
+        Args: {
+          bucket: string;
+          object_path: string;
+        };
+        Returns: undefined;
+      };
       ensure_profile: { Args: never; Returns: undefined };
+      generate_pos_return_number: { Args: never; Returns: string };
       generate_pos_sale_number: { Args: never; Returns: string };
       grant_admin_by_email: { Args: { _email: string }; Returns: string };
       has_role: {
@@ -1598,22 +1764,35 @@ export type Database = {
         }[];
       };
       lookup_barcode: { Args: { _code: string }; Returns: Json };
-      place_offline_sale: {
-        Args: {
-          _customer_email?: string;
-          _customer_id?: string;
-          _customer_name?: string;
-          _customer_phone?: string;
-          _discount?: number;
-          _discount_type?: string;
-          _discount_value?: number;
-          _idempotency_key?: string;
-          _items?: Json;
-          _notes?: string;
-          _payment_method?: string;
-        };
-        Returns: Json;
-      };
+      place_offline_sale:
+        | {
+            Args: {
+              _customer_email?: string;
+              _customer_id?: string;
+              _customer_name?: string;
+              _customer_phone?: string;
+              _discount?: number;
+              _discount_type?: string;
+              _discount_value?: number;
+              _idempotency_key?: string;
+              _items?: Json;
+              _notes?: string;
+              _payment_method?: string;
+            };
+            Returns: Json;
+          }
+        | {
+            Args: {
+              _customer_email: string;
+              _customer_name: string;
+              _customer_phone: string;
+              _discount: number;
+              _items: Json;
+              _notes: string;
+              _payment_method: string;
+            };
+            Returns: Json;
+          };
       place_order: {
         Args: {
           _address?: string;
@@ -1630,6 +1809,21 @@ export type Database = {
           _phone: string;
           _pincode?: string;
           _state?: string;
+        };
+        Returns: Json;
+      };
+      process_offline_return: {
+        Args: {
+          _customer_email?: string;
+          _customer_id?: string;
+          _customer_name?: string;
+          _customer_phone?: string;
+          _idempotency_key?: string;
+          _items?: Json;
+          _notes?: string;
+          _refund_method?: string;
+          _refund_status?: string;
+          _return_reason?: string;
         };
         Returns: Json;
       };
@@ -1657,14 +1851,6 @@ export type Database = {
       sync_admin_from_allowlist: { Args: never; Returns: boolean };
       validate_coupon: {
         Args: { _code: string; _order_total: number; _user_id: string };
-        Returns: Json;
-      };
-      cancel_abandoned_order: {
-        Args: { order_id: string };
-        Returns: void;
-      };
-      cancel_customer_order: {
-        Args: { order_id: string; reason?: string };
         Returns: Json;
       };
     };

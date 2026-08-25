@@ -136,7 +136,9 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
   // 1. Try resolving through products table (by barcode, sku, slug, or id)
   const { data: barcodeProduct, error: prodErr } = await supabase
     .from("products")
-    .select("id, slug, name, price, mrp, stock, sku, barcode, image_url, is_active, age_group")
+    .select(
+      "id, slug, name, price, mrp, stock, sku, barcode, is_active, age_group, product_images(public_url, is_primary, sort_order)",
+    )
     .eq("barcode", trimmed)
     .maybeSingle();
 
@@ -145,7 +147,9 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
   if (!product && !prodErr) {
     const { data: skuProduct } = await supabase
       .from("products")
-      .select("id, slug, name, price, mrp, stock, sku, barcode, image_url, is_active, age_group")
+      .select(
+        "id, slug, name, price, mrp, stock, sku, barcode, is_active, age_group, product_images(public_url, is_primary, sort_order)",
+      )
       .eq("sku", trimmed)
       .maybeSingle();
     product = skuProduct;
@@ -154,7 +158,9 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
   if (!product && !prodErr) {
     const { data: slugProduct } = await supabase
       .from("products")
-      .select("id, slug, name, price, mrp, stock, sku, barcode, image_url, is_active, age_group")
+      .select(
+        "id, slug, name, price, mrp, stock, sku, barcode, is_active, age_group, product_images(public_url, is_primary, sort_order)",
+      )
       .eq("slug", trimmed)
       .maybeSingle();
     product = slugProduct;
@@ -216,7 +222,7 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     name: product.name,
     sku: product.sku || "",
     barcode: product.barcode || trimmed,
-    image_url: product.image_url,
+    image_url: (product as any).product_images?.[0]?.public_url || null,
     current_price: currentPrice,
     recent_sold_price: recentSoldPrice,
     mrp: mrp,

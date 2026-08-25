@@ -216,42 +216,45 @@ function ProductPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <nav className="text-xs text-muted-foreground">
-        <Link to="/" className="hover:text-primary">
+    <main className="mx-auto max-w-7xl px-4 py-6 md:py-10 pb-32 md:pb-10">
+      <nav className="text-xs font-semibold tracking-wide text-muted-foreground mb-6">
+        <Link to="/" className="hover:text-primary transition-colors">
           Home
         </Link>{" "}
-        /{" "}
+        <span className="mx-2">/</span>{" "}
         <Link
           to="/shop"
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           search={{ category: product.category } as any}
-          className="hover:text-primary"
+          className="hover:text-primary transition-colors"
         >
           {product.category}
         </Link>{" "}
-        / <span className="text-foreground">{product.name}</span>
+        <span className="mx-2">/</span> <span className="text-foreground">{product.name}</span>
       </nav>
 
-      <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <div className="relative">
+      <div className="grid gap-10 md:grid-cols-2 lg:gap-16">
+        {/* Left Column: Sticky Media Gallery */}
+        <div className="relative md:sticky md:top-24 self-start">
           <AdminProductControls product={product} />
           {(() => {
             const activeUrl = gallery[activeImage] ?? product.image;
             const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return (
-              <ResponsiveMedia
-                src={activeUrl}
-                alt={product.name}
-                isVideo={isVideo}
-                fit="contain"
-                containerClassName="rounded-3xl border border-border"
-                aspect="1/1"
-              />
+              <div className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300">
+                <ResponsiveMedia
+                  src={activeUrl}
+                  alt={product.name}
+                  isVideo={isVideo}
+                  fit="contain"
+                  containerClassName="w-full bg-white transition-transform duration-500 hover:scale-[1.03]"
+                  aspect="1/1"
+                />
+              </div>
             );
           })()}
           {gallery.length > 1 && (
-            <div className="mt-3 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 sm:flex-wrap sm:overflow-visible sm:snap-none sm:pb-0">
+            <div className="mt-4 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 sm:flex-wrap sm:overflow-visible sm:snap-none sm:pb-0 px-1">
               {gallery.map((url, i) => {
                 const isVideo = !!url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
                 return (
@@ -259,8 +262,10 @@ function ProductPage() {
                     key={url}
                     onClick={() => setActiveImage(i)}
                     aria-label={`View media ${i + 1}`}
-                    className={`size-16 shrink-0 snap-start overflow-hidden rounded-xl border-2 transition ${
-                      i === activeImage ? "border-primary" : "border-border hover:border-primary/50"
+                    className={`size-16 shrink-0 snap-start overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
+                      i === activeImage
+                        ? "border-primary shadow-premium-sm scale-105"
+                        : "border-transparent bg-muted/50 hover:border-primary/30"
                     }`}
                   >
                     <ResponsiveMedia
@@ -366,105 +371,119 @@ function ProductPage() {
             ))}
           </ul>
 
-          <p className="mt-5 text-sm font-semibold">
-            {soldOut ? (
-              <span className="text-destructive">Out of stock</span>
-            ) : product.stock <= product.lowStockAt ? (
-              <span className="text-primary">Only {product.stock} left in stock</span>
-            ) : (
-              <span className="text-muted-foreground">In stock</span>
-            )}
-          </p>
+          <div className="mt-8 flex flex-col gap-4">
+            <p className="text-sm font-bold uppercase tracking-wide">
+              {soldOut ? (
+                <span className="text-destructive flex items-center gap-1.5">
+                  <X className="size-4" /> Out of stock
+                </span>
+              ) : product.stock <= product.lowStockAt ? (
+                <span className="text-orange-500 flex items-center gap-1.5">
+                  <RotateCcw className="size-4" /> Only {product.stock} left in stock
+                </span>
+              ) : (
+                <span className="text-green-600 flex items-center gap-1.5">
+                  <CheckCircle2 className="size-4" /> In stock & ready to ship
+                </span>
+              )}
+            </p>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 rounded-full border border-border px-3 py-2">
-              <button
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
-              >
-                <Minus className="size-4" />
-              </button>
-              <span className="w-6 text-center text-sm font-semibold">{qty}</span>
-              <button
-                onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
-                aria-label="Increase quantity"
-              >
-                <Plus className="size-4" />
-              </button>
-            </div>
-            {(() => {
-              const inCart = items.find((i) => i.product.id === product.id)?.qty || 0;
-              const remaining = Math.max(0, product.stock - inCart);
-              const maxed = remaining <= 0;
-
-              return (
-                <>
+            {/* Sticky Mobile Add to Cart Bar */}
+            <div className="fixed inset-x-0 bottom-0 z-40 md:relative md:z-0 border-t border-border/50 bg-background/95 backdrop-blur-xl md:bg-transparent md:border-none p-3 sm:p-4 md:p-0 animate-in slide-in-from-bottom-10 md:animate-none shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.1)] md:shadow-none">
+              <div className="mx-auto flex max-w-7xl items-center gap-3">
+                <div className="hidden md:flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-sm">
                   <button
-                    disabled={soldOut || maxed || qty > remaining}
-                    onClick={() => {
-                      if (qty > remaining) {
-                        toast.error("Not enough stock", {
-                          description: `You can only add ${remaining} more.`,
-                        });
-                        return;
-                      }
-                      add(product.id, qty);
-                      trackEvent("add_to_cart", {
-                        productId: product.uuid,
-                        metadata: { qty, from: "product_page" },
-                      });
-                      toast.success("Added to bag", { description: `${qty} × ${product.name}` });
-                    }}
-                    className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    aria-label="Decrease quantity"
+                    className="hover:text-primary transition-colors"
                   >
-                    {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
+                    <Minus className="size-4" />
                   </button>
-                  {!soldOut && !maxed && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (qty > remaining) {
-                          toast.error("Not enough stock", {
-                            description: `You can only add ${remaining} more.`,
-                          });
-                          return;
-                        }
-                        if (!user) {
-                          toast.info("Please log in to proceed with Buy Now");
+                  <span className="w-6 text-center text-sm font-bold">{qty}</span>
+                  <button
+                    onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
+                    aria-label="Increase quantity"
+                    className="hover:text-primary transition-colors"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </div>
+                {(() => {
+                  const inCart = items.find((i) => i.product.id === product.id)?.qty || 0;
+                  const remaining = Math.max(0, product.stock - inCart);
+                  const maxed = remaining <= 0;
 
-                          navigate({
-                            to: "/auth",
-                            search: { redirect: `/product/${product.id}` } as any,
+                  return (
+                    <div className="flex w-full md:w-auto flex-1 gap-2 sm:gap-3">
+                      <button
+                        disabled={soldOut || maxed || qty > remaining}
+                        onClick={() => {
+                          if (qty > remaining) {
+                            toast.error("Not enough stock", {
+                              description: `You can only add ${remaining} more.`,
+                            });
+                            return;
+                          }
+                          add(product.id, qty);
+                          trackEvent("add_to_cart", {
+                            productId: product.uuid,
+                            metadata: { qty, from: "product_page" },
                           });
-                          return;
-                        }
-                        trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
-                        setShowBuyNowModal(true);
-                      }}
-                      className="rounded-full border border-border px-8 py-3 text-sm font-semibold transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      Buy now
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {[
-              { icon: Truck, text: "Free delivery over ₹999" },
-              { icon: RotateCcw, text: "7-day easy returns" },
-              { icon: ShieldCheck, text: "Safety lab tested" },
-            ].map((f) => (
-              <div
-                key={f.text}
-                className="flex items-center gap-2 rounded-xl border border-border p-3 text-xs"
-              >
-                <f.icon className="size-4 text-primary" />
-                {f.text}
+                          toast.success("Added to bag", {
+                            description: `${qty} × ${product.name}`,
+                          });
+                        }}
+                        className="flex-1 rounded-full bg-primary px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                      >
+                        {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
+                      </button>
+                      {!soldOut && !maxed && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (qty > remaining) {
+                              toast.error("Not enough stock", {
+                                description: `You can only add ${remaining} more.`,
+                              });
+                              return;
+                            }
+                            if (!user) {
+                              toast.info("Please log in to proceed with Buy Now");
+                              navigate({
+                                to: "/auth",
+                                search: { redirect: `/product/${product.id}` } as any,
+                              });
+                              return;
+                            }
+                            trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
+                            setShowBuyNowModal(true);
+                          }}
+                          className="flex-1 rounded-full border-2 border-primary bg-background px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-4 focus:ring-primary/20"
+                        >
+                          Buy now
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
-            ))}
+            </div>
+
+            {/* Trust Signals */}
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold text-muted-foreground md:text-sm pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <div className="grid size-8 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Truck className="size-4" />
+                </div>
+                <span>Fast & Free Delivery</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="grid size-8 place-items-center rounded-full bg-primary/10 text-primary">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <span>100% Safe Checkout</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -484,7 +503,7 @@ function ProductPage() {
 
       {product && <RelatedProducts currentProductId={product.id} category={product.category} />}
       {product && <RecentlyViewed currentProductId={product.id} />}
-    </div>
+    </main>
   );
 }
 

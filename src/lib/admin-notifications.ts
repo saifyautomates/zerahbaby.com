@@ -168,7 +168,7 @@ export function useAdminNotifications() {
         type: "email_failed",
         title: `Owner Email Failed`,
         message: `Alert for ${log.reference_number || log.event_type} failed: ${log.error_message || "Delivery error"}`,
-        timestamp: log.created_at,
+        timestamp: log.created_at || new Date().toISOString(),
         tab: "orders",
         read: readIds.has(`email-failed-${log.id}`),
         priority: "normal",
