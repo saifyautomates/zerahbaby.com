@@ -597,6 +597,7 @@ export function Header() {
                     onClick={() => setOpen(false)}
                   >
                     {c.name}
+                  </Link>
                 ))}
                 {isAdmin && adminMode && (
                   <Link
