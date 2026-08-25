@@ -423,7 +423,30 @@ export function DashboardDrillDown({
               <tbody>
                 {inStockItems.map((p, i) => (
                   <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                    <td className="px-6 py-4 font-medium text-foreground">{p.name}</td>
+                    <td className="px-6 py-4">
+                      <Link
+                        to="/product/$id"
+                        params={{ id: p.id || p.slug }}
+                        className="flex items-center gap-3 hover:text-primary transition-colors group"
+                      >
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                          {p.name}
+                        </span>
+                      </Link>
+                    </td>
                     <td className="px-6 py-4 text-right">{formatPrice(p.price || 0)}</td>
                     <td className="px-6 py-4 text-right font-bold">{p.stock}</td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">
@@ -464,6 +487,8 @@ export function DashboardDrillDown({
           allItems.push({
             date: o.created_at,
             product: item.product_name,
+            slug: item.product_slug,
+            image: p?.image || p?.image_url,
             qty: item.qty || 1,
             rev,
             cogs,
@@ -533,7 +558,34 @@ export function DashboardDrillDown({
                 <tbody>
                   {allItems.map((item, i) => (
                     <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                      <td className="px-6 py-4 font-medium text-foreground">{item.product}</td>
+                    <td className="px-6 py-4">
+                      {item.slug ? (
+                        <Link
+                          to="/product/$id"
+                          params={{ id: item.slug }}
+                          className="flex items-center gap-3 hover:text-primary transition-colors group"
+                        >
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.product}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            {item.product}
+                          </span>
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-foreground">{item.product}</span>
+                      )}
+                    </td>
                       <td className="px-6 py-4 text-right">{item.qty}</td>
                       <td className="px-6 py-4 text-right text-emerald-600">
                         {formatPrice(item.rev)}
