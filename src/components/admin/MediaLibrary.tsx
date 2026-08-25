@@ -103,18 +103,21 @@ export function MediaLibrary({
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [assets, accept, type, tag, query]);
 
-  async function handleFiles(files: FileList | null) {
-    if (!files?.length) return;
-    setUploading(true);
-    try {
-      const added = await upload(Array.from(files));
-      toast.success(`${added.length} file(s) added to the library`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  }
+  const handleFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length) return;
+      setUploading(true);
+      try {
+        const added = await upload(Array.from(files));
+        toast.success(`${added.length} file(s) added to the library`);
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [upload],
+  );
 
   function addLink() {
     const url = linkUrl.trim();
@@ -165,7 +168,7 @@ export function MediaLibrary({
         handleFiles(e.dataTransfer.files);
       }
     },
-    [upload, handleFiles],
+    [handleFiles],
   );
 
   const chosen = assets.filter((a) => selected.includes(a.id));

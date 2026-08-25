@@ -243,7 +243,7 @@ function CartPage() {
             <>
               <Link
                 to="/auth"
-                search={{ redirect: "/checkout" } as any}
+                search={{ redirect: "/checkout" }}
                 onClick={() => toast.info("Please sign in to place your order")}
                 className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
               >

@@ -455,7 +455,7 @@ function ProductPage() {
                               toast.info("Please log in to proceed with Buy Now");
                               navigate({
                                 to: "/auth",
-                                search: { redirect: `/product/${product.id}` } as any,
+                                search: { redirect: `/product/${product.id}` },
                               });
                               return;
                             }
@@ -764,7 +764,7 @@ function ReviewsSection({
             <span className="text-xs text-muted-foreground font-semibold">Sort by:</span>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as "recent" | "rating_desc" | "rating_asc")}
               className="text-xs font-bold text-foreground bg-card border border-border rounded-xl px-3 py-1.5 outline-hidden focus:border-[#8B2020] cursor-pointer"
             >
               <option value="recent">Most Recent</option>

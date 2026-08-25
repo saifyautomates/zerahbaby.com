@@ -89,7 +89,7 @@ function Index() {
   const displayReviews =
     realReviews && realReviews.length > 0
       ? realReviews.map((r) => ({
-          name: (r.profiles as any)?.full_name || "Verified Parent",
+          name: (r.profiles as { full_name?: string })?.full_name || "Verified Parent",
           text: r.comment,
           rating: r.rating,
         }))

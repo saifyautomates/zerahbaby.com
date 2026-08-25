@@ -160,7 +160,11 @@ export function CategoriesTab() {
             >
               <ImagePlus className="size-4 shrink-0" />
               <span className="truncate">
-                {uploading ? "Uploading..." : draft.image_url ? "Media Selected" : "Upload Photo/Video"}
+                {uploading
+                  ? "Uploading..."
+                  : draft.image_url
+                    ? "Media Selected"
+                    : "Upload Photo/Video"}
               </span>
             </label>
           </div>

@@ -29,35 +29,37 @@ export function DashboardDrillDown({
   posSales: any[];
   products: any[];
 }) {
-  const getProduct = (slugOrId: string) => {
-    return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
-  };
-
-  const getBuyingPrice = (p: any) => {
-    if (!p) return 0;
-    const costs = p.product_costs;
-    return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
-  };
-
-  const getProductImage = (p: any) => {
-    if (!p) return null;
-    let url: string | null = null;
-    if (p.image) url = p.image;
-    else if (p.image_url) url = p.image_url;
-    else if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
-      const sorted = [...p.product_images].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      const primary = sorted.find((img) => img.is_primary) || sorted[0];
-      url = primary?.public_url || null;
-    }
-    return imageFor(p.category || "clothing", url);
-  };
-
   const {
     title,
     icon: Icon,
     colorClass,
     renderContent,
   } = useMemo(() => {
+    const getProduct = (slugOrId: string) => {
+      return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
+    };
+
+    const getBuyingPrice = (p: any) => {
+      if (!p) return 0;
+      const costs = p.product_costs;
+      return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
+    };
+
+    const getProductImage = (p: any) => {
+      if (!p) return null;
+      let url: string | null = null;
+      if (p.image) url = p.image;
+      else if (p.image_url) url = p.image_url;
+      else if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
+        const sorted = [...p.product_images].sort(
+          (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+        );
+        const primary = sorted.find((img) => img.is_primary) || sorted[0];
+        url = primary?.public_url || null;
+      }
+      return imageFor(p.category || "clothing", url);
+    };
+
     const handleDeleteRecord = async (id: string, source: "Online" | "POS") => {
       if (!window.confirm(`Are you sure you want to delete this ${source} record?`)) return;
       try {
@@ -571,34 +573,34 @@ export function DashboardDrillDown({
                 <tbody>
                   {allItems.map((item, i) => (
                     <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                    <td className="px-6 py-4">
-                      {item.slug ? (
-                        <Link
-                          to="/product/$id"
-                          params={{ id: item.slug }}
-                          className="flex items-center gap-3 hover:text-primary transition-colors group"
-                        >
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.product}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                            {item.product}
-                          </span>
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-foreground">{item.product}</span>
-                      )}
-                    </td>
+                      <td className="px-6 py-4">
+                        {item.slug ? (
+                          <Link
+                            to="/product/$id"
+                            params={{ id: item.slug }}
+                            className="flex items-center gap-3 hover:text-primary transition-colors group"
+                          >
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt={item.product}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                              {item.product}
+                            </span>
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-foreground">{item.product}</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">{item.qty}</td>
                       <td className="px-6 py-4 text-right text-emerald-600">
                         {formatPrice(item.rev)}
