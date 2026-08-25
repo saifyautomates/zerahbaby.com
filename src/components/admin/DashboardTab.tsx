@@ -156,7 +156,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, price, stock, name, is_active, slug, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
+          "id, price, stock, name, is_active, slug, category, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
         );
       if (error) return [];
       return data ?? [];

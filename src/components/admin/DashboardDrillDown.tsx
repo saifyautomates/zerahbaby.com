@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, imageFor } from "@/lib/store";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
@@ -41,14 +41,15 @@ export function DashboardDrillDown({
 
   const getProductImage = (p: any) => {
     if (!p) return null;
-    if (p.image) return p.image;
-    if (p.image_url) return p.image_url;
-    if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
+    let url: string | null = null;
+    if (p.image) url = p.image;
+    else if (p.image_url) url = p.image_url;
+    else if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
       const sorted = [...p.product_images].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       const primary = sorted.find((img) => img.is_primary) || sorted[0];
-      return primary?.public_url || null;
+      url = primary?.public_url || null;
     }
-    return null;
+    return imageFor(p.category || "clothing", url);
   };
 
   const {
