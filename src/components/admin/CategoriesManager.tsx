@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, ImagePlus, Upload } from "lucide-react";
 import { imageFor } from "@/lib/store";
+import { uploadMedia } from "@/lib/uploads";
 
 type CategoryRow = {
   id: string;
@@ -23,6 +24,7 @@ export function CategoriesTab() {
     image_url: "",
     sort_order: 0,
   });
+  const [uploading, setUploading] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["admin-categories"],
@@ -132,13 +134,36 @@ export function CategoriesTab() {
             onChange={(e) => setDraft({ ...draft, tagline: e.target.value })}
             aria-label="Category tagline"
           />
-          <input
-            className={input}
-            placeholder="Image URL (optional)"
-            value={draft.image_url}
-            onChange={(e) => setDraft({ ...draft, image_url: e.target.value })}
-            aria-label="Category image URL"
-          />
+          <div className="relative">
+            <input
+              type="file"
+              id="add-category-image"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploading(true);
+                try {
+                  const url = await uploadMedia(file, "categories");
+                  setDraft({ ...draft, image_url: url });
+                } catch (err: any) {
+                  toast.error(err.message || "Upload failed");
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            />
+            <label
+              htmlFor="add-category-image"
+              className={`flex items-center justify-center gap-2 ${input} cursor-pointer hover:bg-muted/50 ${draft.image_url ? "border-primary text-primary font-medium" : ""}`}
+            >
+              <ImagePlus className="size-4 shrink-0" />
+              <span className="truncate">
+                {uploading ? "Uploading..." : draft.image_url ? "Media Selected" : "Upload Photo/Video"}
+              </span>
+            </label>
+          </div>
           <input
             className={input}
             type="number"
@@ -170,22 +195,44 @@ function CategoryRowEditor({
   onDelete: () => void;
 }) {
   const [value, setValue] = useState(row);
+  const [uploading, setUploading] = useState(false);
   const input =
     "w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm placeholder:text-muted-foreground";
 
   return (
     <div className="grid items-center gap-4 rounded-2xl border border-gray-100 bg-card p-4 shadow-sm lg:grid-cols-[64px_1fr_1fr_1fr_80px_auto] transition-all hover:border-border">
-      <img
-        src={imageFor(value.slug, value.image_url)}
-        alt=""
-        loading="lazy"
-        width={56}
-        height={56}
-        className="size-14 rounded-xl object-cover border border-gray-100 shadow-sm"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.opacity = "0";
-        }}
-      />
+      <label className="relative cursor-pointer group rounded-xl overflow-hidden size-14 border border-gray-100 shadow-sm block bg-muted">
+        <input
+          type="file"
+          accept="image/*,video/*"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setUploading(true);
+            try {
+              const url = await uploadMedia(file, "categories");
+              setValue({ ...value, image_url: url });
+            } catch (err: any) {
+              toast.error(err.message || "Upload failed");
+            } finally {
+              setUploading(false);
+            }
+          }}
+        />
+        <img
+          src={imageFor(value.slug, value.image_url)}
+          alt=""
+          loading="lazy"
+          className={`w-full h-full object-cover transition-opacity ${uploading ? "opacity-50" : ""}`}
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.opacity = "0";
+          }}
+        />
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Upload className="size-5 text-white" />
+        </div>
+      </label>
       <input
         className={input}
         value={value.name}
