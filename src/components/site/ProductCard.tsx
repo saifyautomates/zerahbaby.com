@@ -40,30 +40,26 @@ export function ProductCard({ product }: { product: Product }) {
         params={{ id: product.id }}
         className="focus-ring relative block overflow-hidden bg-muted"
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 mix-blend-multiply" />
-        <div className="relative aspect-square w-full bg-muted">
-          <ResponsiveMedia
+        <div className="relative aspect-square w-full overflow-hidden bg-muted">
+          <img
             src={product.image}
             alt={product.name}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            width={800}
-            height={800}
-            fit="cover"
-            aspect="1/1"
-            containerClassName={`w-full h-full absolute inset-0 ${featHoverSwap && product.images?.length > 0 ? "transition-opacity duration-500 group-hover:opacity-0" : "transition-transform duration-700 ease-out group-hover:scale-[1.08]"}`}
+            loading="lazy"
+            decoding="async"
+            className={`h-full w-full object-cover object-center ${
+              featHoverSwap && product.images?.length > 0
+                ? "transition-opacity duration-500 group-hover:opacity-0"
+                : "transition-transform duration-700 ease-out group-hover:scale-105"
+            }`}
           />
           {/* Second Image Swap on Hover */}
           {featHoverSwap && product.images?.length > 0 && (
-            <ResponsiveMedia
+            <img
               src={product.images[0]}
               alt={`${product.name} alternate view`}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              width={800}
-              height={800}
-              fit="cover"
-              aspect="1/1"
-              containerClassName="w-full h-full absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-              className="transition-transform duration-700 ease-out scale-100 group-hover:scale-[1.08]"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
             />
           )}
         </div>

@@ -617,14 +617,14 @@ export function Header() {
           )}
         >
           <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center px-2 sm:px-4">
-            {/* Scrollable Categories Area with Chevrons and min-w-0 */}
-            <div className="relative min-w-0 flex-1 flex items-center">
+            {/* Scrollable Categories Area with Non-Overlapping Chevrons and Mouse Wheel / Touch Support */}
+            <div className="relative min-w-0 flex-1 flex items-center gap-1.5">
               {canScrollLeft && (
                 <button
                   type="button"
                   onClick={() => scrollCategories("left")}
                   aria-label="Scroll categories left"
-                  className="hidden md:flex absolute left-0 z-20 size-6 -translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
                 >
                   <ChevronLeft className="size-3.5" />
                 </button>
@@ -633,7 +633,12 @@ export function Header() {
               <div
                 ref={categoryScrollRef}
                 onScroll={checkCategoryScroll}
-                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-1.5 px-1 scroll-smooth"
+                onWheel={(e) => {
+                  if (categoryScrollRef.current && e.deltaY !== 0) {
+                    categoryScrollRef.current.scrollLeft += e.deltaY;
+                  }
+                }}
+                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-1.5 px-0.5 scroll-smooth touch-pan-x select-none"
               >
                 <div className="flex w-max items-center gap-1.5 sm:gap-2">
                   <Link
@@ -682,7 +687,7 @@ export function Header() {
                   type="button"
                   onClick={() => scrollCategories("right")}
                   aria-label="Scroll categories right"
-                  className="hidden md:flex absolute right-0 z-20 size-6 translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
                 >
                   <ChevronRight className="size-3.5" />
                 </button>
