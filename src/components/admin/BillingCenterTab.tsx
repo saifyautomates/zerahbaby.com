@@ -6,7 +6,6 @@ import { POSTab } from "./POSTab";
 import { POSReturnsTab } from "./POSReturnsTab";
 import { OfflineAnalyticsTab } from "./OfflineAnalyticsTab";
 import { CustomerHistoryPanel } from "./CustomerHistoryPanel";
-import { PrintLabelsModal } from "./PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import {
   Scan,
@@ -17,7 +16,6 @@ import {
   CheckSquare,
   Square,
   RotateCcw,
-  Settings2,
 } from "lucide-react";
 
 type BillingTab = "pos" | "returns" | "labels" | "sales" | "customers";
@@ -168,27 +166,16 @@ function LabelPrintingSubTab() {
           <span className="text-sm font-semibold text-muted-foreground">
             {selectedIds.size} selected
           </span>
-          <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
-            <button
-              type="button"
-              onClick={() => printLabel(selectedProducts)}
-              disabled={selectedIds.size === 0 || isPrinting}
-              title="Print selected labels directly (1-Click)"
-              className="flex items-center gap-2 bg-[#8B2020] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#7a1c1c] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <Printer className="size-4" />
-              <span>Print Labels</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPrintingLabels(true)}
-              disabled={selectedIds.size === 0}
-              title="Advanced Print (Custom quantities & layouts)"
-              className="bg-[#7a1c1c] px-2.5 py-2.5 text-white/90 hover:text-white transition border-l border-white/20 disabled:opacity-50 cursor-pointer"
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => printLabel(selectedProducts)}
+            disabled={selectedIds.size === 0 || isPrinting}
+            title="Instant 1-Click Direct Automatic Print"
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-premium-sm transition-all duration-300 hover:bg-primary/90 hover:shadow-premium-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Printer className="size-4" />
+            <span>{isPrinting ? "Printing…" : `Print ${selectedIds.size > 1 ? `${selectedIds.size} Labels` : "Label"}`}</span>
+          </button>
         </div>
       </div>
 
@@ -199,7 +186,7 @@ function LabelPrintingSubTab() {
               <th className="px-5 py-3 w-10 text-center">
                 <button onClick={toggleAll} className="text-gray-400 hover:text-muted-foreground">
                   {selectedIds.size === list.length && list.length > 0 ? (
-                    <CheckSquare className="size-4 text-[#8B2020]" />
+                    <CheckSquare className="size-4 text-primary" />
                   ) : (
                     <Square className="size-4" />
                   )}
@@ -209,21 +196,22 @@ function LabelPrintingSubTab() {
               <th className="px-5 py-3">SKU / Barcode</th>
               <th className="px-5 py-3">Price</th>
               <th className="px-5 py-3 text-center">Stock</th>
+              <th className="px-5 py-3 text-right">Quick Print</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-card">
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-5 py-16 text-center">
+                <td colSpan={6} className="px-5 py-16 text-center">
                   <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
                   </div>
                 </td>
               </tr>
             )}
             {!isLoading && list.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-16 text-center text-muted-foreground">
+                <td colSpan={6} className="px-5 py-16 text-center text-muted-foreground">
                   No products found.
                 </td>
               </tr>
@@ -235,12 +223,12 @@ function LabelPrintingSubTab() {
                   key={p.uuid}
                   onClick={() => toggleOne(p.uuid)}
                   className={`cursor-pointer transition-colors hover:bg-muted ${
-                    isSelected ? "bg-[#8B2020]/5" : ""
+                    isSelected ? "bg-primary/5" : ""
                   }`}
                 >
                   <td className="px-5 py-3 text-center">
                     {isSelected ? (
-                      <CheckSquare className="size-4 text-[#8B2020] mx-auto" />
+                      <CheckSquare className="size-4 text-primary mx-auto" />
                     ) : (
                       <Square className="size-4 text-gray-300 mx-auto" />
                     )}
@@ -291,16 +279,27 @@ function LabelPrintingSubTab() {
                       {p.stock === 0 ? "OOS" : p.stock}
                     </span>
                   </td>
+                  <td className="px-5 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        printLabel(p);
+                      }}
+                      disabled={isPrinting}
+                      title={`1-Click Instant Print for ${p.name}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary hover:text-primary-foreground px-3 py-1.5 text-xs font-bold text-primary transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    >
+                      <Printer className="size-3.5" />
+                      <span>Print</span>
+                    </button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-
-      {printingLabels && (
-        <PrintLabelsModal products={selectedProducts} onClose={() => setPrintingLabels(false)} />
-      )}
     </div>
   );
 }
