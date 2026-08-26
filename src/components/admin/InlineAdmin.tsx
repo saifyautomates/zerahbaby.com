@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Upload, FolderPlus } from "lucide-react";
 import { useAdminMode } from "@/lib/admin-mode";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useDeleteProduct, useSaveProduct, useSaveSetting } from "@/lib/admin-products";
-import type { Product } from "@/lib/store";
+import type { Product, Category } from "@/lib/store";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { uploadMedia } from "@/lib/uploads";
+import { toast } from "sonner";
 
 /** Edit / delete controls that sit on a product card while admin mode is on. */
 export function AdminProductControls({ product }: { product: Product }) {
   const { adminMode } = useAdminMode();
   const [editing, setEditing] = useState(false);
-  const [pendingDraft, setPendingDraft] = useState<ProductDraft | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const save = useSaveProduct();
   const remove = useDeleteProduct();
@@ -28,7 +31,7 @@ export function AdminProductControls({ product }: { product: Product }) {
             e.preventDefault();
             setEditing(true);
           }}
-          className="rounded-full bg-background/95 p-2 text-foreground shadow-md transition hover:bg-primary hover:text-primary-foreground"
+          className="rounded-full bg-background/95 p-2 text-foreground shadow-md transition hover:bg-primary hover:text-primary-foreground cursor-pointer"
         >
           <Pencil className="size-4" />
         </button>
@@ -40,7 +43,7 @@ export function AdminProductControls({ product }: { product: Product }) {
             e.preventDefault();
             setConfirmDelete(true);
           }}
-          className="rounded-full bg-background/95 p-2 text-destructive shadow-md transition hover:bg-destructive hover:text-destructive-foreground"
+          className="rounded-full bg-background/95 p-2 text-destructive shadow-md transition hover:bg-destructive hover:text-destructive-foreground cursor-pointer"
         >
           <Trash2 className="size-4" />
         </button>
@@ -74,6 +77,359 @@ export function AdminProductControls({ product }: { product: Product }) {
   );
 }
 
+/** Edit / delete controls that sit on a category card on homepage while admin mode is on. */
+export function AdminCategoryControls({ category }: { category: Category }) {
+  const { adminMode } = useAdminMode();
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [draft, setDraft] = useState({
+    name: category.name,
+    slug: category.slug,
+    tagline: category.tagline,
+    image_url: category.imageUrl || "",
+    sort_order: category.sortOrder,
+  });
+  const [uploading, setUploading] = useState(false);
+  const qc = useQueryClient();
+
+  const update = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("categories")
+        .update({
+          name: draft.name,
+          slug: draft.slug,
+          tagline: draft.tagline,
+          image_url: draft.image_url || null,
+          sort_order: Number(draft.sort_order),
+        })
+        .eq("id", category.uuid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Category updated successfully");
+      qc.invalidateQueries({ queryKey: ["categories"] });
+      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      setEditing(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("categories").delete().eq("id", category.uuid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Category deleted");
+      qc.invalidateQueries({ queryKey: ["categories"] });
+      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      setConfirmDelete(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!adminMode) return null;
+
+  return (
+    <>
+      <div className="absolute right-4 top-4 z-30 flex gap-2 pointer-events-auto">
+        <button
+          type="button"
+          aria-label={`Edit ${category.name}`}
+          title="Edit this category"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setEditing(true);
+          }}
+          className="rounded-full bg-background/95 p-2.5 text-foreground shadow-lg backdrop-blur-md transition hover:bg-primary hover:text-primary-foreground hover:scale-110 cursor-pointer"
+        >
+          <Pencil className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Delete ${category.name}`}
+          title="Delete this category"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setConfirmDelete(true);
+          }}
+          className="rounded-full bg-background/95 p-2.5 text-destructive shadow-lg backdrop-blur-md transition hover:bg-destructive hover:text-destructive-foreground hover:scale-110 cursor-pointer"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+
+      {editing && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="relative w-full max-w-lg rounded-3xl bg-background p-6 shadow-2xl border border-border">
+            <div className="flex items-center justify-between mb-5 border-b border-border pb-4">
+              <h3 className="text-xl font-black font-display text-foreground">
+                Edit Category: {category.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="rounded-full p-2 bg-muted hover:bg-muted-foreground/20 transition cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Category Name</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  placeholder="e.g. Clothing & Fashion"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Slug (URL)</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.slug}
+                  onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+                  placeholder="e.g. clothing"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Tagline / Subtitle</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.tagline}
+                  onChange={(e) => setDraft({ ...draft, tagline: e.target.value })}
+                  placeholder="e.g. Soft, breathable everyday wear"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Image URL / Upload</label>
+                <div className="flex gap-2 mt-1.5">
+                  <input
+                    className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="https://images.unsplash.com/..."
+                    value={draft.image_url}
+                    onChange={(e) => setDraft({ ...draft, image_url: e.target.value })}
+                  />
+                  <label className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-muted hover:bg-muted-foreground/20 text-xs font-bold cursor-pointer transition">
+                    <Upload className="size-4" />
+                    <span>{uploading ? "Uploading…" : "Upload"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                          const url = await uploadMedia(file, "categories");
+                          setDraft({ ...draft, image_url: url });
+                          toast.success("Category image uploaded!");
+                        } catch (err: any) {
+                          toast.error(err.message);
+                        } finally {
+                          setUploading(false);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="px-5 py-2.5 rounded-full border border-border text-sm font-semibold hover:bg-muted cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={update.isPending || uploading}
+                  onClick={() => update.mutate()}
+                  className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+                >
+                  {update.isPending ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          destructive
+          title="Delete this category?"
+          message={`"${category.name}" will be removed from the store and homepage.`}
+          confirmLabel="Yes, delete"
+          busy={remove.isPending}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => remove.mutate()}
+        />
+      )}
+    </>
+  );
+}
+
+/** "Add Category" button on homepage Shop by Category section */
+export function AdminAddCategory({ className = "" }: { className?: string }) {
+  const { adminMode } = useAdminMode();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState({ slug: "", name: "", tagline: "", image_url: "", sort_order: 1 });
+  const [uploading, setUploading] = useState(false);
+  const qc = useQueryClient();
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("categories").insert({
+        slug: draft.slug.trim(),
+        name: draft.name.trim(),
+        tagline: draft.tagline.trim(),
+        image_url: draft.image_url || null,
+        sort_order: Number(draft.sort_order),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Category added successfully");
+      qc.invalidateQueries({ queryKey: ["categories"] });
+      qc.invalidateQueries({ queryKey: ["admin-categories"] });
+      setOpen(false);
+      setDraft({ slug: "", name: "", tagline: "", image_url: "", sort_order: 1 });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!adminMode) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`inline-flex items-center gap-2 rounded-full border border-dashed border-primary px-4 py-2 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground cursor-pointer ${className}`}
+      >
+        <FolderPlus className="size-4" /> Add Category
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-background p-6 shadow-2xl border border-border">
+            <div className="flex items-center justify-between mb-5 border-b border-border pb-4">
+              <h3 className="text-xl font-black font-display text-foreground">Add New Category</h3>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-full p-2 bg-muted hover:bg-muted-foreground/20 cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Category Name</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  placeholder="e.g. Nursery & Care"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Slug (URL)</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.slug}
+                  onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+                  placeholder="e.g. care"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Tagline</label>
+                <input
+                  className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                  value={draft.tagline}
+                  onChange={(e) => setDraft({ ...draft, tagline: e.target.value })}
+                  placeholder="e.g. Gentle skincare and hygiene essentials"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground">Image</label>
+                <div className="flex gap-2 mt-1.5">
+                  <input
+                    className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="https://..."
+                    value={draft.image_url}
+                    onChange={(e) => setDraft({ ...draft, image_url: e.target.value })}
+                  />
+                  <label className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-muted hover:bg-muted-foreground/20 text-xs font-bold cursor-pointer transition">
+                    <Upload className="size-4" />
+                    <span>{uploading ? "..." : "Upload"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                          const url = await uploadMedia(file, "categories");
+                          setDraft({ ...draft, image_url: url });
+                          toast.success("Image uploaded!");
+                        } catch (err: any) {
+                          toast.error(err.message);
+                        } finally {
+                          setUploading(false);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="px-5 py-2.5 rounded-full border border-border text-sm font-semibold hover:bg-muted cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={create.isPending || uploading || !draft.name.trim() || !draft.slug.trim()}
+                  onClick={() => create.mutate()}
+                  className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+                >
+                  {create.isPending ? "Adding..." : "Add Category"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** "Add product" button placed inside any storefront section while admin mode is on. */
 export function AdminAddProduct({
   defaultCategory,
@@ -86,7 +442,6 @@ export function AdminAddProduct({
 }) {
   const { adminMode } = useAdminMode();
   const [open, setOpen] = useState(false);
-  const [pendingDraft, setPendingDraft] = useState<ProductDraft | null>(null);
   const save = useSaveProduct();
 
   if (!adminMode) return null;
@@ -96,15 +451,14 @@ export function AdminAddProduct({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-2 rounded-full border border-dashed border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground ${className}`}
+        className={`inline-flex items-center gap-2 rounded-full border border-dashed border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground cursor-pointer ${className}`}
       >
         <Plus className="size-4" /> {label}
       </button>
 
       {open && (
         <ProductForm
-          product={null}
-          {...(defaultCategory ? { defaultCategory } : {})}
+          defaultCategory={defaultCategory}
           saving={save.isPending}
           onCancel={() => setOpen(false)}
           onSave={(draft) => {
@@ -116,17 +470,17 @@ export function AdminAddProduct({
   );
 }
 
-/** Inline-editable website text backed by site_settings. */
+/** Inline editable text wrapper for site settings. */
 export function AdminEditableText({
   settingKey,
   value,
-  multiline = false,
   children,
+  multiline = false,
 }: {
   settingKey: string;
   value: string;
-  multiline?: boolean;
   children: React.ReactNode;
+  multiline?: boolean;
 }) {
   const { adminMode } = useAdminMode();
   const [draft, setDraft] = useState<string | null>(null);
@@ -136,17 +490,18 @@ export function AdminEditableText({
   if (!adminMode) return <>{children}</>;
 
   return (
-    <span className="group relative inline-block w-full">
+    <span className="relative group/edit inline-block">
       {draft === null ? (
         <>
           {children}
           <button
             type="button"
             aria-label={`Edit ${settingKey}`}
+            title="Edit this text"
             onClick={() => setDraft(value)}
-            className="ml-2 inline-flex items-center gap-1 rounded-full border border-dashed border-primary px-2.5 py-1 align-middle text-xs font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+            className="absolute -right-8 top-1/2 -translate-y-1/2 rounded-full bg-primary p-1.5 text-primary-foreground opacity-0 shadow-md transition group-hover/edit:opacity-100 cursor-pointer"
           >
-            <Pencil className="size-3" /> Edit
+            <Pencil className="size-3.5" />
           </button>
         </>
       ) : (
@@ -169,14 +524,14 @@ export function AdminEditableText({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground"
+              className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground cursor-pointer"
             >
               <Check className="size-3.5" /> Save
             </button>
             <button
               type="button"
               onClick={() => setDraft(null)}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-1.5 text-xs font-semibold"
+              className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-1.5 text-xs font-semibold cursor-pointer"
             >
               <X className="size-3.5" /> Cancel
             </button>

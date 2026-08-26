@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Category } from "@/lib/store";
+import { AdminCategoryControls } from "@/components/admin/InlineAdmin";
 
 export function CategoryCarousel({ categories }: { categories: Category[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -181,6 +182,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               }}
               className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
             >
+              <AdminCategoryControls category={c} />
               <img
                 src={c.image}
                 alt={c.name}

@@ -9,7 +9,7 @@ import { HeroMedia } from "@/components/site/HeroMedia";
 import { HeroMediaDialog } from "@/components/admin/HeroMediaManager";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
-import { AdminAddProduct, AdminEditableText } from "@/components/admin/InlineAdmin";
+import { AdminAddProduct, AdminAddCategory, AdminEditableText } from "@/components/admin/InlineAdmin";
 import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -256,9 +256,12 @@ function Index() {
               Explore all curated collections for babies and kids
             </p>
           </div>
-          <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
-            View all
-          </Link>
+          <div className="flex items-center gap-3">
+            <AdminAddCategory />
+            <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
+              View all
+            </Link>
+          </div>
         </div>
         <div className="mt-6 w-full">
           <CategoryCarousel categories={categories ?? []} />
