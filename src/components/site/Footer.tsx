@@ -77,7 +77,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className={`flex items-center justify-center size-9 rounded-full border border-border bg-background text-foreground/80 transition-all shadow-2xs hover:scale-110 active:scale-95 ${hoverClass}`}
+                  className={`flex items-center justify-center size-9 rounded-full border border-border bg-background text-foreground/80 transition-all shadow-premium-sm hover:shadow-premium-md hover:-translate-y-0.5 active:scale-95 ${hoverClass}`}
                 >
                   <Icon className="size-4.5" />
                 </a>

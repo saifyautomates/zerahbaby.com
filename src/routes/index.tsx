@@ -235,7 +235,7 @@ function Index() {
           {perks.map((perk, i) => (
             <li
               key={perk.title}
-              className={`flex items-center gap-4 rounded-3xl border border-border/50 bg-background/80 backdrop-blur-xl p-5 shadow-premium-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-premium-hover animate-in fade-in slide-in-from-bottom-4`}
+              className={`flex items-center gap-4 rounded-3xl border border-border/50 bg-background/80 backdrop-blur-xl p-5 shadow-premium-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-premium-md animate-in fade-in slide-in-from-bottom-4`}
               style={{ animationDelay: `${i * 100}ms`, animationFillMode: "both" }}
             >
               <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -300,8 +300,9 @@ function Index() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-12">
-        <div className="rounded-3xl bg-secondary/60 p-6 md:p-10">
-          <div>
+        <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative z-10">
             <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Biggest savings across the store, refreshed every Monday.
@@ -328,7 +329,7 @@ function Index() {
           {displayReviews.map((r, idx) => (
             <figure
               key={idx}
-              className="rounded-2xl border border-border bg-card p-6 transition hover:border-primary/20 hover:shadow-sm"
+              className="lift rounded-2xl border border-border bg-card p-6 shadow-sm"
             >
               <div className="flex gap-0.5 text-accent">
                 {Array.from({ length: 5 }).map((_, i) => (

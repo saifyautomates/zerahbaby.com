@@ -22,6 +22,9 @@ export default defineConfig({
           "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP",
       ),
     },
+    build: {
+      chunkSizeWarningLimit: 2000,
+    },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).

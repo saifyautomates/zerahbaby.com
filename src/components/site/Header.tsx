@@ -259,11 +259,11 @@ export function Header() {
 
           <div className="hidden flex-1 items-center mx-4 md:flex lg:mx-8 relative" ref={searchRef}>
             <form
-              className="w-full max-w-md lg:max-w-xl mx-auto relative z-10"
+              className="w-full max-w-md lg:max-w-xl mx-auto relative z-10 group"
               onSubmit={(e) => submitSearch(e)}
               role="search"
             >
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
               <input
                 type="search"
                 value={term}
@@ -274,7 +274,7 @@ export function Header() {
                 onFocus={() => setShowSuggestions(true)}
                 placeholder="Search for onesies, strollers, diapers…"
                 aria-label="Search products"
-                className="w-full rounded-full border border-border bg-muted/60 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
+                className="w-full rounded-full border border-border/60 bg-muted/50 py-2.5 pl-11 pr-4 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-border/80"
               />
             </form>
 
@@ -514,9 +514,9 @@ export function Header() {
 
         {searchOpen && (
           <div className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden">
-            <form onSubmit={(e) => submitSearch(e)} role="search">
+            <form onSubmit={(e) => submitSearch(e)} role="search" className="group">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <input
                   type="search"
                   value={term}
@@ -524,7 +524,7 @@ export function Header() {
                   onChange={(e) => setTerm(e.target.value)}
                   placeholder="Search products…"
                   aria-label="Search products"
-                  className="w-full rounded-full border border-border bg-muted/60 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
+                  className="w-full rounded-full border border-border/60 bg-muted/50 py-2.5 pl-11 pr-4 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-border/80"
                 />
               </div>
             </form>
