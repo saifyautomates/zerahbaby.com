@@ -54,7 +54,7 @@ import { productsQueryOptions } from "@/lib/store";
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
     const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
-    return { product: products.find((p) => p.id === params.id) };
+    return { product: products.find((p) => p.id === params.id || p.uuid === params.id) };
   },
   head: (ctx) => {
     const product = ctx.loaderData?.product;
@@ -128,18 +128,30 @@ function ProductPage() {
   const [dispatchTime, setDispatchTime] = useState("");
 
   const list = products ?? [];
-  const product = list.find((p) => p.id === id) ?? loaderData?.product;
+  const product = list.find((p) => p.id === id || p.uuid === id) ?? loaderData?.product;
   const isLoading = productsLoading && !product;
   const gallery = (product?.images.length ? product.images : [product?.image]).filter(
     Boolean,
   ) as string[];
+
+  // Reset image view and quantity when changing product
+  useEffect(() => {
+    setActiveImage(0);
+    setQty(1);
+    setIsZooming(false);
+  }, [id]);
+
   const swatches = useMemo(() => {
     if (!product) return [];
     return list
       .filter(
-        (p) => p.category === product.category && p.brand === product.brand && p.id !== product.id,
+        (p) =>
+          p.id !== product.id &&
+          p.uuid !== product.uuid &&
+          (p.category.toLowerCase() === product.category.toLowerCase() ||
+            p.brand.toLowerCase() === product.brand.toLowerCase()),
       )
-      .slice(0, 5);
+      .slice(0, 6);
   }, [list, product]);
 
   const addToCartRef = useRef<HTMLDivElement>(null);
@@ -543,18 +555,29 @@ function ProductPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                 More in this style
               </p>
-              <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-2">
-                <div className="size-14 shrink-0 rounded-full border-[2.5px] border-primary p-0.5 overflow-hidden shadow-sm">
-                  <div className="w-full h-full rounded-full overflow-hidden">
+              <div className="flex items-center gap-3 overflow-x-auto scrollbar-none pb-2">
+                {/* Current Active Product */}
+                <div
+                  className="size-14 shrink-0 rounded-full border-[2.5px] border-primary p-0.5 overflow-hidden shadow-sm ring-2 ring-primary/20"
+                  title={`${product.name} (Current)`}
+                >
+                  <div className="w-full h-full rounded-full overflow-hidden bg-muted">
                     <img src={product.image} alt="Current" className="w-full h-full object-cover" />
                   </div>
                 </div>
+
+                {/* Swatch Links */}
                 {swatches.map((s) => (
                   <Link
-                    key={s.id}
+                    key={s.id || s.uuid}
                     to="/product/$id"
-                    params={{ id: s.id }}
-                    className="size-14 shrink-0 rounded-full border border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary/50 transition-all duration-300 hover:scale-105 hover:shadow-sm"
+                    params={{ id: s.id || s.uuid }}
+                    onClick={() => {
+                      setActiveImage(0);
+                      setQty(1);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="size-14 shrink-0 rounded-full border-2 border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary transition-all duration-300 hover:scale-110 hover:shadow-md cursor-pointer bg-muted"
                     title={s.name}
                   >
                     <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
