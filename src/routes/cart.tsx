@@ -34,7 +34,12 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+
+/** Single source of truth for the free-delivery threshold */
+const FREE_DELIVERY_THRESHOLD = 999;
+/** Flat delivery fee below the free-delivery threshold */
+const DELIVERY_FEE = 79;
 
 function CartPage() {
   const {
@@ -52,7 +57,10 @@ function CartPage() {
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
   const [isApplying, setIsApplying] = useState(false);
-  const shipping = subtotal === 0 || subtotal >= 999 ? 0 : 79;
+  // Shipping is free when cart is empty (no charge) or subtotal meets the threshold
+  const shipping = subtotal === 0 || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  // Guard against duplicate checkout navigations from rapid clicking
+  const isNavigatingRef = useRef(false);
 
   if (items.length === 0) {
     return (
@@ -157,7 +165,7 @@ function CartPage() {
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           {/* Free Shipping Progress Bar */}
           <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
-            {subtotal >= 999 ? (
+            {subtotal >= FREE_DELIVERY_THRESHOLD ? (
               <div className="flex items-center gap-2 text-xs font-bold text-green-600">
                 <span>🎉</span>
                 <span>
@@ -167,13 +175,18 @@ function CartPage() {
             ) : (
               <div>
                 <p className="text-xs font-semibold text-foreground">
-                  Add <strong className="text-primary">{formatPrice(999 - subtotal)}</strong> more
-                  to get <strong>FREE Delivery</strong>!
+                  Add{" "}
+                  <strong className="text-primary">
+                    {formatPrice(FREE_DELIVERY_THRESHOLD - subtotal)}
+                  </strong>{" "}
+                  more to get <strong>FREE Delivery</strong>!
                 </p>
                 <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full bg-primary transition-all duration-500 rounded-full"
-                    style={{ width: `${Math.min(100, (subtotal / 999) * 100)}%` }}
+                    style={{
+                      width: `${Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100)}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -187,9 +200,19 @@ function CartPage() {
               <dd>{formatPrice(subtotal)}</dd>
             </div>
             {savings > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">You save (MRP − our price)</dt>
-                <dd className="text-primary">{formatPrice(savings)}</dd>
+              <div className="flex justify-between items-center">
+                <dt className="text-muted-foreground flex items-center gap-1.5">
+                  You save
+                  {/* Tooltip: explains how savings are calculated without cluttering the label */}
+                  <span
+                    title="Savings = MRP minus our selling price, across all items in your bag"
+                    aria-label="Savings = MRP minus our selling price"
+                    className="inline-flex size-4 cursor-help items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors select-none"
+                  >
+                    ?
+                  </span>
+                </dt>
+                <dd className="text-primary font-semibold">−{formatPrice(savings)}</dd>
               </div>
             )}
 
@@ -259,6 +282,17 @@ function CartPage() {
           {user ? (
             <Link
               to="/checkout"
+              onClick={(e) => {
+                if (isNavigatingRef.current) {
+                  e.preventDefault();
+                  return;
+                }
+                isNavigatingRef.current = true;
+                // Reset after 2s in case navigation is cancelled
+                setTimeout(() => {
+                  isNavigatingRef.current = false;
+                }, 2000);
+              }}
               className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
             >
               Proceed to checkout
