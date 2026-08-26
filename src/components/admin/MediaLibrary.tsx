@@ -415,12 +415,24 @@ export function MediaLibrary({
       {pendingDelete && (
         <ConfirmDialog
           title="Remove from library?"
-          message="Pages already using this media keep their copy of the link, but it won't be selectable here anymore."
+          message="Pages already using this media keep their copy of the link, but it won't be selectable in the library anymore."
           confirmLabel="Remove"
+          destructive
+          busy={save.isPending}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => {
-            save.mutate(assets.filter((a) => a.id !== pendingDelete.id));
-            setPendingDelete(null);
+            const next = assets.filter(
+              (a) => a.id !== pendingDelete.id && a.url !== pendingDelete.url,
+            );
+            save.mutate(next, {
+              onSuccess: () => {
+                toast.success("Media removed from library");
+                setPendingDelete(null);
+              },
+              onError: (err) => {
+                toast.error(`Failed to remove: ${err.message}`);
+              },
+            });
           }}
         />
       )}

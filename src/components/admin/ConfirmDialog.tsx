@@ -22,7 +22,7 @@ export function ConfirmDialog({
 }) {
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
       onClick={onCancel}
