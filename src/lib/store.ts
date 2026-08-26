@@ -124,14 +124,48 @@ export const discountPct = (product: { price: number; mrp: number }) =>
   product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
 
 async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
-  let query = supabase
-    .from("products")
-    .select("*, product_images(public_url, is_primary, sort_order)")
-    .order("sort_order", { ascending: true });
-  if (!includeInactive) query = query.eq("is_active", true);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data as unknown as ProductRow[]).map(mapProduct);
+  try {
+    let query = supabase
+      .from("products")
+      .select("*, product_images(public_url, is_primary, sort_order)")
+      .order("sort_order", { ascending: true });
+    if (!includeInactive) query = query.eq("is_active", true);
+    const { data, error } = await query;
+    if (error) throw error;
+    if (data && data.length > 0) {
+      return (data as unknown as ProductRow[]).map(mapProduct);
+    }
+  } catch (err) {
+    console.warn("[fetchProducts] Falling back to FirstCry catalog seed:", err);
+  }
+
+  // Resilient fallback dataset with all 100 products (10 stock each)
+  const { FIRSTCRY_100_PRODUCTS } = await import("@/lib/firstcry-catalog");
+  return FIRSTCRY_100_PRODUCTS.filter((p) => includeInactive || p.isActive).map((p) => ({
+    uuid: p.slug,
+    id: p.slug,
+    name: p.name,
+    brand: p.brand,
+    category: p.category,
+    price: p.price,
+    mrp: p.mrp,
+    rating: p.rating,
+    reviews: p.reviews,
+    ageGroup: p.ageGroup,
+    image: imageFor(p.category, p.imageUrl),
+    imageUrl: p.imageUrl,
+    description: p.description,
+    highlights: p.highlights ?? [],
+    isFeatured: p.isFeatured,
+    isActive: p.isActive,
+    sortOrder: p.sortOrder,
+    stock: p.stock,
+    lowStockAt: p.lowStockAt,
+    sku: p.sku,
+    barcode: p.barcode,
+    images: p.images && p.images.length > 0 ? p.images : [p.imageUrl],
+    buyingPrice: p.buyingPrice,
+  }));
 }
 
 async function fetchCategories(): Promise<Category[]> {

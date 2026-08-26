@@ -302,7 +302,7 @@ function ShopPage() {
     const query = (q ?? "").trim().toLowerCase();
     const filtered = list.filter(
       (p) =>
-        (!category || p.category === category) &&
+        (!category || p.category?.toLowerCase().trim() === category.toLowerCase().trim()) &&
         (selectedAgeGroups.length === 0 || selectedAgeGroups.includes(p.ageGroup)) &&
         (selectedBrands.length === 0 || selectedBrands.includes(p.brand)) &&
         p.price <= maxPrice &&

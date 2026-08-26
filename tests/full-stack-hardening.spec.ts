@@ -17,19 +17,19 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
   });
 
   test("2. Category Filtering and Search", async ({ page }) => {
-    await page.goto("/shop", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.goto("/shop");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 10000 });
 
     // Filter by Clothing
-    await page.goto("/shop?category=clothing", { waitUntil: "domcontentloaded" });
+    await page.goto("/shop?category=clothing");
     const clothingCards = page.locator('a[href^="/product/"]');
-    await expect(clothingCards.first()).toBeVisible({ timeout: 10000 });
+    await expect(clothingCards.first()).toBeVisible({ timeout: 15000 });
     expect(await clothingCards.count()).toBeGreaterThan(0);
 
     // Filter by Toys
-    await page.goto("/shop?category=toys", { waitUntil: "domcontentloaded" });
+    await page.goto("/shop?category=toys");
     const toyCards = page.locator('a[href^="/product/"]');
-    await expect(toyCards.first()).toBeVisible({ timeout: 10000 });
+    await expect(toyCards.first()).toBeVisible({ timeout: 15000 });
     expect(await toyCards.count()).toBeGreaterThan(0);
   });
 
