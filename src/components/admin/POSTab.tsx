@@ -98,12 +98,42 @@ export function POSTab() {
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  const [cashTendered, setCashTendered] = useState<number | "">("");
 
   // Sale result
   const [saleResult, setSaleResult] = useState<SaleResult | null>(null);
   const [showLabels, setShowLabels] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
+
+  // Calculations
+  const subtotal = useMemo(
+    () => cart.reduce((acc, item) => acc + item.price * item.qty, 0),
+    [cart],
+  );
+
+  const totalItems = useMemo(
+    () => cart.reduce((acc, item) => acc + item.qty, 0),
+    [cart],
+  );
+
+  const discountAmount = useMemo(() => {
+    if (discountType === "none" || !discountValue || discountValue <= 0) return 0;
+    if (discountType === "percentage") {
+      return Math.round((subtotal * Math.min(100, discountValue)) / 100);
+    }
+    return Math.min(subtotal, discountValue);
+  }, [subtotal, discountType, discountValue]);
+
+  const total = useMemo(
+    () => Math.max(0, subtotal - discountAmount),
+    [subtotal, discountAmount],
+  );
+
+  const changeDue = useMemo(() => {
+    if (typeof cashTendered !== "number" || cashTendered < total) return 0;
+    return cashTendered - total;
+  }, [cashTendered, total]);
 
   // Products for manual search
   const { data: products = [] } = useQuery({
@@ -172,12 +202,7 @@ export function POSTab() {
     setStep("checkout");
   };
 
-  // Cart calculations
-  const subtotalRaw = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const subtotal = Math.round(subtotalRaw * 100) / 100;
-  const discountAmount = calculateDiscount(subtotal, discountType, discountValue);
-  const total = Math.round(Math.max(0, subtotal - discountAmount) * 100) / 100;
-  const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+
 
   // Keep scan input focused when on cart step
   useEffect(() => {
@@ -662,48 +687,69 @@ export function POSTab() {
           </div>
         )}
 
-        {/* ====== Checkout Step — 2-Column Responsive Layout ====== */}
+        {/* ====== Checkout Step — World-Class 2-Column Cashier Layout ====== */}
         {step === "checkout" && (
           <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
-            <div className="max-w-4xl mx-auto space-y-5">
-              {/* Header */}
+            <div className="max-w-5xl mx-auto space-y-5">
+              {/* Top Navigation & Status Bar */}
               <div className="flex items-center justify-between bg-card p-4 rounded-2xl border border-border shadow-2xs">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setStep("cart")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
                   >
-                    ← Back to Cart
+                    ← Back to Cart ({totalItems} items)
                   </button>
-                  <h2 className="text-lg font-bold text-foreground">POS Checkout</h2>
+                  <div className="hidden sm:block">
+                    <h2 className="text-base font-bold text-foreground">Checkout &amp; Billing</h2>
+                    <p className="text-[11px] text-muted-foreground">Select discount, customer profile, and payment tender</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs text-muted-foreground mr-2">Total Amount:</span>
-                  <span className="font-bold text-lg text-primary">{formatPrice(total)}</span>
+                <div className="text-right flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Net Payable</span>
+                    <span className="font-black text-xl text-primary">{formatPrice(total)}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* 2-Column Layout */}
+              {/* 2-Column Responsive Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                {/* Left Column (7 cols): Discount, Customer, Payment Method */}
+                {/* Left Column (7 cols): Discount, Customer, Payment Tender */}
                 <div className="lg:col-span-7 space-y-4">
-                  {/* Discount Section */}
-                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <h3 className="text-sm font-bold">Discount</h3>
-                      {discountAmount > 0 && (
-                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          −{formatPrice(discountAmount)} applied
-                        </span>
+                  {/* 1. Discount Section with Presets */}
+                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-foreground">1. Discount &amp; Offers</h3>
+                        {discountAmount > 0 && (
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            −{formatPrice(discountAmount)} OFF
+                          </span>
+                        )}
+                      </div>
+                      {discountType !== "none" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiscountType("none");
+                            setDiscountValue(0);
+                          }}
+                          className="text-[11px] font-bold text-destructive hover:underline cursor-pointer"
+                        >
+                          Clear discount
+                        </button>
                       )}
                     </div>
+
+                    {/* Discount Type Pills */}
                     <div className="flex gap-2 mb-3">
                       {(
                         [
-                          ["none", "None"],
-                          ["percentage", "%"],
-                          ["fixed", "₹"],
+                          ["none", "No Discount"],
+                          ["percentage", "Percent (%)"],
+                          ["fixed", "Flat Amount (₹)"],
                         ] as const
                       ).map(([type, label]) => (
                         <button
@@ -713,47 +759,88 @@ export function POSTab() {
                             setDiscountType(type);
                             if (type === "none") setDiscountValue(0);
                           }}
-                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer ${
+                          className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
                             discountType === type
                               ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                           }`}
                         >
                           {label}
                         </button>
                       ))}
                     </div>
+
+                    {/* Discount Presets & Input */}
                     {discountType !== "none" && (
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <input
-                            type="number"
-                            value={discountValue || ""}
-                            onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
-                            placeholder={discountType === "percentage" ? "Enter %" : "Enter ₹ amount"}
-                            min={0}
-                            max={discountType === "percentage" ? 100 : subtotal}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-semibold"
-                          />
+                      <div className="space-y-3 pt-1">
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-muted-foreground mr-1">Quick:</span>
+                          {discountType === "percentage" ? (
+                            [5, 10, 15, 20, 25, 50].map((pct) => (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setDiscountValue(pct)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                  discountValue === pct
+                                    ? "bg-emerald-600 text-white shadow-2xs"
+                                    : "bg-muted text-foreground hover:bg-muted/80"
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            ))
+                          ) : (
+                            [50, 100, 200, 500, 1000].map((amt) => (
+                              <button
+                                key={amt}
+                                type="button"
+                                onClick={() => setDiscountValue(amt)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                  discountValue === amt
+                                    ? "bg-emerald-600 text-white shadow-2xs"
+                                    : "bg-muted text-foreground hover:bg-muted/80"
+                                }`}
+                              >
+                                ₹{amt}
+                              </button>
+                            ))
+                          )}
                         </div>
-                        {discountAmount > 0 && (
-                          <span className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
-                            −{formatPrice(discountAmount)}
-                          </span>
-                        )}
+
+                        {/* Direct Custom Input */}
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              value={discountValue || ""}
+                              onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                              placeholder={discountType === "percentage" ? "Enter discount % (e.g. 10)" : "Enter ₹ discount amount"}
+                              min={0}
+                              max={discountType === "percentage" ? 100 : subtotal}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                            />
+                          </div>
+                          {discountAmount > 0 && (
+                            <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                              −{formatPrice(discountAmount)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Customer Section */}
-                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
-                    <h3 className="text-sm font-bold mb-2.5">Customer</h3>
+                  {/* 2. Customer Section */}
+                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border">
+                    <h3 className="text-sm font-bold text-foreground mb-3">2. Customer Assignment</h3>
                     <div className="flex gap-2 mb-3">
                       {(
                         [
-                          ["walkin", "Walk-in", User],
-                          ["existing", "Search", Search],
-                          ["new", "New", UserPlus],
+                          ["walkin", "Walk-in (Default)", User],
+                          ["existing", "Search Customer", Search],
+                          ["new", "New Customer", UserPlus],
                         ] as const
                       ).map(([mode, label, Icon]) => (
                         <button
@@ -768,10 +855,10 @@ export function POSTab() {
                               setCustomerId(null);
                             }
                           }}
-                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer ${
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
                             customerMode === mode
                               ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                           }`}
                         >
                           <Icon className="size-3.5" />
@@ -781,21 +868,22 @@ export function POSTab() {
                     </div>
 
                     {customerMode === "walkin" && (
-                      <p className="text-xs text-muted-foreground text-center py-2 bg-muted/40 rounded-xl border border-border/50">
-                        Sale will be recorded as <span className="font-bold text-foreground">Walk-in Customer</span>
-                      </p>
+                      <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-xl border border-border/50 text-xs text-muted-foreground">
+                        <Check className="size-4 text-emerald-600" />
+                        <span>Sale will be billed as <strong className="text-foreground">Walk-in Customer</strong> with instant token generation.</span>
+                      </div>
                     )}
 
                     {customerMode === "existing" && (
                       <div className="space-y-2">
                         <div className="relative">
-                          <Phone className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+                          <Phone className="absolute left-3 top-3 size-3.5 text-muted-foreground" />
                           <input
                             type="text"
                             value={customerSearchQuery}
                             onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                            placeholder="Search by phone or name..."
-                            className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-sm outline-none focus:border-primary transition-all"
+                            placeholder="Type customer mobile number or name..."
+                            className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
                           />
                           {customerSearchQuery && (
                             <button
@@ -804,7 +892,7 @@ export function POSTab() {
                                 setCustomerSearchQuery("");
                                 searchCustomers.reset();
                               }}
-                              className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                              className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
                             >
                               <X className="size-3.5" />
                             </button>
@@ -812,7 +900,7 @@ export function POSTab() {
                         </div>
                         {customerSearchQuery.trim().length > 0 &&
                           (searchCustomers.data ?? []).length > 0 && (
-                            <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card shadow-md divide-y divide-border">
+                            <div className="max-h-36 overflow-y-auto rounded-xl border border-border bg-card shadow-lg divide-y divide-border">
                               {searchCustomers.data!.map((c) => (
                                 <button
                                   key={c.id}
@@ -823,15 +911,15 @@ export function POSTab() {
                                     setCustomerEmail(c.email);
                                     setCustomerId(c.id);
                                     setCustomerSearchQuery("");
-                                    toast.success(`Customer: ${c.name}`);
+                                    toast.success(`Selected customer: ${c.name}`);
                                   }}
-                                  className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted cursor-pointer text-left"
+                                  className="flex w-full items-center justify-between px-3 py-2.5 text-sm hover:bg-muted cursor-pointer text-left transition-colors"
                                 >
                                   <div>
-                                    <p className="font-semibold text-foreground">{c.name || "—"}</p>
-                                    <p className="text-xs text-muted-foreground">{c.phone}</p>
+                                    <p className="font-semibold text-foreground">{c.name || "Unnamed Customer"}</p>
+                                    <p className="text-xs text-muted-foreground font-mono">{c.phone}</p>
                                   </div>
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                                     {c.total_purchases} orders
                                   </span>
                                 </button>
@@ -839,11 +927,12 @@ export function POSTab() {
                             </div>
                           )}
                         {customerId && (
-                          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs border border-emerald-200">
-                            <Check className="size-3.5 text-emerald-700" />
-                            <span className="font-semibold text-emerald-800">
-                              {customerName} • {customerPhone}
-                            </span>
+                          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs border border-emerald-200">
+                            <Check className="size-4 text-emerald-700 shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-bold text-emerald-900">{customerName}</p>
+                              <p className="text-[11px] text-emerald-700 font-mono">{customerPhone}</p>
+                            </div>
                             <button
                               type="button"
                               onClick={() => {
@@ -851,9 +940,9 @@ export function POSTab() {
                                 setCustomerName("");
                                 setCustomerPhone("");
                               }}
-                              className="ml-auto text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                              className="text-emerald-700 hover:text-emerald-900 font-bold text-xs p-1 cursor-pointer"
                             >
-                              <X className="size-3" />
+                              <X className="size-3.5" />
                             </button>
                           </div>
                         )}
@@ -861,90 +950,156 @@ export function POSTab() {
                     )}
 
                     {customerMode === "new" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <input
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Customer name"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary transition-all"
+                          placeholder="Customer Full Name"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
                         />
                         <input
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="Phone number"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary transition-all"
+                          placeholder="Mobile Number (10 digits)"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
                         />
                       </div>
                     )}
                   </div>
 
-                  {/* Payment Section */}
-                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
-                    <h3 className="text-sm font-bold mb-2.5">Payment Method</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* 3. Payment Method & Cash Tender Calculator */}
+                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border space-y-4">
+                    <h3 className="text-sm font-bold text-foreground">3. Payment Tender</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {(
                         [
                           ["cash", "Cash", Banknote],
-                          ["upi", "UPI", Smartphone],
-                          ["card", "Card", CreditCard],
-                          ["other", "Other", Wallet],
+                          ["upi", "UPI / QR", Smartphone],
+                          ["card", "Card / POS", CreditCard],
+                          ["other", "Other Tender", Wallet],
                         ] as const
                       ).map(([method, label, Icon]) => (
                         <button
                           key={method}
                           type="button"
-                          onClick={() => setPaymentMethod(method)}
-                          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all cursor-pointer ${
+                          onClick={() => {
+                            setPaymentMethod(method);
+                            if (method === "cash") {
+                              setCashTendered(total);
+                            }
+                          }}
+                          className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
                             paymentMethod === method
-                              ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              ? "bg-primary text-primary-foreground shadow-2xs ring-2 ring-primary/30"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                           }`}
                         >
-                          <Icon className="size-4" />
-                          {label}
+                          <Icon className="size-5" />
+                          <span>{label}</span>
                         </button>
                       ))}
                     </div>
+
+                    {/* Cash Tender & Change Due Calculator */}
+                    {paymentMethod === "cash" && (
+                      <div className="rounded-xl bg-muted/40 p-3.5 border border-border/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground">Cash Received:</span>
+                          {/* Quick tender chips */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setCashTendered(total)}
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
+                            >
+                              Exact ({formatPrice(total)})
+                            </button>
+                            {[500, 1000, 2000, 5000]
+                              .filter((amt) => amt >= total)
+                              .slice(0, 3)
+                              .map((amt) => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => setCashTendered(amt)}
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
+                                >
+                                  ₹{amt}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-2.5 font-bold text-muted-foreground text-sm">₹</span>
+                            <input
+                              type="number"
+                              value={cashTendered}
+                              onChange={(e) => setCashTendered(e.target.value === "" ? "" : Number(e.target.value))}
+                              placeholder={`Enter cash amount (min ${total})`}
+                              min={0}
+                              className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
+                            />
+                          </div>
+                        </div>
+
+                        {typeof cashTendered === "number" && cashTendered > 0 && (
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <span className="text-xs font-bold text-emerald-900">Change Due to Customer:</span>
+                            <span className="text-base font-black text-emerald-700">{formatPrice(changeDue)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Right Column (5 cols): Order Summary & Complete Action */}
                 <div className="lg:col-span-5 space-y-4">
-                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border space-y-3 sticky top-4">
-                    <h3 className="text-sm font-bold border-b border-border pb-2">Order Summary</h3>
+                  <div className="rounded-2xl bg-card p-5 shadow-2xs border border-border space-y-4 sticky top-4">
+                    <div className="flex items-center justify-between border-b border-border pb-3">
+                      <h3 className="text-sm font-bold text-foreground">Order Summary</h3>
+                      <span className="text-xs font-bold text-muted-foreground">{totalItems} items</span>
+                    </div>
                     
                     {/* Items List Snapshot */}
-                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/50 text-xs">
+                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40 text-xs">
                       {cart.map((item) => (
-                        <div key={item.product_id} className="pt-1.5 first:pt-0 flex items-center justify-between">
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-semibold truncate text-foreground">{item.name}</p>
-                            <p className="text-muted-foreground text-[10px]">{item.qty} × {formatPrice(item.price)}</p>
+                        <div key={item.product_id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold truncate text-foreground text-xs">{item.name}</p>
+                            <p className="text-muted-foreground text-[10px]">
+                              {item.qty} × {formatPrice(item.price)}
+                              {item.isCustom && <span className="ml-1 text-amber-600 font-bold">(Custom)</span>}
+                            </p>
                           </div>
-                          <span className="font-bold text-foreground shrink-0">{formatPrice(item.price * item.qty)}</span>
+                          <span className="font-bold text-foreground shrink-0 text-xs">{formatPrice(item.price * item.qty)}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="space-y-1.5 text-xs pt-2 border-t border-border">
+                    {/* Breakdown */}
+                    <div className="space-y-2 text-xs pt-3 border-t border-border">
                       <div className="flex justify-between text-muted-foreground">
-                        <span>Items Subtotal ({totalItems})</span>
+                        <span>Items Subtotal</span>
                         <span className="font-semibold text-foreground">{formatPrice(subtotal)}</span>
                       </div>
                       {discountAmount > 0 && (
-                        <div className="flex justify-between text-emerald-700 font-semibold">
+                        <div className="flex justify-between text-emerald-700 font-bold">
                           <span>
                             Discount {discountType === "percentage" ? `(${discountValue}%)` : ""}
                           </span>
                           <span>−{formatPrice(discountAmount)}</span>
                         </div>
                       )}
-                      <div className="flex items-baseline justify-between border-t border-border pt-2 text-base">
-                        <span className="font-bold">Total Payable</span>
-                        <span className="font-black text-xl text-primary">{formatPrice(total)}</span>
+                      <div className="flex items-baseline justify-between border-t border-border pt-3 text-base">
+                        <span className="font-bold text-foreground">Total Payable</span>
+                        <span className="font-black text-2xl text-primary">{formatPrice(total)}</span>
                       </div>
                     </div>
 
+                    {/* Action Button */}
                     <button
                       type="button"
                       onClick={() => {
@@ -966,16 +1121,16 @@ export function POSTab() {
                         }
                       }}
                       disabled={placeSale.isPending || createCustomer.isPending || cart.length === 0}
-                      className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full rounded-xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {placeSale.isPending || createCustomer.isPending ? (
                         <>
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          <span>Processing Sale…</span>
+                          <span>Processing Sale &amp; Printing…</span>
                         </>
                       ) : (
                         <>
-                          <Check className="size-4" />
+                          <Check className="size-5" />
                           <span>Complete Sale — {formatPrice(total)}</span>
                         </>
                       )}

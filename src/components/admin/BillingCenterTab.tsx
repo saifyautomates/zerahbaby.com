@@ -25,63 +25,65 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-      {/* Header & Sub-navigation */}
-      <div className="shrink-0 flex items-center gap-6 border-b border-border px-6 bg-muted/20 pt-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab("pos")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
-            activeTab === "pos"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Scan className="size-4" /> POS Terminal
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("returns")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
-            activeTab === "returns"
-              ? "border-rose-600 text-rose-600 dark:text-rose-400"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <RotateCcw className="size-4" /> Returns
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("labels")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
-            activeTab === "labels"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Printer className="size-4" /> Bulk Labels
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("sales")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
-            activeTab === "sales"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Receipt className="size-4" /> Sales History
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("customers")}
-          className={`flex items-center gap-2 pb-4 pt-3 border-b-2 font-semibold text-sm transition-colors shrink-0 cursor-pointer ${
-            activeTab === "customers"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Users className="size-4" /> Customers
-        </button>
+      {/* Header & Sub-navigation — World-Class Segmented Bar */}
+      <div className="shrink-0 flex items-center justify-between border-b border-border/80 px-4 sm:px-6 py-3 bg-muted/30">
+        <div className="flex items-center gap-1.5 p-1 bg-background rounded-xl border border-border/60 shadow-2xs overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab("pos")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeTab === "pos"
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Scan className="size-4" /> POS Terminal
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("returns")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeTab === "returns"
+                ? "bg-rose-600 text-white shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <RotateCcw className="size-4" /> Returns
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("labels")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeTab === "labels"
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Printer className="size-4" /> 1-Click Labels
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("sales")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeTab === "sales"
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Receipt className="size-4" /> Sales History
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("customers")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeTab === "customers"
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Users className="size-4" /> Customers
+          </button>
+        </div>
       </div>
 
       {/* Content Area */}
