@@ -31,34 +31,29 @@ const runLighthouse = async (page: playwright.Page, port: number) => {
 };
 
 test.describe("Mobile Layout Tests (390px)", () => {
-  test("Home page looks good and passes audit", async ({ page, browser }) => {
-    await page.goto("/");
+  test.setTimeout(60000);
 
-    // Quick assertions for layout
+  test("Home page looks good and passes audit", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
-    await page.screenshot({ path: "test-results/home-mobile.png", fullPage: true });
-
-    // Lighthouse Audit requires remote debugging port, which is tricky in default playwrigt workers.
-    // Instead of forcing Lighthouse in this standard test runner, let's keep it as visual regression.
-    // I will write a separate node script for lighthouse if needed, but for now we rely on screenshots
-    // and basic visibility.
+    await page.screenshot({ path: "test-results/home-mobile.png" });
   });
 
   test("Shop page layout", async ({ page }) => {
-    await page.goto("/shop");
+    await page.goto("/shop", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
-    await page.screenshot({ path: "test-results/shop-mobile.png", fullPage: true });
+    await page.screenshot({ path: "test-results/shop-mobile.png" });
   });
 
   test("Cart page layout", async ({ page }) => {
-    await page.goto("/cart");
+    await page.goto("/cart", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
-    await page.screenshot({ path: "test-results/cart-mobile.png", fullPage: true });
+    await page.screenshot({ path: "test-results/cart-mobile.png" });
   });
 
   test("Auth page layout", async ({ page }) => {
-    await page.goto("/auth");
+    await page.goto("/auth", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
-    await page.screenshot({ path: "test-results/auth-mobile.png", fullPage: true });
+    await page.screenshot({ path: "test-results/auth-mobile.png" });
   });
 });

@@ -574,13 +574,13 @@ export function Header() {
           )}
         >
           <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center">
-            {/* Scrollable Categories Area */}
-            <div className="flex-1 overflow-x-auto no-scrollbar py-3 px-4">
-              <div className="flex w-max items-center gap-2 sm:gap-3">
+            {/* Scrollable Categories Area with min-w-0 to prevent flex blowout */}
+            <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-2.5 px-4">
+              <div className="flex w-max items-center gap-2 sm:gap-2.5">
                 <Link
                   to="/shop"
                   search={{}}
-                  className="focus-ring whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 bg-muted/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-md"
+                  className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                   activeProps={{
                     className: "bg-primary text-primary-foreground shadow-premium-sm",
                   }}
@@ -593,7 +593,7 @@ export function Header() {
                     key={c.slug}
                     to="/shop"
                     search={{ category: c.slug }}
-                    className="focus-ring whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 bg-muted/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-md"
+                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                     activeProps={{
                       className: "bg-primary text-primary-foreground shadow-premium-sm",
                     }}
@@ -605,7 +605,7 @@ export function Header() {
                 {isAdmin && adminMode && (
                   <button
                     type="button"
-                    className="focus-ring whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground"
+                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs sm:text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
                     title="Manage Categories"
                     onClick={() => {
                       setOpen(false);
@@ -618,36 +618,36 @@ export function Header() {
               </div>
             </div>
 
-            {/* Desktop Navigation Links & Age Filters */}
-            <div className="flex flex-col border-t border-border/50 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:pl-0">
-              <div className="flex gap-6 md:mr-6 text-sm font-semibold">
+            {/* Desktop Navigation Links & Age Filters isolated with shrink-0 and border */}
+            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-4 py-2.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-4 md:pr-4">
+              <div className="flex items-center gap-5 text-xs sm:text-sm font-semibold shrink-0 whitespace-nowrap md:mr-4">
                 <Link
                   to="/about"
-                  className="focus-ring transition-colors hover:text-primary"
+                  className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
                   onClick={() => setOpen(false)}
                 >
                   About
                 </Link>
                 <Link
                   to="/contact"
-                  className="focus-ring transition-colors hover:text-primary"
+                  className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
                   onClick={() => setOpen(false)}
                 >
                   Contact
                 </Link>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 md:mt-0 md:border-l md:border-border/50 md:pl-6">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground hidden lg:inline">
-                  Age
+              <div className="mt-3 flex items-center gap-2 md:mt-0 md:border-l md:border-border/50 md:pl-4 shrink-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground hidden xl:inline shrink-0">
+                  Age:
                 </span>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 shrink-0">
                   {ageGroups.map((a) => (
                     <Link
                       key={a}
                       to="/shop"
                       search={{ age: a }}
-                      className="focus-ring rounded-full border border-border px-3 py-1 text-xs font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      className="focus-ring whitespace-nowrap rounded-full border border-border px-2.5 py-0.5 text-[11px] font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
                       activeProps={{
                         className: "border-primary bg-primary text-primary-foreground",
                       }}
