@@ -185,8 +185,8 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
                 <p className="text-6xl font-black text-slate-900 leading-none">
                   {sale.pos_token_number}
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-2">
-                  TOKEN NUMBER
+                <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 mt-2">
+                  TOKEN NO: {sale.pos_token_number}
                 </p>
               </div>
             )}

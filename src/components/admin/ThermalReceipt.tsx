@@ -247,16 +247,18 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
             <>
               <div className="thermal-divider border-t-2 border-gray-900 my-2" />
               <div className="text-center my-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
-                  Walk-in Token
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">
+                  Walk-in Customer
                 </p>
                 <p
                   className="font-black text-foreground"
-                  style={{ fontSize: "28px", lineHeight: "1.1", letterSpacing: "-0.5px" }}
+                  style={{ fontSize: "30px", lineHeight: "1.1", letterSpacing: "-0.5px" }}
                 >
                   {sale.pos_token_number}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">TOKEN NUMBER</p>
+                <p className="text-xs font-black uppercase tracking-wider text-foreground mt-1">
+                  TOKEN NO: {sale.pos_token_number}
+                </p>
               </div>
               <div className="thermal-divider border-t-2 border-gray-900 my-2" />
             </>

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -35,8 +35,8 @@ serve(async (req) => {
     if (!action) throw new Error("Missing action (send, verify, resend)");
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
-    const msg91TemplateId = Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "TEMPLATE_ID_OTP"; // Fallback placeholder
-    const authSecret = Deno.env.get("MSG91_AUTH_SECRET") || "default-secret-do-not-use-in-prod";
+    const msg91TemplateId = Deno.env.get("MSG91_OTP_TEMPLATE_ID");
+    const authSecret = Deno.env.get("MSG91_AUTH_SECRET");
 
     if (!msg91AuthKey) {
       console.warn(

@@ -90,42 +90,45 @@ export function useSaveProduct() {
           .eq("product_id", productId);
 
         const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
-        for (const del of toDelete) {
-          await supabase.from("product_images").delete().eq("id", del.id);
-          if (del.storage_path) {
-            await supabase.rpc("delete_storage_object", {
-              bucket: "product-images",
-              object_path: del.storage_path,
-            });
-          }
-        }
-
-        for (let i = 0; i < urlsArray.length; i++) {
-          const url = urlsArray[i];
-          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
-          const existingRow = (existing || []).find((e) => e.public_url === url);
-
-          if (existingRow) {
-            await supabase
-              .from("product_images")
-              .update({ is_primary: isPrimary, sort_order: i })
-              .eq("id", existingRow.id);
-          } else {
-            // We can optionally extract a storage path if the URL points to our bucket
-            let storagePath = "";
-            if (url.includes("product-images/")) {
-              storagePath = url.split("product-images/")[1];
+        await Promise.all(
+          toDelete.map(async (del) => {
+            await supabase.from("product_images").delete().eq("id", del.id);
+            if (del.storage_path) {
+              await supabase.rpc("delete_storage_object", {
+                bucket: "product-images",
+                object_path: del.storage_path,
+              });
             }
-            await supabase.from("product_images").insert({
-              product_id: productId,
-              public_url: url,
-              storage_path: storagePath,
-              alt_text: draft.name,
-              is_primary: isPrimary,
-              sort_order: i,
-            });
-          }
-        }
+          }),
+        );
+
+        await Promise.all(
+          urlsArray.map(async (url, i) => {
+            const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+            const existingRow = (existing || []).find((e) => e.public_url === url);
+
+            if (existingRow) {
+              await supabase
+                .from("product_images")
+                .update({ is_primary: isPrimary, sort_order: i })
+                .eq("id", existingRow.id);
+            } else {
+              // We can optionally extract a storage path if the URL points to our bucket
+              let storagePath = "";
+              if (url.includes("product-images/")) {
+                storagePath = url.split("product-images/")[1];
+              }
+              await supabase.from("product_images").insert({
+                product_id: productId,
+                public_url: url,
+                storage_path: storagePath,
+                alt_text: draft.name,
+                is_primary: isPrimary,
+                sort_order: i,
+              });
+            }
+          }),
+        );
       }
     },
     onSuccess: () => {

@@ -125,7 +125,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const posSales = useMemo(() => {
     return rawPosSales.filter(
-      (s: OfflineSale) =>
+      (s: any) =>
         s.status !== "cancelled" && s.offline_sale_items && s.offline_sale_items.length > 0,
     );
   }, [rawPosSales]);

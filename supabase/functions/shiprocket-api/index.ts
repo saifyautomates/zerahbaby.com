@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -132,7 +132,7 @@ serve(async (req) => {
         )
         .eq("order_id", orderId);
 
-      const orderItems = (items || []).map((i: any) => ({
+      const orderItems = (items || []).map((i: { quantity: number; price: number; mrp?: number; products?: { name?: string; sku?: string; stock?: number } }) => ({
         name: i.products?.name || "Product",
         sku: i.products?.sku || "SKU-UNKNOWN",
         units: i.quantity,
@@ -282,9 +282,10 @@ serve(async (req) => {
     } else {
       throw new Error(`Unknown action: ${action}`);
     }
-  } catch (error: any) {
-    console.error("[shiprocket-api] Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), {
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[shiprocket-api] Error:", err.message);
+    return new Response(JSON.stringify({ error: err.message || "Internal Server Error" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });

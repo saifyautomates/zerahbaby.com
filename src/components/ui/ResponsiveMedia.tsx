@@ -36,6 +36,8 @@ interface ResponsiveMediaProps extends Omit<
   className?: string;
   /** Extra inline styles on the container */
   containerStyle?: CSSProperties;
+  /** Extra inline styles on the img/video element */
+  style?: CSSProperties;
   /** Show a muted bg-muted placeholder while loading */
   showPlaceholder?: boolean;
   /** If true, treat as video */
@@ -51,6 +53,7 @@ export function ResponsiveMedia({
   containerClassName = "",
   className = "",
   containerStyle,
+  style,
   showPlaceholder = true,
   isVideo = false,
   loading = "lazy",
@@ -95,7 +98,7 @@ export function ResponsiveMedia({
         <video
           src={src}
           className={mediaClasses}
-          style={{ objectFit: fit, objectPosition: position }}
+          style={{ objectFit: fit, objectPosition: position, ...style }}
           muted
           playsInline
           autoPlay
@@ -114,7 +117,7 @@ export function ResponsiveMedia({
           width={width}
           height={height}
           className={mediaClasses}
-          style={{ objectFit: fit, objectPosition: position }}
+          style={{ objectFit: fit, objectPosition: position, ...style }}
           onLoad={() => setStatus("loaded")}
           onError={() => setStatus("error")}
           {...rest}

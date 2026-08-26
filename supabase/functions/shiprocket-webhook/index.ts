@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-shiprocket-signature",
 };
@@ -107,10 +107,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error: any) {
-    console.error("[shiprocket-webhook] Error:", error.message);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[shiprocket-webhook] Error:", err.message);
     // Return 200 even on error so SR doesn't infinitely retry unless we want it to
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

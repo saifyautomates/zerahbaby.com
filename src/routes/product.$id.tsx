@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Star,
   Truck,
@@ -18,7 +18,10 @@ import {
   CheckCircle2,
   Sparkles,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +39,7 @@ import {
   type Review,
 } from "@/lib/reviews";
 import { ReviewModal } from "@/components/site/ReviewModal";
+import { SizeGuideDrawer } from "@/components/site/SizeGuideDrawer";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
@@ -115,6 +119,13 @@ function ProductPage() {
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [showBuyNowModal, setShowBuyNowModal] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
+  const [isZooming, setIsZooming] = useState(false);
+  const [viewingCount, setViewingCount] = useState(8);
+  const [dispatchTime, setDispatchTime] = useState("");
 
   const list = products ?? [];
   const product = list.find((p) => p.id === id) ?? loaderData?.product;
@@ -122,7 +133,103 @@ function ProductPage() {
   const gallery = (product?.images.length ? product.images : [product?.image]).filter(
     Boolean,
   ) as string[];
-  const soldOut = (product?.stock ?? 0) <= 0;
+  const swatches = useMemo(() => {
+    if (!product) return [];
+    return list
+      .filter(
+        (p) => p.category === product.category && p.brand === product.brand && p.id !== product.id,
+      )
+      .slice(0, 5);
+  }, [list, product]);
+
+  const addToCartRef = useRef<HTMLDivElement>(null);
+  const [isStickyVisible, setIsStickyVisible] = useState(false);
+
+  const handleNext = useCallback(() => {
+    setActiveImage((prev) => (prev + 1) % gallery.length);
+  }, [gallery.length]);
+
+  const handlePrev = useCallback(() => {
+    setActiveImage((prev) => (prev - 1 + gallery.length) % gallery.length);
+  }, [gallery.length]);
+
+  const soldOut = product ? product.stock <= 0 : false;
+
+  const { data: siteSettings } = useQuery({
+    queryKey: ["site_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("key, value");
+      if (error) throw error;
+      return Object.fromEntries(data.map((r: any) => [r.key, r.value])) as Record<string, string>;
+    },
+  });
+
+  const featMagnifier = siteSettings?.feature_image_magnifier !== "false";
+  const featUrgency = siteSettings?.feature_urgency_badges !== "false";
+  const featSwatches = siteSettings?.feature_swatches !== "false";
+  const featStickyCart = siteSettings?.feature_sticky_cart !== "false";
+  const featSizeGuide = siteSettings?.feature_size_guide !== "false";
+  const dispatchHour = parseInt(siteSettings?.urgency_dispatch_cutoff_hour || "14", 10);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsStickyVisible(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-100px" },
+    );
+    if (addToCartRef.current) observer.observe(addToCartRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    const inCart = items.find((i) => i.product.id === product.id)?.qty || 0;
+    const remaining = Math.max(0, product.stock - inCart);
+    if (qty > remaining) {
+      toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
+      return;
+    }
+    add(product.id, qty);
+    trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, from: "product_page" } });
+    toast.success("Added to bag", { description: `${qty} × ${product.name}` });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") handleNext();
+      if (e.key === "ArrowLeft") handlePrev();
+      if (e.key === "Escape") setShowLightbox(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleNext, handlePrev]);
+
+  useEffect(() => {
+    setViewingCount(Math.floor(Math.random() * 12) + 5);
+
+    const updateDispatch = () => {
+      const now = new Date();
+      const target = new Date();
+      target.setHours(dispatchHour, 0, 0, 0);
+      if (now > target) target.setDate(target.getDate() + 1);
+
+      const diff = target.getTime() - now.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      setDispatchTime(`${hours}h ${mins}m`);
+    };
+    updateDispatch();
+    const int = setInterval(updateDispatch, 60000);
+    return () => clearInterval(int);
+  }, [dispatchHour]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+    });
+  };
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -241,15 +348,50 @@ function ProductPage() {
             const activeUrl = gallery[activeImage] ?? product.image;
             const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return (
-              <div className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300">
-                <ResponsiveMedia
-                  src={activeUrl}
-                  alt={product.name}
-                  isVideo={isVideo}
-                  fit="contain"
-                  containerClassName="w-full bg-white transition-transform duration-500 hover:scale-[1.03]"
-                  aspect="1/1"
-                />
+              <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300 group">
+                <button
+                  onClick={() => setShowLightbox(true)}
+                  className={`w-full h-full block overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
+                  aria-label="View full screen"
+                  onMouseMove={featMagnifier ? handleMouseMove : undefined}
+                  onMouseEnter={() => setIsZooming(true)}
+                  onMouseLeave={() => setIsZooming(false)}
+                >
+                  <ResponsiveMedia
+                    src={activeUrl}
+                    alt={product.name}
+                    isVideo={isVideo}
+                    fit="cover"
+                    containerClassName="w-full h-full bg-white transition-transform overflow-hidden"
+                    className={`w-full h-full object-cover transition-transform ease-out ${isZooming && !isVideo && featMagnifier ? "scale-[2.5] duration-75" : "duration-500 group-hover:scale-[1.03]"}`}
+                    style={isZooming && !isVideo && featMagnifier ? zoomStyle : {}}
+                    aspect="1/1"
+                  />
+                </button>
+                {gallery.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrev();
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-sm text-foreground/80 hover:bg-white hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm z-10"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="size-5 sm:size-6" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNext();
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-sm text-foreground/80 hover:bg-white hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm z-10"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="size-5 sm:size-6" />
+                    </button>
+                  </>
+                )}
               </div>
             );
           })()}
@@ -284,6 +426,19 @@ function ProductPage() {
         </div>
 
         <div>
+          {featUrgency && (
+            <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
+              {product.stock > 0 && product.stock <= product.lowStockAt && (
+                <span className="rounded-full bg-red-100 text-red-700 px-2.5 py-1 animate-pulse border border-red-200 shadow-sm">
+                  🔥 Only {product.stock} left in stock
+                </span>
+              )}
+              <span className="rounded-full bg-blue-100 text-blue-700 px-2.5 py-1 border border-blue-200 shadow-sm">
+                👀 {viewingCount} people viewing right now
+              </span>
+            </div>
+          )}
+
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {product.brand}
           </p>
@@ -347,6 +502,14 @@ function ProductPage() {
               </>
             )}
             <span className="rounded-full bg-muted px-2 py-1 text-xs">Ages {product.ageGroup}</span>
+            {featSizeGuide && (
+              <button
+                onClick={() => setShowSizeGuide(true)}
+                className="text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+              >
+                Size Guide
+              </button>
+            )}
           </div>
 
           <div className="mt-5 flex items-baseline gap-3">
@@ -375,6 +538,32 @@ function ProductPage() {
             ))}
           </ul>
 
+          {featSwatches && swatches.length > 0 && (
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                More in this style
+              </p>
+              <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-2">
+                <div className="size-14 shrink-0 rounded-full border-[2.5px] border-primary p-0.5 overflow-hidden shadow-sm">
+                  <div className="w-full h-full rounded-full overflow-hidden">
+                    <img src={product.image} alt="Current" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+                {swatches.map((s) => (
+                  <Link
+                    key={s.id}
+                    to="/product/$id"
+                    params={{ id: s.id }}
+                    className="size-14 shrink-0 rounded-full border border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary/50 transition-all duration-300 hover:scale-105 hover:shadow-sm"
+                    title={s.name}
+                  >
+                    <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mt-8 flex flex-col gap-4">
             <p className="text-sm font-bold uppercase tracking-wide">
               {soldOut ? (
@@ -392,8 +581,11 @@ function ProductPage() {
               )}
             </p>
 
-            {/* Sticky Mobile Add to Cart Bar */}
-            <div className="fixed inset-x-0 bottom-0 z-40 md:relative md:z-0 border-t border-border/50 bg-background/95 backdrop-blur-xl md:bg-transparent md:border-none p-3 sm:p-4 md:p-0 animate-in slide-in-from-bottom-10 md:animate-none shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.1)] md:shadow-none">
+            {/* Standard Add to Cart (Observed for Sticky) */}
+            <div
+              ref={addToCartRef}
+              className="relative z-0 border-t border-border/50 pt-4 md:border-none md:pt-0"
+            >
               <div className="mx-auto flex max-w-7xl items-center gap-3">
                 <div className="hidden md:flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-sm">
                   <button
@@ -421,23 +613,8 @@ function ProductPage() {
                     <div className="flex w-full md:w-auto flex-1 gap-2 sm:gap-3">
                       <button
                         disabled={soldOut || maxed || qty > remaining}
-                        onClick={() => {
-                          if (qty > remaining) {
-                            toast.error("Not enough stock", {
-                              description: `You can only add ${remaining} more.`,
-                            });
-                            return;
-                          }
-                          add(product.id, qty);
-                          trackEvent("add_to_cart", {
-                            productId: product.uuid,
-                            metadata: { qty, from: "product_page" },
-                          });
-                          toast.success("Added to bag", {
-                            description: `${qty} × ${product.name}`,
-                          });
-                        }}
-                        className="flex-1 rounded-full bg-primary px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                        onClick={handleAddToCart}
+                        className="focus-ring flex-1 rounded-full bg-primary px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                       >
                         {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
                       </button>
@@ -462,7 +639,7 @@ function ProductPage() {
                             trackEvent("buy_now", { productId: product.uuid, metadata: { qty } });
                             setShowBuyNowModal(true);
                           }}
-                          className="flex-1 rounded-full border-2 border-primary bg-background px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-4 focus:ring-primary/20"
+                          className="focus-ring flex-1 rounded-full border-2 border-primary bg-background px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Buy now
                         </button>
@@ -479,7 +656,14 @@ function ProductPage() {
                 <div className="grid size-8 place-items-center rounded-full bg-primary/10 text-primary">
                   <Truck className="size-4" />
                 </div>
-                <span>Fast & Free Delivery</span>
+                <div className="flex flex-col">
+                  <span>Fast & Free Delivery</span>
+                  {featUrgency && dispatchTime && (
+                    <span className="text-[10px] text-green-600 font-bold">
+                      Order in {dispatchTime} for dispatch today
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="grid size-8 place-items-center rounded-full bg-primary/10 text-primary">
@@ -502,11 +686,156 @@ function ProductPage() {
         />
       )}
 
+      {/* Size Guide Drawer */}
+      <SizeGuideDrawer
+        isOpen={showSizeGuide}
+        onClose={() => setShowSizeGuide(false)}
+        ageGroup={product?.ageGroup}
+      />
+
       {/* Reviews Section */}
       {product && <ReviewsSection product={product} user={user} />}
 
       {product && <RelatedProducts currentProductId={product.id} category={product.category} />}
       {product && <RecentlyViewed currentProductId={product.id} />}
+
+      {/* Global Sticky Add to Cart Bar */}
+      {featStickyCart && (
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-[60] border-t border-border/20 bg-background/95 backdrop-blur-xl p-3 sm:p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${isStickyVisible ? "translate-y-0" : "translate-y-full"}`}
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <div className="hidden md:flex items-center gap-4">
+              <img
+                src={product?.image}
+                className="size-12 rounded-lg object-cover shadow-sm"
+                alt=""
+              />
+              <div>
+                <p className="font-semibold text-sm line-clamp-1">{product?.name}</p>
+                <p className="text-primary font-bold">{formatPrice(product?.price || 0)}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-1 md:flex-none justify-end gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-sm">
+                <button
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  className="hover:text-primary transition-colors"
+                >
+                  <Minus className="size-4" />
+                </button>
+                <span className="w-6 text-center text-sm font-bold">{qty}</span>
+                <button
+                  onClick={() => setQty((q) => Math.min(product?.stock || 1, q + 1))}
+                  className="hover:text-primary transition-colors"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={handleAddToCart}
+                disabled={soldOut || (product?.stock ?? 0) <= 0}
+                className="flex-1 md:flex-none rounded-full bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50"
+              >
+                Add to bag
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Lightbox */}
+      {showLightbox && product && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setShowLightbox(false)}
+        >
+          <button
+            onClick={() => setShowLightbox(false)}
+            className="absolute top-6 right-6 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+            aria-label="Close fullscreen"
+          >
+            <X className="size-6 sm:size-8" />
+          </button>
+
+          {gallery.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrev();
+                }}
+                className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="size-6 sm:size-8" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNext();
+                }}
+                className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+                aria-label="Next image"
+              >
+                <ChevronRight className="size-6 sm:size-8" />
+              </button>
+            </>
+          )}
+
+          <div
+            className="relative w-full max-w-5xl max-h-[85vh] flex items-center justify-center animate-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const activeUrl = gallery[activeImage] ?? product.image;
+              const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+              return isVideo ? (
+                <video
+                  src={activeUrl}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
+                />
+              ) : (
+                <img
+                  src={activeUrl}
+                  alt={product.name}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                />
+              );
+            })()}
+          </div>
+
+          {/* Thumbnails inside lightbox */}
+          {gallery.length > 1 && (
+            <div
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 max-w-[90vw] overflow-x-auto pb-2 scrollbar-none px-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {gallery.map((url, i) => (
+                <button
+                  key={url}
+                  onClick={() => setActiveImage(i)}
+                  className={`size-12 sm:size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                    i === activeImage
+                      ? "border-white scale-110"
+                      : "border-transparent opacity-50 hover:opacity-100"
+                  }`}
+                >
+                  {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
+                    <video src={url} className="size-full object-cover" />
+                  ) : (
+                    <img src={url} alt="" className="size-full object-cover" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }

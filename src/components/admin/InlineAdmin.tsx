@@ -51,28 +51,9 @@ export function AdminProductControls({ product }: { product: Product }) {
           product={product}
           saving={save.isPending}
           onCancel={() => setEditing(false)}
-          onSave={(draft) => setPendingDraft(draft)}
-        />
-      )}
-
-      {pendingDraft && (
-        <ConfirmDialog
-          title="Save these changes?"
-          message={`"${pendingDraft.name}" will be updated on the live website right away.`}
-          confirmLabel="Yes, save"
-          busy={save.isPending}
-          onCancel={() => setPendingDraft(null)}
-          onConfirm={() =>
-            save.mutate(
-              { draft: pendingDraft, uuid: product.uuid },
-              {
-                onSuccess: () => {
-                  setPendingDraft(null);
-                  setEditing(false);
-                },
-              },
-            )
-          }
+          onSave={(draft) => {
+            save.mutate({ draft, uuid: product.uuid }, { onSuccess: () => setEditing(false) });
+          }}
         />
       )}
 
@@ -126,28 +107,9 @@ export function AdminAddProduct({
           {...(defaultCategory ? { defaultCategory } : {})}
           saving={save.isPending}
           onCancel={() => setOpen(false)}
-          onSave={(draft) => setPendingDraft(draft)}
-        />
-      )}
-
-      {pendingDraft && (
-        <ConfirmDialog
-          title="Publish this new product?"
-          message={`"${pendingDraft.name}" will appear on the website immediately.`}
-          confirmLabel="Yes, publish"
-          busy={save.isPending}
-          onCancel={() => setPendingDraft(null)}
-          onConfirm={() =>
-            save.mutate(
-              { draft: pendingDraft },
-              {
-                onSuccess: () => {
-                  setPendingDraft(null);
-                  setOpen(false);
-                },
-              },
-            )
-          }
+          onSave={(draft) => {
+            save.mutate({ draft }, { onSuccess: () => setOpen(false) });
+          }}
         />
       )}
     </>

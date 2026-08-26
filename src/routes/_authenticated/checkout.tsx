@@ -388,7 +388,7 @@ function CheckoutPage() {
   }
 
   const field =
-    "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary";
+    "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 hover:border-border/80";
   const busy = placeOrder.isPending || saveProfile.isPending || submitting;
 
   return (

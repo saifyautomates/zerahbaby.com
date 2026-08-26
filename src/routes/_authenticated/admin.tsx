@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, Suspense, lazy } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,13 @@ import {
   X,
   BarChart3,
   Settings2,
+  CheckSquare,
+  Square,
+  RefreshCw,
+  Sparkles,
+  AlertTriangle,
+  Archive,
+  Check,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,20 +45,22 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import { syncFirstCryCatalogToSupabase, FIRSTCRY_100_PRODUCTS } from "@/lib/firstcry-catalog";
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
-import { HeroMediaManager } from "@/components/admin/HeroMediaManager";
-import { MediaLibrary } from "@/components/admin/MediaLibrary";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
-import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
-import { CategoriesTab } from "@/components/admin/CategoriesManager";
-import { SMSLogsTab } from "@/components/admin/SMSLogsTab";
-import { DashboardTab } from "@/components/admin/DashboardTab";
-import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
-import { AdminGlobalSearch } from "@/components/admin/AdminGlobalSearch";
+
+const HeroMediaManager = lazy(() => import("@/components/admin/HeroMediaManager").then(m => ({ default: m.HeroMediaManager })));
+const MediaLibrary = lazy(() => import("@/components/admin/MediaLibrary").then(m => ({ default: m.MediaLibrary })));
+const BillingCenterTab = lazy(() => import("@/components/admin/BillingCenterTab").then(m => ({ default: m.BillingCenterTab })));
+const CategoriesTab = lazy(() => import("@/components/admin/CategoriesManager").then(m => ({ default: m.CategoriesTab })));
+const SMSLogsTab = lazy(() => import("@/components/admin/SMSLogsTab").then(m => ({ default: m.SMSLogsTab })));
+const DashboardTab = lazy(() => import("@/components/admin/DashboardTab").then(m => ({ default: m.DashboardTab })));
+const OnlineSalesTab = lazy(() => import("@/components/admin/OnlineSalesTab").then(m => ({ default: m.OnlineSalesTab })));
+const AdminGlobalSearch = lazy(() => import("@/components/admin/AdminGlobalSearch").then(m => ({ default: m.AdminGlobalSearch })));
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
@@ -644,21 +653,23 @@ function AdminPage() {
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
-            {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
-            {tab === "billing" && <BillingCenterTab />}
-            {tab === "products" && <ProductsTab />}
-            {tab === "hero" && <HeroMediaManager />}
-            {tab === "media" && <MediaLibrary />}
-            {tab === "orders" && <OnlineSalesTab />}
-            {tab === "customers" && <CustomersTab />}
-            {tab === "categories" && <CategoriesTab />}
-            {tab === "inventory" && <InventoryTab />}
-            {tab === "marketing" && <MarketingTab />}
-            {tab === "settings" && <SettingsTab />}
-            {tab === "sms" && <SMSLogsTab />}
-            {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
-            {tab === "coupons" && <CouponsTab />}
-            {tab === "reviews" && <ReviewsTab />}
+            <Suspense fallback={<div className="p-8 text-center text-muted-foreground animate-pulse">Loading module...</div>}>
+              {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
+              {tab === "billing" && <BillingCenterTab />}
+              {tab === "products" && <ProductsTab />}
+              {tab === "hero" && <HeroMediaManager />}
+              {tab === "media" && <MediaLibrary />}
+              {tab === "orders" && <OnlineSalesTab />}
+              {tab === "customers" && <CustomersTab />}
+              {tab === "categories" && <CategoriesTab />}
+              {tab === "inventory" && <InventoryTab />}
+              {tab === "marketing" && <MarketingTab />}
+              {tab === "settings" && <SettingsTab />}
+              {tab === "sms" && <SMSLogsTab />}
+              {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
+              {tab === "coupons" && <CouponsTab />}
+              {tab === "reviews" && <ReviewsTab />}
+            </Suspense>
           </div>
         </div>
       </div>
@@ -674,7 +685,20 @@ function ProductsTab() {
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "low_stock">("all");
   const { printLabel, isPrinting } = useDirectLabelPrint();
+
+  // Selection states
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
+  const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
+  const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; message: string } | null>(null);
+
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
@@ -699,6 +723,8 @@ function ProductsTab() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin-products"] });
     qc.invalidateQueries({ queryKey: ["products"] });
+    qc.invalidateQueries({ queryKey: ["inventory-products"] });
+    qc.invalidateQueries({ queryKey: ["categories"] });
   };
 
   const save = useMutation({
@@ -819,7 +845,7 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Archive (set is_active=false) instead of hard-delete
+  // Archive (set is_active=false)
   const archive = useMutation({
     mutationFn: async (uuid: string) => {
       const { error } = await supabase.from("products").update({ is_active: false }).eq("id", uuid);
@@ -832,20 +858,29 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Hard-delete â€” will fail server-side if product has transactions
+  // Hard-delete single product
   const remove = useMutation({
     mutationFn: async (uuid: string) => {
+      // Try atomic RPC first
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_products", {
+        _product_ids: [uuid],
+      });
+
+      if (!rpcErr && rpcRes) {
+        return rpcRes;
+      }
+
+      // Fallback
       const { error } = await supabase.from("products").delete().eq("id", uuid);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Product permanently deleted");
+      toast.success("Product deleted successfully");
       invalidate();
     },
     onError: (e: Error) => {
-      // Server-side trigger prevents deletion of products with transactions
       if (e.message.includes("historical transactions")) {
-        toast.error("Cannot delete â€” product has sales history. Archiving instead.", {
+        toast.error("Cannot delete — product has sales history. Archiving instead.", {
           duration: 5000,
         });
       } else {
@@ -867,39 +902,307 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const list = useMemo(
-    () =>
-      (data ?? []).filter((p) =>
-        (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      ),
-    [data, search],
+  // Batch delete selected products
+  const deleteSelected = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_products", {
+        _product_ids: ids,
+      });
+
+      if (rpcErr) {
+        // Fallback: delete client-side in chunks
+        for (const id of ids) {
+          await supabase.from("product_images").delete().eq("product_id", id);
+          await supabase.from("product_costs").delete().eq("product_id", id);
+          await supabase.from("products").delete().eq("id", id);
+        }
+        return { success: true, deleted: ids.length, archived: 0 };
+      }
+      return rpcRes;
+    },
+    onSuccess: (res: any) => {
+      const deleted = res?.deleted ?? selectedIds.size;
+      const archived = res?.archived ?? 0;
+      let msg = `Deleted ${deleted} product${deleted !== 1 ? "s" : ""}`;
+      if (archived > 0) {
+        msg += ` (${archived} archived due to sales history)`;
+      }
+      toast.success(msg);
+      setSelectedIds(new Set());
+      setShowDeleteSelectedModal(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(`Failed to delete selected products: ${e.message}`),
+  });
+
+  // Delete all products
+  const deleteAll = useMutation({
+    mutationFn: async () => {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_all_products", {
+        _force: true,
+      });
+
+      if (rpcErr) {
+        // Fallback: delete all in batches
+        const allIds = (data ?? []).map((p) => p.uuid);
+        for (const id of allIds) {
+          await supabase.from("product_images").delete().eq("product_id", id);
+          await supabase.from("product_costs").delete().eq("product_id", id);
+          await supabase.from("products").delete().eq("id", id);
+        }
+        return { success: true, deleted: allIds.length };
+      }
+      return rpcRes;
+    },
+    onSuccess: (res: any) => {
+      const count = res?.deleted ?? data?.length ?? 0;
+      toast.success(`All ${count} products deleted successfully`);
+      setSelectedIds(new Set());
+      setShowDeleteAllModal(false);
+      setDeleteAllConfirmInput("");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(`Failed to delete all products: ${e.message}`),
+  });
+
+  // Batch Archive Selected
+  const archiveSelected = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: false })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Archived ${selectedIds.size} product(s)`);
+      setSelectedIds(new Set());
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Batch Restore Selected
+  const restoreSelected = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: true })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Restored ${selectedIds.size} product(s) to store`);
+      setSelectedIds(new Set());
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Batch Set Stock to 10
+  const setStockTenSelected = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ stock: 10 })
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Set stock to 10 for ${selectedIds.size} product(s)`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Sync 100 FirstCry Catalog
+  const handleSyncFirstCryCatalog = async () => {
+    if (isSyncingCatalog) return;
+    setIsSyncingCatalog(true);
+    setSyncProgress({ current: 0, total: 100, message: "Starting FirstCry sync..." });
+
+    const toastId = toast.loading("Syncing 100 FirstCry baby & kids catalog (10 stock each)...");
+
+    try {
+      const res = await syncFirstCryCatalogToSupabase((cur, tot, msg) => {
+        setSyncProgress({ current: cur, total: tot, message: msg });
+        toast.loading(`Syncing FirstCry Catalog (${cur}/${tot})...`, { id: toastId });
+      });
+
+      if (res.success) {
+        toast.success(`Successfully synced ${res.count} FirstCry products (10 stock each)!`, {
+          id: toastId,
+          duration: 5000,
+        });
+        invalidate();
+      } else {
+        toast.error(`Sync encountered an error: ${res.error}`, { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(`Sync failed: ${err.message || String(err)}`, { id: toastId });
+    } finally {
+      setIsSyncingCatalog(false);
+      setSyncProgress(null);
+    }
+  };
+
+  const list = useMemo(() => {
+    return (data ?? []).filter((p) => {
+      const matchesSearch = (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      const matchesCat = categoryFilter === "all" || p.category === categoryFilter;
+
+      let matchesStatus = true;
+      if (statusFilter === "active") matchesStatus = p.isActive;
+      else if (statusFilter === "archived") matchesStatus = !p.isActive;
+      else if (statusFilter === "low_stock") matchesStatus = p.stock <= p.lowStockAt;
+
+      return matchesSearch && matchesCat && matchesStatus;
+    });
+  }, [data, search, categoryFilter, statusFilter]);
+
+  // Handle header checkbox indeterminate state
+  const isAllSelected = list.length > 0 && list.every((p) => selectedIds.has(p.uuid));
+  const isSomeSelected = list.some((p) => selectedIds.has(p.uuid)) && !isAllSelected;
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = isSomeSelected;
+    }
+  }, [isSomeSelected]);
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const newSet = new Set(selectedIds);
+      list.forEach((p) => newSet.add(p.uuid));
+      setSelectedIds(newSet);
+    } else {
+      const newSet = new Set(selectedIds);
+      list.forEach((p) => newSet.delete(p.uuid));
+      setSelectedIds(newSet);
+    }
+  };
+
+  const toggleSelectProduct = (uuid: string, e?: React.MouseEvent) => {
+    const newSet = new Set(selectedIds);
+
+    // Shift-click range selection
+    if (e?.shiftKey && lastSelectedId && lastSelectedId !== uuid) {
+      const currentIndex = list.findIndex((p) => p.uuid === uuid);
+      const lastIndex = list.findIndex((p) => p.uuid === lastSelectedId);
+
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const start = Math.min(currentIndex, lastIndex);
+        const end = Math.max(currentIndex, lastIndex);
+        const shouldSelect = !selectedIds.has(uuid);
+
+        for (let i = start; i <= end; i++) {
+          if (shouldSelect) {
+            newSet.add(list[i].uuid);
+          } else {
+            newSet.delete(list[i].uuid);
+          }
+        }
+        setSelectedIds(newSet);
+        setLastSelectedId(uuid);
+        return;
+      }
+    }
+
+    if (newSet.has(uuid)) {
+      newSet.delete(uuid);
+    } else {
+      newSet.add(uuid);
+    }
+    setSelectedIds(newSet);
+    setLastSelectedId(uuid);
+  };
+
+  const selectedProducts = useMemo(
+    () => (data ?? []).filter((p) => selectedIds.has(p.uuid)),
+    [data, selectedIds],
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products, SKU, barcodeâ€¦"
-            aria-label="Search products"
-            className="w-full rounded-xl border border-border bg-card px-4 py-2 pl-9 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-          />
-          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">ðŸ” </span>
+      {/* Top action & search bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative w-72 max-w-xs">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products, SKU, barcode…"
+              aria-label="Search products"
+              className="w-full rounded-xl border border-border bg-card px-4 py-2 pl-9 text-sm text-foreground outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-xs"
+            />
+            <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">🔍</span>
+          </div>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
+          >
+            <option value="all">All Categories</option>
+            <option value="clothing">Clothing & Fashion</option>
+            <option value="toys">Toys & Games</option>
+            <option value="care">Nursery & Care</option>
+            <option value="gear">Travel Gear & Strollers</option>
+            <option value="feeding">Feeding & Nursing</option>
+            <option value="diapering">Diapering & Potty</option>
+            <option value="bath">Bath & Healthcare</option>
+            <option value="footwear">Footwear & Shoes</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Live Only</option>
+            <option value="archived">Archived Only</option>
+            <option value="low_stock">Low Stock (≤3)</option>
+          </select>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sync 100 FirstCry Catalog Button */}
+          <button
+            onClick={handleSyncFirstCryCatalog}
+            disabled={isSyncingCatalog}
+            title="Populate or restore 100 curated FirstCry products with 10 stock each"
+            className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/80 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100/90 active:scale-95 cursor-pointer disabled:opacity-50"
+          >
+            <Sparkles className={`size-3.5 text-amber-700 ${isSyncingCatalog ? "animate-spin" : ""}`} />
+            <span>{isSyncingCatalog ? "Syncing (100)..." : "Sync 100 FirstCry (10 Stock)"}</span>
+          </button>
+
+          {/* Delete All Products Button */}
+          <button
+            onClick={() => setShowDeleteAllModal(true)}
+            disabled={!data || data.length === 0}
+            title="Delete all products from store catalog"
+            className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 px-3 py-2 text-xs font-bold text-red-700 shadow-2xs transition hover:bg-red-100 hover:text-red-800 active:scale-95 cursor-pointer disabled:opacity-40"
+          >
+            <Trash2 className="size-3.5" />
+            <span>Delete All</span>
+          </button>
+
+          {/* Print Labels Dropdown */}
           <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
-              onClick={() => printLabel(list)}
-              disabled={isPrinting || list.length === 0}
-              title="Print labels directly for visible products (1-Click)"
-              className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
+              onClick={() => printLabel(selectedIds.size > 0 ? selectedProducts : list)}
+              disabled={isPrinting || (selectedIds.size > 0 ? selectedProducts.length === 0 : list.length === 0)}
+              title={selectedIds.size > 0 ? `Print labels for ${selectedIds.size} selected` : "Print labels directly for visible products (1-Click)"}
+              className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
             >
-              <Printer className="size-4 text-muted-foreground" />
-              <span>Print Labels</span>
+              <Printer className="size-3.5 text-muted-foreground" />
+              <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : "Print Labels"}</span>
             </button>
             <button
               onClick={() => setPrintingLabels(true)}
@@ -909,25 +1212,115 @@ function ProductsTab() {
               <Settings2 className="size-3.5" />
             </button>
           </div>
+
+          {/* Add product button */}
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-[#7a1c1c] cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl bg-[#8B2020] px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#7a1c1c] active:scale-95 cursor-pointer"
           >
             <Plus className="size-4" /> Add product
           </button>
         </div>
       </div>
 
+      {/* Floating / Sticky Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-card p-3 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 pl-2">
+            <span className="flex size-6 items-center justify-center rounded-full bg-[#8B2020] text-[11px] font-bold text-white">
+              {selectedIds.size}
+            </span>
+            <p className="text-xs font-bold text-foreground">
+              {selectedIds.size} of {data?.length ?? 0} products selected
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Print labels for selected */}
+            <button
+              onClick={() => printLabel(selectedProducts)}
+              disabled={isPrinting}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition cursor-pointer"
+            >
+              <Printer className="size-3.5" />
+              <span>Print Labels</span>
+            </button>
+
+            {/* Set stock to 10 */}
+            <button
+              onClick={() => setStockTenSelected.mutate(Array.from(selectedIds))}
+              disabled={setStockTenSelected.isPending}
+              title="Quickly set stock to 10 for all selected products"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+            >
+              <Check className="size-3.5" />
+              <span>Set Stock to 10</span>
+            </button>
+
+            {/* Archive selected */}
+            <button
+              onClick={() => archiveSelected.mutate(Array.from(selectedIds))}
+              disabled={archiveSelected.isPending}
+              className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-2xs hover:bg-amber-100 transition cursor-pointer"
+            >
+              <Archive className="size-3.5" />
+              <span>Archive</span>
+            </button>
+
+            {/* Restore selected */}
+            <button
+              onClick={() => restoreSelected.mutate(Array.from(selectedIds))}
+              disabled={restoreSelected.isPending}
+              className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 shadow-2xs hover:bg-blue-100 transition cursor-pointer"
+            >
+              <Package className="size-3.5" />
+              <span>Restore</span>
+            </button>
+
+            {/* Delete Selected (Custom deletion) */}
+            <button
+              onClick={() => setShowDeleteSelectedModal(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-destructive px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+            >
+              <Trash2 className="size-3.5" />
+              <span>Delete Selected ({selectedIds.size})</span>
+            </button>
+
+            {/* Clear Selection */}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              aria-label="Clear selection"
+              className="rounded-xl border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="mt-8 flex justify-center">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-card shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-gray-100">
+            <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
+                <th className="w-10 px-4 py-4">
+                  <div className="flex items-center">
+                    <input
+                      ref={headerCheckboxRef}
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                      aria-label="Select all products"
+                      className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                    />
+                  </div>
+                </th>
                 <th className="px-5 py-4">Product</th>
+                <th className="px-5 py-4">Category</th>
                 <th className="px-5 py-4">SKU / Barcode</th>
                 <th className="px-5 py-4">Pricing & Profit</th>
                 <th className="px-5 py-4">Stock</th>
@@ -935,163 +1328,193 @@ function ProductsTab() {
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {list.map((p) => (
-                <tr
-                  key={p.uuid}
-                  className={`group transition-colors hover:bg-muted/50 ${!p.isActive ? "opacity-60" : ""}`}
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-4">
-                      <img
-                        src={p.image}
-                        alt=""
-                        loading="lazy"
-                        width={48}
-                        height={48}
-                        className="size-12 shrink-0 rounded-xl border border-gray-100 object-cover shadow-sm transition-transform group-hover:scale-105"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.opacity = "0";
-                        }}
-                      />
-                      <div>
-                        <p className="font-semibold text-foreground">{p.name}</p>
-                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                          {p.brand} <span className="opacity-50">â€¢</span> {p.id}
-                        </p>
+            <tbody className="divide-y divide-border/60">
+              {list.map((p) => {
+                const isSelected = selectedIds.has(p.uuid);
+                return (
+                  <tr
+                    key={p.uuid}
+                    className={`group transition-colors ${
+                      isSelected
+                        ? "bg-primary/5 hover:bg-primary/10"
+                        : "hover:bg-muted/50"
+                    } ${!p.isActive ? "opacity-60" : ""}`}
+                  >
+                    <td className="w-10 px-4 py-4">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onClick={(e) => toggleSelectProduct(p.uuid, e)}
+                          onChange={() => {}} // handled in onClick for shift-key support
+                          aria-label={`Select ${p.name}`}
+                          className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                        />
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <p className="font-mono text-xs font-semibold text-foreground">{p.sku}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                      {p.barcode}
-                    </p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-between min-w-[120px]">
-                      <div>
-                        <p className="font-semibold text-foreground" title="Selling Price">
-                          {formatPrice(p.price)}
-                        </p>
-                        <p
-                          className="text-[10px] text-muted-foreground mt-0.5"
-                          title="Buying Price"
-                        >
-                          Cost: {formatPrice(p.buyingPrice || 0)}
-                        </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3.5">
+                        <img
+                          src={p.image}
+                          alt=""
+                          loading="lazy"
+                          width={48}
+                          height={48}
+                          className="size-12 shrink-0 rounded-xl border border-border/80 object-cover shadow-2xs transition-transform group-hover:scale-105"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = "0";
+                          }}
+                        />
+                        <div className="max-w-[280px]">
+                          <p className="font-semibold text-foreground line-clamp-1" title={p.name}>
+                            {p.name}
+                          </p>
+                          <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                            {p.brand} <span className="opacity-50">•</span> {p.id}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p
-                          className={`text-xs font-bold ${p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-600"}`}
-                        >
-                          {formatPrice(Math.abs(p.price - (p.buyingPrice || 0)))}
-                        </p>
-                        <p
-                          className={`text-[10px] font-medium ${p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-500"}`}
-                        >
-                          {p.buyingPrice
-                            ? (((p.price - p.buyingPrice) / p.buyingPrice) * 100).toFixed(1)
-                            : p.price > 0
-                              ? "100.0"
-                              : "0.0"}
-                          %
-                        </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="inline-flex rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold capitalize text-foreground">
+                        {p.category}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="font-mono text-xs font-semibold text-foreground">{p.sku}</p>
+                      <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                        {p.barcode}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-between min-w-[120px]">
+                        <div>
+                          <p className="font-semibold text-foreground" title="Selling Price">
+                            {formatPrice(p.price)}
+                          </p>
+                          <p
+                            className="text-[10px] text-muted-foreground mt-0.5"
+                            title="Buying Price"
+                          >
+                            Cost: {formatPrice(p.buyingPrice || 0)}
+                          </p>
+                        </div>
+                        <div className="text-right pl-3">
+                          <p
+                            className={`text-xs font-bold ${
+                              p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-600"
+                            }`}
+                          >
+                            {formatPrice(Math.abs(p.price - (p.buyingPrice || 0)))}
+                          </p>
+                          <p
+                            className={`text-[10px] font-medium ${
+                              p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-500"
+                            }`}
+                          >
+                            {p.buyingPrice
+                              ? (((p.price - p.buyingPrice) / p.buyingPrice) * 100).toFixed(1)
+                              : p.price > 0
+                                ? "100.0"
+                                : "0.0"}
+                            %
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                        p.stock === 0
-                          ? "bg-red-50 text-red-600 border border-red-100"
-                          : p.stock <= p.lowStockAt
-                            ? "bg-amber-50 text-amber-600 border border-amber-100"
-                            : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                      }`}
-                    >
-                      {p.stock === 0 ? "Out of stock" : `${p.stock} left`}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                        p.isActive
-                          ? "bg-blue-50 text-blue-700 border border-blue-200"
-                          : "bg-muted text-muted-foreground border border-border"
-                      }`}
-                    >
-                      {p.isActive ? "Live" : "Archived"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                      <button
-                        onClick={() => printLabel(p)}
-                        disabled={isPrinting}
-                        aria-label={`Print label for ${p.name}`}
-                        title="Print Label (1-Click Direct Print)"
-                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                          p.stock === 0
+                            ? "bg-red-50 text-red-600 border border-red-100"
+                            : p.stock <= p.lowStockAt
+                              ? "bg-amber-50 text-amber-600 border border-amber-100"
+                              : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                        }`}
                       >
-                        <Printer className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => setEditing(p)}
-                        aria-label={`Edit ${p.name}`}
-                        title="Edit"
-                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted"
+                        {p.stock === 0 ? "Out of stock" : `${p.stock} in stock`}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                          p.isActive
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "bg-muted text-muted-foreground border border-border"
+                        }`}
                       >
-                        <Pencil className="size-4" />
-                      </button>
-                      {!p.isActive ? (
+                        {p.isActive ? "Live" : "Archived"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         <button
-                          onClick={() => restore.mutate(p.uuid)}
-                          aria-label={`Restore ${p.name}`}
-                          title="Restore to store"
-                          className="rounded-lg border border-emerald-200 bg-card p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
+                          onClick={() => printLabel(p)}
+                          disabled={isPrinting}
+                          aria-label={`Print label for ${p.name}`}
+                          title="Print Label (1-Click Direct Print)"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
                         >
-                          <Package className="size-4" />
+                          <Printer className="size-4" />
                         </button>
-                      ) : (
+                        <button
+                          onClick={() => setEditing(p)}
+                          aria-label={`Edit ${p.name}`}
+                          title="Edit"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                        {!p.isActive ? (
+                          <button
+                            onClick={() => restore.mutate(p.uuid)}
+                            aria-label={`Restore ${p.name}`}
+                            title="Restore to store"
+                            className="rounded-lg border border-emerald-200 bg-card p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
+                          >
+                            <Package className="size-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Archive "${p.name}"? It will be hidden from the store but kept in records.`,
+                                )
+                              )
+                                archive.mutate(p.uuid);
+                            }}
+                            aria-label={`Archive ${p.name}`}
+                            title="Archive (hide from store)"
+                            className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
+                          >
+                            <Package className="size-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             if (
                               window.confirm(
-                                `Archive "${p.name}"? It will be hidden from the store but kept in records.`,
+                                `Permanently delete "${p.name}"? This cannot be undone.\n\nNote: Products with sales history cannot be deleted.`,
                               )
                             )
-                              archive.mutate(p.uuid);
+                              remove.mutate(p.uuid);
                           }}
-                          aria-label={`Archive ${p.name}`}
-                          title="Archive (hide from store)"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
+                          aria-label={`Delete ${p.name}`}
+                          title="Delete permanently"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
                         >
-                          <Package className="size-4" />
+                          <Trash2 className="size-4" />
                         </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Permanently delete "${p.name}"? This cannot be undone.\n\nNote: Products with sales history cannot be deleted.`,
-                            )
-                          )
-                            remove.mutate(p.uuid);
-                        }}
-                        aria-label={`Delete ${p.name}`}
-                        title="Delete permanently"
-                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {list.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={8}
                     className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
                   >
                     No products found.
@@ -1100,6 +1523,100 @@ function ProductsTab() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Selected Confirmation Modal */}
+      {showDeleteSelectedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-destructive/10">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Delete {selectedIds.size} Selected Products</h3>
+                <p className="text-xs text-muted-foreground">Confirm custom product removal</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to permanently delete these <strong className="text-foreground">{selectedIds.size}</strong> selected products?
+            </p>
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200">
+              <strong>Notice:</strong> Any product with previous sales transactions will be automatically <em>archived</em> instead of permanently removed to preserve invoice and financial audit records.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowDeleteSelectedModal(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteSelected.mutate(Array.from(selectedIds))}
+                disabled={deleteSelected.isPending}
+                className="flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                <span>{deleteSelected.isPending ? "Deleting..." : `Delete ${selectedIds.size} Products`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Products Modal */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-destructive/10">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Delete All Products</h3>
+                <p className="text-xs text-muted-foreground">Permanent catalog purge</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete all <strong className="text-foreground">{data?.length ?? 0} products</strong> currently in the store catalog.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                Type <span className="font-mono font-bold text-foreground">DELETE ALL</span> to confirm:
+              </label>
+              <input
+                value={deleteAllConfirmInput}
+                onChange={(e) => setDeleteAllConfirmInput(e.target.value)}
+                placeholder="DELETE ALL"
+                className="w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-sm font-mono text-foreground outline-none focus:border-destructive"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowDeleteAllModal(false);
+                  setDeleteAllConfirmInput("");
+                }}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteAll.mutate()}
+                disabled={deleteAll.isPending || deleteAllConfirmInput !== "DELETE ALL"}
+                className="flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" />
+                <span>{deleteAll.isPending ? "Purging..." : "Confirm Delete All"}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1142,6 +1659,15 @@ const SETTING_LABELS: Record<string, string> = {
   owner_notification_email: "Owner Sale Alert Email (Recipient)",
   owner_notify_offline_sales: "Enable Offline POS Sale Alerts (true/false)",
   owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
+  // The feature toggles won't be rendered in the text list, so they don't strictly need labels here, but good for completeness
+  feature_hover_swap: "Hover Image Swap",
+  feature_promo_badges: "Floating Promo Badges",
+  feature_size_guide: "Size Guide Drawer",
+  feature_image_magnifier: "Image Magnifier (Zoom)",
+  feature_urgency_badges: "Urgency & Social Proof Badges",
+  feature_swatches: "Interactive Visual Swatches",
+  feature_sticky_cart: "Sticky 'Add to Cart' Bar",
+  urgency_dispatch_cutoff_hour: "Dispatch Cutoff Hour",
 };
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -1175,6 +1701,14 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   instagram_url: "https://www.instagram.com/zerah_kids/",
   facebook_url: "",
   whatsapp_url: "",
+  feature_hover_swap: "true",
+  feature_promo_badges: "true",
+  feature_size_guide: "true",
+  feature_image_magnifier: "true",
+  feature_urgency_badges: "true",
+  feature_swatches: "true",
+  feature_sticky_cart: "true",
+  urgency_dispatch_cutoff_hour: "14",
 };
 
 function SettingsTab() {
@@ -1327,6 +1861,98 @@ function SettingsTab() {
         </div>
       </div>
 
+      {/* ─── PREMIUM STORE FEATURES ───────────────────────────── */}
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+        <div className="border-b border-border pb-4">
+          <h3 className="font-display text-lg font-bold text-foreground">Premium Store Features</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Turn advanced storefront features ON or OFF globally.
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              key: "feature_hover_swap",
+              label: "Hover Image Swap",
+              desc: "Swap to 2nd image on hover (Product Card)",
+            },
+            {
+              key: "feature_promo_badges",
+              label: "Floating Promo Badges",
+              desc: "Show 'BUY 3 @1199' & '% OFF' tags",
+            },
+            {
+              key: "feature_size_guide",
+              label: "Size Guide Drawer",
+              desc: "Slide-out measurement chart",
+            },
+            {
+              key: "feature_image_magnifier",
+              label: "Image Magnifier",
+              desc: "Native hover-zoom on main product images",
+            },
+            {
+              key: "feature_urgency_badges",
+              label: "Urgency Badges",
+              desc: "Live viewer count, low stock tags & dispatch timer",
+            },
+            {
+              key: "feature_swatches",
+              label: "Visual Swatches",
+              desc: "'More in this style' interactive circles",
+            },
+            {
+              key: "feature_sticky_cart",
+              label: "Sticky Cart Bar",
+              desc: "Persistent Add to Bag bar on scroll",
+            },
+          ].map((feat) => (
+            <label
+              key={feat.key}
+              className="flex items-center justify-between rounded-2xl border border-border bg-muted/10 p-4 cursor-pointer hover:bg-muted/20 transition"
+            >
+              <div>
+                <span className="block text-sm font-bold text-foreground">{feat.label}</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">{feat.desc}</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={current[feat.key] !== "false"}
+                onChange={(e) =>
+                  setValues({
+                    ...current,
+                    [feat.key]: e.target.checked ? "true" : "false",
+                  })
+                }
+                className="size-4 accent-primary ml-4 shrink-0"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-border">
+          <label className="block max-w-sm">
+            <span className="text-sm font-bold text-foreground">
+              Dispatch Cutoff Hour (Urgency Timer)
+            </span>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              What time (24h format) does same-day dispatch end? (e.g., 14 = 2 PM).
+            </p>
+            <input
+              type="number"
+              min="0"
+              max="23"
+              value={current.urgency_dispatch_cutoff_hour ?? "14"}
+              onChange={(e) =>
+                setValues({ ...current, urgency_dispatch_cutoff_hour: e.target.value })
+              }
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+            />
+          </label>
+        </div>
+      </div>
+
       {/* ─── GENERAL STORE SETTINGS & TEXT CONTROL ───────────────────────────── */}
       <div className="space-y-4">
         <h3 className="font-display text-lg font-bold">Storefront Text Content</h3>
@@ -1334,7 +1960,10 @@ function SettingsTab() {
           Update the textual content across your storefront here. Changes sync instantly.
         </p>
         {Object.keys(SETTING_LABELS)
-          .filter((k) => !k.startsWith("owner_"))
+          .filter(
+            (k) =>
+              !k.startsWith("owner_") && !k.startsWith("feature_") && !k.startsWith("urgency_"),
+          )
           .map((key) => (
             <div
               key={key}

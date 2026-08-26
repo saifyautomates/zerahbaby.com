@@ -10,6 +10,8 @@ import { useWishlist } from "@/lib/wishlist";
 import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function ProductCard({ product }: { product: Product }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -17,6 +19,18 @@ export function ProductCard({ product }: { product: Product }) {
   const { user } = useSession();
   const { isWishlisted, toggle } = useWishlist();
   const wishlisted = user ? isWishlisted(product.uuid) : false;
+
+  const { data: siteSettings } = useQuery({
+    queryKey: ["site_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("key, value");
+      if (error) throw error;
+      return Object.fromEntries(data.map((r: any) => [r.key, r.value])) as Record<string, string>;
+    },
+  });
+
+  const featHoverSwap = siteSettings?.feature_hover_swap !== "false";
+  const featPromoBadges = siteSettings?.feature_promo_badges !== "false";
 
   return (
     <article className="lift group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/30 hover:shadow-premium-hover">
@@ -27,21 +41,47 @@ export function ProductCard({ product }: { product: Product }) {
         className="focus-ring relative block overflow-hidden bg-muted"
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 mix-blend-multiply" />
-        <ResponsiveMedia
-          src={product.image}
-          alt={product.name}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          width={800}
-          height={800}
-          fit="cover"
-          aspect="1/1"
-          containerClassName="w-full"
-          className="transition-transform duration-700 ease-out group-hover:scale-[1.08]"
-        />
-        {discountPct(product) > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-destructive/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
-            {discountPct(product)}% off
-          </span>
+        <div className="relative aspect-square w-full bg-muted">
+          <ResponsiveMedia
+            src={product.image}
+            alt={product.name}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            width={800}
+            height={800}
+            fit="cover"
+            aspect="1/1"
+            containerClassName={`w-full h-full absolute inset-0 ${featHoverSwap && product.images?.length > 0 ? "transition-opacity duration-500 group-hover:opacity-0" : "transition-transform duration-700 ease-out group-hover:scale-[1.08]"}`}
+          />
+          {/* Second Image Swap on Hover */}
+          {featHoverSwap && product.images?.length > 0 && (
+            <ResponsiveMedia
+              src={product.images[0]}
+              alt={`${product.name} alternate view`}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              width={800}
+              height={800}
+              fit="cover"
+              aspect="1/1"
+              containerClassName="w-full h-full absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              className="transition-transform duration-700 ease-out scale-100 group-hover:scale-[1.08]"
+            />
+          )}
+        </div>
+
+        {/* Promo Floating Badges */}
+        {featPromoBadges && (
+          <div className="absolute left-3 top-3 z-20 flex flex-col items-start gap-1.5 pointer-events-none">
+            {product.highlights?.length > 0 && (
+              <span className="rounded-full bg-[#111111] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-xl backdrop-blur-md">
+                {product.highlights[0]}
+              </span>
+            )}
+            {discountPct(product) > 0 && (
+              <span className="rounded-full bg-destructive/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
+                {discountPct(product)}% off
+              </span>
+            )}
+          </div>
         )}
       </Link>
       {user && (

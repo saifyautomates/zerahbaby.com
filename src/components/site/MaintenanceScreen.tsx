@@ -15,6 +15,7 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
       const timer = setTimeout(() => setClicks(0), 1000); // reset clicks after 1 second
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [clicks]);
 
   const handleLogoClick = () => {

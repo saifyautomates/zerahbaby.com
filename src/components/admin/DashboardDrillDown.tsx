@@ -320,7 +320,7 @@ export function DashboardDrillDown({
                       >
                         {getProductImage(p) ? (
                           <img
-                            src={getProductImage(p)}
+                            src={getProductImage(p) || undefined}
                             alt={p.name}
                             loading="lazy"
                             decoding="async"
@@ -446,7 +446,7 @@ export function DashboardDrillDown({
                       >
                         {getProductImage(p) ? (
                           <img
-                            src={getProductImage(p)}
+                            src={getProductImage(p) || undefined}
                             alt={p.name}
                             loading="lazy"
                             decoding="async"
@@ -652,14 +652,14 @@ export function DashboardDrillDown({
                       <div className="flex items-center gap-4">
                         {getProductImage(p) ? (
                           <a
-                            href={getProductImage(p)}
+                            href={getProductImage(p) || undefined}
                             target="_blank"
                             rel="noreferrer"
                             title="Click to enlarge"
                             className="shrink-0"
                           >
                             <img
-                              src={getProductImage(p)}
+                              src={getProductImage(p) || undefined}
                               alt={p.name}
                               loading="lazy"
                               decoding="async"

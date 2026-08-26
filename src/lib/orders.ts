@@ -241,7 +241,7 @@ export function usePlaceOrder() {
 
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || "Failed to place order");
       return (data as { order_id: string }).order_id;
     },
     onSuccess: () => {

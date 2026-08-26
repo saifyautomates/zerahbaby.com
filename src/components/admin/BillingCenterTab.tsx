@@ -88,19 +88,21 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden flex flex-col p-4 bg-muted/10">
-        {activeTab === "pos" && <POSTab />}
-        {activeTab === "returns" && <POSReturnsTab />}
-        {activeTab === "labels" && <LabelPrintingSubTab />}
-        {activeTab === "sales" && (
-          <div className="overflow-y-auto h-full pr-2 pb-10">
-            <OfflineAnalyticsTab />
-          </div>
-        )}
-        {activeTab === "customers" && (
-          <div className="overflow-y-auto h-full pr-2 pb-10">
-            <CustomerHistoryPanel />
-          </div>
-        )}
+        <div key={activeTab} className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden">
+          {activeTab === "pos" && <POSTab />}
+          {activeTab === "returns" && <POSReturnsTab />}
+          {activeTab === "labels" && <LabelPrintingSubTab />}
+          {activeTab === "sales" && (
+            <div className="overflow-y-auto h-full pr-2 pb-10">
+              <OfflineAnalyticsTab />
+            </div>
+          )}
+          {activeTab === "customers" && (
+            <div className="overflow-y-auto h-full pr-2 pb-10">
+              <CustomerHistoryPanel />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

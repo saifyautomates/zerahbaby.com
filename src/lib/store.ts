@@ -6,7 +6,16 @@ import toys from "@/assets/cat-toys.jpg";
 import care from "@/assets/cat-care.jpg";
 import gear from "@/assets/cat-gear.jpg";
 
-export const fallbackImages: Record<string, string> = { clothing, toys, care, gear };
+export const fallbackImages: Record<string, string> = {
+  clothing,
+  toys,
+  care,
+  gear,
+  feeding: care,
+  diapering: care,
+  bath: care,
+  footwear: clothing,
+};
 
 export const imageFor = (category: string, url?: string | null) =>
   url && url.trim().length > 0 ? url : (fallbackImages[category] ?? clothing);
@@ -158,8 +167,8 @@ export const fallbackCategories: Category[] = [
   {
     uuid: "cat-1",
     slug: "clothing",
-    name: "Clothing",
-    tagline: "Soft, breathable everyday wear",
+    name: "Clothing & Fashion",
+    tagline: "Soft, breathable everyday wear & festive outfits",
     image: clothing,
     imageUrl: null,
     sortOrder: 1,
@@ -167,8 +176,8 @@ export const fallbackCategories: Category[] = [
   {
     uuid: "cat-2",
     slug: "toys",
-    name: "Toys",
-    tagline: "Safe play that grows with them",
+    name: "Toys & Games",
+    tagline: "Safe sensory play, puzzles & learning toys",
     image: toys,
     imageUrl: null,
     sortOrder: 2,
@@ -177,7 +186,7 @@ export const fallbackCategories: Category[] = [
     uuid: "cat-3",
     slug: "care",
     name: "Nursery & Care",
-    tagline: "Gentle essentials you can trust",
+    tagline: "Gentle skincare, bath & pediatric hygiene essentials",
     image: care,
     imageUrl: null,
     sortOrder: 3,
@@ -185,11 +194,47 @@ export const fallbackCategories: Category[] = [
   {
     uuid: "cat-4",
     slug: "gear",
-    name: "Travel Gear",
-    tagline: "Strollers, carriers and on-the-go picks",
+    name: "Travel Gear & Strollers",
+    tagline: "Strollers, car seats, carriers & travel gear",
     image: gear,
     imageUrl: null,
     sortOrder: 4,
+  },
+  {
+    uuid: "cat-5",
+    slug: "feeding",
+    name: "Feeding & Nursing",
+    tagline: "Anti-colic bottles, sterilizers, tableware & pumps",
+    image: care,
+    imageUrl: null,
+    sortOrder: 5,
+  },
+  {
+    uuid: "cat-6",
+    slug: "diapering",
+    name: "Diapering & Potty",
+    tagline: "Ultra-absorbent diapers, wipes & training gear",
+    image: care,
+    imageUrl: null,
+    sortOrder: 6,
+  },
+  {
+    uuid: "cat-7",
+    slug: "bath",
+    name: "Bath & Healthcare",
+    tagline: "Collapsible tubs, organic towels & grooming kits",
+    image: care,
+    imageUrl: null,
+    sortOrder: 7,
+  },
+  {
+    uuid: "cat-8",
+    slug: "footwear",
+    name: "Footwear & Accessories",
+    tagline: "Pre-walkers, sandals, clogs, sneakers & hats",
+    image: clothing,
+    imageUrl: null,
+    sortOrder: 8,
   },
 ];
 
