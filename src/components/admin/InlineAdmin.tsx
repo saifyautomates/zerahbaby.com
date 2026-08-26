@@ -94,17 +94,31 @@ export function AdminCategoryControls({ category }: { category: Category }) {
 
   const update = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("categories")
-        .update({
-          name: draft.name,
-          slug: draft.slug,
-          tagline: draft.tagline,
-          image_url: draft.image_url || null,
-          sort_order: Number(draft.sort_order),
-        })
-        .eq("id", category.uuid);
-      if (error) throw error;
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          category.uuid || "",
+        );
+
+      const payload = {
+        name: draft.name.trim(),
+        slug: draft.slug.trim(),
+        tagline: draft.tagline.trim(),
+        image_url: draft.image_url?.trim() || null,
+        sort_order: Number(draft.sort_order) || 1,
+      };
+
+      if (isUuid) {
+        const { error } = await supabase
+          .from("categories")
+          .update(payload)
+          .eq("id", category.uuid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("categories")
+          .upsert(payload, { onConflict: "slug" });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Category updated successfully");
@@ -117,8 +131,18 @@ export function AdminCategoryControls({ category }: { category: Category }) {
 
   const remove = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("categories").delete().eq("id", category.uuid);
-      if (error) throw error;
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          category.uuid || "",
+        );
+
+      if (isUuid) {
+        const { error } = await supabase.from("categories").delete().eq("id", category.uuid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("categories").delete().eq("slug", category.slug);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Category deleted");
