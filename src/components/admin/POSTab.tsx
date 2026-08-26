@@ -106,6 +106,9 @@ export function POSTab() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
 
+  // Product detail drawer
+  const [selectedPOSItem, setSelectedPOSItem] = useState<POSCartItem | null>(null);
+
   // Calculations
   const subtotal = useMemo(
     () => cart.reduce((acc, item) => acc + item.price * item.qty, 0),
@@ -581,26 +584,36 @@ export function POSTab() {
                         className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                       >
                         <td className="py-3 pr-4">
-                          <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPOSItem(item)}
+                            className="flex items-center gap-3 text-left cursor-pointer group w-full"
+                            title="Click to view product details"
+                          >
                             <img
                               src={imageFor(item.category || "clothing", item.image_url)}
                               alt={item.name}
                               loading="lazy"
                               decoding="async"
-                              className="size-10 rounded-lg object-cover border border-border shrink-0"
+                              className="size-10 rounded-lg object-cover border border-border shrink-0 group-hover:ring-2 group-hover:ring-primary/40 transition-all"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = clothing;
                               }}
                             />
                             <div>
-                              <p className="font-semibold text-foreground text-sm">{item.name}</p>
+                              <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors line-clamp-2">
+                                {item.name}
+                              </p>
                               {item.isCustom && (
                                 <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
                                   Custom Price
                                 </span>
                               )}
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {item.brand}
+                              </p>
                             </div>
-                          </div>
+                          </button>
                         </td>
                         <td className="py-3 font-mono text-xs text-muted-foreground">
                           {item.sku || "—"}
@@ -1326,6 +1339,185 @@ export function POSTab() {
           onClose={() => setShowLabels(false)}
         />
       )}
+      {/* ====== Product Detail Drawer ====== */}
+      {selectedPOSItem &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex"
+            onClick={() => setSelectedPOSItem(null)}
+          >
+            {/* Backdrop */}
+            <div className="flex-1 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200" />
+
+            {/* Drawer Panel */}
+            <div
+              className="w-full max-w-sm bg-card h-full overflow-y-auto shadow-2xl border-l border-border animate-in slide-in-from-right duration-250 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30 shrink-0">
+                <div>
+                  <h3 className="font-display text-sm font-bold text-foreground">Product Details</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">POS Item Preview</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPOSItem(null)}
+                  className="grid size-8 place-items-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* Product Image */}
+              <div className="relative bg-muted/20 p-6 flex items-center justify-center shrink-0 border-b border-border">
+                <img
+                  src={imageFor(selectedPOSItem.category || "clothing", selectedPOSItem.image_url)}
+                  alt={selectedPOSItem.name}
+                  className="w-48 h-48 object-contain rounded-2xl border border-border bg-white shadow-sm"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = clothing;
+                  }}
+                />
+                {selectedPOSItem.isCustom && (
+                  <span className="absolute top-3 right-3 text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                    Custom Price
+                  </span>
+                )}
+                {selectedPOSItem.mrp > selectedPOSItem.price && (
+                  <span className="absolute bottom-3 left-3 text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                    {Math.round(((selectedPOSItem.mrp - selectedPOSItem.price) / selectedPOSItem.mrp) * 100)}% OFF
+                  </span>
+                )}
+              </div>
+
+              {/* Product Info */}
+              <div className="flex-1 p-5 space-y-4">
+                {/* Name & Brand */}
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {selectedPOSItem.brand || "Brand"}
+                  </p>
+                  <h2 className="mt-1 font-display text-base font-bold text-foreground leading-snug">
+                    {selectedPOSItem.name}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedPOSItem.category}
+                    {selectedPOSItem.age_group && ` • ${selectedPOSItem.age_group}`}
+                  </p>
+                </div>
+
+                {/* Pricing */}
+                <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Selling Price</span>
+                    <span className="text-lg font-black text-primary">
+                      {formatPrice(selectedPOSItem.price)}
+                    </span>
+                  </div>
+                  {selectedPOSItem.mrp > selectedPOSItem.price && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">MRP</span>
+                        <span className="text-sm line-through text-muted-foreground">
+                          {formatPrice(selectedPOSItem.mrp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-700">You Save</span>
+                        <span className="text-sm font-bold text-emerald-600">
+                          {formatPrice(selectedPOSItem.mrp - selectedPOSItem.price)} per unit
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between border-t border-border/60 pt-2">
+                    <span className="text-xs font-bold text-foreground">Cart Total</span>
+                    <span className="text-base font-black text-foreground">
+                      {formatPrice(selectedPOSItem.price * selectedPOSItem.qty)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Identifiers */}
+                <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-3 text-xs">
+                  <p className="font-bold text-foreground text-[11px] uppercase tracking-wider">Identifiers</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">SKU</span>
+                      <span className="font-mono font-bold text-foreground">{selectedPOSItem.sku || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">Barcode</span>
+                      <span className="font-mono font-bold text-foreground truncate block">{selectedPOSItem.barcode || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">Stock</span>
+                      <span className={`font-bold ${selectedPOSItem.stock <= 5 ? "text-amber-600" : "text-emerald-600"}`}>
+                        {selectedPOSItem.stock} units
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">In Cart</span>
+                      <span className="font-bold text-primary">{selectedPOSItem.qty} × added</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Quantity Controls */}
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-3">Quick Adjust Qty</p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center rounded-xl border border-border bg-background overflow-hidden shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateQty(selectedPOSItem.product_id, selectedPOSItem.qty - 1);
+                          setSelectedPOSItem((prev) =>
+                            prev ? { ...prev, qty: Math.max(1, prev.qty - 1) } : prev,
+                          );
+                        }}
+                        className="px-3 py-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        <Minus className="size-4" />
+                      </button>
+                      <span className="w-10 text-center text-sm font-black text-foreground">
+                        {selectedPOSItem.qty}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={selectedPOSItem.qty >= selectedPOSItem.stock}
+                        onClick={() => {
+                          updateQty(selectedPOSItem.product_id, selectedPOSItem.qty + 1);
+                          setSelectedPOSItem((prev) =>
+                            prev && prev.qty < prev.stock ? { ...prev, qty: prev.qty + 1 } : prev,
+                          );
+                        }}
+                        className="px-3 py-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <Plus className="size-4" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeFromCart(selectedPOSItem.product_id);
+                        setSelectedPOSItem(null);
+                        toast.success(`"${selectedPOSItem.name}" removed from cart`);
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
+
   );
 }
