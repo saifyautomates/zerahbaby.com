@@ -624,22 +624,22 @@ export function Header() {
                   type="button"
                   onClick={() => scrollCategories("left")}
                   aria-label="Scroll categories left"
-                  className="hidden md:flex absolute left-0 z-20 size-7 -translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-md hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  className="hidden md:flex absolute left-0 z-20 size-6 -translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
                 >
-                  <ChevronLeft className="size-4" />
+                  <ChevronLeft className="size-3.5" />
                 </button>
               )}
 
               <div
                 ref={categoryScrollRef}
                 onScroll={checkCategoryScroll}
-                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-2.5 px-1 scroll-smooth"
+                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-1.5 px-1 scroll-smooth"
               >
-                <div className="flex w-max items-center gap-2 sm:gap-2.5">
+                <div className="flex w-max items-center gap-1.5 sm:gap-2">
                   <Link
                     to="/shop"
                     search={{}}
-                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
+                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                     activeProps={{
                       className: "bg-primary text-primary-foreground shadow-premium-sm",
                     }}
@@ -652,9 +652,9 @@ export function Header() {
                       key={c.slug}
                       to="/shop"
                       search={{ category: c.slug }}
-                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
+                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                       activeProps={{
-                        className: "bg-primary text-primary-foreground shadow-premium-sm",
+                        className: "bg-primary text-primary-foreground font-semibold shadow-premium-sm",
                       }}
                       onClick={() => setOpen(false)}
                     >
@@ -664,7 +664,7 @@ export function Header() {
                   {isAdmin && adminMode && (
                     <button
                       type="button"
-                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs sm:text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
                       title="Manage Categories"
                       onClick={() => {
                         setOpen(false);
@@ -682,17 +682,17 @@ export function Header() {
                   type="button"
                   onClick={() => scrollCategories("right")}
                   aria-label="Scroll categories right"
-                  className="hidden md:flex absolute right-0 z-20 size-7 translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-md hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  className="hidden md:flex absolute right-0 z-20 size-6 translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
                 >
-                  <ChevronRight className="size-4" />
+                  <ChevronRight className="size-3.5" />
                 </button>
               )}
             </div>
 
             {/* Dedicated Age Filters & Mobile Links */}
-            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-3 py-2.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-4 md:pr-1">
+            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-3 py-1.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-3 md:pr-1">
               {/* Mobile Only: About & Contact links inside drawer */}
-              <div className="flex md:hidden items-center gap-5 text-sm font-semibold shrink-0 whitespace-nowrap mb-3 pb-2 border-b border-border/40">
+              <div className="flex md:hidden items-center gap-4 text-xs font-semibold shrink-0 whitespace-nowrap mb-2 pb-1.5 border-b border-border/40">
                 <Link
                   to="/about"
                   className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
@@ -709,17 +709,17 @@ export function Header() {
                 </Link>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
                   Age:
                 </span>
-                <div className="flex flex-wrap gap-1.5 shrink-0">
+                <div className="flex flex-wrap gap-1 shrink-0">
                   {ageGroups.map((a) => (
                     <Link
                       key={a}
                       to="/shop"
                       search={{ age: a }}
-                      className="focus-ring whitespace-nowrap rounded-full border border-border px-2.5 py-0.5 text-[11px] font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      className="focus-ring whitespace-nowrap rounded-full border border-border px-2 py-0.5 text-[10px] font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
                       activeProps={{
                         className: "border-primary bg-primary text-primary-foreground",
                       }}
