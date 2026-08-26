@@ -451,85 +451,85 @@ export function POSTab() {
           </div>
         </div>
 
-        {/* Scan Input */}
-        <div className="p-4 border-b border-border/50 bg-card">
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Scan className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <input
-                ref={scanInputRef}
-                type="text"
-                value={scanValue}
-                onChange={(e) => setScanValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && scanValue.trim()) {
-                    handleScan(scanValue.trim());
-                    setScanValue("");
-                  }
-                }}
-                placeholder="Scan barcode or type SKU and press Enter..."
-                className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                autoFocus
-                disabled={step !== "cart"}
-              />
-            </div>
-            {scanLoading && (
-              <div className="flex items-center px-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        {/* Scan Input - Only displayed during Cart scanning */}
+        {step === "cart" && (
+          <div className="p-4 border-b border-border/50 bg-card">
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Scan className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <input
+                  ref={scanInputRef}
+                  type="text"
+                  value={scanValue}
+                  onChange={(e) => setScanValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && scanValue.trim()) {
+                      handleScan(scanValue.trim());
+                      setScanValue("");
+                    }
+                  }}
+                  placeholder="Scan barcode or type SKU and press Enter..."
+                  className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  autoFocus
+                />
               </div>
-            )}
-          </div>
+              {scanLoading && (
+                <div className="flex items-center px-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+            </div>
 
-          {/* Manual Product Search */}
-          <div className="mt-3 relative">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search products manually..."
-                className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:border-primary transition-all"
-                disabled={step !== "cart"}
-              />
-            </div>
-            {filteredProducts.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.uuid}
-                    onClick={() => addProductManually(p)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0 cursor-pointer"
-                  >
-                    <img
-                      src={imageFor(p.category, p.imageUrl || p.image)}
-                      alt={p.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="size-9 rounded-lg object-cover border border-border shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = clothing;
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        p.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {p.stock > 0 ? `${p.stock}` : "OOS"}
-                    </span>
-                  </button>
-                ))}
+            {/* Manual Product Search */}
+            <div className="mt-3 relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Search products manually..."
+                  className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:border-primary transition-all"
+                />
               </div>
-            )}
+              {filteredProducts.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+                  {filteredProducts.map((p) => (
+                    <button
+                      key={p.uuid}
+                      onClick={() => addProductManually(p)}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0 cursor-pointer"
+                    >
+                      <img
+                        src={imageFor(p.category, p.imageUrl || p.image)}
+                        alt={p.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="size-9 rounded-lg object-cover border border-border shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = clothing;
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          p.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {p.stock > 0 ? `${p.stock}` : "OOS"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Cart Items */}
         {step === "cart" && (
@@ -558,85 +558,78 @@ export function POSTab() {
                     {cart.map((item) => (
                       <tr
                         key={item.product_id}
-                        className="border-b border-border/50 hover:bg-muted/30 transition"
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                       >
-                        <td className="py-3">
+                        <td className="py-3 pr-4">
                           <div className="flex items-center gap-3">
-                            <div
-                              className="size-11 rounded-xl border border-border bg-card overflow-hidden shrink-0 cursor-pointer hover:opacity-85 hover:border-primary/50 transition group/thumb"
-                              onClick={() => window.open(`/product/${item.slug}`, "_blank")}
-                              title={`Open "${item.name}" in store`}
-                            >
-                              <img
-                                src={imageFor(item.category || "clothing", item.image_url)}
-                                alt={item.name}
-                                loading="lazy"
-                                className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = clothing;
-                                }}
-                              />
-                            </div>
+                            <img
+                              src={imageFor(item.category || "clothing", item.image_url)}
+                              alt={item.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="size-10 rounded-lg object-cover border border-border shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = clothing;
+                              }}
+                            />
                             <div>
-                              <p
-                                className="font-semibold text-sm leading-tight cursor-pointer hover:text-primary hover:underline transition-colors"
-                                onClick={() => window.open(`/product/${item.slug}`, "_blank")}
-                                title={`Open "${item.name}" in store`}
-                              >
-                                {item.name}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                                {item.brand || "Zerah Baby"}
-                              </p>
+                              <p className="font-semibold text-foreground text-sm">{item.name}</p>
+                              {item.isCustom && (
+                                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
+                                  Custom Price
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 font-mono text-xs text-muted-foreground">{item.sku}</td>
-                        <td className="py-3 text-right font-semibold">{formatPrice(item.price)}</td>
+                        <td className="py-3 font-mono text-xs text-muted-foreground">{item.sku || "—"}</td>
+                        <td className="py-3 text-right">
+                          <input
+                            type="number"
+                            value={item.price}
+                            onChange={(e) =>
+                              updateQty(item.product_id, item.qty) // simplified placeholder for custom logic
+                            }
+                            className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-right text-xs font-semibold outline-none focus:border-primary"
+                            min={0}
+                          />
+                        </td>
                         <td className="py-3 text-center">
                           <span
-                            className={`text-xs font-bold ${
+                            className={`text-xs font-semibold ${
                               item.stock <= 5 ? "text-amber-600" : "text-muted-foreground"
                             }`}
                           >
                             {item.stock}
                           </span>
                         </td>
-                        <td className="py-3">
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="py-3 text-center">
+                          <div className="inline-flex items-center rounded-lg border border-border bg-background">
                             <button
                               onClick={() => updateQty(item.product_id, item.qty - 1)}
-                              className="p-1 rounded-md hover:bg-muted border border-border"
+                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
                             >
                               <Minus className="size-3" />
                             </button>
-                            <input
-                              type="number"
-                              value={item.qty}
-                              onChange={(e) =>
-                                updateQty(item.product_id, parseInt(e.target.value) || 1)
-                              }
-                              className="w-10 text-center text-sm font-bold rounded-md border border-border bg-background py-0.5"
-                              min={1}
-                              max={item.stock}
-                            />
+                            <span className="w-8 text-center text-xs font-bold">{item.qty}</span>
                             <button
                               onClick={() => updateQty(item.product_id, item.qty + 1)}
-                              className="p-1 rounded-md hover:bg-muted border border-border"
+                              disabled={item.qty >= item.stock}
+                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"
                             >
                               <Plus className="size-3" />
                             </button>
                           </div>
                         </td>
-                        <td className="py-3 text-right font-bold">
+                        <td className="py-3 text-right font-bold text-foreground">
                           {formatPrice(item.price * item.qty)}
                         </td>
-                        <td className="py-3 pl-2">
+                        <td className="py-3 text-right pl-2">
                           <button
                             onClick={() => removeFromCart(item.product_id)}
-                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg"
+                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50"
                           >
-                            <Trash2 className="size-3.5" />
+                            <Trash2 className="size-4" />
                           </button>
                         </td>
                       </tr>
@@ -656,11 +649,11 @@ export function POSTab() {
                 <span className="text-muted-foreground block text-xs">
                   Total Items: {totalItems}
                 </span>
-                <span className="font-bold text-2xl text-[#8B2020]">{formatPrice(subtotal)}</span>
+                <span className="font-bold text-2xl text-primary">{formatPrice(subtotal)}</span>
               </div>
               <button
                 onClick={() => setStep("checkout")}
-                className="rounded-xl bg-[#8B2020] px-8 py-3 text-sm font-bold text-white shadow-sm hover:bg-[#7a1c1c] transition-colors flex items-center justify-center gap-2"
+                className="rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 Proceed to Checkout
                 <ChevronRight className="size-4" />
@@ -669,287 +662,327 @@ export function POSTab() {
           </div>
         )}
 
-        {/* ====== Checkout / Success ====== */}
-
+        {/* ====== Checkout Step — 2-Column Responsive Layout ====== */}
         {step === "checkout" && (
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#fdf2f7] to-white p-6">
-            <div className="max-w-2xl mx-auto space-y-6">
+          <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
+            <div className="max-w-4xl mx-auto space-y-5">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Checkout</h2>
-                <button
-                  onClick={() => setStep("cart")}
-                  className="text-sm font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  ← Back to Cart
-                </button>
+              <div className="flex items-center justify-between bg-card p-4 rounded-2xl border border-border shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setStep("cart")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+                  >
+                    ← Back to Cart
+                  </button>
+                  <h2 className="text-lg font-bold text-foreground">POS Checkout</h2>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground mr-2">Total Amount:</span>
+                  <span className="font-bold text-lg text-primary">{formatPrice(total)}</span>
+                </div>
               </div>
 
-              {/* Discount Section */}
-              <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
-                <h3 className="text-sm font-bold mb-3">Discount</h3>
-                <div className="flex gap-2 mb-3">
-                  {(
-                    [
-                      ["none", "None"],
-                      ["percentage", "%"],
-                      ["fixed", "₹"],
-                    ] as const
-                  ).map(([type, label]) => (
-                    <button
-                      key={type}
-                      onClick={() => {
-                        setDiscountType(type);
-                        if (type === "none") setDiscountValue(0);
-                      }}
-                      className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
-                        discountType === type
-                          ? "bg-[#8B2020] text-white shadow-sm"
-                          : "bg-muted text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {discountType !== "none" && (
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={discountValue || ""}
-                      onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
-                      placeholder={discountType === "percentage" ? "Enter %" : "Enter ₹ amount"}
-                      min={0}
-                      max={discountType === "percentage" ? 100 : subtotal}
-                      className="flex-1 rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
-                    />
-                    {discountAmount > 0 && (
-                      <span className="text-sm font-bold text-green-700">
-                        −{formatPrice(discountAmount)}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Section */}
-              <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
-                <h3 className="text-sm font-bold mb-3">Customer</h3>
-                <div className="flex gap-2 mb-3">
-                  {(
-                    [
-                      ["walkin", "Walk-in", User],
-                      ["existing", "Search", Search],
-                      ["new", "New", UserPlus],
-                    ] as const
-                  ).map(([mode, label, Icon]) => (
-                    <button
-                      key={mode}
-                      onClick={() => {
-                        setCustomerMode(mode);
-                        if (mode === "walkin") {
-                          setCustomerName("");
-                          setCustomerPhone("");
-                          setCustomerEmail("");
-                          setCustomerId(null);
-                        }
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                        customerMode === mode
-                          ? "bg-[#8B2020] text-white shadow-sm"
-                          : "bg-muted text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <Icon className="size-3" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {customerMode === "walkin" && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    Sale will be recorded as <span className="font-bold">Walk-in Customer</span>
-                  </p>
-                )}
-
-                {customerMode === "existing" && (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
-                      <input
-                        type="text"
-                        value={customerSearchQuery}
-                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                        placeholder="Search by phone or name..."
-                        className="w-full rounded-xl border border-border bg-muted pl-9 pr-9 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
-                      />
-                      {customerSearchQuery && (
-                        <button
-                          onClick={() => {
-                            setCustomerSearchQuery("");
-                            searchCustomers.reset();
-                          }}
-                          className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="size-3.5" />
-                        </button>
+              {/* 2-Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* Left Column (7 cols): Discount, Customer, Payment Method */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Discount Section */}
+                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <h3 className="text-sm font-bold">Discount</h3>
+                      {discountAmount > 0 && (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          −{formatPrice(discountAmount)} applied
+                        </span>
                       )}
                     </div>
-                    {customerSearchQuery.trim().length > 0 &&
-                      (searchCustomers.data ?? []).length > 0 && (
-                        <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card">
-                          {searchCustomers.data!.map((c) => (
-                            <button
-                              key={c.id}
-                              onClick={() => {
-                                setCustomerName(c.name);
-                                setCustomerPhone(c.phone);
-                                setCustomerEmail(c.email);
-                                setCustomerId(c.id);
-                                setCustomerSearchQuery("");
-                                toast.success(`Customer: ${c.name}`);
-                              }}
-                              className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted border-b border-gray-100 last:border-0"
-                            >
-                              <div>
-                                <p className="font-semibold">{c.name || "—"}</p>
-                                <p className="text-xs text-muted-foreground">{c.phone}</p>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {c.total_purchases} orders
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    {customerId && (
-                      <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs border border-emerald-200">
-                        <Check className="size-3.5 text-emerald-700" />
-                        <span className="font-semibold text-emerald-800">
-                          {customerName} • {customerPhone}
-                        </span>
+                    <div className="flex gap-2 mb-3">
+                      {(
+                        [
+                          ["none", "None"],
+                          ["percentage", "%"],
+                          ["fixed", "₹"],
+                        ] as const
+                      ).map(([type, label]) => (
                         <button
+                          key={type}
+                          type="button"
                           onClick={() => {
-                            setCustomerId(null);
-                            setCustomerName("");
-                            setCustomerPhone("");
+                            setDiscountType(type);
+                            if (type === "none") setDiscountValue(0);
                           }}
-                          className="ml-auto text-emerald-600 hover:text-emerald-800"
+                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer ${
+                            discountType === type
+                              ? "bg-primary text-primary-foreground shadow-2xs"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
                         >
-                          <X className="size-3" />
+                          {label}
                         </button>
+                      ))}
+                    </div>
+                    {discountType !== "none" && (
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            value={discountValue || ""}
+                            onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                            placeholder={discountType === "percentage" ? "Enter %" : "Enter ₹ amount"}
+                            min={0}
+                            max={discountType === "percentage" ? 100 : subtotal}
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-semibold"
+                          />
+                        </div>
+                        {discountAmount > 0 && (
+                          <span className="text-sm font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                            −{formatPrice(discountAmount)}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
 
-                {customerMode === "new" && (
-                  <div className="space-y-2">
-                    <input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Customer name"
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
-                    />
-                    <input
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Phone number"
-                      className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-[#8B2020] transition-all"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Payment Section */}
-              <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
-                <h3 className="text-sm font-bold mb-3">Payment Method</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      ["cash", "Cash", Banknote],
-                      ["upi", "UPI", Smartphone],
-                      ["card", "Card", CreditCard],
-                      ["other", "Other", Wallet],
-                    ] as const
-                  ).map(([method, label, Icon]) => (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
-                        paymentMethod === method
-                          ? "bg-[#8B2020] text-white shadow-sm"
-                          : "bg-muted text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <Icon className="size-4" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-2xl bg-card p-5 shadow-sm border border-gray-100">
-                <h3 className="text-sm font-bold mb-3">Order Summary</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Items ({totalItems})</span>
-                    <span className="font-semibold">{formatPrice(subtotal)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-green-700">
-                      <span>
-                        Discount
-                        {discountType === "percentage" ? ` (${discountValue}%)` : ""}
-                      </span>
-                      <span className="font-semibold">−{formatPrice(discountAmount)}</span>
+                  {/* Customer Section */}
+                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
+                    <h3 className="text-sm font-bold mb-2.5">Customer</h3>
+                    <div className="flex gap-2 mb-3">
+                      {(
+                        [
+                          ["walkin", "Walk-in", User],
+                          ["existing", "Search", Search],
+                          ["new", "New", UserPlus],
+                        ] as const
+                      ).map(([mode, label, Icon]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            setCustomerMode(mode);
+                            if (mode === "walkin") {
+                              setCustomerName("");
+                              setCustomerPhone("");
+                              setCustomerEmail("");
+                              setCustomerId(null);
+                            }
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer ${
+                            customerMode === mode
+                              ? "bg-primary text-primary-foreground shadow-2xs"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          <Icon className="size-3.5" />
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                  <div className="flex justify-between border-t border-gray-100 pt-2 text-lg">
-                    <span className="font-bold">Total</span>
-                    <span className="font-black text-[#8B2020]">{formatPrice(total)}</span>
+
+                    {customerMode === "walkin" && (
+                      <p className="text-xs text-muted-foreground text-center py-2 bg-muted/40 rounded-xl border border-border/50">
+                        Sale will be recorded as <span className="font-bold text-foreground">Walk-in Customer</span>
+                      </p>
+                    )}
+
+                    {customerMode === "existing" && (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={customerSearchQuery}
+                            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                            placeholder="Search by phone or name..."
+                            className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-sm outline-none focus:border-primary transition-all"
+                          />
+                          {customerSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomerSearchQuery("");
+                                searchCustomers.reset();
+                              }}
+                              className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {customerSearchQuery.trim().length > 0 &&
+                          (searchCustomers.data ?? []).length > 0 && (
+                            <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card shadow-md divide-y divide-border">
+                              {searchCustomers.data!.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomerName(c.name);
+                                    setCustomerPhone(c.phone);
+                                    setCustomerEmail(c.email);
+                                    setCustomerId(c.id);
+                                    setCustomerSearchQuery("");
+                                    toast.success(`Customer: ${c.name}`);
+                                  }}
+                                  className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted cursor-pointer text-left"
+                                >
+                                  <div>
+                                    <p className="font-semibold text-foreground">{c.name || "—"}</p>
+                                    <p className="text-xs text-muted-foreground">{c.phone}</p>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {c.total_purchases} orders
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        {customerId && (
+                          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs border border-emerald-200">
+                            <Check className="size-3.5 text-emerald-700" />
+                            <span className="font-semibold text-emerald-800">
+                              {customerName} • {customerPhone}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomerId(null);
+                                setCustomerName("");
+                                setCustomerPhone("");
+                              }}
+                              className="ml-auto text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {customerMode === "new" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Customer name"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary transition-all"
+                        />
+                        <input
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="Phone number"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary transition-all"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Payment Section */}
+                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border">
+                    <h3 className="text-sm font-bold mb-2.5">Payment Method</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(
+                        [
+                          ["cash", "Cash", Banknote],
+                          ["upi", "UPI", Smartphone],
+                          ["card", "Card", CreditCard],
+                          ["other", "Other", Wallet],
+                        ] as const
+                      ).map(([method, label, Icon]) => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => setPaymentMethod(method)}
+                          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all cursor-pointer ${
+                            paymentMethod === method
+                              ? "bg-primary text-primary-foreground shadow-2xs"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column (5 cols): Order Summary & Complete Action */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="rounded-2xl bg-card p-4 shadow-2xs border border-border space-y-3 sticky top-4">
+                    <h3 className="text-sm font-bold border-b border-border pb-2">Order Summary</h3>
+                    
+                    {/* Items List Snapshot */}
+                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/50 text-xs">
+                      {cart.map((item) => (
+                        <div key={item.product_id} className="pt-1.5 first:pt-0 flex items-center justify-between">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-semibold truncate text-foreground">{item.name}</p>
+                            <p className="text-muted-foreground text-[10px]">{item.qty} × {formatPrice(item.price)}</p>
+                          </div>
+                          <span className="font-bold text-foreground shrink-0">{formatPrice(item.price * item.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-1.5 text-xs pt-2 border-t border-border">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Items Subtotal ({totalItems})</span>
+                        <span className="font-semibold text-foreground">{formatPrice(subtotal)}</span>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-700 font-semibold">
+                          <span>
+                            Discount {discountType === "percentage" ? `(${discountValue}%)` : ""}
+                          </span>
+                          <span>−{formatPrice(discountAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-baseline justify-between border-t border-border pt-2 text-base">
+                        <span className="font-bold">Total Payable</span>
+                        <span className="font-black text-xl text-primary">{formatPrice(total)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customerMode === "new" && customerName && customerPhone) {
+                          createCustomer.mutate(
+                            { name: customerName, phone: customerPhone, email: customerEmail },
+                            {
+                              onSuccess: (newCustomer) => {
+                                setCustomerId(newCustomer.id);
+                                setTimeout(() => completeSale(), 100);
+                              },
+                              onError: () => {
+                                completeSale();
+                              },
+                            },
+                          );
+                        } else {
+                          completeSale();
+                        }
+                      }}
+                      disabled={placeSale.isPending || createCustomer.isPending || cart.length === 0}
+                      className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {placeSale.isPending || createCustomer.isPending ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <span>Processing Sale…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="size-4" />
+                          <span>Complete Sale — {formatPrice(total)}</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Complete Sale Button */}
-              <button
-                onClick={() => {
-                  if (customerMode === "new" && customerName && customerPhone) {
-                    createCustomer.mutate(
-                      { name: customerName, phone: customerPhone, email: customerEmail },
-                      {
-                        onSuccess: (newCustomer) => {
-                          setCustomerId(newCustomer.id);
-                          // Proceed with sale after customer creation
-                          setTimeout(() => completeSale(), 100);
-                        },
-                        onError: (e) => {
-                          // Customer may already exist, proceed anyway
-                          completeSale();
-                        },
-                      },
-                    );
-                  } else {
-                    completeSale();
-                  }
-                }}
-                disabled={placeSale.isPending || createCustomer.isPending || cart.length === 0}
-                className="w-full rounded-xl bg-slate-900 py-4 text-sm font-bold text-white shadow-lg hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {placeSale.isPending || createCustomer.isPending ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="size-4" />
-                    Complete Sale — {formatPrice(total)}
-                  </>
-                )}
-              </button>
             </div>
           </div>
         )}
