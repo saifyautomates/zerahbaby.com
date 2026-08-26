@@ -1,6 +1,7 @@
 //
 import { Link } from "@tanstack/react-router";
-import { Instagram, Facebook, MapPin, MessageCircle } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/ui/BrandIcons";
 import logo from "@/assets/zerah-logo.png";
 import { useCategories, useSettings } from "@/lib/store";
 
@@ -18,10 +19,30 @@ export function Footer() {
     whatsappUrl,
   } = useSettings();
 
+  const waLink =
+    whatsappUrl ||
+    (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
+
   const socials = [
-    { href: instagramUrl, label: "Instagram", Icon: Instagram },
-    { href: facebookUrl, label: "Facebook", Icon: Facebook },
-    { href: whatsappUrl, label: "WhatsApp", Icon: MessageCircle },
+    {
+      href: instagramUrl,
+      label: "Instagram",
+      Icon: InstagramIcon,
+      hoverClass:
+        "hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] hover:text-white hover:border-transparent",
+    },
+    {
+      href: waLink,
+      label: "WhatsApp",
+      Icon: WhatsAppIcon,
+      hoverClass: "hover:bg-[#25D366] hover:text-white hover:border-[#25D366]",
+    },
+    {
+      href: facebookUrl,
+      label: "Facebook",
+      Icon: FacebookIcon,
+      hoverClass: "hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2]",
+    },
   ].filter((s) => s.href);
 
   return (
@@ -49,17 +70,17 @@ export function Footer() {
             parents.
           </p>
           {socials.length > 0 && (
-            <div className="mt-4 flex gap-2">
-              {socials.map(({ href, label, Icon }) => (
+            <div className="mt-4 flex gap-2.5">
+              {socials.map(({ href, label, Icon, hoverClass }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="rounded-full border border-border p-2 transition hover:bg-primary hover:text-primary-foreground"
+                  className={`flex items-center justify-center size-9 rounded-full border border-border bg-background text-foreground/80 transition-all shadow-2xs hover:scale-110 active:scale-95 ${hoverClass}`}
                 >
-                  <Icon className="size-4" />
+                  <Icon className="size-4.5" />
                 </a>
               ))}
             </div>

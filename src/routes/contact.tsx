@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Instagram, Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
+import { InstagramIcon, WhatsAppIcon } from "@/components/ui/BrandIcons";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSettings } from "@/lib/store";
@@ -75,8 +76,20 @@ function ContactPage() {
   const [email, setEmail] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [message, setMessage] = useState("");
-  const { contactEmail, contactPhone, brandName, storeAddress, storeHours, mapsUrl, instagramUrl } =
-    useSettings();
+  const {
+    contactEmail,
+    contactPhone,
+    brandName,
+    storeAddress,
+    storeHours,
+    mapsUrl,
+    instagramUrl,
+    whatsappUrl,
+  } = useSettings();
+
+  const waLink =
+    whatsappUrl ||
+    (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -210,10 +223,21 @@ function ContactPage() {
               href={instagramUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 transition hover:text-primary"
+              className="flex items-center gap-3 transition hover:text-[#E1306C]"
             >
-              <Instagram className="size-4 shrink-0 text-primary" />
+              <InstagramIcon className="size-4 shrink-0 text-[#E1306C]" />
               <span>@zerah_kids on Instagram</span>
+            </a>
+          )}
+          {waLink && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 transition hover:text-[#25D366]"
+            >
+              <WhatsAppIcon className="size-4 shrink-0 text-[#25D366]" />
+              <span>Chat with us on WhatsApp</span>
             </a>
           )}
         </aside>

@@ -9,8 +9,6 @@ import {
   Plus,
   Share2,
   Link2,
-  MessageCircle,
-  Instagram,
   Lock,
   ThumbsUp,
   Camera,
@@ -21,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { WhatsAppIcon, InstagramIcon } from "@/components/ui/BrandIcons";
 import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
@@ -476,17 +475,17 @@ function ProductPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={shareWhatsApp}
-                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-green-600 focus:text-green-700"
+                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-[#25D366] hover:text-[#25D366] focus:text-[#25D366] focus:bg-[#25D366]/10"
                 >
-                  <MessageCircle className="size-4" />
-                  <span className="font-semibold">Share to WhatsApp</span>
+                  <WhatsAppIcon className="size-4" />
+                  <span className="font-semibold text-foreground">Share to WhatsApp</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={shareInstagram}
-                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-pink-600 focus:text-pink-700"
+                  className="cursor-pointer gap-3 rounded-lg py-2.5 text-[#E1306C] hover:text-[#E1306C] focus:text-[#E1306C] focus:bg-[#E1306C]/10"
                 >
-                  <Instagram className="size-4" />
-                  <span className="font-semibold">Share to Instagram</span>
+                  <InstagramIcon className="size-4" />
+                  <span className="font-semibold text-foreground">Share to Instagram</span>
                 </DropdownMenuItem>
                 {typeof navigator !== "undefined" && "share" in navigator && (
                   <DropdownMenuItem
