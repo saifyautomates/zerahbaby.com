@@ -177,7 +177,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("zerah-theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark");}else{document.documentElement.classList.remove("dark");}}catch(e){}})();`,
+            __html: `(function(){try{var p=window.location.pathname;var t=localStorage.getItem("zerah-theme");if(p.startsWith("/admin")&&(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches))){document.documentElement.classList.add("dark");}else{document.documentElement.classList.remove("dark");}}catch(e){}})();`,
           }}
         />
         <HeadContent />
@@ -245,6 +245,13 @@ function RootComponent() {
     });
     return unbindScanner;
   }, [location.pathname, router]);
+
+  useEffect(() => {
+    // Force light mode on all non-admin routes
+    if (!isAdminRoute) {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [isAdminRoute]);
 
   useEffect(() => {
     // Visitor Analytics Tracking

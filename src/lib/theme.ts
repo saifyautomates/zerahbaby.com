@@ -6,6 +6,11 @@ const THEME_STORAGE_KEY = "zerah-theme";
 
 export function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
+
+  if (!window.location.pathname.startsWith("/admin")) {
+    return "light";
+  }
+
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
     if (saved === "light" || saved === "dark") return saved;
