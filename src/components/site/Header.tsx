@@ -12,6 +12,8 @@ import {
   Sparkle,
   X,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import logo from "@/assets/zerah-logo.png";
@@ -89,6 +91,9 @@ export function Header() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const navigate = useNavigate();
   const { data: categories } = useCategories();
@@ -100,6 +105,29 @@ export function Header() {
 
   const { recent, addSearch, removeSearch } = useRecentSearches();
   const debouncedTerm = useDebounce(term, 300);
+
+  const checkCategoryScroll = () => {
+    if (categoryScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+      setCanScrollLeft(scrollLeft > 5);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  };
+
+  const scrollCategories = (direction: "left" | "right") => {
+    if (categoryScrollRef.current) {
+      const amount = direction === "left" ? -280 : 280;
+      categoryScrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+      setTimeout(checkCategoryScroll, 320);
+    }
+  };
+
+  useEffect(() => {
+    checkCategoryScroll();
+    const handleResize = () => checkCategoryScroll();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [categories]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -339,7 +367,7 @@ export function Header() {
             )}
           </div>
 
-          <nav className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0">
+          <nav className="ml-auto flex items-center gap-1 sm:gap-1.5 md:ml-0">
             {/* Mobile Search Toggle */}
             <button
               className="md:hidden focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
@@ -348,6 +376,21 @@ export function Header() {
             >
               <Search className="size-5" />
             </button>
+
+            {/* Desktop Navigation Links */}
+            <Link
+              to="/about"
+              className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
+            >
+              About
+            </Link>
+            <Link
+              to="/contact"
+              className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
+            >
+              Contact
+            </Link>
+
             {user ? (
               <>
                 <Link
@@ -573,54 +616,83 @@ export function Header() {
             open ? "block shadow-premium-md" : "hidden",
           )}
         >
-          <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center">
-            {/* Scrollable Categories Area with min-w-0 to prevent flex blowout */}
-            <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-2.5 px-4">
-              <div className="flex w-max items-center gap-2 sm:gap-2.5">
-                <Link
-                  to="/shop"
-                  search={{}}
-                  className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
-                  activeProps={{
-                    className: "bg-primary text-primary-foreground shadow-premium-sm",
-                  }}
-                  onClick={() => setOpen(false)}
+          <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center px-2 sm:px-4">
+            {/* Scrollable Categories Area with Chevrons and min-w-0 */}
+            <div className="relative min-w-0 flex-1 flex items-center">
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scrollCategories("left")}
+                  aria-label="Scroll categories left"
+                  className="hidden md:flex absolute left-0 z-20 size-7 -translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-md hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
                 >
-                  All Products
-                </Link>
-                {(categories ?? []).map((c) => (
+                  <ChevronLeft className="size-4" />
+                </button>
+              )}
+
+              <div
+                ref={categoryScrollRef}
+                onScroll={checkCategoryScroll}
+                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-2.5 px-1 scroll-smooth"
+              >
+                <div className="flex w-max items-center gap-2 sm:gap-2.5">
                   <Link
-                    key={c.slug}
                     to="/shop"
-                    search={{ category: c.slug }}
+                    search={{}}
                     className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                     activeProps={{
                       className: "bg-primary text-primary-foreground shadow-premium-sm",
                     }}
                     onClick={() => setOpen(false)}
                   >
-                    {c.name}
+                    All Products
                   </Link>
-                ))}
-                {isAdmin && adminMode && (
-                  <button
-                    type="button"
-                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs sm:text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
-                    title="Manage Categories"
-                    onClick={() => {
-                      setOpen(false);
-                      setShowCategoryModal(true);
-                    }}
-                  >
-                    + Add / Edit
-                  </button>
-                )}
+                  {(categories ?? []).map((c) => (
+                    <Link
+                      key={c.slug}
+                      to="/shop"
+                      search={{ category: c.slug }}
+                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
+                      activeProps={{
+                        className: "bg-primary text-primary-foreground shadow-premium-sm",
+                      }}
+                      onClick={() => setOpen(false)}
+                    >
+                      {c.name}
+                    </Link>
+                  ))}
+                  {isAdmin && adminMode && (
+                    <button
+                      type="button"
+                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs sm:text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                      title="Manage Categories"
+                      onClick={() => {
+                        setOpen(false);
+                        setShowCategoryModal(true);
+                      }}
+                    >
+                      + Add / Edit
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scrollCategories("right")}
+                  aria-label="Scroll categories right"
+                  className="hidden md:flex absolute right-0 z-20 size-7 translate-x-1 items-center justify-center rounded-full bg-background/95 border border-border shadow-md hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              )}
             </div>
 
-            {/* Desktop Navigation Links & Age Filters isolated with shrink-0 and border */}
-            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-4 py-2.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-4 md:pr-4">
-              <div className="flex items-center gap-5 text-xs sm:text-sm font-semibold shrink-0 whitespace-nowrap md:mr-4">
+            {/* Dedicated Age Filters & Mobile Links */}
+            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-3 py-2.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-4 md:pr-1">
+              {/* Mobile Only: About & Contact links inside drawer */}
+              <div className="flex md:hidden items-center gap-5 text-sm font-semibold shrink-0 whitespace-nowrap mb-3 pb-2 border-b border-border/40">
                 <Link
                   to="/about"
                   className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
@@ -637,8 +709,8 @@ export function Header() {
                 </Link>
               </div>
 
-              <div className="mt-3 flex items-center gap-2 md:mt-0 md:border-l md:border-border/50 md:pl-4 shrink-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground hidden xl:inline shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
                   Age:
                 </span>
                 <div className="flex flex-wrap gap-1.5 shrink-0">
