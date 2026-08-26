@@ -558,15 +558,14 @@ function CheckoutPage() {
           <ul className="mt-4 space-y-4 text-sm">
             {items.map(({ product, qty }) => (
               <li key={product.id} className="flex gap-4 items-center">
-                <ResponsiveMedia
-                  src={product.image}
-                  alt={product.name}
-                  width={200}
-                  height={200}
-                  fit="cover"
-                  aspect="1/1"
-                  containerClassName="size-16 shrink-0 rounded-xl shadow-sm border border-border/50"
-                />
+                <div className="size-16 shrink-0 rounded-xl overflow-hidden bg-muted border border-border/50">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover object-center"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{product.name}</p>
                   <p className="text-muted-foreground text-xs">Qty: {qty}</p>

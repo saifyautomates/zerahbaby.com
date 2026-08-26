@@ -86,15 +86,14 @@ function CartPage() {
               className="flex gap-4 rounded-2xl border border-border p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
               style={{ animationDelay: `${i * 75}ms` }}
             >
-              <ResponsiveMedia
-                src={product.image}
-                alt={product.name}
-                width={800}
-                height={800}
-                fit="cover"
-                aspect="1/1"
-                containerClassName="size-24 shrink-0 rounded-xl"
-              />
+              <div className="size-24 shrink-0 rounded-xl overflow-hidden bg-muted">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  loading="lazy"
+                  className="w-full h-full object-cover object-center"
+                />
+              </div>
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   {product.brand}
@@ -156,6 +155,28 @@ function CartPage() {
         </ul>
 
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
+          {/* Free Shipping Progress Bar */}
+          <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
+            {subtotal >= 999 ? (
+              <div className="flex items-center gap-2 text-xs font-bold text-green-600">
+                <span>🎉</span>
+                <span>You've unlocked <strong>FREE Delivery</strong> across India!</span>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  Add <strong className="text-primary">{formatPrice(999 - subtotal)}</strong> more to get <strong>FREE Delivery</strong>!
+                </p>
+                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary transition-all duration-500 rounded-full"
+                    style={{ width: `${Math.min(100, (subtotal / 999) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <h2 className="font-display text-xl font-bold">Order summary</h2>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
