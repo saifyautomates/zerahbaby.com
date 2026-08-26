@@ -2191,70 +2191,336 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 function CustomersTab() {
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
+  const [search, setSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
   const stats = useMemo(() => {
-    const map = new Map<string, { count: number; spend: number }>();
+    const map = new Map<string, { count: number; spend: number; lastOrderDate: string | null }>();
     for (const o of orders ?? []) {
-      const cur = map.get(o.user_id) ?? { count: 0, spend: 0 };
+      const cur = map.get(o.user_id) ?? { count: 0, spend: 0, lastOrderDate: null };
       map.set(o.user_id, {
         count: cur.count + 1,
         spend: cur.spend + (o.status === "cancelled" ? 0 : Number(o.total)),
+        lastOrderDate: cur.lastOrderDate || o.created_at,
       });
     }
     return map;
   }, [orders]);
 
+  const filtered = useMemo(() => {
+    if (!customers) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter(
+      (c) =>
+        (c.full_name && c.full_name.toLowerCase().includes(q)) ||
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.phone && c.phone.toLowerCase().includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q)) ||
+        (c.address && c.address.toLowerCase().includes(q)),
+    );
+  }, [customers, search]);
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
-      <table className="w-full text-left text-sm whitespace-nowrap">
-        <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-gray-100">
-          <tr>
-            <th className="px-5 py-4">Customer</th>
-            <th className="px-5 py-4">Contact</th>
-            <th className="px-5 py-4">Joined</th>
-            <th className="px-5 py-4 text-right">Orders</th>
-            <th className="px-5 py-4 text-right">Spend</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {(customers ?? []).map((c) => {
-            const s = stats.get(c.id) ?? { count: 0, spend: 0 };
-            return (
-              <tr key={c.id} className="group transition-colors hover:bg-muted/50 align-top">
-                <td className="px-5 py-4">
-                  <span className="font-semibold text-foreground">{c.full_name || "â€”"}</span>
-                  <span className="block max-w-xs text-xs text-muted-foreground mt-1 whitespace-normal">
-                    {c.address}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-foreground font-medium">{c.email}</span>
-                  <span className="block text-xs text-muted-foreground mt-1">{c.phone}</span>
-                </td>
-                <td className="px-5 py-4 text-xs text-muted-foreground font-medium">
-                  {new Date(c.created_at).toLocaleDateString("en-IN")}
-                </td>
-                <td className="px-5 py-4 text-right font-medium text-muted-foreground">
-                  {s.count}
-                </td>
-                <td className="px-5 py-4 text-right font-semibold text-foreground">
-                  {formatPrice(s.spend)}
-                </td>
+    <div className="space-y-4">
+      {/* Header & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-lg font-bold">Registered Customers</h3>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+            {filtered.length} {filtered.length === 1 ? "customer" : "customers"}
+          </span>
+        </div>
+
+        <div className="relative min-w-[260px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, phone, email, city…"
+            className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-muted/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+              <tr>
+                <th className="px-5 py-3.5">Customer &amp; Profile (DP)</th>
+                <th className="px-5 py-3.5">Contact Details</th>
+                <th className="px-5 py-3.5">Delivery Address</th>
+                <th className="px-5 py-3.5">Joined Date</th>
+                <th className="px-5 py-3.5 text-right">Orders / Spend</th>
+                <th className="px-5 py-3.5 text-center">Action</th>
               </tr>
-            );
-          })}
-          {!isLoading && (customers ?? []).length === 0 && (
-            <tr>
-              <td
-                colSpan={5}
-                className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((c) => {
+                const s = stats.get(c.id) ?? { count: 0, spend: 0, lastOrderDate: null };
+                const initials = c.full_name
+                  ? c.full_name
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()
+                  : c.email?.[0]?.toUpperCase() || "C";
+
+                return (
+                  <tr key={c.id} className="group transition-colors hover:bg-muted/40 align-middle">
+                    {/* DP & Name */}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
+                          {c.avatar_url ? (
+                            <img
+                              src={c.avatar_url}
+                              alt={c.full_name || "Customer avatar"}
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <div className="size-full bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 flex items-center justify-center font-display text-sm font-bold text-primary">
+                              {initials}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-foreground block truncate">
+                            {c.full_name || "Guest Customer"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-mono truncate block">
+                            ID: {c.id.slice(0, 8)}…
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Contact */}
+                    <td className="px-5 py-4 text-xs">
+                      <span className="font-semibold text-foreground block">
+                        {c.email || "No email"}
+                      </span>
+                      {c.phone ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-muted-foreground font-mono">{c.phone}</span>
+                          <a
+                            href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-[#25D366]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#128C7E] hover:bg-[#25D366]/20 transition-colors"
+                            title="Chat on WhatsApp"
+                          >
+                            WA
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">No phone</span>
+                      )}
+                    </td>
+
+                    {/* Address */}
+                    <td className="px-5 py-4 text-xs max-w-xs">
+                      {c.address || c.city || c.state ? (
+                        <div className="space-y-0.5">
+                          <p className="text-foreground line-clamp-1">{c.address || "—"}</p>
+                          <p className="text-muted-foreground text-[11px]">
+                            {[c.city, c.state, c.pincode].filter(Boolean).join(", ")}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-[11px] italic">
+                          No address provided
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Joined */}
+                    <td className="px-5 py-4 text-xs text-muted-foreground font-medium whitespace-nowrap">
+                      {new Date(c.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+
+                    {/* Orders / Spend */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <span className="font-bold text-foreground block">{formatPrice(s.spend)}</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">
+                        {s.count} {s.count === 1 ? "order" : "orders"}
+                      </span>
+                    </td>
+
+                    {/* Action */}
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomer(c)}
+                        className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
+                      >
+                        View Full Info
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!isLoading && filtered.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
+                  >
+                    No customers found matching "{search}".
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Customer Profile Details Modal */}
+      {selectedCustomer && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6 animate-in fade-in duration-150"
+          onClick={() => setSelectedCustomer(null)}
+        >
+          <div
+            className="flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header with Banner & DP */}
+            <div className="relative bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 p-6 pb-4">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                aria-label="Close modal"
+                className="absolute right-4 top-4 grid size-8 place-items-center rounded-full bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground transition-colors cursor-pointer shadow-2xs"
               >
-                No customers yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                <X className="size-4" />
+              </button>
+
+              <div className="flex items-center gap-4 pt-2">
+                <div className="size-20 rounded-full border-4 border-card bg-muted overflow-hidden shadow-premium-md shrink-0 flex items-center justify-center">
+                  {selectedCustomer.avatar_url ? (
+                    <img
+                      src={selectedCustomer.avatar_url}
+                      alt={selectedCustomer.full_name || "Customer avatar"}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="size-full bg-primary/20 flex items-center justify-center font-display text-2xl font-bold text-primary">
+                      {selectedCustomer.full_name
+                        ? selectedCustomer.full_name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase()
+                        : "C"}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-foreground">
+                    {selectedCustomer.full_name || "Guest Customer"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">{selectedCustomer.email}</p>
+                  <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    {selectedCustomer.role || "Customer"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/40 p-4 border border-border/60">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    Phone Number
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {selectedCustomer.phone || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    Member Since
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(selectedCustomer.created_at).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Full Address */}
+              <div className="rounded-2xl border border-border/80 p-4 space-y-2">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <MapPin className="size-4 text-primary" /> Delivery &amp; Billing Address
+                </span>
+                {selectedCustomer.address || selectedCustomer.city ? (
+                  <div className="text-xs space-y-1 text-muted-foreground pl-5.5">
+                    <p className="text-foreground font-medium">
+                      {selectedCustomer.address || "Street address not specified"}
+                    </p>
+                    <p>
+                      <strong>City:</strong> {selectedCustomer.city || "—"}
+                    </p>
+                    <p>
+                      <strong>State:</strong> {selectedCustomer.state || "—"}
+                    </p>
+                    <p>
+                      <strong>Pincode:</strong> {selectedCustomer.pincode || "—"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic pl-5.5">
+                    Customer has not added a delivery address yet.
+                  </p>
+                )}
+              </div>
+
+              {/* Order Stats */}
+              <div className="rounded-2xl bg-primary/5 p-4 border border-primary/20 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+                    Lifetime Orders
+                  </span>
+                  <span className="text-lg font-bold text-foreground">
+                    {stats.get(selectedCustomer.id)?.count || 0} orders
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+                    Total Spend
+                  </span>
+                  <span className="text-lg font-black text-primary">
+                    {formatPrice(stats.get(selectedCustomer.id)?.spend || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-border p-4 bg-muted/20 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                className="rounded-xl border border-border bg-background px-5 py-2 text-xs font-bold hover:bg-muted transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

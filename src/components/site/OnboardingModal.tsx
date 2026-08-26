@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { useSession } from "@/lib/auth";
 import { useProfile } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +60,19 @@ export function OnboardingModal() {
     pincode: "",
   });
   const [busy, setBusy] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !sessionStorage.getItem("onboarding_dismissed");
+  });
+
+  const handleDismiss = () => {
+    setIsOpen(false);
+    try {
+      sessionStorage.setItem("onboarding_dismissed", "true");
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -112,6 +125,7 @@ export function OnboardingModal() {
 
       toast.success("Profile saved successfully");
       qc.invalidateQueries({ queryKey: ["profile", user.id] });
+      setIsOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -121,18 +135,30 @@ export function OnboardingModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6"
-      onClick={() => setIsOpen(false)}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200"
+      onClick={handleDismiss}
     >
       <div
-        className="flex flex-col w-full max-w-md max-h-full rounded-3xl border border-border bg-card shadow-lg overflow-hidden"
+        className="relative flex flex-col w-full max-w-md max-h-full rounded-3xl border border-border bg-card shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex-1 min-h-0 overflow-y-auto p-8">
-          <h2 className="text-center font-display text-2xl font-bold">Welcome to Zerah!</h2>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            Please complete your profile so we can deliver your orders quickly.
-          </p>
+        {/* Top Right Close (X) Button */}
+        <button
+          type="button"
+          onClick={handleDismiss}
+          aria-label="Close modal"
+          className="absolute right-4 top-4 z-10 grid size-8 place-items-center rounded-full bg-muted/80 text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
+        >
+          <X className="size-4" />
+        </button>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8">
+          <div className="text-center pr-4">
+            <h2 className="font-display text-2xl font-bold">Welcome to Zerah!</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add your delivery address for faster checkout. (You can also fill this later)
+            </p>
+          </div>
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <label className="block text-sm font-semibold">
@@ -210,13 +236,20 @@ export function OnboardingModal() {
               />
             </label>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60 cursor-pointer shadow-premium-sm"
               >
-                {busy ? "Saving..." : "Save Profile"}
+                {busy ? "Saving..." : "Save Delivery Address"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                Skip for now · I'll fill later
               </button>
             </div>
           </form>

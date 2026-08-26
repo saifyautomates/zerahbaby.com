@@ -78,7 +78,9 @@ export function isOrderCancellable(status: string | undefined): boolean {
 export type Profile = {
   id: string;
   full_name: string | null;
+  email?: string | null;
   phone: string | null;
+  avatar_url?: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -108,17 +110,21 @@ export function useSaveProfile(userId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: {
-      full_name: string;
-      phone: string;
-      address: string;
+      full_name?: string;
+      phone?: string;
+      address?: string;
       city?: string;
       state?: string;
       pincode?: string;
+      avatar_url?: string | null;
     }) => {
       const { error } = await supabase.from("profiles").update(values).eq("id", userId!);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["profile", userId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profile", userId] });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+    },
   });
 }
 

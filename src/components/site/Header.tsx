@@ -20,6 +20,7 @@ import logo from "@/assets/zerah-logo.png";
 import { ageGroups, useCategories, useSettings, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
+import { useProfile } from "@/lib/orders";
 import { useAdminMode } from "@/lib/admin-mode";
 import { useWishlist } from "@/lib/wishlist";
 import { cn } from "@/lib/utils";
@@ -100,6 +101,7 @@ export function Header() {
   const { data: products } = useProducts();
   const { brandName, announcement } = useSettings();
   const { user } = useSession();
+  const { data: userProfile } = useProfile(user?.id);
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
   const { productIds: wishlistIds } = useWishlist();
 
@@ -431,10 +433,20 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                      className="focus-ring rounded-full p-1 text-foreground transition duration-300 hover:bg-muted hover:text-primary flex items-center justify-center cursor-pointer"
                       aria-label="User profile"
                     >
-                      <User className="size-5" />
+                      {userProfile?.avatar_url ? (
+                        <img
+                          src={userProfile.avatar_url}
+                          alt={userProfile.full_name || "User profile"}
+                          className="size-7 rounded-full object-cover border border-primary/30 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="size-8 rounded-full flex items-center justify-center hover:bg-muted">
+                          <User className="size-5" />
+                        </div>
+                      )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">

@@ -1,13 +1,13 @@
-//
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, MapPin, Plus, Trash2, Star, Pencil } from "lucide-react";
+import { User, MapPin, Plus, Trash2, Star, Pencil, Camera, Loader2, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile } from "@/lib/orders";
+import { uploadMedia } from "@/lib/uploads";
 
 type UserAddress = Database["public"]["Tables"]["user_addresses"]["Row"];
 
@@ -26,6 +26,9 @@ function ProfilePage() {
   const { user } = useSession();
   const { data: profile, isLoading } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -49,6 +52,31 @@ function ProfilePage() {
     }
   }, [profile]);
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadMedia(file, "avatars");
+      await saveProfile.mutateAsync({ avatar_url: url });
+      toast.success("Profile picture updated!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload photo");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      await saveProfile.mutateAsync({ avatar_url: null });
+      toast.success("Profile picture removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove photo");
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     saveProfile.mutate(form, {
@@ -65,34 +93,127 @@ function ProfilePage() {
     );
   }
 
+  const initials = form.full_name
+    ? form.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || "U";
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="font-display text-3xl font-bold">My Profile</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold">My Profile</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
+        </div>
+
+        {/* Profile Picture / DP Upload Section */}
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="size-20 sm:size-24 rounded-full border-2 border-primary/20 bg-muted overflow-hidden shadow-premium-sm flex items-center justify-center">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={form.full_name || "Profile avatar"}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <div className="size-full bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 flex items-center justify-center font-display text-2xl font-bold text-primary">
+                  {initials}
+                </div>
+              )}
+            </div>
+
+            {/* Upload Button Overlay */}
+            <button
+              type="button"
+              disabled={uploadingAvatar}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Upload profile picture"
+              className="absolute inset-0 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-100"
+            >
+              {uploadingAvatar ? (
+                <Loader2 className="size-6 animate-spin" />
+              ) : (
+                <>
+                  <Camera className="size-5" />
+                  <span className="text-[10px] font-bold">Change</span>
+                </>
+              )}
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleAvatarChange}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={uploadingAvatar}
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer"
+              >
+                <ImagePlus className="size-3.5" />
+                {profile?.avatar_url ? "Change Photo" : "Upload Photo"}
+              </button>
+              {profile?.avatar_url && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="rounded-full px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Optional · JPG, PNG, WebP up to 10MB
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         {/* Profile Info */}
         <section>
           <div className="flex items-center gap-2 text-lg font-bold">
             <User className="size-5 text-primary" />
-            Personal Info
+            Personal Info (Optional)
           </div>
           <form onSubmit={handleSave} className="mt-4 space-y-3">
             <label className="block text-sm font-semibold">
               Full Name
               <input
-                required
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                placeholder="e.g. Priya Sharma"
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
               />
             </label>
             <label className="block text-sm font-semibold">
-              Phone
+              Phone Number
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="+91 98765 43210"
+                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </label>
+            <label className="block text-sm font-semibold">
+              Address (Street / Building)
+              <input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Flat / House no, Street area"
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
               />
             </label>
@@ -102,6 +223,7 @@ function ProfilePage() {
                 <input
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="City"
                   className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
                 />
               </label>
@@ -110,6 +232,7 @@ function ProfilePage() {
                 <input
                   value={form.state}
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  placeholder="State"
                   className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
                 />
               </label>
@@ -118,6 +241,7 @@ function ProfilePage() {
                 <input
                   value={form.pincode}
                   onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                  placeholder="Pincode"
                   className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
                 />
               </label>
@@ -125,7 +249,7 @@ function ProfilePage() {
             <button
               type="submit"
               disabled={saveProfile.isPending}
-              className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-premium-sm"
             >
               {saveProfile.isPending ? "Saving…" : "Save profile"}
             </button>
