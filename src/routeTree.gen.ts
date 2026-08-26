@@ -16,7 +16,6 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CancellationRefundRouteImport } from './routes/cancellation-refund'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
-import { Route as PosTestRouteImport } from './routes/pos-test'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as ShippingDeliveryRouteImport } from './routes/shipping-delivery'
@@ -62,11 +61,6 @@ const CartRoute = CartRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PosTestRoute = PosTestRouteImport.update({
-  id: '/pos-test',
-  path: '/pos-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -137,7 +131,6 @@ export interface FileRoutesByFullPath {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
-  '/pos-test': typeof PosTestRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -158,7 +151,6 @@ export interface FileRoutesByTo {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
-  '/pos-test': typeof PosTestRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -181,7 +173,6 @@ export interface FileRoutesById {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
-  '/pos-test': typeof PosTestRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -204,7 +195,6 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
-    | '/pos-test'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -225,7 +215,6 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
-    | '/pos-test'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -247,7 +236,6 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
-    | '/pos-test'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -270,7 +258,6 @@ export interface RootRouteChildren {
   CancellationRefundRoute: typeof CancellationRefundRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
-  PosTestRoute: typeof PosTestRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReturnsRoute: typeof ReturnsRoute
   ShippingDeliveryRoute: typeof ShippingDeliveryRoute
@@ -329,13 +316,6 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pos-test': {
-      id: '/pos-test'
-      path: '/pos-test'
-      fullPath: '/pos-test'
-      preLoaderRoute: typeof PosTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -452,7 +432,6 @@ const rootRouteChildren: RootRouteChildren = {
   CancellationRefundRoute: CancellationRefundRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
-  PosTestRoute: PosTestRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReturnsRoute: ReturnsRoute,
   ShippingDeliveryRoute: ShippingDeliveryRoute,

@@ -46,17 +46,131 @@ type Props = {
 export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPrint }: Props) {
   const date = saleDate ?? new Date();
 
+  /** Build self-contained HTML for iframe printing (no CSS classes needed) */
+  const buildPrintHTML = () => {
+    const itemRows = items
+      .map(
+        (item) => `
+      <div style="margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;gap:4px;">
+          <span style="flex:1;font-weight:600;word-break:break-word;">${item.name}</span>
+          <span style="white-space:nowrap;font-weight:600;">₹${(item.price * item.qty).toLocaleString("en-IN")}</span>
+        </div>
+        <div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}</div>
+      </div>`,
+      )
+      .join("");
+
+    const discountRow =
+      sale.discount > 0
+        ? `<div style="display:flex;justify-content:space-between;color:#15803d;">
+            <span>Discount${sale.discount_type === "percentage" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}</span>
+            <span style="font-weight:600;">−₹${sale.discount.toLocaleString("en-IN")}</span>
+           </div>`
+        : "";
+
+    const tokenSection =
+      sale.pos_token_number != null
+        ? `<div style="border-top:2px solid #000;border-bottom:2px solid #000;text-align:center;padding:8px 0;margin:8px 0;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:2px;">Walk-in Customer</div>
+            <div style="font-size:32px;font-weight:900;line-height:1.1;">${sale.pos_token_number}</div>
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">TOKEN NO: ${sale.pos_token_number}</div>
+           </div>`
+        : "";
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Receipt ${sale.sale_number}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: 108mm auto; margin: 4mm; }
+  body { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; background: #fff; width: 100mm; }
+  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+</style>
+</head>
+<body>
+  <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
+    <div style="font-size:14px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY & KIDS</div>
+    <div style="font-size:10px;color:#555;">Premium Children's Clothing</div>
+    <div style="font-size:10px;color:#555;">Gordhanpura, Kota, Rajasthan 324001</div>
+    <div style="font-size:10px;color:#555;">Ph: 9057074777</div>
+  </div>
+
+  <div style="font-size:11px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Invoice</span><span style="font-weight:700;">${sale.sale_number}</span></div>
+    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Date</span><span>${date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}</span></div>
+    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Time</span><span>${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></div>
+  </div>
+
+  <div class="divider"></div>
+  <div style="font-size:11px;display:flex;justify-content:space-between;margin-bottom:8px;">
+    <span style="color:#555;">Customer</span>
+    <span style="font-weight:600;">${sale.customer_name}</span>
+  </div>
+  <div class="divider"></div>
+
+  <div style="font-size:11px;margin-bottom:8px;">${itemRows}</div>
+
+  <div class="divider"></div>
+  <div style="font-size:11px;margin-bottom:4px;">
+    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Subtotal</span><span>₹${sale.subtotal.toLocaleString("en-IN")}</span></div>
+    ${discountRow}
+    <div style="display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:4px;margin-top:4px;">
+      <span style="font-size:13px;font-weight:900;">TOTAL</span>
+      <span style="font-size:13px;font-weight:900;">₹${sale.total.toLocaleString("en-IN")}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
+      <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${sale.payment_method}</span>
+    </div>
+  </div>
+
+  ${tokenSection}
+
+  <div class="divider"></div>
+  <div style="text-align:center;font-size:10px;color:#555;">
+    <div style="font-weight:700;">Thank You For Shopping!</div>
+    <div>Exchange/Return within 7 days with receipt.</div>
+    <div style="margin-top:2px;">Visit us again · zerah_kids</div>
+  </div>
+</body>
+</html>`;
+  };
+
+  const doPrint = () => {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText =
+      "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;visibility:hidden;";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(buildPrintHTML());
+    doc.close();
+    // Wait for resources to load then print
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        // Remove iframe after a short delay (enough for print dialog to open)
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }
+    };
+  };
+
   useEffect(() => {
     if (autoPrint) {
-      setTimeout(() => {
-        window.print();
-      }, 500); // short delay to allow render
+      setTimeout(() => doPrint(), 500);
     }
-  }, [autoPrint]);
+  }, [autoPrint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePrint = () => {
     if (onPrint) onPrint();
-    window.print();
+    doPrint();
   };
 
   const content = (
@@ -66,40 +180,7 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
       aria-label="Thermal Receipt"
       onClick={onClose}
     >
-      {/* ── Print CSS ── */}
-      <style>{`
-        @media print {
-          /* Hide everything except the thermal receipt */
-          body > *:not(#thermal-receipt-portal) { display: none !important; }
-          #thermal-receipt-portal { display: block !important; }
 
-          @page {
-            size: 108mm auto;
-            margin: 3mm 4mm;
-          }
-
-          .thermal-no-print { display: none !important; }
-
-          .thermal-body {
-            width: 100mm !important;
-            max-width: 100mm !important;
-            font-size: 12px !important;
-            line-height: 1.4 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: white !important;
-            color: black !important;
-          }
-
-          .thermal-divider {
-            border-top: 1px dashed #000 !important;
-            margin: 4px 0 !important;
-          }
-
-          .thermal-bold { font-weight: 700 !important; }
-          .thermal-total-row { font-size: 14px !important; font-weight: 900 !important; }
-        }
-      `}</style>
 
       <div
         id="thermal-receipt-portal"
