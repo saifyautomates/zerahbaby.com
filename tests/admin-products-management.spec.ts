@@ -4,7 +4,7 @@ test.describe("Admin Products Management & FirstCry Catalog", () => {
   test("Catalog seed has 100 products with 10 stock each", async () => {
     const { FIRSTCRY_100_PRODUCTS } = await import("../src/lib/firstcry-catalog");
     expect(FIRSTCRY_100_PRODUCTS.length).toBe(100);
-    
+
     // Check all products have stock = 10
     for (const prod of FIRSTCRY_100_PRODUCTS) {
       expect(prod.stock).toBe(10);
@@ -18,7 +18,8 @@ test.describe("Admin Products Management & FirstCry Catalog", () => {
   });
 
   test("Catalog covers all 8 essential categories", async () => {
-    const { FIRSTCRY_100_PRODUCTS, FIRSTCRY_CATEGORIES } = await import("../src/lib/firstcry-catalog");
+    const { FIRSTCRY_100_PRODUCTS, FIRSTCRY_CATEGORIES } =
+      await import("../src/lib/firstcry-catalog");
     expect(FIRSTCRY_CATEGORIES.length).toBe(8);
 
     const categories = new Set(FIRSTCRY_100_PRODUCTS.map((p) => p.category));

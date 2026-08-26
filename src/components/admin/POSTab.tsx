@@ -112,10 +112,7 @@ export function POSTab() {
     [cart],
   );
 
-  const totalItems = useMemo(
-    () => cart.reduce((acc, item) => acc + item.qty, 0),
-    [cart],
-  );
+  const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
 
   const discountAmount = useMemo(() => {
     if (discountType === "none" || !discountValue || discountValue <= 0) return 0;
@@ -125,10 +122,7 @@ export function POSTab() {
     return Math.min(subtotal, discountValue);
   }, [subtotal, discountType, discountValue]);
 
-  const total = useMemo(
-    () => Math.max(0, subtotal - discountAmount),
-    [subtotal, discountAmount],
-  );
+  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
 
   const changeDue = useMemo(() => {
     if (typeof cashTendered !== "number" || cashTendered < total) return 0;
@@ -201,8 +195,6 @@ export function POSTab() {
     setCustomerMode("walkin");
     setStep("checkout");
   };
-
-
 
   // Keep scan input focused when on cart step
   useEffect(() => {
@@ -460,7 +452,8 @@ export function POSTab() {
                   title="Click to sync now"
                 >
                   <span className="size-2 rounded-full bg-amber-500" />
-                  {syncStatus.pendingCount} offline sale{syncStatus.pendingCount > 1 ? "s" : ""} pending • Sync now
+                  {syncStatus.pendingCount} offline sale{syncStatus.pendingCount > 1 ? "s" : ""}{" "}
+                  pending • Sync now
                 </button>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-500/20">
@@ -543,7 +536,9 @@ export function POSTab() {
                       </div>
                       <span
                         className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          p.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          p.stock > 0
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
                         }`}
                       >
                         {p.stock > 0 ? `${p.stock}` : "OOS"}
@@ -607,13 +602,15 @@ export function POSTab() {
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 font-mono text-xs text-muted-foreground">{item.sku || "—"}</td>
+                        <td className="py-3 font-mono text-xs text-muted-foreground">
+                          {item.sku || "—"}
+                        </td>
                         <td className="py-3 text-right">
                           <input
                             type="number"
                             value={item.price}
-                            onChange={(e) =>
-                              updateQty(item.product_id, item.qty) // simplified placeholder for custom logic
+                            onChange={
+                              (e) => updateQty(item.product_id, item.qty) // simplified placeholder for custom logic
                             }
                             className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-right text-xs font-semibold outline-none focus:border-primary"
                             min={0}
@@ -703,12 +700,16 @@ export function POSTab() {
                   </button>
                   <div className="hidden sm:block">
                     <h2 className="text-base font-bold text-foreground">Checkout &amp; Billing</h2>
-                    <p className="text-[11px] text-muted-foreground">Select discount, customer profile, and payment tender</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Select discount, customer profile, and payment tender
+                    </p>
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Net Payable</span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                      Net Payable
+                    </span>
                     <span className="font-black text-xl text-primary">{formatPrice(total)}</span>
                   </div>
                 </div>
@@ -722,7 +723,9 @@ export function POSTab() {
                   <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-foreground">1. Discount &amp; Offers</h3>
+                        <h3 className="text-sm font-bold text-foreground">
+                          1. Discount &amp; Offers
+                        </h3>
                         {discountAmount > 0 && (
                           <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                             −{formatPrice(discountAmount)} OFF
@@ -775,38 +778,38 @@ export function POSTab() {
                       <div className="space-y-3 pt-1">
                         {/* Quick Presets */}
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[11px] font-bold text-muted-foreground mr-1">Quick:</span>
-                          {discountType === "percentage" ? (
-                            [5, 10, 15, 20, 25, 50].map((pct) => (
-                              <button
-                                key={pct}
-                                type="button"
-                                onClick={() => setDiscountValue(pct)}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                  discountValue === pct
-                                    ? "bg-emerald-600 text-white shadow-2xs"
-                                    : "bg-muted text-foreground hover:bg-muted/80"
-                                }`}
-                              >
-                                {pct}%
-                              </button>
-                            ))
-                          ) : (
-                            [50, 100, 200, 500, 1000].map((amt) => (
-                              <button
-                                key={amt}
-                                type="button"
-                                onClick={() => setDiscountValue(amt)}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                  discountValue === amt
-                                    ? "bg-emerald-600 text-white shadow-2xs"
-                                    : "bg-muted text-foreground hover:bg-muted/80"
-                                }`}
-                              >
-                                ₹{amt}
-                              </button>
-                            ))
-                          )}
+                          <span className="text-[11px] font-bold text-muted-foreground mr-1">
+                            Quick:
+                          </span>
+                          {discountType === "percentage"
+                            ? [5, 10, 15, 20, 25, 50].map((pct) => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => setDiscountValue(pct)}
+                                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                    discountValue === pct
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-muted text-foreground hover:bg-muted/80"
+                                  }`}
+                                >
+                                  {pct}%
+                                </button>
+                              ))
+                            : [50, 100, 200, 500, 1000].map((amt) => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => setDiscountValue(amt)}
+                                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                    discountValue === amt
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-muted text-foreground hover:bg-muted/80"
+                                  }`}
+                                >
+                                  ₹{amt}
+                                </button>
+                              ))}
                         </div>
 
                         {/* Direct Custom Input */}
@@ -815,8 +818,14 @@ export function POSTab() {
                             <input
                               type="number"
                               value={discountValue || ""}
-                              onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
-                              placeholder={discountType === "percentage" ? "Enter discount % (e.g. 10)" : "Enter ₹ discount amount"}
+                              onChange={(e) =>
+                                setDiscountValue(Math.max(0, Number(e.target.value)))
+                              }
+                              placeholder={
+                                discountType === "percentage"
+                                  ? "Enter discount % (e.g. 10)"
+                                  : "Enter ₹ discount amount"
+                              }
                               min={0}
                               max={discountType === "percentage" ? 100 : subtotal}
                               className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
@@ -834,7 +843,9 @@ export function POSTab() {
 
                   {/* 2. Customer Section */}
                   <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border">
-                    <h3 className="text-sm font-bold text-foreground mb-3">2. Customer Assignment</h3>
+                    <h3 className="text-sm font-bold text-foreground mb-3">
+                      2. Customer Assignment
+                    </h3>
                     <div className="flex gap-2 mb-3">
                       {(
                         [
@@ -870,7 +881,11 @@ export function POSTab() {
                     {customerMode === "walkin" && (
                       <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-xl border border-border/50 text-xs text-muted-foreground">
                         <Check className="size-4 text-emerald-600" />
-                        <span>Sale will be billed as <strong className="text-foreground">Walk-in Customer</strong> with instant token generation.</span>
+                        <span>
+                          Sale will be billed as{" "}
+                          <strong className="text-foreground">Walk-in Customer</strong> with instant
+                          token generation.
+                        </span>
                       </div>
                     )}
 
@@ -916,8 +931,12 @@ export function POSTab() {
                                   className="flex w-full items-center justify-between px-3 py-2.5 text-sm hover:bg-muted cursor-pointer text-left transition-colors"
                                 >
                                   <div>
-                                    <p className="font-semibold text-foreground">{c.name || "Unnamed Customer"}</p>
-                                    <p className="text-xs text-muted-foreground font-mono">{c.phone}</p>
+                                    <p className="font-semibold text-foreground">
+                                      {c.name || "Unnamed Customer"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground font-mono">
+                                      {c.phone}
+                                    </p>
                                   </div>
                                   <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                                     {c.total_purchases} orders
@@ -931,7 +950,9 @@ export function POSTab() {
                             <Check className="size-4 text-emerald-700 shrink-0" />
                             <div className="flex-1">
                               <p className="font-bold text-emerald-900">{customerName}</p>
-                              <p className="text-[11px] text-emerald-700 font-mono">{customerPhone}</p>
+                              <p className="text-[11px] text-emerald-700 font-mono">
+                                {customerPhone}
+                              </p>
                             </div>
                             <button
                               type="button"
@@ -1032,11 +1053,15 @@ export function POSTab() {
 
                         <div className="flex items-center gap-3">
                           <div className="relative flex-1">
-                            <span className="absolute left-3 top-2.5 font-bold text-muted-foreground text-sm">₹</span>
+                            <span className="absolute left-3 top-2.5 font-bold text-muted-foreground text-sm">
+                              ₹
+                            </span>
                             <input
                               type="number"
                               value={cashTendered}
-                              onChange={(e) => setCashTendered(e.target.value === "" ? "" : Number(e.target.value))}
+                              onChange={(e) =>
+                                setCashTendered(e.target.value === "" ? "" : Number(e.target.value))
+                              }
                               placeholder={`Enter cash amount (min ${total})`}
                               min={0}
                               className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
@@ -1046,8 +1071,12 @@ export function POSTab() {
 
                         {typeof cashTendered === "number" && cashTendered > 0 && (
                           <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <span className="text-xs font-bold text-emerald-900">Change Due to Customer:</span>
-                            <span className="text-base font-black text-emerald-700">{formatPrice(changeDue)}</span>
+                            <span className="text-xs font-bold text-emerald-900">
+                              Change Due to Customer:
+                            </span>
+                            <span className="text-base font-black text-emerald-700">
+                              {formatPrice(changeDue)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1060,21 +1089,32 @@ export function POSTab() {
                   <div className="rounded-2xl bg-card p-5 shadow-2xs border border-border space-y-4 sticky top-4">
                     <div className="flex items-center justify-between border-b border-border pb-3">
                       <h3 className="text-sm font-bold text-foreground">Order Summary</h3>
-                      <span className="text-xs font-bold text-muted-foreground">{totalItems} items</span>
+                      <span className="text-xs font-bold text-muted-foreground">
+                        {totalItems} items
+                      </span>
                     </div>
-                    
+
                     {/* Items List Snapshot */}
                     <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40 text-xs">
                       {cart.map((item) => (
-                        <div key={item.product_id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
+                        <div
+                          key={item.product_id}
+                          className="pt-2 first:pt-0 flex items-center justify-between gap-2"
+                        >
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold truncate text-foreground text-xs">{item.name}</p>
+                            <p className="font-semibold truncate text-foreground text-xs">
+                              {item.name}
+                            </p>
                             <p className="text-muted-foreground text-[10px]">
                               {item.qty} × {formatPrice(item.price)}
-                              {item.isCustom && <span className="ml-1 text-amber-600 font-bold">(Custom)</span>}
+                              {item.isCustom && (
+                                <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
+                              )}
                             </p>
                           </div>
-                          <span className="font-bold text-foreground shrink-0 text-xs">{formatPrice(item.price * item.qty)}</span>
+                          <span className="font-bold text-foreground shrink-0 text-xs">
+                            {formatPrice(item.price * item.qty)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1083,7 +1123,9 @@ export function POSTab() {
                     <div className="space-y-2 text-xs pt-3 border-t border-border">
                       <div className="flex justify-between text-muted-foreground">
                         <span>Items Subtotal</span>
-                        <span className="font-semibold text-foreground">{formatPrice(subtotal)}</span>
+                        <span className="font-semibold text-foreground">
+                          {formatPrice(subtotal)}
+                        </span>
                       </div>
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-emerald-700 font-bold">
@@ -1095,7 +1137,9 @@ export function POSTab() {
                       )}
                       <div className="flex items-baseline justify-between border-t border-border pt-3 text-base">
                         <span className="font-bold text-foreground">Total Payable</span>
-                        <span className="font-black text-2xl text-primary">{formatPrice(total)}</span>
+                        <span className="font-black text-2xl text-primary">
+                          {formatPrice(total)}
+                        </span>
                       </div>
                     </div>
 
@@ -1120,7 +1164,9 @@ export function POSTab() {
                           completeSale();
                         }
                       }}
-                      disabled={placeSale.isPending || createCustomer.isPending || cart.length === 0}
+                      disabled={
+                        placeSale.isPending || createCustomer.isPending || cart.length === 0
+                      }
                       className="w-full rounded-xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {placeSale.isPending || createCustomer.isPending ? (

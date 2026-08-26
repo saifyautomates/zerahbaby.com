@@ -94,10 +94,9 @@ export function AdminCategoryControls({ category }: { category: Category }) {
 
   const update = useMutation({
     mutationFn: async () => {
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          category.uuid || "",
-        );
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        category.uuid || "",
+      );
 
       const payload = {
         name: draft.name.trim(),
@@ -108,15 +107,10 @@ export function AdminCategoryControls({ category }: { category: Category }) {
       };
 
       if (isUuid) {
-        const { error } = await supabase
-          .from("categories")
-          .update(payload)
-          .eq("id", category.uuid);
+        const { error } = await supabase.from("categories").update(payload).eq("id", category.uuid);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("categories")
-          .upsert(payload, { onConflict: "slug" });
+        const { error } = await supabase.from("categories").upsert(payload, { onConflict: "slug" });
         if (error) throw error;
       }
     },
@@ -131,10 +125,9 @@ export function AdminCategoryControls({ category }: { category: Category }) {
 
   const remove = useMutation({
     mutationFn: async () => {
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          category.uuid || "",
-        );
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        category.uuid || "",
+      );
 
       if (isUuid) {
         const { error } = await supabase.from("categories").delete().eq("id", category.uuid);
@@ -227,7 +220,9 @@ export function AdminCategoryControls({ category }: { category: Category }) {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-muted-foreground">Tagline / Subtitle</label>
+                <label className="text-xs font-bold text-muted-foreground">
+                  Tagline / Subtitle
+                </label>
                 <input
                   className="w-full mt-1.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
                   value={draft.tagline}
@@ -237,7 +232,9 @@ export function AdminCategoryControls({ category }: { category: Category }) {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-muted-foreground">Image URL / Upload</label>
+                <label className="text-xs font-bold text-muted-foreground">
+                  Image URL / Upload
+                </label>
                 <div className="flex gap-2 mt-1.5">
                   <input
                     className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
@@ -312,7 +309,13 @@ export function AdminCategoryControls({ category }: { category: Category }) {
 export function AdminAddCategory({ className = "" }: { className?: string }) {
   const { adminMode } = useAdminMode();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState({ slug: "", name: "", tagline: "", image_url: "", sort_order: 1 });
+  const [draft, setDraft] = useState({
+    slug: "",
+    name: "",
+    tagline: "",
+    image_url: "",
+    sort_order: 1,
+  });
   const [uploading, setUploading] = useState(false);
   const qc = useQueryClient();
 
@@ -439,7 +442,9 @@ export function AdminAddCategory({ className = "" }: { className?: string }) {
                 </button>
                 <button
                   type="button"
-                  disabled={create.isPending || uploading || !draft.name.trim() || !draft.slug.trim()}
+                  disabled={
+                    create.isPending || uploading || !draft.name.trim() || !draft.slug.trim()
+                  }
                   onClick={() => create.mutate()}
                   className="px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
                 >

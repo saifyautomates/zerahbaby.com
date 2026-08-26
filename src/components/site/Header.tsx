@@ -659,7 +659,8 @@ export function Header() {
                       search={{ category: c.slug }}
                       className="focus-ring shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                       activeProps={{
-                        className: "bg-primary text-primary-foreground font-semibold shadow-premium-sm",
+                        className:
+                          "bg-primary text-primary-foreground font-semibold shadow-premium-sm",
                       }}
                       onClick={() => setOpen(false)}
                     >

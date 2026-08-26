@@ -160,12 +160,15 @@ function CartPage() {
             {subtotal >= 999 ? (
               <div className="flex items-center gap-2 text-xs font-bold text-green-600">
                 <span>🎉</span>
-                <span>You've unlocked <strong>FREE Delivery</strong> across India!</span>
+                <span>
+                  You've unlocked <strong>FREE Delivery</strong> across India!
+                </span>
               </div>
             ) : (
               <div>
                 <p className="text-xs font-semibold text-foreground">
-                  Add <strong className="text-primary">{formatPrice(999 - subtotal)}</strong> more to get <strong>FREE Delivery</strong>!
+                  Add <strong className="text-primary">{formatPrice(999 - subtotal)}</strong> more
+                  to get <strong>FREE Delivery</strong>!
                 </p>
                 <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div

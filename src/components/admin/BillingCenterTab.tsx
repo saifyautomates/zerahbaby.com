@@ -88,7 +88,10 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden flex flex-col p-4 bg-muted/10">
-        <div key={activeTab} className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden">
+        <div
+          key={activeTab}
+          className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden"
+        >
           {activeTab === "pos" && <POSTab />}
           {activeTab === "returns" && <POSReturnsTab />}
           {activeTab === "labels" && <LabelPrintingSubTab />}
@@ -176,7 +179,11 @@ function LabelPrintingSubTab() {
             className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-premium-sm transition-all duration-300 hover:bg-primary/90 hover:shadow-premium-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Printer className="size-4" />
-            <span>{isPrinting ? "Printing…" : `Print ${selectedIds.size > 1 ? `${selectedIds.size} Labels` : "Label"}`}</span>
+            <span>
+              {isPrinting
+                ? "Printing…"
+                : `Print ${selectedIds.size > 1 ? `${selectedIds.size} Labels` : "Label"}`}
+            </span>
           </button>
         </div>
       </div>

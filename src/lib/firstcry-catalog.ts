@@ -36,8 +36,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 214,
     ageGroup: "0-6m",
-    description: "Crafted from GOTS certified organic cotton, this set of 3 onesies is breathable, buttery soft and gentle on sensitive newborn skin. Features expandable lap shoulder neckline and nickel-free crotch snap buttons.",
-    highlights: ["100% GOTS Certified Organic Cotton", "Nickel-free bottom snaps for easy diaper changes", "Expandable envelope neck", "AZO-free non-toxic dyes"],
+    description:
+      "Crafted from GOTS certified organic cotton, this set of 3 onesies is breathable, buttery soft and gentle on sensitive newborn skin. Features expandable lap shoulder neckline and nickel-free crotch snap buttons.",
+    highlights: [
+      "100% GOTS Certified Organic Cotton",
+      "Nickel-free bottom snaps for easy diaper changes",
+      "Expandable envelope neck",
+      "AZO-free non-toxic dyes",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -46,11 +52,12 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000018",
     sortOrder: 1,
     buyingPrice: 380,
-    imageUrl: "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
     images: [
       "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80"
-    ]
+      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-carters-cotton-footie-sleepsuit",
@@ -62,8 +69,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 188,
     ageGroup: "0-6m",
-    description: "Designed for all-night comfort, this footed sleeper features a 2-way zipper to keep baby warm and snug during quick midnight diaper changes. Includes built-in footies with gripper soles.",
-    highlights: ["2-way safety zipper", "Built-in footies with grippers", "Safety chin guard tab", "Ultra-comfy rib knit"],
+    description:
+      "Designed for all-night comfort, this footed sleeper features a 2-way zipper to keep baby warm and snug during quick midnight diaper changes. Includes built-in footies with gripper soles.",
+    highlights: [
+      "2-way safety zipper",
+      "Built-in footies with grippers",
+      "Safety chin guard tab",
+      "Ultra-comfy rib knit",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -72,10 +85,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000025",
     sortOrder: 2,
     buyingPrice: 650,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"
-    ]
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pine-kids-denim-dungaree-set",
@@ -87,8 +101,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 95,
     ageGroup: "12-24m",
-    description: "Charming casual dungaree set made with pre-washed soft denim that ensures complete freedom of movement. Includes adjustable metal clip suspenders and a pure cotton crewneck tee.",
-    highlights: ["Soft-washed breathable denim", "Adjustable strap buckles", "Includes striped crewneck tee", "Front kangaroo pocket"],
+    description:
+      "Charming casual dungaree set made with pre-washed soft denim that ensures complete freedom of movement. Includes adjustable metal clip suspenders and a pure cotton crewneck tee.",
+    highlights: [
+      "Soft-washed breathable denim",
+      "Adjustable strap buckles",
+      "Includes striped crewneck tee",
+      "Front kangaroo pocket",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -97,8 +117,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000032",
     sortOrder: 3,
     buyingPrice: 580,
-    imageUrl: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-kookie-kids-floral-party-frock",
@@ -110,8 +133,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 142,
     ageGroup: "2-4y",
-    description: "Whimsical party dress crafted with delicate multi-layered tulle, intricate embroidery, and a 100% cotton inner lining to prevent irritation. Comes with a matching floral headband.",
-    highlights: ["100% Cotton soft inner lining", "Multi-tier breathable tulle", "Concealed back zipper", "Includes matching headband"],
+    description:
+      "Whimsical party dress crafted with delicate multi-layered tulle, intricate embroidery, and a 100% cotton inner lining to prevent irritation. Comes with a matching floral headband.",
+    highlights: [
+      "100% Cotton soft inner lining",
+      "Multi-tier breathable tulle",
+      "Concealed back zipper",
+      "Includes matching headband",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -120,8 +149,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000049",
     sortOrder: 4,
     buyingPrice: 750,
-    imageUrl: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-pure-muslin-jhabla-5pk",
@@ -133,8 +165,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 320,
     ageGroup: "0-6m",
-    description: "Ultra-breathable feather-light mulmul cotton jhablas with front tie-up knot strings. Perfect for Indian summers and newborn daily home wear.",
-    highlights: ["100% Super-fine Mulmul cotton", "Tie-up knot closure", "Zero rough seams", "Gets softer with every wash"],
+    description:
+      "Ultra-breathable feather-light mulmul cotton jhablas with front tie-up knot strings. Perfect for Indian summers and newborn daily home wear.",
+    highlights: [
+      "100% Super-fine Mulmul cotton",
+      "Tie-up knot closure",
+      "Zero rough seams",
+      "Gets softer with every wash",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -143,8 +181,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000056",
     sortOrder: 5,
     buyingPrice: 320,
-    imageUrl: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-cucumber-cotton-pajama-set-3pk",
@@ -156,8 +197,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 110,
     ageGroup: "6-12m",
-    description: "Everyday cozy elasticated waist bottoms made from combed cotton rib knit. Gentle elastic band that leaves no marks on delicate tummy.",
-    highlights: ["No-pinch elastic waistband", "Ribbed ankle cuffs", "Reinforced crotch gusset", "Machine washable"],
+    description:
+      "Everyday cozy elasticated waist bottoms made from combed cotton rib knit. Gentle elastic band that leaves no marks on delicate tummy.",
+    highlights: [
+      "No-pinch elastic waistband",
+      "Ribbed ankle cuffs",
+      "Reinforced crotch gusset",
+      "Machine washable",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -166,8 +213,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000063",
     sortOrder: 6,
     buyingPrice: 290,
-    imageUrl: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-cotton-romper-safari",
@@ -179,8 +229,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 84,
     ageGroup: "6-12m",
-    description: "Vibrant animal illustration romper crafted in breathable bio-washed single jersey cotton. Ideal for daycare and active playtime.",
-    highlights: ["Bio-washed cotton jersey", "Side shoulder snaps", "Leg opening snaps", "Fade-proof safe dyes"],
+    description:
+      "Vibrant animal illustration romper crafted in breathable bio-washed single jersey cotton. Ideal for daycare and active playtime.",
+    highlights: [
+      "Bio-washed cotton jersey",
+      "Side shoulder snaps",
+      "Leg opening snaps",
+      "Fade-proof safe dyes",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -189,8 +245,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000070",
     sortOrder: 7,
     buyingPrice: 260,
-    imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-ethno-cotton-kurta-pyjama-set",
@@ -202,8 +261,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 67,
     ageGroup: "2-4y",
-    description: "Royal festive ethnic wear set for boys with hand-block printed motifs, soft cotton slub fabric, and pre-stitched ready-to-wear elasticated dhoti.",
-    highlights: ["Traditional hand-block prints", "100% Slub cotton", "Pre-stitched comfort dhoti", "Golden zari button details"],
+    description:
+      "Royal festive ethnic wear set for boys with hand-block printed motifs, soft cotton slub fabric, and pre-stitched ready-to-wear elasticated dhoti.",
+    highlights: [
+      "Traditional hand-block prints",
+      "100% Slub cotton",
+      "Pre-stitched comfort dhoti",
+      "Golden zari button details",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -212,8 +277,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000087",
     sortOrder: 8,
     buyingPrice: 1020,
-    imageUrl: "https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pine-kids-crew-tshirts-3pk",
@@ -225,8 +293,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 135,
     ageGroup: "2-4y",
-    description: "Trendy graphic tees for toddlers made from durable combed cotton. Resists pilling and color fading through endless washing machine cycles.",
-    highlights: ["100% Combed cotton", "High durability screen prints", "Stretchy ribbed crew neck", "Regular relaxed fit"],
+    description:
+      "Trendy graphic tees for toddlers made from durable combed cotton. Resists pilling and color fading through endless washing machine cycles.",
+    highlights: [
+      "100% Combed cotton",
+      "High durability screen prints",
+      "Stretchy ribbed crew neck",
+      "Regular relaxed fit",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -235,8 +309,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000094",
     sortOrder: 9,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-carters-hooded-knit-cardigan",
@@ -248,8 +325,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 78,
     ageGroup: "6-12m",
-    description: "Chunky sweater knit jacket with plush faux-shearling lining on hood and body. Cute 3D bear ears on hood for irresistible warmth and charm.",
-    highlights: ["Plush sherpa fleece lining", "3D bear ears on hood", "Front button placket", "Warm & breathable knit"],
+    description:
+      "Chunky sweater knit jacket with plush faux-shearling lining on hood and body. Cute 3D bear ears on hood for irresistible warmth and charm.",
+    highlights: [
+      "Plush sherpa fleece lining",
+      "3D bear ears on hood",
+      "Front button placket",
+      "Warm & breathable knit",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -258,8 +341,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000100",
     sortOrder: 10,
     buyingPrice: 850,
-    imageUrl: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-muslin-swaddle-blankets-3pk",
@@ -271,8 +357,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 260,
     ageGroup: "0-6m",
-    description: "Extra-large 120x120 cm organic bamboo-cotton swaddle blankets. Super versatile as nursing privacy cover, stroller sun shade, burp cloth, and tummy-time mat.",
-    highlights: ["70% Bamboo 30% Cotton blend", "Generous 120x120cm size", "Thermo-regulating weave", "Hypoallergenic"],
+    description:
+      "Extra-large 120x120 cm organic bamboo-cotton swaddle blankets. Super versatile as nursing privacy cover, stroller sun shade, burp cloth, and tummy-time mat.",
+    highlights: [
+      "70% Bamboo 30% Cotton blend",
+      "Generous 120x120cm size",
+      "Thermo-regulating weave",
+      "Hypoallergenic",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -281,8 +373,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000117",
     sortOrder: 11,
     buyingPrice: 520,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-ollypop-cotton-nightwear-suit",
@@ -294,8 +389,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 92,
     ageGroup: "12-24m",
-    description: "Cozy bedtime two-piece sleep set featuring front-buttoned notch collar shirt and matching elastic waist trousers in playful dinosaur patterns.",
-    highlights: ["100% Premium cotton poplin", "Notch lapel collar shirt", "Full length pants with soft elastic", "Roomy comfortable fit"],
+    description:
+      "Cozy bedtime two-piece sleep set featuring front-buttoned notch collar shirt and matching elastic waist trousers in playful dinosaur patterns.",
+    highlights: [
+      "100% Premium cotton poplin",
+      "Notch lapel collar shirt",
+      "Full length pants with soft elastic",
+      "Roomy comfortable fit",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -304,8 +405,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000124",
     sortOrder: 12,
     buyingPrice: 340,
-    imageUrl: "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-knitted-booties-mittens-set",
@@ -317,8 +421,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 115,
     ageGroup: "0-6m",
-    description: "Keeps baby's tiny hands and feet warm while preventing self-inflicted facial scratches. Soft stretchy ribbed wristbands ensure they stay securely in place.",
-    highlights: ["Prevents accidental face scratches", "Snug gentle elastic ribbing", "Pure organic combed cotton", "Dermatologist approved fabric"],
+    description:
+      "Keeps baby's tiny hands and feet warm while preventing self-inflicted facial scratches. Soft stretchy ribbed wristbands ensure they stay securely in place.",
+    highlights: [
+      "Prevents accidental face scratches",
+      "Snug gentle elastic ribbing",
+      "Pure organic combed cotton",
+      "Dermatologist approved fabric",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -327,8 +437,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000131",
     sortOrder: 13,
     buyingPrice: 250,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-absorbent-bandana-bibs-4pk",
@@ -340,8 +453,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 198,
     ageGroup: "0-6m",
-    description: "Stylish triangle bandana bibs with absorbent double layers — top layer soft cotton, inner layer water-resistant fleece to keep teething babies dry.",
-    highlights: ["Super absorbent dual-layer", "Adjustable 2-snap closures", "Keeps clothes dry from drool", "Trendy minimalist prints"],
+    description:
+      "Stylish triangle bandana bibs with absorbent double layers — top layer soft cotton, inner layer water-resistant fleece to keep teething babies dry.",
+    highlights: [
+      "Super absorbent dual-layer",
+      "Adjustable 2-snap closures",
+      "Keeps clothes dry from drool",
+      "Trendy minimalist prints",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -350,8 +469,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000148",
     sortOrder: 14,
     buyingPrice: 220,
-    imageUrl: "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pine-kids-hooded-sweatshirt",
@@ -363,8 +485,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 80,
     ageGroup: "2-4y",
-    description: "Thick winter fleece hoodie with brushed interior for superior warmth on chilly days. Features rib cuffs, hem, and deep front pocket.",
-    highlights: ["Brushed thermal inner fleece", "Double-layered warm hood", "Spacious kangaroo pocket", "Non-shrink cotton poly blend"],
+    description:
+      "Thick winter fleece hoodie with brushed interior for superior warmth on chilly days. Features rib cuffs, hem, and deep front pocket.",
+    highlights: [
+      "Brushed thermal inner fleece",
+      "Double-layered warm hood",
+      "Spacious kangaroo pocket",
+      "Non-shrink cotton poly blend",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -373,8 +501,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000155",
     sortOrder: 15,
     buyingPrice: 470,
-    imageUrl: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-kookie-kids-ruffle-top-shorts-set",
@@ -386,8 +517,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 64,
     ageGroup: "12-24m",
-    description: "Delightful summer ensemble featuring delicate eyelet embroidery ruffle sleeves and matching elasticated bloomers with bow accents.",
-    highlights: ["100% Breathable cotton eyelet", "Ruffled flutter shoulder straps", "Soft-elastic bloomers", "Colorfast vibrant dye"],
+    description:
+      "Delightful summer ensemble featuring delicate eyelet embroidery ruffle sleeves and matching elasticated bloomers with bow accents.",
+    highlights: [
+      "100% Breathable cotton eyelet",
+      "Ruffled flutter shoulder straps",
+      "Soft-elastic bloomers",
+      "Colorfast vibrant dye",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -396,8 +533,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000162",
     sortOrder: 16,
     buyingPrice: 460,
-    imageUrl: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-thermal-innerwear-set",
@@ -409,8 +549,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 145,
     ageGroup: "6-12m",
-    description: "3-layer thermal insulation with polyfill core that traps body heat without feeling bulky under daily clothes. Features snap neck for easy dressing.",
-    highlights: ["3-Layer quilted thermal weave", "Polyfill heat-lock insulation", "Snug anti-ride-up cuffs", "Ultra-lightweight"],
+    description:
+      "3-layer thermal insulation with polyfill core that traps body heat without feeling bulky under daily clothes. Features snap neck for easy dressing.",
+    highlights: [
+      "3-Layer quilted thermal weave",
+      "Polyfill heat-lock insulation",
+      "Snug anti-ride-up cuffs",
+      "Ultra-lightweight",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -419,8 +565,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000179",
     sortOrder: 17,
     buyingPrice: 360,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-carters-sun-protective-swimsuit",
@@ -432,8 +581,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 58,
     ageGroup: "2-4y",
-    description: "Quick-drying swimsuit offering certified UPF 50+ sun protection. Chlorine-resistant stretch fabric designed for pool and beach adventures.",
-    highlights: ["Certified UPF 50+ UV protection", "Quick-drying 4-way stretch", "Chlorine and salt-water resistant", "Flatlock comfort stitching"],
+    description:
+      "Quick-drying swimsuit offering certified UPF 50+ sun protection. Chlorine-resistant stretch fabric designed for pool and beach adventures.",
+    highlights: [
+      "Certified UPF 50+ UV protection",
+      "Quick-drying 4-way stretch",
+      "Chlorine and salt-water resistant",
+      "Flatlock comfort stitching",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -442,8 +597,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000186",
     sortOrder: 18,
     buyingPrice: 780,
-    imageUrl: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-zipper-sleeping-bag",
@@ -455,8 +613,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 172,
     ageGroup: "0-6m",
-    description: "Pediatrician-recommended safe sleep sack that eliminates the danger of loose crib blankets. Features side zip and roomy bottom for healthy hip development.",
-    highlights: ["International Hip Dysplasia approved", "Safe alternative to loose blankets", "Two-way inverted zipper", "100% Breathable cotton"],
+    description:
+      "Pediatrician-recommended safe sleep sack that eliminates the danger of loose crib blankets. Features side zip and roomy bottom for healthy hip development.",
+    highlights: [
+      "International Hip Dysplasia approved",
+      "Safe alternative to loose blankets",
+      "Two-way inverted zipper",
+      "100% Breathable cotton",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -465,8 +629,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000193",
     sortOrder: 19,
     buyingPrice: 620,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-cucumber-organic-caps-booties-giftset",
@@ -478,8 +645,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 210,
     ageGroup: "0-6m",
-    description: "Luxury newborn essentials gift hamper containing 2 top-knot beanies, 2 pairs of scratch mittens, and 2 pairs of soft-elastic booties packed in a gift box.",
-    highlights: ["Complete hospital-bag ready gift set", "100% Organic interlock cotton", "Adjustable top-knot caps", "Delivered in premium gift packaging"],
+    description:
+      "Luxury newborn essentials gift hamper containing 2 top-knot beanies, 2 pairs of scratch mittens, and 2 pairs of soft-elastic booties packed in a gift box.",
+    highlights: [
+      "Complete hospital-bag ready gift set",
+      "100% Organic interlock cotton",
+      "Adjustable top-knot caps",
+      "Delivered in premium gift packaging",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -488,8 +661,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000209",
     sortOrder: 20,
     buyingPrice: 410,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- TOYS & GAMES (15 Items) ---------------- */
@@ -503,8 +679,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 410,
     ageGroup: "0-6m",
-    description: "The iconic multi-stage playmat with a light-up piano keyboard, repositionable toy arch, self-discovery mirror, crinkle panda, and 5 activity sensory toys. Smart Stages learning technology grows with baby.",
-    highlights: ["4 ways to play: Lay & Play, Tummy Time, Sit & Play, Take-along", "Removable light-up piano with 65+ songs & sounds", "High-contrast machine washable mat", "Includes 5 sensory linking toys"],
+    description:
+      "The iconic multi-stage playmat with a light-up piano keyboard, repositionable toy arch, self-discovery mirror, crinkle panda, and 5 activity sensory toys. Smart Stages learning technology grows with baby.",
+    highlights: [
+      "4 ways to play: Lay & Play, Tummy Time, Sit & Play, Take-along",
+      "Removable light-up piano with 65+ songs & sounds",
+      "High-contrast machine washable mat",
+      "Includes 5 sensory linking toys",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -513,11 +695,12 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000216",
     sortOrder: 21,
     buyingPrice: 2100,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
     images: [
       "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80"
-    ]
+      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-shumee-wooden-rainbow-stacker",
@@ -529,8 +712,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 180,
     ageGroup: "6-12m",
-    description: "Natural organic beechwood rainbow stacker painted with lead-free non-toxic water-based paints. Safe for teething and developing motor coordination.",
-    highlights: ["Solid natural beech wood", "100% Non-toxic water-based organic colors", "Smooth splinter-free rounded edges", "Boosts hand-eye coordination"],
+    description:
+      "Natural organic beechwood rainbow stacker painted with lead-free non-toxic water-based paints. Safe for teething and developing motor coordination.",
+    highlights: [
+      "Solid natural beech wood",
+      "100% Non-toxic water-based organic colors",
+      "Smooth splinter-free rounded edges",
+      "Boosts hand-eye coordination",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -539,8 +728,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000223",
     sortOrder: 22,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-musical-activity-walker",
@@ -552,8 +744,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 290,
     ageGroup: "6-12m",
-    description: "Helps babies transition from crawling to their confident first steps. Features adjustable anti-slip speed wheels, removable activity panel, and musical keys.",
-    highlights: ["Triangular ergonomic anti-topple frame", "Adjustable rear wheel tension/speed", "Removable interactive music & phone panel", "BPA-free heavy-duty construction"],
+    description:
+      "Helps babies transition from crawling to their confident first steps. Features adjustable anti-slip speed wheels, removable activity panel, and musical keys.",
+    highlights: [
+      "Triangular ergonomic anti-topple frame",
+      "Adjustable rear wheel tension/speed",
+      "Removable interactive music & phone panel",
+      "BPA-free heavy-duty construction",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -562,8 +760,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000230",
     sortOrder: 23,
     buyingPrice: 1250,
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-funskool-chain-links-teether-toy",
@@ -575,8 +776,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 350,
     ageGroup: "0-6m",
-    description: "Brightly textured linking rings that attach easily to strollers, high chairs, and car seats. Multi-surface textures soothe tender gums during teething.",
-    highlights: ["24 Versatile interconnecting rings", "Multiple textured teething surfaces", "Attaches toys to strollers and carriers", "Food grade non-toxic plastic"],
+    description:
+      "Brightly textured linking rings that attach easily to strollers, high chairs, and car seats. Multi-surface textures soothe tender gums during teething.",
+    highlights: [
+      "24 Versatile interconnecting rings",
+      "Multiple textured teething surfaces",
+      "Attaches toys to strollers and carriers",
+      "Food grade non-toxic plastic",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -585,8 +792,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000247",
     sortOrder: 24,
     buyingPrice: 140,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-hot-wheels-5-car-gift-pack",
@@ -598,8 +808,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 520,
     ageGroup: "2-4y",
-    description: "Classic authentic Hot Wheels collector 5-pack with high-speed rolling axles and realistic die-cast metal detailing.",
-    highlights: ["Authentic 1:64 scale die-cast metal", "High-speed frictionless wheels", "Durable collector-grade build", "5 unique themed sports cars"],
+    description:
+      "Classic authentic Hot Wheels collector 5-pack with high-speed rolling axles and realistic die-cast metal detailing.",
+    highlights: [
+      "Authentic 1:64 scale die-cast metal",
+      "High-speed frictionless wheels",
+      "Durable collector-grade build",
+      "5 unique themed sports cars",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -608,8 +824,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000254",
     sortOrder: 25,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-skillmatics-guess-in-10-junior",
@@ -621,8 +840,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 240,
     ageGroup: "2-4y",
-    description: "Award-winning early learning game where preschoolers ask smart questions to guess animal cards. Builds communication, critical thinking, and vocabulary.",
-    highlights: ["Winner of Toy of the Year awards", "35 Double-sided animal clue cards", "Develops memory and deductive reasoning", "Compact travel-friendly tin case"],
+    description:
+      "Award-winning early learning game where preschoolers ask smart questions to guess animal cards. Builds communication, critical thinking, and vocabulary.",
+    highlights: [
+      "Winner of Toy of the Year awards",
+      "35 Double-sided animal clue cards",
+      "Develops memory and deductive reasoning",
+      "Compact travel-friendly tin case",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -631,8 +856,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000261",
     sortOrder: 26,
     buyingPrice: 280,
-    imageUrl: "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-playgrove-wooden-shape-sorting-cube",
@@ -644,8 +872,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 130,
     ageGroup: "12-24m",
-    description: "Sturdy natural rubberwood box with 12 distinct geometric color-coded blocks. Sliding lid keeps all shapes securely inside after playtime.",
-    highlights: ["Natural sustainable rubberwood", "12 Chunky easy-grip blocks", "Sliding lid for easy block retrieval", "Non-toxic organic dye coating"],
+    description:
+      "Sturdy natural rubberwood box with 12 distinct geometric color-coded blocks. Sliding lid keeps all shapes securely inside after playtime.",
+    highlights: [
+      "Natural sustainable rubberwood",
+      "12 Chunky easy-grip blocks",
+      "Sliding lid for easy block retrieval",
+      "Non-toxic organic dye coating",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -654,8 +888,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000278",
     sortOrder: 27,
     buyingPrice: 460,
-    imageUrl: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-fisher-price-rock-a-stack-classic",
@@ -667,8 +904,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 480,
     ageGroup: "6-12m",
-    description: "A beloved classic featuring 5 colorful rings in graduated sizes and a bat-at wobbly rocking base with swirl beads inside top ring.",
-    highlights: ["Top ring filled with rattle beads", "Bat-at rocking base", "Teaches size sequencing & color recognition", "Made from plant-based renewable materials"],
+    description:
+      "A beloved classic featuring 5 colorful rings in graduated sizes and a bat-at wobbly rocking base with swirl beads inside top ring.",
+    highlights: [
+      "Top ring filled with rattle beads",
+      "Bat-at rocking base",
+      "Teaches size sequencing & color recognition",
+      "Made from plant-based renewable materials",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -677,8 +920,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000285",
     sortOrder: 28,
     buyingPrice: 220,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-plush-musical-sleeping-bear",
@@ -690,8 +936,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 165,
     ageGroup: "0-6m",
-    description: "Super-soft cuddly bedtime companion equipped with gentle heartbeat sounds, pink noise, and 10 peaceful lullabies. Auto-shuts off after 30 minutes.",
-    highlights: ["Calming mother's womb heartbeat sound", "10 Soft Brahms lullabies", "Gentle glowing chest night-light", "Machine washable (electronic module removes)"],
+    description:
+      "Super-soft cuddly bedtime companion equipped with gentle heartbeat sounds, pink noise, and 10 peaceful lullabies. Auto-shuts off after 30 minutes.",
+    highlights: [
+      "Calming mother's womb heartbeat sound",
+      "10 Soft Brahms lullabies",
+      "Gentle glowing chest night-light",
+      "Machine washable (electronic module removes)",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -700,8 +952,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000292",
     sortOrder: 29,
     buyingPrice: 710,
-    imageUrl: "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-play-doh-sweet-shopper-set",
@@ -713,8 +968,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 215,
     ageGroup: "2-4y",
-    description: "Fun hands-on ice cream press with cones, sundae dishes, sprinkles crank, and 6 vibrant non-toxic Play-Doh compound modeling tubs.",
-    highlights: ["Includes 6 non-toxic Play-Doh cans", "Easy-crank sprinkle maker", "Ice cream swirl dispenser machine", "Sparks imaginative culinary roleplay"],
+    description:
+      "Fun hands-on ice cream press with cones, sundae dishes, sprinkles crank, and 6 vibrant non-toxic Play-Doh compound modeling tubs.",
+    highlights: [
+      "Includes 6 non-toxic Play-Doh cans",
+      "Easy-crank sprinkle maker",
+      "Ice cream swirl dispenser machine",
+      "Sparks imaginative culinary roleplay",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -723,8 +984,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000308",
     sortOrder: 30,
     buyingPrice: 440,
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-shumee-wooden-pull-along-duck",
@@ -736,8 +1000,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 140,
     ageGroup: "12-24m",
-    description: "Charming wooden duck that wobbles and quacks softly as toddler pulls it along. Encourages independent walking and spatial navigation.",
-    highlights: ["Encourages early confident steps", "Wobble motion flapping wings", "Organic lead-free vegetable lac dyes", "Natural sturdy neem wood"],
+    description:
+      "Charming wooden duck that wobbles and quacks softly as toddler pulls it along. Encourages independent walking and spatial navigation.",
+    highlights: [
+      "Encourages early confident steps",
+      "Wobble motion flapping wings",
+      "Organic lead-free vegetable lac dyes",
+      "Natural sturdy neem wood",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -746,8 +1016,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000315",
     sortOrder: 31,
     buyingPrice: 320,
-    imageUrl: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-barbie-fashionista-doll",
@@ -759,8 +1032,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 310,
     ageGroup: "2-4y",
-    description: "Celebrates diversity and endless storytelling with vibrant fashion, matching strappy shoes, and trendy sunglasses in a reusable vinyl zip case.",
-    highlights: ["Authentic Mattel Barbie", "Reusable vinyl zipper packaging", "Trendsetting interchangeable outfit", "Inspires imaginative storytelling"],
+    description:
+      "Celebrates diversity and endless storytelling with vibrant fashion, matching strappy shoes, and trendy sunglasses in a reusable vinyl zip case.",
+    highlights: [
+      "Authentic Mattel Barbie",
+      "Reusable vinyl zipper packaging",
+      "Trendsetting interchangeable outfit",
+      "Inspires imaginative storytelling",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -769,8 +1048,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000322",
     sortOrder: 32,
     buyingPrice: 510,
-    imageUrl: "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-little-doctor-medical-kit",
@@ -782,8 +1064,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 175,
     ageGroup: "2-4y",
-    description: "14-piece preschool pretend doctor set with a working electronic stethoscope that produces real heartbeat sounds, blood pressure cuff, and carry case.",
-    highlights: ["Electronic stethoscope with heartbeat sound", "Includes thermometer with LED reading", "Portable clasp doctor carry suitcase", "Rounded child-safe BPA-free plastic"],
+    description:
+      "14-piece preschool pretend doctor set with a working electronic stethoscope that produces real heartbeat sounds, blood pressure cuff, and carry case.",
+    highlights: [
+      "Electronic stethoscope with heartbeat sound",
+      "Includes thermometer with LED reading",
+      "Portable clasp doctor carry suitcase",
+      "Rounded child-safe BPA-free plastic",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -792,8 +1080,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000339",
     sortOrder: 33,
     buyingPrice: 380,
-    imageUrl: "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-fisher-price-little-people-farm",
@@ -805,8 +1096,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 190,
     ageGroup: "12-24m",
-    description: "Action-packed farm playset with realistic animal sounds, barn songs, pop-open stalls, drop-through silo, and 4 chunky animal figures.",
-    highlights: ["45+ Songs, sounds and fun animal phrases", "Discovery buttons activate songs and barn light", "Includes farmer, cow, chicken, horse, and pig", "Smart Stages 3 levels of early learning"],
+    description:
+      "Action-packed farm playset with realistic animal sounds, barn songs, pop-open stalls, drop-through silo, and 4 chunky animal figures.",
+    highlights: [
+      "45+ Songs, sounds and fun animal phrases",
+      "Discovery buttons activate songs and barn light",
+      "Includes farmer, cow, chicken, horse, and pig",
+      "Smart Stages 3 levels of early learning",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -815,8 +1112,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000346",
     sortOrder: 34,
     buyingPrice: 1650,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-funskool-fundough-farm-delight",
@@ -828,8 +1128,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 145,
     ageGroup: "2-4y",
-    description: "Safe wheat-based modeling clay with 4 brightly colored tubs, extruder syringe, animal stampers, rollers, and child-safe plastic cutters.",
-    highlights: ["Non-toxic safe wheat formulation", "Extruder with 4 pattern discs", "Enhances tactile exploration and finger strength", "Non-staining washable formula"],
+    description:
+      "Safe wheat-based modeling clay with 4 brightly colored tubs, extruder syringe, animal stampers, rollers, and child-safe plastic cutters.",
+    highlights: [
+      "Non-toxic safe wheat formulation",
+      "Extruder with 4 pattern discs",
+      "Enhances tactile exploration and finger strength",
+      "Non-staining washable formula",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -838,8 +1144,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000353",
     sortOrder: 35,
     buyingPrice: 260,
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- NURSERY & CARE / SKINCARE (15 Items) ---------------- */
@@ -853,8 +1162,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 620,
     ageGroup: "0-6m",
-    description: "100% soap-free and alkali-free wash clinically formulated with exact pH 5.5 to support the development of baby's natural protective acid mantle.",
-    highlights: ["pH 5.5 balanced for newborn acid mantle", "100% Soap and alkali free", "Enriched with Chamomile and Allantoin", "Tear-free hypoallergenic formula"],
+    description:
+      "100% soap-free and alkali-free wash clinically formulated with exact pH 5.5 to support the development of baby's natural protective acid mantle.",
+    highlights: [
+      "pH 5.5 balanced for newborn acid mantle",
+      "100% Soap and alkali free",
+      "Enriched with Chamomile and Allantoin",
+      "Tear-free hypoallergenic formula",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -863,8 +1178,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000360",
     sortOrder: 36,
     buyingPrice: 580,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-aveeno-baby-daily-moisture-lotion-227g",
@@ -876,8 +1194,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 540,
     ageGroup: "0-6m",
-    description: "Fast-absorbing, non-greasy lotion with natural colloidal oatmeal and rich emollients that moisturizes baby's delicate skin for a full 24 hours.",
-    highlights: ["Natural colloidal oatmeal formula", "24-Hour continuous hydration", "Fragrance-free, paraben-free, dye-free", "Pediatrician recommended globally"],
+    description:
+      "Fast-absorbing, non-greasy lotion with natural colloidal oatmeal and rich emollients that moisturizes baby's delicate skin for a full 24 hours.",
+    highlights: [
+      "Natural colloidal oatmeal formula",
+      "24-Hour continuous hydration",
+      "Fragrance-free, paraben-free, dye-free",
+      "Pediatrician recommended globally",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -886,8 +1210,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000377",
     sortOrder: 37,
     buyingPrice: 530,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-natural-sensation-body-lotion",
@@ -899,8 +1226,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 320,
     ageGroup: "0-6m",
-    description: "Inspired by the Vernix Caseosa that naturally protects baby in the womb. Formulated with shea butter, vitamin E, and rice oil for silky soft skin.",
-    highlights: ["Vernix Caseosa inspired natural barrier", "Enriched with Shea butter & Vitamin E", "Quick absorbing non-sticky texture", "Dermatologist tested on sensitive skin"],
+    description:
+      "Inspired by the Vernix Caseosa that naturally protects baby in the womb. Formulated with shea butter, vitamin E, and rice oil for silky soft skin.",
+    highlights: [
+      "Vernix Caseosa inspired natural barrier",
+      "Enriched with Shea butter & Vitamin E",
+      "Quick absorbing non-sticky texture",
+      "Dermatologist tested on sensitive skin",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -909,8 +1242,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000384",
     sortOrder: 38,
     buyingPrice: 450,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-cetaphil-baby-wash-shampoo-400ml",
@@ -922,8 +1258,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 430,
     ageGroup: "0-6m",
-    description: "Tear-free 2-in-1 formula that lathers into a rich bath to gently cleanse delicate hair and sensitive skin without stripping natural moisture.",
-    highlights: ["Contains soothing organic Calendula", "Soap-free tear-free 2-in-1 formula", "Maintains skin's natural moisture barrier", "Free of mineral oils and parabens"],
+    description:
+      "Tear-free 2-in-1 formula that lathers into a rich bath to gently cleanse delicate hair and sensitive skin without stripping natural moisture.",
+    highlights: [
+      "Contains soothing organic Calendula",
+      "Soap-free tear-free 2-in-1 formula",
+      "Maintains skin's natural moisture barrier",
+      "Free of mineral oils and parabens",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -932,8 +1274,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000391",
     sortOrder: 39,
     buyingPrice: 480,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-himalaya-cold-pressed-baby-massage-oil",
@@ -945,8 +1290,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 890,
     ageGroup: "0-6m",
-    description: "Pure herbal massage oil enriched with Winter Cherry (Ashvagandha) to improve muscle tone, and Virgin Olive Oil to nourish and soften delicate skin.",
-    highlights: ["Clinically proven to improve baby's growth", "Infused with Ashvagandha & Olive Oil", "Lightweight non-staining oil", "Free from synthetic mineral oils"],
+    description:
+      "Pure herbal massage oil enriched with Winter Cherry (Ashvagandha) to improve muscle tone, and Virgin Olive Oil to nourish and soften delicate skin.",
+    highlights: [
+      "Clinically proven to improve baby's growth",
+      "Infused with Ashvagandha & Olive Oil",
+      "Lightweight non-staining oil",
+      "Free from synthetic mineral oils",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -955,8 +1306,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000407",
     sortOrder: 40,
     buyingPrice: 220,
-    imageUrl: "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-sebamed-diaper-rash-cream-100ml",
@@ -968,8 +1322,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 580,
     ageGroup: "0-6m",
-    description: "Provides rapid relief from diaper redness and irritation. Forms an effective breathable protective barrier against moisture without blocking skin pores.",
-    highlights: ["pH 5.5 protects acid mantle barrier", "Micronized Titanium Dioxide barrier", "Panthenol stimulates natural healing", "Relieves redness from first application"],
+    description:
+      "Provides rapid relief from diaper redness and irritation. Forms an effective breathable protective barrier against moisture without blocking skin pores.",
+    highlights: [
+      "pH 5.5 protects acid mantle barrier",
+      "Micronized Titanium Dioxide barrier",
+      "Panthenol stimulates natural healing",
+      "Relieves redness from first application",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -978,8 +1338,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000414",
     sortOrder: 41,
     buyingPrice: 360,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mamaearth-milky-soft-face-cream",
@@ -991,8 +1354,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 410,
     ageGroup: "0-6m",
-    description: "Crafted specially for delicate facial skin prone to dry patches and chapping. Deeply hydrates with Milk Protein, Murumuru Butter, and Shea Butter.",
-    highlights: ["MadeSafe Certified 100% Toxin-free", "Enriched with Murumuru Butter & Milk Protein", "Protects against dry chapped cheeks", "Hypoallergenic and non-greasy"],
+    description:
+      "Crafted specially for delicate facial skin prone to dry patches and chapping. Deeply hydrates with Milk Protein, Murumuru Butter, and Shea Butter.",
+    highlights: [
+      "MadeSafe Certified 100% Toxin-free",
+      "Enriched with Murumuru Butter & Milk Protein",
+      "Protects against dry chapped cheeks",
+      "Hypoallergenic and non-greasy",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1001,8 +1370,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000421",
     sortOrder: 42,
     buyingPrice: 140,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-electric-nail-trimmer-set",
@@ -1014,8 +1386,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 310,
     ageGroup: "0-6m",
-    description: "Safely files and trims soft newborn nails without damaging cuticles or delicate nail beds. Features whisper-quiet motor and front spotlight for trimming while baby sleeps.",
-    highlights: ["Whisper-quiet 35dB motor", "Built-in soft LED front headlight", "6 Color-coded cushioned grinding heads", "2-Speed bi-directional rotation"],
+    description:
+      "Safely files and trims soft newborn nails without damaging cuticles or delicate nail beds. Features whisper-quiet motor and front spotlight for trimming while baby sleeps.",
+    highlights: [
+      "Whisper-quiet 35dB motor",
+      "Built-in soft LED front headlight",
+      "6 Color-coded cushioned grinding heads",
+      "2-Speed bi-directional rotation",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1024,8 +1402,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000438",
     sortOrder: 43,
     buyingPrice: 470,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mustela-no-rinse-cleansing-water",
@@ -1037,8 +1418,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 160,
     ageGroup: "0-6m",
-    description: "French micellar cleansing water made with 98% natural ingredients. Gently cleanses baby's face, hands, and diaper area on-the-go without needing water rinse.",
-    highlights: ["98% Ingredients from natural origin", "No water rinse required", "Infused with Organic Avocado Perseose", "Leaves iconic gentle baby scent"],
+    description:
+      "French micellar cleansing water made with 98% natural ingredients. Gently cleanses baby's face, hands, and diaper area on-the-go without needing water rinse.",
+    highlights: [
+      "98% Ingredients from natural origin",
+      "No water rinse required",
+      "Infused with Organic Avocado Perseose",
+      "Leaves iconic gentle baby scent",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1047,8 +1434,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000445",
     sortOrder: 44,
     buyingPrice: 580,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mee-mee-gentle-nasal-aspirator",
@@ -1060,8 +1450,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 280,
     ageGroup: "0-6m",
-    description: "Pediatrician-designed gentle suction nasal cleaner that quickly clears blocked nasal mucus and congestion so baby can nurse and sleep comfortably.",
-    highlights: ["Soft BPA-free silicone tip protects nostrils", "Hygienic anti-backflow mucus reservoir", "Easily disassembles for boiling sterilization", "Includes protective travel dust cover"],
+    description:
+      "Pediatrician-designed gentle suction nasal cleaner that quickly clears blocked nasal mucus and congestion so baby can nurse and sleep comfortably.",
+    highlights: [
+      "Soft BPA-free silicone tip protects nostrils",
+      "Hygienic anti-backflow mucus reservoir",
+      "Easily disassembles for boiling sterilization",
+      "Includes protective travel dust cover",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1070,8 +1466,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000452",
     sortOrder: 45,
     buyingPrice: 170,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-non-contact-infrared-thermometer",
@@ -1083,8 +1482,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 215,
     ageGroup: "0-6m",
-    description: "Instant 1-second body and surface temperature reading without touching sleeping baby. Features fever alarm color indicator and 30-reading memory recall.",
-    highlights: ["Instant 1-second clinical accuracy", "Non-contact measurement up to 3cm", "Backlit 3-color fever alert screen", "Dual mode: Body and Object temperature"],
+    description:
+      "Instant 1-second body and surface temperature reading without touching sleeping baby. Features fever alarm color indicator and 30-reading memory recall.",
+    highlights: [
+      "Instant 1-second clinical accuracy",
+      "Non-contact measurement up to 3cm",
+      "Backlit 3-color fever alert screen",
+      "Dual mode: Body and Object temperature",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1093,8 +1498,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000469",
     sortOrder: 46,
     buyingPrice: 1180,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-grooming-health-kit",
@@ -1106,8 +1514,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 340,
     ageGroup: "0-6m",
-    description: "All-in-one newborn hygiene kit containing soft bristle hairbrush, wide-tooth comb, rounded nail clippers, safety scissors, glass file, and silicone finger toothbrush.",
-    highlights: ["Soft goat-hair bristle cradle cap brush", "Ergonomic safety nail scissors with round tips", "Food-grade silicone gum massager brush", "Comes in a compact travel zippered pouch"],
+    description:
+      "All-in-one newborn hygiene kit containing soft bristle hairbrush, wide-tooth comb, rounded nail clippers, safety scissors, glass file, and silicone finger toothbrush.",
+    highlights: [
+      "Soft goat-hair bristle cradle cap brush",
+      "Ergonomic safety nail scissors with round tips",
+      "Food-grade silicone gum massager brush",
+      "Comes in a compact travel zippered pouch",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1116,8 +1530,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000476",
     sortOrder: 47,
     buyingPrice: 290,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-sebamed-cleansing-bar-100g",
@@ -1129,8 +1546,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 510,
     ageGroup: "0-6m",
-    description: "Sugar-based mild cleanser infused with inulin, wheat germ oil, and vitamins to nourish delicate skin while bathing.",
-    highlights: ["100% Soap-free & alkali-free", "Amino acid formula prevents dehydration", "Panthenol supports skin regeneration", "Dermatologist approved for daily bath"],
+    description:
+      "Sugar-based mild cleanser infused with inulin, wheat germ oil, and vitamins to nourish delicate skin while bathing.",
+    highlights: [
+      "100% Soap-free & alkali-free",
+      "Amino acid formula prevents dehydration",
+      "Panthenol supports skin regeneration",
+      "Dermatologist approved for daily bath",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1139,8 +1562,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000483",
     sortOrder: 48,
     buyingPrice: 260,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mamaearth-easy-tummy-rollon",
@@ -1152,8 +1578,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 670,
     ageGroup: "0-6m",
-    description: "Ayurvedic blend of Hing (Asafoetida) and Fennel (Saunf) essential oils that provides fast natural relief from gas pain, colic, and indigestion.",
-    highlights: ["Natural Hing & Fennel essential oil blend", "Mess-free convenient roll-on applicator", "100% Natural toxin-free formula", "Fast soothing relief from infantile colic"],
+    description:
+      "Ayurvedic blend of Hing (Asafoetida) and Fennel (Saunf) essential oils that provides fast natural relief from gas pain, colic, and indigestion.",
+    highlights: [
+      "Natural Hing & Fennel essential oil blend",
+      "Mess-free convenient roll-on applicator",
+      "100% Natural toxin-free formula",
+      "Fast soothing relief from infantile colic",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1162,8 +1594,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000490",
     sortOrder: 49,
     buyingPrice: 150,
-    imageUrl: "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-warm-mist-cool-humidifier",
@@ -1175,8 +1610,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 140,
     ageGroup: "0-6m",
-    description: "Maintains optimal 45-60% nursery humidity to soothe dry coughs, stuffy noses, and sinus irritation. Features 360-degree rotating mist nozzle and 7-color nightlight.",
-    highlights: ["3.5L Tank runs up to 24 hours continuously", "Whisper-quiet ultrasonic operation <28dB", "Auto shut-off when water level is empty", "Built-in essential oil aroma diffuser tray"],
+    description:
+      "Maintains optimal 45-60% nursery humidity to soothe dry coughs, stuffy noses, and sinus irritation. Features 360-degree rotating mist nozzle and 7-color nightlight.",
+    highlights: [
+      "3.5L Tank runs up to 24 hours continuously",
+      "Whisper-quiet ultrasonic operation <28dB",
+      "Auto shut-off when water level is empty",
+      "Built-in essential oil aroma diffuser tray",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1185,8 +1626,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000506",
     sortOrder: 50,
     buyingPrice: 1450,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- FEEDING & NURSING (12 Items) ---------------- */
@@ -1200,8 +1644,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 730,
     ageGroup: "0-6m",
-    description: "Natural Response teat releases milk only when baby actively drinks, just like breastfeeding. Anti-colic valve designed to keep air away from baby's tummy.",
-    highlights: ["Natural breast-shaped teat mimics mother's breast", "No-drip teat design prevents spills", "Unique anti-colic airflex valve", "100% BPA-free polypropylene"],
+    description:
+      "Natural Response teat releases milk only when baby actively drinks, just like breastfeeding. Anti-colic valve designed to keep air away from baby's tummy.",
+    highlights: [
+      "Natural breast-shaped teat mimics mother's breast",
+      "No-drip teat design prevents spills",
+      "Unique anti-colic airflex valve",
+      "100% BPA-free polypropylene",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1210,8 +1660,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000513",
     sortOrder: 51,
     buyingPrice: 880,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-dr-browns-options-anti-colic-bottle",
@@ -1223,8 +1676,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 390,
     ageGroup: "0-6m",
-    description: "Clinical gold standard internal vent system eliminates negative pressure and air bubbles to reduce colic, burping, and gas while preserving milk nutrients.",
-    highlights: ["Internal vent clinically proven to reduce colic", "Preserves essential vitamins C, A, and E", "Medical-grade thermal shock resistant glass", "Can be used with or without the vent system"],
+    description:
+      "Clinical gold standard internal vent system eliminates negative pressure and air bubbles to reduce colic, burping, and gas while preserving milk nutrients.",
+    highlights: [
+      "Internal vent clinically proven to reduce colic",
+      "Preserves essential vitamins C, A, and E",
+      "Medical-grade thermal shock resistant glass",
+      "Can be used with or without the vent system",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1233,8 +1692,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000520",
     sortOrder: 52,
     buyingPrice: 690,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-3in1-steam-sterilizer",
@@ -1246,8 +1708,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 210,
     ageGroup: "0-6m",
-    description: "Uses natural steam to eliminate 99.9% of harmful household germs in 5 minutes. Modular configuration fits up to 6 large bottles or breast pump accessories.",
-    highlights: ["Eliminates 99.9% of germs with pure steam", "Keeps items sanitized for 24 hours under lid", "Automatic power shut-off safety switch", "Modular full-size, compact, and microwave modes"],
+    description:
+      "Uses natural steam to eliminate 99.9% of harmful household germs in 5 minutes. Modular configuration fits up to 6 large bottles or breast pump accessories.",
+    highlights: [
+      "Eliminates 99.9% of germs with pure steam",
+      "Keeps items sanitized for 24 hours under lid",
+      "Automatic power shut-off safety switch",
+      "Modular full-size, compact, and microwave modes",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1256,8 +1724,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000537",
     sortOrder: 53,
     buyingPrice: 2200,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-silicone-suction-tableware-set",
@@ -1269,8 +1740,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 380,
     ageGroup: "6-12m",
-    description: "Strong suction base locks securely to highchair trays to prevent bowl tipping and floor spills. Deep curved edges assist self-feeding toddler motor skills.",
-    highlights: ["Super-lock suction base prevents mess", "100% Food-grade Platinum silicone", "Microwave, dishwasher, and freezer safe", "Includes soft gum-friendly silicone spoon"],
+    description:
+      "Strong suction base locks securely to highchair trays to prevent bowl tipping and floor spills. Deep curved edges assist self-feeding toddler motor skills.",
+    highlights: [
+      "Super-lock suction base prevents mess",
+      "100% Food-grade Platinum silicone",
+      "Microwave, dishwasher, and freezer safe",
+      "Includes soft gum-friendly silicone spoon",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1279,8 +1756,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000544",
     sortOrder: 54,
     buyingPrice: 380,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-philips-avent-manual-breast-pump",
@@ -1292,8 +1772,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 290,
     ageGroup: "0-6m",
-    description: "Express milk without leaning forward. Soft silicone petal cushion gently stimulates milk let-down reflex quickly and comfortably.",
-    highlights: ["Natural Motion technology for fast milk flow", "Soft adaptable velvety silicone cushion", "Compact and lightweight for discreet travel", "Directly compatible with all Avent Natural bottles"],
+    description:
+      "Express milk without leaning forward. Soft silicone petal cushion gently stimulates milk let-down reflex quickly and comfortably.",
+    highlights: [
+      "Natural Motion technology for fast milk flow",
+      "Soft adaptable velvety silicone cushion",
+      "Compact and lightweight for discreet travel",
+      "Directly compatible with all Avent Natural bottles",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1302,8 +1788,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000551",
     sortOrder: 55,
     buyingPrice: 1350,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pigeon-magmag-all-in-one-training-cup",
@@ -1315,8 +1804,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 310,
     ageGroup: "6-12m",
-    description: "4 interchangeable drinking tops (Teat, Spout, Straw, Trainer Lid) that guide your baby smoothly from bottle nursing to independent glass drinking.",
-    highlights: ["4 Interchangeable step-by-step lids", "Leak-proof spill-resistant silicone valve", "Ergonomic dual toddler handles", "BPA and BPS free Japanese polymer"],
+    description:
+      "4 interchangeable drinking tops (Teat, Spout, Straw, Trainer Lid) that guide your baby smoothly from bottle nursing to independent glass drinking.",
+    highlights: [
+      "4 Interchangeable step-by-step lids",
+      "Leak-proof spill-resistant silicone valve",
+      "Ergonomic dual toddler handles",
+      "BPA and BPS free Japanese polymer",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1325,8 +1820,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000568",
     sortOrder: 56,
     buyingPrice: 520,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-luvlap-3in1-convertible-highchair",
@@ -1338,8 +1836,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 180,
     ageGroup: "6-12m",
-    description: "Multi-functional dining chair with 5-point safety harness, removable double food tray, and solid beechwood legs that convert into a toddler play desk.",
-    highlights: ["Converts from High Chair to Toddler Study Table", "3-Position adjustable food-grade double tray", "5-Point safety harness belt", "Removable wipe-clean PU leather cushion"],
+    description:
+      "Multi-functional dining chair with 5-point safety harness, removable double food tray, and solid beechwood legs that convert into a toddler play desk.",
+    highlights: [
+      "Converts from High Chair to Toddler Study Table",
+      "3-Position adjustable food-grade double tray",
+      "5-Point safety harness belt",
+      "Removable wipe-clean PU leather cushion",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1348,8 +1852,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000575",
     sortOrder: 57,
     buyingPrice: 2450,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-munchkin-miracle-360-sippy-cup",
@@ -1361,8 +1868,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 520,
     ageGroup: "6-12m",
-    description: "Spoutless 360-degree rim allows drinking from any side like a regular adult cup. Automatically seals when child stops sipping to prevent accidental spills.",
-    highlights: ["Dentist recommended spoutless 360° design", "100% Spill-proof automatic seal valve", "Supports normal muscle development in mouth", "Easy to clean with no extra hidden valves"],
+    description:
+      "Spoutless 360-degree rim allows drinking from any side like a regular adult cup. Automatically seals when child stops sipping to prevent accidental spills.",
+    highlights: [
+      "Dentist recommended spoutless 360° design",
+      "100% Spill-proof automatic seal valve",
+      "Supports normal muscle development in mouth",
+      "Easy to clean with no extra hidden valves",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1371,8 +1884,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000582",
     sortOrder: 58,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-electric-bottle-food-warmer",
@@ -1384,8 +1900,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 145,
     ageGroup: "0-6m",
-    description: "Gently warms breastmilk and formula evenly in 3 minutes without hotspots that destroy vital antibodies. Includes baby food bowl and constant temperature thermostat.",
-    highlights: ["Fast 3-minute gentle water bath warming", "Maintains optimal 40°C feeding temperature", "Includes food warming cup and lid", "Universal fit for all wide and standard bottles"],
+    description:
+      "Gently warms breastmilk and formula evenly in 3 minutes without hotspots that destroy vital antibodies. Includes baby food bowl and constant temperature thermostat.",
+    highlights: [
+      "Fast 3-minute gentle water bath warming",
+      "Maintains optimal 40°C feeding temperature",
+      "Includes food warming cup and lid",
+      "Universal fit for all wide and standard bottles",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1394,8 +1916,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000599",
     sortOrder: 59,
     buyingPrice: 760,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-waterproof-silicone-bibs-2pk",
@@ -1407,8 +1932,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 290,
     ageGroup: "6-12m",
-    description: "Deep front spill pocket catches food drops and liquids before reaching toddler clothes. Soft adjustable neck buttons make it comfortable around neck.",
-    highlights: ["Deep sturdy food catcher pocket", "Wipes clean in 2 seconds or dishwasher safe", "4-Stage adjustable neck fastenings", "Rolls up tightly for travel bags"],
+    description:
+      "Deep front spill pocket catches food drops and liquids before reaching toddler clothes. Soft adjustable neck buttons make it comfortable around neck.",
+    highlights: [
+      "Deep sturdy food catcher pocket",
+      "Wipes clean in 2 seconds or dishwasher safe",
+      "4-Stage adjustable neck fastenings",
+      "Rolls up tightly for travel bags",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1417,8 +1948,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000605",
     sortOrder: 60,
     buyingPrice: 240,
-    imageUrl: "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mee-mee-rotary-bottle-nipple-brush",
@@ -1430,8 +1964,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 410,
     ageGroup: "0-6m",
-    description: "High-density scratch-free foam bristles on a 360-degree rotating handle scrub bottle corners clean without scratching delicate surfaces.",
-    highlights: ["360° Rotating easy-crank handle", "Scratch-free high-density sponge head", "Includes dedicated mini teat brush", "Hanging loop for fast air-drying"],
+    description:
+      "High-density scratch-free foam bristles on a 360-degree rotating handle scrub bottle corners clean without scratching delicate surfaces.",
+    highlights: [
+      "360° Rotating easy-crank handle",
+      "Scratch-free high-density sponge head",
+      "Includes dedicated mini teat brush",
+      "Hanging loop for fast air-drying",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1440,8 +1980,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000612",
     sortOrder: 61,
     buyingPrice: 110,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-milk-powder-dispenser-4tier",
@@ -1453,8 +1996,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 230,
     ageGroup: "0-6m",
-    description: "4 separate sealable twist-lock compartments for pre-measured formula scoops or toddler fruit snacks during day outings.",
-    highlights: ["4 Separate twist-lock airtight layers", "Funnel spout for no-spill bottle filling", "Compact handheld travel design", "BPA-free food-safe polymer"],
+    description:
+      "4 separate sealable twist-lock compartments for pre-measured formula scoops or toddler fruit snacks during day outings.",
+    highlights: [
+      "4 Separate twist-lock airtight layers",
+      "Funnel spout for no-spill bottle filling",
+      "Compact handheld travel design",
+      "BPA-free food-safe polymer",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1463,8 +2012,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000629",
     sortOrder: 62,
     buyingPrice: 160,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- DIAPERING & POTTY (12 Items) ---------------- */
@@ -1478,8 +2030,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 1450,
     ageGroup: "6-12m",
-    description: "Cotton-like feather-soft diaper pants with 10 million breathable micro-pores, wetness indicator strip, and 3 magic absorbing channels for 12 hours dryness.",
-    highlights: ["12-Hour leak lock protection", "Built-in wetness color indicator", "360° Ultra-stretchy cloud-soft waistband", "Infused with baby lotion to prevent redness"],
+    description:
+      "Cotton-like feather-soft diaper pants with 10 million breathable micro-pores, wetness indicator strip, and 3 magic absorbing channels for 12 hours dryness.",
+    highlights: [
+      "12-Hour leak lock protection",
+      "Built-in wetness color indicator",
+      "360° Ultra-stretchy cloud-soft waistband",
+      "Infused with baby lotion to prevent redness",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1488,8 +2046,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000636",
     sortOrder: 63,
     buyingPrice: 850,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-huggies-nature-care-pants-l-56",
@@ -1501,8 +2062,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 620,
     ageGroup: "12-24m",
-    description: "100% organic cotton top layer with zero added parabens or elemental chlorine. Bubble-bed cushion absorbs runny messes instantly.",
-    highlights: ["100% Organic cotton top-sheet", "Bubble-bed cushion technology", "No elemental chlorine or parabens", "Triple leak-guard leg cuffs"],
+    description:
+      "100% organic cotton top layer with zero added parabens or elemental chlorine. Bubble-bed cushion absorbs runny messes instantly.",
+    highlights: [
+      "100% Organic cotton top-sheet",
+      "Bubble-bed cushion technology",
+      "No elemental chlorine or parabens",
+      "Triple leak-guard leg cuffs",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1511,8 +2078,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000643",
     sortOrder: 64,
     buyingPrice: 720,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-advanced-pant-diapers-s-80",
@@ -1524,8 +2094,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 430,
     ageGroup: "0-6m",
-    description: "Silky soft breathable pants with Japanese super absorbent polymer core and disposal tape for hygienic clean discarding.",
-    highlights: ["Japanese SAP high-speed core", "Attached adhesive disposal tape", "Wetness indicator turning blue", "Gentle 3D leg cuff anti-leak barrier"],
+    description:
+      "Silky soft breathable pants with Japanese super absorbent polymer core and disposal tape for hygienic clean discarding.",
+    highlights: [
+      "Japanese SAP high-speed core",
+      "Attached adhesive disposal tape",
+      "Wetness indicator turning blue",
+      "Gentle 3D leg cuff anti-leak barrier",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1534,8 +2110,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000650",
     sortOrder: 65,
     buyingPrice: 560,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-superbottoms-freestyle-cloth-diaper",
@@ -1547,8 +2126,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 580,
     ageGroup: "0-6m",
-    description: "Washable eco-friendly cloth diaper certified by GOTS. Waterproof outer shell with snap adjustments fits babies from 5kg to 17kg (3 months to 3 years).",
-    highlights: ["Reusable and washable 300+ times", "GOTS Certified 100% Organic cotton pads", "Adjustable snaps fit from 3m up to 3 years", "Zero rashes and zero synthetic chemicals"],
+    description:
+      "Washable eco-friendly cloth diaper certified by GOTS. Waterproof outer shell with snap adjustments fits babies from 5kg to 17kg (3 months to 3 years).",
+    highlights: [
+      "Reusable and washable 300+ times",
+      "GOTS Certified 100% Organic cotton pads",
+      "Adjustable snaps fit from 3m up to 3 years",
+      "Zero rashes and zero synthetic chemicals",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1557,8 +2142,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000667",
     sortOrder: 66,
     buyingPrice: 550,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-99-pure-water-wipes-3pk",
@@ -1570,8 +2158,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 790,
     ageGroup: "0-6m",
-    description: "Thick textured wipe made with 99% medical purified water and natural organic aloe vera. Safe for delicate newborn face, hands, and bottom.",
-    highlights: ["99% Pure deionized water formulation", "Thick honeycomb cross-woven fabric", "100% Biodegradable plant viscose", "Flip-top lid locks in moisture"],
+    description:
+      "Thick textured wipe made with 99% medical purified water and natural organic aloe vera. Safe for delicate newborn face, hands, and bottom.",
+    highlights: [
+      "99% Pure deionized water formulation",
+      "Thick honeycomb cross-woven fabric",
+      "100% Biodegradable plant viscose",
+      "Flip-top lid locks in moisture",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1580,8 +2174,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000674",
     sortOrder: 67,
     buyingPrice: 220,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mamypoko-extra-absorb-xl-44",
@@ -1593,8 +2190,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 820,
     ageGroup: "2-4y",
-    description: "Deep criss-cross absorbent sheets absorb up to 7 glasses of urine evenly without sagging between legs.",
-    highlights: ["Criss-cross absorb sheet prevents sag", "Up to 12 hours absorption power", "Soft leg elastic prevents red thigh marks", "Fun Winnie-the-Pooh character prints"],
+    description:
+      "Deep criss-cross absorbent sheets absorb up to 7 glasses of urine evenly without sagging between legs.",
+    highlights: [
+      "Criss-cross absorb sheet prevents sag",
+      "Up to 12 hours absorption power",
+      "Soft leg elastic prevents red thigh marks",
+      "Fun Winnie-the-Pooh character prints",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1603,8 +2206,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000681",
     sortOrder: 68,
     buyingPrice: 590,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-baybee-cushioned-potty-trainer-seat",
@@ -1616,8 +2222,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 310,
     ageGroup: "12-24m",
-    description: "Ergonomic high-back potty training chair with removable inner waste basin, forward splash guard, and anti-slip rubber floor pads.",
-    highlights: ["Removable inner basin for effortless cleaning", "Raised front anti-splash urine guard", "High backrest supports proper posture", "Smooth rounded handles for toddler grip"],
+    description:
+      "Ergonomic high-back potty training chair with removable inner waste basin, forward splash guard, and anti-slip rubber floor pads.",
+    highlights: [
+      "Removable inner basin for effortless cleaning",
+      "Raised front anti-splash urine guard",
+      "High backrest supports proper posture",
+      "Smooth rounded handles for toddler grip",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1626,8 +2238,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000698",
     sortOrder: 69,
     buyingPrice: 480,
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-waterproof-dry-sheet-large",
@@ -1639,8 +2254,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 640,
     ageGroup: "0-6m",
-    description: "Cozy fleece surface with silent breathable PU waterproof membrane that protects crib mattresses from urine, spills, and allergens.",
-    highlights: ["Hypoallergenic ultra-soft microfleece surface", "100% Waterproof breathable PU underlayer", "Dries up to 8x faster than cotton sheets", "Machine washable and reusable"],
+    description:
+      "Cozy fleece surface with silent breathable PU waterproof membrane that protects crib mattresses from urine, spills, and allergens.",
+    highlights: [
+      "Hypoallergenic ultra-soft microfleece surface",
+      "100% Waterproof breathable PU underlayer",
+      "Dries up to 8x faster than cotton sheets",
+      "Machine washable and reusable",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1649,8 +2270,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000704",
     sortOrder: 70,
     buyingPrice: 260,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mothercare-disposable-changing-mats",
@@ -1662,8 +2286,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 210,
     ageGroup: "0-6m",
-    description: "Hygienic single-use changing mats with diamond quilted absorbent core and leak-proof plastic backing for safe diapering in public and during travel.",
-    highlights: ["Diamond quilted super absorbent pulp", "100% Leak-proof protective plastic backing", "Compact fold fits in any diaper clutch", "Guarantees sterile surface anywhere on the go"],
+    description:
+      "Hygienic single-use changing mats with diamond quilted absorbent core and leak-proof plastic backing for safe diapering in public and during travel.",
+    highlights: [
+      "Diamond quilted super absorbent pulp",
+      "100% Leak-proof protective plastic backing",
+      "Compact fold fits in any diaper clutch",
+      "Guarantees sterile surface anywhere on the go",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1672,8 +2302,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000711",
     sortOrder: 71,
     buyingPrice: 320,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-felt-diaper-caddy-organizer",
@@ -1685,8 +2318,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 310,
     ageGroup: "0-6m",
-    description: "Spacious felt organizer basket with customizable velcro dividers and 8 exterior organizer pockets for wipes, lotions, and diapers.",
-    highlights: ["High-density durable soft felt", "Removable velcro compartment dividers", "8 Outer pockets for quick-access items", "Reinforced PU leather carry handles"],
+    description:
+      "Spacious felt organizer basket with customizable velcro dividers and 8 exterior organizer pockets for wipes, lotions, and diapers.",
+    highlights: [
+      "High-density durable soft felt",
+      "Removable velcro compartment dividers",
+      "8 Outer pockets for quick-access items",
+      "Reinforced PU leather carry handles",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1695,8 +2334,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000728",
     sortOrder: 72,
     buyingPrice: 380,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-sebamed-protective-facial-cream",
@@ -1708,8 +2350,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 190,
     ageGroup: "0-6m",
-    description: "Intense protective barrier cream for diaper rashes and extreme dry skin. Prevents moisture evaporation while soothing redness.",
-    highlights: ["pH 5.5 stimulates natural skin defense", "42% Lipid compound nourishes deeply", "Panthenol and allantoin soothe irritation", "Dermatologically tested"],
+    description:
+      "Intense protective barrier cream for diaper rashes and extreme dry skin. Prevents moisture evaporation while soothing redness.",
+    highlights: [
+      "pH 5.5 stimulates natural skin defense",
+      "42% Lipid compound nourishes deeply",
+      "Panthenol and allantoin soothe irritation",
+      "Dermatologically tested",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1718,8 +2366,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000735",
     sortOrder: 73,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-r-for-rabbit-hygienic-diaper-disposal-bin",
@@ -1731,8 +2382,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 160,
     ageGroup: "0-6m",
-    description: "Hands-free foot pedal trash bin with double airtight rubber seal that locks away pungent diaper odors inside.",
-    highlights: ["Double odor seal locks unpleasant smells", "Hands-free hygienic foot pedal mechanism", "Child safety lock on top lid", "Compatible with standard household trash bags"],
+    description:
+      "Hands-free foot pedal trash bin with double airtight rubber seal that locks away pungent diaper odors inside.",
+    highlights: [
+      "Double odor seal locks unpleasant smells",
+      "Hands-free hygienic foot pedal mechanism",
+      "Child safety lock on top lid",
+      "Compatible with standard household trash bags",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1741,8 +2398,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000742",
     sortOrder: 74,
     buyingPrice: 1100,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- TRAVEL GEAR & STROLLERS (10 Items) ---------------- */
@@ -1756,8 +2416,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 380,
     ageGroup: "0-6m",
-    description: "Ultra-lightweight 5.8kg aircraft cabin-friendly stroller featuring one-hand gravity auto-fold, multi-position recline, and smooth shock-absorbing suspension.",
-    highlights: ["1-Second one-hand gravity fold", "Cabin luggage approved size (5.8 kg)", "Multi-position 95° to 175° recline", "All-wheel suspension & 5-point harness"],
+    description:
+      "Ultra-lightweight 5.8kg aircraft cabin-friendly stroller featuring one-hand gravity auto-fold, multi-position recline, and smooth shock-absorbing suspension.",
+    highlights: [
+      "1-Second one-hand gravity fold",
+      "Cabin luggage approved size (5.8 kg)",
+      "Multi-position 95° to 175° recline",
+      "All-wheel suspension & 5-point harness",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1766,8 +2432,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000759",
     sortOrder: 75,
     buyingPrice: 4600,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-goody-plus-auto-fold-stroller",
@@ -1779,8 +2448,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 195,
     ageGroup: "0-6m",
-    description: "Italian designed luxury stroller with magical one-touch auto folding mechanism. Premium anodized metallic chassis and eco-leather handlebar accents.",
-    highlights: ["One-touch automatic folding mechanism", "Anodized luxury aluminum chassis", "Homologated from birth up to 22kg", "Extendable UV50+ canopy with peek-a-boo window"],
+    description:
+      "Italian designed luxury stroller with magical one-touch auto folding mechanism. Premium anodized metallic chassis and eco-leather handlebar accents.",
+    highlights: [
+      "One-touch automatic folding mechanism",
+      "Anodized luxury aluminum chassis",
+      "Homologated from birth up to 22kg",
+      "Extendable UV50+ canopy with peek-a-boo window",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1789,8 +2464,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000766",
     sortOrder: 76,
     buyingPrice: 9800,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-luvlap-galaxy-convertible-car-seat",
@@ -1802,8 +2480,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 240,
     ageGroup: "0-6m",
-    description: "ECE R44/04 certified safety car seat with 360-degree smooth spin for easy child boarding. Rear-facing for infants, forward-facing for toddlers up to 12 years.",
-    highlights: ["360° One-click rotating seat mechanism", "Secure ISOFIX installation with top tether", "Side Impact Protection (SIP) energy wings", "Multi-height adjustable headrest & recline"],
+    description:
+      "ECE R44/04 certified safety car seat with 360-degree smooth spin for easy child boarding. Rear-facing for infants, forward-facing for toddlers up to 12 years.",
+    highlights: [
+      "360° One-click rotating seat mechanism",
+      "Secure ISOFIX installation with top tether",
+      "Side Impact Protection (SIP) energy wings",
+      "Multi-height adjustable headrest & recline",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1812,8 +2496,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000773",
     sortOrder: 77,
     buyingPrice: 5800,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-4in1-ergonomic-hipseat-carrier",
@@ -1825,8 +2512,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 420,
     ageGroup: "0-6m",
-    description: "Distributes baby's weight evenly across shoulders and lumbar spine with a firm angled EPP foam hip seat. Breathable 3D mesh panel keeps baby cool.",
-    highlights: ["Ergonomic 'M' shape healthy hip posture", "Removable EPP cushioned firm hip seat", "Breathable 3D honeycomb air-mesh panel", "4 Carry positions: Front-in, Front-out, Back, Hip"],
+    description:
+      "Distributes baby's weight evenly across shoulders and lumbar spine with a firm angled EPP foam hip seat. Breathable 3D mesh panel keeps baby cool.",
+    highlights: [
+      "Ergonomic 'M' shape healthy hip posture",
+      "Removable EPP cushioned firm hip seat",
+      "Breathable 3D honeycomb air-mesh panel",
+      "4 Carry positions: Front-in, Front-out, Back, Hip",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1835,8 +2528,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000780",
     sortOrder: 78,
     buyingPrice: 1450,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-r-for-rabbit-carissa-diaper-backpack",
@@ -1848,8 +2544,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 310,
     ageGroup: "0-6m",
-    description: "Spacious 16-pocket maternity backpack with insulated thermal bottle slots, waterproof wet clothes compartment, side tissue dispenser, and stroller straps.",
-    highlights: ["3 Insulated aluminum foil milk bottle slots", "External USB power bank charging port", "Waterproof wipe-clean oxford fabric", "Includes stroller hanging buckle clips"],
+    description:
+      "Spacious 16-pocket maternity backpack with insulated thermal bottle slots, waterproof wet clothes compartment, side tissue dispenser, and stroller straps.",
+    highlights: [
+      "3 Insulated aluminum foil milk bottle slots",
+      "External USB power bank charging port",
+      "Waterproof wipe-clean oxford fabric",
+      "Includes stroller hanging buckle clips",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1858,8 +2560,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000797",
     sortOrder: 79,
     buyingPrice: 1100,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-rocking-cradle-bedside-sleeper",
@@ -1871,8 +2576,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 185,
     ageGroup: "0-6m",
-    description: "Easily attaches to parental bed for safe co-sleeping. Features smooth rocking glider feet, height adjustments, breathable mesh sides, and full dome canopy.",
-    highlights: ["Converts from stationary crib to gentle rocker", "6-Level height adjustment to match adult bed", "Breathable 360° mesh sides for visibility", "Includes zippered full-coverage mosquito canopy"],
+    description:
+      "Easily attaches to parental bed for safe co-sleeping. Features smooth rocking glider feet, height adjustments, breathable mesh sides, and full dome canopy.",
+    highlights: [
+      "Converts from stationary crib to gentle rocker",
+      "6-Level height adjustment to match adult bed",
+      "Breathable 360° mesh sides for visibility",
+      "Includes zippered full-coverage mosquito canopy",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1881,8 +2592,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000803",
     sortOrder: 80,
     buyingPrice: 3200,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-boppy-nursing-pillow",
@@ -1894,8 +2608,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 260,
     ageGroup: "0-6m",
-    description: "Ergonomic Miracle Middle insert fits mothers comfortably, lifting baby to the optimal breast height to relieve arm and back strain.",
-    highlights: ["Relieves neck, arm, and shoulder strain", "Firm fiber insert retains shape", "Multi-stage: Nursing, Propping, Tummy time, Sitting", "Machine washable 100% cotton slipcover"],
+    description:
+      "Ergonomic Miracle Middle insert fits mothers comfortably, lifting baby to the optimal breast height to relieve arm and back strain.",
+    highlights: [
+      "Relieves neck, arm, and shoulder strain",
+      "Firm fiber insert retains shape",
+      "Multi-stage: Nursing, Propping, Tummy time, Sitting",
+      "Machine washable 100% cotton slipcover",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1904,8 +2624,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000810",
     sortOrder: 81,
     buyingPrice: 1350,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-luvlap-sunshine-stroller-pram",
@@ -1917,8 +2640,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 510,
     ageGroup: "0-6m",
-    description: "Reversible handlebar allows face-to-face eye contact with baby while walking. Features 3-position full recline, mosquito net, and extra-large storage basket.",
-    highlights: ["Reversible handlebar for parent-facing strolls", "3-Position seat recline (Sitting, Rest, Flat sleep)", "Includes full-coverage mosquito netting", "Dual front swivel lockable wheels with brakes"],
+    description:
+      "Reversible handlebar allows face-to-face eye contact with baby while walking. Features 3-position full recline, mosquito net, and extra-large storage basket.",
+    highlights: [
+      "Reversible handlebar for parent-facing strolls",
+      "3-Position seat recline (Sitting, Rest, Flat sleep)",
+      "Includes full-coverage mosquito netting",
+      "Dual front swivel lockable wheels with brakes",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1927,8 +2656,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000827",
     sortOrder: 82,
     buyingPrice: 2850,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-r-for-rabbit-little-feet-tricycle",
@@ -1940,8 +2672,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 290,
     ageGroup: "12-24m",
-    description: "Grows with your child from a parent-guided stroller trike into an independent pedal tricycle. Features directional steering handle and safety bar.",
-    highlights: ["Directional parent push handle steering", "Plug & Play fast 5-minute assembly", "Removable UV protective canopy", "Anti-slip rubber wheels with footrests"],
+    description:
+      "Grows with your child from a parent-guided stroller trike into an independent pedal tricycle. Features directional steering handle and safety bar.",
+    highlights: [
+      "Directional parent push handle steering",
+      "Plug & Play fast 5-minute assembly",
+      "Removable UV protective canopy",
+      "Anti-slip rubber wheels with footrests",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1950,8 +2688,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000834",
     sortOrder: 83,
     buyingPrice: 2400,
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-portable-travel-booster-seat",
@@ -1963,8 +2704,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 175,
     ageGroup: "6-12m",
-    description: "Straps securely to any standard restaurant or dining chair. Folds flat with carry strap for hassle-free restaurant dining and vacation travel.",
-    highlights: ["Straps to any standard dining chair", "Ultra-compact flat fold with shoulder strap", "3-Level height adjustment", "Dishwasher safe removable food tray"],
+    description:
+      "Straps securely to any standard restaurant or dining chair. Folds flat with carry strap for hassle-free restaurant dining and vacation travel.",
+    highlights: [
+      "Straps to any standard dining chair",
+      "Ultra-compact flat fold with shoulder strap",
+      "3-Level height adjustment",
+      "Dishwasher safe removable food tray",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -1973,8 +2720,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000841",
     sortOrder: 84,
     buyingPrice: 980,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- BATH & HEALTHCARE (8 Items) ---------------- */
@@ -1988,8 +2738,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 320,
     ageGroup: "0-6m",
-    description: "Folds down to 9cm flat for easy storage behind doors. Heat-sensitive silicone drain plug changes color from blue to white if water exceeds 37°C.",
-    highlights: ["Ultra-slim 9cm folding footprint", "Smart temperature sensing color-change drain plug", "Non-slip rubber feet on sturdy folding legs", "Made from soft skin-friendly TPE silicone"],
+    description:
+      "Folds down to 9cm flat for easy storage behind doors. Heat-sensitive silicone drain plug changes color from blue to white if water exceeds 37°C.",
+    highlights: [
+      "Ultra-slim 9cm folding footprint",
+      "Smart temperature sensing color-change drain plug",
+      "Non-slip rubber feet on sturdy folding legs",
+      "Made from soft skin-friendly TPE silicone",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -1998,8 +2754,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000858",
     sortOrder: 85,
     buyingPrice: 1190,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-soft-cushioned-bath-sling",
@@ -2011,8 +2770,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 210,
     ageGroup: "0-6m",
-    description: "Cradles newborn head and spine securely above water line during bath time. Quick-drying breathable mesh prevents soap accumulation.",
-    highlights: ["Cradles head and neck comfortably", "3-Point secure buckle strap attachments", "Fast-drying breathable sandwich mesh", "Folds compact for drying on hook"],
+    description:
+      "Cradles newborn head and spine securely above water line during bath time. Quick-drying breathable mesh prevents soap accumulation.",
+    highlights: [
+      "Cradles head and neck comfortably",
+      "3-Point secure buckle strap attachments",
+      "Fast-drying breathable sandwich mesh",
+      "Folds compact for drying on hook",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2021,8 +2786,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000865",
     sortOrder: 86,
     buyingPrice: 510,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-organic-bamboo-hooded-towel",
@@ -2034,8 +2802,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 360,
     ageGroup: "0-6m",
-    description: "Luxuriously plush 500 GSM bamboo terry towel with 3D animal hood that absorbs water 3x faster than standard cotton to keep baby cozy after baths.",
-    highlights: ["Natural 500 GSM bamboo viscose terry", "Absorbs water instantly 3x faster than cotton", "Adorable 3D animal bear embroidered hood", "Generous 90x90 cm size for newborn to toddler"],
+    description:
+      "Luxuriously plush 500 GSM bamboo terry towel with 3D animal hood that absorbs water 3x faster than standard cotton to keep baby cozy after baths.",
+    highlights: [
+      "Natural 500 GSM bamboo viscose terry",
+      "Absorbs water instantly 3x faster than cotton",
+      "Adorable 3D animal bear embroidered hood",
+      "Generous 90x90 cm size for newborn to toddler",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -2044,8 +2818,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000872",
     sortOrder: 87,
     buyingPrice: 420,
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mee-mee-waterfall-tear-free-rinse-cup",
@@ -2057,8 +2834,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 410,
     ageGroup: "0-6m",
-    description: "Soft flexible silicone lip contours gently to baby's forehead to direct shampoo rinse water away from sensitive eyes and ears.",
-    highlights: ["Flexible silicone rim conforms to forehead", "Channels water smoothly away from eyes", "Comfort-grip ergonomic handle", "Dishwasher safe mold-resistant plastic"],
+    description:
+      "Soft flexible silicone lip contours gently to baby's forehead to direct shampoo rinse water away from sensitive eyes and ears.",
+    highlights: [
+      "Flexible silicone rim conforms to forehead",
+      "Channels water smoothly away from eyes",
+      "Comfort-grip ergonomic handle",
+      "Dishwasher safe mold-resistant plastic",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2067,8 +2850,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000889",
     sortOrder: 88,
     buyingPrice: 140,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-mothercare-natural-sea-sponge",
@@ -2080,8 +2866,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 180,
     ageGroup: "0-6m",
-    description: "Harvested sustainably from the Mediterranean, this natural sponge becomes velvet soft when wet and creates a rich creamy lather with minimal soap.",
-    highlights: ["100% Natural sustainably harvested sponge", "Ultra-gentle velvety texture when wet", "Naturally hypoallergenic and antibacterial", "Gentle on sensitive and eczema-prone skin"],
+    description:
+      "Harvested sustainably from the Mediterranean, this natural sponge becomes velvet soft when wet and creates a rich creamy lather with minimal soap.",
+    highlights: [
+      "100% Natural sustainably harvested sponge",
+      "Ultra-gentle velvety texture when wet",
+      "Naturally hypoallergenic and antibacterial",
+      "Gentle on sensitive and eczema-prone skin",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2090,8 +2882,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000896",
     sortOrder: 89,
     buyingPrice: 210,
-    imageUrl: "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-floating-bath-squirters-6pk",
@@ -2103,8 +2898,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.6,
     reviews: 260,
     ageGroup: "6-12m",
-    description: "6 bright sea animal squirt toys that float on water. Squeeze to squirt water for endless bath time giggles. Includes suction mesh organizer bag.",
-    highlights: ["6 Fun sea creatures: Turtle, Whale, Octopus, Crab, Starfish, Seal", "Encourages water confidence and grip", "Includes breathable suction cup drying mesh bag", "BPA and phthalate free non-toxic vinyl"],
+    description:
+      "6 bright sea animal squirt toys that float on water. Squeeze to squirt water for endless bath time giggles. Includes suction mesh organizer bag.",
+    highlights: [
+      "6 Fun sea creatures: Turtle, Whale, Octopus, Crab, Starfish, Seal",
+      "Encourages water confidence and grip",
+      "Includes breathable suction cup drying mesh bag",
+      "BPA and phthalate free non-toxic vinyl",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2113,8 +2914,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000902",
     sortOrder: 90,
     buyingPrice: 170,
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-chicco-floating-fish-bath-thermometer",
@@ -2126,8 +2930,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 190,
     ageGroup: "0-6m",
-    description: "Floats directly in baby's bath to continuously display water temperature on a clear thermal band with easy-read safe water comfort zone markings.",
-    highlights: ["Continuous clear water temperature readout", "Indicates ideal baby bath zone (37°C)", "Mercury-free completely safe float design", "Doubles as a fun floating fish bath companion"],
+    description:
+      "Floats directly in baby's bath to continuously display water temperature on a clear thermal band with easy-read safe water comfort zone markings.",
+    highlights: [
+      "Continuous clear water temperature readout",
+      "Indicates ideal baby bath zone (37°C)",
+      "Mercury-free completely safe float design",
+      "Doubles as a fun floating fish bath companion",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2136,8 +2946,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000919",
     sortOrder: 91,
     buyingPrice: 240,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-antislip-cushioned-bath-mat",
@@ -2149,8 +2962,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 140,
     ageGroup: "6-12m",
-    description: "Provides non-slip footing across standard bathtubs. Over 200 powerful suction cups adhere firmly to wet enamel and tile surfaces.",
-    highlights: ["200 Powerful anti-slip grip suction cups", "Textured massage pebble surface", "Multiple drain holes prevent water buildup", "Antibacterial mold-resistant PVC free material"],
+    description:
+      "Provides non-slip footing across standard bathtubs. Over 200 powerful suction cups adhere firmly to wet enamel and tile surfaces.",
+    highlights: [
+      "200 Powerful anti-slip grip suction cups",
+      "Textured massage pebble surface",
+      "Multiple drain holes prevent water buildup",
+      "Antibacterial mold-resistant PVC free material",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2159,8 +2978,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000926",
     sortOrder: 92,
     buyingPrice: 310,
-    imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+    ],
   },
 
   /* ---------------- FOOTWEAR & SHOES (8 Items) ---------------- */
@@ -2174,8 +2996,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 210,
     ageGroup: "0-6m",
-    description: "Ultra-flexible soft faux-suede crib shoes designed to protect delicate baby feet while allowing natural foot spread and balance development.",
-    highlights: ["Flexible non-restrictive soft sole", "Anti-slip silicone grip dots on bottom", "Elastic ankle collar stays securely on feet", "Breathable cotton fleece lining"],
+    description:
+      "Ultra-flexible soft faux-suede crib shoes designed to protect delicate baby feet while allowing natural foot spread and balance development.",
+    highlights: [
+      "Flexible non-restrictive soft sole",
+      "Anti-slip silicone grip dots on bottom",
+      "Elastic ankle collar stays securely on feet",
+      "Breathable cotton fleece lining",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -2184,8 +3012,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000933",
     sortOrder: 93,
     buyingPrice: 250,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-crocs-kids-classic-clogs",
@@ -2197,8 +3028,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 430,
     ageGroup: "2-4y",
-    description: "Iconic Croslite foam cushioning with pivoting heel strap for secure fit. Ventilation ports shed water and debris and accommodate Jibbitz charms.",
-    highlights: ["Incredibly lightweight and buoyant Croslite foam", "Water-friendly and quick to dry", "Pivoting heel straps for a secure locked fit", "Easy to wash with soap and water"],
+    description:
+      "Iconic Croslite foam cushioning with pivoting heel strap for secure fit. Ventilation ports shed water and debris and accommodate Jibbitz charms.",
+    highlights: [
+      "Incredibly lightweight and buoyant Croslite foam",
+      "Water-friendly and quick to dry",
+      "Pivoting heel straps for a secure locked fit",
+      "Easy to wash with soap and water",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -2207,8 +3044,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000940",
     sortOrder: 94,
     buyingPrice: 1100,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pine-kids-led-light-running-sneakers",
@@ -2220,8 +3060,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 310,
     ageGroup: "2-4y",
-    description: "Eye-catching multi-color LEDs in the lightweight EVA outsole light up with every step. Breathable flyknit upper with easy velcro strap fastening.",
-    highlights: ["Vibrant multi-color LED motion activated lights", "Dual velcro strap for independent dressing", "Shock-absorbing ultra-light EVA midsole", "Breathable flyknit mesh upper"],
+    description:
+      "Eye-catching multi-color LEDs in the lightweight EVA outsole light up with every step. Breathable flyknit upper with easy velcro strap fastening.",
+    highlights: [
+      "Vibrant multi-color LED motion activated lights",
+      "Dual velcro strap for independent dressing",
+      "Shock-absorbing ultra-light EVA midsole",
+      "Breathable flyknit mesh upper",
+    ],
     isFeatured: true,
     isActive: true,
     stock: 10,
@@ -2230,8 +3076,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000957",
     sortOrder: 95,
     buyingPrice: 650,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-kookie-kids-bow-mary-jane-shoes",
@@ -2243,8 +3092,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.7,
     reviews: 140,
     ageGroup: "12-24m",
-    description: "Classic glossy party shoes featuring padded ankle collar, cushioned memory foam insole, and easy hook-and-loop velcro strap with decorative bow.",
-    highlights: ["Glossy high-shine patent finish", "Cushioned orthopedic arch support insole", "Adjustable velcro strap with bow accent", "Non-marking slip-resistant rubber sole"],
+    description:
+      "Classic glossy party shoes featuring padded ankle collar, cushioned memory foam insole, and easy hook-and-loop velcro strap with decorative bow.",
+    highlights: [
+      "Glossy high-shine patent finish",
+      "Cushioned orthopedic arch support insole",
+      "Adjustable velcro strap with bow accent",
+      "Non-marking slip-resistant rubber sole",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2253,8 +3108,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000964",
     sortOrder: 96,
     buyingPrice: 470,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-breathable-first-walker-sandals",
@@ -2266,8 +3124,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 180,
     ageGroup: "6-12m",
-    description: "Closed-toe bumper design protects tiny toes from stubs while crawling and taking early steps. Soft cushioned footbed prevents sweating.",
-    highlights: ["Protective reinforced closed toe bumper", "Breathable perforated side cutouts", "Soft padded insole prevents foot fatigue", "Hook-and-loop velcro strap closure"],
+    description:
+      "Closed-toe bumper design protects tiny toes from stubs while crawling and taking early steps. Soft cushioned footbed prevents sweating.",
+    highlights: [
+      "Protective reinforced closed toe bumper",
+      "Breathable perforated side cutouts",
+      "Soft padded insole prevents foot fatigue",
+      "Hook-and-loop velcro strap closure",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2276,8 +3140,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000971",
     sortOrder: 97,
     buyingPrice: 380,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-pine-kids-anti-slip-gripper-socks-5pk",
@@ -2289,8 +3156,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.9,
     reviews: 380,
     ageGroup: "12-24m",
-    description: "Custom honeycomb silicone traction patterns on the entire sole prevent dangerous slips on polished wooden, marble, and tile floors.",
-    highlights: ["Full-sole honeycomb non-slip silicone grips", "80% Combed breathable organic cotton", "Comfortable elasticated anti-drop rib cuff", "Seamless hand-linked toe stitching"],
+    description:
+      "Custom honeycomb silicone traction patterns on the entire sole prevent dangerous slips on polished wooden, marble, and tile floors.",
+    highlights: [
+      "Full-sole honeycomb non-slip silicone grips",
+      "80% Combed breathable organic cotton",
+      "Comfortable elasticated anti-drop rib cuff",
+      "Seamless hand-linked toe stitching",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2299,8 +3172,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000988",
     sortOrder: 98,
     buyingPrice: 220,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-babyhug-wide-brim-sun-protection-hat",
@@ -2312,8 +3188,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 165,
     ageGroup: "0-6m",
-    description: "Wide circular brim shades delicate eyes, neck, and ears from harsh UV sun rays. Features breakaway safety chin strap and toggle crown cinch.",
-    highlights: ["Certified UPF 50+ maximum sun block", "Wide wrap-around protective brim", "Adjustable breakaway safety chin toggle", "Breathable mesh crown ventilation band"],
+    description:
+      "Wide circular brim shades delicate eyes, neck, and ears from harsh UV sun rays. Features breakaway safety chin strap and toggle crown cinch.",
+    highlights: [
+      "Certified UPF 50+ maximum sun block",
+      "Wide wrap-around protective brim",
+      "Adjustable breakaway safety chin toggle",
+      "Breathable mesh crown ventilation band",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2322,8 +3204,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812000995",
     sortOrder: 99,
     buyingPrice: 190,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
   },
   {
     slug: "fc-kookie-kids-elastic-hairband-set-6pk",
@@ -2335,8 +3220,14 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     rating: 4.8,
     reviews: 240,
     ageGroup: "0-6m",
-    description: "Super-elastic seamless nylon bands that stretch gently without leaving indentation marks on newborn heads. Accented with handcrafted linen bows.",
-    highlights: ["Ultra-soft stretchy seamless nylon band", "Leaves zero pressure marks on infant head", "Handmade linen & cotton fabric bow bows", "One size fits newborns through toddlers"],
+    description:
+      "Super-elastic seamless nylon bands that stretch gently without leaving indentation marks on newborn heads. Accented with handcrafted linen bows.",
+    highlights: [
+      "Ultra-soft stretchy seamless nylon band",
+      "Leaves zero pressure marks on infant head",
+      "Handmade linen & cotton fabric bow bows",
+      "One size fits newborns through toddlers",
+    ],
     isFeatured: false,
     isActive: true,
     stock: 10,
@@ -2345,52 +3236,93 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     barcode: "8907812001008",
     sortOrder: 100,
     buyingPrice: 160,
-    imageUrl: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
-    images: ["https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80"]
-  }
+    imageUrl:
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+    ],
+  },
 ];
 
 export const FIRSTCRY_CATEGORIES = [
-  { slug: "clothing", name: "Clothing & Fashion", tagline: "Soft, breathable everyday wear & festive outfits", sort_order: 1 },
-  { slug: "toys", name: "Toys & Games", tagline: "Safe sensory play, puzzles & learning toys", sort_order: 2 },
-  { slug: "care", name: "Nursery & Care", tagline: "Gentle skincare, bath & pediatric hygiene essentials", sort_order: 3 },
-  { slug: "gear", name: "Travel Gear & Strollers", tagline: "Strollers, car seats, carriers & travel gear", sort_order: 4 },
-  { slug: "feeding", name: "Feeding & Nursing", tagline: "Anti-colic bottles, sterilizers, tableware & pumps", sort_order: 5 },
-  { slug: "diapering", name: "Diapering & Potty", tagline: "Ultra-absorbent diapers, wipes & training gear", sort_order: 6 },
-  { slug: "bath", name: "Bath & Healthcare", tagline: "Collapsible tubs, organic towels & grooming kits", sort_order: 7 },
-  { slug: "footwear", name: "Footwear & Accessories", tagline: "Pre-walkers, sandals, clogs, sneakers & hats", sort_order: 8 },
+  {
+    slug: "clothing",
+    name: "Clothing & Fashion",
+    tagline: "Soft, breathable everyday wear & festive outfits",
+    sort_order: 1,
+  },
+  {
+    slug: "toys",
+    name: "Toys & Games",
+    tagline: "Safe sensory play, puzzles & learning toys",
+    sort_order: 2,
+  },
+  {
+    slug: "care",
+    name: "Nursery & Care",
+    tagline: "Gentle skincare, bath & pediatric hygiene essentials",
+    sort_order: 3,
+  },
+  {
+    slug: "gear",
+    name: "Travel Gear & Strollers",
+    tagline: "Strollers, car seats, carriers & travel gear",
+    sort_order: 4,
+  },
+  {
+    slug: "feeding",
+    name: "Feeding & Nursing",
+    tagline: "Anti-colic bottles, sterilizers, tableware & pumps",
+    sort_order: 5,
+  },
+  {
+    slug: "diapering",
+    name: "Diapering & Potty",
+    tagline: "Ultra-absorbent diapers, wipes & training gear",
+    sort_order: 6,
+  },
+  {
+    slug: "bath",
+    name: "Bath & Healthcare",
+    tagline: "Collapsible tubs, organic towels & grooming kits",
+    sort_order: 7,
+  },
+  {
+    slug: "footwear",
+    name: "Footwear & Accessories",
+    tagline: "Pre-walkers, sandals, clogs, sneakers & hats",
+    sort_order: 8,
+  },
 ];
 
 /**
  * Synchronize the 100 FirstCry curated catalog directly into Supabase database
  */
 export async function syncFirstCryCatalogToSupabase(
-  onProgress?: (current: number, total: number, message: string) => void
+  onProgress?: (current: number, total: number, message: string) => void,
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     // 1. Sync Categories
     onProgress?.(0, FIRSTCRY_100_PRODUCTS.length, "Syncing categories...");
     for (const cat of FIRSTCRY_CATEGORIES) {
-      await supabase
-        .from("categories")
-        .upsert(
-          {
-            slug: cat.slug,
-            name: cat.name,
-            tagline: cat.tagline,
-            sort_order: cat.sort_order,
-          },
-          { onConflict: "slug" }
-        );
+      await supabase.from("categories").upsert(
+        {
+          slug: cat.slug,
+          name: cat.name,
+          tagline: cat.tagline,
+          sort_order: cat.sort_order,
+        },
+        { onConflict: "slug" },
+      );
     }
 
     // 2. Batch sync products
     let synced = 0;
     const batchSize = 10;
-    
+
     for (let i = 0; i < FIRSTCRY_100_PRODUCTS.length; i += batchSize) {
       const batch = FIRSTCRY_100_PRODUCTS.slice(i, i + batchSize);
-      
+
       for (const item of batch) {
         // Upsert product
         const { data: productData, error: prodErr } = await supabase
@@ -2416,7 +3348,7 @@ export async function syncFirstCryCatalogToSupabase(
               barcode: item.barcode,
               sort_order: item.sortOrder,
             },
-            { onConflict: "slug" }
+            { onConflict: "slug" },
           )
           .select("id")
           .single();
@@ -2434,7 +3366,7 @@ export async function syncFirstCryCatalogToSupabase(
               product_id: productId,
               buying_price: item.buyingPrice,
             },
-            { onConflict: "product_id" }
+            { onConflict: "product_id" },
           );
 
           // Upsert product image
@@ -2447,7 +3379,7 @@ export async function syncFirstCryCatalogToSupabase(
               is_primary: true,
               sort_order: 0,
             },
-            { onConflict: "product_id,public_url" }
+            { onConflict: "product_id,public_url" },
           );
         }
 
@@ -2457,7 +3389,7 @@ export async function syncFirstCryCatalogToSupabase(
       onProgress?.(
         Math.min(i + batchSize, FIRSTCRY_100_PRODUCTS.length),
         FIRSTCRY_100_PRODUCTS.length,
-        `Synced ${Math.min(i + batchSize, FIRSTCRY_100_PRODUCTS.length)} of ${FIRSTCRY_100_PRODUCTS.length} products...`
+        `Synced ${Math.min(i + batchSize, FIRSTCRY_100_PRODUCTS.length)} of ${FIRSTCRY_100_PRODUCTS.length} products...`,
       );
     }
 

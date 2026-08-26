@@ -132,15 +132,22 @@ serve(async (req) => {
         )
         .eq("order_id", orderId);
 
-      const orderItems = (items || []).map((i: { quantity: number; price: number; mrp?: number; products?: { name?: string; sku?: string; stock?: number } }) => ({
-        name: i.products?.name || "Product",
-        sku: i.products?.sku || "SKU-UNKNOWN",
-        units: i.quantity,
-        selling_price: i.price,
-        discount: i.mrp ? Math.max(0, i.mrp - i.price) : 0,
-        tax: 0,
-        hsn: "",
-      }));
+      const orderItems = (items || []).map(
+        (i: {
+          quantity: number;
+          price: number;
+          mrp?: number;
+          products?: { name?: string; sku?: string; stock?: number };
+        }) => ({
+          name: i.products?.name || "Product",
+          sku: i.products?.sku || "SKU-UNKNOWN",
+          units: i.quantity,
+          selling_price: i.price,
+          discount: i.mrp ? Math.max(0, i.mrp - i.price) : 0,
+          tax: 0,
+          hsn: "",
+        }),
+      );
 
       if (orderItems.length === 0) {
         throw new Error("Cannot create shipment for order with no items");

@@ -300,7 +300,7 @@ export function AdminGlobalSearch({ isOpen, onClose, onNavigate }: AdminGlobalSe
     }
 
     return matched.slice(0, 30);
-  }, [query, products, orders, posSales, customers]);
+  }, [debouncedQuery, products, orders, posSales, customers]);
 
   // Keep selected index in bounds
   useEffect(() => {

@@ -226,7 +226,8 @@ export async function updateQueuedSaleStatus(
 /* ------------------------------------------------------------------ */
 
 export async function cacheFullCatalog(products: Array<Record<string, unknown>>): Promise<void> {
-  if (typeof window === "undefined" || !window.indexedDB || !products || products.length === 0) return;
+  if (typeof window === "undefined" || !window.indexedDB || !products || products.length === 0)
+    return;
   try {
     const db = await openDB();
     const tx = db.transaction(CATALOG_STORE, "readwrite");
@@ -263,7 +264,9 @@ export async function removeOfflineCatalogProduct(productId: string): Promise<vo
   }
 }
 
-export async function findOfflineProductByCode(code: string): Promise<Record<string, unknown> | null> {
+export async function findOfflineProductByCode(
+  code: string,
+): Promise<Record<string, unknown> | null> {
   const clean = code.trim().toLowerCase();
   if (!clean) return null;
 
@@ -320,7 +323,10 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
           supabase.rpc as unknown as (
             fn: string,
             args: Record<string, unknown>,
-          ) => Promise<{ data: { sale_id: string; sale_number: string }; error: { message: string } | null }>
+          ) => Promise<{
+            data: { sale_id: string; sale_number: string };
+            error: { message: string } | null;
+          }>
         )("place_offline_sale", {
           _customer_name: item.customer_name || "Walk-in Customer",
           _customer_phone: item.customer_phone || "",
@@ -350,7 +356,9 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
     }
 
     if (syncedCount > 0) {
-      toast.success(`Synced ${syncedCount} offline POS sale${syncedCount > 1 ? "s" : ""} to cloud!`);
+      toast.success(
+        `Synced ${syncedCount} offline POS sale${syncedCount > 1 ? "s" : ""} to cloud!`,
+      );
     }
   } finally {
     isSyncInProgress = false;
@@ -379,13 +387,17 @@ export function subscribeToSyncStatus(fn: StatusListener): () => void {
 
 export async function notifySyncStatusChange() {
   const all = await getAllQueuedSales();
-  const pendingCount = all.filter((i) => i.status === "PENDING" || i.status === "RETRY_REQUIRED" || i.status === "SYNCING").length;
+  const pendingCount = all.filter(
+    (i) => i.status === "PENDING" || i.status === "RETRY_REQUIRED" || i.status === "SYNCING",
+  ).length;
   const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   statusListeners.forEach((fn) => {
     try {
       fn({ isOnline, isSyncing: isSyncInProgress, pendingCount });
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to notify sync status listener:", err);
+    }
   });
 }
 

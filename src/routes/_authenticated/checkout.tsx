@@ -223,10 +223,9 @@ function CheckoutPage() {
           let rzpAmount: number = Math.round(finalTotal * 100);
 
           try {
-            const { data: createData } = await supabase.functions.invoke(
-              "create-razorpay-order",
-              { body: { orderId } },
-            );
+            const { data: createData } = await supabase.functions.invoke("create-razorpay-order", {
+              body: { orderId },
+            });
             if (createData?.rzp_order_id) {
               rzpOrderId = createData.rzp_order_id;
             }
@@ -237,7 +236,10 @@ function CheckoutPage() {
               rzpAmount = createData.amount;
             }
           } catch (createErr) {
-            console.warn("[Checkout] create-razorpay-order backend fallback to client key:", createErr);
+            console.warn(
+              "[Checkout] create-razorpay-order backend fallback to client key:",
+              createErr,
+            );
           }
 
           // Open Razorpay Standard Checkout Modal
@@ -265,16 +267,13 @@ function CheckoutPage() {
               try {
                 toast.loading("Verifying payment...", { id: "payment-verify" });
                 if (response.razorpay_signature && (response.razorpay_order_id || rzpOrderId)) {
-                  await supabase.functions.invoke(
-                    "verify-razorpay-payment",
-                    {
-                      body: {
-                        razorpay_order_id: response.razorpay_order_id || rzpOrderId,
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_signature: response.razorpay_signature,
-                      },
+                  await supabase.functions.invoke("verify-razorpay-payment", {
+                    body: {
+                      razorpay_order_id: response.razorpay_order_id || rzpOrderId,
+                      razorpay_payment_id: response.razorpay_payment_id,
+                      razorpay_signature: response.razorpay_signature,
                     },
-                  );
+                  });
                 }
 
                 // Update local order status

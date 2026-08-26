@@ -53,7 +53,10 @@ import { productsQueryOptions } from "@/lib/store";
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
     const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
-    return { product: products.find((p) => p.id === params.id || p.uuid === params.id) };
+    return {
+      product: products.find((p) => p.id === params.id || p.uuid === params.id),
+      products,
+    };
   },
   head: (ctx) => {
     const product = ctx.loaderData?.product;
@@ -126,7 +129,10 @@ function ProductPage() {
   const [viewingCount, setViewingCount] = useState(8);
   const [dispatchTime, setDispatchTime] = useState("");
 
-  const list = products ?? [];
+  const list = useMemo(
+    () => products ?? loaderData?.products ?? [],
+    [products, loaderData?.products],
+  );
   const product = list.find((p) => p.id === id || p.uuid === id) ?? loaderData?.product;
   const isLoading = productsLoading && !product;
   const gallery = (product?.images.length ? product.images : [product?.image]).filter(
@@ -1418,10 +1424,9 @@ function BuyNowModal({
       let rzpAmount: number = Math.round(finalTotal * 100);
 
       try {
-        const { data: createData } = await supabase.functions.invoke(
-          "create-razorpay-order",
-          { body: { orderId } },
-        );
+        const { data: createData } = await supabase.functions.invoke("create-razorpay-order", {
+          body: { orderId },
+        });
         if (createData?.rzp_order_id) {
           rzpOrderId = createData.rzp_order_id;
         }
@@ -1460,16 +1465,13 @@ function BuyNowModal({
           try {
             toast.loading("Verifying payment...", { id: "buy-now-verify" });
             if (response.razorpay_signature && (response.razorpay_order_id || rzpOrderId)) {
-              await supabase.functions.invoke(
-                "verify-razorpay-payment",
-                {
-                  body: {
-                    razorpay_order_id: response.razorpay_order_id || rzpOrderId,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                  },
+              await supabase.functions.invoke("verify-razorpay-payment", {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id || rzpOrderId,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
                 },
-              );
+              });
             }
 
             // Update local order status in Supabase

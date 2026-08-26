@@ -53,14 +53,30 @@ import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/rev
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 
-const HeroMediaManager = lazy(() => import("@/components/admin/HeroMediaManager").then(m => ({ default: m.HeroMediaManager })));
-const MediaLibrary = lazy(() => import("@/components/admin/MediaLibrary").then(m => ({ default: m.MediaLibrary })));
-const BillingCenterTab = lazy(() => import("@/components/admin/BillingCenterTab").then(m => ({ default: m.BillingCenterTab })));
-const CategoriesTab = lazy(() => import("@/components/admin/CategoriesManager").then(m => ({ default: m.CategoriesTab })));
-const SMSLogsTab = lazy(() => import("@/components/admin/SMSLogsTab").then(m => ({ default: m.SMSLogsTab })));
-const DashboardTab = lazy(() => import("@/components/admin/DashboardTab").then(m => ({ default: m.DashboardTab })));
-const OnlineSalesTab = lazy(() => import("@/components/admin/OnlineSalesTab").then(m => ({ default: m.OnlineSalesTab })));
-const AdminGlobalSearch = lazy(() => import("@/components/admin/AdminGlobalSearch").then(m => ({ default: m.AdminGlobalSearch })));
+const HeroMediaManager = lazy(() =>
+  import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
+);
+const MediaLibrary = lazy(() =>
+  import("@/components/admin/MediaLibrary").then((m) => ({ default: m.MediaLibrary })),
+);
+const BillingCenterTab = lazy(() =>
+  import("@/components/admin/BillingCenterTab").then((m) => ({ default: m.BillingCenterTab })),
+);
+const CategoriesTab = lazy(() =>
+  import("@/components/admin/CategoriesManager").then((m) => ({ default: m.CategoriesTab })),
+);
+const SMSLogsTab = lazy(() =>
+  import("@/components/admin/SMSLogsTab").then((m) => ({ default: m.SMSLogsTab })),
+);
+const DashboardTab = lazy(() =>
+  import("@/components/admin/DashboardTab").then((m) => ({ default: m.DashboardTab })),
+);
+const OnlineSalesTab = lazy(() =>
+  import("@/components/admin/OnlineSalesTab").then((m) => ({ default: m.OnlineSalesTab })),
+);
+const AdminGlobalSearch = lazy(() =>
+  import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
+);
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
@@ -653,7 +669,13 @@ function AdminPage() {
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
-            <Suspense fallback={<div className="p-8 text-center text-muted-foreground animate-pulse">Loading module...</div>}>
+            <Suspense
+              fallback={
+                <div className="p-8 text-center text-muted-foreground animate-pulse">
+                  Loading module...
+                </div>
+              }
+            >
               {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "billing" && <BillingCenterTab />}
               {tab === "products" && <ProductsTab />}
@@ -686,7 +708,9 @@ function ProductsTab() {
   const [printingLabels, setPrintingLabels] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "low_stock">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "low_stock">(
+    "all",
+  );
   const { printLabel, isPrinting } = useDirectLabelPrint();
 
   // Selection states
@@ -696,7 +720,11 @@ function ProductsTab() {
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; message: string } | null>(null);
+  const [syncProgress, setSyncProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
 
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -985,10 +1013,7 @@ function ProductsTab() {
   // Batch Archive Selected
   const archiveSelected = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ is_active: false })
-        .in("id", ids);
+      const { error } = await supabase.from("products").update({ is_active: false }).in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1002,10 +1027,7 @@ function ProductsTab() {
   // Batch Restore Selected
   const restoreSelected = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ is_active: true })
-        .in("id", ids);
+      const { error } = await supabase.from("products").update({ is_active: true }).in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1019,10 +1041,7 @@ function ProductsTab() {
   // Batch Set Stock to 10
   const setStockTenSelected = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ stock: 10 })
-        .in("id", ids);
+      const { error } = await supabase.from("products").update({ stock: 10 }).in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1194,7 +1213,9 @@ function ProductsTab() {
             title="Populate or restore 100 curated FirstCry products with 10 stock each"
             className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/80 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100/90 active:scale-95 cursor-pointer disabled:opacity-50"
           >
-            <Sparkles className={`size-3.5 text-amber-700 ${isSyncingCatalog ? "animate-spin" : ""}`} />
+            <Sparkles
+              className={`size-3.5 text-amber-700 ${isSyncingCatalog ? "animate-spin" : ""}`}
+            />
             <span>{isSyncingCatalog ? "Syncing (100)..." : "Sync 100 FirstCry (10 Stock)"}</span>
           </button>
 
@@ -1213,12 +1234,21 @@ function ProductsTab() {
           <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
               onClick={() => printLabel(selectedIds.size > 0 ? selectedProducts : list)}
-              disabled={isPrinting || (selectedIds.size > 0 ? selectedProducts.length === 0 : list.length === 0)}
-              title={selectedIds.size > 0 ? `Print labels for ${selectedIds.size} selected` : "Print labels directly for visible products (1-Click)"}
+              disabled={
+                isPrinting ||
+                (selectedIds.size > 0 ? selectedProducts.length === 0 : list.length === 0)
+              }
+              title={
+                selectedIds.size > 0
+                  ? `Print labels for ${selectedIds.size} selected`
+                  : "Print labels directly for visible products (1-Click)"
+              }
               className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
             >
               <Printer className="size-3.5 text-muted-foreground" />
-              <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : "Print Labels"}</span>
+              <span>
+                {selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : "Print Labels"}
+              </span>
             </button>
             <button
               onClick={() => setPrintingLabels(true)}
@@ -1351,9 +1381,7 @@ function ProductsTab() {
                   <tr
                     key={p.uuid}
                     className={`group transition-colors ${
-                      isSelected
-                        ? "bg-primary/5 hover:bg-primary/10"
-                        : "hover:bg-muted/50"
+                      isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50"
                     } ${!p.isActive ? "opacity-60" : ""}`}
                   >
                     <td className="w-10 px-4 py-4">
@@ -1418,14 +1446,18 @@ function ProductsTab() {
                         <div className="text-right pl-3">
                           <p
                             className={`text-xs font-bold ${
-                              p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-600"
+                              p.price - (p.buyingPrice || 0) < 0
+                                ? "text-destructive"
+                                : "text-emerald-600"
                             }`}
                           >
                             {formatPrice(Math.abs(p.price - (p.buyingPrice || 0)))}
                           </p>
                           <p
                             className={`text-[10px] font-medium ${
-                              p.price - (p.buyingPrice || 0) < 0 ? "text-destructive" : "text-emerald-500"
+                              p.price - (p.buyingPrice || 0) < 0
+                                ? "text-destructive"
+                                : "text-emerald-500"
                             }`}
                           >
                             {p.buyingPrice
@@ -1551,16 +1583,21 @@ function ProductsTab() {
                 <AlertTriangle className="size-5" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground">Delete {selectedIds.size} Selected Products</h3>
+                <h3 className="font-bold text-foreground">
+                  Delete {selectedIds.size} Selected Products
+                </h3>
                 <p className="text-xs text-muted-foreground">Confirm custom product removal</p>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to permanently delete these <strong className="text-foreground">{selectedIds.size}</strong> selected products?
+              Are you sure you want to permanently delete these{" "}
+              <strong className="text-foreground">{selectedIds.size}</strong> selected products?
             </p>
             <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200">
-              <strong>Notice:</strong> Any product with previous sales transactions will be automatically <em>archived</em> instead of permanently removed to preserve invoice and financial audit records.
+              <strong>Notice:</strong> Any product with previous sales transactions will be
+              automatically <em>archived</em> instead of permanently removed to preserve invoice and
+              financial audit records.
             </p>
 
             <div className="flex justify-end gap-2 pt-2">
@@ -1576,7 +1613,9 @@ function ProductsTab() {
                 className="flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
               >
                 <Trash2 className="size-3.5" />
-                <span>{deleteSelected.isPending ? "Deleting..." : `Delete ${selectedIds.size} Products`}</span>
+                <span>
+                  {deleteSelected.isPending ? "Deleting..." : `Delete ${selectedIds.size} Products`}
+                </span>
               </button>
             </div>
           </div>
@@ -1598,12 +1637,15 @@ function ProductsTab() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              This will permanently delete all <strong className="text-foreground">{data?.length ?? 0} products</strong> currently in the store catalog.
+              This will permanently delete all{" "}
+              <strong className="text-foreground">{data?.length ?? 0} products</strong> currently in
+              the store catalog.
             </p>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground">
-                Type <span className="font-mono font-bold text-foreground">DELETE ALL</span> to confirm:
+                Type <span className="font-mono font-bold text-foreground">DELETE ALL</span> to
+                confirm:
               </label>
               <input
                 value={deleteAllConfirmInput}

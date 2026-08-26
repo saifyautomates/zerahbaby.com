@@ -88,8 +88,7 @@ function ContactPage() {
   } = useSettings();
 
   const waLink =
-    whatsappUrl ||
-    (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
+    whatsappUrl || (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

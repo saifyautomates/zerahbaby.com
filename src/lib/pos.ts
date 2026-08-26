@@ -265,7 +265,10 @@ export function usePlaceOfflineSale() {
       const token = await getNextOfflineToken();
       const operationId = `off_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const saleNumber = `POS-OFF-${Date.now().toString().slice(-6)}`;
-      const subtotal = input.items.reduce((sum, item) => sum + (item.custom_price || 0) * item.qty, 0);
+      const subtotal = input.items.reduce(
+        (sum, item) => sum + (item.custom_price || 0) * item.qty,
+        0,
+      );
       const discount = calculateDiscount(subtotal, input.discount_type, input.discount_value);
       const total = Math.max(0, subtotal - discount);
 

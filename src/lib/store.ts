@@ -7,14 +7,18 @@ import care from "@/assets/cat-care.jpg";
 import gear from "@/assets/cat-gear.jpg";
 
 export const fallbackImages: Record<string, string> = {
-  clothing: "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+  clothing:
+    "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
   toys: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
   care: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
   gear: "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=80",
-  feeding: "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
-  diapering: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+  feeding:
+    "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
+  diapering:
+    "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
   bath: "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
-  footwear: "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
+  footwear:
+    "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
 };
 
 export const imageFor = (category: string, url?: string | null) =>
@@ -134,9 +138,11 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
     if (error) throw error;
     if (data && data.length > 0) {
       const mapped = (data as unknown as ProductRow[]).map(mapProduct);
-      import("@/lib/offline-sync-engine").then((m) => {
-        m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
-      }).catch(() => null);
+      import("@/lib/offline-sync-engine")
+        .then((m) => {
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
+        })
+        .catch(() => null);
       return mapped;
     }
   } catch (err) {

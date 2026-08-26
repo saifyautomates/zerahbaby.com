@@ -9,7 +9,11 @@ import { HeroMedia } from "@/components/site/HeroMedia";
 import { HeroMediaDialog } from "@/components/admin/HeroMediaManager";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
-import { AdminAddProduct, AdminAddCategory, AdminEditableText } from "@/components/admin/InlineAdmin";
+import {
+  AdminAddProduct,
+  AdminAddCategory,
+  AdminEditableText,
+} from "@/components/admin/InlineAdmin";
 import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
