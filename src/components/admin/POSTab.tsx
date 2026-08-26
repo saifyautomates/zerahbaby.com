@@ -63,12 +63,14 @@ import {
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
+import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
 
 type POSStep = "cart" | "checkout" | "success";
 
 export function POSTab() {
   const qc = useQueryClient();
   const { user } = useSession();
+  const syncStatus = useOfflineSyncStatus();
   const scanInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<POSStep>("cart");
 
@@ -411,9 +413,38 @@ export function POSTab() {
     <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-background overflow-hidden relative">
       {/* ====== LEFT PANEL: Cart & Scanning ====== */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Scanner Header */}
-        <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 p-4 gap-3">
-          <h2 className="font-display text-lg font-bold shrink-0">POS Terminal</h2>
+        {/* Scanner Header with Realtime / Offline Sync Status */}
+        <div className="flex flex-wrap items-center justify-between border-b border-border/50 bg-muted/30 p-4 gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="font-display text-lg font-bold shrink-0">POS Terminal</h2>
+            <div className="flex items-center gap-1.5">
+              {!syncStatus.isOnline ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 border border-amber-500/20">
+                  <span className="size-2 rounded-full bg-amber-500 animate-ping" />
+                  Offline Mode (Local Queue Active)
+                </span>
+              ) : syncStatus.isSyncing ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-500/20">
+                  <span className="size-2 rounded-full bg-blue-500 animate-pulse" />
+                  Syncing offline sales…
+                </span>
+              ) : syncStatus.pendingCount > 0 ? (
+                <button
+                  onClick={() => syncStatus.triggerSync()}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 border border-amber-500/20 transition-all"
+                  title="Click to sync now"
+                >
+                  <span className="size-2 rounded-full bg-amber-500" />
+                  {syncStatus.pendingCount} offline sale{syncStatus.pendingCount > 1 ? "s" : ""} pending • Sync now
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-500/20">
+                  <span className="size-2 rounded-full bg-emerald-500" />
+                  Realtime Cloud Synced
+                </span>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
             <Scan className="size-4 text-primary animate-pulse" />
             Scanner Active

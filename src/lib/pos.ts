@@ -125,17 +125,59 @@ export type BarcodeResult = {
   description?: string;
 };
 
+import {
+  findOfflineProductByCode,
+  queueOfflineSale,
+  getNextOfflineToken,
+  getTodayISTDateString,
+  processOfflineSyncQueue,
+} from "@/lib/offline-sync-engine";
+
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
-  const { data, error } = await (
-    supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: BarcodeResult; error: { message: string } | null }>
-  )("lookup_barcode", {
-    _code: code.trim(),
-  });
-  if (error) throw new Error(error.message);
-  return data as BarcodeResult;
+  const clean = code.trim();
+  if (!clean) return { found: false };
+
+  // Try online RPC first if online
+  if (typeof navigator === "undefined" || navigator.onLine) {
+    try {
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: BarcodeResult; error: { message: string } | null }>
+      )("lookup_barcode", {
+        _code: clean,
+      });
+      if (!error && data?.found) {
+        return data as BarcodeResult;
+      }
+    } catch (netErr) {
+      console.warn("[pos] Online lookup failed, falling back to local catalog:", netErr);
+    }
+  }
+
+  // Fallback to local offline catalog
+  const localMatch = await findOfflineProductByCode(clean);
+  if (localMatch) {
+    return {
+      found: true,
+      product_id: localMatch.id as string,
+      slug: (localMatch.slug as string) || (localMatch.id as string),
+      name: (localMatch.name as string) || "",
+      brand: (localMatch.brand as string) || "Zérah Baby & Kids",
+      category: (localMatch.category as string) || "clothing",
+      price: Number(localMatch.price) || 0,
+      mrp: Number(localMatch.mrp) || Number(localMatch.price) || 0,
+      stock: Number(localMatch.stock) || 10,
+      sku: (localMatch.sku as string) || "",
+      barcode: (localMatch.barcode as string) || clean,
+      image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,
+      age_group: (localMatch.ageGroup as string) || (localMatch.age_group as string) || "",
+      description: (localMatch.description as string) || "",
+    };
+  }
+
+  return { found: false, error: "Product not found in online or offline database" };
 }
 
 export function useLookupBarcode() {
@@ -172,41 +214,106 @@ export function usePlaceOfflineSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: PlaceSaleInput): Promise<SaleResult> => {
-      const { data, error } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: SaleResult; error: { message: string } | null }>
-      )("place_offline_sale", {
-        _customer_name: input.customer_name || "Walk-in Customer",
-        _customer_phone: input.customer_phone || "",
-        _customer_email: input.customer_email || "",
-        _payment_method: input.payment_method || "cash",
-        _notes: input.notes || "",
-        _discount: 0, // legacy param
-        _discount_type: input.discount_type || "none",
-        _discount_value: input.discount_value || 0,
-        _customer_id: input.customer_id || null,
-        _items: input.items,
-        _idempotency_key: input.idempotency_key || null,
-      });
-      const result = {
-        ...(data as SaleResult),
-        customer_phone: input.customer_phone || "",
-      };
+      const isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
 
-      // Asynchronously trigger owner sale notification email (non-blocking)
-      if (result.sale_id && !result.duplicate) {
-        supabase.functions
-          .invoke("send-owner-sale-notification", {
-            body: { type: "offline_sale", sale_id: result.sale_id },
-          })
-          .catch((err) => {
-            console.warn("[pos] Owner sale notification trigger error:", err);
+      if (isOnline) {
+        try {
+          const { data, error } = await (
+            supabase.rpc as unknown as (
+              fn: string,
+              args: Record<string, unknown>,
+            ) => Promise<{ data: SaleResult; error: { message: string } | null }>
+          )("place_offline_sale", {
+            _customer_name: input.customer_name || "Walk-in Customer",
+            _customer_phone: input.customer_phone || "",
+            _customer_email: input.customer_email || "",
+            _payment_method: input.payment_method || "cash",
+            _notes: input.notes || "",
+            _discount: 0, // legacy param
+            _discount_type: input.discount_type || "none",
+            _discount_value: input.discount_value || 0,
+            _customer_id: input.customer_id || null,
+            _items: input.items,
+            _idempotency_key: input.idempotency_key || null,
           });
+
+          if (!error && data) {
+            const result = {
+              ...(data as SaleResult),
+              customer_phone: input.customer_phone || "",
+            };
+
+            // Asynchronously trigger owner sale notification email
+            if (result.sale_id && !result.duplicate) {
+              supabase.functions
+                .invoke("send-owner-sale-notification", {
+                  body: { type: "offline_sale", sale_id: result.sale_id },
+                })
+                .catch((err) => {
+                  console.warn("[pos] Owner sale notification trigger error:", err);
+                });
+            }
+
+            return result;
+          }
+        } catch (onlineErr) {
+          console.warn("[pos] Online sale placement error, routing to offline queue:", onlineErr);
+        }
       }
 
-      return result;
+      // Offline resilience fallback
+      const token = await getNextOfflineToken();
+      const operationId = `off_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const saleNumber = `POS-OFF-${Date.now().toString().slice(-6)}`;
+      const subtotal = input.items.reduce((sum, item) => sum + (item.custom_price || 0) * item.qty, 0);
+      const discount = calculateDiscount(subtotal, input.discount_type, input.discount_value);
+      const total = Math.max(0, subtotal - discount);
+
+      await queueOfflineSale({
+        id: operationId,
+        operation_id: operationId,
+        idempotency_key: input.idempotency_key,
+        customer_name: input.customer_name || "Walk-in Customer",
+        customer_phone: input.customer_phone || "",
+        customer_email: input.customer_email || "",
+        payment_method: input.payment_method || "cash",
+        notes: input.notes || "",
+        discount_type: input.discount_type || "none",
+        discount_value: input.discount_value || 0,
+        customer_id: input.customer_id,
+        items: input.items,
+        total,
+        subtotal,
+        discount,
+        token_number: token.number,
+        token_date: token.date,
+        sale_number: saleNumber,
+        created_at: new Date().toISOString(),
+      });
+
+      toast.info("Offline sale recorded locally. Will sync automatically when online.");
+
+      // Background try to sync
+      if (typeof navigator !== "undefined" && navigator.onLine) {
+        processOfflineSyncQueue().catch(() => null);
+      }
+
+      return {
+        sale_id: operationId,
+        sale_number: saleNumber,
+        total,
+        subtotal,
+        discount,
+        discount_type: input.discount_type,
+        discount_value: input.discount_value,
+        payment_method: input.payment_method || "cash",
+        customer_name: input.customer_name || "Walk-in Customer",
+        customer_phone: input.customer_phone || "",
+        items_count: input.items.reduce((s, i) => s + i.qty, 0),
+        duplicate: false,
+        pos_token_number: token.number,
+        pos_token_date: token.date,
+      };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });

@@ -482,6 +482,7 @@ export function AdminAddProduct({
 
       {open && (
         <ProductForm
+          product={null}
           defaultCategory={defaultCategory}
           saving={save.isPending}
           onCancel={() => setOpen(false)}

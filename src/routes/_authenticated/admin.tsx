@@ -862,7 +862,12 @@ function ProductsTab() {
   const remove = useMutation({
     mutationFn: async (uuid: string) => {
       // Try atomic RPC first
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_products", {
+      const { data: rpcRes, error: rpcErr } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: any; error: any }>
+      )("admin_delete_products", {
         _product_ids: [uuid],
       });
 
@@ -873,6 +878,7 @@ function ProductsTab() {
       // Fallback
       const { error } = await supabase.from("products").delete().eq("id", uuid);
       if (error) throw error;
+      return { success: true };
     },
     onSuccess: () => {
       toast.success("Product deleted successfully");
@@ -905,8 +911,13 @@ function ProductsTab() {
   // Batch delete selected products
   const deleteSelected = useMutation({
     mutationFn: async (ids: string[]) => {
-      if (ids.length === 0) return;
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_products", {
+      if (ids.length === 0) return { success: true, deleted: 0, archived: 0 };
+      const { data: rpcRes, error: rpcErr } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: any; error: any }>
+      )("admin_delete_products", {
         _product_ids: ids,
       });
 
@@ -939,7 +950,12 @@ function ProductsTab() {
   // Delete all products
   const deleteAll = useMutation({
     mutationFn: async () => {
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc("admin_delete_all_products", {
+      const { data: rpcRes, error: rpcErr } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: any; error: any }>
+      )("admin_delete_all_products", {
         _force: true,
       });
 
@@ -951,7 +967,7 @@ function ProductsTab() {
           await supabase.from("product_costs").delete().eq("product_id", id);
           await supabase.from("products").delete().eq("id", id);
         }
-        return { success: true, deleted: allIds.length };
+        return { success: true, count: allIds.length, archived: 0 };
       }
       return rpcRes;
     },

@@ -18,6 +18,8 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { SplashScreen } from "@/components/site/SplashScreen";
 import { supabase } from "@/integrations/supabase/client";
+import { GlobalRealtimeSyncHost } from "@/lib/realtime-sync";
+import { OfflineSyncHost } from "@/lib/offline-sync-engine";
 
 function NotFoundComponent() {
   return (
@@ -299,6 +301,8 @@ function RootComponent() {
         </MaintenanceGuard>
         <Toaster />
         <DirectLabelPrintHost />
+        <GlobalRealtimeSyncHost />
+        <OfflineSyncHost />
         <OnboardingModal />
         <SplashScreen />
       </CartProvider>

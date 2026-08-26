@@ -133,7 +133,11 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
     const { data, error } = await query;
     if (error) throw error;
     if (data && data.length > 0) {
-      return (data as unknown as ProductRow[]).map(mapProduct);
+      const mapped = (data as unknown as ProductRow[]).map(mapProduct);
+      import("@/lib/offline-sync-engine").then((m) => {
+        m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
+      }).catch(() => null);
+      return mapped;
     }
   } catch (err) {
     console.warn("[fetchProducts] Falling back to FirstCry catalog seed:", err);
