@@ -289,6 +289,22 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
         >
           {save.isPending && <Loader2 className="size-4 animate-spin" />} Save hero media
         </button>
+        <button
+          type="button"
+          disabled={save.isPending || uploading}
+          onClick={() => {
+            setSlides([]);
+            save.mutate([], {
+              onSuccess: () => {
+                toast.success("Restored default baby hero image");
+                onClose?.();
+              },
+            });
+          }}
+          className="focus-ring inline-flex items-center gap-2 rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition hover:bg-muted disabled:opacity-60"
+        >
+          Reset to default photo
+        </button>
         {onClose && (
           <button
             type="button"

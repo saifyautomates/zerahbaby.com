@@ -39,6 +39,9 @@ export function parseHeroMedia(raw: string | undefined | null): HeroSlide[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((s): s is HeroSlide => Boolean(s && typeof s.url === "string" && s.url.trim()))
+      .filter(
+        (s) => s.alt !== "dlt" && !s.url.includes("55d5c32a-840c-43e2-8f7e-f840e50f7fd7.mp4"),
+      )
       .map((s, i) => ({
         id: s.id || `slide-${i}`,
         type: s.type === "video" ? "video" : "image",
