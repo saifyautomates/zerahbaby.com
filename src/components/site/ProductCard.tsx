@@ -64,19 +64,18 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Promo Floating Badges */}
+        {/* Promo Floating Badges - Clean & Minimal */}
         {featPromoBadges && (
-          <div className="absolute left-3 top-3 z-20 flex flex-col items-start gap-1.5 pointer-events-none">
-            {product.highlights?.length > 0 && (
-              <span className="rounded-full bg-[#111111] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-xl backdrop-blur-md">
-                {product.highlights[0]}
+          <div className="absolute left-3 top-3 z-20 flex flex-col items-start gap-1 pointer-events-none">
+            {discountPct(product) > 0 ? (
+              <span className="rounded-full bg-primary/95 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-premium-sm backdrop-blur-md">
+                {discountPct(product)}% OFF
               </span>
-            )}
-            {discountPct(product) > 0 && (
-              <span className="rounded-full bg-destructive/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
-                {discountPct(product)}% off
+            ) : product.isFeatured ? (
+              <span className="rounded-full bg-foreground/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background shadow-premium-sm backdrop-blur-md">
+                Featured
               </span>
-            )}
+            ) : null}
           </div>
         )}
       </Link>
