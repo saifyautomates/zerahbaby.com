@@ -263,7 +263,7 @@ export function OfflineAnalyticsTab() {
   const handleClearDummyData = async () => {
     if (!window.confirm("Are you sure you want to completely WIPE all offline sales history?")) return;
     try {
-      await supabase.from("offline_sale_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      // 1. Delete all offline sales (automatically cascades to offline_sale_items)
       await supabase.from("offline_sales").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       // Clean up orphaned products (archived)
       await supabase.from("products").delete().eq("is_active", false);
