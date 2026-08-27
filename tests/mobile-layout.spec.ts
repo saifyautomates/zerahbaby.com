@@ -1,34 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { playAudit } from "playwright-lighthouse";
-import * as playwright from "playwright";
-
-// Helper function to run lighthouse
-const runLighthouse = async (page: playwright.Page, port: number) => {
-  await playAudit({
-    page,
-    thresholds: {
-      performance: 50,
-      accessibility: 50,
-      "best-practices": 50,
-      seo: 50,
-      pwa: 0,
-    },
-    port,
-    config: {
-      extends: "lighthouse:default",
-      settings: {
-        formFactor: "mobile",
-        screenEmulation: {
-          mobile: true,
-          width: 390,
-          height: 844,
-          deviceScaleFactor: 2.625,
-          disabled: false,
-        },
-      },
-    },
-  });
-};
 
 test.describe("Mobile Layout Tests (390px)", () => {
   test.setTimeout(60000);
