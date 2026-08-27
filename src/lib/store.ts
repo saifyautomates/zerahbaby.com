@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { FIRSTCRY_IMAGE_MAP } from "@/lib/firstcry-catalog";
 
 import clothing from "@/assets/cat-clothing.jpg";
 import toys from "@/assets/cat-toys.jpg";
@@ -7,11 +8,10 @@ import care from "@/assets/cat-care.jpg";
 import gear from "@/assets/cat-gear.jpg";
 
 export const fallbackImages: Record<string, string> = {
-  clothing:
-    "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
-  toys: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-  care: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
-  gear: "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=80",
+  clothing,
+  toys,
+  care,
+  gear,
   feeding:
     "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
   diapering:
@@ -88,8 +88,12 @@ export const mapProduct = (row: ProductRow): Product => {
     ? [...row.product_images].sort((a, b) => a.sort_order - b.sort_order)
     : [];
   const primaryImage = dbImages.find((img) => img.is_primary) || dbImages[0];
-  const imageUrl = primaryImage ? primaryImage.public_url : null;
-  const imageList = dbImages.map((img) => img.public_url);
+  const seedFallback = FIRSTCRY_IMAGE_MAP[row.slug];
+  const imageUrl = primaryImage ? primaryImage.public_url : seedFallback?.imageUrl || null;
+  const imageList =
+    dbImages.length > 0
+      ? dbImages.map((img) => img.public_url)
+      : seedFallback?.images || (imageUrl ? [imageUrl] : []);
 
   return {
     uuid: row.id,

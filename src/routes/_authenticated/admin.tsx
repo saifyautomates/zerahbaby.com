@@ -3159,12 +3159,12 @@ function InventoryRow({
         {product.product_images?.[0]?.public_url ? (
           <button
             onClick={() =>
-              onImageClick?.(imageFor(product.slug, product.product_images?.[0]?.public_url))
+              onImageClick?.(imageFor(product.category, product.product_images?.[0]?.public_url))
             }
             className="hover:opacity-80 transition-opacity"
           >
             <img
-              src={imageFor(product.slug, product.product_images?.[0]?.public_url)}
+              src={imageFor(product.category, product.product_images?.[0]?.public_url)}
               alt={product.name}
               className="size-10 rounded-lg object-cover border border-border"
             />

@@ -3295,6 +3295,15 @@ export const FIRSTCRY_CATEGORIES = [
   },
 ];
 
+export const FIRSTCRY_IMAGE_MAP: Record<string, { imageUrl: string; images: string[] }> =
+  FIRSTCRY_100_PRODUCTS.reduce(
+    (acc, p) => {
+      acc[p.slug] = { imageUrl: p.imageUrl, images: p.images };
+      return acc;
+    },
+    {} as Record<string, { imageUrl: string; images: string[] }>,
+  );
+
 /**
  * Synchronize the 100 FirstCry curated catalog directly into Supabase database
  */
@@ -3342,7 +3351,7 @@ export async function syncFirstCryCatalogToSupabase(
               highlights: item.highlights,
               is_featured: item.isFeatured,
               is_active: item.isActive,
-              stock: item.stock, // Exactly 10 stock
+              stock: item.stock,
               low_stock_at: item.lowStockAt,
               sku: item.sku,
               barcode: item.barcode,
@@ -3369,18 +3378,16 @@ export async function syncFirstCryCatalogToSupabase(
             { onConflict: "product_id" },
           );
 
-          // Upsert product image
-          await supabase.from("product_images").upsert(
-            {
-              product_id: productId,
-              public_url: item.imageUrl,
-              storage_path: "",
-              alt_text: item.name,
-              is_primary: true,
-              sort_order: 0,
-            },
-            { onConflict: "product_id,public_url" },
-          );
+          // Cleanly replace product images with the item's distinct image
+          await supabase.from("product_images").delete().eq("product_id", productId);
+          await supabase.from("product_images").insert({
+            product_id: productId,
+            public_url: item.imageUrl,
+            storage_path: "",
+            alt_text: item.name,
+            is_primary: true,
+            sort_order: 0,
+          });
         }
 
         synced++;
