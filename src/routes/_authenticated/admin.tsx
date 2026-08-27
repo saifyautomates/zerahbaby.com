@@ -46,6 +46,7 @@ import {
   Eye,
   Upload,
   Truck,
+  FileText,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +94,9 @@ const AdminGlobalSearch = lazy(() =>
 const BulkImportTab = lazy(() =>
   import("@/components/admin/BulkImportTab").then((m) => ({ default: m.BulkImportTab })),
 );
+const PagesPoliciesTab = lazy(() =>
+  import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
+);
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
@@ -130,7 +134,8 @@ type Tab =
   | "reviews"
   | "inventory"
   | "marketing"
-  | "sms";
+  | "sms"
+  | "pages";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -326,6 +331,7 @@ function AdminPage() {
     { key: "media", label: "Media Library", icon: FolderOpen },
     { key: "sms", label: "SMS Logs", icon: MessageSquare },
     { key: "marketing", label: "Marketing", icon: Megaphone },
+    { key: "pages", label: "Pages & Policies", icon: FileText },
     { key: "settings", label: "Settings", icon: Settings },
     { key: "admins", label: "Admins", icon: Shield },
   ];
@@ -708,6 +714,7 @@ function AdminPage() {
               {tab === "categories" && <CategoriesTab />}
               {tab === "inventory" && <InventoryTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "marketing" && <MarketingTab />}
+              {tab === "pages" && <PagesPoliciesTab />}
               {tab === "settings" && <SettingsTab />}
               {tab === "sms" && <SMSLogsTab />}
               {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
