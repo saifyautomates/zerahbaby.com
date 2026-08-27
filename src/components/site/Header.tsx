@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
 
 // Simple debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -187,48 +188,8 @@ export function Header() {
       >
         Skip to main content
       </a>
-      {announcement && announcement.trim().length > 0 && (
-        <div className="announce-bar">
-          <span className="announce-sheen" aria-hidden />
-          <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5">
-            {/* Desktop left trust badge */}
-            <div className="hidden flex-1 items-center gap-2 lg:flex">
-              <span className="announce-pill">
-                <Truck className="size-3 announce-gold-text" aria-hidden />
-                Pan-India shipping
-              </span>
-            </div>
-
-            {/* Center announcement — marquee on mobile, static on desktop */}
-            <div className="flex flex-1 items-center justify-center overflow-hidden lg:flex-none lg:shrink-0">
-              <p className="hidden items-center justify-center gap-2 text-center sm:gap-3 lg:flex">
-                <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
-                <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)]">
-                  {announcement}
-                </span>
-                <Sparkle className="size-3 shrink-0 announce-gold-text" aria-hidden />
-              </p>
-              <div className="group relative w-full lg:hidden" aria-label="Announcement">
-                <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap">
-                  <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
-                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                    {announcement}
-                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-4 font-display text-[10px] font-semibold uppercase tracking-widest text-[var(--announce-foreground)] whitespace-nowrap">
-                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                    {announcement}
-                    <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="hidden flex-1 items-center justify-end gap-2 lg:flex"></div>
-          </div>
-        </div>
-      )}
-
+      {/* AnnouncementBanner */}
+      <AnnouncementBanner />
       <div className="border-b border-border glass-header">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
           <button
@@ -752,7 +713,6 @@ export function Header() {
           </div>
         </div>
       </div>
-
       {showCategoryModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl bg-background shadow-2xl p-6 border border-border">
