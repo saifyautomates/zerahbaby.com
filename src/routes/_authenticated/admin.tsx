@@ -38,6 +38,7 @@ import {
   AlertTriangle,
   Archive,
   Check,
+  MapPin,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +59,11 @@ const HeroMediaManager = lazy(() =>
 );
 const MediaLibrary = lazy(() =>
   import("@/components/admin/MediaLibrary").then((m) => ({ default: m.MediaLibrary })),
+);
+const AnnouncementsManager = lazy(() =>
+  import("@/components/admin/AnnouncementsManager").then((m) => ({
+    default: m.AnnouncementsManager,
+  })),
 );
 const BillingCenterTab = lazy(() =>
   import("@/components/admin/BillingCenterTab").then((m) => ({ default: m.BillingCenterTab })),
@@ -114,7 +120,8 @@ type Tab =
   | "reviews"
   | "inventory"
   | "marketing"
-  | "sms";
+  | "sms"
+  | "announcements";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -306,6 +313,7 @@ function AdminPage() {
     { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "settings", label: "Settings", icon: Settings },
     { key: "admins", label: "Admins", icon: Shield },
+    { key: "announcements", label: "Announcements", icon: AlertCircle },
   ];
 
   return (
@@ -691,6 +699,7 @@ function AdminPage() {
               {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
               {tab === "coupons" && <CouponsTab />}
               {tab === "reviews" && <ReviewsTab />}
+              {tab === "announcements" && <AnnouncementsManager />}
             </Suspense>
           </div>
         </div>
@@ -2347,7 +2356,9 @@ function CustomersTab() {
 
                     {/* Orders / Spend */}
                     <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <span className="font-bold text-foreground block">{formatPrice(s.spend)}</span>
+                      <span className="font-bold text-foreground block">
+                        {formatPrice(s.spend)}
+                      </span>
                       <span className="text-[11px] font-semibold text-muted-foreground">
                         {s.count} {s.count === 1 ? "order" : "orders"}
                       </span>
@@ -3212,6 +3223,7 @@ function MarketingTab() {
                   Website ke sabse upar dikhne wali patti. Khali chhodne par yeh bar website se
                   completely gayab ho jayegi.
                 </p>
+
                 <input
                   value={form.announcement}
                   onChange={(e) => setForm({ ...form, announcement: e.target.value })}
