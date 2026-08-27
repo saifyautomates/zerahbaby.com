@@ -68,10 +68,23 @@ export function OnlineSalesTab() {
   async function handleConfirmDelete() {
     if (!orderToDelete) return;
     try {
-      await deleteOrder.mutateAsync(orderToDelete.id);
+      if ((orderToDelete as any)._type === "offline") {
+        const { error } = await supabase
+          .from("offline_sales")
+          .delete()
+          .eq("id", orderToDelete.id);
+        if (error) throw error;
+        toast.success("POS sale deleted permanently.");
+        qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
+      } else {
+        await deleteOrder.mutateAsync(orderToDelete.id);
+      }
       setOrderToDelete(null);
-    } catch {
-      // Error toast already triggered in useDeleteCancelledOrder
+    } catch (e: any) {
+      if ((orderToDelete as any)._type === "offline") {
+        toast.error(e.message || "Failed to delete POS sale");
+      }
+      // Note: useDeleteCancelledOrder handles its own error toasts for online orders
     }
   }
 
