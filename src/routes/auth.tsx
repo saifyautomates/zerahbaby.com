@@ -120,16 +120,16 @@ function AuthPage() {
         if (error) throw error;
       } else {
         const phone = normalisePhone(raw);
-        const { error } = await supabase.auth.signInWithOtp({
-          phone,
-          options: { shouldCreateUser: true },
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "send", phone },
         });
+        
         if (error) {
-          const m = error.message.toLowerCase();
-          if (m.includes("rate") || m.includes("limit") || m.includes("after")) {
-            throw new Error("Too many OTP requests. Please wait a moment, then try again.");
-          }
-          throw error;
+          throw new Error("Failed to reach auth service. Please try again.");
+        }
+        
+        if (!data?.success) {
+          throw new Error(data?.error || data?.message || "Failed to send OTP.");
         }
       }
       // Success: transition to verify screen
@@ -163,16 +163,16 @@ function AuthPage() {
         if (error) throw error;
       } else {
         const phone = normalisePhone(contact);
-        const { error } = await supabase.auth.signInWithOtp({
-          phone,
-          options: { shouldCreateUser: true },
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "resend", phone },
         });
+        
         if (error) {
-          const m = error.message.toLowerCase();
-          if (m.includes("rate") || m.includes("limit") || m.includes("after")) {
-            throw new Error("Too many requests. Please wait a moment before resending.");
-          }
-          throw error;
+          throw new Error("Failed to reach auth service. Please try again.");
+        }
+        
+        if (!data?.success) {
+          throw new Error(data?.error || data?.message || "Failed to resend OTP.");
         }
       }
       // Success: clear old state, restart countdown
@@ -231,35 +231,32 @@ function AuthPage() {
         }
       } else {
         const phone = normalisePhone(contact);
-        const { error } = await supabase.auth.verifyOtp({
-          phone,
-          token,
-          type: "sms",
+        const { data, error } = await supabase.functions.invoke("msg91-auth", {
+          body: { action: "verify", phone, otp: token },
         });
+
         if (error) {
-          const m = error.message.toLowerCase();
-          if (m.includes("expired") || m.includes("otp_expired")) {
+          throw new Error("Failed to verify OTP with server. Please try again.");
+        }
+
+        if (!data?.success) {
+          const m = (data?.error || data?.message || "").toLowerCase();
+          if (m.includes("expired")) {
             setOtpExpired(true);
             setOtp("");
             throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
           }
-          if (m.includes("already used") || m.includes("already been used")) {
-            setOtpExpired(true);
-            setOtp("");
-            throw new Error("This OTP has already been used. Tap “Resend OTP” for a new one.");
-          }
-          if (
-            m.includes("invalid") ||
-            m.includes("incorrect") ||
-            m.includes("does not match") ||
-            m.includes("token")
-          ) {
+          if (m.includes("invalid") || m.includes("incorrect")) {
             throw new Error("Incorrect OTP. Please double-check and try again.");
           }
-          if (m.includes("attempts") || m.includes("too many")) {
-            throw new Error("Too many incorrect attempts. Please request a new OTP.");
-          }
-          throw error;
+          throw new Error(data?.error || data?.message || "Failed to verify OTP.");
+        }
+        
+        if (data.session) {
+          const { error: sessionError } = await supabase.auth.setSession(data.session);
+          if (sessionError) throw sessionError;
+        } else {
+          throw new Error("Authentication failed. No session returned.");
         }
       }
       // Session is set by Supabase — useEffect watching `user` will redirect
