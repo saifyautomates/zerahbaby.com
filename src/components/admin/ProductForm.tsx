@@ -854,7 +854,9 @@ export function ProductForm({
                     value={draft.recommendationMode}
                     onChange={(e) => set("recommendationMode", e.target.value as any)}
                   >
-                    <option value="manual_fallback">Admin Selected + Auto Fallback (Recommended)</option>
+                    <option value="manual_fallback">
+                      Admin Selected + Auto Fallback (Recommended)
+                    </option>
                     <option value="manual">Admin Selected ONLY (Strict)</option>
                     <option value="auto">Auto Match ONLY (Same Category/Brand)</option>
                   </select>
@@ -864,37 +866,41 @@ export function ProductForm({
                   <label className="block text-sm font-semibold">
                     Manually Selected Related Products
                     <div className="text-[11px] font-normal text-muted-foreground mb-2">
-                      Select products that should appear in the "More in this style" section. Relationships are automatically bidirectional.
+                      Select products that should appear in the "More in this style" section.
+                      Relationships are automatically bidirectional.
                     </div>
-                    
                     <div className="border border-border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
-                      {(allProducts || []).filter((p) => p.id !== draft.slug).map((p) => (
-                        <label
-                          key={p.id}
-                          className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
-                        >
-                          <input
-                            type="checkbox"
-                            className="size-4 accent-[var(--primary)]"
-                            checked={draft.relatedProductIds.includes(p.uuid)}
-                            onChange={(e) => {
-                              const newIds = e.target.checked
-                                ? [...draft.relatedProductIds, p.uuid]
-                                : draft.relatedProductIds.filter((id) => id !== p.uuid);
-                              set("relatedProductIds", newIds);
-                            }}
-                          />
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} className="size-8 rounded-md object-cover" />
-                          ) : (
-                            <div className="size-8 rounded-md bg-muted" />
-                          )}
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{p.name}</span>
-                            <span className="text-xs text-muted-foreground">{p.sku} • {p.category}</span>
-                          </div>
-                        </label>
-                      ))}
+                      {(allProducts || [])
+                        .filter((p) => p.id !== draft.slug)
+                        .map((p) => (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4 accent-[var(--primary)]"
+                              checked={draft.relatedProductIds.includes(p.uuid)}
+                              onChange={(e) => {
+                                const newIds = e.target.checked
+                                  ? [...draft.relatedProductIds, p.uuid]
+                                  : draft.relatedProductIds.filter((id) => id !== p.uuid);
+                                set("relatedProductIds", newIds);
+                              }}
+                            />
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} className="size-8 rounded-md object-cover" />
+                            ) : (
+                              <div className="size-8 rounded-md bg-muted" />
+                            )}
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{p.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {p.sku} • {p.category}
+                              </span>
+                            </div>
+                          </label>
+                        ))}
                       {allProducts?.length === 1 && (
                         <div className="p-4 text-sm text-center text-muted-foreground">
                           No other products available yet.

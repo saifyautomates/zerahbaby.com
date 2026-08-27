@@ -746,7 +746,6 @@ function ProductsTab() {
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
 
-
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -1210,7 +1209,6 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const list = useMemo(() => {
     return (data ?? []).filter((p) => {
       const matchesSearch = (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
@@ -1351,7 +1349,6 @@ function ProductsTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-
           {/* Delete All Products Button */}
           <button
             onClick={() => setShowDeleteAllModal(true)}

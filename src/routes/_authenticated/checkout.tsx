@@ -326,7 +326,9 @@ function CheckoutPage() {
                 } catch (cancelErr) {
                   console.warn("[Checkout] Failed to cancel abandoned order:", cancelErr);
                 }
-                toast.error("Payment window closed. Your order has been cancelled. Please place a new order if you wish to try again.");
+                toast.error(
+                  "Payment window closed. Your order has been cancelled. Please place a new order if you wish to try again.",
+                );
               },
             },
             theme: {

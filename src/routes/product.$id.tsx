@@ -162,9 +162,7 @@ function ProductPage() {
   const swatches = useMemo(() => {
     if (!swatchesData || !list) return [];
     const idMap = new Map(list.map((p) => [p.uuid, p]));
-    return swatchesData
-      .map((d: any) => idMap.get(d.id))
-      .filter(Boolean) as Product[];
+    return swatchesData.map((d: any) => idMap.get(d.id)).filter(Boolean) as Product[];
   }, [swatchesData, list]);
 
   const addToCartRef = useRef<HTMLDivElement>(null);
