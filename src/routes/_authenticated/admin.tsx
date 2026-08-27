@@ -755,7 +755,10 @@ function ProductsTab() {
     queryKey: ["admin-products"],
     queryFn: async () => {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
-        supabase.from("products").select("*").order("sort_order"),
+        supabase
+          .from("products")
+          .select("*, product_images(public_url, is_primary, sort_order)")
+          .order("sort_order"),
         supabase.from("product_costs").select("product_id, buying_price"),
         supabase
           .from("site_settings")

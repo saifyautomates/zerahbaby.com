@@ -120,7 +120,10 @@ function LabelPrintingSubTab() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["admin-products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("sort_order");
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, product_images(public_url, is_primary, sort_order)")
+        .order("sort_order");
       if (error) throw error;
       return (data as never[]).map((r) => mapProduct(r as never));
     },

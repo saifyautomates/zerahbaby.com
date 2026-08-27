@@ -136,7 +136,10 @@ export function POSTab() {
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").eq("is_active", true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, product_images(public_url, is_primary, sort_order)")
+        .eq("is_active", true);
       if (error) throw error;
       return (data as never[]).map((r) => mapProduct(r as never));
     },
