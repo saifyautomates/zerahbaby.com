@@ -113,7 +113,7 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
                     Item
                   </th>
                   <th className="py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    SKU
+                    SKU / Barcode
                   </th>
                   <th className="py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     Price
@@ -134,7 +134,14 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
                       <p className="font-semibold text-slate-900">{item.name}</p>
                       {item.brand && <p className="text-[10px] text-slate-500">{item.brand}</p>}
                     </td>
-                    <td className="py-2 text-slate-600 font-mono text-xs">{item.sku}</td>
+                    <td className="py-2 text-slate-600 font-mono text-xs">
+                      <div>{item.sku || "—"}</div>
+                      {item.barcode && (
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          BC: {item.barcode}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-2 text-right text-slate-900">{formatPrice(item.price)}</td>
                     <td className="py-2 text-right text-slate-900 font-semibold">{item.qty}</td>
                     <td className="py-2 text-right font-semibold text-slate-900">
@@ -175,21 +182,6 @@ export function POSReceipt({ sale, items, onClose, staffEmail }: ReceiptProps) {
                 </div>
               </div>
             </div>
-
-            {/* Token Number */}
-            {sale.pos_token_number != null && (
-              <div className="mt-8 border-2 border-slate-900 rounded-lg p-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 mb-2">
-                  Walk-in Customer Token
-                </p>
-                <p className="text-6xl font-black text-slate-900 leading-none">
-                  {sale.pos_token_number}
-                </p>
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 mt-2">
-                  TOKEN NO: {sale.pos_token_number}
-                </p>
-              </div>
-            )}
 
             {/* Footer */}
             <div className="mt-10 pt-4 border-t border-slate-200 text-center text-xs text-slate-500">

@@ -69,15 +69,6 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
            </div>`
         : "";
 
-    const tokenSection =
-      sale.pos_token_number != null
-        ? `<div style="border-top:2px solid #000;border-bottom:2px solid #000;text-align:center;padding:8px 0;margin:8px 0;">
-            <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:2px;">Walk-in Customer</div>
-            <div style="font-size:32px;font-weight:900;line-height:1.1;">${sale.pos_token_number}</div>
-            <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">TOKEN NO: ${sale.pos_token_number}</div>
-           </div>`
-        : "";
-
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -125,8 +116,6 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
       <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${sale.payment_method}</span>
     </div>
   </div>
-
-  ${tokenSection}
 
   <div class="divider"></div>
   <div style="text-align:center;font-size:10px;color:#555;">
@@ -322,27 +311,6 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
           <div className="thermal-divider border-t border-dashed border-gray-400 my-3" />
 
           {/* ── TOKEN NUMBER ── */}
-          {sale.pos_token_number != null && (
-            <>
-              <div className="thermal-divider border-t-2 border-gray-900 my-2" />
-              <div className="text-center my-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">
-                  Walk-in Customer
-                </p>
-                <p
-                  className="font-black text-foreground"
-                  style={{ fontSize: "30px", lineHeight: "1.1", letterSpacing: "-0.5px" }}
-                >
-                  {sale.pos_token_number}
-                </p>
-                <p className="text-xs font-black uppercase tracking-wider text-foreground mt-1">
-                  TOKEN NO: {sale.pos_token_number}
-                </p>
-              </div>
-              <div className="thermal-divider border-t-2 border-gray-900 my-2" />
-            </>
-          )}
-
           {/* Footer */}
           <div className="text-center text-[10px] text-muted-foreground space-y-0.5">
             <p className="font-bold">Thank You For Shopping!</p>

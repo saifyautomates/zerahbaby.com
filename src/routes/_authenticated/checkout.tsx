@@ -269,27 +269,28 @@ function CheckoutPage() {
               razorpay_signature?: string;
             }) => {
               try {
-                toast.loading("Verifying payment...", { id: "payment-verify" });
-                if (response.razorpay_signature && (response.razorpay_order_id || rzpOrderId)) {
+                toast.loading("Verifying payment with bank...", { id: "payment-verify" });
+                const orderRef = response.razorpay_order_id || rzpOrderId;
+                if (!response.razorpay_signature || !orderRef) {
+                  throw new Error("Payment signature or order reference missing from gateway response");
+                }
+
+                const { data: verifyData, error: verifyError } =
                   await supabase.functions.invoke("verify-razorpay-payment", {
                     body: {
-                      razorpay_order_id: response.razorpay_order_id || rzpOrderId,
+                      razorpay_order_id: orderRef,
                       razorpay_payment_id: response.razorpay_payment_id,
                       razorpay_signature: response.razorpay_signature,
                     },
                   });
-                }
 
-                // Update local order status
-                await supabase
-                  .from("orders")
-                  .update({
-                    payment_status: "paid",
-                    status: "processing",
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_order_id: response.razorpay_order_id || rzpOrderId || null,
-                  })
-                  .eq("id", orderId);
+                if (verifyError || !verifyData?.success) {
+                  throw new Error(
+                    verifyError?.message ||
+                      verifyData?.error ||
+                      "Cryptographic signature verification failed",
+                  );
+                }
 
                 trackEvent("order_created", {
                   metadata: {
@@ -301,16 +302,18 @@ function CheckoutPage() {
                   },
                 });
                 await clear();
-                toast.success("Payment successful! Your order is placed.", {
+                toast.success("Payment verified! Your order is placed.", {
                   id: "payment-verify",
                 });
                 navigate({ to: "/orders" });
               } catch (verifyErr: unknown) {
-                console.warn("[Checkout] Payment verification notice:", verifyErr);
-                await clear();
-                toast.success("Payment received! Order confirmed.", {
-                  id: "payment-verify",
-                });
+                console.error("[Checkout] Payment verification failure:", verifyErr);
+                toast.error(
+                  verifyErr instanceof Error
+                    ? verifyErr.message
+                    : "Payment verification failed. Please contact support.",
+                  { id: "payment-verify", duration: 6000 },
+                );
                 navigate({ to: "/orders" });
               }
             },

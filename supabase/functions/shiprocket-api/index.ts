@@ -122,31 +122,44 @@ serve(async (req) => {
       }
 
       // Fetch order items to build payload
-      const { data: items } = await adminClient
+      const { data: items, error: itemsError } = await adminClient
         .from("order_items")
         .select(
           `
-          quantity, price, mrp,
-          products ( name, sku, stock )
+          quantity, qty, price, name, sku_snapshot,
+          products ( name, sku, stock, mrp )
         `,
         )
         .eq("order_id", orderId);
 
+      if (itemsError) {
+        console.error("[shiprocket-api] Failed to fetch order items:", itemsError);
+        throw new Error("Failed to fetch order items for shipment creation");
+      }
+
       const orderItems = (items || []).map(
         (i: {
-          quantity: number;
+          quantity?: number;
+          qty?: number;
           price: number;
-          mrp?: number;
-          products?: { name?: string; sku?: string; stock?: number };
-        }) => ({
-          name: i.products?.name || "Product",
-          sku: i.products?.sku || "SKU-UNKNOWN",
-          units: i.quantity,
-          selling_price: i.price,
-          discount: i.mrp ? Math.max(0, i.mrp - i.price) : 0,
-          tax: 0,
-          hsn: "",
-        }),
+          name?: string;
+          sku_snapshot?: string;
+          products?: { name?: string; sku?: string; stock?: number; mrp?: number } | null;
+        }) => {
+          const units = i.quantity || i.qty || 1;
+          const itemName = i.products?.name || i.name || "Product";
+          const itemSku = i.products?.sku || i.sku_snapshot || "SKU-UNKNOWN";
+          const mrpVal = i.products?.mrp || i.price;
+          return {
+            name: itemName,
+            sku: itemSku,
+            units,
+            selling_price: i.price,
+            discount: mrpVal ? Math.max(0, mrpVal - i.price) : 0,
+            tax: 0,
+            hsn: "",
+          };
+        },
       );
 
       if (orderItems.length === 0) {
