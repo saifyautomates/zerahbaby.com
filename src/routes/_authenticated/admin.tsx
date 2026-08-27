@@ -3174,28 +3174,46 @@ function InventoryRow({
 
 const ANNOUNCEMENT_PRESETS = [
   {
-    label: "Free Delivery Offer",
-    text: "✨ FREE delivery on all orders above ₹999 · Easy 7-day hassle-free returns ✨",
+    label: "⭐ Original Zérah Signature (Classic)",
+    tag: "Original Default",
+    text: "Free delivery on orders above ₹999 · Easy 7-day returns",
     bgColor: "#8B2020",
     textColor: "#FFFFFF",
   },
   {
-    label: "Festive Mega Sale",
+    label: "🚚 Pan-India Express Delivery",
+    tag: "Free Shipping",
+    text: "✨ FREE Pan-India delivery on orders above ₹999 · COD Available ✨",
+    bgColor: "#8B2020",
+    textColor: "#FFFFFF",
+  },
+  {
+    label: "🎉 Festive Mega Sale (20% OFF)",
+    tag: "Festive Offer",
     text: "🎉 FESTIVE SALE: Flat 20% OFF on all Baby & Kids wear! Use code: FESTIVE20 🎉",
     bgColor: "#7C2D12",
     textColor: "#FEF08A",
   },
   {
-    label: "New Arrivals Alert",
+    label: "🍼 New Arrivals Collection",
+    tag: "New In Store",
     text: "🍼 NEW ARRIVALS: Organic Cotton Baby Essentials & Strollers now in stock! 🛍️",
     bgColor: "#064E3B",
     textColor: "#ECFDF5",
   },
   {
-    label: "Midnight Special",
-    text: "🌙 MIDNIGHT EXCLUSIVE: Buy 2 Get 1 FREE on all Toys & Educational Games! 🧸",
+    label: "🧸 Toy Carnival (Buy 2 Get 1)",
+    tag: "Special Deal",
+    text: "🧸 TOY CARNIVAL: Buy 2 Get 1 FREE on all Toys & Educational Games! 🌙",
     bgColor: "#1E1B4B",
     textColor: "#E0E7FF",
+  },
+  {
+    label: "⚡ 24-Hour Flash Sale",
+    tag: "Limited Time",
+    text: "⚡ 24-HOUR FLASH SALE: Extra 15% OFF on all orders placed today! ⚡",
+    bgColor: "#9D174D",
+    textColor: "#FFF1F2",
   },
 ];
 
@@ -3537,10 +3555,17 @@ function MarketingTab() {
                   key={preset.label}
                   type="button"
                   onClick={() => handleApplyPreset(preset)}
-                  className="flex flex-col items-start rounded-2xl border border-border bg-muted/20 p-3.5 text-left transition hover:bg-muted/50 hover:border-primary/40 cursor-pointer"
+                  className="group flex flex-col items-start rounded-2xl border border-border bg-muted/20 p-3.5 text-left transition hover:bg-muted/50 hover:border-primary/50 hover:shadow-xs cursor-pointer relative"
                 >
-                  <span className="text-xs font-bold text-foreground">{preset.label}</span>
-                  <span className="mt-1 text-[11px] text-muted-foreground line-clamp-1">
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
+                      {preset.label}
+                    </span>
+                    <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-bold text-primary">
+                      {preset.tag}
+                    </span>
+                  </div>
+                  <span className="mt-1.5 text-[11px] text-muted-foreground line-clamp-1">
                     {preset.text}
                   </span>
                 </button>
