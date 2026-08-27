@@ -123,11 +123,11 @@ function AuthPage() {
         const { data, error } = await supabase.functions.invoke("msg91-auth", {
           body: { action: "send", phone },
         });
-        
+
         if (error) {
           throw new Error("Failed to reach auth service. Please try again.");
         }
-        
+
         if (!data?.success) {
           throw new Error(data?.error || data?.message || "Failed to send OTP.");
         }
@@ -166,11 +166,11 @@ function AuthPage() {
         const { data, error } = await supabase.functions.invoke("msg91-auth", {
           body: { action: "resend", phone },
         });
-        
+
         if (error) {
           throw new Error("Failed to reach auth service. Please try again.");
         }
-        
+
         if (!data?.success) {
           throw new Error(data?.error || data?.message || "Failed to resend OTP.");
         }
@@ -251,7 +251,7 @@ function AuthPage() {
           }
           throw new Error(data?.error || data?.message || "Failed to verify OTP.");
         }
-        
+
         if (data.session) {
           const { error: sessionError } = await supabase.auth.setSession(data.session);
           if (sessionError) throw sessionError;

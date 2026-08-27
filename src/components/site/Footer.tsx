@@ -34,13 +34,15 @@ export function Footer() {
       href: waLink,
       label: "WhatsApp",
       Icon: WhatsAppIcon,
-      colorClass: "bg-[#25D366] text-white shadow-[0_4px_16px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_22px_rgba(37,211,102,0.5)]",
+      colorClass:
+        "bg-[#25D366] text-white shadow-[0_4px_16px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_22px_rgba(37,211,102,0.5)]",
     },
     {
       href: facebookUrl,
       label: "Facebook",
       Icon: FacebookIcon,
-      colorClass: "bg-[#1877F2] text-white shadow-[0_4px_16px_rgba(24,119,242,0.35)] hover:shadow-[0_6px_22px_rgba(24,119,242,0.5)]",
+      colorClass:
+        "bg-[#1877F2] text-white shadow-[0_4px_16px_rgba(24,119,242,0.35)] hover:shadow-[0_6px_22px_rgba(24,119,242,0.5)]",
     },
   ].filter((s) => s.href);
 

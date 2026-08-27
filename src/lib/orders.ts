@@ -292,9 +292,22 @@ export function useCancelCustomerOrder() {
 export function useRetryOrderNotification() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (orderId: string) => {
+    mutationFn: async ({
+      orderId,
+      type,
+    }: {
+      orderId: string;
+      type: "online_order" | "offline_sale";
+    }) => {
+      const payload: any = { type, force_retry: true };
+      if (type === "online_order") {
+        payload.order_id = orderId;
+      } else {
+        payload.sale_id = orderId;
+      }
+
       const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
-        body: { type: "online_order", order_id: orderId, force_retry: true },
+        body: payload,
       });
       if (error) throw error;
       if (data && !data.success && data.error) {

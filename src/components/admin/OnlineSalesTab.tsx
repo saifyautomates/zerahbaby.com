@@ -69,10 +69,7 @@ export function OnlineSalesTab() {
     if (!orderToDelete) return;
     try {
       if ((orderToDelete as any)._type === "offline") {
-        const { error } = await supabase
-          .from("offline_sales")
-          .delete()
-          .eq("id", orderToDelete.id);
+        const { error } = await supabase.from("offline_sales").delete().eq("id", orderToDelete.id);
         if (error) throw error;
         toast.success("POS sale deleted permanently.");
         qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
@@ -423,7 +420,12 @@ export function OnlineSalesTab() {
                       <MailWarning className="size-3" /> Email Alert Failed
                       <button
                         type="button"
-                        onClick={() => retryNotification.mutate(order.id)}
+                        onClick={() =>
+                          retryNotification.mutate({
+                            orderId: order.id,
+                            type: order._type === "online" ? "online_order" : "offline_sale",
+                          })
+                        }
                         disabled={retryNotification.isPending}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 underline hover:text-rose-950 disabled:opacity-50"
                       >
