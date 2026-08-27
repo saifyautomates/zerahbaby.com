@@ -359,6 +359,7 @@ export function POSTab() {
       sku: item.sku,
       qty: item.qty,
       custom_price: item.isCustom ? item.price : undefined,
+      price: item.price,
     }));
 
     try {

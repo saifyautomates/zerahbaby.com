@@ -206,6 +206,7 @@ export type PlaceSaleInput = {
     sku?: string;
     qty: number;
     custom_price?: number;
+    price?: number;
   }>;
   idempotency_key: string;
 };
@@ -266,7 +267,7 @@ export function usePlaceOfflineSale() {
       const operationId = `off_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const saleNumber = `POS-OFF-${Date.now().toString().slice(-6)}`;
       const subtotal = input.items.reduce(
-        (sum, item) => sum + (item.custom_price || 0) * item.qty,
+        (sum, item) => sum + (item.custom_price || item.price || 0) * item.qty,
         0,
       );
       const discount = calculateDiscount(subtotal, input.discount_type, input.discount_value);
