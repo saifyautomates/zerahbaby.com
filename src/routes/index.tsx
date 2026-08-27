@@ -92,24 +92,29 @@ function Index() {
 
   const displayReviews =
     realReviews && realReviews.length > 0
-      ? realReviews.map((r) => ({
-          name: (r.profiles as { full_name?: string })?.full_name || "Verified Parent",
-          text: r.comment,
-          rating: r.rating,
-        }))
+      ? realReviews.map((r) => {
+          const rawName =
+            (r.profiles as { full_name?: string })?.full_name?.trim() || "Verified Parent";
+          const firstName = rawName.split(/\s+/)[0] || rawName;
+          return {
+            name: firstName,
+            text: r.comment,
+            rating: r.rating,
+          };
+        })
       : [
           {
-            name: "Ananya R.",
+            name: "Ananya",
             text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now.",
             rating: 5,
           },
           {
-            name: "Vikram S.",
+            name: "Vikram",
             text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant.",
             rating: 5,
           },
           {
-            name: "Meera J.",
+            name: "Meera",
             text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
             rating: 5,
           },
