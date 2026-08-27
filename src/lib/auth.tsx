@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Session, User } from "@supabase/gotrue-js";
+import type { Session, User, AuthChangeEvent } from "@supabase/gotrue-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useSession() {
@@ -8,12 +8,12 @@ export function useSession() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
+    const { data: sub } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      setSession(session);
       setLoading(false);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    supabase.auth.getSession().then(({ data }: { data: { session?: Session } }) => {
+      setSession(data.session ?? null);
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();

@@ -9,7 +9,7 @@ export function trackEvent(
     metadata?: Record<string, unknown>;
   },
 ) {
-  supabase.auth.getUser().then(({ data }) => {
+  supabase.auth.getUser().then(({ data }: { data: { user?: { id: string } } }) => {
     const userId = data?.user?.id ?? null;
     supabase
       .from("analytics_events")

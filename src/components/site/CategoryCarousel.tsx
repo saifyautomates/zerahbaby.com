@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Category } from "@/lib/store";
-import { AdminCategoryControls } from "@/components/admin/InlineAdmin";
+import { LazyImage } from "@/components/ui/LazyImage";
+import { AdminCategoryControls } from "@/components/admin/AdminCategoryControls";
 
 export function CategoryCarousel({ categories }: { categories: Category[] }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -183,17 +184,13 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
               className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
             >
               <AdminCategoryControls category={c} />
-              <img
+              <LazyImage
                 src={c.image}
                 alt={c.name}
-                loading="lazy"
-                decoding="async"
+                placeholderSrc={c.image}
                 width={800}
                 height={1000}
                 className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = "0";
-                }}
               />
               <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
               <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">

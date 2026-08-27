@@ -45,7 +45,12 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
+import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from "web-vitals";
 import { DashboardDrillDown } from "./DashboardDrillDown";
+import type { Session } from "@supabase/gotrue-js";
+import { initPerformanceMetrics } from "@/utils/performanceMetrics";
+
+// initPerformanceMetrics imported from utils/performanceMetrics
 
 type WebsiteVisitor = {
   created_at: string;
@@ -87,6 +92,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }: { data: { session?: Session } }) => {
+      initPerformanceMetrics();
+    });
+  }, []);
+
   // Close date dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -120,15 +131,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
     queryFn: async () => {
-      const { data, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (
-              cols: string,
-            ) => Promise<{ data: WebsiteVisitor[] | null; error: { message: string } | null }>;
-          };
-        }
-      )
+      const { data, error } = await supabase
         .from("website_visitors")
         .select("*");
       if (error) return [];
@@ -1001,7 +1004,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickFormatter={(v) => `₹${v}`}
                 />
                 <Tooltip
-                  formatter={(val: number) => [`₹${val}`, ""]}
+                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1077,7 +1080,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(val: number) => [`${val} visitors`, ""]}
+                  formatter={(val: any, _name: any) => [`${val} visitors`, _name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1138,7 +1141,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: number) => [formatPrice(val), ""]}
+                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",

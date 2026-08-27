@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:strict": "tsc -p tsconfig.strict.json --noEmit",
     "format": "prettier --write .",
     "test:mobile": "playwright test tests/mobile-layout.spec.ts"
   },
@@ -59,9 +61,12 @@
     "playwright": "^1.62.1",
     "playwright-lighthouse": "^4.0.0",
     "prettier": "^3.7.3",
+    "rollup-plugin-visualizer": "^7.1.1",
     "sharp": "^0.35.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "vite-plugin-imagemin": "^0.6.1",
+    "web-vitals": "^6.2.1"
   }
 }

@@ -9,7 +9,7 @@ import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
 import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
-import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { LazyImage } from "@/components/ui/LazyImage";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,14 +43,10 @@ export function ProductCard({ product }: { product: Product }) {
         className="focus-ring relative block overflow-hidden bg-muted"
       >
         <div className="relative aspect-square w-full overflow-hidden bg-muted">
-          <img
+          <LazyImage
             src={product.image}
             alt={product.name}
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
-            }}
+            placeholderSrc={imageFor(product.category, null, product)}
             className={`h-full w-full object-cover object-center ${
               featHoverSwap && product.images && product.images.length > 1
                 ? "transition-opacity duration-500 group-hover:opacity-0"
@@ -59,14 +55,9 @@ export function ProductCard({ product }: { product: Product }) {
           />
           {/* Second Image Swap on Hover only if multiple distinct images exist */}
           {featHoverSwap && product.images && product.images.length > 1 && (
-            <img
+            <LazyImage
               src={product.images[1]}
               alt={`${product.name} alternate view`}
-              loading="lazy"
-              decoding="async"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
               className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
             />
           )}
