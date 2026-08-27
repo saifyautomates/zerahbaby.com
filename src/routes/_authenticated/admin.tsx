@@ -255,11 +255,17 @@ function AdminPage() {
   const unseenOrdersCount = useMemo(() => {
     const newOnline = onlineOrders.filter((o) => {
       const t = new Date(o.created_at).getTime();
-      return t > lastViewedOrdersTime && (o.status === "placed" || o.status === "pending");
+      const isPaidOrCod = o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid";
+      return (
+        t > lastViewedOrdersTime &&
+        o.status !== "cancelled" &&
+        isPaidOrCod &&
+        (o.status === "placed" || o.status === "processing" || o.status === "pending")
+      );
     }).length;
     const newOffline = posSales.filter((o) => {
       const t = new Date(o.created_at).getTime();
-      return t > lastViewedOrdersTime;
+      return t > lastViewedOrdersTime && (o as { status?: string }).status !== "cancelled";
     }).length;
     return newOnline + newOffline;
   }, [onlineOrders, posSales, lastViewedOrdersTime]);

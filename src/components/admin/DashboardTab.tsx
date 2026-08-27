@@ -231,17 +231,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   // Authoritative KPI Metrics Calculation
   const stats = useMemo(() => {
-    // 1. Valid paid / non-cancelled online orders
-    const validOrders = orders.filter(
-      (o: Order) =>
-        o.status !== "cancelled" &&
-        o.payment_status !== "failed" &&
-        o.payment_status !== "refunded",
-    );
+    // 1. Valid paid / non-cancelled online orders (COD or paid online)
+    const validOrders = orders.filter((o: Order) => {
+      if (o.status === "cancelled") return false;
+      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
+      if (o.payment_method?.toLowerCase() === "cod") return true;
+      return o.payment_status === "paid";
+    });
+
+    const validPosSales = posSales.filter((s) => s.status !== "cancelled");
 
     // Current period sales
     const currOrders = validOrders.filter((o) => inCurrentPeriod(o.created_at));
-    const currPos = posSales.filter((s) => inCurrentPeriod(s.created_at));
+    const currPos = validPosSales.filter((s) => inCurrentPeriod(s.created_at));
 
     // Previous period sales (for comparative delta)
     const prevOrders = validOrders.filter((o) => inPrevPeriod(o.created_at));

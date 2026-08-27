@@ -160,22 +160,26 @@ export function OfflineAnalyticsTab() {
     },
   });
 
+  const activeSales = useMemo(
+    () => (sales ?? []).filter((s) => (s as { status?: string }).status !== "cancelled"),
+    [sales],
+  );
+
   // ──────────── Customer Footfall Analytics ────────────
   const today = todayIST();
 
   /** Sales for today (IST) */
   const todaySales = useMemo(
-    () => (sales ?? []).filter((s) => utcToISTDate(s.created_at) === today),
-    [sales, today],
+    () => activeSales.filter((s) => utcToISTDate(s.created_at) === today),
+    [activeSales, today],
   );
 
   /** Average customers per active-sales-day */
   const avgCustomersPerDay = useMemo(() => {
-    const allSales = sales ?? [];
-    if (allSales.length === 0) return 0;
-    const uniqueDays = new Set(allSales.map((s) => utcToISTDate(s.created_at)));
-    return Math.round((allSales.length / uniqueDays.size) * 10) / 10;
-  }, [sales]);
+    if (activeSales.length === 0) return 0;
+    const uniqueDays = new Set(activeSales.map((s) => utcToISTDate(s.created_at)));
+    return Math.round((activeSales.length / uniqueDays.size) * 10) / 10;
+  }, [activeSales]);
 
   /** Hourly footfall for today (IST) — 24 buckets */
   const hourlyFootfall = useMemo(() => {
@@ -201,20 +205,18 @@ export function OfflineAnalyticsTab() {
   );
 
   // Stats
-  const totalRevenue = (sales ?? []).reduce((sum, sale) => sum + Number(sale.total), 0);
-  const totalSalesCount = (sales ?? []).length;
-  const cashSales = (sales ?? []).filter((s) => s.payment_method === "cash");
-  const upiSales = (sales ?? []).filter((s) => s.payment_method === "upi");
-  const cardSales = (sales ?? []).filter((s) => s.payment_method === "card");
-  const otherSales = (sales ?? []).filter(
-    (s) => !["cash", "upi", "card"].includes(s.payment_method),
-  );
+  const totalRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const totalSalesCount = activeSales.length;
+  const cashSales = activeSales.filter((s) => s.payment_method === "cash");
+  const upiSales = activeSales.filter((s) => s.payment_method === "upi");
+  const cardSales = activeSales.filter((s) => s.payment_method === "card");
+  const otherSales = activeSales.filter((s) => !["cash", "upi", "card"].includes(s.payment_method));
 
   const cashTotal = cashSales.reduce((s, o) => s + Number(o.total), 0);
   const upiTotal = upiSales.reduce((s, o) => s + Number(o.total), 0);
   const cardTotal = cardSales.reduce((s, o) => s + Number(o.total), 0);
   const otherTotal = otherSales.reduce((s, o) => s + Number(o.total), 0);
-  const totalDiscount = (sales ?? []).reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
+  const totalDiscount = activeSales.reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
 
   // Today's revenue
   const todayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);

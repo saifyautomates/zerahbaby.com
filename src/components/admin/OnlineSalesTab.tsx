@@ -132,18 +132,51 @@ export function OnlineSalesTab() {
     ...offlineOrdersData.map((o) => ({ ...o, _type: "offline" as const })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  const revenue = allData
+    .filter((o) => {
+      if (o.status === "cancelled") return false;
+      if (o._type === "offline") return o.status !== "cancelled";
+      if (o.payment_method?.toLowerCase() === "cod") return true;
+      return o.payment_status === "paid";
+    })
+    .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+  const unpaidOrdersCount = allData.filter(
+    (o) =>
+      o._type === "online" &&
+      o.payment_method?.toLowerCase() !== "cod" &&
+      o.payment_status !== "paid" &&
+      o.status !== "cancelled",
+  ).length;
+
+  const cancelledOrdersCount = allData.filter((o) => o.status === "cancelled").length;
+
   const orders = allData.filter((o) => {
     if (filter === "new_orders") {
       return isWithinLast24Hours(o.created_at);
     }
     if (filter === "all") return true;
+    if (filter === "paid") {
+      if (o._type === "offline") return o.status !== "cancelled";
+      return (
+        (o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid") &&
+        o.status !== "cancelled"
+      );
+    }
+    if (filter === "unpaid") {
+      return (
+        o._type === "online" &&
+        o.payment_method?.toLowerCase() !== "cod" &&
+        o.payment_status !== "paid" &&
+        o.status !== "cancelled"
+      );
+    }
+    if (filter === "cancelled") {
+      return o.status === "cancelled";
+    }
     if (o._type === "offline" && filter === "completed") return o.status === "completed";
     return o.status === filter;
   });
-
-  const revenue = allData
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + Number(o.total), 0);
 
   return (
     <div className="space-y-6">
@@ -175,34 +208,54 @@ export function OnlineSalesTab() {
           </p>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Total Transactions
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setFilter("unpaid")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFilter("unpaid");
+            }
+          }}
+          className={`relative overflow-hidden rounded-2xl border bg-card p-5 shadow-xs transition-all hover:shadow-md cursor-pointer ${
+            filter === "unpaid" ? "border-amber-500 ring-2 ring-amber-500/20" : "border-border"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-amber-500" />
+            Unpaid / Incomplete
           </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
-            {allData.length}
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400">
+            {unpaidOrdersCount}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Abandoned checkout attempts</p>
         </div>
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Total Revenue
+            Confirmed Realized Revenue
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-[#8B2020]">
             {formatPrice(revenue)}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Excludes unpaid & cancelled</p>
         </div>
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Awaiting action
+            Awaiting Fulfillment
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
             {
-              onlineOrdersData.filter((o) => o.status === "placed" || o.status === "processing")
-                .length
+              onlineOrdersData.filter(
+                (o) =>
+                  (o.status === "placed" || o.status === "processing") &&
+                  (o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid"),
+              ).length
             }
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Paid & confirmed orders</p>
         </div>
       </div>
 
@@ -234,30 +287,68 @@ export function OnlineSalesTab() {
             </span>
           </button>
 
-          {["all", "placed", "processing", "packed", "shipped", "delivered", "cancelled"].map(
-            (s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  setFilter(s);
-                  setPage(1);
-                }}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all cursor-pointer ${
-                  filter === s
-                    ? "bg-[#8B2020] text-white shadow-sm"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          {/* Unpaid & Incomplete Orders Tab Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setFilter("unpaid");
+              setPage(1);
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              filter === "unpaid"
+                ? "bg-amber-600 text-white shadow-sm ring-2 ring-amber-600/20"
+                : "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-100 border border-amber-300"
+            }`}
+          >
+            <span>Unpaid / Incomplete</span>
+            {unpaidOrdersCount > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                  filter === "unpaid" ? "bg-card/20 text-white" : "bg-amber-200 text-amber-900"
                 }`}
               >
-                {s}
-              </button>
-            ),
-          )}
+                {unpaidOrdersCount}
+              </span>
+            )}
+          </button>
+
+          {[
+            "all",
+            "paid",
+            "placed",
+            "processing",
+            "packed",
+            "shipped",
+            "delivered",
+            "cancelled",
+          ].map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setFilter(s);
+                setPage(1);
+              }}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all cursor-pointer ${
+                filter === s
+                  ? "bg-[#8B2020] text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              }`}
+            >
+              {s === "all" ? "All Orders" : s === "paid" ? "Paid / Confirmed" : s}
+              {s === "cancelled" && cancelledOrdersCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-950 px-1.5 py-0.2 text-[10px] font-bold text-red-700 dark:text-red-300">
+                  {cancelledOrdersCount}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
         <p className="text-xs font-medium text-muted-foreground">
           Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
           of {orders.length} transactions
           {filter === "new_orders" && " (placed in last 24 hours)"}
+          {filter === "unpaid" && " (unpaid / abandoned payments)"}
         </p>
       </div>
 

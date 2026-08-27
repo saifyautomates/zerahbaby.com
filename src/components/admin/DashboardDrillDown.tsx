@@ -142,6 +142,15 @@ export function DashboardDrillDown({
       }
     };
 
+    const validOrders = orders.filter((o) => {
+      if (o.status === "cancelled") return false;
+      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
+      if (o.payment_method?.toLowerCase() === "cod") return true;
+      return o.payment_status === "paid";
+    });
+
+    const validPosSales = posSales.filter((s) => s.status !== "cancelled");
+
     if (type === "revenue") {
       const allItems: Array<{
         sale_id: string;
@@ -154,7 +163,7 @@ export function DashboardDrillDown({
         price: number;
         total: number;
       }> = [];
-      orders.forEach((o) => {
+      validOrders.forEach((o) => {
         o.order_items?.forEach((item) => {
           const p = products.find((prod) => prod.id === item.product_id);
           allItems.push({
@@ -170,7 +179,7 @@ export function DashboardDrillDown({
           });
         });
       });
-      posSales.forEach((s) => {
+      validPosSales.forEach((s) => {
         s.offline_sale_items?.forEach((item) => {
           const p = getProduct(item.product_id || "");
           allItems.push({
@@ -189,7 +198,7 @@ export function DashboardDrillDown({
       allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       return {
-        title: "Total Revenue Details",
+        title: "Total Revenue Details (Confirmed & Paid)",
         icon: TrendingUp,
         colorClass: "text-emerald-600 bg-emerald-50",
         renderContent: () => (
@@ -289,7 +298,7 @@ export function DashboardDrillDown({
 
     if (type === "orders") {
       const allOrders = [
-        ...orders.map((o) => ({
+        ...validOrders.map((o) => ({
           sale_id: o.id,
           date: o.created_at,
           id: `#${o.id.substring(0, 8).toUpperCase()}`,
@@ -297,7 +306,7 @@ export function DashboardDrillDown({
           source: "Online",
           total: o.total || 0,
         })),
-        ...posSales.map((s) => ({
+        ...validPosSales.map((s) => ({
           sale_id: s.id,
           date: s.created_at,
           id: s.sale_number,
@@ -308,7 +317,7 @@ export function DashboardDrillDown({
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       return {
-        title: "Total Orders Details",
+        title: "Total Orders Details (Confirmed & Paid)",
         icon: ShoppingCart,
         colorClass: "text-blue-600 bg-blue-50",
         renderContent: () => (
@@ -572,7 +581,7 @@ export function DashboardDrillDown({
       let totalRev = 0;
       let totalCogs = 0;
 
-      orders.forEach((o) => {
+      validOrders.forEach((o) => {
         o.order_items?.forEach((item) => {
           const p = getProduct(item.product_slug || "");
           const bp = getBuyingPrice(p);
@@ -594,7 +603,7 @@ export function DashboardDrillDown({
           });
         });
       });
-      posSales.forEach((s) => {
+      validPosSales.forEach((s) => {
         s.offline_sale_items?.forEach((item) => {
           const p = getProduct(item.product_id || "");
           const bp = getBuyingPrice(p);
@@ -785,6 +794,84 @@ export function DashboardDrillDown({
                   <tr>
                     <td colSpan={4} className="px-6 py-8 text-center text-base">
                       No active products found in the catalog.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ),
+      };
+    }
+
+    if (type === "unpaid" || type === "incomplete") {
+      const unpaidList = orders.filter(
+        (o) =>
+          o.status === "cancelled" ||
+          o.payment_status === "failed" ||
+          (o.payment_method?.toLowerCase() !== "cod" && o.payment_status !== "paid"),
+      );
+
+      return {
+        title: "Unpaid & Incomplete Orders Audit",
+        icon: AlertTriangle,
+        colorClass: "text-amber-600 bg-amber-50",
+        renderContent: () => (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[650px] text-left text-sm text-muted-foreground">
+              <thead className="bg-muted text-xs uppercase text-foreground">
+                <tr>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Order ID</th>
+                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Payment Method</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-right">Attempted Total</th>
+                  <th className="px-6 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unpaidList.map((o, i) => (
+                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
+                    <td className="px-6 py-4">{format(new Date(o.created_at), "MMM d, h:mm a")}</td>
+                    <td className="px-6 py-4 font-mono font-medium text-foreground">
+                      #{o.id.substring(0, 8).toUpperCase()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-foreground">
+                        {o.full_name || o.email || "Customer"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{o.phone}</p>
+                    </td>
+                    <td className="px-6 py-4 uppercase text-xs font-semibold">
+                      {o.payment_method || "Online"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                        {o.status === "cancelled"
+                          ? "Cancelled"
+                          : o.payment_status || "Unpaid / Abandoned"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-foreground">
+                      {formatPrice(o.total || 0)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleDeleteRecord(o.id, "Online")}
+                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                        title="Delete record"
+                        aria-label="Delete record"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {unpaidList.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center">
+                      No unpaid or cancelled orders found in this period.
                     </td>
                   </tr>
                 )}
