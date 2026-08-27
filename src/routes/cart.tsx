@@ -57,8 +57,13 @@ function CartPage() {
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
   const [isApplying, setIsApplying] = useState(false);
-  // Shipping is free when cart is empty (no charge) or subtotal meets the threshold
-  const shipping = subtotal === 0 || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  // Shipping is free when cart is empty, subtotal meets threshold, or all items have free delivery
+  const maxItemShipping = items.reduce(
+    (max, i) =>
+      Math.max(max, i.product.deliveryFee !== undefined ? i.product.deliveryFee : DELIVERY_FEE),
+    0,
+  );
+  const shipping = subtotal === 0 || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : maxItemShipping;
   // Guard against duplicate checkout navigations from rapid clicking
   const isNavigatingRef = useRef(false);
 

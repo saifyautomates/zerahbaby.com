@@ -48,6 +48,7 @@ export type Product = {
   barcode: string;
   images: string[];
   buyingPrice?: number;
+  deliveryFee?: number;
 };
 
 export type Category = {
@@ -80,6 +81,7 @@ type ProductRow = {
   low_stock_at?: number;
   sku?: string;
   barcode?: string | null;
+  delivery_fee?: number | null;
   product_images?: { public_url: string; is_primary: boolean; sort_order: number }[] | null;
 };
 
@@ -118,6 +120,8 @@ export const mapProduct = (row: ProductRow): Product => {
     sku: row.sku ?? "",
     barcode: row.barcode ?? "",
     images: imageList,
+    deliveryFee:
+      row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
   };
 };
 
@@ -138,10 +142,37 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       .select("*, product_images(public_url, is_primary, sort_order)")
       .order("sort_order", { ascending: true });
     if (!includeInactive) query = query.eq("is_active", true);
-    const { data, error } = await query;
-    if (error) throw error;
-    if (data && data.length > 0) {
-      const mapped = (data as unknown as ProductRow[]).map(mapProduct);
+
+    const [productsRes, settingsRes] = await Promise.all([
+      query,
+      supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "product_delivery_fees")
+        .maybeSingle(),
+    ]);
+
+    if (productsRes.error) throw productsRes.error;
+    if (productsRes.data && productsRes.data.length > 0) {
+      let deliveryFees: Record<string, number> = {};
+      if (settingsRes.data?.value) {
+        try {
+          deliveryFees = JSON.parse(settingsRes.data.value);
+        } catch {
+          deliveryFees = {};
+        }
+      }
+
+      const mapped = (productsRes.data as unknown as ProductRow[]).map((r) => {
+        const prod = mapProduct(r);
+        if (deliveryFees[prod.uuid] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.uuid];
+        } else if (deliveryFees[prod.id] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.id];
+        }
+        return prod;
+      });
+
       import("@/lib/offline-sync-engine")
         .then((m) => {
           m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);

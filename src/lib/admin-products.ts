@@ -132,6 +132,31 @@ export function useSaveProduct() {
             }
           }),
         );
+
+        // Sync delivery fee setting
+        if (draft.deliveryFee !== undefined) {
+          const { data: currentSettings } = await supabase
+            .from("site_settings")
+            .select("value")
+            .eq("key", "product_delivery_fees")
+            .maybeSingle();
+          let feeMap: Record<string, number> = {};
+          if (currentSettings?.value) {
+            try {
+              feeMap = JSON.parse(currentSettings.value);
+            } catch {
+              feeMap = {};
+            }
+          }
+          feeMap[productId] = draft.deliveryFee;
+          feeMap[draft.slug] = draft.deliveryFee;
+          await supabase
+            .from("site_settings")
+            .upsert(
+              { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
+              { onConflict: "key" },
+            );
+        }
       }
     },
     onSuccess: () => {

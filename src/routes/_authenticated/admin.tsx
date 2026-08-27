@@ -45,6 +45,7 @@ import {
   RotateCcw,
   Eye,
   Upload,
+  Truck,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -753,18 +754,36 @@ function ProductsTab() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
     queryFn: async () => {
-      const [productsRes, costsRes] = await Promise.all([
+      const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase.from("products").select("*").order("sort_order"),
         supabase.from("product_costs").select("product_id, buying_price"),
+        supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "product_delivery_fees")
+          .maybeSingle(),
       ]);
 
       if (productsRes.error) throw productsRes.error;
 
       const costMap = new Map((costsRes.data || []).map((c) => [c.product_id, c.buying_price]));
+      let deliveryFees: Record<string, number> = {};
+      if (settingsRes.data?.value) {
+        try {
+          deliveryFees = JSON.parse(settingsRes.data.value);
+        } catch {
+          deliveryFees = {};
+        }
+      }
 
       return (productsRes.data || []).map((r) => {
         const prod = mapProduct(r as never);
         prod.buyingPrice = costMap.get(prod.uuid) || 0;
+        if (deliveryFees[prod.uuid] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.uuid];
+        } else if (deliveryFees[prod.id] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.id];
+        }
         return prod;
       });
     },
@@ -776,6 +795,79 @@ function ProductsTab() {
     qc.invalidateQueries({ queryKey: ["inventory-products"] });
     qc.invalidateQueries({ queryKey: ["categories"] });
   };
+
+  const setDeliveryFeeQuick = useMutation({
+    mutationFn: async ({ uuid, slug, fee }: { uuid: string; slug: string; fee: number }) => {
+      const { data: currentSettings } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "product_delivery_fees")
+        .maybeSingle();
+      let feeMap: Record<string, number> = {};
+      if (currentSettings?.value) {
+        try {
+          feeMap = JSON.parse(currentSettings.value);
+        } catch {
+          feeMap = {};
+        }
+      }
+      feeMap[uuid] = fee;
+      feeMap[slug] = fee;
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert(
+          { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: (_, { fee }) => {
+      toast.success(`Delivery fee updated to ${fee === 0 ? "Free (₹0)" : `₹${fee}`}`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setDeliveryFeeBulk = useMutation({
+    mutationFn: async ({ ids, fee }: { ids: string[]; fee: number }) => {
+      const { data: currentSettings } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "product_delivery_fees")
+        .maybeSingle();
+      let feeMap: Record<string, number> = {};
+      if (currentSettings?.value) {
+        try {
+          feeMap = JSON.parse(currentSettings.value);
+        } catch {
+          feeMap = {};
+        }
+      }
+      ids.forEach((id) => {
+        feeMap[id] = fee;
+        const prod = (data || []).find((p) => p.uuid === id || p.id === id);
+        if (prod) {
+          feeMap[prod.uuid] = fee;
+          feeMap[prod.id] = fee;
+        }
+      });
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert(
+          { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: (_, { fee }) => {
+      toast.success(
+        `Delivery fee set to ${fee === 0 ? "Free (₹0)" : `₹${fee}`} for selected products`,
+      );
+      setSelectedIds(new Set());
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const save = useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
@@ -883,6 +975,31 @@ function ProductsTab() {
               sort_order: i,
             });
           }
+        }
+
+        // Sync delivery fee setting
+        if (draft.deliveryFee !== undefined) {
+          const { data: currentSettings } = await supabase
+            .from("site_settings")
+            .select("value")
+            .eq("key", "product_delivery_fees")
+            .maybeSingle();
+          let feeMap: Record<string, number> = {};
+          if (currentSettings?.value) {
+            try {
+              feeMap = JSON.parse(currentSettings.value);
+            } catch {
+              feeMap = {};
+            }
+          }
+          feeMap[productId] = draft.deliveryFee;
+          feeMap[draft.slug] = draft.deliveryFee;
+          await supabase
+            .from("site_settings")
+            .upsert(
+              { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
+              { onConflict: "key" },
+            );
         }
       }
     },
@@ -1359,6 +1476,28 @@ function ProductsTab() {
               <span>Set Stock to 10</span>
             </button>
 
+            {/* Set delivery to Free (₹0) */}
+            <button
+              onClick={() => setDeliveryFeeBulk.mutate({ ids: Array.from(selectedIds), fee: 0 })}
+              disabled={setDeliveryFeeBulk.isPending}
+              title="Set Delivery to Free (₹0) for all selected products"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+            >
+              <Truck className="size-3.5" />
+              <span>Free Delivery (₹0)</span>
+            </button>
+
+            {/* Set delivery to ₹79 */}
+            <button
+              onClick={() => setDeliveryFeeBulk.mutate({ ids: Array.from(selectedIds), fee: 79 })}
+              disabled={setDeliveryFeeBulk.isPending}
+              title="Set Delivery to ₹79 for all selected products"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition cursor-pointer"
+            >
+              <Truck className="size-3.5 text-muted-foreground" />
+              <span>Set Delivery ₹79</span>
+            </button>
+
             {/* Archive selected */}
             <button
               onClick={() => archiveSelected.mutate(Array.from(selectedIds))}
@@ -1425,6 +1564,7 @@ function ProductsTab() {
                 <th className="px-5 py-4">Category</th>
                 <th className="px-5 py-4">SKU / Barcode</th>
                 <th className="px-5 py-4">Pricing & Profit</th>
+                <th className="px-5 py-4">Delivery</th>
                 <th className="px-5 py-4">Stock</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4 text-right">Actions</th>
@@ -1525,6 +1665,29 @@ function ProductsTab() {
                           </p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newFee = (p.deliveryFee ?? 79) === 0 ? 79 : 0;
+                          setDeliveryFeeQuick.mutate({ uuid: p.uuid, slug: p.id, fee: newFee });
+                        }}
+                        disabled={setDeliveryFeeQuick.isPending}
+                        title="Click to toggle between Free (₹0) and ₹79"
+                        className="inline-flex items-center gap-1.5 transition hover:scale-105 cursor-pointer"
+                      >
+                        {(p.deliveryFee ?? 79) === 0 ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
+                            <Truck className="size-3" /> Free (₹0)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
+                            <Truck className="size-3 text-muted-foreground" /> ₹
+                            {p.deliveryFee ?? 79}
+                          </span>
+                        )}
+                      </button>
                     </td>
                     <td className="px-5 py-4">
                       <span

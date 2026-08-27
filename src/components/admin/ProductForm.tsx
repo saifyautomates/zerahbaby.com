@@ -21,6 +21,7 @@ import {
   Loader2,
   Check,
   Tag,
+  Truck,
   Settings2,
 } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
@@ -42,6 +43,7 @@ export type ProductDraft = {
   images: string[];
   stock: number;
   lowStockAt: number;
+  deliveryFee: number;
   sku: string;
   barcode: string;
   description: string;
@@ -85,6 +87,7 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   images: p?.images ?? [],
   stock: p?.stock ?? 10,
   lowStockAt: p?.lowStockAt ?? 5,
+  deliveryFee: p?.deliveryFee ?? (p ? 0 : 79),
   sku: p?.sku ?? "",
   barcode: p?.barcode ?? "",
   description: p?.description ?? "",
@@ -571,8 +574,14 @@ export function ProductForm({
                     type="number"
                     min="0"
                     className={input}
-                    value={draft.buyingPrice}
-                    onChange={(e) => set("buyingPrice", Math.max(0, Number(e.target.value)))}
+                    placeholder="0"
+                    value={draft.buyingPrice === 0 ? "" : draft.buyingPrice}
+                    onChange={(e) =>
+                      set(
+                        "buyingPrice",
+                        e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                      )
+                    }
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -581,8 +590,11 @@ export function ProductForm({
                     type="number"
                     min="0"
                     className={input}
-                    value={draft.price}
-                    onChange={(e) => set("price", Math.max(0, Number(e.target.value)))}
+                    placeholder="0"
+                    value={draft.price === 0 ? "" : draft.price}
+                    onChange={(e) =>
+                      set("price", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                    }
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -591,10 +603,101 @@ export function ProductForm({
                     type="number"
                     min="0"
                     className={input}
-                    value={draft.mrp}
-                    onChange={(e) => set("mrp", Math.max(0, Number(e.target.value)))}
+                    placeholder="0"
+                    value={draft.mrp === 0 ? "" : draft.mrp}
+                    onChange={(e) =>
+                      set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                    }
                   />
                 </label>
+              </div>
+
+              {/* Delivery Fee Section */}
+              <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Truck className="size-4 text-primary" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Delivery / Shipping Price
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold text-primary">
+                    {draft.deliveryFee === 0
+                      ? "🎉 Free Delivery Active"
+                      : `₹${draft.deliveryFee} Shipping Charge`}
+                  </span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Shipping Price (₹)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        className={`${input} pl-7 font-bold text-foreground`}
+                        placeholder="0 (Free Delivery)"
+                        value={draft.deliveryFee === 0 ? "" : draft.deliveryFee}
+                        onChange={(e) =>
+                          set(
+                            "deliveryFee",
+                            e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Quick Presets
+                    </label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => set("deliveryFee", 0)}
+                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                          draft.deliveryFee === 0
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                            : "bg-background border-border hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        Free (₹0)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("deliveryFee", 79)}
+                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                          draft.deliveryFee === 79
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-background border-border hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        Standard (₹79)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("deliveryFee", 149)}
+                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                          draft.deliveryFee === 149
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-background border-border hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        Express (₹149)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2.5 text-[11px] text-muted-foreground">
+                  💡 Naye product par default <b>₹79</b> rehta hai. Aap ise <b>Free (₹0)</b> ya apni
+                  marzi ka koi bhi amount set kar sakte hain.
+                </p>
               </div>
 
               {/* Profit Calculation Box */}
@@ -645,8 +748,11 @@ export function ProductForm({
                 type="number"
                 min="0"
                 className={input}
-                value={draft.stock}
-                onChange={(e) => set("stock", Number(e.target.value))}
+                placeholder="0"
+                value={draft.stock === 0 ? "" : draft.stock}
+                onChange={(e) =>
+                  set("stock", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                }
               />
             </label>
             <label className="text-sm font-semibold">
@@ -655,8 +761,11 @@ export function ProductForm({
                 type="number"
                 min="0"
                 className={input}
-                value={draft.lowStockAt}
-                onChange={(e) => set("lowStockAt", Number(e.target.value))}
+                placeholder="0"
+                value={draft.lowStockAt === 0 ? "" : draft.lowStockAt}
+                onChange={(e) =>
+                  set("lowStockAt", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                }
               />
             </label>
             <label className="text-sm font-semibold">
@@ -664,8 +773,11 @@ export function ProductForm({
               <input
                 type="number"
                 className={input}
-                value={draft.sortOrder}
-                onChange={(e) => set("sortOrder", Number(e.target.value))}
+                placeholder="0"
+                value={draft.sortOrder === 0 ? "" : draft.sortOrder}
+                onChange={(e) =>
+                  set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))
+                }
               />
             </label>
             <label className="text-sm font-semibold">

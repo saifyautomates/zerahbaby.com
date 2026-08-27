@@ -684,7 +684,11 @@ function ProductPage() {
                   <Truck className="size-4" />
                 </div>
                 <div className="flex flex-col">
-                  <span>Fast & Free Delivery</span>
+                  <span>
+                    {(product?.deliveryFee ?? 79) === 0
+                      ? "Fast & Free Delivery"
+                      : `Standard Delivery: ₹${product?.deliveryFee ?? 79}`}
+                  </span>
                   {featUrgency && dispatchTime && (
                     <span className="text-[10px] text-green-600 font-bold">
                       Order in {dispatchTime} for dispatch today
@@ -1331,7 +1335,7 @@ function BuyNowModal({
   );
 
   const subtotal = product.price * qty;
-  const shipping = subtotal >= 999 ? 0 : 79;
+  const shipping = subtotal >= 999 ? 0 : (product.deliveryFee ?? 79);
   const finalTotal = subtotal + shipping;
 
   async function handleBuyNowPayment(e: React.FormEvent) {

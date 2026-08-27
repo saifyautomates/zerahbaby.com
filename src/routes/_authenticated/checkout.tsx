@@ -34,7 +34,11 @@ function CheckoutPage() {
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
-  const shipping = subtotal >= 999 ? 0 : 79;
+  const maxItemShipping = items.reduce(
+    (max, i) => Math.max(max, i.product.deliveryFee !== undefined ? i.product.deliveryFee : 79),
+    0,
+  );
+  const shipping = subtotal >= 999 ? 0 : maxItemShipping;
 
   const couponCode = coupon?.code || "";
   const couponDiscount = coupon?.discount || 0;
