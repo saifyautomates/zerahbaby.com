@@ -5,7 +5,7 @@
  * - Barcode preview in form
  * - Post-creation print prompt (label + invoice)
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
@@ -16,6 +16,9 @@ import {
   Star,
   Trash2,
   Upload,
+  UploadCloud,
+  Plus,
+  Loader2,
   Check,
   Tag,
   Settings2,
@@ -116,6 +119,8 @@ export function ProductForm({
   const { data: allProducts } = useProducts();
   const [uploading, setUploading] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [printing, setPrinting] = useState(false);
   const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
   const { printLabel, isPrinting: isDirectPrinting } = useDirectLabelPrint();
@@ -126,32 +131,73 @@ export function ProductForm({
   const previewSKU = draft.sku || generateSKU(draft.category);
   const previewBarcode = draft.barcode || generateBarcode();
 
-  async function addFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const room = MAX_IMAGES - draft.images.length;
-    if (room <= 0) {
-      toast.error(`Up to ${MAX_IMAGES} images per product`);
-      return;
-    }
-    setUploading(true);
-    try {
-      const prefix = product ? product.uuid : "drafts";
-      const uploadedUrls: string[] = [];
-      for (const file of Array.from(files).slice(0, room)) {
-        const url = await uploadMedia(file, prefix);
-        uploadedUrls.push(url);
+  const addFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const room = MAX_IMAGES - draft.images.length;
+      if (room <= 0) {
+        toast.error(`Up to ${MAX_IMAGES} images per product`);
+        return;
       }
-      setDraft((d) => {
-        const images = [...d.images, ...uploadedUrls].slice(0, MAX_IMAGES);
-        return { ...d, images, imageUrl: d.imageUrl || images[0] || "" };
-      });
-      toast.success(`${uploadedUrls.length} image${uploadedUrls.length > 1 ? "s" : ""} uploaded`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
+      setUploading(true);
+      try {
+        const prefix = product ? product.uuid : "drafts";
+        const uploadedUrls: string[] = [];
+        for (const file of Array.from(files).slice(0, room)) {
+          const url = await uploadMedia(file, prefix);
+          uploadedUrls.push(url);
+        }
+        setDraft((d) => {
+          const images = [...d.images, ...uploadedUrls].slice(0, MAX_IMAGES);
+          return { ...d, images, imageUrl: d.imageUrl || images[0] || "" };
+        });
+        toast.success(
+          `${uploadedUrls.length} image${uploadedUrls.length > 1 ? "s" : ""} uploaded successfully`,
+        );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Upload failed");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [draft.images, product],
+  );
+
+  const handleDragOverContainer = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDraggingOver(true);
     }
-  }
+  }, []);
+
+  const handleDragEnterContainer = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDraggingOver(true);
+    }
+  }, []);
+
+  const handleDragLeaveContainer = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDropContainer = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOver(false);
+      if (dragIndex === null && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        void addFiles(e.dataTransfer.files);
+      }
+    },
+    [dragIndex, addFiles],
+  );
 
   function reorder(from: number, to: number) {
     setDraft((d) => {
@@ -197,103 +243,179 @@ export function ProductForm({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
-          {/* Gallery */}
-          <div className="rounded-2xl border border-border p-4">
+          {/* Gallery with Full Drag & Drop Support */}
+          <div
+            onDragOver={handleDragOverContainer}
+            onDragEnter={handleDragEnterContainer}
+            onDragLeave={handleDragLeaveContainer}
+            onDrop={handleDropContainer}
+            className={`relative rounded-2xl border-2 transition-all p-4 ${
+              isDraggingOver
+                ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-lg"
+                : "border-border bg-card"
+            }`}
+          >
+            {/* Active Drop Overlay */}
+            {isDraggingOver && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-primary/15 backdrop-blur-[2px] border-2 border-dashed border-primary pointer-events-none animate-in fade-in duration-150">
+                <div className="flex flex-col items-center bg-card p-5 rounded-2xl shadow-xl border border-primary/30">
+                  <UploadCloud className="size-10 text-primary animate-bounce" />
+                  <p className="mt-2 text-sm font-bold text-primary">Drop images to upload</p>
+                  <p className="text-xs text-muted-foreground">
+                    Release your mouse to add instantly
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Media gallery</p>
                 <p className="text-xs text-muted-foreground">
-                  Up to {MAX_IMAGES} photos or videos · drag to reorder · the first one is the main
+                  Up to {MAX_IMAGES} photos or videos · drag to reorder · first image is the main
                   thumbnail
                 </p>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-                <Upload className="size-4" />
-                {uploading ? "Uploading…" : "Upload files"}
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    void addFiles(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60 shadow-xs active:scale-95"
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                <span>{uploading ? "Uploading…" : "Upload files"}</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  void addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
             </div>
 
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragIndex === null) void addFiles(e.dataTransfer.files);
-              }}
-              className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5"
-            >
-              {draft.images.map((url, i) => (
-                <div
-                  key={url}
-                  draggable
-                  onDragStart={() => setDragIndex(i)}
-                  onDragEnd={() => setDragIndex(null)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
-                    setDragIndex(null);
-                  }}
-                  className="group relative aspect-square overflow-hidden rounded-xl border border-border"
-                >
-                  {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
-                    <video
-                      src={url}
-                      className="size-full object-cover"
-                      playsInline
-                      muted
-                      autoPlay
-                      loop
-                    />
-                  ) : (
-                    <img
-                      src={url}
-                      alt=""
-                      loading="lazy"
-                      className="size-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = "0";
-                      }}
-                    />
-                  )}
-                  {i === 0 && (
-                    <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                      <Star className="size-3" /> Main
-                    </span>
-                  )}
-                  <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground">
-                    <GripVertical className="size-3" />
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Remove image"
-                    onClick={() =>
-                      setDraft((d) => {
-                        const images = d.images.filter((u) => u !== url);
-                        return { ...d, images, imageUrl: images[0] ?? "" };
-                      })
-                    }
-                    className="absolute right-1 top-1 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+            {/* If no images uploaded yet: large interactive clickable dropzone */}
+            {draft.images.length === 0 ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`mt-4 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+                  isDraggingOver
+                    ? "border-primary bg-primary/10"
+                    : "border-border/80 bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
+                }`}
+              >
+                <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
+                  <UploadCloud className="size-6" />
                 </div>
-              ))}
-              {draft.images.length === 0 && (
-                <p className="col-span-full rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                  Drag & drop images here, or use the upload button.
+                <p className="text-sm font-bold text-foreground">
+                  {uploading
+                    ? "Uploading media files…"
+                    : isDraggingOver
+                      ? "Drop images right here!"
+                      : "Drag & drop images here, or click to browse"}
                 </p>
-              )}
-            </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Supports JPEG, PNG, WebP, GIF, MP4 (Up to 10 MB each · Max {MAX_IMAGES} files)
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {draft.images.map((url, i) => (
+                  <div
+                    key={url}
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    onDragEnd={() => setDragIndex(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
+                      setDragIndex(null);
+                    }}
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/20 shadow-2xs"
+                  >
+                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
+                      <video
+                        src={url}
+                        className="size-full object-cover"
+                        playsInline
+                        muted
+                        autoPlay
+                        loop
+                      />
+                    ) : (
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        className="size-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.opacity = "0";
+                        }}
+                      />
+                    )}
+                    {i === 0 && (
+                      <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
+                        <Star className="size-3" /> Main
+                      </span>
+                    )}
+                    <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
+                      <GripVertical className="size-3" />
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Remove image"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDraft((d) => {
+                          const images = d.images.filter((u) => u !== url);
+                          return { ...d, images, imageUrl: images[0] ?? "" };
+                        });
+                      }}
+                      className="absolute right-1 top-1 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {draft.images.length < MAX_IMAGES && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-muted/10 transition-all hover:border-primary hover:bg-muted/40 text-muted-foreground hover:text-primary"
+                    title="Add more images"
+                  >
+                    <Plus className="size-5 mb-1" />
+                    <span className="text-[11px] font-bold">Add More</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
