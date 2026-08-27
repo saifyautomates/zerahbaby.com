@@ -388,6 +388,24 @@ function CheckoutPage() {
           payment: form.payment_method,
         },
       });
+
+      // Trigger transactional SMS for finalized COD order (non-blocking)
+      supabase.functions
+        .invoke("msg91-transactional", {
+          body: {
+            order_id: orderId,
+            event_type: "online_sale",
+            phone: form.phone.trim(),
+            name: form.full_name.trim(),
+            total: finalTotal,
+            payment_method: "COD",
+            notify_owner: true,
+          },
+        })
+        .catch((smsErr) => {
+          console.warn("[Checkout] COD SMS dispatch non-blocking error:", smsErr);
+        });
+
       await clear();
       toast.success("Order placed! Your invoice is ready in My orders.");
       navigate({ to: "/orders" });

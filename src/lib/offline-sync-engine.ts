@@ -388,6 +388,30 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
 
         await updateQueuedSaleStatus(item.operation_id, "SYNCED");
         syncedCount++;
+
+        // Trigger transactional SMS and owner email for synced sale (non-blocking)
+        if (data?.sale_id) {
+          supabase.functions
+            .invoke("send-owner-sale-notification", {
+              body: { type: "offline_sale", sale_id: data.sale_id },
+            })
+            .catch(() => {});
+
+          supabase.functions
+            .invoke("msg91-transactional", {
+              body: {
+                offline_sale_id: data.sale_id,
+                event_type: "offline_pos_sale",
+                phone: item.customer_phone || undefined,
+                name: item.customer_name || "Customer",
+                total: item.total,
+                payment_method: item.payment_method || "cash",
+                sale_number: data.sale_number,
+                notify_owner: true,
+              },
+            })
+            .catch(() => {});
+        }
       } catch (err: unknown) {
         const msg = (err as Error).message || "Sync error";
         console.error(`[OfflineSync] Failed to sync sale ${item.operation_id}:`, msg);

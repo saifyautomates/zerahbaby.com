@@ -275,6 +275,18 @@ export function useCancelCustomerOrder() {
         reason: reason || undefined,
       });
       if (error) throw error;
+
+      // Trigger order cancellation SMS (non-blocking)
+      supabase.functions
+        .invoke("msg91-transactional", {
+          body: {
+            order_id: orderId,
+            event_type: "order_cancelled",
+            notify_owner: false,
+          },
+        })
+        .catch(() => {});
+
       return data;
     },
     onSuccess: (_data, variables) => {

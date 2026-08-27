@@ -1565,31 +1565,58 @@ export type Database = {
           created_at: string;
           error_details: string | null;
           id: string;
+          idempotency_key: string | null;
+          last_retried_at: string | null;
+          message_content: string | null;
           message_type: string;
           offline_sale_id: string | null;
           order_id: string | null;
           phone: string;
+          provider_message_id: string | null;
           provider_status: string | null;
+          recipient_type: string;
+          retry_count: number;
+          sent_at: string | null;
+          status: string;
+          template_id: string | null;
         };
         Insert: {
           created_at?: string;
           error_details?: string | null;
           id?: string;
+          idempotency_key?: string | null;
+          last_retried_at?: string | null;
+          message_content?: string | null;
           message_type: string;
           offline_sale_id?: string | null;
           order_id?: string | null;
           phone: string;
+          provider_message_id?: string | null;
           provider_status?: string | null;
+          recipient_type?: string;
+          retry_count?: number;
+          sent_at?: string | null;
+          status?: string;
+          template_id?: string | null;
         };
         Update: {
           created_at?: string;
           error_details?: string | null;
           id?: string;
+          idempotency_key?: string | null;
+          last_retried_at?: string | null;
+          message_content?: string | null;
           message_type?: string;
           offline_sale_id?: string | null;
           order_id?: string | null;
           phone?: string;
+          provider_message_id?: string | null;
           provider_status?: string | null;
+          recipient_type?: string;
+          retry_count?: number;
+          sent_at?: string | null;
+          status?: string;
+          template_id?: string | null;
         };
         Relationships: [
           {

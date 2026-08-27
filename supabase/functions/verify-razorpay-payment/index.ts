@@ -145,6 +145,26 @@ serve(async (req) => {
       // Non-blocking
     }
 
+    // 9. Trigger Transactional SMS for Online Order (Customer + Owner) (non-blocking)
+    try {
+      fetch(`${supabaseUrl}/functions/v1/msg91-transactional`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          event_type: "online_sale",
+          notify_owner: true,
+        }),
+      }).catch((smsErr) => {
+        console.warn("[verify-razorpay-payment] SMS dispatch non-blocking error:", smsErr);
+      });
+    } catch {
+      // Non-blocking
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
