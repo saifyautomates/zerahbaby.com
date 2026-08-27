@@ -40,6 +40,10 @@ import {
   Check,
   MapPin,
   ExternalLink,
+  Palette,
+  Power,
+  RotateCcw,
+  Eye,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,11 +65,7 @@ const HeroMediaManager = lazy(() =>
 const MediaLibrary = lazy(() =>
   import("@/components/admin/MediaLibrary").then((m) => ({ default: m.MediaLibrary })),
 );
-const AnnouncementsManager = lazy(() =>
-  import("@/components/admin/AnnouncementsManager").then((m) => ({
-    default: m.AnnouncementsManager,
-  })),
-);
+
 const BillingCenterTab = lazy(() =>
   import("@/components/admin/BillingCenterTab").then((m) => ({ default: m.BillingCenterTab })),
 );
@@ -121,8 +121,7 @@ type Tab =
   | "reviews"
   | "inventory"
   | "marketing"
-  | "sms"
-  | "announcements";
+  | "sms";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -314,7 +313,6 @@ function AdminPage() {
     { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "settings", label: "Settings", icon: Settings },
     { key: "admins", label: "Admins", icon: Shield },
-    { key: "announcements", label: "Announcements", icon: AlertCircle },
   ];
 
   return (
@@ -694,13 +692,12 @@ function AdminPage() {
               {tab === "customers" && <CustomersTab />}
               {tab === "categories" && <CategoriesTab />}
               {tab === "inventory" && <InventoryTab />}
-              {tab === "marketing" && <MarketingTab onNavigate={setTab as (tab: string) => void} />}
+              {tab === "marketing" && <MarketingTab />}
               {tab === "settings" && <SettingsTab />}
               {tab === "sms" && <SMSLogsTab />}
               {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
               {tab === "coupons" && <CouponsTab />}
               {tab === "reviews" && <ReviewsTab />}
-              {tab === "announcements" && <AnnouncementsManager />}
             </Suspense>
           </div>
         </div>
@@ -1713,7 +1710,6 @@ function ProductsTab() {
 
 const SETTING_LABELS: Record<string, string> = {
   brand_name: "Brand name",
-  announcement: "Announcement bar",
   hero_title: "Home hero title",
   hero_subtitle: "Home hero subtitle",
   contact_email: "Contact email",
@@ -1721,9 +1717,6 @@ const SETTING_LABELS: Record<string, string> = {
   store_address: "Store address",
   store_hours: "Opening hours",
   maps_url: "Google Maps link",
-  instagram_url: "Instagram URL",
-  facebook_url: "Facebook URL",
-  whatsapp_url: "WhatsApp link",
   owner_notification_email: "Owner Sale Alert Email (Recipient)",
   owner_notify_offline_sales: "Enable Offline POS Sale Alerts (true/false)",
   owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
@@ -1740,8 +1733,6 @@ const SETTING_LABELS: Record<string, string> = {
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
   brand_name: "Yahan se website ka main naam (logo text) aur footer text change hoga.",
-  announcement:
-    "Website ke sabse upar dikhne wali patti (Announcement bar). Agar aap ise pura khali chhod denge, toh yeh bar website se completely gayab ho jayegi.",
   hero_title: "Homepage par aane wala sabse bada main title yahan se change hota hai.",
   hero_subtitle:
     "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
@@ -1750,9 +1741,6 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
   store_hours: "Dukaan khulne aur band hone ka samay (yeh Footer me dikhta hai).",
   maps_url: "Footer me location icon par click karne se jo Google Maps open hoga, uska link.",
-  instagram_url: "Footer aur baki jagah par Instagram icon ka link.",
-  facebook_url: "Footer aur baki jagah par Facebook icon ka link.",
-  whatsapp_url: "Website par WhatsApp icon ka link yahan dale.",
 };
 const DEFAULT_SETTINGS: Record<string, string> = {
   brand_name: "Zerah Baby And Kid's",
@@ -3182,11 +3170,53 @@ function InventoryRow({
   );
 }
 
-/* ---------------- Marketing ---------------- */
-function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+/* ---------------- Marketing & Promotions ---------------- */
+
+const ANNOUNCEMENT_PRESETS = [
+  {
+    label: "Free Delivery Offer",
+    text: "✨ FREE delivery on all orders above ₹999 · Easy 7-day hassle-free returns ✨",
+    bgColor: "#8B2020",
+    textColor: "#FFFFFF",
+  },
+  {
+    label: "Festive Mega Sale",
+    text: "🎉 FESTIVE SALE: Flat 20% OFF on all Baby & Kids wear! Use code: FESTIVE20 🎉",
+    bgColor: "#7C2D12",
+    textColor: "#FEF08A",
+  },
+  {
+    label: "New Arrivals Alert",
+    text: "🍼 NEW ARRIVALS: Organic Cotton Baby Essentials & Strollers now in stock! 🛍️",
+    bgColor: "#064E3B",
+    textColor: "#ECFDF5",
+  },
+  {
+    label: "Midnight Special",
+    text: "🌙 MIDNIGHT EXCLUSIVE: Buy 2 Get 1 FREE on all Toys & Educational Games! 🧸",
+    bgColor: "#1E1B4B",
+    textColor: "#E0E7FF",
+  },
+];
+
+const ANNOUNCEMENT_COLOR_PALETTES = [
+  { name: "Brand Burgundy", bg: "#8B2020", text: "#FFFFFF" },
+  { name: "Deep Navy", bg: "#0F172A", text: "#FFFFFF" },
+  { name: "Forest Emerald", bg: "#064E3B", text: "#ECFDF5" },
+  { name: "Warm Amber", bg: "#92400E", text: "#FEF3C7" },
+  { name: "Royal Purple", bg: "#581C87", text: "#FAF5FF" },
+  { name: "Rose Pink", bg: "#9D174D", text: "#FDF2F8" },
+  { name: "Dark Slate", bg: "#18181B", text: "#F4F4F5" },
+];
+
+function MarketingTab() {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     announcement: "",
+    announcement_enabled: true,
+    announcement_bg: "#8B2020",
+    announcement_text_color: "#FFFFFF",
+    announcement_link: "",
     instagram_url: "",
     facebook_url: "",
     whatsapp_url: "",
@@ -3207,6 +3237,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
     if (!isLoading && settings && !hasLoaded) {
       setForm({
         announcement: settings["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
+        announcement_enabled: settings["announcement_enabled"] !== "false",
+        announcement_bg: settings["announcement_bg"] || "#8B2020",
+        announcement_text_color: settings["announcement_text_color"] || "#FFFFFF",
+        announcement_link: settings["announcement_link"] || "",
         instagram_url: settings["instagram_url"] ?? "https://www.instagram.com/zerah_kids/",
         facebook_url: settings["facebook_url"] ?? "",
         whatsapp_url: settings["whatsapp_url"] ?? "",
@@ -3220,7 +3254,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
       const isAnnounceEmpty = !form.announcement.trim();
       const rows = [
         { key: "announcement", value: form.announcement.trim() },
-        { key: "announcement_enabled", value: isAnnounceEmpty ? "false" : "true" },
+        { key: "announcement_enabled", value: isAnnounceEmpty || !form.announcement_enabled ? "false" : "true" },
+        { key: "announcement_bg", value: form.announcement_bg },
+        { key: "announcement_text_color", value: form.announcement_text_color },
+        { key: "announcement_link", value: form.announcement_link.trim() },
         { key: "instagram_url", value: form.instagram_url.trim() },
         { key: "facebook_url", value: form.facebook_url.trim() },
         { key: "whatsapp_url", value: form.whatsapp_url.trim() },
@@ -3230,7 +3267,7 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Marketing & social settings saved successfully!");
+      toast.success("Marketing, Announcement & Social settings saved successfully!");
       qc.invalidateQueries({ queryKey: ["site_settings"] });
       qc.invalidateQueries({ queryKey: ["admin-settings"] });
     },
@@ -3250,68 +3287,294 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
     return `https://${trimmed}`;
   };
 
+  const handleApplyPreset = (preset: (typeof ANNOUNCEMENT_PRESETS)[0]) => {
+    setForm((prev) => ({
+      ...prev,
+      announcement: preset.text,
+      announcement_bg: preset.bgColor,
+      announcement_text_color: preset.textColor,
+      announcement_enabled: true,
+    }));
+    toast.info(`Loaded template: "${preset.label}"`);
+  };
+
+  const handleClearAnnouncement = () => {
+    setForm((prev) => ({
+      ...prev,
+      announcement: "",
+      announcement_enabled: false,
+    }));
+    toast.warning("Announcement cleared. Click Save to publish changes.");
+  };
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-8 pb-16">
       <form
-        className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8"
+        className="space-y-8"
         onSubmit={(e) => {
           e.preventDefault();
           save.mutate();
         }}
       >
+        {/* Header Title */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Marketing & Social Profiles</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Manage your top announcement bar, Instagram, Facebook, and WhatsApp connections.
+            <h2 className="flex items-center gap-2.5 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              <Megaphone className="size-7 text-primary" />
+              Marketing &amp; Promotions
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage your top announcement bar, live color styling, and social media channels in one place.
             </p>
           </div>
 
-          {onNavigate && (
-            <button
-              type="button"
-              onClick={() => onNavigate("announcements")}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition hover:bg-primary/20 cursor-pointer"
-            >
-              <Sparkles className="size-3.5" /> Full Announcement Designer
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+          >
+            {save.isPending ? (
+              <>
+                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="size-4" /> Save &amp; Publish All
+              </>
+            )}
+          </button>
         </div>
 
-        {isLoading && !hasLoaded ? (
-          <div className="flex h-40 items-center justify-center">
-            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Announcement Bar */}
-            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="marketing-announcement" className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                  <Megaphone className="size-4 text-primary" /> Announcement Bar
-                </label>
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  {form.announcement.trim() ? "Active on site" : "Collapsed / Hidden"}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Website ke sabse upar dikhne wali patti. Agar aap ise pura khali chhod denge ya clear karenge, toh yeh bar website se completely gayab ho jayegi.
+        {/* ─── SECTION 1: TOP ANNOUNCEMENT BANNER ─────────────────── */}
+        <div className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
+            <div>
+              <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                <Sparkles className="size-4 text-primary" /> Top Announcement Header Banner
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Appears at the very top of the website on both mobile &amp; desktop.
               </p>
-
-              <input
-                id="marketing-announcement"
-                type="text"
-                value={form.announcement}
-                onChange={(e) => setForm({ ...form, announcement: e.target.value })}
-                placeholder="e.g. Free delivery on orders above ₹999 · Easy 7-day returns"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
-              />
             </div>
 
-            {/* Instagram URL */}
+            {/* Global Banner Switch */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-muted-foreground">
+                {form.announcement_enabled && form.announcement.trim() ? "Active on Website" : "Turned OFF"}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.announcement_enabled}
+                onClick={() => setForm((f) => ({ ...f, announcement_enabled: !f.announcement_enabled }))}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  form.announcement_enabled && form.announcement.trim() ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block size-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    form.announcement_enabled && form.announcement.trim() ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Live Preview Card */}
+          <div className="space-y-2">
+            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <Eye className="size-3.5 text-primary" /> Real-time Live Preview
+            </span>
+
+            <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-xs">
+              {form.announcement_enabled && form.announcement.trim() ? (
+                <div
+                  className="px-4 py-2.5 text-center transition-all duration-300"
+                  style={{ backgroundColor: form.announcement_bg, color: form.announcement_text_color }}
+                >
+                  <div className="flex items-center justify-center gap-2 font-display text-xs sm:text-sm font-semibold tracking-wide">
+                    <Sparkles className="size-3.5 shrink-0 opacity-80" />
+                    <span>{form.announcement}</span>
+                    <Sparkles className="size-3.5 shrink-0 opacity-80" />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-sm text-muted-foreground bg-muted/20">
+                  <p className="font-semibold text-foreground">Header is currently turned OFF</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    The top bar is completely collapsed (0px height). No blank space is taken on the website.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Message Text Input */}
+          <div className="space-y-2">
+            <label htmlFor="mkt-announcement-text" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Announcement Message
+            </label>
+            <textarea
+              id="mkt-announcement-text"
+              rows={2}
+              value={form.announcement}
+              onChange={(e) => setForm({ ...form, announcement: e.target.value })}
+              placeholder="e.g. Free delivery on orders above ₹999 · Easy 7-day returns"
+              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs placeholder:text-muted-foreground/60"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground">Note:</span> Agar aap ise khali chhod denge, toh header bar automatically collapse ho jayegi. Emojis (🎉, ✨, 🍼, 🧸) supported hain!
+            </p>
+          </div>
+
+          {/* Optional Target Link */}
+          <div className="space-y-2">
+            <label htmlFor="mkt-announcement-link" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <ExternalLink className="size-3.5" /> Target Page Link (Optional Clickable Action)
+            </label>
+            <input
+              id="mkt-announcement-link"
+              type="text"
+              value={form.announcement_link}
+              onChange={(e) => setForm({ ...form, announcement_link: e.target.value })}
+              placeholder="e.g. /shop or /product/123 or https://..."
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+            />
+          </div>
+
+          {/* Color Palettes & Pickers */}
+          <div className="space-y-4 border-t border-border/60 pt-5">
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <Palette className="size-3.5 text-primary" /> Header Color Styling
+            </label>
+
+            {/* One-Click Presets */}
+            <div className="flex flex-wrap gap-2">
+              {ANNOUNCEMENT_COLOR_PALETTES.map((palette) => {
+                const isSelected = form.announcement_bg === palette.bg && form.announcement_text_color === palette.text;
+                return (
+                  <button
+                    key={palette.name}
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        announcement_bg: palette.bg,
+                        announcement_text_color: palette.text,
+                      }))
+                    }
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer ${
+                      isSelected
+                        ? "border-primary ring-2 ring-primary/20 shadow-xs bg-card"
+                        : "border-border hover:border-border/80 bg-muted/30"
+                    }`}
+                  >
+                    <span
+                      className="size-4 rounded-full border border-black/10 shadow-2xs shrink-0"
+                      style={{ backgroundColor: palette.bg }}
+                    />
+                    <span>{palette.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Color Pickers */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-1">
+              <div className="space-y-1.5">
+                <label htmlFor="mkt-bg-color" className="text-xs font-semibold text-muted-foreground">
+                  Custom Background Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="mkt-bg-color"
+                    type="color"
+                    value={form.announcement_bg}
+                    onChange={(e) => setForm({ ...form, announcement_bg: e.target.value })}
+                    className="size-10 cursor-pointer rounded-xl border border-border bg-transparent p-1"
+                  />
+                  <input
+                    type="text"
+                    value={form.announcement_bg}
+                    onChange={(e) => setForm({ ...form, announcement_bg: e.target.value })}
+                    className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono uppercase outline-none focus:border-primary shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="mkt-text-color" className="text-xs font-semibold text-muted-foreground">
+                  Custom Text Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="mkt-text-color"
+                    type="color"
+                    value={form.announcement_text_color}
+                    onChange={(e) => setForm({ ...form, announcement_text_color: e.target.value })}
+                    className="size-10 cursor-pointer rounded-xl border border-border bg-transparent p-1"
+                  />
+                  <input
+                    type="text"
+                    value={form.announcement_text_color}
+                    onChange={(e) => setForm({ ...form, announcement_text_color: e.target.value })}
+                    className="w-28 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono uppercase outline-none focus:border-primary shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Ready Templates */}
+          <div className="space-y-3 border-t border-border/60 pt-5">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Ready-made Announcement Templates
+            </span>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {ANNOUNCEMENT_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  className="flex flex-col items-start rounded-2xl border border-border bg-muted/20 p-3.5 text-left transition hover:bg-muted/50 hover:border-primary/40 cursor-pointer"
+                >
+                  <span className="text-xs font-bold text-foreground">{preset.label}</span>
+                  <span className="mt-1 text-[11px] text-muted-foreground line-clamp-1">
+                    {preset.text}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end border-t border-border/60 pt-4">
+            <button
+              type="button"
+              onClick={handleClearAnnouncement}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer"
+            >
+              <RotateCcw className="size-3.5" /> Clear Announcement
+            </button>
+          </div>
+        </div>
+
+        {/* ─── SECTION 2: SOCIAL PROFILES & CHAT LINKS ───────────────── */}
+        <div className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div className="border-b border-border/60 pb-4">
+            <h3 className="font-display text-lg font-bold text-foreground">
+              Social Media Channels &amp; Customer Chat
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Connect your official profiles to the website's footer and contact touchpoints.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {/* Instagram */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="marketing-instagram" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label htmlFor="mkt-instagram" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Instagram Profile URL
                 </label>
                 {form.instagram_url && (
@@ -3326,10 +3589,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page me Instagram icon ka link yahan se badlega.
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page par Instagram icon ka destination link.
               </p>
               <input
-                id="marketing-instagram"
+                id="mkt-instagram"
                 type="text"
                 value={form.instagram_url}
                 onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
@@ -3338,10 +3601,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
               />
             </div>
 
-            {/* Facebook URL */}
+            {/* Facebook */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="marketing-facebook" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label htmlFor="mkt-facebook" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Facebook Page URL
                 </label>
                 {form.facebook_url && (
@@ -3356,10 +3619,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page me Facebook icon ka link yahan se badlega.
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page par Facebook icon ka destination link.
               </p>
               <input
-                id="marketing-facebook"
+                id="mkt-facebook"
                 type="text"
                 value={form.facebook_url}
                 onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
@@ -3368,10 +3631,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
               />
             </div>
 
-            {/* WhatsApp URL */}
+            {/* WhatsApp */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="marketing-whatsapp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label htmlFor="mkt-whatsapp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   WhatsApp Direct Chat Link or Phone
                 </label>
                 {form.whatsapp_url && (
@@ -3386,10 +3649,10 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me WhatsApp icon aur customer support chat link yahan se direct connect hoga (e.g. `https://wa.me/919057074777` ya direct number `9057074777`).
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me WhatsApp icon aur floating chat button ka link (e.g. `https://wa.me/919057074777` ya direct phone number `9057074777`).
               </p>
               <input
-                id="marketing-whatsapp"
+                id="mkt-whatsapp"
                 type="text"
                 value={form.whatsapp_url}
                 onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
@@ -3398,22 +3661,23 @@ function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
               />
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="flex justify-end pt-4 border-t border-border/60">
+        {/* Unified Bottom Submit Button */}
+        <div className="flex justify-end pt-2">
           <button
             type="submit"
             disabled={save.isPending}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-base font-bold text-primary-foreground shadow-lg transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {save.isPending ? (
               <>
-                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                Saving...
+                <div className="size-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                Saving &amp; Publishing...
               </>
             ) : (
               <>
-                <Check className="size-4" /> Save Marketing Settings
+                <Check className="size-5" /> Save &amp; Publish All Marketing Settings
               </>
             )}
           </button>
