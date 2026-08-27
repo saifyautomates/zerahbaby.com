@@ -180,8 +180,6 @@ export function ThermalReceipt({ sale, items, saleDate, onClose, onPrint, autoPr
       aria-label="Thermal Receipt"
       onClick={onClose}
     >
-
-
       <div
         id="thermal-receipt-portal"
         className="flex w-full max-w-sm flex-col rounded-2xl border border-border bg-card shadow-2xl print:rounded-none print:border-0 print:shadow-none print:max-w-none print:w-[100mm]"

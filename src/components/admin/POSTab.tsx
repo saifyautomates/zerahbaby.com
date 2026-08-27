@@ -1342,10 +1342,7 @@ export function POSTab() {
       {/* ====== Product Detail Drawer ====== */}
       {selectedPOSItem &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[200] flex"
-            onClick={() => setSelectedPOSItem(null)}
-          >
+          <div className="fixed inset-0 z-[200] flex" onClick={() => setSelectedPOSItem(null)}>
             {/* Backdrop */}
             <div className="flex-1 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200" />
 
@@ -1357,7 +1354,9 @@ export function POSTab() {
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30 shrink-0">
                 <div>
-                  <h3 className="font-display text-sm font-bold text-foreground">Product Details</h3>
+                  <h3 className="font-display text-sm font-bold text-foreground">
+                    Product Details
+                  </h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">POS Item Preview</p>
                 </div>
                 <button
@@ -1386,7 +1385,10 @@ export function POSTab() {
                 )}
                 {selectedPOSItem.mrp > selectedPOSItem.price && (
                   <span className="absolute bottom-3 left-3 text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                    {Math.round(((selectedPOSItem.mrp - selectedPOSItem.price) / selectedPOSItem.mrp) * 100)}% OFF
+                    {Math.round(
+                      ((selectedPOSItem.mrp - selectedPOSItem.price) / selectedPOSItem.mrp) * 100,
+                    )}
+                    % OFF
                   </span>
                 )}
               </div>
@@ -1441,24 +1443,40 @@ export function POSTab() {
 
                 {/* Identifiers */}
                 <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-3 text-xs">
-                  <p className="font-bold text-foreground text-[11px] uppercase tracking-wider">Identifiers</p>
+                  <p className="font-bold text-foreground text-[11px] uppercase tracking-wider">
+                    Identifiers
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">SKU</span>
-                      <span className="font-mono font-bold text-foreground">{selectedPOSItem.sku || "—"}</span>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">
+                        SKU
+                      </span>
+                      <span className="font-mono font-bold text-foreground">
+                        {selectedPOSItem.sku || "—"}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">Barcode</span>
-                      <span className="font-mono font-bold text-foreground truncate block">{selectedPOSItem.barcode || "—"}</span>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">
+                        Barcode
+                      </span>
+                      <span className="font-mono font-bold text-foreground truncate block">
+                        {selectedPOSItem.barcode || "—"}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">Stock</span>
-                      <span className={`font-bold ${selectedPOSItem.stock <= 5 ? "text-amber-600" : "text-emerald-600"}`}>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">
+                        Stock
+                      </span>
+                      <span
+                        className={`font-bold ${selectedPOSItem.stock <= 5 ? "text-amber-600" : "text-emerald-600"}`}
+                      >
                         {selectedPOSItem.stock} units
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">In Cart</span>
+                      <span className="text-muted-foreground block text-[10px] uppercase tracking-wider font-semibold">
+                        In Cart
+                      </span>
                       <span className="font-bold text-primary">{selectedPOSItem.qty} × added</span>
                     </div>
                   </div>
@@ -1466,7 +1484,9 @@ export function POSTab() {
 
                 {/* Quick Quantity Controls */}
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-3">Quick Adjust Qty</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-3">
+                    Quick Adjust Qty
+                  </p>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center rounded-xl border border-border bg-background overflow-hidden shadow-2xs">
                       <button
@@ -1518,6 +1538,5 @@ export function POSTab() {
           document.body,
         )}
     </div>
-
   );
 }
