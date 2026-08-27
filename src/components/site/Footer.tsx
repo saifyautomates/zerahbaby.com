@@ -24,7 +24,7 @@ export function Footer() {
 
   const socials = [
     {
-      href: instagramUrl,
+      href: instagramUrl || "https://www.instagram.com/zerah_kids/",
       label: "Instagram",
       Icon: InstagramIcon,
       colorClass:
