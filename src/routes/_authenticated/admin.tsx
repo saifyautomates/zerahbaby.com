@@ -54,11 +54,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
-import {
-  syncFirstCryCatalogToSupabase,
-  FIRSTCRY_100_PRODUCTS,
-  FIRSTCRY_IMAGE_MAP,
-} from "@/lib/firstcry-catalog";
+
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
@@ -749,12 +745,7 @@ function ProductsTab() {
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
-  const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{
-    current: number;
-    total: number;
-    message: string;
-  } | null>(null);
+
 
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -1209,36 +1200,6 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Sync 100 FirstCry Catalog
-  const handleSyncFirstCryCatalog = async () => {
-    if (isSyncingCatalog) return;
-    setIsSyncingCatalog(true);
-    setSyncProgress({ current: 0, total: 100, message: "Starting FirstCry sync..." });
-
-    const toastId = toast.loading("Syncing 100 FirstCry baby & kids catalog (10 stock each)...");
-
-    try {
-      const res = await syncFirstCryCatalogToSupabase((cur, tot, msg) => {
-        setSyncProgress({ current: cur, total: tot, message: msg });
-        toast.loading(`Syncing FirstCry Catalog (${cur}/${tot})...`, { id: toastId });
-      });
-
-      if (res.success) {
-        toast.success(`Successfully synced ${res.count} FirstCry products (10 stock each)!`, {
-          id: toastId,
-          duration: 5000,
-        });
-        invalidate();
-      } else {
-        toast.error(`Sync encountered an error: ${res.error}`, { id: toastId });
-      }
-    } catch (err: unknown) {
-      toast.error(`Sync failed: ${(err as Error).message || String(err)}`, { id: toastId });
-    } finally {
-      setIsSyncingCatalog(false);
-      setSyncProgress(null);
-    }
-  };
 
   const list = useMemo(() => {
     return (data ?? []).filter((p) => {
@@ -1380,18 +1341,6 @@ function ProductsTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Sync 100 FirstCry Catalog Button */}
-          <button
-            onClick={handleSyncFirstCryCatalog}
-            disabled={isSyncingCatalog}
-            title="Populate or restore 100 curated FirstCry products with 10 stock each"
-            className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/80 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100/90 active:scale-95 cursor-pointer disabled:opacity-50"
-          >
-            <Sparkles
-              className={`size-3.5 text-amber-700 ${isSyncingCatalog ? "animate-spin" : ""}`}
-            />
-            <span>{isSyncingCatalog ? "Syncing (100)..." : "Sync 100 FirstCry (10 Stock)"}</span>
-          </button>
 
           {/* Delete All Products Button */}
           <button
