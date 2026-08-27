@@ -45,12 +45,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
-import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from "web-vitals";
-import { DashboardDrillDown } from "./DashboardDrillDown";
-import type { Session } from "@supabase/gotrue-js";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
-
-// initPerformanceMetrics imported from utils/performanceMetrics
+import { DashboardDrillDown } from "./DashboardDrillDown";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -93,9 +89,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }: { data: { session?: Session } }) => {
-      initPerformanceMetrics();
-    });
+    initPerformanceMetrics();
   }, []);
 
   // Close date dropdown on outside click
