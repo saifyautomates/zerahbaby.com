@@ -23,7 +23,7 @@ export function AnnouncementBanner() {
   const isDefaultBurgundy = bgColor.toLowerCase() === "#8b2020";
 
   const content = (
-    <div className="relative z-[3] mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-1.5 sm:px-4">
+    <div className="relative z-[3] mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-2 py-0.5 sm:px-4 sm:py-1 min-h-[26px] sm:min-h-[30px]">
       {/* Desktop left trust badge */}
       <div className="hidden flex-1 items-center gap-2 lg:flex">
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 bg-black/15 text-[10px] font-semibold uppercase tracking-wider border border-white/10">
@@ -32,12 +32,12 @@ export function AnnouncementBanner() {
         </span>
       </div>
 
-      {/* Center announcement with signature stars */}
-      <div className="flex flex-1 items-center justify-center overflow-hidden">
-        <div className="flex items-center justify-center gap-2 text-center sm:gap-2.5">
+      {/* Desktop Center Announcement (static, single line, perfectly centered) */}
+      <div className="hidden lg:flex flex-1 items-center justify-center overflow-hidden">
+        <div className="flex items-center justify-center gap-2 text-center">
           <Sparkle className="size-3 shrink-0 announce-gold-text animate-pulse" aria-hidden="true" />
           <p
-            className="font-display text-[11px] sm:text-xs font-semibold uppercase tracking-widest leading-normal text-center"
+            className="font-display text-[11px] font-semibold uppercase tracking-widest leading-none whitespace-nowrap"
             style={{ color: textColor }}
           >
             {text}
@@ -46,8 +46,32 @@ export function AnnouncementBanner() {
         </div>
       </div>
 
+      {/* Mobile Ultra-Slim Marquee (Single line, smooth continuous horizontal scroll, 0 line wrapping, only ~26px height!) */}
+      <div className="flex flex-1 items-center justify-center overflow-hidden lg:hidden" aria-label="Announcement">
+        <div className="group relative w-full overflow-hidden whitespace-nowrap">
+          <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap flex items-center">
+            <span
+              className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap leading-none"
+              style={{ color: textColor }}
+            >
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden="true" />
+              {text}
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden="true" />
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap leading-none"
+              style={{ color: textColor }}
+            >
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden="true" />
+              {text}
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Right spacer / Admin Dismiss button */}
-      <div className="flex flex-1 items-center justify-end gap-2">
+      <div className="hidden sm:flex flex-none lg:flex-1 items-center justify-end gap-2">
         {isAdmin && (
           <button
             type="button"
@@ -58,7 +82,7 @@ export function AnnouncementBanner() {
               e.preventDefault();
               setDismissed(true);
             }}
-            className="flex size-5 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-75 cursor-pointer bg-black/15 text-white/90 hover:text-white"
+            className="flex size-4.5 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-75 cursor-pointer bg-black/15 text-white/90 hover:text-white"
           >
             <X className="size-3" />
           </button>
@@ -71,7 +95,7 @@ export function AnnouncementBanner() {
     <div
       role="region"
       aria-label="Announcement"
-      className="announce-bar w-full transition-all duration-300 relative overflow-hidden"
+      className="announce-bar w-full transition-all duration-300 relative overflow-hidden h-7 sm:h-8 flex items-center"
       style={{
         backgroundColor: bgColor,
         color: textColor,
@@ -79,11 +103,11 @@ export function AnnouncementBanner() {
     >
       {isDefaultBurgundy && <span className="announce-sheen" aria-hidden="true" />}
       {link ? (
-        <Link to={link} className="block transition-opacity hover:opacity-95">
+        <Link to={link} className="block w-full transition-opacity hover:opacity-95">
           {content}
         </Link>
       ) : (
-        content
+        <div className="w-full">{content}</div>
       )}
     </div>
   );
