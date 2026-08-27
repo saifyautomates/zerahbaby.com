@@ -148,6 +148,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [user, products, hasLoadedFromDb]);
 
+  // Prune deleted or inactive products from cart lines
+  useEffect(() => {
+    if (!products) return;
+    const validIds = new Set(products.map((p) => p.id));
+    setLines((prev) => {
+      const filtered = prev.filter((l) => validIds.has(l.id));
+      return filtered.length !== prev.length ? filtered : prev;
+    });
+  }, [products]);
+
   // Persist to localStorage
   useEffect(() => {
     try {

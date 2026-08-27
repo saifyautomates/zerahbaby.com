@@ -290,6 +290,13 @@ function Index() {
 
         {isLoading ? (
           <ProductGridSkeleton />
+        ) : bestsellers.length === 0 ? (
+          <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">
+            <p className="text-base font-semibold text-foreground">No products listed yet</p>
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+              Our curated collection of baby essentials will be appearing here shortly.
+            </p>
+          </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
             {bestsellers.map((product) => (
@@ -299,24 +306,26 @@ function Index() {
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
-        <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
-          <div className="relative z-10">
-            <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Biggest savings across the store, refreshed every Monday.
-            </p>
-          </div>
-          <AdminAddProduct label="Add a deal product" className="mt-4" />
+      {deals.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-12">
+          <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
+            <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
+            <div className="relative z-10">
+              <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Biggest savings across the store, refreshed every Monday.
+              </p>
+            </div>
+            <AdminAddProduct label="Add a deal product" className="mt-4" />
 
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-            {deals.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+              {deals.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="mx-auto max-w-7xl px-4 py-14">
         <div className="text-center">

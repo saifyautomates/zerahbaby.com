@@ -40,7 +40,11 @@ function useInvalidateCatalogue() {
   return () => {
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["admin-products"] });
+    qc.invalidateQueries({ queryKey: ["inventory-products"] });
+    qc.invalidateQueries({ queryKey: ["pos-products"] });
     qc.invalidateQueries({ queryKey: ["categories"] });
+    qc.invalidateQueries({ queryKey: ["admin-search-products"] });
+    qc.invalidateQueries({ queryKey: ["product-relations"] });
   };
 }
 

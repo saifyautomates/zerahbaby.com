@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FIRSTCRY_IMAGE_MAP } from "@/lib/firstcry-catalog";
 
 import clothing from "@/assets/cat-clothing.jpg";
 import toys from "@/assets/cat-toys.jpg";
@@ -155,7 +154,7 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
     ]);
 
     if (productsRes.error) throw productsRes.error;
-    if (productsRes.data && productsRes.data.length > 0) {
+    if (productsRes.data) {
       let deliveryFees: Record<string, number> = {};
       if (settingsRes.data?.value) {
         try {
@@ -175,44 +174,31 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
         return prod;
       });
 
+      // Synchronize offline IndexedDB catalog with current active products
       import("@/lib/offline-sync-engine")
         .then((m) => {
           m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
         })
         .catch(() => null);
+
       return mapped;
     }
   } catch (err) {
-    console.warn("[fetchProducts] Falling back to FirstCry catalog seed:", err);
+    console.error("[fetchProducts] Supabase catalog fetch error:", err);
+    // Offline resilience: if network failed, try reading previously cached products from IndexedDB
+    try {
+      const { getCachedCatalog } = await import("@/lib/offline-sync-engine");
+      const cached = await getCachedCatalog();
+      if (cached && cached.length > 0) {
+        return (cached as unknown as ProductRow[]).map(mapProduct);
+      }
+    } catch {
+      // ignore
+    }
   }
 
-  // Resilient fallback dataset with all 100 products (10 stock each)
-  const { FIRSTCRY_100_PRODUCTS } = await import("@/lib/firstcry-catalog");
-  return FIRSTCRY_100_PRODUCTS.filter((p) => includeInactive || p.isActive).map((p) => ({
-    uuid: p.slug,
-    id: p.slug,
-    name: p.name,
-    brand: p.brand,
-    category: p.category,
-    price: p.price,
-    mrp: p.mrp,
-    rating: p.rating,
-    reviews: p.reviews,
-    ageGroup: p.ageGroup,
-    image: imageFor(p.category, p.imageUrl),
-    imageUrl: p.imageUrl,
-    description: p.description,
-    highlights: p.highlights ?? [],
-    isFeatured: p.isFeatured,
-    isActive: p.isActive,
-    sortOrder: p.sortOrder,
-    stock: p.stock,
-    lowStockAt: p.lowStockAt,
-    sku: p.sku,
-    barcode: p.barcode,
-    images: p.images && p.images.length > 0 ? p.images : [p.imageUrl],
-    buyingPrice: p.buyingPrice,
-  }));
+  // Authoritative empty state when no products exist
+  return [];
 }
 
 async function fetchCategories(): Promise<Category[]> {

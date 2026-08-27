@@ -226,17 +226,52 @@ export async function updateQueuedSaleStatus(
 /* ------------------------------------------------------------------ */
 
 export async function cacheFullCatalog(products: Array<Record<string, unknown>>): Promise<void> {
-  if (typeof window === "undefined" || !window.indexedDB || !products || products.length === 0)
-    return;
+  if (typeof window === "undefined" || !window.indexedDB) return;
   try {
     const db = await openDB();
     const tx = db.transaction(CATALOG_STORE, "readwrite");
     const store = tx.objectStore(CATALOG_STORE);
-    products.forEach((p) => {
-      if (p.id) store.put(p);
-    });
+    // Purge old cache so deletions immediately propagate to offline POS
+    store.clear();
+    if (products && products.length > 0) {
+      products.forEach((p) => {
+        if (p.id && p.is_active !== false && p.isActive !== false) {
+          store.put(p);
+        }
+      });
+    }
   } catch (err) {
     console.warn("[OfflineSync] Catalog caching notice:", err);
+  }
+}
+
+export async function clearOfflineCatalog(): Promise<void> {
+  if (typeof window === "undefined" || !window.indexedDB) return;
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CATALOG_STORE, "readwrite");
+    tx.objectStore(CATALOG_STORE).clear();
+  } catch (err) {
+    console.warn("[OfflineSync] Clear catalog error:", err);
+  }
+}
+
+export async function getCachedCatalog(): Promise<Array<Record<string, unknown>>> {
+  if (typeof window === "undefined" || !window.indexedDB) return [];
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(CATALOG_STORE, "readonly");
+      const store = tx.objectStore(CATALOG_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        resolve(all.filter((p: Record<string, unknown>) => p.is_active !== false && p.isActive !== false));
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -246,7 +281,11 @@ export async function updateOfflineCatalogProduct(product: Record<string, unknow
     const db = await openDB();
     const tx = db.transaction(CATALOG_STORE, "readwrite");
     const store = tx.objectStore(CATALOG_STORE);
-    store.put(product);
+    if (product.is_active === false || product.isActive === false) {
+      store.delete(product.id as string);
+    } else {
+      store.put(product);
+    }
   } catch (err) {
     console.warn("[OfflineSync] Catalog product update error:", err);
   }
@@ -280,10 +319,12 @@ export async function findOfflineProductByCode(
         const all = req.result || [];
         const match = all.find(
           (p: Record<string, unknown>) =>
-            String(p.barcode || "").toLowerCase() === clean ||
-            String(p.sku || "").toLowerCase() === clean ||
-            String(p.slug || "").toLowerCase() === clean ||
-            String(p.id || "").toLowerCase() === clean,
+            p.is_active !== false &&
+            p.isActive !== false &&
+            (String(p.barcode || "").toLowerCase() === clean ||
+              String(p.sku || "").toLowerCase() === clean ||
+              String(p.slug || "").toLowerCase() === clean ||
+              String(p.id || "").toLowerCase() === clean),
         );
         resolve(match || null);
       };

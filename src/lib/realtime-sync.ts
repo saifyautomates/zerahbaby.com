@@ -76,7 +76,15 @@ export function useGlobalRealtimeSync() {
           updateOfflineCatalogProduct(newRow as Record<string, unknown>);
         }
 
-        debouncedInvalidate(qc, [["products"], ["admin-products"], ["categories"]]);
+        debouncedInvalidate(qc, [
+          ["products"],
+          ["admin-products"],
+          ["inventory-products"],
+          ["pos-products"],
+          ["categories"],
+          ["admin-search-products"],
+          ["product-relations"],
+        ]);
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, (payload) => {
         notifyListeners("categories", payload.eventType, payload);

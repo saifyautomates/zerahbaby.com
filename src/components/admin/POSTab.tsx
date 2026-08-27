@@ -132,9 +132,9 @@ export function POSTab() {
     return cashTendered - total;
   }, [cashTendered, total]);
 
-  // Products for manual search
+  // Products for manual search (active only)
   const { data: products = [] } = useQuery({
-    queryKey: ["admin-products"],
+    queryKey: ["pos-products"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
