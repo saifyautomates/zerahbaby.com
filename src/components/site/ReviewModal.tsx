@@ -185,8 +185,6 @@ export function ReviewModal({
                   </p>
                   <a
                     href="https://maps.app.goo.gl/79nYYFUSWre5ymHT6"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-[#1a73e8] hover:underline"
                   >
                     Review Zerah on Google Maps →

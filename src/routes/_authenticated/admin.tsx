@@ -1563,8 +1563,6 @@ function ProductsTab() {
                         <Link
                           to="/product/$id"
                           params={{ id: p.id || p.uuid }}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="relative group/thumb block size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-2xs transition-transform hover:scale-105"
                           title="Open product on storefront (new tab)"
                         >
@@ -1587,8 +1585,6 @@ function ProductsTab() {
                           <Link
                             to="/product/$id"
                             params={{ id: p.id || p.uuid }}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="font-semibold text-foreground line-clamp-1 hover:text-primary transition-colors flex items-center gap-1 group/name"
                             title={`Open ${p.name} on storefront`}
                           >
@@ -2547,8 +2543,6 @@ function CustomersTab() {
                           <span className="text-muted-foreground font-mono">{c.phone}</span>
                           <a
                             href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 rounded bg-[#25D366]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#128C7E] hover:bg-[#25D366]/20 transition-colors"
                             title="Chat on WhatsApp"
                           >
@@ -3090,8 +3084,6 @@ function ReviewsTab() {
                       <a
                         key={idx}
                         href={imgUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="group relative size-14 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105"
                       >
                         <img
@@ -3366,8 +3358,6 @@ function InventoryRow({
         <Link
           to="/product/$id"
           params={{ id: product.id || product.uuid }}
-          target="_blank"
-          rel="noopener noreferrer"
           title={`Open ${product.name} on store`}
           className="relative block group/thumb size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 shadow-2xs hover:scale-105 transition-transform"
         >
@@ -3393,8 +3383,6 @@ function InventoryRow({
         <Link
           to="/product/$id"
           params={{ id: product.id || product.uuid }}
-          target="_blank"
-          rel="noopener noreferrer"
           title={`Open ${product.name} on store`}
           className="font-semibold text-foreground hover:text-primary transition inline-flex items-center gap-1.5 group/link line-clamp-1 max-w-[280px]"
         >
@@ -3533,8 +3521,6 @@ function InventoryRow({
           <Link
             to="/product/$id"
             params={{ id: product.id || product.uuid }}
-            target="_blank"
-            rel="noopener noreferrer"
             title={`View ${product.name} live in store`}
             className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer shadow-2xs"
           >
@@ -4024,7 +4010,6 @@ function MarketingTab() {
                 {form.instagram_url && (
                   <a
                     href={normalizeUrl(form.instagram_url)}
-                    target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                   >
@@ -4058,7 +4043,6 @@ function MarketingTab() {
                 {form.facebook_url && (
                   <a
                     href={normalizeUrl(form.facebook_url)}
-                    target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                   >
@@ -4092,7 +4076,6 @@ function MarketingTab() {
                 {form.whatsapp_url && (
                   <a
                     href={normalizeUrl(form.whatsapp_url)}
-                    target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                   >

@@ -503,11 +503,11 @@ export function OfflineAnalyticsTab() {
                   key={i}
                   role="button"
                   tabIndex={0}
-                  onClick={() => slug && window.open(`/product/${slug}`, "_blank")}
+                  onClick={() => slug && (window.location.href = `/product/${slug}`)}
                   onKeyDown={(e) => {
                     if ((e.key === "Enter" || e.key === " ") && slug) {
                       e.preventDefault();
-                      window.open(`/product/${slug}`, "_blank");
+                      window.location.href = `/product/${slug}`;
                     }
                   }}
                   title={`Open "${p.name}" in store`}
@@ -667,7 +667,7 @@ export function OfflineAnalyticsTab() {
                                         className="flex items-center gap-2.5 cursor-pointer group/item"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (slug) window.open(`/product/${slug}`, "_blank");
+                                          if (slug) window.location.href = `/product/${slug}`;
                                         }}
                                         title={`Open "${item.name}" in store`}
                                       >

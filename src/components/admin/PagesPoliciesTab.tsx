@@ -112,8 +112,6 @@ export function PagesPoliciesTab() {
 
         <a
           href={currentPage.url}
-          target="_blank"
-          rel="noopener noreferrer"
           className="flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-foreground shadow-xs hover:bg-muted transition"
         >
           <span>View Live Page ({currentPage.url})</span>

@@ -703,7 +703,6 @@ export function DashboardDrillDown({
                         {getProductImage(p) ? (
                           <a
                             href={getProductImage(p) || undefined}
-                            target="_blank"
                             rel="noreferrer"
                             title="Click to enlarge"
                             className="shrink-0"
