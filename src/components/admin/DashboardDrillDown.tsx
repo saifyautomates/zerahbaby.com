@@ -122,25 +122,7 @@ export function DashboardDrillDown({
       return imageFor(p.category || "clothing", url);
     };
 
-    const handleDeleteRecord = async (id: string, source: "Online" | "POS") => {
-      if (!window.confirm(`Are you sure you want to delete this ${source} record?`)) return;
-      try {
-        if (source === "POS") {
-          const { error } = await supabase
-            .from("offline_sales")
-            .update({ status: "cancelled" })
-            .eq("id", id);
-          if (error) throw error;
-        } else {
-          // Hard delete for online cancelled orders using our new RPC
-          await supabase.rpc("delete_cancelled_order", { _order_id: id });
-        }
-        window.location.reload();
-      } catch (e: unknown) {
-        console.error("Delete failed:", e);
-        alert((e as Error).message || "Failed to delete record from Supabase.");
-      }
-    };
+
 
     const validOrders = orders.filter((o) => {
       if (o.status === "cancelled") return false;
@@ -209,9 +191,8 @@ export function DashboardDrillDown({
                   <th className="px-6 py-3">Date</th>
                   <th className="px-6 py-3">Product</th>
                   <th className="px-6 py-3">Source</th>
-                  <th className="px-6 py-3 text-right">Qty</th>
-                  <th className="px-6 py-3 text-right">Total</th>
-                  <th className="px-6 py-3 text-right">Action</th>
+                  <th className="px-6 py-4 text-right">Discount</th>
+                  <th className="px-6 py-4 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -270,16 +251,6 @@ export function DashboardDrillDown({
                     </td>
                     <td className="px-6 py-4 text-right">{item.qty}</td>
                     <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleDeleteRecord(item.sale_id, item.source)}
-                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                        title="Delete this record"
-                        aria-label="Delete this record"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
                   </tr>
                 ))}
                 {allItems.length === 0 && (
@@ -328,9 +299,8 @@ export function DashboardDrillDown({
                   <th className="px-6 py-3">Date</th>
                   <th className="px-6 py-3">Order ID</th>
                   <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-3">Source</th>
-                  <th className="px-6 py-3 text-right">Total</th>
-                  <th className="px-6 py-3 text-right">Action</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,18 +317,6 @@ export function DashboardDrillDown({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() =>
-                          handleDeleteRecord(item.sale_id, item.source as "Online" | "POS")
-                        }
-                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                        title="Delete this order"
-                        aria-label="Delete this order"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
                   </tr>
                 ))}
                 {allOrders.length === 0 && (
@@ -855,16 +813,6 @@ export function DashboardDrillDown({
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
                       {formatPrice(o.total || 0)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleDeleteRecord(o.id, "Online")}
-                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                        title="Delete record"
-                        aria-label="Delete record"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </td>
                   </tr>
                 ))}
