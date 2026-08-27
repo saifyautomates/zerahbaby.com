@@ -27,20 +27,20 @@ export function Footer() {
       href: instagramUrl,
       label: "Instagram",
       Icon: InstagramIcon,
-      hoverClass:
-        "hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] hover:text-white hover:border-transparent",
+      colorClass:
+        "bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white shadow-[0_4px_16px_rgba(220,39,67,0.35)] hover:shadow-[0_6px_22px_rgba(220,39,67,0.5)]",
     },
     {
       href: waLink,
       label: "WhatsApp",
       Icon: WhatsAppIcon,
-      hoverClass: "hover:bg-[#25D366] hover:text-white hover:border-[#25D366]",
+      colorClass: "bg-[#25D366] text-white shadow-[0_4px_16px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_22px_rgba(37,211,102,0.5)]",
     },
     {
       href: facebookUrl,
       label: "Facebook",
       Icon: FacebookIcon,
-      hoverClass: "hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2]",
+      colorClass: "bg-[#1877F2] text-white shadow-[0_4px_16px_rgba(24,119,242,0.35)] hover:shadow-[0_6px_22px_rgba(24,119,242,0.5)]",
     },
   ].filter((s) => s.href);
 
@@ -69,17 +69,17 @@ export function Footer() {
             parents.
           </p>
           {socials.length > 0 && (
-            <div className="mt-4 flex gap-2.5">
-              {socials.map(({ href, label, Icon, hoverClass }) => (
+            <div className="mt-4 flex gap-3">
+              {socials.map(({ href, label, Icon, colorClass }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className={`flex items-center justify-center size-9 rounded-full border border-border bg-background text-foreground/80 transition-all shadow-premium-sm hover:shadow-premium-md hover:-translate-y-0.5 active:scale-95 ${hoverClass}`}
+                  className={`group relative flex size-10 items-center justify-center rounded-full transition-all duration-300 hover:-translate-y-1 hover:scale-110 active:scale-95 ${colorClass}`}
                 >
-                  <Icon className="size-4.5" />
+                  <Icon className="size-5 transition-transform group-hover:scale-110" />
                 </a>
               ))}
             </div>
