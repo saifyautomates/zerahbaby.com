@@ -81,6 +81,7 @@ export function AnnouncementBanner() {
 
       {/* Right spacer / Admin Dismiss button */}
       <div className="hidden sm:flex flex-none lg:flex-1 items-center justify-end gap-2">
+        {/* Only allow admins to see the close button to dismiss the announcement */}
         {isAdmin && (
           <button
             type="button"
