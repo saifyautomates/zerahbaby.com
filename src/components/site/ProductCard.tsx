@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
-import { discountPct, formatPrice, type Product } from "@/lib/store";
+import { discountPct, formatPrice, imageFor, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
@@ -48,6 +48,9 @@ export function ProductCard({ product }: { product: Product }) {
             alt={product.name}
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
+            }}
             className={`h-full w-full object-cover object-center ${
               featHoverSwap && product.images && product.images.length > 1
                 ? "transition-opacity duration-500 group-hover:opacity-0"
@@ -61,6 +64,9 @@ export function ProductCard({ product }: { product: Product }) {
               alt={`${product.name} alternate view`}
               loading="lazy"
               decoding="async"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
               className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
             />
           )}

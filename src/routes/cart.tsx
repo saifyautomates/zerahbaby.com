@@ -2,7 +2,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trash2, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
@@ -99,14 +99,22 @@ function CartPage() {
               className="flex gap-4 rounded-2xl border border-border p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
               style={{ animationDelay: `${i * 75}ms` }}
             >
-              <div className="size-24 shrink-0 rounded-xl overflow-hidden bg-muted">
+              <Link
+                to="/product/$id"
+                params={{ id: product.id }}
+                className="size-24 shrink-0 rounded-xl overflow-hidden bg-muted hover:opacity-90 transition block"
+                title={`View ${product.name}`}
+              >
                 <img
                   src={product.image}
                   alt={product.name}
                   loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
+                  }}
                   className="w-full h-full object-cover object-center"
                 />
-              </div>
+              </Link>
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   {product.brand}

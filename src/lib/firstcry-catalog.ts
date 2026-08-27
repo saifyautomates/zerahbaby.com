@@ -25,7 +25,6 @@ export interface FirstCryProductSeed {
 }
 
 export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
-  /* ---------------- CLOTHING & FASHION (20 Items) ---------------- */
   {
     slug: "fc-babyhug-organic-onesies-3pk",
     name: "Babyhug 100% Organic Cotton Half Sleeves Onesies - Pack of 3 (Pastel Meadow)",
@@ -56,7 +55,6 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
       "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
     images: [
       "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -470,9 +468,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 14,
     buyingPrice: 220,
     imageUrl:
-      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -502,9 +500,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 15,
     buyingPrice: 470,
     imageUrl:
-      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -534,9 +532,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 16,
     buyingPrice: 460,
     imageUrl:
-      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -566,9 +564,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 17,
     buyingPrice: 360,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -598,9 +596,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 18,
     buyingPrice: 780,
     imageUrl:
-      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -630,9 +628,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 19,
     buyingPrice: 620,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -662,13 +660,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 20,
     buyingPrice: 410,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- TOYS & GAMES (15 Items) ---------------- */
   {
     slug: "fc-fisher-price-kick-play-piano-gym",
     name: "Fisher-Price Deluxe Kick & Play Musical Piano Activity Gym",
@@ -699,7 +695,6 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
       "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
     images: [
       "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -761,9 +756,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 23,
     buyingPrice: 1250,
     imageUrl:
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -793,9 +788,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 24,
     buyingPrice: 140,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515488764276-beab7607c1e6?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515488764276-beab7607c1e6?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -889,9 +884,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 27,
     buyingPrice: 460,
     imageUrl:
-      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1560859251-d563a49c5e4a?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1560859251-d563a49c5e4a?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -921,9 +916,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 28,
     buyingPrice: 220,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587653915936-5623ea0b949a?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587653915936-5623ea0b949a?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -953,9 +948,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 29,
     buyingPrice: 710,
     imageUrl:
-      "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1558877385-81a1c7e67d72?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1559454403-b8fb88521f11?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1558877385-81a1c7e67d72?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -985,9 +980,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 30,
     buyingPrice: 440,
     imageUrl:
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1017,9 +1012,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 31,
     buyingPrice: 320,
     imageUrl:
-      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1049,9 +1044,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 32,
     buyingPrice: 510,
     imageUrl:
-      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1081,9 +1076,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 33,
     buyingPrice: 380,
     imageUrl:
-      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1500995617113-cf789362a3e1?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1500995617113-cf789362a3e1?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1113,9 +1108,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 34,
     buyingPrice: 1650,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1596464716127-f2a829822391?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1596464716127-f2a829822391?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1145,13 +1140,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 35,
     buyingPrice: 260,
     imageUrl:
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519744346361-8982a5c4e97c?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519744346361-8982a5c4e97c?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- NURSERY & CARE / SKINCARE (15 Items) ---------------- */
   {
     slug: "fc-sebamed-baby-gentle-wash-400ml",
     name: "Sebamed Baby Gentle Wash with Allantoin & Chamomile (400ml with Pump)",
@@ -1243,9 +1236,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 38,
     buyingPrice: 450,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1275,9 +1268,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 39,
     buyingPrice: 480,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1307,9 +1300,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 40,
     buyingPrice: 220,
     imageUrl:
-      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1339,9 +1332,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 41,
     buyingPrice: 360,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576426863848-c21f53c60b19?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576426863848-c21f53c60b19?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1371,9 +1364,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 42,
     buyingPrice: 140,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1403,9 +1396,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 43,
     buyingPrice: 470,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1617897903246-719242758050?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1617897903246-719242758050?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1435,9 +1428,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 44,
     buyingPrice: 580,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1467,9 +1460,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 45,
     buyingPrice: 170,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1499,9 +1492,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 46,
     buyingPrice: 1180,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1615397349754-cfa2066a298e?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1615397349754-cfa2066a298e?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1531,9 +1524,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 47,
     buyingPrice: 290,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1563,9 +1556,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 48,
     buyingPrice: 260,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1595,9 +1588,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 49,
     buyingPrice: 150,
     imageUrl:
-      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581924-860bda6a26df?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1608248597359-597520e53a3e?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581924-860bda6a26df?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1627,13 +1620,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 50,
     buyingPrice: 1450,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1556228724-686955a8efb9?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1556228724-686955a8efb9?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- FEEDING & NURSING (12 Items) ---------------- */
   {
     slug: "fc-philips-avent-natural-bottle-set",
     name: "Philips Avent Natural Response Anti-Colic Feeding Bottles (260ml Pack of 2)",
@@ -1661,9 +1652,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 51,
     buyingPrice: 880,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607006314175-9c94178a9c39?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607006314175-9c94178a9c39?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1693,9 +1684,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 52,
     buyingPrice: 690,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1725,9 +1716,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 53,
     buyingPrice: 2200,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666744-884841e2f89c?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666744-884841e2f89c?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1757,9 +1748,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 54,
     buyingPrice: 380,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1789,9 +1780,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 55,
     buyingPrice: 1350,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1821,9 +1812,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 56,
     buyingPrice: 520,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1853,9 +1844,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 57,
     buyingPrice: 2450,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1594968973184-9040a5a79963?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1594968973184-9040a5a79963?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1885,9 +1876,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 58,
     buyingPrice: 420,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584824486510-112e4181ff6c?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584824486510-112e4181ff6c?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1917,9 +1908,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 59,
     buyingPrice: 760,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576426863849-c21f53c60b20?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576426863849-c21f53c60b20?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1949,9 +1940,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 60,
     buyingPrice: 240,
     imageUrl:
-      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -1981,9 +1972,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 61,
     buyingPrice: 110,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581925-860bda6a26e0?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581925-860bda6a26e0?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2013,13 +2004,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 62,
     buyingPrice: 160,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584515979957-d9f6e5d09983?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584515979957-d9f6e5d09983?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- DIAPERING & POTTY (12 Items) ---------------- */
   {
     slug: "fc-pampers-premium-care-pants-m-74",
     name: "Pampers Premium Care Diaper Pants (Size M, 7-12kg, 74 Count)",
@@ -2047,9 +2036,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 63,
     buyingPrice: 850,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724685-38269d6639fe?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724685-38269d6639fe?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2079,9 +2068,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 64,
     buyingPrice: 720,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584017911767-d451b3d0e844?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584017911767-d451b3d0e844?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2111,9 +2100,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 65,
     buyingPrice: 560,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947215260-38e31be87520?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947215260-38e31be87520?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2143,9 +2132,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 66,
     buyingPrice: 550,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2175,9 +2164,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 67,
     buyingPrice: 220,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2207,9 +2196,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 68,
     buyingPrice: 590,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607006314176-9c94178a9c40?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607006314176-9c94178a9c40?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2239,9 +2228,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 69,
     buyingPrice: 480,
     imageUrl:
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544816155-12df9643f364?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544816155-12df9643f364?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2271,9 +2260,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 70,
     buyingPrice: 260,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517486808907-6ca8b3f04847?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517486808907-6ca8b3f04847?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2303,9 +2292,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 71,
     buyingPrice: 320,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515488042362-ee00e0ddd4e5?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515488042362-ee00e0ddd4e5?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2335,9 +2324,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 72,
     buyingPrice: 380,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1522771930-78848d9293e9?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1522771930-78848d9293e9?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2367,9 +2356,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 73,
     buyingPrice: 420,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544816155-12df9643f365?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544816155-12df9643f365?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2399,13 +2388,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 74,
     buyingPrice: 1100,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503919545890-aef636e10ad5?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503919545890-aef636e10ad5?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- TRAVEL GEAR & STROLLERS (10 Items) ---------------- */
   {
     slug: "fc-r-for-rabbit-pocket-air-stroller",
     name: "R for Rabbit Pocket Stroller Lite Compact Auto-Fold Cabin Approved Pram",
@@ -2433,9 +2420,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 75,
     buyingPrice: 4600,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df0?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df0?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2465,9 +2452,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 76,
     buyingPrice: 9800,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519238263531-99bdd11df2eb?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519238263531-99bdd11df2eb?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2497,9 +2484,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 77,
     buyingPrice: 5800,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666745-24d5c474f2af?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1584308666745-24d5c474f2af?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2529,9 +2516,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 78,
     buyingPrice: 1450,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1556228720-195a672e8a04?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1556228720-195a672e8a04?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2561,9 +2548,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 79,
     buyingPrice: 1100,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581926-860bda6a26e1?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1583947581926-860bda6a26e1?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2593,9 +2580,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 80,
     buyingPrice: 3200,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724686-38269d6639ff?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1585771724686-38269d6639ff?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2625,9 +2612,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 81,
     buyingPrice: 1350,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519689680059-324335c77ebb?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1519689680059-324335c77ebb?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2657,9 +2644,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 82,
     buyingPrice: 2850,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503919545891-aef636e10ad6?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503919545891-aef636e10ad6?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2689,9 +2676,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 83,
     buyingPrice: 2400,
     imageUrl:
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1502086223502-7ea6ecd79369?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1502086223502-7ea6ecd79369?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2721,13 +2708,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 84,
     buyingPrice: 980,
     imageUrl:
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5137?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544717305-2782549b5137?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- BATH & HEALTHCARE (8 Items) ---------------- */
   {
     slug: "fc-babyhug-foldable-silicone-bathtub",
     name: "Babyhug Splash Space-Saving Collapsible Baby Bathtub with Heat Sensor Plug",
@@ -2755,9 +2740,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 85,
     buyingPrice: 1190,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1516627145498-ae6968895b75?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1516627145498-ae6968895b75?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2787,9 +2772,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 86,
     buyingPrice: 510,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1518831959647-742c3a14ebf8?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1518831959647-742c3a14ebf8?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2819,9 +2804,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 87,
     buyingPrice: 420,
     imageUrl:
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1508214751197-bcfd4ca60f92?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1508214751197-bcfd4ca60f92?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2851,9 +2836,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 88,
     buyingPrice: 140,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df1?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df1?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2883,9 +2868,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 89,
     buyingPrice: 210,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543332164-6e82f355badd?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228722-d0b5d034abf2?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543332164-6e82f355badd?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2915,9 +2900,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 90,
     buyingPrice: 170,
     imageUrl:
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513151233559-d860c5398177?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1513151233559-d860c5398177?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2947,9 +2932,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 91,
     buyingPrice: 240,
     imageUrl:
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -2979,13 +2964,11 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 92,
     buyingPrice: 310,
     imageUrl:
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=800&auto=format&fit=crop&q=80",
     ],
   },
-
-  /* ---------------- FOOTWEAR & SHOES (8 Items) ---------------- */
   {
     slug: "fc-babyhug-prewalker-soft-sole-booties",
     name: "Babyhug Anti-Slip Soft Sole Newborn Pre-Walker Crib Shoes (Camel Brown)",
@@ -3013,9 +2996,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 93,
     buyingPrice: 250,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3045,9 +3028,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 94,
     buyingPrice: 1100,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3077,9 +3060,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 95,
     buyingPrice: 650,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3109,9 +3092,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 96,
     buyingPrice: 470,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3141,9 +3124,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 97,
     buyingPrice: 380,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3173,9 +3156,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 98,
     buyingPrice: 220,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3205,9 +3188,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 99,
     buyingPrice: 190,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df2?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555252333-9f8e92e65df2?w=800&auto=format&fit=crop&q=80",
     ],
   },
   {
@@ -3237,9 +3220,9 @@ export const FIRSTCRY_100_PRODUCTS: FirstCryProductSeed[] = [
     sortOrder: 100,
     buyingPrice: 160,
     imageUrl:
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1507652313519-d4e9174996de?w=800&auto=format&fit=crop&q=80",
     images: [
-      "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1507652313519-d4e9174996de?w=800&auto=format&fit=crop&q=80",
     ],
   },
 ];
@@ -3298,7 +3281,10 @@ export const FIRSTCRY_CATEGORIES = [
 export const FIRSTCRY_IMAGE_MAP: Record<string, { imageUrl: string; images: string[] }> =
   FIRSTCRY_100_PRODUCTS.reduce(
     (acc, p) => {
-      acc[p.slug] = { imageUrl: p.imageUrl, images: p.images };
+      const entry = { imageUrl: p.imageUrl, images: p.images };
+      if (p.slug) acc[p.slug] = entry;
+      if (p.sku) acc[p.sku] = entry;
+      if (p.name) acc[p.name.toLowerCase().trim()] = entry;
       return acc;
     },
     {} as Record<string, { imageUrl: string; images: string[] }>,

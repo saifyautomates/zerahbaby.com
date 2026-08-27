@@ -7,22 +7,23 @@ import toys from "@/assets/cat-toys.jpg";
 import care from "@/assets/cat-care.jpg";
 import gear from "@/assets/cat-gear.jpg";
 
-export const fallbackImages: Record<string, string> = {
-  clothing,
-  toys,
-  care,
-  gear,
-  feeding:
-    "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
-  diapering:
-    "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
-  bath: "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
-  footwear:
-    "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
-};
+import {
+  resolveProductMedia,
+  generateProductFallbackSvg,
+  CATEGORY_FALLBACK_IMAGES as fallbackImages,
+} from "@/lib/product-media";
 
-export const imageFor = (category: string, url?: string | null) =>
-  url && url.trim().length > 0 ? url : (fallbackImages[category] ?? fallbackImages.clothing);
+export { fallbackImages };
+
+export const imageFor = (
+  category: string,
+  url?: string | null,
+  product?: { name?: string; slug?: string; sku?: string },
+) => {
+  if (url && url.trim().length > 0) return url;
+  if (product) return generateProductFallbackSvg({ ...product, category });
+  return fallbackImages[category] ?? fallbackImages.clothing;
+};
 
 export type Product = {
   uuid: string;
@@ -86,16 +87,14 @@ type ProductRow = {
 };
 
 export const mapProduct = (row: ProductRow): Product => {
-  const dbImages = row.product_images
-    ? [...row.product_images].sort((a, b) => a.sort_order - b.sort_order)
-    : [];
-  const primaryImage = dbImages.find((img) => img.is_primary) || dbImages[0];
-  const seedFallback = FIRSTCRY_IMAGE_MAP[row.slug];
-  const imageUrl = primaryImage ? primaryImage.public_url : seedFallback?.imageUrl || null;
-  const imageList =
-    dbImages.length > 0
-      ? dbImages.map((img) => img.public_url)
-      : seedFallback?.images || (imageUrl ? [imageUrl] : []);
+  const media = resolveProductMedia({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    sku: row.sku,
+    category: row.category,
+    product_images: row.product_images,
+  });
 
   return {
     uuid: row.id,
@@ -108,8 +107,8 @@ export const mapProduct = (row: ProductRow): Product => {
     rating: Number(row.rating),
     reviews: row.reviews,
     ageGroup: row.age_group,
-    image: imageFor(row.category, imageUrl),
-    imageUrl,
+    image: media.primaryImage,
+    imageUrl: media.imageUrl,
     description: row.description,
     highlights: row.highlights ?? [],
     isFeatured: row.is_featured,
@@ -119,7 +118,7 @@ export const mapProduct = (row: ProductRow): Product => {
     lowStockAt: row.low_stock_at ?? 5,
     sku: row.sku ?? "",
     barcode: row.barcode ?? "",
-    images: imageList,
+    images: media.gallery,
     deliveryFee:
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
   };

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/orders";
@@ -559,6 +559,13 @@ function CheckoutPage() {
                     src={product.image}
                     alt={product.name}
                     loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = imageFor(
+                        product.category,
+                        null,
+                        product,
+                      );
+                    }}
                     className="w-full h-full object-cover object-center"
                   />
                 </div>

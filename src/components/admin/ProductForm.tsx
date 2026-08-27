@@ -25,6 +25,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
+import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
@@ -371,7 +372,11 @@ export function ProductForm({
                         loading="lazy"
                         className="size-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.opacity = "0";
+                          (e.target as HTMLImageElement).src = generateProductFallbackSvg({
+                            name: draft.name,
+                            category: draft.category,
+                            slug: draft.slug,
+                          });
                         }}
                       />
                     )}

@@ -1597,21 +1597,41 @@ function ProductsTab() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3.5">
-                        <img
-                          src={p.image}
-                          alt=""
-                          loading="lazy"
-                          width={48}
-                          height={48}
-                          className="size-12 shrink-0 rounded-xl border border-border/80 object-cover shadow-2xs transition-transform group-hover:scale-105"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.opacity = "0";
-                          }}
-                        />
+                        <Link
+                          to="/product/$id"
+                          params={{ id: p.id || p.uuid }}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="relative group/thumb block size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-2xs transition-transform hover:scale-105"
+                          title="Open product on storefront (new tab)"
+                        >
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            loading="lazy"
+                            width={48}
+                            height={48}
+                            className="size-full object-cover transition-opacity duration-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = imageFor(p.category, null, p);
+                            }}
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/thumb:opacity-100 text-white">
+                            <ExternalLink className="size-3.5" />
+                          </span>
+                        </Link>
                         <div className="max-w-[280px]">
-                          <p className="font-semibold text-foreground line-clamp-1" title={p.name}>
-                            {p.name}
-                          </p>
+                          <Link
+                            to="/product/$id"
+                            params={{ id: p.id || p.uuid }}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-foreground line-clamp-1 hover:text-primary transition-colors flex items-center gap-1 group/name"
+                            title={`Open ${p.name} on storefront`}
+                          >
+                            <span>{p.name}</span>
+                            <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
+                          </Link>
                           <p className="text-xs font-medium text-muted-foreground mt-0.5">
                             {p.brand} <span className="opacity-50">•</span> {p.id}
                           </p>
@@ -3396,7 +3416,7 @@ function InventoryRow({
             height={48}
             className="size-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = imageFor(product.category, null);
+              (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
             }}
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
