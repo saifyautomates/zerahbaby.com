@@ -23,10 +23,10 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { order_id, event_type, phone, name } = payload;
+    const { order_id, offline_sale_id, event_type, phone, name } = payload;
 
-    if (!order_id || !event_type || !phone) {
-      throw new Error("Missing required fields (order_id, event_type, phone)");
+    if ((!order_id && !offline_sale_id) || !event_type || !phone) {
+      throw new Error("Missing required fields (order_id or offline_sale_id, event_type, phone)");
     }
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
@@ -67,7 +67,7 @@ serve(async (req) => {
             {
               mobiles: cleanPhone,
               name: name || "Customer",
-              order_id: order_id.substring(0, 8), // Provide a short, readable order ID for SMS
+              order_id: (order_id || offline_sale_id).substring(0, 8), // Provide a short, readable order ID for SMS
             },
           ],
         };
@@ -99,13 +99,20 @@ serve(async (req) => {
     }
 
     // Log the outcome to our sms_logs table
-    await adminClient.from("sms_logs").insert({
-      order_id: order_id,
+    const logData: Record<string, any> = {
       phone: phone,
       message_type: event_type,
       provider_status: providerStatus,
       error_details: errorDetails,
-    });
+    };
+    
+    if (order_id) {
+      logData.order_id = order_id;
+    } else if (offline_sale_id) {
+      logData.offline_sale_id = offline_sale_id;
+    }
+
+    await adminClient.from("sms_logs").insert(logData);
 
     return new Response(JSON.stringify({ success: true, providerStatus }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

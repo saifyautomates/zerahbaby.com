@@ -12,6 +12,7 @@ import {
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { formatPrice } from "@/lib/store";
+import { useOfflineSaleHistory, type OfflineSale } from "@/lib/pos";
 import {
   useCreateShiprocketShipment,
   useGenerateShiprocketAWB,
@@ -32,7 +33,10 @@ import {
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
-  const { data, isLoading } = useAllOrders(true);
+  const { data: onlineData, isLoading: onlineLoading } = useAllOrders(true);
+  const { data: offlineData, isLoading: offlineLoading } = useOfflineSaleHistory();
+  const isLoading = onlineLoading || offlineLoading;
+
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
@@ -70,7 +74,8 @@ export function OnlineSalesTab() {
   }
 
   // Filter out POS orders (historical)
-  const onlineOrdersData = (data ?? []).filter((o) => o.notes !== "POS Order");
+  const onlineOrdersData = (onlineData ?? []).filter((o) => o.notes !== "POS Order");
+  const offlineOrdersData = (offlineData ?? []);
 
   // Helper to test if an order was placed within the last 24 hours
   const isWithinLast24Hours = (createdAt: string) => {
@@ -79,19 +84,24 @@ export function OnlineSalesTab() {
     return !isNaN(orderTime) && now - orderTime <= 24 * 60 * 60 * 1000;
   };
 
-  const newOrders24hCount = onlineOrdersData.filter((o) =>
-    isWithinLast24Hours(o.created_at),
-  ).length;
+  const newOrders24hCount = 
+    onlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length + 
+    offlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length;
 
-  const orders = onlineOrdersData.filter((o) => {
+  type UnifiedTransaction = any;
+
+  const allData: UnifiedTransaction[] = [...onlineOrdersData.map(o => ({...o, _type: "online" as const})), ...offlineOrdersData.map(o => ({...o, _type: "offline" as const}))].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const orders = allData.filter((o) => {
     if (filter === "new_orders") {
       return isWithinLast24Hours(o.created_at);
     }
     if (filter === "all") return true;
+    if (o._type === "offline" && filter === "completed") return o.status === "completed";
     return o.status === filter;
   });
 
-  const revenue = onlineOrdersData
+  const revenue = allData
     .filter((o) => o.status !== "cancelled")
     .reduce((sum, o) => sum + Number(o.total), 0);
 
@@ -127,16 +137,16 @@ export function OnlineSalesTab() {
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Total Online Orders
+            Total Transactions
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
-            {onlineOrdersData.length}
+            {allData.length}
           </p>
         </div>
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Online Revenue
+            Total Revenue
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-[#8B2020]">
             {formatPrice(revenue)}
@@ -206,20 +216,20 @@ export function OnlineSalesTab() {
         </div>
         <p className="text-xs font-medium text-muted-foreground">
           Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
-          of {orders.length} online orders
+          of {orders.length} transactions
           {filter === "new_orders" && " (placed in last 24 hours)"}
         </p>
       </div>
 
       {isLoading && (
-        <div className="py-12 text-center text-sm text-gray-400">Loading online orders…</div>
+        <div className="py-12 text-center text-sm text-gray-400">Loading transactions…</div>
       )}
 
       {!isLoading && orders.length === 0 && (
         <div className="rounded-3xl border border-dashed border-border p-12 text-center">
-          <p className="text-sm font-semibold text-muted-foreground">No online orders found</p>
+          <p className="text-sm font-semibold text-muted-foreground">No transactions found</p>
           <p className="mt-1 text-xs text-gray-400">
-            Online customer checkout orders will appear here automatically.
+            Online and POS transactions will appear here automatically.
           </p>
         </div>
       )}
@@ -234,12 +244,17 @@ export function OnlineSalesTab() {
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="font-mono text-sm font-bold text-foreground">
-                    #{order.id.slice(0, 8).toUpperCase()}
+                    {order._type === "offline" ? (order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`) : `#${order.id.slice(0, 8).toUpperCase()}`}
                   </span>
                   <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
                     {order.status}
                   </span>
-                  {order.payment_status && (
+                  {order._type === "offline" && (
+                    <span className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 text-xs font-semibold uppercase">
+                      POS / Walk-in
+                    </span>
+                  )}
+                  {order._type === "online" && order.payment_status && (
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
                         order.payment_status === "paid"
@@ -276,24 +291,32 @@ export function OnlineSalesTab() {
                 </p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-sm font-bold text-foreground">{order.full_name}</p>
+                    <p className="text-sm font-bold text-foreground">
+                      {order._type === "online" ? order.full_name : (order.customer_name || "Walk-in Customer")}
+                    </p>
                     <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                      {order.email}
+                      {order._type === "online" ? order.email : order.customer_email || "No email"}
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {order.phone}{" "}
-                      {order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
+                      {order._type === "online" ? order.phone : order.customer_phone || "No phone"}{" "}
+                      {order._type === "online" && order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
                     </p>
                   </div>
                   <div>
                     <p className="max-w-xs text-sm text-muted-foreground leading-relaxed">
-                      {order.address}
-                      {order.address_line2 ? `, ${order.address_line2}` : ""}
-                      {order.landmark ? `, near ${order.landmark}` : ""}
-                      <br />
-                      {[order.city, order.state, order.pincode].filter(Boolean).length
-                        ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
-                        : ""}
+                      {order._type === "online" ? (
+                        <>
+                          {order.address}
+                          {order.address_line2 ? `, ${order.address_line2}` : ""}
+                          {order.landmark ? `, near ${order.landmark}` : ""}
+                          <br />
+                          {[order.city, order.state, order.pincode].filter(Boolean).length
+                            ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
+                            : ""}
+                        </>
+                      ) : (
+                        "In-store purchase"
+                      )}
                     </p>
                   </div>
                 </div>
@@ -302,11 +325,11 @@ export function OnlineSalesTab() {
                   <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-800">
                     <p className="font-bold text-red-900">
                       Order Cancelled
-                      {order.cancelled_at &&
-                        ` on ${new Date(order.cancelled_at).toLocaleString("en-IN")}`}
+                      {(order as any).cancelled_at &&
+                        ` on ${new Date((order as any).cancelled_at || "").toLocaleString("en-IN")}`}
                     </p>
-                    {order.cancellation_reason && (
-                      <p className="mt-0.5">Reason: “{order.cancellation_reason}”</p>
+                    {(order as any).cancellation_reason && (
+                      <p className="mt-0.5">Reason: “{(order as any).cancellation_reason}”</p>
                     )}
                   </div>
                 )}
@@ -317,7 +340,7 @@ export function OnlineSalesTab() {
                   </div>
                 )}
                 <div className="mt-5 border-t border-gray-100 pt-5">
-                  <InvoiceBox order={order} />
+                  <InvoiceBox order={order as unknown as Order} />
                 </div>
               </div>
 
@@ -345,9 +368,9 @@ export function OnlineSalesTab() {
                 </select>
 
                 {/* Shiprocket Actions */}
-                {order.payment_status === "paid" && order.status !== "cancelled" && (
+                {(order as any).payment_status === "paid" && order.status !== "cancelled" && (
                   <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
-                    {!order.shiprocket_order_id ? (
+                    {!(order as any).shiprocket_order_id ? (
                       <button
                         type="button"
                         onClick={() => createShipment.mutate(order.id)}
@@ -361,7 +384,7 @@ export function OnlineSalesTab() {
                         )}
                         Push to Shiprocket
                       </button>
-                    ) : !order.awb_code ? (
+                    ) : !(order as any).awb_code ? (
                       <button
                         type="button"
                         onClick={() => generateAwb.mutate(order.id)}
@@ -375,9 +398,9 @@ export function OnlineSalesTab() {
                         )}
                         Generate AWB
                       </button>
-                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
-                      order.shiprocket_status !== "SHIPPED" &&
-                      order.shiprocket_status !== "DELIVERED" ? (
+                    ) : (order as any).shiprocket_status !== "PICKUP_SCHEDULED" &&
+                      (order as any).shiprocket_status !== "SHIPPED" &&
+                      (order as any).shiprocket_status !== "DELIVERED" ? (
                       <button
                         type="button"
                         onClick={() => requestPickup.mutate(order.id)}
@@ -396,12 +419,12 @@ export function OnlineSalesTab() {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">
                           Shiprocket AWB
                         </p>
-                        <p className="text-xs font-bold text-foreground mt-0.5">{order.awb_code}</p>
+                        <p className="text-xs font-bold text-foreground mt-0.5">{(order as any).awb_code}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {order.courier_name}
+                          {(order as any).courier_name}
                         </p>
                         <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
-                          {order.shiprocket_status}
+                          {(order as any).shiprocket_status}
                         </p>
                       </div>
                     )}
@@ -412,7 +435,7 @@ export function OnlineSalesTab() {
                 {order.status === "cancelled" && (
                   <button
                     type="button"
-                    onClick={() => setOrderToDelete(order)}
+                    onClick={() => setOrderToDelete(order as unknown as Order)}
                     className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm"
                   >
                     <Trash2 className="size-3.5" />
