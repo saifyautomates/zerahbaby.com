@@ -1,15 +1,7 @@
 -- ============================================================
--- FIX: DROP AMBIGUOUS PLACE_ORDER OVERLOADS & DEFINE CANONICAL RPC
+-- FIX: CANONICAL PLACE_ORDER WITH ACCURATE PRODUCT_IMAGES COLUMNS
 -- ============================================================
 
--- 1. Drop all prior overloads to eliminate ambiguity permanently
-DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, text, text, text, text, text, text, jsonb);
-DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, text, text, text, text, text, jsonb, text);
-DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, text, text, text, text, text, jsonb);
-DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, text, text, text, text, text, text, jsonb);
-DROP FUNCTION IF EXISTS public.place_order;
-
--- 2. Create the canonical place_order function with explicit named parameters & robust logic
 CREATE OR REPLACE FUNCTION public.place_order(
   _full_name text,
   _email text,
