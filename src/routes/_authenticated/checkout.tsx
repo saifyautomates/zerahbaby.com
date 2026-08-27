@@ -317,7 +317,16 @@ function CheckoutPage() {
             modal: {
               ondismiss: async () => {
                 setSubmitting(false);
-                toast.error("Payment window closed. You can retry payment anytime.");
+                try {
+                  await (
+                    supabase as unknown as {
+                      rpc: (name: string, args: { order_id: string }) => Promise<void>;
+                    }
+                  ).rpc("cancel_abandoned_order", { order_id: orderId });
+                } catch (cancelErr) {
+                  console.warn("[Checkout] Failed to cancel abandoned order:", cancelErr);
+                }
+                toast.error("Payment window closed. Your order has been cancelled. Please place a new order if you wish to try again.");
               },
             },
             theme: {
