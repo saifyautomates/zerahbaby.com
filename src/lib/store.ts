@@ -50,6 +50,7 @@ export type Product = {
   images: string[];
   buyingPrice?: number;
   deliveryFee?: number;
+  recommendationMode?: "manual" | "auto" | "manual_fallback";
 };
 
 export type Category = {
@@ -84,6 +85,7 @@ type ProductRow = {
   barcode?: string | null;
   delivery_fee?: number | null;
   product_images?: { public_url: string; is_primary: boolean; sort_order: number }[] | null;
+  recommendation_mode?: string;
 };
 
 export const mapProduct = (row: ProductRow): Product => {
@@ -121,6 +123,7 @@ export const mapProduct = (row: ProductRow): Product => {
     images: media.gallery,
     deliveryFee:
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
+    recommendationMode: (row.recommendation_mode as any) ?? "manual_fallback",
   };
 };
 

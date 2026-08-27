@@ -145,18 +145,27 @@ function ProductPage() {
     setIsZooming(false);
   }, [id]);
 
+  const { data: swatchesData } = useQuery({
+    queryKey: ["product-relations", product?.uuid],
+    queryFn: async () => {
+      if (!product?.uuid) return [];
+      const { data, error } = await supabase.rpc("get_related_products", {
+        p_product_id: product.uuid,
+        p_limit: 8,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product?.uuid,
+  });
+
   const swatches = useMemo(() => {
-    if (!product) return [];
-    return list
-      .filter(
-        (p) =>
-          p.id !== product.id &&
-          p.uuid !== product.uuid &&
-          (p.category.toLowerCase() === product.category.toLowerCase() ||
-            p.brand.toLowerCase() === product.brand.toLowerCase()),
-      )
-      .slice(0, 6);
-  }, [list, product]);
+    if (!swatchesData || !list) return [];
+    const idMap = new Map(list.map((p) => [p.uuid, p]));
+    return swatchesData
+      .map((d: any) => idMap.get(d.id))
+      .filter(Boolean) as Product[];
+  }, [swatchesData, list]);
 
   const addToCartRef = useRef<HTMLDivElement>(null);
   const [isStickyVisible, setIsStickyVisible] = useState(false);

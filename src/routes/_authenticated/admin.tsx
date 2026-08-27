@@ -891,6 +891,7 @@ function ProductsTab() {
         is_featured: draft.isFeatured,
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
+        recommendation_mode: draft.recommendationMode,
       };
 
       if (!uuid) {
@@ -1001,6 +1002,15 @@ function ProductsTab() {
               { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
               { onConflict: "key" },
             );
+        }
+
+        // Sync Product Relations
+        if (draft.relatedProductIds) {
+          const { error: relError } = await supabase.rpc("sync_product_relations", {
+            p_product_id: productId,
+            p_related_ids: draft.relatedProductIds,
+          });
+          if (relError) throw relError;
         }
       }
     },

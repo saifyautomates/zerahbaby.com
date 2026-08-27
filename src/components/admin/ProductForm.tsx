@@ -29,6 +29,7 @@ import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ProductDraft = {
   slug: string;
@@ -53,6 +54,8 @@ export type ProductDraft = {
   isActive: boolean;
   sortOrder: number;
   buyingPrice: number;
+  recommendationMode: "manual" | "auto" | "manual_fallback";
+  relatedProductIds: string[];
 };
 
 const CATEGORY_PREFIXES: Record<string, string> = {
@@ -97,6 +100,8 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   isActive: p?.isActive ?? true,
   sortOrder: p?.sortOrder ?? 0,
   buyingPrice: p?.buyingPrice ?? 0,
+  recommendationMode: p?.recommendationMode ?? "manual_fallback",
+  relatedProductIds: [], // Will be hydrated by useEffect if editing
 });
 
 const input =
@@ -118,6 +123,26 @@ export function ProductForm({
   defaultCategory?: string;
 }) {
   const [draft, setDraft] = useState<ProductDraft>(toDraft(product, defaultCategory));
+
+  useEffect(() => {
+    async function loadRelated() {
+      if (!product?.uuid) return;
+      try {
+        const { data, error } = await supabase.rpc("get_related_products", {
+          p_product_id: product.uuid,
+          p_limit: 50,
+        });
+        if (error) throw error;
+        const manualIds = data
+          .filter((d: any) => d.relation_source === "manual")
+          .map((d: any) => d.id);
+        setDraft((prev) => ({ ...prev, relatedProductIds: manualIds }));
+      } catch (err) {
+        console.error("Failed to load related products:", err);
+      }
+    }
+    void loadRelated();
+  }, [product?.uuid]);
 
   const { data: categories } = useCategories();
   const { data: allProducts } = useProducts();
@@ -811,6 +836,76 @@ export function ProductForm({
                 onChange={(e) => set("highlights", e.target.value)}
               />
             </label>
+
+            {/* MERCHANDISING / RELATED PRODUCTS SECTION */}
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-amber-50/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Tag className="size-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Merchandising / "More in this Style"
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold">
+                  Recommendation Logic
+                  <select
+                    className={input}
+                    value={draft.recommendationMode}
+                    onChange={(e) => set("recommendationMode", e.target.value as any)}
+                  >
+                    <option value="manual_fallback">Admin Selected + Auto Fallback (Recommended)</option>
+                    <option value="manual">Admin Selected ONLY (Strict)</option>
+                    <option value="auto">Auto Match ONLY (Same Category/Brand)</option>
+                  </select>
+                </label>
+
+                {draft.recommendationMode !== "auto" && (
+                  <label className="block text-sm font-semibold">
+                    Manually Selected Related Products
+                    <div className="text-[11px] font-normal text-muted-foreground mb-2">
+                      Select products that should appear in the "More in this style" section. Relationships are automatically bidirectional.
+                    </div>
+                    
+                    <div className="border border-border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
+                      {(allProducts || []).filter((p) => p.id !== draft.slug).map((p) => (
+                        <label
+                          key={p.id}
+                          className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
+                        >
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-[var(--primary)]"
+                            checked={draft.relatedProductIds.includes(p.uuid)}
+                            onChange={(e) => {
+                              const newIds = e.target.checked
+                                ? [...draft.relatedProductIds, p.uuid]
+                                : draft.relatedProductIds.filter((id) => id !== p.uuid);
+                              set("relatedProductIds", newIds);
+                            }}
+                          />
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} className="size-8 rounded-md object-cover" />
+                          ) : (
+                            <div className="size-8 rounded-md bg-muted" />
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{p.name}</span>
+                            <span className="text-xs text-muted-foreground">{p.sku} • {p.category}</span>
+                          </div>
+                        </label>
+                      ))}
+                      {allProducts?.length === 1 && (
+                        <div className="p-4 text-sm text-center text-muted-foreground">
+                          No other products available yet.
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
+            </div>
+
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input
                 type="checkbox"
