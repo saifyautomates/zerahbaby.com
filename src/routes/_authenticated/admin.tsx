@@ -706,7 +706,7 @@ function AdminPage() {
               {tab === "orders" && <OnlineSalesTab />}
               {tab === "customers" && <CustomersTab />}
               {tab === "categories" && <CategoriesTab />}
-              {tab === "inventory" && <InventoryTab />}
+              {tab === "inventory" && <InventoryTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "marketing" && <MarketingTab />}
               {tab === "settings" && <SettingsTab />}
               {tab === "sms" && <SMSLogsTab />}
@@ -3159,22 +3159,47 @@ function ReviewsTab() {
 }
 
 /* ---------------- Inventory ---------------- */
-function InventoryTab() {
+function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [search, setSearch] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["inventory-products"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, slug, name, brand, category, stock, low_stock_at, sku, is_active, product_images(public_url, is_primary, sort_order)",
-        )
-        .order("stock", { ascending: true });
-      if (error) throw error;
-      return data;
+      const [productsRes, settingsRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select("*, product_images(public_url, is_primary, sort_order)")
+          .order("stock", { ascending: true }),
+        supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "product_delivery_fees")
+          .maybeSingle(),
+      ]);
+
+      if (productsRes.error) throw productsRes.error;
+
+      let deliveryFees: Record<string, number> = {};
+      if (settingsRes.data?.value) {
+        try {
+          deliveryFees = JSON.parse(settingsRes.data.value);
+        } catch {
+          deliveryFees = {};
+        }
+      }
+
+      return (productsRes.data || []).map((r) => {
+        const prod = mapProduct(r as never);
+        if (deliveryFees[prod.uuid] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.uuid];
+        } else if (deliveryFees[prod.id] !== undefined) {
+          prod.deliveryFee = deliveryFees[prod.id];
+        }
+        return prod;
+      });
     },
   });
 
@@ -3193,31 +3218,42 @@ function InventoryTab() {
   });
 
   const totalSKUs = products.length;
-  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.low_stock_at).length;
+  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.lowStockAt).length;
   const outOfStock = products.filter((p) => p.stock === 0).length;
 
   const filtered = products.filter((p) => {
-    if (filter === "low") return p.stock > 0 && p.stock <= p.low_stock_at;
-    if (filter === "out") return p.stock === 0;
+    if (filter === "low" && !(p.stock > 0 && p.stock <= p.lowStockAt)) return false;
+    if (filter === "out" && p.stock !== 0) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.brand.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.barcode.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Total SKUs
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalSKUs}</p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Low Stock
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600">{lowStock}</p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-border">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Out of Stock
           </p>
@@ -3225,56 +3261,76 @@ function InventoryTab() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {(["all", "low", "out"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-xl border px-4 py-2 text-xs font-semibold capitalize transition-all ${
-              filter === f
-                ? "border-[#8B2020] bg-red-50 text-[#8B2020] shadow-sm"
-                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : "All"}
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex gap-2">
+          {(["all", "low", "out"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-xl border px-4 py-2 text-xs font-semibold capitalize transition-all cursor-pointer ${
+                filter === f
+                  ? "border-[#8B2020] bg-red-50 text-[#8B2020] shadow-xs"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : "All Products"}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search inventory by name, SKU..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary shadow-2xs"
+          />
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-card shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-muted-foreground">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-gray-100">
+          <table className="w-full text-left text-sm whitespace-nowrap text-muted-foreground">
+            <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-6 py-4 font-semibold tracking-wider w-16">Image</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Product</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">SKU</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">SKU / Barcode</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Category</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Price</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Delivery</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Stock</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Threshold</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
+                <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                    Loading...
+                  <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <span>Loading inventory...</span>
+                    </div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                    No products found.
+                  <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
+                    No products found matching your filter.
                   </td>
                 </tr>
               ) : (
                 filtered.map((product) => (
                   <InventoryRow
-                    key={product.id}
+                    key={product.uuid || product.id}
                     product={product}
-                    onSave={(val) => updateStock.mutate({ id: product.id, stock: val })}
+                    onSave={(val) => updateStock.mutate({ id: product.uuid, stock: val })}
                     onImageClick={(url) => setSelectedImage(url)}
+                    onNavigate={onNavigate}
                   />
                 ))
               )}
@@ -3304,65 +3360,118 @@ function InventoryRow({
   product,
   onSave,
   onImageClick,
+  onNavigate,
 }: {
-  product: {
-    id: string;
-    slug: string;
-    name: string;
-    brand: string;
-    category: string;
-    stock: number;
-    low_stock_at: number;
-    sku: string | null;
-    is_active: boolean;
-    product_images?: Array<{ public_url: string; is_primary?: boolean; sort_order?: number }>;
-  };
+  product: Product;
   onSave: (val: number) => void;
   onImageClick?: (url: string) => void;
+  onNavigate?: (tab: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(product.stock);
 
   const isOut = product.stock === 0;
-  const isLow = product.stock > 0 && product.stock <= product.low_stock_at;
-
-  const primaryImgUrl =
-    product.product_images?.[0]?.public_url || FIRSTCRY_IMAGE_MAP[product.slug]?.imageUrl || null;
+  const isLow = product.stock > 0 && product.stock <= product.lowStockAt;
 
   return (
-    <tr className="hover:bg-muted/50 transition-colors">
+    <tr className="hover:bg-muted/50 transition-colors group">
+      {/* IMAGE */}
       <td className="px-6 py-4">
-        {primaryImgUrl ? (
-          <button
-            onClick={() => onImageClick?.(imageFor(product.category, primaryImgUrl))}
-            className="hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            <img
-              src={imageFor(product.category, primaryImgUrl)}
-              alt={product.name}
-              className="size-10 rounded-lg object-cover border border-border shadow-2xs"
-            />
-          </button>
-        ) : (
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground border border-border">
-            <Package className="size-5" />
+        <Link
+          to="/product/$id"
+          params={{ id: product.id || product.uuid }}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${product.name} on store`}
+          className="relative block group/thumb size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 shadow-2xs hover:scale-105 transition-transform"
+        >
+          <img
+            src={product.image}
+            alt={product.name}
+            loading="lazy"
+            width={48}
+            height={48}
+            className="size-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = imageFor(product.category, null);
+            }}
+          />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+            <ExternalLink className="size-3.5" />
+          </div>
+        </Link>
+      </td>
+
+      {/* PRODUCT NAME */}
+      <td className="px-6 py-4">
+        <Link
+          to="/product/$id"
+          params={{ id: product.id || product.uuid }}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${product.name} on store`}
+          className="font-semibold text-foreground hover:text-primary transition inline-flex items-center gap-1.5 group/link line-clamp-1 max-w-[280px]"
+        >
+          <span>{product.name}</span>
+          <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover/link:opacity-100 transition-opacity shrink-0" />
+        </Link>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          {product.brand} <span className="opacity-40">•</span> {product.id}
+        </div>
+      </td>
+
+      {/* SKU & BARCODE */}
+      <td className="px-6 py-4">
+        <div className="font-mono text-xs font-semibold text-foreground">{product.sku || "—"}</div>
+        {product.barcode && (
+          <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
+            {product.barcode}
           </div>
         )}
       </td>
+
+      {/* CATEGORY */}
       <td className="px-6 py-4">
-        <div className="font-semibold text-foreground">{product.name}</div>
-        <div className="text-xs text-gray-400">{product.brand}</div>
+        <span className="inline-flex rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold capitalize text-foreground">
+          {product.category}
+        </span>
       </td>
-      <td className="px-6 py-4 font-mono text-xs text-muted-foreground">{product.sku}</td>
-      <td className="px-6 py-4 text-muted-foreground">{product.category}</td>
+
+      {/* PRICE */}
+      <td className="px-6 py-4">
+        <div className="font-semibold text-foreground">{formatPrice(product.price)}</div>
+        {product.mrp > product.price && (
+          <div className="text-[10px] text-muted-foreground line-through">
+            MRP {formatPrice(product.mrp)}
+          </div>
+        )}
+      </td>
+
+      {/* DELIVERY */}
+      <td className="px-6 py-4">
+        {(product.deliveryFee ?? 79) === 0 ? (
+          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold shadow-2xs">
+            <Truck className="size-3" /> Free (₹0)
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2 py-0.5 rounded-full text-xs font-bold shadow-2xs">
+            <Truck className="size-3 text-muted-foreground" /> ₹{product.deliveryFee ?? 79}
+          </span>
+        )}
+      </td>
+
+      {/* STOCK (EDITABLE) */}
       <td className="px-6 py-4">
         {editing ? (
           <div className="flex items-center gap-2">
             <input
               type="number"
               min={0}
-              value={val}
-              onChange={(e) => setVal(Number(e.target.value))}
+              value={val === 0 ? "" : val}
+              placeholder="0"
+              onChange={(e) =>
+                setVal(e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   onSave(val);
@@ -3370,42 +3479,91 @@ function InventoryRow({
                 }
               }}
               autoFocus
-              className="w-16 rounded border border-border px-2 py-1 text-sm outline-none focus:border-[#8B2020] focus:ring-1 focus:ring-[#8B2020]"
+              className="w-18 rounded-lg border border-primary bg-background px-2.5 py-1 text-sm font-bold outline-none ring-2 ring-primary/20 shadow-xs"
             />
             <button
               onClick={() => {
                 onSave(val);
                 setEditing(false);
               }}
-              className="rounded bg-muted p-1 text-green-600 hover:bg-green-100"
+              className="rounded-lg bg-emerald-600 text-white p-1.5 hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+              title="Save Stock"
             >
-              ✓
+              <Check className="size-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                setVal(product.stock);
+                setEditing(false);
+              }}
+              className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted transition cursor-pointer"
+              title="Cancel"
+            >
+              <X className="size-3.5" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className={`font-semibold hover:underline ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-foreground"}`}
+            title="Click to edit stock"
+            className={`font-extrabold text-sm px-2.5 py-1 rounded-lg hover:bg-muted/80 transition cursor-pointer ${
+              isOut
+                ? "text-red-600 bg-red-50"
+                : isLow
+                  ? "text-amber-600 bg-amber-50"
+                  : "text-foreground"
+            }`}
           >
             {product.stock}
           </button>
         )}
       </td>
-      <td className="px-6 py-4 text-muted-foreground">{product.low_stock_at}</td>
+
+      {/* THRESHOLD */}
+      <td className="px-6 py-4 text-xs font-semibold text-muted-foreground">
+        {product.lowStockAt}
+      </td>
+
+      {/* STATUS */}
       <td className="px-6 py-4">
         {isOut ? (
-          <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2 py-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
+          <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
             Out of stock
           </span>
         ) : isLow ? (
-          <span className="inline-flex rounded-full bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] font-bold tracking-wider text-amber-600 uppercase">
+          <span className="inline-flex rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-amber-600 uppercase">
             Low stock
           </span>
         ) : (
-          <span className="inline-flex rounded-full bg-green-50 border border-green-200 px-2 py-1 text-[10px] font-bold tracking-wider text-green-600 uppercase">
+          <span className="inline-flex rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-emerald-700 uppercase">
             In stock
           </span>
         )}
+      </td>
+
+      {/* ACTIONS */}
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          <Link
+            to="/product/$id"
+            params={{ id: product.id || product.uuid }}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`View ${product.name} live in store`}
+            className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer shadow-2xs"
+          >
+            <ExternalLink className="size-3.5" />
+            <span>Open</span>
+          </Link>
+          <button
+            onClick={() => onNavigate?.("products")}
+            title="Edit in Products tab"
+            className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition cursor-pointer shadow-2xs"
+          >
+            <Pencil className="size-3.5" />
+            <span>Edit</span>
+          </button>
+        </div>
       </td>
     </tr>
   );
