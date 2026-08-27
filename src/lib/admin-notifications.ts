@@ -99,6 +99,22 @@ export function useAdminNotifications() {
     staleTime: 60_000,
   });
 
+  // 4. Fetch new customer queries (status = 'new')
+  const { data: rawQueries = [] } = useQuery({
+    queryKey: ["admin-notif-contact-messages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contact_messages")
+        .select("id, name, email, order_number, message, priority, created_at, status")
+        .eq("status", "new")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 15_000,
+  });
+
   // Combine and sort notifications
   const notifications = useMemo<AdminNotification[]>(() => {
     const list: AdminNotification[] = [];
@@ -175,12 +191,26 @@ export function useAdminNotifications() {
       });
     }
 
+    // Process Contact Inquiries
+    for (const q of rawQueries) {
+      list.push({
+        id: `query-${q.id}`,
+        type: "contact_message",
+        title: `Inquiry: ${q.name}`,
+        message: q.order_number ? `[Order #${q.order_number}] ${q.message}` : q.message,
+        timestamp: q.created_at,
+        tab: "queries",
+        read: readIds.has(`query-${q.id}`),
+        priority: q.priority === "urgent" || q.priority === "high" ? "high" : "normal",
+      });
+    }
+
     // Sort by unread first, then date descending
     return list.sort((a, b) => {
       if (a.read !== b.read) return a.read ? 1 : -1;
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
-  }, [rawOrders, rawLowStock, rawFailedLogs, readIds]);
+  }, [rawOrders, rawLowStock, rawFailedLogs, rawQueries, readIds]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -208,6 +238,7 @@ export function useAdminNotifications() {
     qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-low-stock"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-failed-emails"] });
+    qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
   }, [qc]);
 
   return {

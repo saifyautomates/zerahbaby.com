@@ -23,6 +23,7 @@ import {
   Scan,
   Megaphone,
   MessageSquare,
+  MessageSquareText,
   Search,
   Sun,
   Moon,
@@ -78,6 +79,9 @@ const CategoriesTab = lazy(() =>
 const SMSLogsTab = lazy(() =>
   import("@/components/admin/SMSLogsTab").then((m) => ({ default: m.SMSLogsTab })),
 );
+const QueriesTab = lazy(() =>
+  import("@/components/admin/QueriesTab").then((m) => ({ default: m.QueriesTab })),
+);
 const DashboardTab = lazy(() =>
   import("@/components/admin/DashboardTab").then((m) => ({ default: m.DashboardTab })),
 );
@@ -131,6 +135,7 @@ type Tab =
   | "inventory"
   | "marketing"
   | "sms"
+  | "queries"
   | "pages";
 
 function AdminPage() {
@@ -308,6 +313,19 @@ function AdminPage() {
     );
   }
 
+  const { data: newQueriesCount = 0 } = useQuery({
+    queryKey: ["admin-new-queries-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("contact_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new");
+      if (error) return 0;
+      return count ?? 0;
+    },
+    staleTime: 15_000,
+  });
+
   const NAVIGATION: Array<{ key: Tab; label: string; icon: typeof BarChart3; badge?: string }> = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "billing", label: "Offline Billing", icon: Settings2 },
@@ -326,6 +344,12 @@ function AdminPage() {
     { key: "hero", label: "Hero Media", icon: Images },
     { key: "media", label: "Media Library", icon: FolderOpen },
     { key: "sms", label: "SMS Logs", icon: MessageSquare },
+    {
+      key: "queries",
+      label: "Queries",
+      icon: MessageSquareText,
+      badge: newQueriesCount > 0 ? newQueriesCount.toString() : undefined,
+    },
     { key: "marketing", label: "Marketing", icon: Megaphone },
     { key: "pages", label: "Pages & Policies", icon: FileText },
     { key: "settings", label: "Settings", icon: Settings },
@@ -713,6 +737,7 @@ function AdminPage() {
               {tab === "pages" && <PagesPoliciesTab />}
               {tab === "settings" && <SettingsTab />}
               {tab === "sms" && <SMSLogsTab />}
+              {tab === "queries" && <QueriesTab onOpenOrder={(_ord) => setTab("orders")} />}
               {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
               {tab === "coupons" && <CouponsTab />}
               {tab === "reviews" && <ReviewsTab />}

@@ -538,6 +538,55 @@ function renderOfflineReturnEmail(
   return { subject, html };
 }
 
+function renderCustomerQueryEmail(
+  customerName: string,
+  customerEmail: string,
+  message: string,
+  orderNumber?: string,
+  queryId?: string,
+): { subject: string; html: string } {
+  const bodyContent = `
+    <div class="meta-box">
+      <div class="meta-row">
+        <span class="meta-label">Customer Name:</span>
+        <span class="meta-value">${escapeHtml(customerName)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Customer Email:</span>
+        <span class="meta-value"><a href="mailto:${escapeHtml(customerEmail)}" style="color:#8B2020; font-weight:600;">${escapeHtml(customerEmail)}</a></span>
+      </div>
+      ${
+        orderNumber
+          ? `<div class="meta-row">
+        <span class="meta-label">Order Reference:</span>
+        <span class="meta-value font-mono">#${escapeHtml(orderNumber)}</span>
+      </div>`
+          : ""
+      }
+      <div class="meta-row">
+        <span class="meta-label">Ticket ID:</span>
+        <span class="meta-value font-mono">${escapeHtml(queryId ? queryId.slice(0, 8).toUpperCase() : "NEW")}</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:700; margin:24px 0 10px 0; color:#334155;">Customer Message:</h3>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; font-size:13px; line-height:1.6; color:#0f172a; white-space:pre-wrap;">
+      ${escapeHtml(message)}
+    </div>
+
+    <div style="margin-top:24px; text-align:center;">
+      <a href="mailto:${escapeHtml(customerEmail)}?subject=${encodeURIComponent(`Re: Your inquiry at Zérah Baby & Kids [Ticket #${(queryId || "").slice(0, 8).toUpperCase()}]`)}" style="display:inline-block; background:#8B2020; color:#ffffff; font-size:13px; font-weight:700; padding:12px 24px; border-radius:999px; text-decoration:none;">
+        Reply to Customer
+      </a>
+    </div>
+  `;
+
+  const subject = `New Customer Inquiry — ${customerName}${orderNumber ? ` [Order #${orderNumber}]` : ""}`;
+  const html = getBaseLayout(subject, "Customer Inquiry", "#fef3c7", "#92400e", bodyContent);
+
+  return { subject, html };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main Edge Function Handler                                        */
 /* ------------------------------------------------------------------ */
@@ -566,7 +615,7 @@ serve(async (req) => {
     const payload = await req.json();
     const { type, order_id, sale_id, return_id, force_retry, recipient: customRecipient } = payload;
 
-    if (!type || !["offline_sale", "online_order", "offline_return", "test"].includes(type)) {
+    if (!type || !["offline_sale", "online_order", "offline_return", "customer_query", "test"].includes(type)) {
       return new Response(JSON.stringify({ error: "Invalid or missing notification type" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -767,6 +816,18 @@ serve(async (req) => {
       totalAmount = Number(retRecord.refund_amount);
 
       const rendered = renderOfflineReturnEmail(retRecord, items || []);
+      emailSubject = rendered.subject;
+      emailHtml = rendered.html;
+    } else if (type === "customer_query") {
+      const customerName = payload.customer_name || "Customer";
+      const customerEmail = payload.customer_email || "N/A";
+      const queryMessage = payload.message || "";
+      const orderNum = payload.order_number || "";
+      referenceId = payload.reference_id || `query_${Date.now()}`;
+      referenceNumber = `QUERY-${referenceId.slice(0, 8).toUpperCase()}`;
+      totalAmount = 0;
+
+      const rendered = renderCustomerQueryEmail(customerName, customerEmail, queryMessage, orderNum, referenceId);
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
     }

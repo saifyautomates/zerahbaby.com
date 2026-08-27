@@ -298,31 +298,52 @@ export type Database = {
       };
       contact_messages: {
         Row: {
+          admin_notes: string | null;
           created_at: string;
           email: string;
           handled: boolean;
           id: string;
+          idempotency_key: string | null;
           message: string;
           name: string;
           order_number: string | null;
+          phone: string | null;
+          priority: string;
+          resolved_at: string | null;
+          status: string;
+          updated_at: string;
         };
         Insert: {
+          admin_notes?: string | null;
           created_at?: string;
           email: string;
           handled?: boolean;
           id?: string;
+          idempotency_key?: string | null;
           message: string;
           name: string;
           order_number?: string | null;
+          phone?: string | null;
+          priority?: string;
+          resolved_at?: string | null;
+          status?: string;
+          updated_at?: string;
         };
         Update: {
+          admin_notes?: string | null;
           created_at?: string;
           email?: string;
           handled?: boolean;
           id?: string;
+          idempotency_key?: string | null;
           message?: string;
           name?: string;
           order_number?: string | null;
+          phone?: string | null;
+          priority?: string;
+          resolved_at?: string | null;
+          status?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

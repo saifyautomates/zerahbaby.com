@@ -96,6 +96,20 @@ const QUICK_NAV_ACTIONS: SearchResultItem[] = [
     tab: "settings",
   },
   {
+    id: "nav-queries",
+    category: "navigation",
+    title: "Customer Queries & Support",
+    subtitle: "Manage parent questions, messages, and order assistance",
+    tab: "queries",
+  },
+  {
+    id: "nav-sms",
+    category: "navigation",
+    title: "Transactional SMS Logs",
+    subtitle: "Audit delivery status of order and POS sale text messages",
+    tab: "sms",
+  },
+  {
     id: "nav-admins",
     category: "navigation",
     title: "Admin Access Controls",
