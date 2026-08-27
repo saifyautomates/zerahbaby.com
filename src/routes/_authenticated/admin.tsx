@@ -1784,7 +1784,7 @@ function SettingsTab() {
   const [values, setValues] = useState<Record<string, string> | null>(null);
   const [testingEmail, setTestingEmail] = useState(false);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["admin-settings"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1796,20 +1796,26 @@ function SettingsTab() {
     },
   });
 
-  const current = values ?? data ?? {};
+  const current = useMemo(() => {
+    return { ...DEFAULT_SETTINGS, ...(data ?? {}), ...(values ?? {}) };
+  }, [data, values]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const rows = Object.entries(current).map(([key, value]) => ({ key, value }));
+      const fullMerged = { ...current };
+      if (fullMerged.announcement !== undefined) {
+        fullMerged.announcement_enabled = fullMerged.announcement.trim() ? "true" : "false";
+      }
+      const rows = Object.entries(fullMerged).map(([key, value]) => ({ key, value }));
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Settings saved");
+      toast.success("All store settings saved & published successfully!");
       qc.invalidateQueries({ queryKey: ["admin-settings"] });
       qc.invalidateQueries({ queryKey: ["site_settings"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
   });
 
   async function onSendTestNotification() {
@@ -1833,29 +1839,28 @@ function SettingsTab() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8 pb-16">
       {/* ─── SALE NOTIFICATIONS CARD ──────────────────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
           <div>
-            <h3 className="font-display text-lg font-bold">Owner Sale Notifications</h3>
+            <h3 className="font-display text-lg font-bold text-foreground">Owner Sale Notifications</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Receive automatic email alerts on every offline POS sale &amp; online paid order via
-              Resend.
+              Receive automatic email alerts on every offline POS sale &amp; online paid order via Resend.
             </p>
           </div>
           <button
             type="button"
             onClick={onSendTestNotification}
             disabled={testingEmail}
-            className="rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer"
           >
             {testingEmail ? "Sending Test…" : "Send Test Email"}
           </button>
         </div>
 
         <div className="mt-5 space-y-4">
-          <label className="block">
+          <label className="block space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Recipient Email Address
             </span>
@@ -1864,13 +1869,13 @@ function SettingsTab() {
               value={current.owner_notification_email ?? ""}
               onChange={(e) => setValues({ ...current, owner_notification_email: e.target.value })}
               placeholder="e.g. owner@zerahkids.com"
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
             />
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer">
-              <span className="text-sm font-medium">Offline POS Sale Alerts</span>
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer hover:bg-muted/40 transition">
+              <span className="text-sm font-medium text-foreground">Offline POS Sale Alerts</span>
               <input
                 type="checkbox"
                 checked={current.owner_notify_offline_sales !== "false"}
@@ -1880,12 +1885,12 @@ function SettingsTab() {
                     owner_notify_offline_sales: e.target.checked ? "true" : "false",
                   })
                 }
-                className="size-4 accent-primary"
+                className="size-4 accent-primary cursor-pointer"
               />
             </label>
 
-            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer">
-              <span className="text-sm font-medium">Online Paid Order Alerts</span>
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer hover:bg-muted/40 transition">
+              <span className="text-sm font-medium text-foreground">Online Paid Order Alerts</span>
               <input
                 type="checkbox"
                 checked={current.owner_notify_online_sales !== "false"}
@@ -1895,7 +1900,7 @@ function SettingsTab() {
                     owner_notify_online_sales: e.target.checked ? "true" : "false",
                   })
                 }
-                className="size-4 accent-primary"
+                className="size-4 accent-primary cursor-pointer"
               />
             </label>
           </div>
@@ -1903,16 +1908,15 @@ function SettingsTab() {
       </div>
 
       {/* ─── MAINTENANCE MODE ─────────────────────────────────── */}
-      <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-6 shadow-sm">
+      <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="space-y-1">
             <h3 className="font-display text-lg font-bold text-destructive">Maintenance Mode</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              When enabled, the entire storefront is blocked with a maintenance screen. (Admins can
-              still access the site).
+            <p className="text-xs text-muted-foreground">
+              When enabled, the entire storefront is blocked with a friendly maintenance screen. (Admins can still access the site).
             </p>
           </div>
-          <label className="relative inline-flex cursor-pointer items-center">
+          <label className="relative inline-flex cursor-pointer items-center ml-4 shrink-0">
             <input
               type="checkbox"
               className="peer sr-only"
@@ -1924,7 +1928,7 @@ function SettingsTab() {
                 })
               }
             />
-            <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-destructive peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-destructive/30"></div>
+            <div className="peer h-7 w-12 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow-md after:transition-all after:content-[''] peer-checked:bg-destructive peer-checked:after:translate-x-5 peer-focus:outline-hidden peer-focus:ring-2 peer-focus:ring-destructive"></div>
           </label>
         </div>
       </div>
@@ -1932,9 +1936,9 @@ function SettingsTab() {
       {/* ─── PREMIUM STORE FEATURES ───────────────────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="border-b border-border pb-4">
-          <h3 className="font-display text-lg font-bold text-foreground">Premium Store Features</h3>
+          <h3 className="font-display text-lg font-bold text-foreground">Storefront Interactive Features</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Turn advanced storefront features ON or OFF globally.
+            Turn advanced storefront features ON or OFF globally with instant live effect.
           </p>
         </div>
 
@@ -1953,7 +1957,7 @@ function SettingsTab() {
             {
               key: "feature_size_guide",
               label: "Size Guide Drawer",
-              desc: "Slide-out measurement chart",
+              desc: "Slide-out measurement chart on product pages",
             },
             {
               key: "feature_image_magnifier",
@@ -1993,19 +1997,19 @@ function SettingsTab() {
                     [feat.key]: e.target.checked ? "true" : "false",
                   })
                 }
-                className="size-4 accent-primary ml-4 shrink-0"
+                className="size-4 accent-primary ml-4 shrink-0 cursor-pointer"
               />
             </label>
           ))}
         </div>
 
         <div className="mt-6 pt-5 border-t border-border">
-          <label className="block max-w-sm">
+          <label className="block max-w-sm space-y-1.5">
             <span className="text-sm font-bold text-foreground">
-              Dispatch Cutoff Hour (Urgency Timer)
+              Dispatch Cutoff Hour (Same-Day Dispatch Timer)
             </span>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              What time (24h format) does same-day dispatch end? (e.g., 14 = 2 PM).
+            <p className="text-xs text-muted-foreground">
+              What hour (24h format, e.g. 14 = 2:00 PM) does same-day order dispatch close?
             </p>
             <input
               type="number"
@@ -2015,54 +2019,77 @@ function SettingsTab() {
               onChange={(e) =>
                 setValues({ ...current, urgency_dispatch_cutoff_hour: e.target.value })
               }
-              className="mt-2 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
             />
           </label>
         </div>
       </div>
 
       {/* ─── GENERAL STORE SETTINGS & TEXT CONTROL ───────────────────────────── */}
-      <div className="space-y-4">
-        <h3 className="font-display text-lg font-bold">Storefront Text Content</h3>
-        <p className="text-xs text-muted-foreground pb-2">
-          Update the textual content across your storefront here. Changes sync instantly.
-        </p>
-        {Object.keys(SETTING_LABELS)
-          .filter(
-            (k) =>
-              !k.startsWith("owner_") && !k.startsWith("feature_") && !k.startsWith("urgency_"),
-          )
-          .map((key) => (
-            <div
-              key={key}
-              className="block border-b border-border/40 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0"
-            >
-              <label className="block">
-                <span className="text-sm font-semibold">{SETTING_LABELS[key] ?? key}</span>
-                {SETTING_DESCRIPTIONS[key] && (
-                  <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground">
-                    <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
-                    {SETTING_DESCRIPTIONS[key]}
-                  </p>
-                )}
-                <textarea
-                  rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
-                  value={current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")}
-                  onChange={(e) => setValues({ ...current, [key]: e.target.value })}
-                  className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </label>
-            </div>
-          ))}
-      </div>
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
+        <div className="border-b border-border pb-4">
+          <h3 className="font-display text-lg font-bold text-foreground">Storefront Text &amp; Branding Content</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Update the textual branding and details across your storefront. All updates sync in real time.
+          </p>
+        </div>
 
-      <button
-        onClick={() => save.mutate()}
-        disabled={save.isPending}
-        className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-      >
-        Save settings
-      </button>
+        {isLoading ? (
+          <div className="flex h-32 items-center justify-center">
+            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.keys(SETTING_LABELS)
+              .filter(
+                (k) =>
+                  !k.startsWith("owner_") && !k.startsWith("feature_") && !k.startsWith("urgency_"),
+              )
+              .map((key) => (
+                <div
+                  key={key}
+                  className="space-y-2 border-b border-border/40 pb-5 last:border-0 last:pb-0"
+                >
+                  <label className="block space-y-1">
+                    <span className="text-sm font-bold text-foreground">{SETTING_LABELS[key] ?? key}</span>
+                    {SETTING_DESCRIPTIONS[key] && (
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                        {SETTING_DESCRIPTIONS[key]}
+                      </p>
+                    )}
+                    <textarea
+                      rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
+                      value={current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")}
+                      onChange={(e) => setValues({ ...current, [key]: e.target.value })}
+                      className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+                    />
+                  </label>
+                </div>
+              ))}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-4 border-t border-border">
+          <button
+            type="button"
+            onClick={() => save.mutate()}
+            disabled={save.isPending}
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            {save.isPending ? (
+              <>
+                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                Saving All Settings...
+              </>
+            ) : (
+              <>
+                <Check className="size-4" /> Save &amp; Publish All Settings
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
