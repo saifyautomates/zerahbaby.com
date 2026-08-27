@@ -1,13 +1,9 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Sparkle, Truck, X } from "lucide-react";
+import { Sparkle, Truck } from "lucide-react";
 import { useSettings } from "@/lib/store";
-import { useAdminMode } from "@/lib/admin-mode";
 
 export function AnnouncementBanner() {
   const { settings, announcement } = useSettings();
-  const { isAdmin } = useAdminMode();
-  const [dismissed, setDismissed] = useState(false);
 
   const enabled = settings["announcement_enabled"] !== "false";
   const text = announcement?.trim();
@@ -15,8 +11,8 @@ export function AnnouncementBanner() {
   const textColor = settings["announcement_text_color"] || "#FFFFFF";
   const link = settings["announcement_link"]?.trim();
 
-  // If banner is disabled, empty, or dismissed, collapse completely (render nothing)
-  if (!enabled || !text || dismissed) {
+  // If banner is disabled or empty, render nothing
+  if (!enabled || !text) {
     return null;
   }
 
@@ -52,7 +48,7 @@ export function AnnouncementBanner() {
         </div>
       </div>
 
-      {/* Mobile Ultra-Slim Marquee (Single line, smooth continuous horizontal scroll, 0 line wrapping, only ~26px height!) */}
+      {/* Mobile Ultra-Slim Marquee */}
       <div
         className="flex flex-1 items-center justify-center overflow-hidden lg:hidden"
         aria-label="Announcement"
@@ -79,25 +75,8 @@ export function AnnouncementBanner() {
         </div>
       </div>
 
-      {/* Right spacer / Admin Dismiss button */}
-      <div className="hidden sm:flex flex-none lg:flex-1 items-center justify-end gap-2">
-        {/* Only allow admins to see the close button to dismiss the announcement */}
-        {isAdmin && (
-          <button
-            type="button"
-            aria-label="Dismiss announcement temporarily"
-            title="Dismiss announcement (Admin only)"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              setDismissed(true);
-            }}
-            className="flex size-4.5 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-75 cursor-pointer bg-black/15 text-white/90 hover:text-white"
-          >
-            <X className="size-3" />
-          </button>
-        )}
-      </div>
+      {/* Right spacer — banner can only be disabled from admin panel */}
+      <div className="hidden sm:flex flex-none lg:flex-1 items-center justify-end gap-2" />
     </div>
   );
 
