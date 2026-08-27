@@ -39,6 +39,7 @@ import {
   Archive,
   Check,
   MapPin,
+  ExternalLink,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -693,7 +694,7 @@ function AdminPage() {
               {tab === "customers" && <CustomersTab />}
               {tab === "categories" && <CategoriesTab />}
               {tab === "inventory" && <InventoryTab />}
-              {tab === "marketing" && <MarketingTab />}
+              {tab === "marketing" && <MarketingTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "settings" && <SettingsTab />}
               {tab === "sms" && <SMSLogsTab />}
               {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
@@ -3155,7 +3156,7 @@ function InventoryRow({
 }
 
 /* ---------------- Marketing ---------------- */
-function MarketingTab() {
+function MarketingTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     announcement: "",
@@ -3164,132 +3165,230 @@ function MarketingTab() {
     whatsapp_url: "",
   });
 
-  const { isLoading } = useQuery({
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const { data: settings = {}, isLoading } = useQuery({
     queryKey: ["site_settings"],
     queryFn: async () => {
       const { data, error } = await supabase.from("site_settings").select("key, value");
       if (error) throw error;
-      const map = Object.fromEntries(data.map((d: any) => [d.key, d.value]));
-      setForm((prev) => ({
-        ...prev,
-        announcement: map.announcement ?? "",
-        instagram_url: map.instagram_url ?? "",
-        facebook_url: map.facebook_url ?? "",
-        whatsapp_url: map.whatsapp_url ?? "",
-      }));
-      return map;
+      return Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
     },
   });
+
+  useEffect(() => {
+    if (!isLoading && settings && !hasLoaded) {
+      setForm({
+        announcement: settings["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
+        instagram_url: settings["instagram_url"] ?? "https://www.instagram.com/zerah_kids/",
+        facebook_url: settings["facebook_url"] ?? "",
+        whatsapp_url: settings["whatsapp_url"] ?? "",
+      });
+      setHasLoaded(true);
+    }
+  }, [settings, isLoading, hasLoaded]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const promises = Object.entries(form).map(([key, value]) =>
-        supabase.from("site_settings").upsert({ key, value }),
-      );
-      await Promise.all(promises);
+      const isAnnounceEmpty = !form.announcement.trim();
+      const rows = [
+        { key: "announcement", value: form.announcement.trim() },
+        { key: "announcement_enabled", value: isAnnounceEmpty ? "false" : "true" },
+        { key: "instagram_url", value: form.instagram_url.trim() },
+        { key: "facebook_url", value: form.facebook_url.trim() },
+        { key: "whatsapp_url", value: form.whatsapp_url.trim() },
+      ];
+
+      const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+      if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Marketing settings saved");
+      toast.success("Marketing & social settings saved successfully!");
       qc.invalidateQueries({ queryKey: ["site_settings"] });
+      qc.invalidateQueries({ queryKey: ["admin-settings"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
   });
 
+  const normalizeUrl = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+    if (trimmed.startsWith("wa.me/")) return `https://${trimmed}`;
+    if (/^\+?[0-9]{10,14}$/.test(trimmed.replace(/[\s-]/g, ""))) {
+      const cleanNum = trimmed.replace(/[^0-9]/g, "");
+      const fullNum = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
+      return `https://wa.me/${fullNum}`;
+    }
+    return `https://${trimmed}`;
+  };
+
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl space-y-6">
       <form
-        className="space-y-6 rounded-2xl border border-gray-100 bg-card p-6 shadow-sm sm:p-8"
+        className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8"
         onSubmit={(e) => {
           e.preventDefault();
           save.mutate();
         }}
       >
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Marketing & Links</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage your announcement bar and social media profiles.
-          </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Marketing & Social Profiles</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Manage your top announcement bar, Instagram, Facebook, and WhatsApp connections.
+            </p>
+          </div>
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("announcements")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition hover:bg-primary/20 cursor-pointer"
+            >
+              <Sparkles className="size-3.5" /> Full Announcement Designer
+            </button>
+          )}
         </div>
 
-        {isLoading ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">Loading settings...</div>
+        {isLoading && !hasLoaded ? (
+          <div className="flex h-40 items-center justify-center">
+            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
         ) : (
-          <div className="space-y-4">
-            <div className="block border-b border-border/40 pb-5">
-              <label className="block text-sm font-semibold text-foreground">
-                Announcement Bar
-                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
-                  Website ke sabse upar dikhne wali patti. Khali chhodne par yeh bar website se
-                  completely gayab ho jayegi.
-                </p>
+          <div className="space-y-6">
+            {/* Announcement Bar */}
+            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="marketing-announcement" className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Megaphone className="size-4 text-primary" /> Announcement Bar
+                </label>
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  {form.announcement.trim() ? "Active on site" : "Collapsed / Hidden"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Website ke sabse upar dikhne wali patti. Agar aap ise pura khali chhod denge ya clear karenge, toh yeh bar website se completely gayab ho jayegi.
+              </p>
 
-                <input
-                  value={form.announcement}
-                  onChange={(e) => setForm({ ...form, announcement: e.target.value })}
-                  placeholder="Free shipping on orders above ₹1499"
-                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-                />
-              </label>
+              <input
+                id="marketing-announcement"
+                type="text"
+                value={form.announcement}
+                onChange={(e) => setForm({ ...form, announcement: e.target.value })}
+                placeholder="e.g. Free delivery on orders above ₹999 · Easy 7-day returns"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+              />
             </div>
-            <div className="block border-b border-border/40 pb-5">
-              <label className="block text-sm font-semibold text-foreground">
-                Instagram URL
-                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
-                  Footer aur baki jagah par Instagram icon ka link yahan se badlega.
-                </p>
-                <input
-                  type="url"
-                  value={form.instagram_url}
-                  onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
-                  placeholder="https://instagram.com/zerahbaby"
-                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-                />
-              </label>
+
+            {/* Instagram URL */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="marketing-instagram" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Instagram Profile URL
+                </label>
+                {form.instagram_url && (
+                  <a
+                    href={normalizeUrl(form.instagram_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                  >
+                    Test Link <ExternalLink className="size-3" />
+                  </a>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page me Instagram icon ka link yahan se badlega.
+              </p>
+              <input
+                id="marketing-instagram"
+                type="text"
+                value={form.instagram_url}
+                onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
+                placeholder="https://www.instagram.com/zerah_kids/"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+              />
             </div>
-            <div className="block border-b border-border/40 pb-5">
-              <label className="block text-sm font-semibold text-foreground">
-                Facebook URL
-                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
-                  Footer aur baki jagah par Facebook icon ka link yahan se badlega.
-                </p>
-                <input
-                  type="url"
-                  value={form.facebook_url}
-                  onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
-                  placeholder="https://facebook.com/zerahbaby"
-                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-                />
-              </label>
+
+            {/* Facebook URL */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="marketing-facebook" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Facebook Page URL
+                </label>
+                {form.facebook_url && (
+                  <a
+                    href={normalizeUrl(form.facebook_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                  >
+                    Test Link <ExternalLink className="size-3" />
+                  </a>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page me Facebook icon ka link yahan se badlega.
+              </p>
+              <input
+                id="marketing-facebook"
+                type="text"
+                value={form.facebook_url}
+                onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
+                placeholder="https://facebook.com/zerahbaby"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+              />
             </div>
-            <div className="block">
-              <label className="block text-sm font-semibold text-foreground">
-                WhatsApp URL
-                <p className="mt-1 mb-2 text-xs leading-relaxed text-muted-foreground font-normal">
-                  <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
-                  Website par WhatsApp icon ka link yahan dale.
-                </p>
-                <input
-                  type="url"
-                  value={form.whatsapp_url}
-                  onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
-                  placeholder="https://wa.me/91XXXXXXXXXX"
-                  className="mt-1.5 block w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm"
-                />
-              </label>
+
+            {/* WhatsApp URL */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="marketing-whatsapp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  WhatsApp Direct Chat Link or Phone
+                </label>
+                {form.whatsapp_url && (
+                  <a
+                    href={normalizeUrl(form.whatsapp_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Test Chat Link <ExternalLink className="size-3" />
+                  </a>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me WhatsApp icon aur customer support chat link yahan se direct connect hoga (e.g. `https://wa.me/919057074777` ya direct number `9057074777`).
+              </p>
+              <input
+                id="marketing-whatsapp"
+                type="text"
+                value={form.whatsapp_url}
+                onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
+                placeholder="https://wa.me/919057074777 or 9057074777"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+              />
             </div>
           </div>
         )}
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-4 border-t border-border/60">
           <button
             type="submit"
             disabled={save.isPending}
-            className="rounded-xl bg-[#8B2020] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#6b1818] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            {save.isPending ? "Saving..." : "Save Settings"}
+            {save.isPending ? (
+              <>
+                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="size-4" /> Save Marketing Settings
+              </>
+            )}
           </button>
         </div>
       </form>
