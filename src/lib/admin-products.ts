@@ -76,14 +76,17 @@ export function useSaveProduct() {
           .upsert({ product_id: productId, buying_price: draft.buyingPrice });
         if (costError) throw costError;
 
-        // Sync product_images
-        const allUrls = new Set<string>();
-        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
+        // Sync product_images with strict order preservation
+        const primaryUrl = draft.imageUrl.trim() || draft.images[0]?.trim() || "";
+        const urlsArray: string[] = [];
+        if (primaryUrl) urlsArray.push(primaryUrl);
         draft.images.forEach((img) => {
-          if (img.trim()) allUrls.add(img.trim());
+          const trimmed = img.trim();
+          if (trimmed && !urlsArray.includes(trimmed)) {
+            urlsArray.push(trimmed);
+          }
         });
 
-        const urlsArray = Array.from(allUrls);
         const { data: existing } = await supabase
           .from("product_images")
           .select("*")
@@ -104,7 +107,7 @@ export function useSaveProduct() {
 
         await Promise.all(
           urlsArray.map(async (url, i) => {
-            const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+            const isPrimary = i === 0;
             const existingRow = (existing || []).find((e) => e.public_url === url);
 
             if (existingRow) {

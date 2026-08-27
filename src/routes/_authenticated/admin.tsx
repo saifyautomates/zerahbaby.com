@@ -52,7 +52,11 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
-import { syncFirstCryCatalogToSupabase, FIRSTCRY_100_PRODUCTS } from "@/lib/firstcry-catalog";
+import {
+  syncFirstCryCatalogToSupabase,
+  FIRSTCRY_100_PRODUCTS,
+  FIRSTCRY_IMAGE_MAP,
+} from "@/lib/firstcry-catalog";
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
@@ -3159,20 +3163,21 @@ function InventoryRow({
   const isOut = product.stock === 0;
   const isLow = product.stock > 0 && product.stock <= product.low_stock_at;
 
+  const primaryImgUrl =
+    product.product_images?.[0]?.public_url || FIRSTCRY_IMAGE_MAP[product.slug]?.imageUrl || null;
+
   return (
     <tr className="hover:bg-muted/50 transition-colors">
       <td className="px-6 py-4">
-        {product.product_images?.[0]?.public_url ? (
+        {primaryImgUrl ? (
           <button
-            onClick={() =>
-              onImageClick?.(imageFor(product.category, product.product_images?.[0]?.public_url))
-            }
-            className="hover:opacity-80 transition-opacity"
+            onClick={() => onImageClick?.(imageFor(product.category, primaryImgUrl))}
+            className="hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img
-              src={imageFor(product.category, product.product_images?.[0]?.public_url)}
+              src={imageFor(product.category, primaryImgUrl)}
               alt={product.name}
-              className="size-10 rounded-lg object-cover border border-border"
+              className="size-10 rounded-lg object-cover border border-border shadow-2xs"
             />
           </button>
         ) : (

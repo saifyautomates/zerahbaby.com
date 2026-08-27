@@ -210,9 +210,10 @@ export function ProductForm({
   }
 
   function handleSave() {
-    // Auto-generate SKU and barcode if empty
+    // Auto-generate SKU and barcode if empty, sync primary image
     const finalDraft = {
       ...draft,
+      imageUrl: draft.images[0] || draft.imageUrl || "",
       sku: draft.sku.trim() || generateSKU(draft.category),
       barcode: draft.barcode.trim() || generateBarcode(),
     };

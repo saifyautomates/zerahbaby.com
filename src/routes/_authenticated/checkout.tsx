@@ -194,7 +194,7 @@ function CheckoutPage() {
               items: items.map(({ product, qty }) => ({
                 product_slug: product.id,
                 name: product.name,
-                image_url: product.imageUrl,
+                image_url: product.imageUrl || product.image,
                 price: product.price,
                 qty,
               })),

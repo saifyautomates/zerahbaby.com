@@ -49,15 +49,15 @@ export function ProductCard({ product }: { product: Product }) {
             loading="lazy"
             decoding="async"
             className={`h-full w-full object-cover object-center ${
-              featHoverSwap && product.images?.length > 0
+              featHoverSwap && product.images && product.images.length > 1
                 ? "transition-opacity duration-500 group-hover:opacity-0"
                 : "transition-transform duration-700 ease-out group-hover:scale-105"
             }`}
           />
-          {/* Second Image Swap on Hover */}
-          {featHoverSwap && product.images?.length > 0 && (
+          {/* Second Image Swap on Hover only if multiple distinct images exist */}
+          {featHoverSwap && product.images && product.images.length > 1 && (
             <img
-              src={product.images[0]}
+              src={product.images[1]}
               alt={`${product.name} alternate view`}
               loading="lazy"
               decoding="async"
