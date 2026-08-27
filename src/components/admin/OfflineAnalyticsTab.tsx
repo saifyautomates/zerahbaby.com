@@ -260,8 +260,31 @@ export function OfflineAnalyticsTab() {
       .slice(0, 5);
   }, [sales]);
 
+  const handleClearDummyData = async () => {
+    if (!window.confirm("Are you sure you want to completely WIPE all offline sales history?")) return;
+    try {
+      await supabase.from("offline_sale_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("offline_sales").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      // Clean up orphaned products (archived)
+      await supabase.from("products").delete().eq("is_active", false);
+      alert("Successfully wiped dummy sales.");
+      window.location.reload();
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          onClick={handleClearDummyData}
+          className="px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md text-sm font-semibold transition-colors"
+        >
+          Nuke Dummy Sales History
+        </button>
+      </div>
+
       {/* ══════════════════════════════════════════════════
           CUSTOMER FOOTFALL ANALYTICS
           Powered by the POS Token System (IST timezone)
