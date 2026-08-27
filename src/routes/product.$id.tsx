@@ -126,7 +126,6 @@ function ProductPage() {
 
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
   const [isZooming, setIsZooming] = useState(false);
-  const [viewingCount, setViewingCount] = useState(8);
   const [dispatchTime, setDispatchTime] = useState("");
 
   const list = useMemo(
@@ -177,7 +176,9 @@ function ProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("site_settings").select("key, value");
       if (error) throw error;
-      return Object.fromEntries(data.map((r: any) => [r.key, r.value])) as Record<string, string>;
+      return Object.fromEntries(
+        data.map((r: { key: string; value: string }) => [r.key, r.value]),
+      ) as Record<string, string>;
     },
   });
 
@@ -221,8 +222,6 @@ function ProductPage() {
   }, [handleNext, handlePrev]);
 
   useEffect(() => {
-    setViewingCount(Math.floor(Math.random() * 12) + 5);
-
     const updateDispatch = () => {
       const now = new Date();
       const target = new Date();
@@ -446,12 +445,12 @@ function ProductPage() {
           {featUrgency && (
             <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
               {product.stock > 0 && product.stock <= product.lowStockAt && (
-                <span className="rounded-full bg-red-100 text-red-700 px-2.5 py-1 animate-pulse border border-red-200 shadow-sm">
+                <span className="rounded-full bg-destructive/10 text-destructive px-2.5 py-1 animate-pulse border border-destructive/20 shadow-xs">
                   🔥 Only {product.stock} left in stock
                 </span>
               )}
-              <span className="rounded-full bg-blue-100 text-blue-700 px-2.5 py-1 border border-blue-200 shadow-sm">
-                👀 {viewingCount} people viewing right now
+              <span className="rounded-full bg-primary/10 text-primary px-2.5 py-1 border border-primary/20 shadow-xs">
+                ✨ 100% Safe & Tested for Babies
               </span>
             </div>
           )}

@@ -112,7 +112,7 @@ export function HeroMediaManager({ onClose }: { onClose?: () => void }) {
       {isDragging && (
         <div className="absolute inset-0 z-50 rounded-2xl bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
           <div className="flex flex-col items-center bg-card p-6 rounded-2xl shadow-premium-lg">
-            <ImagePlus className="size-12 text-primary animate-bounce" />
+            <ImagePlus className="size-12 text-primary animate-pulse" />
             <p className="mt-3 font-display font-bold text-xl text-primary">Drop media here</p>
             <p className="text-sm text-muted-foreground">Release to upload instantly to Hero</p>
           </div>

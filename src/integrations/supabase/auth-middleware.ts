@@ -87,7 +87,16 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
 
     const { data, error } = await (
       supabase.auth as unknown as {
-        getUser: (t: string) => Promise<{ data: { user: any }; error: any }>;
+        getUser: (t: string) => Promise<{
+          data: {
+            user: {
+              id: string;
+              email?: string;
+              app_metadata?: Record<string, unknown>;
+            } | null;
+          };
+          error: unknown;
+        }>;
       }
     ).getUser(token);
     if (error || !data?.user) {

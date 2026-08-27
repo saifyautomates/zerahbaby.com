@@ -257,8 +257,8 @@ export function AdminCategoryControls({ category }: { category: Category }) {
                           const url = await uploadMedia(file, "categories");
                           setDraft({ ...draft, image_url: url });
                           toast.success("Category image uploaded!");
-                        } catch (err: any) {
-                          toast.error(err.message);
+                        } catch (err: unknown) {
+                          toast.error((err as Error).message);
                         } finally {
                           setUploading(false);
                         }
@@ -421,8 +421,8 @@ export function AdminAddCategory({ className = "" }: { className?: string }) {
                           const url = await uploadMedia(file, "categories");
                           setDraft({ ...draft, image_url: url });
                           toast.success("Image uploaded!");
-                        } catch (err: any) {
-                          toast.error(err.message);
+                        } catch (err: unknown) {
+                          toast.error((err as Error).message);
                         } finally {
                           setUploading(false);
                         }

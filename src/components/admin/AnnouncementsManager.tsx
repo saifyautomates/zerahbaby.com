@@ -111,8 +111,8 @@ export function AnnouncementsManager() {
       toast.success("Announcement banner settings updated successfully!");
       qc.invalidateQueries({ queryKey: ["site_settings"] });
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Failed to update announcement");
+    onError: (err: unknown) => {
+      toast.error((err as Error).message || "Failed to update announcement");
     },
   });
 
@@ -217,7 +217,10 @@ export function AnnouncementsManager() {
       </div>
 
       {/* Main Settings Form */}
-      <form onSubmit={handleSave} className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <form
+        onSubmit={handleSave}
+        className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm"
+      >
         {/* Toggle Enable/Disable */}
         <div className="flex items-center justify-between border-b border-border/60 pb-5">
           <div className="space-y-0.5">
@@ -249,7 +252,10 @@ export function AnnouncementsManager() {
 
         {/* Text Input */}
         <div className="space-y-2">
-          <label htmlFor="announcement-text" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <label
+            htmlFor="announcement-text"
+            className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+          >
             Announcement Message / Text
           </label>
           <textarea
@@ -267,7 +273,10 @@ export function AnnouncementsManager() {
 
         {/* Optional Link */}
         <div className="space-y-2">
-          <label htmlFor="announcement-link" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <label
+            htmlFor="announcement-link"
+            className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"
+          >
             <ExternalLink className="size-3.5" /> Optional Target URL / Page Link
           </label>
           <input
@@ -321,7 +330,10 @@ export function AnnouncementsManager() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label htmlFor="bg-color-picker" className="text-xs font-semibold text-muted-foreground">
+              <label
+                htmlFor="bg-color-picker"
+                className="text-xs font-semibold text-muted-foreground"
+              >
                 Custom Background Color
               </label>
               <div className="flex items-center gap-2">
@@ -342,7 +354,10 @@ export function AnnouncementsManager() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="text-color-picker" className="text-xs font-semibold text-muted-foreground">
+              <label
+                htmlFor="text-color-picker"
+                className="text-xs font-semibold text-muted-foreground"
+              >
                 Custom Text Color
               </label>
               <div className="flex items-center gap-2">

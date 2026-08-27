@@ -215,8 +215,10 @@ export function usePlaceOrder() {
         qty: item.qty,
       }));
 
-      // Add a 15-second timeout to prevent hung checkouts
-      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+      const timeoutPromise = new Promise<{
+        data: unknown;
+        error: { message?: string } | null;
+      }>((_, reject) =>
         setTimeout(
           () =>
             reject(
@@ -247,7 +249,8 @@ export function usePlaceOrder() {
 
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
-      if (error) throw new Error(error.message || "Failed to place order");
+      if (error)
+        throw new Error((error as { message?: string })?.message || "Failed to place order");
       return (data as { order_id: string }).order_id;
     },
     onSuccess: () => {

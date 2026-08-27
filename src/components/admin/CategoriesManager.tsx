@@ -147,8 +147,8 @@ export function CategoriesTab() {
                 try {
                   const url = await uploadMedia(file, "categories");
                   setDraft({ ...draft, image_url: url });
-                } catch (err: any) {
-                  toast.error(err.message || "Upload failed");
+                } catch (err: unknown) {
+                  toast.error((err as Error).message || "Upload failed");
                 } finally {
                   setUploading(false);
                 }
@@ -217,8 +217,8 @@ function CategoryRowEditor({
             try {
               const url = await uploadMedia(file, "categories");
               setValue({ ...value, image_url: url });
-            } catch (err: any) {
-              toast.error(err.message || "Upload failed");
+            } catch (err: unknown) {
+              toast.error((err as Error).message || "Upload failed");
             } finally {
               setUploading(false);
             }

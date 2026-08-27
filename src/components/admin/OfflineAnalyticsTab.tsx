@@ -267,7 +267,7 @@ export function OfflineAnalyticsTab() {
       <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
         <div className="px-5 pt-5 pb-3 border-b border-border/60">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Users className="size-4 text-indigo-600" />
+            <Users className="size-4 text-primary" />
             Customer Footfall — Today (IST)
           </h3>
         </div>
@@ -278,7 +278,7 @@ export function OfflineAnalyticsTab() {
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
               Customers Today
             </p>
-            <p className="text-4xl font-black text-indigo-600 leading-none">{todaySales.length}</p>
+            <p className="text-4xl font-black text-primary leading-none">{todaySales.length}</p>
             <p className="text-xs text-muted-foreground mt-1 font-medium">
               {todaySales.length === 1 ? "walk-in today" : "walk-ins today"}
             </p>
@@ -468,7 +468,8 @@ export function OfflineAnalyticsTab() {
               const matchedProduct = resolveProduct(p);
               const imgUrl = imageFor(
                 matchedProduct?.category || "clothing",
-                (matchedProduct as any)?.product_images?.[0]?.public_url,
+                (matchedProduct as { product_images?: { public_url: string }[] })
+                  ?.product_images?.[0]?.public_url,
               );
               const slug = matchedProduct?.slug || p.product_slug || p.sku;
 
@@ -626,7 +627,8 @@ export function OfflineAnalyticsTab() {
                                 const prod = resolveProduct(item);
                                 const itemImg = imageFor(
                                   prod?.category || "clothing",
-                                  (prod as any)?.product_images?.[0]?.public_url,
+                                  (prod as { product_images?: { public_url: string }[] })
+                                    ?.product_images?.[0]?.public_url,
                                 );
                                 const slug = prod?.slug || item.product_slug || item.sku;
 

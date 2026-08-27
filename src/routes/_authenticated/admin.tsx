@@ -44,6 +44,7 @@ import {
   Power,
   RotateCcw,
   Eye,
+  Upload,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +84,9 @@ const OnlineSalesTab = lazy(() =>
 );
 const AdminGlobalSearch = lazy(() =>
   import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
+);
+const BulkImportTab = lazy(() =>
+  import("@/components/admin/BulkImportTab").then((m) => ({ default: m.BulkImportTab })),
 );
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
@@ -710,6 +714,7 @@ function AdminPage() {
 
 function ProductsTab() {
   const qc = useQueryClient();
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
@@ -747,7 +752,7 @@ function ProductsTab() {
 
       const costMap = new Map((costsRes.data || []).map((c) => [c.product_id, c.buying_price]));
 
-      return (productsRes.data as never[]).map((r: any) => {
+      return (productsRes.data || []).map((r) => {
         const prod = mapProduct(r as never);
         prod.buyingPrice = costMap.get(prod.uuid) || 0;
         return prod;
@@ -800,13 +805,13 @@ function ProductsTab() {
       if (uuid) {
         const { error } = await supabase
           .from("products")
-          .update(row as any)
+          .update(row as Database["public"]["Tables"]["products"]["Update"])
           .eq("id", uuid);
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("products")
-          .insert(row as any)
+          .insert(row as Database["public"]["Tables"]["products"]["Insert"])
           .select("id")
           .single();
         if (error) throw error;
@@ -901,7 +906,10 @@ function ProductsTab() {
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: any; error: any }>
+        ) => Promise<{
+          data: { success?: boolean; deleted?: number; archived?: number } | null;
+          error: unknown;
+        }>
       )("admin_delete_products", {
         _product_ids: [uuid],
       });
@@ -951,7 +959,10 @@ function ProductsTab() {
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: any; error: any }>
+        ) => Promise<{
+          data: { success?: boolean; deleted?: number; archived?: number } | null;
+          error: unknown;
+        }>
       )("admin_delete_products", {
         _product_ids: ids,
       });
@@ -967,7 +978,7 @@ function ProductsTab() {
       }
       return rpcRes;
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res: { deleted?: number; archived?: number } | null) => {
       const deleted = res?.deleted ?? selectedIds.size;
       const archived = res?.archived ?? 0;
       let msg = `Deleted ${deleted} product${deleted !== 1 ? "s" : ""}`;
@@ -989,7 +1000,10 @@ function ProductsTab() {
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: any; error: any }>
+        ) => Promise<{
+          data: { deleted?: number; archived?: number; count?: number } | null;
+          error: unknown;
+        }>
       )("admin_delete_all_products", {
         _force: true,
       });
@@ -1006,7 +1020,7 @@ function ProductsTab() {
       }
       return rpcRes;
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res: { deleted?: number; count?: number } | null) => {
       const count = res?.deleted ?? data?.length ?? 0;
       toast.success(`All ${count} products deleted successfully`);
       setSelectedIds(new Set());
@@ -1081,8 +1095,8 @@ function ProductsTab() {
       } else {
         toast.error(`Sync encountered an error: ${res.error}`, { id: toastId });
       }
-    } catch (err: any) {
-      toast.error(`Sync failed: ${err.message || String(err)}`, { id: toastId });
+    } catch (err: unknown) {
+      toast.error(`Sync failed: ${(err as Error).message || String(err)}`, { id: toastId });
     } finally {
       setIsSyncingCatalog(false);
       setSyncProgress(null);
@@ -1168,6 +1182,20 @@ function ProductsTab() {
     [data, selectedIds],
   );
 
+  if (showBulkImport) {
+    return (
+      <Suspense
+        fallback={
+          <div className="p-8 text-center text-muted-foreground animate-pulse">
+            Loading bulk import…
+          </div>
+        }
+      >
+        <BulkImportTab onBack={() => setShowBulkImport(false)} />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top action & search bar */}
@@ -1202,7 +1230,9 @@ function ProductsTab() {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "all" | "active" | "archived" | "low_stock")
+            }
             className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
           >
             <option value="all">All Status</option>
@@ -1265,6 +1295,15 @@ function ProductsTab() {
               <Settings2 className="size-3.5" />
             </button>
           </div>
+
+          {/* Bulk Import button */}
+          <button
+            onClick={() => setShowBulkImport(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2 text-xs font-bold text-primary shadow-xs transition hover:bg-primary/10 active:scale-95 cursor-pointer"
+            title="Import or update products in bulk from a CSV or Excel file"
+          >
+            <Upload className="size-3.5" /> Bulk Import
+          </button>
 
           {/* Add product button */}
           <button
@@ -1832,9 +1871,12 @@ function SettingsTab() {
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
           <div>
-            <h3 className="font-display text-lg font-bold text-foreground">Owner Sale Notifications</h3>
+            <h3 className="font-display text-lg font-bold text-foreground">
+              Owner Sale Notifications
+            </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Receive automatic email alerts on every offline POS sale &amp; online paid order via Resend.
+              Receive automatic email alerts on every offline POS sale &amp; online paid order via
+              Resend.
             </p>
           </div>
           <button
@@ -1901,7 +1943,8 @@ function SettingsTab() {
           <div className="space-y-1">
             <h3 className="font-display text-lg font-bold text-destructive">Maintenance Mode</h3>
             <p className="text-xs text-muted-foreground">
-              When enabled, the entire storefront is blocked with a friendly maintenance screen. (Admins can still access the site).
+              When enabled, the entire storefront is blocked with a friendly maintenance screen.
+              (Admins can still access the site).
             </p>
           </div>
           <label className="relative inline-flex cursor-pointer items-center ml-4 shrink-0">
@@ -1924,7 +1967,9 @@ function SettingsTab() {
       {/* ─── PREMIUM STORE FEATURES ───────────────────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="border-b border-border pb-4">
-          <h3 className="font-display text-lg font-bold text-foreground">Storefront Interactive Features</h3>
+          <h3 className="font-display text-lg font-bold text-foreground">
+            Storefront Interactive Features
+          </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Turn advanced storefront features ON or OFF globally with instant live effect.
           </p>
@@ -2016,9 +2061,12 @@ function SettingsTab() {
       {/* ─── GENERAL STORE SETTINGS & TEXT CONTROL ───────────────────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
         <div className="border-b border-border pb-4">
-          <h3 className="font-display text-lg font-bold text-foreground">Storefront Text &amp; Branding Content</h3>
+          <h3 className="font-display text-lg font-bold text-foreground">
+            Storefront Text &amp; Branding Content
+          </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Update the textual branding and details across your storefront. All updates sync in real time.
+            Update the textual branding and details across your storefront. All updates sync in real
+            time.
           </p>
         </div>
 
@@ -2039,16 +2087,22 @@ function SettingsTab() {
                   className="space-y-2 border-b border-border/40 pb-5 last:border-0 last:pb-0"
                 >
                   <label className="block space-y-1">
-                    <span className="text-sm font-bold text-foreground">{SETTING_LABELS[key] ?? key}</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {SETTING_LABELS[key] ?? key}
+                    </span>
                     {SETTING_DESCRIPTIONS[key] && (
                       <p className="text-xs leading-relaxed text-muted-foreground">
-                        <span className="font-bold text-primary/80">Kya change hoga? (Effect):</span>{" "}
+                        <span className="font-bold text-primary/80">
+                          Kya change hoga? (Effect):
+                        </span>{" "}
                         {SETTING_DESCRIPTIONS[key]}
                       </p>
                     )}
                     <textarea
                       rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
-                      value={current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")}
+                      value={
+                        current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")
+                      }
                       onChange={(e) => setValues({ ...current, [key]: e.target.value })}
                       className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
                     />
@@ -2217,7 +2271,9 @@ function CustomersTab() {
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
   const [search, setSearch] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<
+    Database["public"]["Tables"]["profiles"]["Row"] | null
+  >(null);
 
   const stats = useMemo(() => {
     const map = new Map<string, { count: number; spend: number; lastOrderDate: string | null }>();
@@ -3076,7 +3132,18 @@ function InventoryRow({
   onSave,
   onImageClick,
 }: {
-  product: any;
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+    brand: string;
+    category: string;
+    stock: number;
+    low_stock_at: number;
+    sku: string | null;
+    is_active: boolean;
+    product_images?: Array<{ public_url: string; is_primary?: boolean; sort_order?: number }>;
+  };
   onSave: (val: number) => void;
   onImageClick?: (url: string) => void;
 }) {
@@ -3254,7 +3321,8 @@ function MarketingTab() {
   useEffect(() => {
     if (!isLoading && settings && !hasLoaded) {
       setForm({
-        announcement: settings["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
+        announcement:
+          settings["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
         announcement_enabled: settings["announcement_enabled"] !== "false",
         announcement_bg: settings["announcement_bg"] || "#8B2020",
         announcement_text_color: settings["announcement_text_color"] || "#FFFFFF",
@@ -3272,7 +3340,10 @@ function MarketingTab() {
       const isAnnounceEmpty = !form.announcement.trim();
       const rows = [
         { key: "announcement", value: form.announcement.trim() },
-        { key: "announcement_enabled", value: isAnnounceEmpty || !form.announcement_enabled ? "false" : "true" },
+        {
+          key: "announcement_enabled",
+          value: isAnnounceEmpty || !form.announcement_enabled ? "false" : "true",
+        },
         { key: "announcement_bg", value: form.announcement_bg },
         { key: "announcement_text_color", value: form.announcement_text_color },
         { key: "announcement_link", value: form.announcement_link.trim() },
@@ -3342,7 +3413,8 @@ function MarketingTab() {
               Marketing &amp; Promotions
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage your top announcement bar, live color styling, and social media channels in one place.
+              Manage your top announcement bar, live color styling, and social media channels in one
+              place.
             </p>
           </div>
 
@@ -3379,20 +3451,26 @@ function MarketingTab() {
             {/* Global Banner Switch */}
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-muted-foreground">
-                {form.announcement_enabled && form.announcement.trim() ? "Active on Website" : "Turned OFF"}
+                {form.announcement_enabled && form.announcement.trim()
+                  ? "Active on Website"
+                  : "Turned OFF"}
               </span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={form.announcement_enabled}
-                onClick={() => setForm((f) => ({ ...f, announcement_enabled: !f.announcement_enabled }))}
+                onClick={() =>
+                  setForm((f) => ({ ...f, announcement_enabled: !f.announcement_enabled }))
+                }
                 className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
                   form.announcement_enabled && form.announcement.trim() ? "bg-primary" : "bg-muted"
                 }`}
               >
                 <span
                   className={`pointer-events-none inline-block size-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                    form.announcement_enabled && form.announcement.trim() ? "translate-x-5" : "translate-x-0"
+                    form.announcement_enabled && form.announcement.trim()
+                      ? "translate-x-5"
+                      : "translate-x-0"
                   }`}
                 />
               </button>
@@ -3409,7 +3487,10 @@ function MarketingTab() {
               {form.announcement_enabled && form.announcement.trim() ? (
                 <div
                   className="px-4 py-2.5 text-center transition-all duration-300"
-                  style={{ backgroundColor: form.announcement_bg, color: form.announcement_text_color }}
+                  style={{
+                    backgroundColor: form.announcement_bg,
+                    color: form.announcement_text_color,
+                  }}
                 >
                   <div className="flex items-center justify-center gap-2 font-display text-xs sm:text-sm font-semibold tracking-wide">
                     <Sparkles className="size-3.5 shrink-0 opacity-80" />
@@ -3421,7 +3502,8 @@ function MarketingTab() {
                 <div className="p-6 text-center text-sm text-muted-foreground bg-muted/20">
                   <p className="font-semibold text-foreground">Header is currently turned OFF</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    The top bar is completely collapsed (0px height). No blank space is taken on the website.
+                    The top bar is completely collapsed (0px height). No blank space is taken on the
+                    website.
                   </p>
                 </div>
               )}
@@ -3430,7 +3512,10 @@ function MarketingTab() {
 
           {/* Message Text Input */}
           <div className="space-y-2">
-            <label htmlFor="mkt-announcement-text" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <label
+              htmlFor="mkt-announcement-text"
+              className="block text-xs font-bold uppercase tracking-wider text-muted-foreground"
+            >
               Announcement Message
             </label>
             <textarea
@@ -3442,13 +3527,18 @@ function MarketingTab() {
               className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs placeholder:text-muted-foreground/60"
             />
             <p className="text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">Note:</span> Agar aap ise khali chhod denge, toh header bar automatically collapse ho jayegi. Emojis (🎉, ✨, 🍼, 🧸) supported hain!
+              <span className="font-semibold text-foreground">Note:</span> Agar aap ise khali chhod
+              denge, toh header bar automatically collapse ho jayegi. Emojis (🎉, ✨, 🍼, 🧸)
+              supported hain!
             </p>
           </div>
 
           {/* Optional Target Link */}
           <div className="space-y-2">
-            <label htmlFor="mkt-announcement-link" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <label
+              htmlFor="mkt-announcement-link"
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"
+            >
               <ExternalLink className="size-3.5" /> Target Page Link (Optional Clickable Action)
             </label>
             <input
@@ -3470,7 +3560,9 @@ function MarketingTab() {
             {/* One-Click Presets */}
             <div className="flex flex-wrap gap-2">
               {ANNOUNCEMENT_COLOR_PALETTES.map((palette) => {
-                const isSelected = form.announcement_bg === palette.bg && form.announcement_text_color === palette.text;
+                const isSelected =
+                  form.announcement_bg === palette.bg &&
+                  form.announcement_text_color === palette.text;
                 return (
                   <button
                     key={palette.name}
@@ -3501,7 +3593,10 @@ function MarketingTab() {
             {/* Custom Color Pickers */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-1">
               <div className="space-y-1.5">
-                <label htmlFor="mkt-bg-color" className="text-xs font-semibold text-muted-foreground">
+                <label
+                  htmlFor="mkt-bg-color"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
                   Custom Background Color
                 </label>
                 <div className="flex items-center gap-2">
@@ -3522,7 +3617,10 @@ function MarketingTab() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="mkt-text-color" className="text-xs font-semibold text-muted-foreground">
+                <label
+                  htmlFor="mkt-text-color"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
                   Custom Text Color
                 </label>
                 <div className="flex items-center gap-2">
@@ -3599,7 +3697,10 @@ function MarketingTab() {
             {/* Instagram */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="mkt-instagram" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="mkt-instagram"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
                   Instagram Profile URL
                 </label>
                 {form.instagram_url && (
@@ -3614,7 +3715,8 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page par Instagram icon ka destination link.
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur
+                Contact page par Instagram icon ka destination link.
               </p>
               <input
                 id="mkt-instagram"
@@ -3629,7 +3731,10 @@ function MarketingTab() {
             {/* Facebook */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="mkt-facebook" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="mkt-facebook"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
                   Facebook Page URL
                 </label>
                 {form.facebook_url && (
@@ -3644,7 +3749,8 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur Contact page par Facebook icon ka destination link.
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur
+                Contact page par Facebook icon ka destination link.
               </p>
               <input
                 id="mkt-facebook"
@@ -3659,7 +3765,10 @@ function MarketingTab() {
             {/* WhatsApp */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="mkt-whatsapp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="mkt-whatsapp"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
                   WhatsApp Direct Chat Link or Phone
                 </label>
                 {form.whatsapp_url && (
@@ -3674,7 +3783,9 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me WhatsApp icon aur floating chat button ka link (e.g. `https://wa.me/919057074777` ya direct phone number `9057074777`).
+                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me
+                WhatsApp icon aur floating chat button ka link (e.g. `https://wa.me/919057074777` ya
+                direct phone number `9057074777`).
               </p>
               <input
                 id="mkt-whatsapp"

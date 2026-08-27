@@ -95,6 +95,7 @@ function FilterPanel({
         <button
           role="switch"
           aria-checked={inStockOnly}
+          aria-label="Filter in-stock products only"
           onClick={onInStockToggle}
           className={`relative h-5 w-9 rounded-full transition-colors duration-200 ${
             inStockOnly ? "bg-primary" : "bg-muted"

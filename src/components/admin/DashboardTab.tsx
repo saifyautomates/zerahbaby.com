@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { type OfflineSale } from "@/lib/pos";
 import { DashboardDrillDown } from "./DashboardDrillDown";
 
 type WebsiteVisitor = {
@@ -51,17 +52,6 @@ type WebsiteVisitor = {
   city: string | null;
   region: string | null;
   country: string | null;
-};
-
-type OfflineSale = {
-  id: string;
-  sale_number: string;
-  customer_name: string;
-  customer_phone: string;
-  total: number;
-  payment_method: string;
-  created_at: string;
-  notes?: string;
 };
 
 type DateRangePreset = "today" | "yesterday" | "7d" | "30d" | "this_month" | "all";
@@ -124,7 +114,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   });
 
   const posSales = useMemo(() => {
-    return rawPosSales.filter((s: any) => s.status !== "cancelled");
+    return rawPosSales.filter((s) => s.status !== "cancelled");
   }, [rawPosSales]);
 
   const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
@@ -264,24 +254,26 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
     // Period Metrics (Net Profit)
     let currOnlineCogs = 0;
-    currOrders.forEach((o: any) => {
-      o.order_items?.forEach((item: any) => {
-        const prod = products.find((p: any) => p.slug === item.product_slug);
-        const bp = Array.isArray(prod?.product_costs)
-          ? prod?.product_costs[0]?.buying_price
-          : prod?.product_costs?.buying_price;
+    currOrders.forEach((o) => {
+      o.order_items?.forEach((item) => {
+        const prod = products.find((p) => p.slug === item.product_slug);
+        const costs = prod?.product_costs;
+        const bp = Array.isArray(costs)
+          ? costs[0]?.buying_price
+          : (costs as { buying_price?: number } | null)?.buying_price;
         currOnlineCogs += Number(bp || 0) * Number(item.qty || 1);
       });
     });
 
     let currPosCogs = 0;
-    currPos.forEach((s: any) => {
-      s.offline_sale_items?.forEach((item: any) => {
-        const prod = products.find((p: any) => p.id === item.product_id);
-        const bp = Array.isArray(prod?.product_costs)
-          ? prod?.product_costs[0]?.buying_price
-          : prod?.product_costs?.buying_price;
-        currPosCogs += Number(bp || 0) * Number(item.quantity || 1);
+    currPos.forEach((s) => {
+      s.offline_sale_items?.forEach((item) => {
+        const prod = products.find((p) => p.id === item.product_id);
+        const costs = prod?.product_costs;
+        const bp = Array.isArray(costs)
+          ? costs[0]?.buying_price
+          : (costs as { buying_price?: number } | null)?.buying_price;
+        currPosCogs += Number(bp || 0) * Number(item.qty || 1);
       });
     });
 
@@ -361,13 +353,15 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     // All-time Metrics (Full Logic)
     let allTimeOnlineRevenue = 0;
     let allTimeOnlineCogs = 0;
-    validOrders.forEach((o: any) => {
+    validOrders.forEach((o) => {
       const orderTotal = Number(o.total || 0);
       allTimeOnlineRevenue += orderTotal;
-      o.order_items?.forEach((item: any) => {
-        const prod = products.find((p: any) => p.slug === item.product_slug);
+      o.order_items?.forEach((item) => {
+        const prod = products.find((p) => p.slug === item.product_slug);
         const costs = prod?.product_costs;
-        const bp = Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price;
+        const bp = Array.isArray(costs)
+          ? costs[0]?.buying_price
+          : (costs as { buying_price?: number } | null)?.buying_price;
         const buyingPrice = Number(bp || 0);
         allTimeOnlineCogs += buyingPrice * Number(item.qty || 1);
       });
@@ -375,15 +369,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
     let allTimePosRevenue = 0;
     let allTimePosCogs = 0;
-    posSales.forEach((s: any) => {
+    posSales.forEach((s) => {
       const saleTotal = Number(s.total || 0);
       allTimePosRevenue += saleTotal;
-      s.offline_sale_items?.forEach((item: any) => {
-        const prod = products.find((p: any) => p.id === item.product_id);
+      s.offline_sale_items?.forEach((item) => {
+        const prod = products.find((p) => p.id === item.product_id);
         const costs = prod?.product_costs;
-        const bp = Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price;
+        const bp = Array.isArray(costs)
+          ? costs[0]?.buying_price
+          : (costs as { buying_price?: number } | null)?.buying_price;
         const buyingPrice = Number(bp || 0);
-        allTimePosCogs += buyingPrice * Number(item.quantity || 1);
+        allTimePosCogs += buyingPrice * Number(item.qty || 1);
       });
     });
 
@@ -458,13 +454,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     return [...products]
       .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
       .slice(0, 5)
-      .map((p: any) => ({
-        name: p.name || "Product",
-        slug: p.slug,
-        image: p.product_images?.[0]?.public_url || null,
-        stock: Number(p.stock || 0),
-        price: Number(p.price || 0),
-      }));
+      .map((p) => {
+        const prodImages = p.product_images as
+          Array<{ public_url?: string; is_primary?: boolean; sort_order?: number }> | undefined;
+        return {
+          name: p.name || "Product",
+          slug: p.slug,
+          image: prodImages?.[0]?.public_url || null,
+          stock: Number(p.stock || 0),
+          price: Number(p.price || 0),
+        };
+      });
   }, [products]);
 
   const { data: rawEvents = [] } = useQuery({
@@ -497,16 +497,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
       let title = ev.event_name;
 
+      const profile = ev.profiles as { full_name?: string } | null;
+      const product = ev.products as { name?: string } | null;
+
       if (ev.event_name === "view_product") {
-        title = `${(ev.profiles as any)?.full_name || "A visitor"} viewed ${(ev.products as any)?.name || "a product"}`;
+        title = `${profile?.full_name || "A visitor"} viewed ${product?.name || "a product"}`;
         icon = Eye;
         color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
       } else if (ev.event_name === "add_to_cart") {
-        title = `${(ev.profiles as any)?.full_name || "A visitor"} added ${(ev.products as any)?.name || "item"} to cart`;
+        title = `${profile?.full_name || "A visitor"} added ${product?.name || "item"} to cart`;
         icon = ShoppingCart;
         color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
       } else {
-        title = `${(ev.profiles as any)?.full_name || "A visitor"} performed ${ev.event_name}`;
+        title = `${profile?.full_name || "A visitor"} performed ${ev.event_name}`;
       }
 
       return {

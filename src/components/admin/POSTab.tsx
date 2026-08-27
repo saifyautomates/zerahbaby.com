@@ -490,6 +490,7 @@ export function POSTab() {
                     }
                   }}
                   placeholder="Scan barcode or type SKU and press Enter..."
+                  aria-label="Scan barcode or SKU"
                   className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                   autoFocus
                 />

@@ -48,11 +48,13 @@ export function OnlineSalesTab() {
   const generateAwb = useGenerateShiprocketAWB();
   const requestPickup = useRequestShiprocketPickup();
 
+  type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
+
   const update = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase
         .from("orders")
-        .update({ status: status as any })
+        .update({ status: status as OrderStatus })
         .eq("id", id);
       if (error) throw error;
     },
@@ -75,7 +77,7 @@ export function OnlineSalesTab() {
 
   // Filter out POS orders (historical)
   const onlineOrdersData = (onlineData ?? []).filter((o) => o.notes !== "POS Order");
-  const offlineOrdersData = (offlineData ?? []);
+  const offlineOrdersData = offlineData ?? [];
 
   // Helper to test if an order was placed within the last 24 hours
   const isWithinLast24Hours = (createdAt: string) => {
@@ -84,13 +86,51 @@ export function OnlineSalesTab() {
     return !isNaN(orderTime) && now - orderTime <= 24 * 60 * 60 * 1000;
   };
 
-  const newOrders24hCount = 
-    onlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length + 
+  const newOrders24hCount =
+    onlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length +
     offlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length;
 
-  type UnifiedTransaction = any;
+  type OnlineOrderWithMeta = Order & {
+    _type: "online";
+    cancelled_at?: string | null;
+    cancellation_reason?: string | null;
+    payment_status?: string | null;
+    shiprocket_order_id?: string | number | null;
+    awb_code?: string | null;
+    courier_name?: string | null;
+    shiprocket_status?: string | null;
+    customer_name?: string | null;
+    customer_phone?: string | null;
+    offline_sale_items?: OfflineSale["offline_sale_items"];
+  };
 
-  const allData: UnifiedTransaction[] = [...onlineOrdersData.map(o => ({...o, _type: "online" as const})), ...offlineOrdersData.map(o => ({...o, _type: "offline" as const}))].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  type OfflineOrderWithMeta = OfflineSale & {
+    _type: "offline";
+    cancelled_at?: string | null;
+    cancellation_reason?: string | null;
+    payment_status?: string | null;
+    shiprocket_order_id?: string | number | null;
+    awb_code?: string | null;
+    courier_name?: string | null;
+    shiprocket_status?: string | null;
+    order_items?: Order["order_items"];
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    notes?: string | null;
+    email_sent?: boolean;
+  };
+
+  type UnifiedTransaction = OnlineOrderWithMeta | OfflineOrderWithMeta;
+
+  const allData: UnifiedTransaction[] = [
+    ...onlineOrdersData.map((o) => ({ ...o, _type: "online" as const })),
+    ...offlineOrdersData.map((o) => ({ ...o, _type: "offline" as const })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const orders = allData.filter((o) => {
     if (filter === "new_orders") {
@@ -244,7 +284,9 @@ export function OnlineSalesTab() {
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="font-mono text-sm font-bold text-foreground">
-                    {order._type === "offline" ? (order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`) : `#${order.id.slice(0, 8).toUpperCase()}`}
+                    {order._type === "offline"
+                      ? order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`
+                      : `#${order.id.slice(0, 8).toUpperCase()}`}
                   </span>
                   <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
                     {order.status}
@@ -292,14 +334,18 @@ export function OnlineSalesTab() {
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm font-bold text-foreground">
-                      {order._type === "online" ? order.full_name : (order.customer_name || "Walk-in Customer")}
+                      {order._type === "online"
+                        ? order.full_name
+                        : order.customer_name || "Walk-in Customer"}
                     </p>
                     <p className="text-sm font-medium text-muted-foreground mt-0.5">
                       {order._type === "online" ? order.email : order.customer_email || "No email"}
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {order._type === "online" ? order.phone : order.customer_phone || "No phone"}{" "}
-                      {order._type === "online" && order.alt_phone && <span className="text-xs">/ {order.alt_phone}</span>}
+                      {order._type === "online" && order.alt_phone && (
+                        <span className="text-xs">/ {order.alt_phone}</span>
+                      )}
                     </p>
                   </div>
                   <div>
@@ -325,11 +371,11 @@ export function OnlineSalesTab() {
                   <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-800">
                     <p className="font-bold text-red-900">
                       Order Cancelled
-                      {(order as any).cancelled_at &&
-                        ` on ${new Date((order as any).cancelled_at || "").toLocaleString("en-IN")}`}
+                      {order.cancelled_at &&
+                        ` on ${new Date(order.cancelled_at || "").toLocaleString("en-IN")}`}
                     </p>
-                    {(order as any).cancellation_reason && (
-                      <p className="mt-0.5">Reason: “{(order as any).cancellation_reason}”</p>
+                    {order.cancellation_reason && (
+                      <p className="mt-0.5">Reason: “{order.cancellation_reason}”</p>
                     )}
                   </div>
                 )}
@@ -368,9 +414,9 @@ export function OnlineSalesTab() {
                 </select>
 
                 {/* Shiprocket Actions */}
-                {(order as any).payment_status === "paid" && order.status !== "cancelled" && (
+                {order.payment_status === "paid" && order.status !== "cancelled" && (
                   <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
-                    {!(order as any).shiprocket_order_id ? (
+                    {!order.shiprocket_order_id ? (
                       <button
                         type="button"
                         onClick={() => createShipment.mutate(order.id)}
@@ -384,7 +430,7 @@ export function OnlineSalesTab() {
                         )}
                         Push to Shiprocket
                       </button>
-                    ) : !(order as any).awb_code ? (
+                    ) : !order.awb_code ? (
                       <button
                         type="button"
                         onClick={() => generateAwb.mutate(order.id)}
@@ -398,9 +444,9 @@ export function OnlineSalesTab() {
                         )}
                         Generate AWB
                       </button>
-                    ) : (order as any).shiprocket_status !== "PICKUP_SCHEDULED" &&
-                      (order as any).shiprocket_status !== "SHIPPED" &&
-                      (order as any).shiprocket_status !== "DELIVERED" ? (
+                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
+                      order.shiprocket_status !== "SHIPPED" &&
+                      order.shiprocket_status !== "DELIVERED" ? (
                       <button
                         type="button"
                         onClick={() => requestPickup.mutate(order.id)}
@@ -419,12 +465,12 @@ export function OnlineSalesTab() {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">
                           Shiprocket AWB
                         </p>
-                        <p className="text-xs font-bold text-foreground mt-0.5">{(order as any).awb_code}</p>
+                        <p className="text-xs font-bold text-foreground mt-0.5">{order.awb_code}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {(order as any).courier_name}
+                          {order.courier_name}
                         </p>
                         <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
-                          {(order as any).shiprocket_status}
+                          {order.shiprocket_status}
                         </p>
                       </div>
                     )}

@@ -3394,8 +3394,8 @@ export async function syncFirstCryCatalogToSupabase(
     }
 
     return { success: true, count: synced };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error syncing FirstCry catalog:", err);
-    return { success: false, count: 0, error: err?.message || String(err) };
+    return { success: false, count: 0, error: (err as Error)?.message || String(err) };
   }
 }

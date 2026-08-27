@@ -105,7 +105,7 @@ serve(async (req) => {
       provider_status: providerStatus,
       error_details: errorDetails,
     };
-    
+
     if (order_id) {
       logData.order_id = order_id;
     } else if (offline_sale_id) {

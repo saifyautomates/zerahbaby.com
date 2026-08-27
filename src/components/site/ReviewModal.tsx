@@ -78,8 +78,8 @@ export function ReviewModal({
       if (uploadedUrls.length > 0) {
         toast.success(`Uploaded ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? "s" : ""}`);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload photo. Please try again.");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to upload photo. Please try again.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

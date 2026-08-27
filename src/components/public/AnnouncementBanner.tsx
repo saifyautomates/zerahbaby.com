@@ -35,19 +35,28 @@ export function AnnouncementBanner() {
       {/* Desktop Center Announcement (static, single line, perfectly centered) */}
       <div className="hidden lg:flex flex-1 items-center justify-center overflow-hidden">
         <div className="flex items-center justify-center gap-2 text-center">
-          <Sparkle className="size-3 shrink-0 announce-gold-text animate-pulse" aria-hidden="true" />
+          <Sparkle
+            className="size-3 shrink-0 announce-gold-text animate-pulse"
+            aria-hidden="true"
+          />
           <p
             className="font-display text-[11px] font-semibold uppercase tracking-widest leading-none whitespace-nowrap"
             style={{ color: textColor }}
           >
             {text}
           </p>
-          <Sparkle className="size-3 shrink-0 announce-gold-text animate-pulse" aria-hidden="true" />
+          <Sparkle
+            className="size-3 shrink-0 announce-gold-text animate-pulse"
+            aria-hidden="true"
+          />
         </div>
       </div>
 
       {/* Mobile Ultra-Slim Marquee (Single line, smooth continuous horizontal scroll, 0 line wrapping, only ~26px height!) */}
-      <div className="flex flex-1 items-center justify-center overflow-hidden lg:hidden" aria-label="Announcement">
+      <div
+        className="flex flex-1 items-center justify-center overflow-hidden lg:hidden"
+        aria-label="Announcement"
+      >
         <div className="group relative w-full overflow-hidden whitespace-nowrap">
           <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap flex items-center">
             <span

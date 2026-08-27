@@ -25,7 +25,9 @@ export function ProductCard({ product }: { product: Product }) {
     queryFn: async () => {
       const { data, error } = await supabase.from("site_settings").select("key, value");
       if (error) throw error;
-      return Object.fromEntries(data.map((r: any) => [r.key, r.value])) as Record<string, string>;
+      return Object.fromEntries(
+        data.map((r: { key: string; value: string }) => [r.key, r.value]),
+      ) as Record<string, string>;
     },
   });
 

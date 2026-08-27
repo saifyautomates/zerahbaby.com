@@ -179,7 +179,7 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
           select: (cols: string) => {
             eq: (
               col: string,
-              val: any,
+              val: string | number,
             ) => {
               order: (
                 col: string,
@@ -222,7 +222,9 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     name: product.name,
     sku: product.sku || "",
     barcode: product.barcode || trimmed,
-    image_url: (product as any).product_images?.[0]?.public_url || null,
+    image_url:
+      (product as { product_images?: { public_url: string }[] }).product_images?.[0]?.public_url ||
+      null,
     current_price: currentPrice,
     recent_sold_price: recentSoldPrice,
     mrp: mrp,

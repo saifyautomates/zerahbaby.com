@@ -43,20 +43,20 @@ export function useProductReviews(productId: string | undefined) {
 
       if (error) throw error;
 
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r: Record<string, unknown>) => ({
         id: r.id,
         product_id: r.product_id,
         user_id: r.user_id,
         order_id: r.order_id,
         rating: Number(r.rating) || 5,
-        title: r.title || "",
-        comment: r.comment || "",
+        title: (r.title as string) || "",
+        comment: (r.comment as string) || "",
         images: Array.isArray(r.images) ? r.images : [],
         verified_purchase: Boolean(r.verified_purchase),
         status: r.status,
         created_at: r.created_at,
         updated_at: r.updated_at,
-        user_name: r.profiles?.full_name || "Verified Customer",
+        user_name: (r.profiles as { full_name?: string } | null)?.full_name || "Verified Customer",
       })) as Review[];
     },
   });
@@ -117,7 +117,7 @@ export function useCanUserReviewProduct(
       if (orders && Array.isArray(orders)) {
         for (const order of orders) {
           const items = Array.isArray(order.order_items) ? order.order_items : [];
-          const matched = items.some((item: any) => {
+          const matched = items.some((item) => {
             if (productId && (item.product_id === productId || item.product_slug === productId)) {
               return true;
             }
@@ -290,11 +290,11 @@ export function useAllReviews(enabled: boolean) {
 
       if (error) throw error;
 
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r: Record<string, unknown>) => ({
         ...r,
         images: Array.isArray(r.images) ? r.images : [],
-        user_name: r.profiles?.full_name || "Customer",
-        user_phone: r.profiles?.phone || "",
+        user_name: (r.profiles as { full_name?: string } | null)?.full_name || "Customer",
+        user_phone: (r.profiles as { phone?: string } | null)?.phone || "",
       })) as (Review & {
         products: { name: string; slug: string } | null;
         user_name?: string;

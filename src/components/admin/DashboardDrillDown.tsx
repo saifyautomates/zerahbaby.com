@@ -14,6 +14,68 @@ import { format } from "date-fns";
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 
+interface DrillDownOrderItem {
+  product_id?: string;
+  product_name?: string;
+  product_slug?: string;
+  qty?: number;
+  price?: number;
+}
+
+interface DrillDownOrder {
+  id: string;
+  created_at: string;
+  status?: string;
+  total?: number;
+  order_items?: DrillDownOrderItem[];
+  profiles?: { full_name?: string; phone?: string; email?: string } | null;
+  customer_name?: string;
+  customer_phone?: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  payment_status?: string;
+  payment_method?: string;
+}
+
+interface DrillDownPOSItem {
+  id?: string;
+  product_id?: string | null;
+  product_name?: string;
+  name?: string;
+  quantity?: number;
+  qty?: number;
+  price?: number;
+}
+
+interface DrillDownPOSSale {
+  id: string;
+  sale_number?: string;
+  created_at: string;
+  status?: string;
+  total?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  offline_sale_items?: DrillDownPOSItem[];
+}
+
+interface DrillDownProduct {
+  id: string;
+  slug: string;
+  name: string;
+  category?: string;
+  brand?: string;
+  sku?: string | null;
+  price?: number;
+  image?: string;
+  image_url?: string;
+  product_images?: Array<{ public_url?: string; sort_order?: number; is_primary?: boolean }>;
+  product_costs?: { buying_price?: number } | Array<{ buying_price?: number }> | null;
+  stock?: number;
+  low_stock_at?: number;
+  is_active?: boolean;
+}
+
 export function DashboardDrillDown({
   type,
   onBack,
@@ -25,9 +87,9 @@ export function DashboardDrillDown({
   type: string;
   onBack: () => void;
   dateRangeText: string;
-  orders: any[];
-  posSales: any[];
-  products: any[];
+  orders: DrillDownOrder[];
+  posSales: DrillDownPOSSale[];
+  products: DrillDownProduct[];
 }) {
   const {
     title,
@@ -39,13 +101,13 @@ export function DashboardDrillDown({
       return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
     };
 
-    const getBuyingPrice = (p: any) => {
+    const getBuyingPrice = (p: DrillDownProduct | undefined) => {
       if (!p) return 0;
       const costs = p.product_costs;
       return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
     };
 
-    const getProductImage = (p: any) => {
+    const getProductImage = (p: DrillDownProduct | undefined) => {
       if (!p) return null;
       let url: string | null = null;
       if (p.image) url = p.image;
@@ -74,21 +136,31 @@ export function DashboardDrillDown({
           await supabase.rpc("delete_cancelled_order", { _order_id: id });
         }
         window.location.reload();
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Delete failed:", e);
-        alert(e.message || "Failed to delete record from Supabase.");
+        alert((e as Error).message || "Failed to delete record from Supabase.");
       }
     };
 
     if (type === "revenue") {
-      const allItems: any[] = [];
+      const allItems: Array<{
+        sale_id: string;
+        date: string;
+        product: string;
+        slug: string | null;
+        image: string | null;
+        source: "Online" | "POS";
+        qty: number;
+        price: number;
+        total: number;
+      }> = [];
       orders.forEach((o) => {
-        o.order_items?.forEach((item: any) => {
+        o.order_items?.forEach((item) => {
           const p = products.find((prod) => prod.id === item.product_id);
           allItems.push({
             sale_id: o.id,
             date: o.created_at,
-            product: item.product_name,
+            product: item.product_name || "Product",
             slug: p?.slug || null,
             image: getProductImage(p),
             source: "Online",
@@ -99,8 +171,8 @@ export function DashboardDrillDown({
         });
       });
       posSales.forEach((s) => {
-        s.offline_sale_items?.forEach((item: any) => {
-          const p = getProduct(item.product_id);
+        s.offline_sale_items?.forEach((item) => {
+          const p = getProduct(item.product_id || "");
           allItems.push({
             sale_id: s.id,
             date: s.created_at,
@@ -182,7 +254,7 @@ export function DashboardDrillDown({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-800"}`}
+                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-foreground border border-border"}`}
                       >
                         {item.source}
                       </span>
@@ -192,8 +264,9 @@ export function DashboardDrillDown({
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleDeleteRecord(item.sale_id, item.source)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                         title="Delete this record"
+                        aria-label="Delete this record"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -259,7 +332,7 @@ export function DashboardDrillDown({
                     <td className="px-6 py-4">{item.customer}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-800"}`}
+                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-foreground border border-border"}`}
                       >
                         {item.source}
                       </span>
@@ -270,8 +343,9 @@ export function DashboardDrillDown({
                         onClick={() =>
                           handleDeleteRecord(item.sale_id, item.source as "Online" | "POS")
                         }
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                         title="Delete this order"
+                        aria-label="Delete this order"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -293,7 +367,7 @@ export function DashboardDrillDown({
     }
 
     if (type === "low_stock") {
-      const lowStockItems = products.filter((p) => p.stock <= (p.low_stock_at || 5));
+      const lowStockItems = products.filter((p) => (p.stock ?? 0) <= (p.low_stock_at || 5));
       return {
         title: "Low Stock Items",
         icon: AlertTriangle,
@@ -337,9 +411,9 @@ export function DashboardDrillDown({
                       </Link>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs">{p.sku}</td>
-                    <td className="px-6 py-4 text-right font-bold text-red-600">{p.stock}</td>
+                    <td className="px-6 py-4 text-right font-bold text-red-600">{p.stock ?? 0}</td>
                     <td className="px-6 py-4">
-                      {p.stock <= 0 ? (
+                      {(p.stock ?? 0) <= 0 ? (
                         <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-700">
                           Out of Stock
                         </span>
@@ -419,7 +493,7 @@ export function DashboardDrillDown({
     }
 
     if (type === "stock") {
-      const inStockItems = products.filter((p) => p.stock > 0);
+      const inStockItems = products.filter((p) => (p.stock ?? 0) > 0);
       return {
         title: "Total Stock Value",
         icon: Package,
@@ -463,9 +537,9 @@ export function DashboardDrillDown({
                       </Link>
                     </td>
                     <td className="px-6 py-4 text-right">{formatPrice(p.price || 0)}</td>
-                    <td className="px-6 py-4 text-right font-bold">{p.stock}</td>
+                    <td className="px-6 py-4 text-right font-bold">{p.stock ?? 0}</td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                      {formatPrice((p.price || 0) * p.stock)}
+                      {formatPrice((p.price || 0) * (p.stock ?? 0))}
                     </td>
                   </tr>
                 ))}
@@ -484,14 +558,23 @@ export function DashboardDrillDown({
     }
 
     if (type === "profit") {
-      const allItems: any[] = [];
+      const allItems: Array<{
+        date: string;
+        product: string;
+        slug?: string;
+        image?: string | null;
+        qty: number;
+        rev: number;
+        cogs: number;
+        profit: number;
+      }> = [];
       let totalProfit = 0;
       let totalRev = 0;
       let totalCogs = 0;
 
       orders.forEach((o) => {
-        o.order_items?.forEach((item: any) => {
-          const p = getProduct(item.product_slug);
+        o.order_items?.forEach((item) => {
+          const p = getProduct(item.product_slug || "");
           const bp = getBuyingPrice(p);
           const rev = (item.price || 0) * (item.qty || 1);
           const cogs = bp * (item.qty || 1);
@@ -501,7 +584,7 @@ export function DashboardDrillDown({
           totalProfit += profit;
           allItems.push({
             date: o.created_at,
-            product: item.product_name,
+            product: item.product_name || "Product",
             slug: item.product_slug,
             image: getProductImage(p),
             qty: item.qty || 1,
@@ -512,8 +595,8 @@ export function DashboardDrillDown({
         });
       });
       posSales.forEach((s) => {
-        s.offline_sale_items?.forEach((item: any) => {
-          const p = getProduct(item.product_id);
+        s.offline_sale_items?.forEach((item) => {
+          const p = getProduct(item.product_id || "");
           const bp = getBuyingPrice(p);
           const rev = (item.price || 0) * (item.quantity || 1);
           const cogs = bp * (item.quantity || 1);
@@ -685,15 +768,15 @@ export function DashboardDrillDown({
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-sm">{p.sku}</td>
+                    <td className="px-6 py-4 font-mono text-sm">{p.sku || "—"}</td>
                     <td className="px-6 py-4 text-right font-bold text-foreground text-sm">
-                      {formatPrice(p.price)}
+                      {formatPrice(p.price || 0)}
                     </td>
                     <td className="px-6 py-4 text-right font-medium">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.stock <= 0 ? "bg-red-100 text-red-700" : p.stock <= (p.low_stock_at || 5) ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(p.stock ?? 0) <= 0 ? "bg-red-100 text-red-700" : (p.stock ?? 0) <= (p.low_stock_at || 5) ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}
                       >
-                        {p.stock} in stock
+                        {p.stock ?? 0} in stock
                       </span>
                     </td>
                   </tr>

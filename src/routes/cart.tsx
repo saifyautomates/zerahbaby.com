@@ -255,6 +255,7 @@ function CartPage() {
                   <input
                     type="text"
                     placeholder="Promo code"
+                    aria-label="Promo code"
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value)}
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm uppercase outline-none focus:border-primary"

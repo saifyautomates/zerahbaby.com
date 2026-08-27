@@ -722,6 +722,7 @@ export function Header() {
               </h2>
               <button
                 onClick={() => setShowCategoryModal(false)}
+                aria-label="Close modal"
                 className="rounded-full p-2 bg-muted hover:bg-muted-foreground/20 transition-colors"
               >
                 <X className="size-5" />
