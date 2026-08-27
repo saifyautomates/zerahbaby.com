@@ -14,7 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { FloatingSocials } from "@/components/site/FloatingSocials";
+
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { SplashScreen } from "@/components/site/SplashScreen";
@@ -313,7 +313,7 @@ function RootComponent() {
         <OfflineSyncHost />
         <OnboardingModal />
         <SplashScreen />
-        {!isAdminRoute && <FloatingSocials />}
+
       </CartProvider>
     </QueryClientProvider>
   );
