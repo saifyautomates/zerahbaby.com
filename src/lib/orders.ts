@@ -311,7 +311,7 @@ export function useRetryOrderNotification() {
       orderId: string;
       type: "online_order" | "offline_sale";
     }) => {
-      const payload: any = { type, force_retry: true };
+      const payload: Record<string, unknown> = { type, force_retry: true };
       if (type === "online_order") {
         payload.order_id = orderId;
       } else {

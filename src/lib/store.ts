@@ -122,7 +122,8 @@ export const mapProduct = (row: ProductRow): Product => {
     images: media.gallery,
     deliveryFee:
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
-    recommendationMode: (row.recommendation_mode as any) ?? "manual_fallback",
+    recommendationMode:
+      (row.recommendation_mode as "manual_fallback" | "manual" | "auto") ?? "manual_fallback",
   };
 };
 

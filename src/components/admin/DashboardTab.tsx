@@ -996,7 +996,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickFormatter={(v) => `₹${v}`}
                 />
                 <Tooltip
-                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
+                  formatter={(value: number, name: string) => [formatPrice(value ?? 0), name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1072,7 +1072,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(val: any, _name: any) => [`${val} visitors`, _name]}
+                  formatter={(val: number, _name: string) => [`${val} visitors`, _name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1133,7 +1133,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
+                  formatter={(value: number, name: string) => [formatPrice(value ?? 0), name]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",

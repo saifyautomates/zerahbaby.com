@@ -134,8 +134,8 @@ export function ProductForm({
         });
         if (error) throw error;
         const manualIds = data
-          .filter((d: any) => d.relation_source === "manual")
-          .map((d: any) => d.id);
+          .filter((d: Record<string, unknown>) => d.relation_source === "manual")
+          .map((d: Record<string, unknown>) => String(d.id));
         setDraft((prev) => ({ ...prev, relatedProductIds: manualIds }));
       } catch (err) {
         console.error("Failed to load related products:", err);
@@ -852,7 +852,12 @@ export function ProductForm({
                   <select
                     className={input}
                     value={draft.recommendationMode}
-                    onChange={(e) => set("recommendationMode", e.target.value as any)}
+                    onChange={(e) =>
+                      set(
+                        "recommendationMode",
+                        e.target.value as "manual" | "manual_fallback" | "auto",
+                      )
+                    }
                   >
                     <option value="manual_fallback">
                       Admin Selected + Auto Fallback (Recommended)

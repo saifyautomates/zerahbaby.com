@@ -68,7 +68,7 @@ export function OnlineSalesTab() {
   async function handleConfirmDelete() {
     if (!orderToDelete) return;
     try {
-      if ((orderToDelete as any)._type === "offline") {
+      if ((orderToDelete as Record<string, unknown>)._type === "offline") {
         const { error } = await supabase.from("offline_sales").delete().eq("id", orderToDelete.id);
         if (error) throw error;
         toast.success("POS sale deleted permanently.");
@@ -77,9 +77,9 @@ export function OnlineSalesTab() {
         await deleteOrder.mutateAsync(orderToDelete.id);
       }
       setOrderToDelete(null);
-    } catch (e: any) {
-      if ((orderToDelete as any)._type === "offline") {
-        toast.error(e.message || "Failed to delete POS sale");
+    } catch (e) {
+      if ((orderToDelete as Record<string, unknown>)._type === "offline") {
+        toast.error((e as Error).message || "Failed to delete POS sale");
       }
       // Note: useDeleteCancelledOrder handles its own error toasts for online orders
     }

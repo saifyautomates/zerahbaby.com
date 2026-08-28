@@ -273,8 +273,8 @@ export function OfflineAnalyticsTab() {
       await supabase.from("products").delete().eq("is_active", false);
       alert("Successfully wiped dummy sales.");
       window.location.reload();
-    } catch (e: any) {
-      alert("Error: " + e.message);
+    } catch (e) {
+      alert("Error: " + (e as Error).message);
     }
   };
 
