@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 /** Tracks a user event for analytics. Fire-and-forget — never blocks UI. */
 export function trackEvent(
@@ -19,8 +20,7 @@ export function trackEvent(
         event_name: eventName,
         product_id: opts?.productId ?? null,
         order_id: opts?.orderId ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: (opts?.metadata ?? null) as any, // Cast to any to satisfy Supabase Json type expectations
+        metadata: (opts?.metadata ?? null) as Json,
       })
       .then(({ error }) => {
         if (error && error.code !== "42501") {

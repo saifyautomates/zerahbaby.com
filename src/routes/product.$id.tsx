@@ -356,8 +356,7 @@ function ProductPage() {
         <span className="mx-2">/</span>{" "}
         <Link
           to="/shop"
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          search={{ category: product.category } as any}
+          search={{ category: product.category ?? undefined }}
           className="hover:text-primary transition-colors"
         >
           {product.category}

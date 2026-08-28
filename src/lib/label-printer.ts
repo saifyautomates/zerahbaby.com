@@ -242,8 +242,12 @@ export function triggerDirectLabelPrint(
   setTimeout(() => {
     try {
       // Check for native desktop shell / kiosk print bridge if available
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const win = window as any;
+      interface WindowWithElectron extends Window {
+        electronAPI?: {
+          printDirect: () => void;
+        };
+      }
+      const win = window as unknown as WindowWithElectron;
       if (typeof win.electronAPI?.printDirect === "function") {
         win.electronAPI.printDirect();
       } else {
