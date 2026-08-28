@@ -436,7 +436,7 @@ export function POSTab() {
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-background overflow-hidden relative">
       {/* ====== LEFT PANEL: Cart & Scanning ====== */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 min-h-0">
         {/* Scanner Header with Realtime / Offline Sync Status */}
         <div className="flex flex-wrap items-center justify-between border-b border-border/50 bg-muted/30 p-4 gap-3">
           <div className="flex items-center gap-3">
