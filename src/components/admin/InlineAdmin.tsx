@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Check, Pencil, Plus, Trash2, X, Upload, FolderPlus } from "lucide-react";
 import { useAdminMode } from "@/lib/admin-mode";
-import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import type { ProductDraft } from "@/components/admin/ProductForm";
+const ProductForm = lazy(() =>
+  import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
+);
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useDeleteProduct, useSaveProduct, useSaveSetting } from "@/lib/admin-products";
 import type { Product, Category } from "@/lib/store";
@@ -50,14 +53,22 @@ export function AdminProductControls({ product }: { product: Product }) {
       </div>
 
       {editing && (
-        <ProductForm
-          product={product}
-          saving={save.isPending}
-          onCancel={() => setEditing(false)}
-          onSave={(draft) => {
-            save.mutate({ draft, uuid: product.uuid }, { onSuccess: () => setEditing(false) });
-          }}
-        />
+        <Suspense
+          fallback={
+            <div className="p-8 text-center text-muted-foreground animate-pulse rounded-2xl bg-card border shadow-xl mx-4 my-8">
+              Loading editor...
+            </div>
+          }
+        >
+          <ProductForm
+            product={product}
+            saving={save.isPending}
+            onCancel={() => setEditing(false)}
+            onSave={(draft) => {
+              save.mutate({ draft, uuid: product.uuid }, { onSuccess: () => setEditing(false) });
+            }}
+          />
+        </Suspense>
       )}
 
       {confirmDelete && (
@@ -486,15 +497,23 @@ export function AdminAddProduct({
       </button>
 
       {open && (
-        <ProductForm
-          product={null}
-          defaultCategory={defaultCategory}
-          saving={save.isPending}
-          onCancel={() => setOpen(false)}
-          onSave={(draft) => {
-            save.mutate({ draft }, { onSuccess: () => setOpen(false) });
-          }}
-        />
+        <Suspense
+          fallback={
+            <div className="p-8 text-center text-muted-foreground animate-pulse rounded-2xl bg-card border shadow-xl">
+              Loading editor...
+            </div>
+          }
+        >
+          <ProductForm
+            product={null}
+            defaultCategory={defaultCategory}
+            saving={save.isPending}
+            onCancel={() => setOpen(false)}
+            onSave={(draft) => {
+              save.mutate({ draft }, { onSuccess: () => setOpen(false) });
+            }}
+          />
+        </Suspense>
       )}
     </>
   );

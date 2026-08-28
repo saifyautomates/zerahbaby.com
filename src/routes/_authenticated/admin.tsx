@@ -54,13 +54,12 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
-import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import type { ProductDraft } from "@/components/admin/ProductForm";
 
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
-import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 
 const HeroMediaManager = lazy(() =>
@@ -68,6 +67,12 @@ const HeroMediaManager = lazy(() =>
 );
 const MediaLibrary = lazy(() =>
   import("@/components/admin/MediaLibrary").then((m) => ({ default: m.MediaLibrary })),
+);
+const ProductForm = lazy(() =>
+  import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
+);
+const PrintLabelsModal = lazy(() =>
+  import("@/components/admin/PrintLabelsModal").then((m) => ({ default: m.PrintLabelsModal })),
 );
 
 const BillingCenterTab = lazy(() =>
@@ -1908,19 +1913,35 @@ function ProductsTab() {
       )}
 
       {(creating || editing) && (
-        <ProductForm
-          product={editing}
-          saving={save.isPending}
-          onCancel={() => {
-            setCreating(false);
-            setEditing(null);
-          }}
-          onSave={(draft) => save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })}
-        />
+        <Suspense
+          fallback={
+            <div className="p-12 text-center text-muted-foreground animate-pulse border bg-card rounded-2xl shadow-xl">
+              Loading product editor...
+            </div>
+          }
+        >
+          <ProductForm
+            product={editing}
+            saving={save.isPending}
+            onCancel={() => {
+              setCreating(false);
+              setEditing(null);
+            }}
+            onSave={(draft) => save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })}
+          />
+        </Suspense>
       )}
 
       {printingLabels && (
-        <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-background p-8 rounded-xl animate-pulse">Loading printer...</div>
+            </div>
+          }
+        >
+          <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
+        </Suspense>
       )}
     </div>
   );

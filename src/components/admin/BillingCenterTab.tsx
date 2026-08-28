@@ -2,10 +2,17 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, type Product, formatPrice } from "@/lib/store";
-import { POSTab } from "./POSTab";
-import { POSReturnsTab } from "./POSReturnsTab";
-import { OfflineAnalyticsTab } from "./OfflineAnalyticsTab";
-import { CustomerHistoryPanel } from "./CustomerHistoryPanel";
+import { lazy, Suspense } from "react";
+const POSTab = lazy(() => import("./POSTab").then((m) => ({ default: m.POSTab })));
+const POSReturnsTab = lazy(() =>
+  import("./POSReturnsTab").then((m) => ({ default: m.POSReturnsTab })),
+);
+const OfflineAnalyticsTab = lazy(() =>
+  import("./OfflineAnalyticsTab").then((m) => ({ default: m.OfflineAnalyticsTab })),
+);
+const CustomerHistoryPanel = lazy(() =>
+  import("./CustomerHistoryPanel").then((m) => ({ default: m.CustomerHistoryPanel })),
+);
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import {
   Scan,
@@ -92,19 +99,27 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
           key={activeTab}
           className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden"
         >
-          {activeTab === "pos" && <POSTab />}
-          {activeTab === "returns" && <POSReturnsTab />}
-          {activeTab === "labels" && <LabelPrintingSubTab />}
-          {activeTab === "sales" && (
-            <div className="overflow-y-auto h-full pr-2 pb-10">
-              <OfflineAnalyticsTab />
-            </div>
-          )}
-          {activeTab === "customers" && (
-            <div className="overflow-y-auto h-full pr-2 pb-10">
-              <CustomerHistoryPanel />
-            </div>
-          )}
+          <Suspense
+            fallback={
+              <div className="flex-1 flex items-center justify-center p-8 text-muted-foreground animate-pulse">
+                Loading module...
+              </div>
+            }
+          >
+            {activeTab === "pos" && <POSTab />}
+            {activeTab === "returns" && <POSReturnsTab />}
+            {activeTab === "labels" && <LabelPrintingSubTab />}
+            {activeTab === "sales" && (
+              <div className="overflow-y-auto h-full pr-2 pb-10">
+                <OfflineAnalyticsTab />
+              </div>
+            )}
+            {activeTab === "customers" && (
+              <div className="overflow-y-auto h-full pr-2 pb-10">
+                <CustomerHistoryPanel />
+              </div>
+            )}
+          </Suspense>
         </div>
       </div>
     </div>

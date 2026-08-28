@@ -18,8 +18,14 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { SplashScreen } from "@/components/site/SplashScreen";
 import { supabase } from "@/integrations/supabase/client";
-import { GlobalRealtimeSyncHost } from "@/lib/realtime-sync";
-import { OfflineSyncHost } from "@/lib/offline-sync-engine";
+import { lazy, Suspense } from "react";
+
+const GlobalRealtimeSyncHost = lazy(() =>
+  import("@/lib/realtime-sync").then((m) => ({ default: m.GlobalRealtimeSyncHost })),
+);
+const OfflineSyncHost = lazy(() =>
+  import("@/lib/offline-sync-engine").then((m) => ({ default: m.OfflineSyncHost })),
+);
 
 function NotFoundComponent() {
   return (
@@ -198,7 +204,9 @@ import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 import { useSettings } from "@/lib/store";
 import { MaintenanceScreen } from "@/components/site/MaintenanceScreen";
 
-import { DirectLabelPrintHost } from "@/components/admin/LabelPrintEngine";
+const DirectLabelPrintHost = lazy(() =>
+  import("@/components/admin/LabelPrintEngine").then((m) => ({ default: m.DirectLabelPrintHost })),
+);
 
 function MaintenanceGuard({
   children,
@@ -310,9 +318,11 @@ function RootComponent() {
           </div>
         </MaintenanceGuard>
         <Toaster />
-        <DirectLabelPrintHost />
-        <GlobalRealtimeSyncHost />
-        <OfflineSyncHost />
+        <Suspense fallback={null}>
+          <DirectLabelPrintHost />
+          <GlobalRealtimeSyncHost />
+          <OfflineSyncHost />
+        </Suspense>
         <OnboardingModal />
         <SplashScreen />
       </CartProvider>
