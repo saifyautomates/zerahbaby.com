@@ -17,6 +17,7 @@ import {
   Save,
   ChevronRight,
   Filter,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -144,6 +145,25 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
     },
     onError: (err: unknown) => {
       toast.error((err as Error).message || "Failed to update query");
+    },
+  });
+
+  // Mutation: Delete query
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("admin_delete_query", {
+        p_query_id: id,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Query deleted successfully");
+      qc.invalidateQueries({ queryKey: ["admin-queries"] });
+      setSelectedQuery(null);
+    },
+    onError: (err: unknown) => {
+      toast.error((err as Error).message || "Failed to delete query");
     },
   });
 
@@ -665,6 +685,19 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
               </a>
 
               <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this query permanently?")) {
+                      deleteMutation.mutate(selectedQuery.id);
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition hover:bg-rose-500/20 cursor-pointer flex items-center gap-1"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>{deleteMutation.isPending ? "Deleting..." : "Delete"}</span>
+                </button>
                 {selectedQuery.status !== "resolved" && (
                   <button
                     type="button"

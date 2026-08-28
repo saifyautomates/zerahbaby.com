@@ -11,6 +11,7 @@ import {
   MessageSquare,
   User,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,6 +112,24 @@ export function SMSLogsTab() {
     },
     onError: (err: unknown) => {
       toast.error((err as Error).message || "Failed to trigger retry");
+    },
+  });
+
+  // Safe delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (logId: string) => {
+      const { data, error } = await supabase.rpc("admin_delete_sms_log", {
+        p_log_id: logId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("SMS log deleted successfully");
+      qc.invalidateQueries({ queryKey: ["sms_logs"] });
+    },
+    onError: (err: unknown) => {
+      toast.error((err as Error).message || "Failed to delete SMS log");
     },
   });
 
@@ -364,26 +383,43 @@ export function SMSLogsTab() {
 
                       {/* Action */}
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        {isFailed ? (
+                        <div className="flex items-center justify-end gap-2">
+                          {isFailed ? (
+                            <button
+                              type="button"
+                              onClick={() => retryMutation.mutate(log.id)}
+                              disabled={retryMutation.isPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/20 focus:outline-none disabled:opacity-50"
+                              title="Retry sending this SMS"
+                            >
+                              <RotateCcw
+                                className={`size-3 ${retryMutation.isPending ? "animate-spin" : ""}`}
+                              />
+                              <span>Retry</span>
+                            </button>
+                          ) : log.retry_count > 0 ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              Retried ({log.retry_count})
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                           <button
                             type="button"
-                            onClick={() => retryMutation.mutate(log.id)}
-                            disabled={retryMutation.isPending}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/20 focus:outline-none disabled:opacity-50"
-                            title="Retry sending this SMS"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Delete this SMS log permanently?")) {
+                                deleteMutation.mutate(log.id);
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 transition hover:bg-rose-500/20 focus:outline-none disabled:opacity-50 ml-2"
+                            title="Delete SMS Log"
                           >
-                            <RotateCcw
-                              className={`size-3 ${retryMutation.isPending ? "animate-spin" : ""}`}
-                            />
-                            <span>Retry</span>
+                            <Trash2 className="size-3" />
+                            <span className="sr-only">Delete</span>
                           </button>
-                        ) : log.retry_count > 0 ? (
-                          <span className="text-[11px] text-muted-foreground">
-                            Retried ({log.retry_count})
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
