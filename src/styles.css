@@ -708,3 +708,49 @@
 .text-fluid-3xl { font-size: clamp(1.5rem, 5vw, 2rem); }
 .text-fluid-4xl { font-size: clamp(1.875rem, 6vw, 2.5rem); }
 
+/* ================================================================
+   SCROLLBAR UTILITIES
+   ================================================================ */
+
+/* Hide scrollbar but keep scroll functionality — used in carousels */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Alias for scrollbar-none */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Thin styled scrollbar for sidebar/content areas */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-border) 80%, transparent) transparent;
+  &::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-border) 80%, transparent);
+    border-radius: 999px;
+  }
+}
+
+/* ================================================================
+   PRINT MEDIA SAFETY
+   ================================================================ */
+@media print {
+  .no-print { display: none !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

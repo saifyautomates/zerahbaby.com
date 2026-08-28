@@ -1,6 +1,7 @@
 {
   "name": "Zerah Baby And Kid's",
   "short_name": "Zerah Kids",
+  "description": "Baby & kids essentials — clothing, toys, diapers, gear and more.",
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -18,6 +19,24 @@
   "theme_color": "#8B2020",
   "background_color": "#FFFFFF",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "start_url": "/",
-  "orientation": "portrait"
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "lang": "en-IN",
+  "categories": ["shopping", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Shop",
+      "short_name": "Shop",
+      "url": "/shop",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Cart",
+      "short_name": "Cart",
+      "url": "/cart",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
 }
