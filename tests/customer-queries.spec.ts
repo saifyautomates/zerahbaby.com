@@ -58,7 +58,9 @@ test.describe("Customer Query / Contact Form System E2E Suite", () => {
     await page.locator('button[type="submit"]').click();
 
     // Verify Success Card appears with customer name and ticket reference
-    await expect(page.locator("text=Your message has been received")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Your message has been received")).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.locator(`text=${testName}`)).toBeVisible();
     await expect(page.locator("text=Reference Ticket:")).toBeVisible();
 

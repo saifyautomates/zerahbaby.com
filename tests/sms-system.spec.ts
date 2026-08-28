@@ -92,7 +92,9 @@ test.describe("Complete Sales SMS System Test Suite", () => {
     expect(invokeResult.data.dispatches.length).toBeGreaterThanOrEqual(1);
 
     // Verify status is truthful: 'SENT' (or mock_success in development)
-    const custDispatch = invokeResult.data.dispatches.find((d: { recipient: string }) => d.recipient === "customer");
+    const custDispatch = invokeResult.data.dispatches.find(
+      (d: { recipient: string }) => d.recipient === "customer",
+    );
     expect(custDispatch).toBeDefined();
     expect(["SENT", "sent", "mock_success"]).toContain(custDispatch.status || "SENT");
   });

@@ -615,7 +615,10 @@ serve(async (req) => {
     const payload = await req.json();
     const { type, order_id, sale_id, return_id, force_retry, recipient: customRecipient } = payload;
 
-    if (!type || !["offline_sale", "online_order", "offline_return", "customer_query", "test"].includes(type)) {
+    if (
+      !type ||
+      !["offline_sale", "online_order", "offline_return", "customer_query", "test"].includes(type)
+    ) {
       return new Response(JSON.stringify({ error: "Invalid or missing notification type" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -827,7 +830,13 @@ serve(async (req) => {
       referenceNumber = `QUERY-${referenceId.slice(0, 8).toUpperCase()}`;
       totalAmount = 0;
 
-      const rendered = renderCustomerQueryEmail(customerName, customerEmail, queryMessage, orderNum, referenceId);
+      const rendered = renderCustomerQueryEmail(
+        customerName,
+        customerEmail,
+        queryMessage,
+        orderNum,
+        referenceId,
+      );
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
     }

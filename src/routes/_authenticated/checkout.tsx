@@ -272,17 +272,21 @@ function CheckoutPage() {
                 toast.loading("Verifying payment with bank...", { id: "payment-verify" });
                 const orderRef = response.razorpay_order_id || rzpOrderId;
                 if (!response.razorpay_signature || !orderRef) {
-                  throw new Error("Payment signature or order reference missing from gateway response");
+                  throw new Error(
+                    "Payment signature or order reference missing from gateway response",
+                  );
                 }
 
-                const { data: verifyData, error: verifyError } =
-                  await supabase.functions.invoke("verify-razorpay-payment", {
+                const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+                  "verify-razorpay-payment",
+                  {
                     body: {
                       razorpay_order_id: orderRef,
                       razorpay_payment_id: response.razorpay_payment_id,
                       razorpay_signature: response.razorpay_signature,
                     },
-                  });
+                  },
+                );
 
                 if (verifyError || !verifyData?.success) {
                   throw new Error(

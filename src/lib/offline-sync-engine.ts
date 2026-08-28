@@ -266,7 +266,9 @@ export async function getCachedCatalog(): Promise<Array<Record<string, unknown>>
       const req = store.getAll();
       req.onsuccess = () => {
         const all = req.result || [];
-        resolve(all.filter((p: Record<string, unknown>) => p.is_active !== false && p.isActive !== false));
+        resolve(
+          all.filter((p: Record<string, unknown>) => p.is_active !== false && p.isActive !== false),
+        );
       };
       req.onerror = () => resolve([]);
     });

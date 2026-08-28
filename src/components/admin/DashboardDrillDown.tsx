@@ -122,8 +122,6 @@ export function DashboardDrillDown({
       return imageFor(p.category || "clothing", url);
     };
 
-
-
     const validOrders = orders.filter((o) => {
       if (o.status === "cancelled") return false;
       if (o.payment_status === "failed" || o.payment_status === "refunded") return false;

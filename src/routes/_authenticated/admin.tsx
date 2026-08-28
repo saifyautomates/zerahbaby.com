@@ -281,6 +281,19 @@ function AdminPage() {
     return newOnline + newOffline;
   }, [onlineOrders, posSales, lastViewedOrdersTime]);
 
+  const { data: newQueriesCount = 0 } = useQuery({
+    queryKey: ["admin-new-queries-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("contact_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new");
+      if (error) return 0;
+      return count ?? 0;
+    },
+    staleTime: 15_000,
+  });
+
   if (roleLoading) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
@@ -312,19 +325,6 @@ function AdminPage() {
       </div>
     );
   }
-
-  const { data: newQueriesCount = 0 } = useQuery({
-    queryKey: ["admin-new-queries-count"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("contact_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "new");
-      if (error) return 0;
-      return count ?? 0;
-    },
-    staleTime: 15_000,
-  });
 
   const NAVIGATION: Array<{ key: Tab; label: string; icon: typeof BarChart3; badge?: string }> = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },

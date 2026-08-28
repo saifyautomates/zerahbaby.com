@@ -16,7 +16,17 @@ import { toast } from "sonner";
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
       <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
@@ -26,7 +36,17 @@ function InstagramIcon({ className }: { className?: string }) {
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   );
@@ -150,7 +170,7 @@ function ContactPage() {
       const { data, error } = await (
         supabase.rpc as unknown as (
           fn: string,
-          args: Record<string, unknown>
+          args: Record<string, unknown>,
         ) => Promise<{
           data: {
             success: boolean;
@@ -227,8 +247,8 @@ function ContactPage() {
     <div className="mx-auto max-w-5xl px-4 py-12">
       <h1 className="font-display text-4xl font-bold tracking-tight">Talk to us</h1>
       <p className="mt-3 max-w-xl text-muted-foreground">
-        Questions about an order, sizing, or finding the right product for your baby? Our parent-support
-        team replies within one working day.
+        Questions about an order, sizing, or finding the right product for your baby? Our
+        parent-support team replies within one working day.
       </p>
 
       <div className="mt-10 grid gap-10 md:grid-cols-[1fr_300px]">
@@ -242,13 +262,17 @@ function ContactPage() {
                   Thanks, {submittedQuery.name}! Your message has been received.
                 </h3>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Reference Ticket: <span className="font-mono font-semibold text-foreground">#{submittedQuery.id.substring(0, 8).toUpperCase()}</span>
+                  Reference Ticket:{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    #{submittedQuery.id.substring(0, 8).toUpperCase()}
+                  </span>
                 </p>
               </div>
             </div>
 
             <p className="text-sm leading-relaxed text-muted-foreground">
-              We've registered your inquiry in our support system. Our team will review your message and reply directly to{" "}
+              We've registered your inquiry in our support system. Our team will review your message
+              and reply directly to{" "}
               <strong className="text-foreground">{submittedQuery.email}</strong> within 24 hours.
             </p>
 
@@ -376,7 +400,10 @@ function ContactPage() {
           <p className="font-display font-bold text-base text-foreground">{brandName}</p>
           <div className="flex gap-3 text-muted-foreground">
             <Mail className="size-4 shrink-0 text-primary mt-0.5" />
-            <a href={`mailto:${contactEmail}`} className="transition-colors hover:text-primary break-all">
+            <a
+              href={`mailto:${contactEmail}`}
+              className="transition-colors hover:text-primary break-all"
+            >
               {contactEmail}
             </a>
           </div>
@@ -386,10 +413,7 @@ function ContactPage() {
               <span className="leading-relaxed">
                 {(contactPhone || "").split(",").map((p, i, arr) => (
                   <span key={p}>
-                    <a
-                      href={`tel:${p.trim()}`}
-                      className="transition-colors hover:text-primary"
-                    >
+                    <a href={`tel:${p.trim()}`} className="transition-colors hover:text-primary">
                       {p.trim()}
                     </a>
                     {i < arr.length - 1 && ", "}

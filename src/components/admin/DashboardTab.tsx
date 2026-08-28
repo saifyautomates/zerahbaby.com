@@ -125,9 +125,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("website_visitors")
-        .select("*");
+      const { data, error } = await supabase.from("website_visitors").select("*");
       if (error) return [];
       const v = (data ?? []) as WebsiteVisitor[];
       return v.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

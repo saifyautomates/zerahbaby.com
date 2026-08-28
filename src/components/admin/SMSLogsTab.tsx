@@ -42,7 +42,12 @@ export function SMSLogsTab() {
   const [activeMessagePreview, setActiveMessagePreview] = useState<string | null>(null);
 
   // Fetch real SMS logs from database
-  const { data: logs, isLoading, isFetching, refetch } = useQuery<SMSLogRecord[]>({
+  const {
+    data: logs,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery<SMSLogRecord[]>({
     queryKey: ["sms_logs"],
     queryFn: async () => {
       // Strategy 1: Direct table query
@@ -60,7 +65,7 @@ export function SMSLogsTab() {
       const { data: rpcData, error: rpcErr } = await (
         supabase.rpc as unknown as (
           fn: string,
-          args: Record<string, unknown>
+          args: Record<string, unknown>,
         ) => Promise<{ data: SMSLogRecord[] | null; error: unknown }>
       )("get_admin_sms_logs", { p_limit: 200 });
 
@@ -77,13 +82,9 @@ export function SMSLogsTab() {
   useEffect(() => {
     const channel = supabase
       .channel("admin-sms-logs-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "sms_logs" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["sms_logs"] });
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "sms_logs" }, () => {
+        qc.invalidateQueries({ queryKey: ["sms_logs"] });
+      })
       .subscribe();
 
     return () => {
@@ -130,7 +131,10 @@ export function SMSLogsTab() {
     // 2. Status filter
     if (statusFilter !== "ALL") {
       const isFailed = log.status === "FAILED" || log.provider_status === "error";
-      const isSent = log.status === "SENT" || log.provider_status === "sent" || log.provider_status === "mock_success";
+      const isSent =
+        log.status === "SENT" ||
+        log.provider_status === "sent" ||
+        log.provider_status === "mock_success";
       const isPending = log.status === "PENDING" || log.provider_status === "pending";
 
       if (statusFilter === "SENT" && !isSent) return false;
@@ -162,7 +166,9 @@ export function SMSLogsTab() {
           disabled={isFetching}
           className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:bg-muted/50 focus:outline-none disabled:opacity-50"
         >
-          <RefreshCw className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`} />
+          <RefreshCw
+            className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`}
+          />
           <span>{isFetching ? "Syncing..." : "Refresh"}</span>
         </button>
       </div>
@@ -283,9 +289,7 @@ export function SMSLogsTab() {
                       </td>
 
                       {/* Phone */}
-                      <td className="px-4 py-3.5 font-mono text-xs font-medium">
-                        {log.phone}
-                      </td>
+                      <td className="px-4 py-3.5 font-mono text-xs font-medium">{log.phone}</td>
 
                       {/* Event Type */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
@@ -338,7 +342,10 @@ export function SMSLogsTab() {
                       {/* Error / Details */}
                       <td className="px-4 py-3.5 text-xs max-w-[200px]">
                         {isFailed ? (
-                          <span className="text-destructive truncate block" title={log.error_details || "Error"}>
+                          <span
+                            className="text-destructive truncate block"
+                            title={log.error_details || "Error"}
+                          >
                             {log.error_details || "Unknown error"}
                           </span>
                         ) : log.message_content ? (
@@ -365,7 +372,9 @@ export function SMSLogsTab() {
                             className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/20 focus:outline-none disabled:opacity-50"
                             title="Retry sending this SMS"
                           >
-                            <RotateCcw className={`size-3 ${retryMutation.isPending ? "animate-spin" : ""}`} />
+                            <RotateCcw
+                              className={`size-3 ${retryMutation.isPending ? "animate-spin" : ""}`}
+                            />
                             <span>Retry</span>
                           </button>
                         ) : log.retry_count > 0 ? (

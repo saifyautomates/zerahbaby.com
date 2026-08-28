@@ -49,7 +49,12 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   const [adminNotesDraft, setAdminNotesDraft] = useState("");
 
   // Fetch real queries from database
-  const { data: queries = [], isLoading, isFetching, refetch } = useQuery<ContactMessageRecord[]>({
+  const {
+    data: queries = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery<ContactMessageRecord[]>({
     queryKey: ["admin-queries"],
     queryFn: async () => {
       // Strategy 1: Direct table query
@@ -67,7 +72,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       const { data: rpcData, error: rpcErr } = await (
         supabase.rpc as unknown as (
           fn: string,
-          args: Record<string, unknown>
+          args: Record<string, unknown>,
         ) => Promise<{ data: ContactMessageRecord[] | null; error: unknown }>
       )("get_admin_queries", { p_limit: 200 });
 
@@ -84,14 +89,10 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   useEffect(() => {
     const channel = supabase
       .channel("admin-queries-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "contact_messages" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["admin-queries"] });
-          qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "contact_messages" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-queries"] });
+        qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
+      })
       .subscribe();
 
     return () => {
@@ -122,7 +123,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       const { data, error } = await (
         supabase.rpc as unknown as (
           fn: string,
-          args: Record<string, unknown>
+          args: Record<string, unknown>,
         ) => Promise<{ data: ContactMessageRecord | null; error: { message: string } | null }>
       )("update_query_status", {
         p_query_id: id,
@@ -192,7 +193,9 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight">Customer Inquiries &amp; Support</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight">
+            Customer Inquiries &amp; Support
+          </h2>
           <p className="text-sm text-muted-foreground">
             Authoritative inbox for customer questions, order support, and contact form messages.
           </p>
@@ -203,7 +206,9 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
           disabled={isFetching}
           className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:bg-muted/50 focus:outline-none disabled:opacity-50 cursor-pointer"
         >
-          <RefreshCw className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`} />
+          <RefreshCw
+            className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`}
+          />
           <span>{isFetching ? "Syncing..." : "Refresh"}</span>
         </button>
       </div>
@@ -211,20 +216,34 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Queries</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Total Queries
+          </span>
           <p className="text-2xl font-black mt-1">{metrics.total}</p>
         </div>
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 shadow-xs">
-          <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">New / Unread</span>
-          <p className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">{metrics.new}</p>
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+            New / Unread
+          </span>
+          <p className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">
+            {metrics.new}
+          </p>
         </div>
         <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4 shadow-xs">
-          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">In Progress</span>
-          <p className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">{metrics.inProgress}</p>
+          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+            In Progress
+          </span>
+          <p className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">
+            {metrics.inProgress}
+          </p>
         </div>
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-xs">
-          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Resolved</span>
-          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{metrics.resolved}</p>
+          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+            Resolved
+          </span>
+          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
+            {metrics.resolved}
+          </p>
         </div>
       </div>
 
@@ -301,7 +320,9 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                   <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <MessageSquareText className="size-8 text-muted-foreground/50 mb-1" />
-                      <span className="font-medium text-foreground">No customer queries found.</span>
+                      <span className="font-medium text-foreground">
+                        No customer queries found.
+                      </span>
                       <span className="text-xs">
                         {searchTerm || statusFilter !== "ALL" || priorityFilter !== "ALL"
                           ? "Try clearing filters to see more results."
@@ -373,10 +394,10 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                             q.priority === "urgent"
                               ? "bg-rose-500/10 text-rose-700 dark:text-rose-400"
                               : q.priority === "high"
-                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                              : q.priority === "low"
-                              ? "bg-slate-500/10 text-slate-700 dark:text-slate-400"
-                              : "bg-muted text-muted-foreground"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                : q.priority === "low"
+                                  ? "bg-slate-500/10 text-slate-700 dark:text-slate-400"
+                                  : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {q.priority}
@@ -389,22 +410,30 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                           {isNew ? (
                             <>
                               <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-                              <span className="font-bold text-amber-700 dark:text-amber-400">New</span>
+                              <span className="font-bold text-amber-700 dark:text-amber-400">
+                                New
+                              </span>
                             </>
                           ) : isInProgress ? (
                             <>
                               <Clock className="size-3.5 text-blue-500" />
-                              <span className="font-semibold text-blue-700 dark:text-blue-400">In Progress</span>
+                              <span className="font-semibold text-blue-700 dark:text-blue-400">
+                                In Progress
+                              </span>
                             </>
                           ) : isResolved ? (
                             <>
                               <CheckCircle2 className="size-3.5 text-emerald-600" />
-                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">Resolved</span>
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                Resolved
+                              </span>
                             </>
                           ) : (
                             <>
                               <XCircle className="size-3.5 text-slate-500" />
-                              <span className="font-semibold text-slate-700 dark:text-slate-400">Closed</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-400">
+                                Closed
+                              </span>
                             </>
                           )}
                         </div>
@@ -449,15 +478,19 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                       selectedQuery.status === "new"
                         ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                         : selectedQuery.status === "in_progress"
-                        ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                        : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                     }`}
                   >
                     {selectedQuery.status.replace("_", " ")}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Received on {new Date(selectedQuery.created_at).toLocaleString("en-IN", { dateStyle: "full", timeStyle: "medium" })}
+                  Received on{" "}
+                  {new Date(selectedQuery.created_at).toLocaleString("en-IN", {
+                    dateStyle: "full",
+                    timeStyle: "medium",
+                  })}
                 </p>
               </div>
               <button
@@ -473,14 +506,20 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-2xl border border-border bg-muted/40 p-3 text-xs">
                 <span className="text-muted-foreground block font-medium">Customer Email</span>
-                <a href={`mailto:${selectedQuery.email}`} className="font-semibold text-primary hover:underline break-all mt-0.5 block">
+                <a
+                  href={`mailto:${selectedQuery.email}`}
+                  className="font-semibold text-primary hover:underline break-all mt-0.5 block"
+                >
                   {selectedQuery.email}
                 </a>
               </div>
               <div className="rounded-2xl border border-border bg-muted/40 p-3 text-xs">
                 <span className="text-muted-foreground block font-medium">Phone Number</span>
                 {selectedQuery.phone ? (
-                  <a href={`tel:${selectedQuery.phone}`} className="font-semibold text-foreground hover:text-primary mt-0.5 block font-mono">
+                  <a
+                    href={`tel:${selectedQuery.phone}`}
+                    className="font-semibold text-foreground hover:text-primary mt-0.5 block font-mono"
+                  >
                     {selectedQuery.phone}
                   </a>
                 ) : (
@@ -595,7 +634,9 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
               <div className="flex justify-end mt-2">
                 <button
                   type="button"
-                  disabled={updateMutation.isPending || selectedQuery.admin_notes === adminNotesDraft}
+                  disabled={
+                    updateMutation.isPending || selectedQuery.admin_notes === adminNotesDraft
+                  }
                   onClick={() =>
                     updateMutation.mutate({
                       id: selectedQuery.id,
@@ -615,7 +656,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border pt-4">
               <a
                 href={`mailto:${selectedQuery.email}?subject=${encodeURIComponent(
-                  `Re: Your inquiry at Zérah Baby & Kids [Ticket #${selectedQuery.id.substring(0, 8).toUpperCase()}]`
+                  `Re: Your inquiry at Zérah Baby & Kids [Ticket #${selectedQuery.id.substring(0, 8).toUpperCase()}]`,
                 )}`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 cursor-pointer shadow-xs"
               >

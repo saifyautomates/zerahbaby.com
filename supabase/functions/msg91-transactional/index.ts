@@ -107,7 +107,10 @@ serve(async (req) => {
         try {
           const flowUrl = "https://control.msg91.com/api/v5/flow/";
           const flowPayload = {
-            template_id: existingLog.template_id || Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") || "DEFAULT_FLOW",
+            template_id:
+              existingLog.template_id ||
+              Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") ||
+              "DEFAULT_FLOW",
             short_url: "0",
             recipients: [
               {
@@ -140,7 +143,8 @@ serve(async (req) => {
         }
       }
 
-      const newStatus = providerStatus === "sent" ? "SENT" : providerStatus === "mock_success" ? "SENT" : "FAILED";
+      const newStatus =
+        providerStatus === "sent" ? "SENT" : providerStatus === "mock_success" ? "SENT" : "FAILED";
       const { data: updatedLog } = await adminClient
         .from("sms_logs")
         .update({
@@ -181,35 +185,47 @@ serve(async (req) => {
     if (order_id) {
       const { data: order } = await adminClient
         .from("orders")
-        .select("id, phone, full_name, total, payment_method, order_number, invoice_no, order_items(id, qty)")
+        .select(
+          "id, phone, full_name, total, payment_method, order_number, invoice_no, order_items(id, qty)",
+        )
         .eq("id", order_id)
         .maybeSingle();
 
       if (order) {
         if (!authoritativePhone) authoritativePhone = order.phone || "";
-        if (!authoritativeName || authoritativeName === "Customer") authoritativeName = order.full_name || "Customer";
+        if (!authoritativeName || authoritativeName === "Customer")
+          authoritativeName = order.full_name || "Customer";
         if (!authoritativeTotal) authoritativeTotal = Number(order.total || 0);
         authoritativePayment = order.payment_method ? order.payment_method.toUpperCase() : "ONLINE";
         authoritativeRef = order.order_number || order.invoice_no || order.id.substring(0, 8);
         if (Array.isArray(order.order_items)) {
-          authoritativeItemsCount = order.order_items.reduce((sum: number, it: { qty?: number }) => sum + (it.qty || 1), 0);
+          authoritativeItemsCount = order.order_items.reduce(
+            (sum: number, it: { qty?: number }) => sum + (it.qty || 1),
+            0,
+          );
         }
       }
     } else if (offline_sale_id) {
       const { data: sale } = await adminClient
         .from("offline_sales")
-        .select("id, customer_phone, customer_name, total, payment_method, sale_number, offline_sale_items(id, qty)")
+        .select(
+          "id, customer_phone, customer_name, total, payment_method, sale_number, offline_sale_items(id, qty)",
+        )
         .eq("id", offline_sale_id)
         .maybeSingle();
 
       if (sale) {
         if (!authoritativePhone) authoritativePhone = sale.customer_phone || "";
-        if (!authoritativeName || authoritativeName === "Customer") authoritativeName = sale.customer_name || "Customer";
+        if (!authoritativeName || authoritativeName === "Customer")
+          authoritativeName = sale.customer_name || "Customer";
         if (!authoritativeTotal) authoritativeTotal = Number(sale.total || 0);
         authoritativePayment = sale.payment_method ? sale.payment_method.toUpperCase() : "CASH";
         authoritativeRef = sale.sale_number || sale.id.substring(0, 8);
         if (Array.isArray(sale.offline_sale_items)) {
-          authoritativeItemsCount = sale.offline_sale_items.reduce((sum: number, it: { qty?: number }) => sum + (it.qty || 1), 0);
+          authoritativeItemsCount = sale.offline_sale_items.reduce(
+            (sum: number, it: { qty?: number }) => sum + (it.qty || 1),
+            0,
+          );
         }
       }
     }
@@ -220,11 +236,14 @@ serve(async (req) => {
     const dispatchSingleSms = async (
       targetPhone: string,
       targetRecipientType: "customer" | "owner",
-      customMessage?: string
+      customMessage?: string,
     ) => {
       const { valid, phone: cleanPhone, error: phoneErr } = normalizeIndianPhone(targetPhone);
       if (!valid) {
-        console.warn(`[msg91-transactional] Phone normalization failed for ${targetRecipientType}:`, phoneErr);
+        console.warn(
+          `[msg91-transactional] Phone normalization failed for ${targetRecipientType}:`,
+          phoneErr,
+        );
         // Log validation failure truthfully into sms_logs
         const { data: failLog } = await adminClient
           .from("sms_logs")
@@ -257,7 +276,12 @@ serve(async (req) => {
         .eq("idempotency_key", idempotencyKey)
         .maybeSingle();
 
-      if (existingLog && (existingLog.status === "SENT" || existingLog.provider_status === "mock_success" || existingLog.provider_status === "sent")) {
+      if (
+        existingLog &&
+        (existingLog.status === "SENT" ||
+          existingLog.provider_status === "mock_success" ||
+          existingLog.provider_status === "sent")
+      ) {
         console.log(`[msg91-transactional] Idempotent hit: SMS already sent (${existingLog.id})`);
         return { success: true, already_sent: true, log_id: existingLog.id };
       }
@@ -329,7 +353,8 @@ serve(async (req) => {
         errorDetails = null;
       }
 
-      const finalStatus = providerStatus === "sent" ? "SENT" : providerStatus === "mock_success" ? "SENT" : "FAILED";
+      const finalStatus =
+        providerStatus === "sent" ? "SENT" : providerStatus === "mock_success" ? "SENT" : "FAILED";
 
       // 4. Log authoritatively into sms_logs
       const logRow = {
@@ -356,12 +381,15 @@ serve(async (req) => {
         .maybeSingle();
 
       if (logErr) {
-        console.warn("[msg91-transactional] Upsert warning, retrying with sanitized foreign keys:", logErr);
+        console.warn(
+          "[msg91-transactional] Upsert warning, retrying with sanitized foreign keys:",
+          logErr,
+        );
         const { data: retryLog } = await adminClient
           .from("sms_logs")
           .upsert(
             { ...logRow, order_id: null, offline_sale_id: null },
-            { onConflict: "idempotency_key" }
+            { onConflict: "idempotency_key" },
           )
           .select("id, status, provider_status")
           .maybeSingle();
@@ -394,7 +422,10 @@ serve(async (req) => {
     }
 
     // B. Send to Store Owner if requested
-    if (notify_owner && (currentEventType === "online_sale" || currentEventType === "offline_pos_sale")) {
+    if (
+      notify_owner &&
+      (currentEventType === "online_sale" || currentEventType === "offline_pos_sale")
+    ) {
       // Fetch owner phone from site_settings or environment fallback
       const { data: ownerSetting } = await adminClient
         .from("site_settings")
@@ -418,7 +449,7 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      }
+      },
     );
   } catch (error: unknown) {
     const msg = (error as Error).message || "Internal SMS Processing Error";

@@ -1,22 +1,18 @@
-import { type Category } from '@/lib/store';
-import { Edit, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { type Category } from "@/lib/store";
+import { Edit, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 /**
  * Simple admin controls for a given category.
  * Currently provides placeholder Edit and Delete actions.
  * Extend as needed for full admin functionality.
  */
-export function AdminCategoryControls({
-  category,
-}: {
-  category: Category;
-}) {
+export function AdminCategoryControls({ category }: { category: Category }) {
   const [deleting, setDeleting] = useState(false);
 
   const handleEdit = () => {
     // TODO: Implement edit navigation or modal
-    console.log('Edit category', category.slug);
+    console.log("Edit category", category.slug);
   };
 
   const handleDelete = async () => {
@@ -24,7 +20,7 @@ export function AdminCategoryControls({
       setDeleting(true);
       // Placeholder for delete logic
       await new Promise((res) => setTimeout(res, 500));
-      console.log('Deleted category', category.slug);
+      console.log("Deleted category", category.slug);
       setDeleting(false);
     }
   };
