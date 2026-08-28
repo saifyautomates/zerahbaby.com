@@ -101,7 +101,7 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="text-[0.65rem] font-bold uppercase tracking-widest text-muted-foreground/80">
           {product.brand}
         </p>
-        <h3 className="mt-1 line-clamp-2 text-xs sm:text-sm font-bold leading-snug">
+        <h3 className="mt-1 line-clamp-2 text-xs sm:text-sm font-bold leading-snug break-words">
           <Link
             to="/product/$id"
             params={{ id: product.id }}

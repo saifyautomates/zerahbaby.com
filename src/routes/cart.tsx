@@ -96,42 +96,50 @@ function CartPage() {
           {items.map(({ product, qty }, i) => (
             <li
               key={product.id}
-              className="flex gap-4 rounded-2xl border border-border p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+              className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border border-border p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
               style={{ animationDelay: `${i * 75}ms` }}
             >
-              <Link
-                to="/product/$id"
-                params={{ id: product.id }}
-                className="size-24 shrink-0 rounded-xl overflow-hidden bg-muted hover:opacity-90 transition block"
-                title={`View ${product.name}`}
-              >
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
-                  }}
-                  className="w-full h-full object-cover object-center"
-                />
-              </Link>
-              <div className="flex-1">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {product.brand}
-                </p>
-                <h2 className="text-sm font-semibold">
-                  <Link
-                    to="/product/$id"
-                    params={{ id: product.id }}
-                    className="hover:text-primary"
-                  >
-                    {product.name}
-                  </Link>
-                </h2>
-                <p className="mt-1 text-sm font-bold">{formatPrice(product.price)}</p>
+              <div className="flex flex-1 gap-3 sm:gap-4">
+                <Link
+                  to="/product/$id"
+                  params={{ id: product.id }}
+                  className="size-20 sm:size-24 shrink-0 rounded-xl overflow-hidden bg-muted hover:opacity-90 transition block"
+                  title={`View ${product.name}`}
+                >
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = imageFor(
+                        product.category,
+                        null,
+                        product,
+                      );
+                    }}
+                    className="w-full h-full object-cover object-center"
+                  />
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground truncate">
+                    {product.brand}
+                  </p>
+                  <h2 className="text-sm font-semibold">
+                    <Link
+                      to="/product/$id"
+                      params={{ id: product.id }}
+                      className="hover:text-primary"
+                    >
+                      {product.name}
+                    </Link>
+                  </h2>
+                  <p className="mt-1 text-sm font-bold">{formatPrice(product.price)}</p>
+                </div>
+              </div>
 
-                <div className="mt-3 flex items-center gap-4">
-                  <div className="flex items-center gap-3 rounded-full border border-border px-3 py-1.5">
+              <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3 sm:gap-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-border/40">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 rounded-full border border-border px-3 py-1.5 bg-background shadow-xs">
                     <button
                       onClick={() => setQty(product.id, qty - 1)}
                       aria-label="Decrease quantity"
@@ -158,11 +166,16 @@ function CartPage() {
                     onClick={() => remove(product.id)}
                     className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-destructive"
                   >
-                    <Trash2 className="size-3.5" /> Remove
+                    <Trash2 className="size-3.5" /> <span className="hidden sm:inline">Remove</span>
                   </button>
                 </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground sm:hidden mb-0.5">Total</p>
+                  <p className="text-sm font-bold text-foreground">
+                    {formatPrice(product.price * qty)}
+                  </p>
+                </div>
               </div>
-              <p className="text-sm font-bold">{formatPrice(product.price * qty)}</p>
             </li>
           ))}
           <li>

@@ -569,8 +569,8 @@ export function POSTab() {
                 <p className="text-xs mt-1">Scan a barcode or search products to add items</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px] text-sm">
+              <div className="overflow-x-auto pb-4">
+                <table className="w-full min-w-[600px] md:min-w-[800px] text-sm">
                   <thead>
                     <tr className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       <th className="py-2 text-left">Product</th>

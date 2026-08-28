@@ -25,6 +25,9 @@ export default defineConfig({
     build: {
       chunkSizeWarningLimit: 2000,
     },
+    resolve: {
+      tsconfigPaths: true,
+    },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
