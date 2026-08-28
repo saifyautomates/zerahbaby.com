@@ -151,7 +151,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   // Mutation: Delete query
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.from("contact_messages").delete().eq("id", id);
+      const { data, error } = await supabase.from("contact_messages").delete().eq("id", id).select().single();
       if (error) throw error;
       return data;
     },
@@ -686,9 +686,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this query permanently?")) {
-                      deleteMutation.mutate(selectedQuery.id);
-                    }
+                    deleteMutation.mutate(selectedQuery.id);
                   }}
                   disabled={deleteMutation.isPending}
                   className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition hover:bg-rose-500/20 cursor-pointer flex items-center gap-1"

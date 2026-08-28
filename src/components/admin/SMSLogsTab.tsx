@@ -118,7 +118,7 @@ export function SMSLogsTab() {
   // Safe delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (logId: string) => {
-      const { data, error } = await supabase.from("sms_logs").delete().eq("id", logId);
+      const { data, error } = await supabase.from("sms_logs").delete().eq("id", logId).select().single();
       if (error) throw error;
       return data;
     },
@@ -406,9 +406,7 @@ export function SMSLogsTab() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (window.confirm("Delete this SMS log permanently?")) {
-                                deleteMutation.mutate(log.id);
-                              }
+                              deleteMutation.mutate(log.id);
                             }}
                             disabled={deleteMutation.isPending}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-400 transition hover:bg-rose-500/20 focus:outline-none disabled:opacity-50 ml-2"
