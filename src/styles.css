@@ -600,3 +600,111 @@
     --border: oklch(0.7 0.01 78);
   }
 }
+
+/* ================================================================
+   GLOBAL RESPONSIVE SAFETY NET
+   These utilities fix the most common overflow/clipping issues.
+   ================================================================ */
+
+/* Minimum touch target size — WCAG 2.5.5 requires 44x44px */
+@utility min-touch {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Safe area handling for notched devices (iPhone, modern Android) */
+@utility safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+}
+
+@utility safe-top {
+  padding-top: max(env(safe-area-inset-top), 0rem);
+}
+
+/* Overflow protection — prevents text from escaping containers */
+@utility text-balance-wrap {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Responsive table: card layout on mobile */
+@utility table-stack {
+  @media (max-width: 640px) {
+    display: block;
+    &.thead { display: none; }
+    &.tr {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    &.td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.375rem 0;
+      border-bottom: 1px solid color-mix(in oklab, var(--color-border) 50%, transparent);
+      &:last-child { border-bottom: none; }
+      &::before {
+        content: attr(data-label);
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-muted-foreground);
+        margin-right: 1rem;
+        white-space: nowrap;
+      }
+    }
+  }
+}
+
+/* Fluid container with proper max-width and horizontal padding safety */
+@utility container-safe {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
+}
+
+/* Horizontal overflow containment — respects natural document flow */
+.overflow-x-clip-safe {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+/* Fix for iOS momentum scrolling in drawers */
+.scroll-ios {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Landscape mobile: ensure critical actions stay visible */
+@media (max-height: 500px) and (orientation: landscape) {
+  .landscape-compact {
+    padding-block: 0.5rem !important;
+  }
+  .landscape-hide {
+    display: none !important;
+  }
+}
+
+/* Fix: prevent absolutely-positioned dropdowns from clipping at viewport edge */
+.dropdown-safe {
+  max-width: min(var(--radix-dropdown-content-available-width, 90vw), 400px);
+  max-height: min(var(--radix-dropdown-content-available-height, 80vh), 600px);
+  overflow-y: auto;
+}
+
+/* Responsive typography — fluid scale from mobile to desktop */
+.text-fluid-sm { font-size: clamp(0.75rem, 1.5vw, 0.875rem); }
+.text-fluid-base { font-size: clamp(0.875rem, 2vw, 1rem); }
+.text-fluid-lg { font-size: clamp(1rem, 2.5vw, 1.125rem); }
+.text-fluid-xl { font-size: clamp(1.125rem, 3vw, 1.25rem); }
+.text-fluid-2xl { font-size: clamp(1.25rem, 4vw, 1.5rem); }
+.text-fluid-3xl { font-size: clamp(1.5rem, 5vw, 2rem); }
+.text-fluid-4xl { font-size: clamp(1.875rem, 6vw, 2.5rem); }
+

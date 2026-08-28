@@ -372,10 +372,10 @@ function ProductPage() {
             const activeUrl = gallery[activeImage] ?? product.image;
             const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return (
-              <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300 group">
+              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300 group">
                 <button
                   onClick={() => setShowLightbox(true)}
-                  className={`w-full h-full block overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
+                  className={`w-full block overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
                   aria-label="View full screen"
                   onMouseMove={featMagnifier ? handleMouseMove : undefined}
                   onMouseEnter={() => setIsZooming(true)}
@@ -385,9 +385,9 @@ function ProductPage() {
                     src={activeUrl}
                     alt={product.name}
                     isVideo={isVideo}
-                    fit="cover"
-                    containerClassName="w-full h-full bg-white transition-transform overflow-hidden"
-                    className={`w-full h-full object-cover transition-transform ease-out ${isZooming && !isVideo && featMagnifier ? "scale-[2.5] duration-75" : "duration-500 group-hover:scale-[1.03]"}`}
+                    fit="contain"
+                    containerClassName="w-full h-full transition-transform overflow-hidden"
+                    className={`w-full h-full object-contain transition-transform ease-out ${isZooming && !isVideo && featMagnifier ? "scale-[2.5] duration-75" : "duration-500 group-hover:scale-[1.03]"}`}
                     style={isZooming && !isVideo && featMagnifier ? zoomStyle : {}}
                     aspect="1/1"
                   />
@@ -437,7 +437,7 @@ function ProductPage() {
                     <ResponsiveMedia
                       src={url}
                       isVideo={isVideo}
-                      fit="cover"
+                      fit="contain"
                       aspect="1/1"
                       containerClassName="rounded-none h-full w-full"
                       showPlaceholder={false}
@@ -457,9 +457,7 @@ function ProductPage() {
                   🔥 Only {product.stock} left in stock
                 </span>
               )}
-              <span className="rounded-full bg-primary/10 text-primary px-2.5 py-1 border border-primary/20 shadow-xs">
-                ✨ 100% Safe & Tested for Babies
-              </span>
+
             </div>
           )}
 

@@ -91,7 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Zerah Baby And Kid's — Best Kids Store in Kota" },
       {
         name: "description",
@@ -297,9 +297,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <MaintenanceGuard isAdminRoute={isAdminRoute}>
-          <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden relative">
+          <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden relative isolate">
             {!isAdminRoute && <Header />}
-            <main id="main" className="flex-1 fade-in-soft bg-muted/20">
+            <main id="main" className="flex-1 fade-in-soft bg-muted/20 min-w-0">
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
               <Outlet />
             </main>

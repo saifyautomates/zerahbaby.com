@@ -60,6 +60,8 @@ type Sale = {
   total: number;
   payment_method: string;
   created_at: string;
+  /** Void/cancelled status for POS sales */
+  status?: string | null;
   /** Daily sequential walk-in token (1, 2, 3...). Resets each IST calendar day. */
   pos_token_number: number | null;
   /** IST calendar date string (YYYY-MM-DD) for this token. */
@@ -97,7 +99,10 @@ export function OfflineAnalyticsTab() {
 
   const voidSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
-      const { data, error } = await supabase.rpc("admin_void_offline_sale", {
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)("admin_void_offline_sale", {
         _sale_id: saleId,
       });
       if (error) throw error;

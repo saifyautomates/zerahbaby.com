@@ -451,10 +451,10 @@ function ShopPage() {
       )}
 
       {/* Main layout: sidebar + grid */}
-      <div className="mt-8 flex gap-8">
+      <div className="mt-8 flex gap-6 lg:gap-8">
         {/* Desktop filter sidebar */}
-        <aside className="hidden w-56 shrink-0 lg:block xl:w-64">
-          <div className="sticky top-24 rounded-3xl border border-border/60 bg-card p-5 shadow-premium-sm">
+        <aside className="hidden w-52 shrink-0 lg:block xl:w-60 2xl:w-64">
+          <div className="sticky top-24 rounded-3xl border border-border/60 bg-card p-5 shadow-premium-sm overflow-hidden">
             <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
               Filters
             </h2>
@@ -499,13 +499,13 @@ function ShopPage() {
             onClick={() => setDrawerOpen(false)}
             aria-hidden
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[80svh] overflow-y-auto rounded-t-3xl border-t border-border bg-background p-5 shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85svh] overflow-y-auto scroll-ios rounded-t-3xl border-t border-border bg-background p-5 pb-safe shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">Filters</h2>
               <button
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close filters"
-                className="rounded-full p-2 transition hover:bg-muted"
+                className="rounded-full p-2 min-touch transition hover:bg-muted"
               >
                 <X className="size-5" />
               </button>
@@ -526,7 +526,7 @@ function ShopPage() {
             />
             <button
               onClick={() => setDrawerOpen(false)}
-              className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 min-touch"
             >
               Show {visible.length} result{visible.length === 1 ? "" : "s"}
             </button>
