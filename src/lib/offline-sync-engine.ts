@@ -427,6 +427,12 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
         `Synced ${syncedCount} offline POS sale${syncedCount > 1 ? "s" : ""} to cloud!`,
       );
     }
+    
+    if (failedCount > 0) {
+      toast.error(
+        `Failed to sync ${failedCount} offline POS sale${failedCount > 1 ? "s" : ""}. Please check your connection and retry.`,
+      );
+    }
   } finally {
     isSyncInProgress = false;
     notifySyncStatusChange();

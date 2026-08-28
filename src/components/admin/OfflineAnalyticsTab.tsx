@@ -4,9 +4,10 @@
  * Includes Customer Footfall analytics powered by the POS token system.
  */
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice, imageFor } from "@/lib/store";
+import { toast } from "sonner";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   BarChart3,
@@ -21,6 +22,7 @@ import {
   ExternalLink,
   Users,
   Clock,
+  Ban,
 } from "lucide-react";
 import {
   BarChart,
@@ -90,7 +92,27 @@ function todayIST(): string {
 }
 
 export function OfflineAnalyticsTab() {
+  const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
+
+  const voidSaleMutation = useMutation({
+    mutationFn: async (saleId: string) => {
+      const { data, error } = await supabase.rpc("admin_void_offline_sale", {
+        _sale_id: saleId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Sale voided and stock restored successfully!");
+      qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to void sale");
+    },
+  });
 
   // Fetch all products for dynamic image & slug resolution
   const { data: products = [] } = useQuery({
@@ -582,7 +604,7 @@ export function OfflineAnalyticsTab() {
               return (
                 <React.Fragment key={sale.id}>
                   <tr
-                    className="group cursor-pointer transition-colors hover:bg-muted/40"
+                    className={`group cursor-pointer transition-colors hover:bg-muted/40 ${sale.status === "cancelled" ? "opacity-50 grayscale bg-muted/20" : ""}`}
                     onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
                   >
                     <td className="px-5 py-4 w-8">
@@ -735,6 +757,28 @@ export function OfflineAnalyticsTab() {
                                 Total: {formatPrice(Number(sale.total))}
                               </p>
                             </div>
+                            
+                            {sale.status !== "cancelled" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to void this POS sale? This will permanently cancel the transaction, restore stock for all items, and update revenue metrics.")) {
+                                    voidSaleMutation.mutate(sale.id);
+                                  }
+                                }}
+                                disabled={voidSaleMutation.isPending}
+                                className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                              >
+                                <Ban className="size-4" />
+                                Void Sale
+                              </button>
+                            )}
+                            {sale.status === "cancelled" && (
+                              <div className="flex items-center gap-1.5 text-sm font-bold text-destructive px-4 py-2 bg-destructive/5 rounded-xl border border-destructive/20">
+                                <Ban className="size-4" />
+                                Voided
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

@@ -161,7 +161,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   if (localMatch) {
     return {
       found: true,
-      product_id: localMatch.id as string,
+      product_id: (localMatch.uuid as string) || (localMatch.id as string),
       slug: (localMatch.slug as string) || (localMatch.id as string),
       name: (localMatch.name as string) || "",
       brand: (localMatch.brand as string) || "Zérah Baby & Kids",
