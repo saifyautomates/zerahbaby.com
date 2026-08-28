@@ -62,11 +62,11 @@ export const Route = createFileRoute("/product/$id")({
     const product = ctx.loaderData?.product;
     if (!product) return { meta: [{ title: "Product Not Found" }] };
 
-    const url = `https://zerahbaby.lovable.app/product/${ctx.params.id}`;
+    const url = `https://zerahkids.com/product/${ctx.params.id}`;
     const description = product.description.substring(0, 155);
     const image = /^https?:\/\//.test(product.image)
       ? product.image
-      : `https://zerahbaby.lovable.app${product.image}`;
+      : `https://zerahkids.com${product.image}`;
 
     return {
       meta: [

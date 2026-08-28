@@ -124,7 +124,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Zerah Baby And Kid's",
-            url: "https://zerahbaby.lovable.app",
+            url: "https://zerahkids.com",
             email: "hello@zerahkids.com",
             telephone: "+919057074777",
             address: {
@@ -141,10 +141,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: "Zerah Baby And Kid's",
-            url: "https://zerahbaby.lovable.app",
+            url: "https://zerahkids.com",
             potentialAction: {
               "@type": "SearchAction",
-              target: "https://zerahbaby.lovable.app/shop?q={search_term_string}",
+              target: "https://zerahkids.com/shop?q={search_term_string}",
               "query-input": "required name=search_term_string",
             },
           },
@@ -156,7 +156,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+      { rel: "icon", type: "image/png", href: "/favicon.png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/site.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

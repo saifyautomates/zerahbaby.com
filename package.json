@@ -60,6 +60,7 @@
     "pg": "^8.23.0",
     "playwright": "^1.62.1",
     "playwright-lighthouse": "^4.0.0",
+    "png-to-ico": "^3.0.2",
     "prettier": "^3.7.3",
     "rollup-plugin-visualizer": "^7.1.1",
     "sharp": "^0.35.3",

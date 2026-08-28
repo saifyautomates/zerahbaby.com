@@ -1,7 +1,7 @@
 //
 import { createFileRoute } from "@tanstack/react-router";
 
-const BASE_URL = "https://zerahbaby.lovable.app";
+const BASE_URL = "https://zerahkids.com";
 
 const STATIC_PATHS: Array<{ path: string; priority: string; changefreq: string }> = [
   { path: "/", priority: "1.0", changefreq: "daily" },

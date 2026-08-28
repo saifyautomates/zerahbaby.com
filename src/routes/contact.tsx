@@ -62,7 +62,7 @@ export const Route = createFileRoute("/contact")({
           "Questions about sizes, delivery or products? Contact the Zérah team. We're here to help parents with every step.",
       },
     ],
-    links: [{ rel: "canonical", href: "https://zerahbaby.lovable.app/contact" }],
+    links: [{ rel: "canonical", href: "https://zerahkids.com/contact" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/contact")({
           "@context": "https://schema.org",
           "@type": "LocalBusiness",
           name: "Zérah Baby And Kid's",
-          url: "https://zerahbaby.lovable.app",
+          url: "https://zerahkids.com",
           email: "hello@zerahkids.com",
           telephone: ["+919057074777", "+919667571712"],
           address: {

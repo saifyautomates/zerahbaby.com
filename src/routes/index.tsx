@@ -73,6 +73,10 @@ function Index() {
   const { adminMode } = useAdminMode();
   const [heroEditor, setHeroEditor] = useState(false);
 
+  // Hydration fix
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { data: realReviews } = useQuery({
     queryKey: ["homepage-reviews"],
     queryFn: async () => {
