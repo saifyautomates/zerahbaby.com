@@ -73,7 +73,7 @@ function Index() {
   const { adminMode } = useAdminMode();
   const [heroEditor, setHeroEditor] = useState(false);
 
-  // Hydration fix
+  // Removed mounted hack to fix hydration mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -293,7 +293,7 @@ function Index() {
           </div>
         </div>
 
-        {!mounted || isLoading ? (
+        {isLoading ? (
           <ProductGridSkeleton />
         ) : bestsellers.length === 0 ? (
           <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">
@@ -311,7 +311,7 @@ function Index() {
         )}
       </section>
 
-      {mounted && deals.length > 0 && (
+      {deals.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-12">
           <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
