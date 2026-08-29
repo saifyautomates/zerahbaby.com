@@ -99,10 +99,12 @@ export function OfflineAnalyticsTab() {
 
   const voidSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
-      const { data, error } = await (supabase.rpc as unknown as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ data: unknown; error: { message: string } | null }>)("admin_void_offline_sale", {
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>
+      )("admin_void_offline_sale", {
         _sale_id: saleId,
       });
       if (error) throw error;
@@ -762,12 +764,16 @@ export function OfflineAnalyticsTab() {
                                 Total: {formatPrice(Number(sale.total))}
                               </p>
                             </div>
-                            
+
                             {sale.status !== "cancelled" && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (window.confirm("Are you sure you want to void this POS sale? This will permanently cancel the transaction, restore stock for all items, and update revenue metrics.")) {
+                                  if (
+                                    window.confirm(
+                                      "Are you sure you want to void this POS sale? This will permanently cancel the transaction, restore stock for all items, and update revenue metrics.",
+                                    )
+                                  ) {
                                     voidSaleMutation.mutate(sale.id);
                                   }
                                 }}

@@ -457,7 +457,6 @@ function ProductPage() {
                   🔥 Only {product.stock} left in stock
                 </span>
               )}
-
             </div>
           )}
 

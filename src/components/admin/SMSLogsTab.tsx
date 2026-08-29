@@ -118,7 +118,12 @@ export function SMSLogsTab() {
   // Safe delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (logId: string) => {
-      const { data, error } = await supabase.from("sms_logs").delete().eq("id", logId).select().single();
+      const { data, error } = await supabase
+        .from("sms_logs")
+        .delete()
+        .eq("id", logId)
+        .select()
+        .single();
       if (error) throw error;
       return data;
     },

@@ -151,7 +151,12 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   // Mutation: Delete query
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.from("contact_messages").delete().eq("id", id).select().single();
+      const { data, error } = await supabase
+        .from("contact_messages")
+        .delete()
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
       return data;
     },

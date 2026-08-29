@@ -194,4 +194,3 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
     hasCustomUpload: false,
   };
 }
-
