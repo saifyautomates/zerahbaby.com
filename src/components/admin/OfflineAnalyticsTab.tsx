@@ -23,6 +23,7 @@ import {
   Users,
   Clock,
   Ban,
+  Trash2,
 } from "lucide-react";
 import {
   BarChart,
@@ -97,7 +98,7 @@ export function OfflineAnalyticsTab() {
   const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
 
-  const voidSaleMutation = useMutation({
+  const deleteSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
       const { data, error } = await (
         supabase.rpc as unknown as (
@@ -108,16 +109,20 @@ export function OfflineAnalyticsTab() {
         _sale_id: saleId,
       });
       if (error) throw error;
+      
+      const { error: delError } = await supabase.from("offline_sales").delete().eq("id", saleId);
+      if (delError) throw delError;
+
       return data;
     },
     onSuccess: () => {
-      toast.success("Sale voided and stock restored successfully!");
+      toast.success("Sale deleted and stock restored successfully!");
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
     },
     onError: (err: any) => {
-      toast.error(err.message || "Failed to void sale");
+      toast.error(err.message || "Failed to delete sale");
     },
   });
 
@@ -771,23 +776,23 @@ export function OfflineAnalyticsTab() {
                                 onClick={() => {
                                   if (
                                     window.confirm(
-                                      "Are you sure you want to void this POS sale? This will permanently cancel the transaction, restore stock for all items, and update revenue metrics.",
+                                      "Are you sure you want to delete this POS sale? This will permanently delete the transaction and restore stock for all items.",
                                     )
                                   ) {
-                                    voidSaleMutation.mutate(sale.id);
+                                    deleteSaleMutation.mutate(sale.id);
                                   }
                                 }}
-                                disabled={voidSaleMutation.isPending}
+                                disabled={deleteSaleMutation.isPending}
                                 className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                               >
-                                <Ban className="size-4" />
-                                Void Sale
+                                <Trash2 className="size-4" />
+                                Delete
                               </button>
                             )}
                             {sale.status === "cancelled" && (
                               <div className="flex items-center gap-1.5 text-sm font-bold text-destructive px-4 py-2 bg-destructive/5 rounded-xl border border-destructive/20">
-                                <Ban className="size-4" />
-                                Voided
+                                <Trash2 className="size-4" />
+                                Deleted
                               </div>
                             )}
                           </div>
