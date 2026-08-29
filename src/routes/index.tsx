@@ -82,7 +82,7 @@ function Index() {
     queryFn: async () => {
       const { data } = await supabase
         .from("reviews")
-        .select("rating, comment")
+        .select("rating, comment, profiles(full_name)")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(3);
@@ -92,7 +92,7 @@ function Index() {
 
   const displayReviews =
     realReviews && realReviews.length > 0
-      ? realReviews.map((r) => {
+      ? realReviews.map((r: any) => {
           const rawName =
             (r.profiles as { full_name?: string })?.full_name?.trim() || "Verified Parent";
           const firstName = rawName.split(/\s+/)[0] || rawName;

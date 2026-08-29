@@ -102,6 +102,9 @@ const BulkImportTab = lazy(() =>
 const PagesPoliciesTab = lazy(() =>
   import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
 );
+const OnlyOfflineTab = lazy(() =>
+  import("@/components/admin/OnlyOfflineTab").then((m) => ({ default: m.OnlyOfflineTab })),
+);
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
@@ -141,7 +144,8 @@ type Tab =
   | "marketing"
   | "sms"
   | "queries"
-  | "pages";
+  | "pages"
+  | "offline_products";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -341,6 +345,7 @@ function AdminPage() {
       badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
     },
     { key: "products", label: "Products", icon: Package },
+    { key: "offline_products", label: "Only Offline", icon: Store },
     { key: "categories", label: "Categories", icon: Layers },
     { key: "customers", label: "Customers", icon: Users },
     { key: "inventory", label: "Inventory", icon: Layers },
@@ -732,6 +737,7 @@ function AdminPage() {
               {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "billing" && <BillingCenterTab />}
               {tab === "products" && <ProductsTab />}
+              {tab === "offline_products" && <OnlyOfflineTab />}
               {tab === "hero" && <HeroMediaManager />}
               {tab === "media" && <MediaLibrary />}
               {tab === "orders" && <OnlineSalesTab />}

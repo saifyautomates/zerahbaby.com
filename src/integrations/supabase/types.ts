@@ -1354,6 +1354,7 @@ export type Database = {
           sort_order: number;
           status: Database["public"]["Enums"]["product_status"];
           stock: number;
+          sales_channel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
           updated_at: string;
         };
         Insert: {
@@ -1386,6 +1387,7 @@ export type Database = {
           sort_order?: number;
           status?: Database["public"]["Enums"]["product_status"];
           stock?: number;
+          sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
           updated_at?: string;
         };
         Update: {
@@ -1418,6 +1420,7 @@ export type Database = {
           sort_order?: number;
           status?: Database["public"]["Enums"]["product_status"];
           stock?: number;
+          sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
           updated_at?: string;
         };
         Relationships: [

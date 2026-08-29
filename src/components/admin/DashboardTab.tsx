@@ -495,7 +495,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
       let title = ev.event_name;
 
-      const profile = ev.profiles as { full_name?: string } | null;
+      const profile = (ev as any).profiles as { full_name?: string } | null;
       const product = ev.products as { name?: string } | null;
 
       if (ev.event_name === "view_product") {

@@ -23,6 +23,7 @@ import {
   Tag,
   Truck,
   Settings2,
+  Store,
 } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { generateProductFallbackSvg } from "@/lib/product-media";
@@ -56,6 +57,7 @@ export type ProductDraft = {
   buyingPrice: number;
   recommendationMode: "manual" | "auto" | "manual_fallback";
   relatedProductIds: string[];
+  salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 };
 
 const CATEGORY_PREFIXES: Record<string, string> = {
@@ -102,6 +104,7 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   buyingPrice: p?.buyingPrice ?? 0,
   recommendationMode: p?.recommendationMode ?? "manual_fallback",
   relatedProductIds: [], // Will be hydrated by useEffect if editing
+  salesChannel: p?.salesChannel ?? "ONLINE_AND_OFFLINE",
 });
 
 const input =
@@ -915,6 +918,31 @@ export function ProductForm({
                   </label>
                 )}
               </div>
+            </div>
+            
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-purple-50/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Store className="size-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Sales Channel
+                </span>
+              </div>
+              <label className="block text-sm font-semibold">
+                Product Availability
+                <select
+                  className={input}
+                  value={draft.salesChannel}
+                  onChange={(e) =>
+                    set("salesChannel", e.target.value as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY")
+                  }
+                >
+                  <option value="ONLINE_AND_OFFLINE">Online Website + Offline POS</option>
+                  <option value="OFFLINE_ONLY">Only Offline POS (Hidden from Website)</option>
+                </select>
+                <div className="text-[11px] font-normal text-muted-foreground mt-1.5">
+                  Offline-only products will not be visible on the website and cannot be purchased online.
+                </div>
+              </label>
             </div>
 
             <label className="flex items-center gap-2 text-sm font-semibold">

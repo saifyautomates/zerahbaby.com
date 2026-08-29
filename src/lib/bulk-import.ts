@@ -69,6 +69,7 @@ export const CSV_HEADERS = [
   "image_url",
   "image_url_2",
   "image_url_3",
+  "sales_channel",
 ] as const;
 
 export type CsvHeader = (typeof CSV_HEADERS)[number];
@@ -167,6 +168,7 @@ export interface BulkRow {
   imageUrl: string;
   imageUrl2: string;
   imageUrl3: string;
+  salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   /** Resolved status after validation. */
   status: BulkRowStatus;
   /** Field-level error messages. */
@@ -328,6 +330,7 @@ function normalizeRow(
     imageUrl: raw.image_url?.trim() ?? "",
     imageUrl2: raw.image_url_2?.trim() ?? "",
     imageUrl3: raw.image_url_3?.trim() ?? "",
+    salesChannel: raw.sales_channel === "OFFLINE_ONLY" ? "OFFLINE_ONLY" : "ONLINE_AND_OFFLINE",
   };
 }
 
@@ -507,6 +510,7 @@ async function upsertRow(row: BulkRow, signal: AbortSignal): Promise<void> {
     is_featured: row.isFeatured,
     is_active: row.isActive,
     sort_order: row.sortOrder,
+    sales_channel: row.salesChannel,
   };
 
   let productId: string;

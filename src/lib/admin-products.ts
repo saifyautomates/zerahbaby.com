@@ -25,6 +25,7 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     is_featured: draft.isFeatured,
     is_active: draft.isActive,
     sort_order: Number(draft.sortOrder),
+    sales_channel: draft.salesChannel,
   };
 
   if (isNew) {

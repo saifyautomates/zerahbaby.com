@@ -1328,6 +1328,7 @@ export function POSTab() {
             stock: item.stock,
             sku: item.sku,
             barcode: item.barcode,
+            salesChannel: "ONLINE_AND_OFFLINE",
             image: item.image_url ?? "",
             imageUrl: item.image_url,
             description: "",

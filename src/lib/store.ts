@@ -50,6 +50,7 @@ export type Product = {
   buyingPrice?: number;
   deliveryFee?: number;
   recommendationMode?: "manual" | "auto" | "manual_fallback";
+  salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 };
 
 export type Category = {
@@ -85,6 +86,7 @@ type ProductRow = {
   delivery_fee?: number | null;
   product_images?: { public_url: string; is_primary: boolean; sort_order: number }[] | null;
   recommendation_mode?: string;
+  sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 };
 
 export const mapProduct = (row: ProductRow): Product => {
@@ -124,6 +126,7 @@ export const mapProduct = (row: ProductRow): Product => {
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
     recommendationMode:
       (row.recommendation_mode as "manual_fallback" | "manual" | "auto") ?? "manual_fallback",
+    salesChannel: row.sales_channel ?? "ONLINE_AND_OFFLINE",
   };
 };
 
@@ -143,7 +146,9 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       .from("products")
       .select("*, product_images(public_url, is_primary, sort_order)")
       .order("sort_order", { ascending: true });
-    if (!includeInactive) query = query.eq("is_active", true);
+    if (!includeInactive) {
+      query = query.eq("is_active", true).eq("sales_channel", "ONLINE_AND_OFFLINE");
+    }
 
     const [productsRes, settingsRes] = await Promise.all([
       query,
