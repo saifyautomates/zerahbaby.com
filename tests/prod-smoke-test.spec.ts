@@ -104,7 +104,7 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
   test("4. Admin Login Entry Verification", async ({ page }) => {
     await page.goto(`${PROD_URL}/admin`);
     // Should be redirected to login or show login form
-    const emailInput = page.locator('input[type="email"]');
+    const emailInput = page.locator('#auth-contact-input');
     await expect(emailInput).toBeVisible();
   });
 });

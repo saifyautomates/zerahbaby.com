@@ -470,7 +470,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("analytics_events")
-        .select("event_name, created_at, products(name), profiles(full_name)")
+        .select("event_name, created_at, products(name)")
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) return [];

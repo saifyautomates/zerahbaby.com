@@ -82,7 +82,7 @@ function Index() {
     queryFn: async () => {
       const { data } = await supabase
         .from("reviews")
-        .select("rating, comment, profiles(full_name)")
+        .select("rating, comment")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(3);

@@ -1167,7 +1167,7 @@ function ReviewsSection({
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-gray-400" suppressHydrationWarning>
                       Reviewed on{" "}
                       {new Date(review.created_at).toLocaleDateString("en-IN", {
                         day: "numeric",
