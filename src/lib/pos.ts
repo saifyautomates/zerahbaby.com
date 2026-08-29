@@ -180,12 +180,6 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   return { found: false, error: "Product not found in online or offline database" };
 }
 
-export function useLookupBarcode() {
-  return useMutation({
-    mutationFn: lookupBarcode,
-  });
-}
-
 /* ------------------------------------------------------------------ */
 /*  Place Offline Sale                                                 */
 /* ------------------------------------------------------------------ */
@@ -341,62 +335,6 @@ export function usePlaceOfflineSale() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
-    },
-  });
-}
-
-/** Manual retry hook for resending owner notification email */
-export function useRetrySaleNotification() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (saleId: string) => {
-      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
-        body: { type: "offline_sale", sale_id: saleId, force_retry: true },
-      });
-      if (error) throw error;
-      if (data && !data.success && data.error) {
-        throw new Error(data.error);
-      }
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Owner notification email sent!");
-      qc.invalidateQueries({ queryKey: ["offline-sales"] });
-    },
-    onError: (e: Error) => {
-      toast.error(`Failed to send email notification: ${e.message}`);
-    },
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/*  POS Customers                                                      */
-/* ------------------------------------------------------------------ */
-
-export function usePOSCustomers() {
-  return useQuery({
-    queryKey: ["pos-customers"],
-    queryFn: async (): Promise<POSCustomer[]> => {
-      const { data, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (q: string) => {
-              order: (
-                col: string,
-                opts: { ascending: boolean },
-              ) => {
-                limit: (n: number) => Promise<{ data: POSCustomer[] | null; error: unknown }>;
-              };
-            };
-          };
-        }
-      )
-        .from("pos_customers")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(100);
-      if (error) return [];
-      return (data ?? []) as POSCustomer[];
     },
   });
 }

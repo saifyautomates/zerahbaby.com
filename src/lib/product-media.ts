@@ -195,16 +195,3 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
   };
 }
 
-/**
- * Universal product image helper
- */
-export function getPrimaryProductImage(product?: ProductMediaRow | null): string {
-  return resolveProductMedia(product).primaryImage;
-}
-
-/**
- * Universal product gallery helper
- */
-export function getProductGallery(product?: ProductMediaRow | null): string[] {
-  return resolveProductMedia(product).gallery;
-}
