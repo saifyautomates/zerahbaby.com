@@ -53,6 +53,7 @@ type WebsiteVisitor = {
   city: string | null;
   region: string | null;
   country: string | null;
+  customer_name?: string | null;
 };
 
 type DateRangePreset = "today" | "yesterday" | "7d" | "30d" | "this_month" | "all";
@@ -1371,7 +1372,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-medium">
-                <th className="pb-2.5">Date & Time</th>
+                <th className="pb-2.5">Visitor</th>
                 <th className="pb-2.5">Location</th>
                 <th className="pb-2.5">Source</th>
               </tr>
@@ -1389,7 +1390,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   return (
                     <tr key={idx} className="hover:bg-muted/50 transition-colors">
                       <td className="py-2.5 font-medium text-foreground">
-                        {format(new Date(v.created_at), "MMM dd, hh:mm a")}
+                        <div className="flex flex-col gap-0.5">
+                          <span>{v.customer_name ? v.customer_name : "Anonymous Visitor"}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(v.created_at), "MMM dd, hh:mm a")}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-2.5 text-muted-foreground">
                         {location || "Unknown Location"}

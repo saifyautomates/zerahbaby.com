@@ -1765,6 +1765,7 @@ export type Database = {
         Row: {
           city: string | null;
           country: string | null;
+          customer_name: string | null;
           created_at: string;
           id: string;
           region: string | null;
@@ -1773,6 +1774,7 @@ export type Database = {
         Insert: {
           city?: string | null;
           country?: string | null;
+          customer_name?: string | null;
           created_at?: string;
           id?: string;
           region?: string | null;
@@ -1781,6 +1783,7 @@ export type Database = {
         Update: {
           city?: string | null;
           country?: string | null;
+          customer_name?: string | null;
           created_at?: string;
           id?: string;
           region?: string | null;

@@ -280,10 +280,42 @@ function RootComponent() {
         const sessionId = sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
         sessionStorage.setItem("visitor_session_id", sessionId);
 
+        let city = null;
+        let region = null;
+        let country = "India";
+        let customer_name = null;
+
+        // Fetch location data
+        try {
+          const res = await fetch("https://ipapi.co/json/");
+          if (res.ok) {
+            const data = await res.json();
+            city = data.city;
+            region = data.region;
+            country = data.country_name || "India";
+          }
+        } catch (e) {
+          // ignore ip fetch errors
+        }
+
+        // Fetch user data if logged in
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const user = session.user;
+            customer_name = user.user_metadata?.full_name || user.user_metadata?.name || user.email || null;
+          }
+        } catch (e) {
+          // ignore auth errors
+        }
+
         // Safely record visitor without throwing on external IP service failure
         await supabase.from("website_visitors").insert({
           session_id: sessionId,
-          country: "India",
+          city,
+          region,
+          country,
+          customer_name,
         });
       } catch (error) {
         // Silent fail for analytics
