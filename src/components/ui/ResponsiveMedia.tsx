@@ -65,7 +65,7 @@ export function ResponsiveMedia({
 }: ResponsiveMediaProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(src ? "loading" : "error");
 
-  const hasCustomBg = containerClassName.includes("bg-");
+  const hasCustomBg = containerClassName?.includes("bg-");
   const containerClasses = [
     "relative overflow-hidden",
     !hasCustomBg && "bg-muted",
