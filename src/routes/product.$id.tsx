@@ -680,7 +680,7 @@ function ProductPage() {
                         onClick={handleAddToCart}
                         className="focus-ring flex-1 rounded-full bg-primary px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                       >
-                        {soldOut ? "Sold out" : maxed ? "Max stock in bag" : "Add to bag"}
+                        {soldOut ? "Out of stock" : maxed ? "Added to bag" : "Add to bag"}
                       </button>
                       {!soldOut && !maxed && (
                         <button
@@ -729,11 +729,6 @@ function ProductPage() {
                   <span className="text-[10px] text-green-600 font-bold">
                     Delivery time up to 7 days
                   </span>
-                  {featUrgency && dispatchTime && (
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      Order in {dispatchTime} for dispatch today
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">

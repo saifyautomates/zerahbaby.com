@@ -277,8 +277,8 @@ export function Header() {
 
             {/* Mobile Page Title */}
             {isSubPage && (
-              <div className="flex items-center min-w-0 flex-1 ml-1 md:hidden">
-                <span className="font-display text-base sm:text-lg font-bold text-foreground truncate">
+              <div className="flex items-center min-w-0 flex-1 ml-1 mr-3 md:hidden">
+                <span className="font-display text-base sm:text-lg font-bold text-foreground truncate block w-full">
                   {pageTitle}
                 </span>
               </div>
