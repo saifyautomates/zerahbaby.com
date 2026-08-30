@@ -306,8 +306,9 @@ function AdminPage() {
 
   if (roleLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-20 text-center text-sm text-muted-foreground">
-        Loading…
+      <div className="mx-auto max-w-5xl px-4 py-24 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-3">
+        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="font-medium text-foreground">Verifying admin credentials…</p>
       </div>
     );
   }
@@ -387,7 +388,11 @@ function AdminPage() {
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-          <img src={logo} alt="Zérah Baby &amp; Kids" className="h-9 w-auto object-contain rounded-full shadow-xs" />
+          <img
+            src={logo}
+            alt="Zérah Baby &amp; Kids"
+            className="h-9 w-auto object-contain rounded-full shadow-xs"
+          />
           <BrandName size="sm" />
         </div>
 

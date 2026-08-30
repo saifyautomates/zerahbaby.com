@@ -439,7 +439,15 @@ export function Header() {
                     My orders
                   </Link>
                   {isAdmin && (
-                    <>
+                    <div className="hidden md:flex items-center gap-1.5">
+                      <Link
+                        to="/admin"
+                        className="flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1.5 text-xs font-bold transition duration-200"
+                        aria-label="Admin dashboard"
+                      >
+                        <LayoutDashboard className="size-4" />
+                        <span>Admin</span>
+                      </Link>
                       <button
                         type="button"
                         onClick={toggleAdminMode}
@@ -448,25 +456,16 @@ export function Header() {
                           adminMode ? "Admin mode is on" : "Turn on admin mode to edit the site"
                         }
                         className={cn(
-                          "hidden md:flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide transition",
+                          "flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold transition cursor-pointer",
                           adminMode
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border text-muted-foreground hover:bg-muted",
                         )}
                       >
-                        <ShieldCheck className="size-4" />
-                        <span className="hidden sm:inline">Admin {adminMode ? "on" : "off"}</span>
+                        <ShieldCheck className="size-3.5" />
+                        <span>Edit {adminMode ? "ON" : "OFF"}</span>
                       </button>
-                      {adminMode && (
-                        <Link
-                          to="/admin"
-                          className="hidden md:flex focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
-                          aria-label="Admin dashboard"
-                        >
-                          <LayoutDashboard className="size-5" />
-                        </Link>
-                      )}
-                    </>
+                    </div>
                   )}
 
                   <div className="hidden md:block">
@@ -755,6 +754,38 @@ export function Header() {
 
           {/* Links */}
           <div className="flex-1 overflow-y-auto py-2">
+            {isAdmin && (
+              <>
+                <div className="bg-primary/5 rounded-2xl p-3 mx-4 my-2 border border-primary/15">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                      <ShieldCheck className="size-4" /> Admin Controls
+                    </span>
+                    <button
+                      type="button"
+                      onClick={toggleAdminMode}
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase transition cursor-pointer",
+                        adminMode
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
+                      )}
+                    >
+                      Edit {adminMode ? "ON" : "OFF"}
+                    </button>
+                  </div>
+                  <Link
+                    to="/admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition"
+                  >
+                    <LayoutDashboard className="size-4" /> Open Admin Dashboard
+                  </Link>
+                </div>
+                <div className="h-px bg-border/60 mx-5 my-1" />
+              </>
+            )}
+
             <Link
               to="/orders"
               onClick={() => setOpen(false)}

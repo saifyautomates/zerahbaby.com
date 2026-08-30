@@ -16,6 +16,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CancellationRefundRouteImport } from './routes/cancellation-refund'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as Google9046c9669db277c7DothtmlRouteImport } from './routes/google9046c9669db277c7[.]html'
+import { Route as Googlef2fa4f5b077bfca9DothtmlRouteImport } from './routes/googlef2fa4f5b077bfca9[.]html'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as ShippingDeliveryRouteImport } from './routes/shipping-delivery'
@@ -63,6 +65,18 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Google9046c9669db277c7DothtmlRoute =
+  Google9046c9669db277c7DothtmlRouteImport.update({
+    id: '/google9046c9669db277c7.html',
+    path: '/google9046c9669db277c7.html',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Googlef2fa4f5b077bfca9DothtmlRoute =
+  Googlef2fa4f5b077bfca9DothtmlRouteImport.update({
+    id: '/googlef2fa4f5b077bfca9.html',
+    path: '/googlef2fa4f5b077bfca9.html',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
   id: '/privacy-policy',
   path: '/privacy-policy',
@@ -131,6 +145,8 @@ export interface FileRoutesByFullPath {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
+  '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -151,6 +167,8 @@ export interface FileRoutesByTo {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
+  '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -173,6 +191,8 @@ export interface FileRoutesById {
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
+  '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/returns': typeof ReturnsRoute
   '/shipping-delivery': typeof ShippingDeliveryRoute
@@ -195,6 +215,8 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
+    | '/google9046c9669db277c7.html'
+    | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -215,6 +237,8 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
+    | '/google9046c9669db277c7.html'
+    | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -236,6 +260,8 @@ export interface FileRouteTypes {
     | '/cancellation-refund'
     | '/cart'
     | '/contact'
+    | '/google9046c9669db277c7.html'
+    | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
     | '/returns'
     | '/shipping-delivery'
@@ -258,6 +284,8 @@ export interface RootRouteChildren {
   CancellationRefundRoute: typeof CancellationRefundRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
+  Google9046c9669db277c7DothtmlRoute: typeof Google9046c9669db277c7DothtmlRoute
+  Googlef2fa4f5b077bfca9DothtmlRoute: typeof Googlef2fa4f5b077bfca9DothtmlRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ReturnsRoute: typeof ReturnsRoute
   ShippingDeliveryRoute: typeof ShippingDeliveryRoute
@@ -316,6 +344,20 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/google9046c9669db277c7.html': {
+      id: '/google9046c9669db277c7.html'
+      path: '/google9046c9669db277c7.html'
+      fullPath: '/google9046c9669db277c7.html'
+      preLoaderRoute: typeof Google9046c9669db277c7DothtmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/googlef2fa4f5b077bfca9.html': {
+      id: '/googlef2fa4f5b077bfca9.html'
+      path: '/googlef2fa4f5b077bfca9.html'
+      fullPath: '/googlef2fa4f5b077bfca9.html'
+      preLoaderRoute: typeof Googlef2fa4f5b077bfca9DothtmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -432,6 +474,8 @@ const rootRouteChildren: RootRouteChildren = {
   CancellationRefundRoute: CancellationRefundRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
+  Google9046c9669db277c7DothtmlRoute: Google9046c9669db277c7DothtmlRoute,
+  Googlef2fa4f5b077bfca9DothtmlRoute: Googlef2fa4f5b077bfca9DothtmlRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ReturnsRoute: ReturnsRoute,
   ShippingDeliveryRoute: ShippingDeliveryRoute,
