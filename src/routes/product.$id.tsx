@@ -379,16 +379,16 @@ function ProductPage() {
 
       <div className="grid gap-10 md:grid-cols-2 lg:gap-16">
         {/* Left Column: Sticky Media Gallery */}
-        <div className="relative md:sticky md:top-24 self-start">
+        <div className="relative md:sticky md:top-24 self-start w-full max-w-md lg:max-w-lg mx-auto md:mx-0">
           <AdminProductControls product={product} />
           {(() => {
             const activeUrl = gallery[activeImage] ?? product.image;
             const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return (
-              <div className="relative aspect-square overflow-hidden rounded-3xl border border-border/60 bg-card shadow-premium-sm transition-all duration-300 group">
+              <div className="relative aspect-[4/5] sm:aspect-square max-h-[460px] md:max-h-[500px] w-full overflow-hidden rounded-3xl border border-border/60 bg-white dark:bg-card shadow-premium-sm transition-all duration-300 group flex items-center justify-center">
                 <button
                   onClick={() => setShowLightbox(true)}
-                  className={`w-full block overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
+                  className={`w-full h-full flex items-center justify-center p-2 sm:p-3.5 overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
                   aria-label="View full screen"
                   onMouseMove={featMagnifier ? handleMouseMove : undefined}
                   onMouseEnter={() => setIsZooming(true)}
@@ -399,10 +399,10 @@ function ProductPage() {
                     alt={product.name}
                     isVideo={isVideo}
                     fit="contain"
-                    containerClassName="w-full h-full transition-transform overflow-hidden"
-                    className={`w-full h-full object-contain transition-transform ease-out ${isZooming && !isVideo && featMagnifier ? "scale-[2.5] duration-75" : "duration-500 group-hover:scale-[1.03]"}`}
+                    containerClassName="w-full h-full transition-transform overflow-hidden bg-transparent flex items-center justify-center"
+                    className={`w-full h-full object-contain transition-transform ease-out ${isZooming && !isVideo && featMagnifier ? "scale-[2.5] duration-75" : "duration-500 group-hover:scale-[1.02]"}`}
                     style={isZooming && !isVideo && featMagnifier ? zoomStyle : {}}
-                    aspect="1/1"
+                    aspect="auto"
                   />
                 </button>
                 {gallery.length > 1 && (
@@ -452,7 +452,7 @@ function ProductPage() {
                       isVideo={isVideo}
                       fit="contain"
                       aspect="1/1"
-                      containerClassName="rounded-none h-full w-full"
+                      containerClassName="rounded-none h-full w-full bg-white dark:bg-card flex items-center justify-center p-1"
                       showPlaceholder={false}
                     />
                   </button>

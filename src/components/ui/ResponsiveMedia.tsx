@@ -65,9 +65,16 @@ export function ResponsiveMedia({
 }: ResponsiveMediaProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(src ? "loading" : "error");
 
-  const containerClasses = ["relative overflow-hidden bg-muted", containerClassName]
+  const hasCustomBg = containerClassName.includes("bg-");
+  const containerClasses = [
+    "relative overflow-hidden",
+    !hasCustomBg && "bg-muted",
+    containerClassName,
+  ]
     .filter(Boolean)
     .join(" ");
+
+  const aspectStyle = aspect && aspect !== "auto" ? { aspectRatio: aspect } : {};
 
   const mediaClasses = [
     "absolute inset-0 h-full w-full transition-opacity duration-300",
@@ -79,7 +86,7 @@ export function ResponsiveMedia({
 
   if (!src || status === "error") {
     return (
-      <div className={containerClasses} style={{ aspectRatio: aspect, ...containerStyle }}>
+      <div className={containerClasses} style={{ ...aspectStyle, ...containerStyle }}>
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
           <ImageOff className="size-6" />
         </div>
@@ -88,7 +95,7 @@ export function ResponsiveMedia({
   }
 
   return (
-    <div className={containerClasses} style={{ aspectRatio: aspect, ...containerStyle }}>
+    <div className={containerClasses} style={{ ...aspectStyle, ...containerStyle }}>
       {/* Loading placeholder */}
       {showPlaceholder && status === "loading" && (
         <div className="absolute inset-0 animate-pulse bg-muted" />
