@@ -1978,6 +1978,10 @@ const SETTING_LABELS: Record<string, string> = {
   feature_swatches: "Interactive Visual Swatches",
   feature_sticky_cart: "Sticky 'Add to Cart' Bar",
   urgency_dispatch_cutoff_hour: "Dispatch Cutoff Hour",
+  free_delivery_enabled: "Enable Free Delivery Threshold (true/false)",
+  free_delivery_threshold: "Free Delivery Threshold Amount (₹)",
+  standard_shipping_charge: "Standard Shipping Charge (₹)",
+  free_delivery_message: "Free Delivery Cart Message",
 };
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -1990,6 +1994,14 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
   store_hours: "Dukaan khulne aur band hone ka samay (yeh Footer me dikhta hai).",
   maps_url: "Footer me location icon par click karne se jo Google Maps open hoga, uska link.",
+  free_delivery_enabled:
+    "True likhne par free delivery threshold on ho jayega, false par band ho jayega.",
+  free_delivery_threshold:
+    "Is amount ke upar ka order hone par customer ko shipping charge nahi lagega.",
+  standard_shipping_charge:
+    "Agar order free delivery threshold se kam hai, toh yeh charge lagega (e.g. 79).",
+  free_delivery_message:
+    "Cart me progress bar ke liye message. Use {amount} as placeholder. (e.g. Add ₹{amount} more for FREE DELIVERY 🎉)",
 };
 const DEFAULT_SETTINGS: Record<string, string> = {
   brand_name: "Zerah Baby And Kid's",
@@ -2014,6 +2026,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   feature_swatches: "true",
   feature_sticky_cart: "true",
   urgency_dispatch_cutoff_hour: "14",
+  free_delivery_enabled: "true",
+  free_delivery_threshold: "999",
+  standard_shipping_charge: "79",
+  free_delivery_message: "Add ₹{amount} more for FREE DELIVERY 🎉",
 };
 
 function SettingsTab() {

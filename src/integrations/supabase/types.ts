@@ -178,7 +178,7 @@ export type Database = {
           id: string;
           price_at_add: number;
           product_id: string;
-          quantity: number;
+
           updated_at: string;
           variant_id: string | null;
         };
@@ -188,7 +188,7 @@ export type Database = {
           id?: string;
           price_at_add?: number;
           product_id: string;
-          quantity?: number;
+
           updated_at?: string;
           variant_id?: string | null;
         };
@@ -198,7 +198,7 @@ export type Database = {
           id?: string;
           price_at_add?: number;
           product_id?: string;
-          quantity?: number;
+
           updated_at?: string;
           variant_id?: string | null;
         };
@@ -441,7 +441,7 @@ export type Database = {
           id: string;
           note: string;
           product_id: string;
-          quantity: number;
+
           reference_id: string | null;
           reference_type: string;
           type: Database["public"]["Enums"]["inventory_tx_type"];
@@ -453,7 +453,7 @@ export type Database = {
           id?: string;
           note?: string;
           product_id: string;
-          quantity: number;
+
           reference_id?: string | null;
           reference_type?: string;
           type: Database["public"]["Enums"]["inventory_tx_type"];
@@ -465,7 +465,7 @@ export type Database = {
           id?: string;
           note?: string;
           product_id?: string;
-          quantity?: number;
+
           reference_id?: string | null;
           reference_type?: string;
           type?: Database["public"]["Enums"]["inventory_tx_type"];
@@ -768,7 +768,7 @@ export type Database = {
           product_name_snapshot: string;
           product_slug: string;
           qty: number;
-          quantity: number;
+
           sku_snapshot: string;
           subtotal: number;
           variant_id: string | null;
@@ -785,7 +785,7 @@ export type Database = {
           product_name_snapshot?: string;
           product_slug?: string;
           qty?: number;
-          quantity?: number;
+
           sku_snapshot?: string;
           subtotal?: number;
           variant_id?: string | null;
@@ -802,7 +802,7 @@ export type Database = {
           product_name_snapshot?: string;
           product_slug?: string;
           qty?: number;
-          quantity?: number;
+
           sku_snapshot?: string;
           subtotal?: number;
           variant_id?: string | null;

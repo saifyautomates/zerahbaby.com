@@ -22,6 +22,11 @@ type CartContextValue = {
   clear: () => void;
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => void;
+  shipping: number;
+  eligibleSubtotal: number;
+  isFreeDelivery: boolean;
+  freeDeliveryMessage: string | null;
+  amountToFreeDelivery: number;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -106,11 +111,43 @@ async function loadFromSupabase(userId: string, products: Product[]): Promise<Ca
   }
 }
 
+import { useQuery } from "@tanstack/react-query";
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const { data: products } = useProducts();
   const { user } = useSession();
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["site_settings", "shipping"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", [
+          "free_delivery_enabled",
+          "free_delivery_threshold",
+          "standard_shipping_charge",
+          "free_delivery_message",
+        ]);
+
+      const settings = {
+        free_delivery_enabled: "true",
+        free_delivery_threshold: "999",
+        standard_shipping_charge: "79",
+        free_delivery_message: "Add ₹{amount} more for FREE DELIVERY 🎉",
+      };
+
+      if (data) {
+        for (const row of data) {
+          settings[row.key as keyof typeof settings] = row.value;
+        }
+      }
+      return settings;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -190,7 +227,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .filter((x): x is { product: Product; qty: number } => x !== null && x.qty > 0);
 
     const subtotal = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
-    const total = Math.max(0, subtotal - (coupon?.discount || 0));
+    const eligibleSubtotal = Math.max(0, subtotal - (coupon?.discount || 0));
+
+    // Default to true and 999 if settings are not loaded yet
+    const freeDeliveryEnabled = settingsData?.free_delivery_enabled !== "false";
+    const threshold = Number(settingsData?.free_delivery_threshold || 999);
+    const standardCharge = Number(settingsData?.standard_shipping_charge || 79);
+
+    const isFreeDelivery = freeDeliveryEnabled && eligibleSubtotal > threshold;
+    const shipping = isFreeDelivery ? 0 : standardCharge;
+    const amountToFreeDelivery = Math.max(0, threshold + 1 - eligibleSubtotal);
+
+    let freeDeliveryMessage: string | null = null;
+    if (freeDeliveryEnabled) {
+      if (isFreeDelivery) {
+        freeDeliveryMessage = "🎉 FREE DELIVERY UNLOCKED";
+      } else {
+        freeDeliveryMessage = (
+          settingsData?.free_delivery_message || "Add ₹{amount} more for FREE DELIVERY 🎉"
+        ).replace("{amount}", amountToFreeDelivery.toString());
+      }
+    }
+
+    const total = Math.max(0, eligibleSubtotal + shipping);
 
     return {
       lines,
@@ -202,6 +261,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         0,
       ),
       total,
+      shipping,
+      eligibleSubtotal,
+      isFreeDelivery,
+      freeDeliveryMessage,
+      amountToFreeDelivery,
       coupon,
       add: (id, qty = 1) =>
         setLines((prev) => {
@@ -266,7 +330,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       removeCoupon: () => setCoupon(null),
     };
-  }, [lines, products, coupon, user]);
+  }, [lines, products, coupon, user, settingsData]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

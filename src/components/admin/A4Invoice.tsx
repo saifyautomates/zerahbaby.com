@@ -86,7 +86,11 @@ const STORE = {
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
-function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[], store: ReturnType<typeof useSettings>): string {
+function buildA4HTML(
+  sale: A4InvoiceSale,
+  items: A4InvoiceItem[],
+  store: ReturnType<typeof useSettings>,
+): string {
   const date = sale.sale_date ?? new Date();
 
   const dateStr = date.toLocaleDateString("en-IN", {
@@ -104,7 +108,7 @@ function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[], store: ReturnT
       const lineTotal = item.price * item.qty;
       const hasMRP = item.mrp && item.mrp > item.price;
       const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
-      
+
       return `
     <tr class="${i % 2 === 0 ? "even" : ""}">
       <td>

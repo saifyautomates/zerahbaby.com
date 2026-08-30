@@ -88,7 +88,7 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
 
       // Verify product page elements
       const addToCart = page.locator(
-        'button:has-text("Add to Cart"), button:has-text("Add To Cart")',
+        'button:has-text("Add to bag"), button:has-text("Add To Bag"), button:has-text("Add to Cart")',
       );
       await expect(addToCart).toBeVisible();
 

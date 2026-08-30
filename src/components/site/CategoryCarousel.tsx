@@ -168,7 +168,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         className="w-full overflow-x-auto overflow-y-hidden scrollbar-none pb-8 pt-4 cursor-grab active:cursor-grabbing"
         style={{ paddingLeft: `${paddingLeft}px`, paddingRight: `${paddingLeft}px` }}
       >
-        <div className="flex w-max gap-4 sm:gap-6 pointer-events-none sm:pointer-events-auto">
+        <div className="flex w-max gap-4 sm:gap-6">
           {categories.map((c) => (
             <Link
               key={c.slug}

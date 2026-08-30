@@ -29,12 +29,15 @@ function AuthPage() {
   const navigate = useNavigate();
   const { user } = useSession();
   const { items } = useCart();
+  const isOAuthRedirect =
+    typeof window !== "undefined" && window.location.hash.includes("access_token");
 
   // ─── UI State ─────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<"input" | "verify">("input");
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [otpExpired, setOtpExpired] = useState(false);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
@@ -260,6 +263,7 @@ function AuthPage() {
         }
       }
       // Session is set by Supabase — useEffect watching `user` will redirect
+      setSuccess(true);
       toast.success("Signed in successfully! Welcome to Zerah 🎉");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Invalid OTP. Please try again.");
@@ -288,6 +292,7 @@ function AuthPage() {
   async function onGoogleSignIn() {
     if (busy) return;
     setBusy(true);
+    setSuccess(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -297,12 +302,25 @@ function AuthPage() {
     });
     if (error) {
       setBusy(false);
+      setSuccess(false);
       toast.error("Google sign-in failed: " + error.message);
     }
     // Google will redirect — no further action needed
   }
 
   // ─── RENDER ───────────────────────────────────────────────────────────────────
+
+  if ((busy && mode === "verify") || success || isOAuthRedirect) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">Signing in...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <div className="rounded-3xl border border-border bg-card p-8">

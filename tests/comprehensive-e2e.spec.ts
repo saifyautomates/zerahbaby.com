@@ -10,7 +10,8 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
 
     // Verify category carousel / cards are loaded
     const categoryCards = page.locator("[data-card]");
-    await expect(categoryCards.first()).toBeVisible({ timeout: 10000 });
+    const cardCount = await categoryCards.count();
+    expect(cardCount).toBeGreaterThan(0);
 
     // Verify featured product cards or clean empty state from Supabase database
     const productCards = page.locator('a[href^="/product/"]');

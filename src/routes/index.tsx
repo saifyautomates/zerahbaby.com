@@ -1,7 +1,16 @@
 //
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Truck, RotateCcw, Sparkles, ShieldCheck, Images, Star } from "lucide-react";
+import {
+  Truck,
+  RotateCcw,
+  Sparkles,
+  ShieldCheck,
+  Images,
+  Star,
+  ChevronRight,
+  Baby,
+} from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
 import { useAdminMode } from "@/lib/admin-mode";
@@ -131,9 +140,56 @@ function Index() {
 
   return (
     <div>
+      {/* Mobile Circular Categories Row (App style) */}
+      <section className="md:hidden w-full px-4 py-5 bg-background overflow-x-auto no-scrollbar">
+        <div className="flex gap-4 items-start min-w-max">
+          <Link to="/shop" search={{}} className="flex flex-col items-center gap-2 group w-[72px]">
+            <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center p-3 group-hover:bg-primary/10 transition-colors border border-border/40 shadow-sm">
+              <Baby className="size-full text-muted-foreground/70" />
+            </div>
+            <span className="text-[10px] font-bold text-center leading-tight text-foreground/80">
+              All
+              <br />
+              Products
+            </span>
+          </Link>
+
+          {(categories ?? []).map((c) => (
+            <Link
+              key={c.slug}
+              to="/shop"
+              search={{ category: c.slug }}
+              className="flex flex-col items-center gap-2 group w-[72px]"
+            >
+              <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center p-1 group-hover:bg-primary/10 transition-colors border border-border/40 overflow-hidden shadow-sm">
+                {c.image ? (
+                  <img src={c.image} alt={c.name} className="size-full object-cover rounded-full" />
+                ) : (
+                  <div className="size-full bg-muted rounded-full" />
+                )}
+              </div>
+              <span className="text-[10px] font-bold text-center leading-tight text-foreground/80 line-clamp-2">
+                {c.name.replace(" & ", "\n& ")}
+              </span>
+            </Link>
+          ))}
+
+          <Link to="/shop" search={{}} className="flex flex-col items-center gap-2 group w-[72px]">
+            <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors border border-border/40 shadow-sm">
+              <ChevronRight className="size-6 text-muted-foreground/60" />
+            </div>
+            <span className="text-[10px] font-bold text-center leading-tight text-foreground/80">
+              View
+              <br />
+              All
+            </span>
+          </Link>
+        </div>
+      </section>
+
       <section
         aria-label="Welcome to Zerah Baby And Kid's"
-        className={`relative isolate overflow-hidden ${
+        className={`relative isolate overflow-hidden mx-3 mt-1 rounded-[2rem] md:mx-0 md:mt-0 md:rounded-none shadow-sm md:shadow-none ${
           hasMedia ? "bg-black" : "bg-gradient-to-b from-secondary via-secondary/60 to-background"
         }`}
       >
@@ -183,23 +239,25 @@ function Index() {
             </p>
           </AdminEditableText>
 
-          <div className="rise-in delay-3 mt-8 flex w-full flex-col items-stretch justify-center gap-3 sm:mt-10 sm:w-auto sm:flex-row sm:flex-wrap">
+          <div className="rise-in delay-3 mt-8 flex w-full flex-row items-center justify-center gap-2.5 sm:mt-10 sm:w-auto sm:flex-wrap px-2">
             <Link
               to="/shop"
-              className="focus-ring press rounded-full bg-primary px-8 py-3.5 text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl"
+              className="flex-1 sm:flex-none focus-ring press rounded-full bg-primary px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl text-center"
             >
-              Shop all products
+              <span className="sm:hidden">Shop all</span>
+              <span className="hidden sm:inline">Shop all products</span>
             </Link>
             <Link
               to="/shop"
               search={{ category: "clothing" }}
-              className={`focus-ring rounded-full border px-8 py-3.5 text-sm font-semibold tracking-wide transition duration-300 hover:-translate-y-0.5 ${
+              className={`flex-1 sm:flex-none focus-ring rounded-full border px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide transition duration-300 hover:-translate-y-0.5 text-center ${
                 hasMedia
                   ? "border-background/50 bg-background/10 text-background backdrop-blur hover:bg-background/25"
                   : "border-border bg-background hover:bg-muted"
               }`}
             >
-              Explore clothing
+              <span className="sm:hidden">Clothing</span>
+              <span className="hidden sm:inline">Explore clothing</span>
             </Link>
           </div>
 
@@ -235,8 +293,69 @@ function Index() {
 
       {heroEditor && <HeroMediaDialog onClose={() => setHeroEditor(false)} />}
 
-      <section className="mx-auto max-w-7xl px-4 py-12 relative z-20 -mt-10 lg:-mt-16">
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mx-auto max-w-7xl px-4 py-8 md:py-12 relative z-20">
+        {/* Mobile App-style Perks */}
+        <div className="md:hidden flex items-start justify-between gap-1 border-b border-border/60 pb-8 mb-4 pt-2">
+          <div className="flex flex-col items-center gap-2 text-center w-1/3">
+            <Truck className="size-5 text-amber-500" strokeWidth={1.5} />
+            <span className="text-[10px] font-semibold leading-tight text-foreground/80">
+              Free delivery
+              <br />
+              over ₹999
+            </span>
+          </div>
+          <div className="w-[1px] h-10 bg-border/50 self-center"></div>
+          <div className="flex flex-col items-center gap-2 text-center w-1/3">
+            <RotateCcw className="size-5 text-amber-700" strokeWidth={1.5} />
+            <span className="text-[10px] font-semibold leading-tight text-foreground/80">
+              7-day easy
+              <br />
+              returns
+            </span>
+          </div>
+          <div className="w-[1px] h-10 bg-border/50 self-center"></div>
+          <div className="flex flex-col items-center gap-2 text-center w-1/3">
+            <ShieldCheck className="size-5 text-amber-600" strokeWidth={1.5} />
+            <span className="text-[10px] font-semibold leading-tight text-foreground/80">
+              Safe & secure
+              <br />
+              payments
+            </span>
+          </div>
+        </div>
+
+        {/* Mobile Shop by Age */}
+        <div className="md:hidden w-full pb-6 pt-2">
+          <div className="flex items-end justify-between mb-4 px-1">
+            <h2 className="font-display text-lg font-bold">Shop by Age</h2>
+            <Link to="/shop" className="text-[11px] font-semibold text-primary">
+              View all
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: Baby, age: "0-6m", color: "text-indigo-400 bg-indigo-50" },
+              { icon: Baby, age: "6-12m", color: "text-emerald-400 bg-emerald-50" },
+              { icon: Baby, age: "12-24m", color: "text-amber-400 bg-amber-50" },
+              { icon: Baby, age: "2-4y", color: "text-rose-400 bg-rose-50" },
+            ].map((a) => (
+              <Link
+                key={a.age}
+                to="/shop"
+                search={{ age: a.age }}
+                className="flex items-center justify-center gap-3 bg-muted/30 rounded-2xl p-3.5 border border-border/50 hover:bg-muted/50 transition-colors"
+              >
+                <div className={`p-1.5 rounded-full ${a.color.split(" ")[1]}`}>
+                  <a.icon className={`size-5 ${a.color.split(" ")[0]}`} />
+                </div>
+                <span className="text-xs font-bold">{a.age}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop Grid Perks */}
+        <ul className="hidden md:grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {perks.map((perk, i) => (
             <li
               key={perk.title}
@@ -257,7 +376,7 @@ function Index() {
         </ul>
       </section>
 
-      <section className="w-full py-10">
+      <section className="w-full py-10 hidden md:block">
         <div className="mx-auto flex max-w-7xl items-end justify-between px-4 sm:px-6 lg:px-8">
           <div>
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Shop by category</h2>
@@ -312,7 +431,7 @@ function Index() {
       </section>
 
       {deals.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-12">
+        <section key="deals-section" className="mx-auto max-w-7xl px-4 py-12">
           <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
             <div className="relative z-10">
@@ -332,7 +451,7 @@ function Index() {
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-14">
+      <section key="reviews-section" className="mx-auto max-w-7xl px-4 py-14">
         <div className="text-center">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">Loved by parents</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">

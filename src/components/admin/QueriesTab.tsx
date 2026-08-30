@@ -152,10 +152,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   // Mutation: Delete query
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("contact_messages")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("contact_messages").delete().eq("id", id);
       if (error) throw error;
       return id;
     },
@@ -172,10 +169,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   // Mutation: Bulk Delete queries
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from("contact_messages")
-        .delete()
-        .in("id", ids);
+      const { error } = await supabase.from("contact_messages").delete().in("id", ids);
       if (error) throw error;
       return ids;
     },
@@ -359,7 +353,8 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                   <input
                     type="checkbox"
                     checked={
-                      filteredQueries.length > 0 && selectedQueries.length === filteredQueries.length
+                      filteredQueries.length > 0 &&
+                      selectedQueries.length === filteredQueries.length
                     }
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -420,7 +415,10 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                         selectedQuery?.id === q.id ? "bg-muted/50" : ""
                       } ${isNew ? "bg-amber-500/[0.03] font-medium" : ""}`}
                     >
-                      <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-4 py-4 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <input
                           type="checkbox"
                           checked={selectedQueries.includes(q.id)}

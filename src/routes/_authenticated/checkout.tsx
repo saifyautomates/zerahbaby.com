@@ -24,21 +24,15 @@ export const Route = createFileRoute("/_authenticated/checkout")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: CheckoutPage,
 });
 
 function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useSession();
-  const { items, subtotal, total, coupon, clear, applyCoupon, removeCoupon } = useCart();
+  const { items, subtotal, total, coupon, clear, applyCoupon, removeCoupon, shipping } = useCart();
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
-  const maxItemShipping = items.reduce(
-    (max, i) => Math.max(max, i.product.deliveryFee !== undefined ? i.product.deliveryFee : 79),
-    0,
-  );
-  const shipping = subtotal >= 999 ? 0 : maxItemShipping;
 
   const couponCode = coupon?.code || "";
   const couponDiscount = coupon?.discount || 0;
@@ -47,7 +41,7 @@ function CheckoutPage() {
   // Local state for the input field
   const [couponInput, setCouponInput] = useState(couponCode);
   const [couponLoading, setCouponLoading] = useState(false);
-  const finalTotal = total + shipping;
+  const finalTotal = total;
 
   useEffect(() => {
     trackEvent("checkout_started");
@@ -424,7 +418,7 @@ function CheckoutPage() {
   const busy = placeOrder.isPending || saveProfile.isPending || submitting;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 

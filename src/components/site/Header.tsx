@@ -1,5 +1,5 @@
 //
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
@@ -15,13 +15,22 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
+  MapPin,
+  Percent,
+  LifeBuoy,
+  Info,
+  LogOut,
+  ShoppingBag,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import logo from "@/assets/zerah-logo.png";
 import { ageGroups, useCategories, useSettings, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
-import { useProfile } from "@/lib/orders";
+import { useProfile, useSaveProfile } from "@/lib/orders";
 import { useAdminMode } from "@/lib/admin-mode";
 import { useWishlist } from "@/lib/wishlist";
 import { cn } from "@/lib/utils";
@@ -35,6 +44,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
+import { uploadMedia } from "@/lib/uploads";
+import { toast } from "sonner";
 
 // Simple debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -106,6 +117,26 @@ export function Header() {
   const { user } = useSession();
   const { data: userProfile } = useProfile(user?.id);
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
+  const saveProfile = useSaveProfile(user?.id);
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadMedia(file, "avatars");
+      await saveProfile.mutateAsync({ avatar_url: url });
+      toast.success("Profile picture updated!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload photo");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
   const { productIds: wishlistIds } = useWishlist();
 
   const { recent, addSearch, removeSearch } = useRecentSearches();
@@ -184,536 +215,629 @@ export function Header() {
     navigate({ to: "/product/$id", params: { id: String(productId) } });
   }
 
+  const location = useLocation();
+  const getPageTitle = () => {
+    const path = location.pathname;
+    const tab = (location.search as any)?.tab;
+    if (path.startsWith("/profile")) {
+      if (tab === "addresses") return "Saved Addresses";
+      if (tab === "payments") return "Payment Methods";
+      if (tab === "coupons") return "Coupons & Offers";
+      return "My Profile";
+    }
+    if (path.startsWith("/orders")) return "My Orders";
+    if (path.startsWith("/wishlist")) return "Wishlist";
+    if (path.startsWith("/cart")) return "Shopping Cart";
+    if (path.startsWith("/checkout")) return "Checkout";
+    if (path.startsWith("/about")) return "About Us";
+    if (path.startsWith("/contact")) return "Contact Support";
+    if (path.startsWith("/product/")) return "Product Details";
+    return null;
+  };
+
+  const pageTitle = getPageTitle();
+  const isSubPage = pageTitle !== null && location.pathname !== "/";
+
   return (
-    <header className="sticky top-0 z-50 w-full">
-      <a
-        href="#main"
-        className="focus-ring sr-only z-[70] focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
-      >
-        Skip to main content
-      </a>
-      {/* AnnouncementBanner */}
-      <AnnouncementBanner />
-      <div className="border-b border-border glass-header">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
-          <button
-            className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
-            aria-label="Toggle menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <Menu className="size-6" />
-          </button>
+    <>
+      <header className="sticky top-0 z-50 w-full">
+        <a
+          href="#main"
+          className="focus-ring sr-only z-[70] focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+        >
+          Skip to main content
+        </a>
+        {/* AnnouncementBanner */}
+        <AnnouncementBanner />
+        <div className="border-b border-border/50 bg-background/75 backdrop-blur-xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)]">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-1.5 sm:gap-4 sm:px-4 sm:py-2 relative">
+            {/* Mobile Menu or Back Button */}
+            {isSubPage ? (
+              <button
+                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
+                aria-label="Go back"
+                onClick={() => window.history.back()}
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+            ) : (
+              <button
+                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
+                aria-label="Toggle menu"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+              >
+                <Menu className="size-6" />
+              </button>
+            )}
 
-          <Link
-            to="/"
-            className="focus-ring press flex min-w-0 items-center gap-2 rounded-lg transition-transform duration-200 hover:-translate-y-0.5"
-          >
-            <img
-              src={logo}
-              alt={`${brandName} logo`}
-              width={40}
-              height={40}
-              className="size-8 object-contain rounded-full sm:size-10"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.opacity = "0";
-              }}
-            />
-            <span className="font-display text-base font-bold leading-[1.1] tracking-tight text-foreground sm:text-xl whitespace-pre-wrap">
-              {brandName}
-            </span>
-          </Link>
-
-          <div className="hidden flex-1 items-center mx-4 md:flex lg:mx-8 relative" ref={searchRef}>
-            <form
-              className="w-full max-w-md lg:max-w-xl mx-auto relative z-10 group"
-              onSubmit={(e) => submitSearch(e)}
-              role="search"
-            >
-              <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
-              <input
-                type="search"
-                value={term}
-                onChange={(e) => {
-                  setTerm(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                placeholder="Search for onesies, strollers, diapers…"
-                aria-label="Search products"
-                className="w-full rounded-full border border-border/60 bg-muted/50 py-2.5 pl-11 pr-4 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-border/80"
-              />
-            </form>
-
-            {/* Desktop Autocomplete Dropdown */}
-            {showSuggestions && (term.trim() || recent.length > 0) && (
-              <div className="absolute left-1/2 top-full mt-2 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-2xl border border-border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                {!term.trim() && recent.length > 0 && (
-                  <div className="p-2">
-                    <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Recent Searches
-                    </h3>
-                    <ul className="space-y-1">
-                      {recent.map((r) => (
-                        <li
-                          key={r}
-                          className="flex items-center justify-between group rounded-lg transition hover:bg-muted"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              submitSearch({ preventDefault: () => {} } as React.FormEvent, r)
-                            }
-                            className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left"
-                          >
-                            <History className="size-4 text-muted-foreground" /> {r}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeSearch(r);
-                            }}
-                            className="p-2 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
-                            aria-label="Remove search"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {term.trim() && suggestions.length === 0 && (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No results for "{term}"
-                  </div>
-                )}
-                {term.trim() && suggestions.length > 0 && (
-                  <div className="p-1">
-                    <h3 className="mb-2 px-2 pt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Products
-                    </h3>
-                    <ul className="space-y-1">
-                      {suggestions.map((p) => (
-                        <li key={p.id}>
-                          <button
-                            type="button"
-                            onClick={() => handleSuggestionClick(p.id)}
-                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-muted"
-                          >
-                            <ResponsiveMedia
-                              src={p.image}
-                              alt={p.name}
-                              width={40}
-                              height={40}
-                              fit="cover"
-                              aspect="1/1"
-                              containerClassName="size-10 shrink-0 rounded-lg bg-card"
-                            />
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate text-sm font-semibold">{p.name}</span>
-                              <span className="truncate text-xs text-muted-foreground">
-                                {p.brand}
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={(e) => submitSearch(e as unknown as React.FormEvent)}
-                      className="mt-2 w-full rounded-lg bg-primary/5 py-2.5 text-center text-sm font-semibold text-primary transition hover:bg-primary/10"
-                    >
-                      See all results for "{term}"
-                    </button>
-                  </div>
-                )}
+            {/* Mobile Page Title */}
+            {isSubPage && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:hidden pointer-events-none">
+                <span className="font-display text-lg font-bold text-foreground whitespace-nowrap">
+                  {pageTitle}
+                </span>
               </div>
             )}
-          </div>
 
-          <nav className="ml-auto flex items-center gap-1 sm:gap-1.5 md:ml-0">
-            {/* Mobile Search Toggle */}
-            <button
-              className="md:hidden focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
-              aria-label="Toggle search"
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search className="size-5" />
-            </button>
-
-            {/* Desktop Navigation Links */}
+            {/* Logo */}
             <Link
-              to="/about"
-              className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
-            >
-              About
-            </Link>
-            <Link
-              to="/contact"
-              className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
-            >
-              Contact
-            </Link>
-
-            {user ? (
-              <>
-                <Link
-                  to="/orders"
-                  className="focus-ring hidden rounded-full px-3 py-2 text-sm font-semibold transition hover:bg-muted lg:block"
-                >
-                  My orders
-                </Link>
-                {isAdmin && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={toggleAdminMode}
-                      aria-pressed={adminMode}
-                      title={adminMode ? "Admin mode is on" : "Turn on admin mode to edit the site"}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide transition",
-                        adminMode
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border text-muted-foreground hover:bg-muted",
-                      )}
-                    >
-                      <ShieldCheck className="size-4" />
-                      <span className="hidden sm:inline">Admin {adminMode ? "on" : "off"}</span>
-                    </button>
-                    {adminMode && (
-                      <Link
-                        to="/admin"
-                        className="focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
-                        aria-label="Admin dashboard"
-                      >
-                        <LayoutDashboard className="size-5" />
-                      </Link>
-                    )}
-                  </>
-                )}
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="focus-ring rounded-full p-1 text-foreground transition duration-300 hover:bg-muted hover:text-primary flex items-center justify-center cursor-pointer"
-                      aria-label="User profile"
-                    >
-                      {userProfile?.avatar_url ? (
-                        <img
-                          src={userProfile.avatar_url}
-                          alt={userProfile.full_name || "User profile"}
-                          className="size-7 rounded-full object-cover border border-primary/30 shadow-2xs"
-                        />
-                      ) : (
-                        <div className="size-8 rounded-full flex items-center justify-center hover:bg-muted">
-                          <User className="size-5" />
-                        </div>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-1.5 text-sm font-medium truncate">{user.email}</div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile" className="cursor-pointer">
-                        My profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/orders" className="cursor-pointer">
-                        My orders
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/wishlist" className="cursor-pointer">
-                        My wishlist
-                      </Link>
-                    </DropdownMenuItem>
-                    {isAdmin && (
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin" className="cursor-pointer">
-                          Admin Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleSignOut}
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                    >
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <Link
-                to="/auth"
-                className="focus-ring press rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
-                aria-label="Sign in"
-              >
-                <User className="size-5" />
-              </Link>
-            )}
-            {user && (
-              <Link
-                to="/wishlist"
-                className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
-                aria-label={`Wishlist with ${wishlistIds.length} items`}
-              >
-                <Heart
-                  className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`}
-                />
-                {wishlistIds.length > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
-                    {wishlistIds.length}
-                  </span>
-                )}
-              </Link>
-            )}
-            <Link
-              to="/cart"
-              className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
-              aria-label={`Cart with ${count} items`}
-            >
-              <ShoppingCart className="size-5" />
-              {count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
-                  {count}
-                </span>
+              to="/"
+              className={cn(
+                "focus-ring press min-w-0 items-center gap-2 rounded-lg transition-transform duration-200 hover:-translate-y-0.5",
+                isSubPage ? "hidden md:flex" : "flex",
               )}
+            >
+              <img
+                src={logo}
+                alt={`${brandName} logo`}
+                width={32}
+                height={32}
+                className="size-7 object-contain rounded-full sm:size-8 shadow-sm"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
+              />
+              <span className="font-display text-base font-bold leading-[1.1] tracking-tight text-foreground sm:text-xl whitespace-nowrap truncate max-w-[140px] sm:max-w-none">
+                {brandName.replace(/\n/g, " ")}
+              </span>
             </Link>
-          </nav>
-        </div>
 
-        {searchOpen && (
-          <div className="mx-auto max-w-7xl px-3 pb-2.5 md:hidden">
-            <form onSubmit={(e) => submitSearch(e)} role="search" className="group">
-              <div className="relative">
+            <div
+              className="hidden flex-1 items-center mx-4 md:flex lg:mx-8 relative"
+              ref={searchRef}
+            >
+              <form
+                className="w-full max-w-md lg:max-w-xl mx-auto relative z-10 group"
+                onSubmit={(e) => submitSearch(e)}
+                role="search"
+              >
                 <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <input
                   type="search"
                   value={term}
-                  autoFocus
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search products…"
+                  onChange={(e) => {
+                    setTerm(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="Search for onesies, strollers, diapers…"
                   aria-label="Search products"
-                  className="w-full rounded-full border border-border/60 bg-muted/50 py-2.5 pl-11 pr-4 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-border/80"
+                  className="w-full rounded-full border border-border/60 bg-muted/40 py-1.5 pl-10 pr-4 text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-border/80"
                 />
-              </div>
-            </form>
-            {/* Mobile Suggestions */}
-            {(term.trim() || recent.length > 0) && (
-              <div className="mt-2 rounded-2xl border border-border bg-background p-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
-                {!term.trim() && recent.length > 0 && (
-                  <div className="p-2">
-                    <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Recent
-                    </h3>
-                    <ul className="space-y-1">
-                      {recent.map((r) => (
-                        <li
-                          key={r}
-                          className="flex items-center justify-between group rounded-lg hover:bg-muted"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              submitSearch({ preventDefault: () => {} } as React.FormEvent, r)
-                            }
-                            className="flex-1 flex items-center gap-2 px-2 py-2 text-sm text-left"
-                          >
-                            <History className="size-4 text-muted-foreground" /> {r}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeSearch(r);
-                            }}
-                            className="p-2 text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {term.trim() && suggestions.length === 0 && (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No results for "{term}"
-                  </div>
-                )}
-                {term.trim() && suggestions.length > 0 && (
-                  <div className="p-1">
-                    <h3 className="mb-2 px-2 pt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Products
-                    </h3>
-                    <ul className="space-y-1">
-                      {suggestions.map((p) => (
-                        <li key={p.id}>
-                          <button
-                            type="button"
-                            onClick={() => handleSuggestionClick(p.id)}
-                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted"
-                          >
-                            <ResponsiveMedia
-                              src={p.image}
-                              alt={p.name}
-                              width={40}
-                              height={40}
-                              fit="cover"
-                              aspect="1/1"
-                              containerClassName="size-10 shrink-0 rounded-lg bg-card"
-                            />
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate text-sm font-semibold">{p.name}</span>
-                              <span className="truncate text-xs text-muted-foreground">
-                                {p.brand}
-                              </span>
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              </form>
 
-        <div
-          className={cn(
-            "border-t border-border/60 bg-background/95 backdrop-blur-md transition-all duration-300 md:block",
-            open ? "block shadow-premium-md" : "hidden",
-          )}
-        >
-          <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center px-2 sm:px-4">
-            {/* Scrollable Categories Area with Non-Overlapping Chevrons and Mouse Wheel / Touch Support */}
-            <div className="relative min-w-0 flex-1 flex items-center gap-1.5">
-              {canScrollLeft && (
-                <button
-                  type="button"
-                  onClick={() => scrollCategories("left")}
-                  aria-label="Scroll categories left"
-                  className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
-                >
-                  <ChevronLeft className="size-3.5" />
-                </button>
-              )}
-
-              <div
-                ref={categoryScrollRef}
-                onScroll={checkCategoryScroll}
-                onWheel={(e) => {
-                  if (categoryScrollRef.current && e.deltaY !== 0) {
-                    categoryScrollRef.current.scrollLeft += e.deltaY;
-                  }
-                }}
-                className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-1.5 px-0.5 scroll-smooth touch-pan-x select-none"
-              >
-                <div className="flex w-max items-center gap-1.5 sm:gap-2">
-                  <Link
-                    to="/shop"
-                    search={{}}
-                    className="focus-ring shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
-                    activeProps={{
-                      className: "bg-primary text-primary-foreground shadow-premium-sm",
-                    }}
-                    onClick={() => setOpen(false)}
-                  >
-                    All Products
-                  </Link>
-                  {(categories ?? []).map((c) => (
-                    <Link
-                      key={c.slug}
-                      to="/shop"
-                      search={{ category: c.slug }}
-                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
-                      activeProps={{
-                        className:
-                          "bg-primary text-primary-foreground font-semibold shadow-premium-sm",
-                      }}
-                      onClick={() => setOpen(false)}
-                    >
-                      {c.name}
-                    </Link>
-                  ))}
-                  {isAdmin && adminMode && (
-                    <button
-                      type="button"
-                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
-                      title="Manage Categories"
-                      onClick={() => {
-                        setOpen(false);
-                        setShowCategoryModal(true);
-                      }}
-                    >
-                      + Add / Edit
-                    </button>
+              {/* Desktop Autocomplete Dropdown */}
+              {showSuggestions && (term.trim() || recent.length > 0) && (
+                <div className="absolute left-1/2 top-full mt-2 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-2xl border border-border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                  {!term.trim() && recent.length > 0 && (
+                    <div className="p-2">
+                      <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Recent Searches
+                      </h3>
+                      <ul className="space-y-1">
+                        {recent.map((r) => (
+                          <li
+                            key={r}
+                            className="flex items-center justify-between group rounded-lg transition hover:bg-muted"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                submitSearch({ preventDefault: () => {} } as React.FormEvent, r)
+                              }
+                              className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left"
+                            >
+                              <History className="size-4 text-muted-foreground" /> {r}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSearch(r);
+                              }}
+                              className="p-2 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
+                              aria-label="Remove search"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {term.trim() && suggestions.length === 0 && (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No results for "{term}"
+                    </div>
+                  )}
+                  {term.trim() && suggestions.length > 0 && (
+                    <div className="p-1">
+                      <h3 className="mb-2 px-2 pt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Products
+                      </h3>
+                      <ul className="space-y-1">
+                        {suggestions.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => handleSuggestionClick(p.id)}
+                              className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-muted"
+                            >
+                              <ResponsiveMedia
+                                src={p.image}
+                                alt={p.name}
+                                width={40}
+                                height={40}
+                                fit="cover"
+                                aspect="1/1"
+                                containerClassName="size-10 shrink-0 rounded-lg bg-card"
+                              />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate text-sm font-semibold">{p.name}</span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {p.brand}
+                                </span>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={(e) => submitSearch(e as unknown as React.FormEvent)}
+                        className="mt-2 w-full rounded-lg bg-primary/5 py-2.5 text-center text-sm font-semibold text-primary transition hover:bg-primary/10"
+                      >
+                        See all results for "{term}"
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
-
-              {canScrollRight && (
-                <button
-                  type="button"
-                  onClick={() => scrollCategories("right")}
-                  aria-label="Scroll categories right"
-                  className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
-                >
-                  <ChevronRight className="size-3.5" />
-                </button>
               )}
             </div>
 
-            {/* Dedicated Age Filters & Mobile Links */}
-            <div className="shrink-0 flex flex-col border-t border-border/50 bg-muted/20 px-3 py-1.5 md:flex-row md:items-center md:border-t-0 md:bg-transparent md:border-l md:border-border/60 md:pl-3 md:pr-1">
-              {/* Mobile Only: About & Contact links inside drawer */}
-              <div className="flex md:hidden flex-wrap items-center gap-4 text-sm font-semibold shrink-0 mb-3 pb-3 border-b border-border/40">
-                <Link
-                  to="/about"
-                  className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
-                  onClick={() => setOpen(false)}
-                >
-                  About
-                </Link>
-                <Link
-                  to="/contact"
-                  className="focus-ring transition-colors hover:text-primary whitespace-nowrap"
-                  onClick={() => setOpen(false)}
-                >
-                  Contact
-                </Link>
-              </div>
+            <nav className="ml-auto flex items-center gap-1 sm:gap-1.5 md:ml-0">
+              {/* Desktop Navigation Links */}
+              <Link
+                to="/about"
+                className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
+              >
+                About
+              </Link>
+              <Link
+                to="/contact"
+                className="focus-ring hidden rounded-full px-3 py-1.5 text-xs lg:text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-block"
+              >
+                Contact
+              </Link>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">
-                  Age:
-                </span>
-                <div className="flex flex-wrap gap-1 shrink-0">
-                  {ageGroups.map((a) => (
+              {user ? (
+                <>
+                  <Link
+                    to="/orders"
+                    className="focus-ring hidden rounded-full px-3 py-2 text-sm font-semibold transition hover:bg-muted lg:block"
+                  >
+                    My orders
+                  </Link>
+                  {isAdmin && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleAdminMode}
+                        aria-pressed={adminMode}
+                        title={
+                          adminMode ? "Admin mode is on" : "Turn on admin mode to edit the site"
+                        }
+                        className={cn(
+                          "hidden md:flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide transition",
+                          adminMode
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border text-muted-foreground hover:bg-muted",
+                        )}
+                      >
+                        <ShieldCheck className="size-4" />
+                        <span className="hidden sm:inline">Admin {adminMode ? "on" : "off"}</span>
+                      </button>
+                      {adminMode && (
+                        <Link
+                          to="/admin"
+                          className="hidden md:flex focus-ring rounded-full p-2.5 text-foreground transition duration-300 hover:bg-muted hover:text-primary"
+                          aria-label="Admin dashboard"
+                        >
+                          <LayoutDashboard className="size-5" />
+                        </Link>
+                      )}
+                    </>
+                  )}
+
+                  <div className="hidden md:block">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="focus-ring rounded-full p-1 text-foreground transition duration-300 hover:bg-muted hover:text-primary flex items-center justify-center cursor-pointer"
+                          aria-label="User profile"
+                        >
+                          {userProfile?.avatar_url ? (
+                            <img
+                              src={userProfile.avatar_url}
+                              alt={userProfile.full_name || "User profile"}
+                              className="size-7 rounded-full object-cover border border-primary/30 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="size-8 rounded-full flex items-center justify-center hover:bg-muted">
+                              <User className="size-5" />
+                            </div>
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <div className="px-2 py-1.5 text-sm font-medium truncate">{user.email}</div>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/profile" className="cursor-pointer">
+                            My profile
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/orders" className="cursor-pointer">
+                            My orders
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/wishlist" className="cursor-pointer">
+                            My wishlist
+                          </Link>
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem asChild>
+                            <Link to="/admin" className="cursor-pointer">
+                              Admin Dashboard
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={handleSignOut}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          Sign out
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="hidden md:flex focus-ring press rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                  aria-label="Sign in"
+                >
+                  <User className="size-5" />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="md:hidden focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                aria-label="Search"
+              >
+                <Search className="size-5" />
+              </button>
+              {user && (
+                <Link
+                  to="/wishlist"
+                  className="flex focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                  aria-label={`Wishlist with ${wishlistIds.length} items`}
+                >
+                  <Heart
+                    className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`}
+                  />
+                  {wishlistIds.length > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                      {wishlistIds.length}
+                    </span>
+                  )}
+                </Link>
+              )}
+              <Link
+                to="/cart"
+                className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                aria-label={`Cart with ${count} items`}
+              >
+                <ShoppingCart className="size-5" />
+                {count > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                    {count}
+                  </span>
+                )}
+              </Link>
+            </nav>
+          </div>
+
+          {/* Desktop Category Row */}
+          <div className="hidden md:block border-b border-border/50 bg-background/75 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center px-2 sm:px-4">
+              {/* Scrollable Categories Area with Non-Overlapping Chevrons and Mouse Wheel / Touch Support */}
+              <div className="relative min-w-0 flex-1 flex items-center gap-1.5">
+                {canScrollLeft && (
+                  <button
+                    type="button"
+                    onClick={() => scrollCategories("left")}
+                    aria-label="Scroll categories left"
+                    className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                )}
+
+                <div
+                  ref={categoryScrollRef}
+                  onScroll={checkCategoryScroll}
+                  onWheel={(e) => {
+                    if (categoryScrollRef.current && e.deltaY !== 0) {
+                      categoryScrollRef.current.scrollLeft += e.deltaY;
+                    }
+                  }}
+                  className="min-w-0 flex-1 overflow-x-auto no-scrollbar py-1.5 px-0.5 scroll-smooth touch-pan-x select-none"
+                >
+                  <div className="flex w-max items-center gap-1 sm:gap-1.5">
                     <Link
-                      key={a}
                       to="/shop"
-                      search={{ age: a }}
-                      className="focus-ring whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                      search={{}}
+                      className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
                       activeProps={{
-                        className: "border-primary bg-primary text-primary-foreground",
+                        className: "bg-primary text-primary-foreground shadow-premium-sm",
                       }}
                       onClick={() => setOpen(false)}
                     >
-                      {a}
+                      All Products
                     </Link>
-                  ))}
+                    {(categories ?? []).map((c) => (
+                      <Link
+                        key={c.slug}
+                        to="/shop"
+                        search={{ category: c.slug }}
+                        className="focus-ring shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300 bg-muted/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-premium-sm"
+                        activeProps={{
+                          className:
+                            "bg-primary text-primary-foreground font-semibold shadow-premium-sm",
+                        }}
+                        onClick={() => setOpen(false)}
+                      >
+                        {c.name}
+                      </Link>
+                    ))}
+                    {isAdmin && adminMode && (
+                      <button
+                        type="button"
+                        className="focus-ring shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-all duration-300 border border-dashed border-primary/60 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                        title="Manage Categories"
+                        onClick={() => {
+                          setOpen(false);
+                          setShowCategoryModal(true);
+                        }}
+                      >
+                        + Add / Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {canScrollRight && (
+                  <button
+                    type="button"
+                    onClick={() => scrollCategories("right")}
+                    aria-label="Scroll categories right"
+                    className="hidden md:flex shrink-0 size-6 items-center justify-center rounded-full bg-muted/80 border border-border text-foreground shadow-sm hover:bg-primary hover:text-primary-foreground transition duration-200 cursor-pointer"
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Dedicated Age Filters */}
+              <div className="shrink-0 flex flex-col bg-muted/20 px-3 py-1.5 md:flex-row md:items-center md:bg-transparent md:border-l md:border-border/60 md:pl-3 md:pr-1">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+                    Age:
+                  </span>
+                  <div className="flex flex-wrap gap-1 shrink-0">
+                    {ageGroups.map((a) => (
+                      <Link
+                        key={a}
+                        to="/shop"
+                        search={{ age: a }}
+                        className="focus-ring whitespace-nowrap rounded-full border border-border px-2.5 py-1 text-[11px] font-bold transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+                        activeProps={{
+                          className: "border-primary bg-primary text-primary-foreground",
+                        }}
+                        onClick={() => setOpen(false)}
+                      >
+                        {a}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Drawer moved outside header to avoid stacking context issues from backdrop-blur */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[100] md:hidden transition-opacity duration-300",
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        />
+
+        {/* Drawer Content */}
+        <div
+          className={cn(
+            "absolute inset-y-0 left-0 w-[280px] bg-background shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+            open ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          {/* Profile Header */}
+          <div className="flex items-center gap-3 bg-muted/30 p-5 border-b border-border/60">
+            <div className="relative group size-12 shrink-0">
+              <div className="size-full rounded-full overflow-hidden bg-background flex items-center justify-center border border-border/50 shadow-sm">
+                {userProfile?.avatar_url ? (
+                  <img
+                    src={userProfile.avatar_url}
+                    alt="Profile"
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <User className="size-6 text-muted-foreground" />
+                )}
+              </div>
+
+              {user && (
+                <>
+                  <button
+                    type="button"
+                    disabled={uploadingAvatar}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Upload profile picture"
+                    className="absolute inset-0 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer disabled:opacity-100"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Camera className="size-4" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleAvatarChange}
+                  />
+                </>
+              )}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold text-muted-foreground truncate">
+                Hello, {user ? user.user_metadata?.full_name || "Parent" : "Guest"} 👋
+              </span>
+              <span className="text-sm font-bold text-foreground truncate">
+                {user ? "Welcome back!" : "Sign in to sync"}
+              </span>
+            </div>
+          </div>
+
+          {/* Links */}
+          <div className="flex-1 overflow-y-auto py-2">
+            <Link
+              to="/orders"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <ShoppingBag className="size-5 text-muted-foreground" /> My Orders
+            </Link>
+            <Link
+              to="/wishlist"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <Heart className="size-5 text-muted-foreground" /> Wishlist
+            </Link>
+            <Link
+              to="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <User className="size-5 text-muted-foreground" /> My Account
+            </Link>
+            <Link
+              to="/profile"
+              search={{ tab: "addresses" } as any}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <MapPin className="size-5 text-muted-foreground" /> Addresses
+            </Link>
+            <Link
+              to="/profile"
+              search={{ tab: "payments" } as any}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <CreditCard className="size-5 text-muted-foreground" /> Payment Methods
+            </Link>
+            <Link
+              to="/profile"
+              search={{ tab: "coupons" } as any}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <Percent className="size-5 text-muted-foreground" /> Coupons & Offers
+            </Link>
+
+            <div className="h-px bg-border/60 mx-5 my-2" />
+
+            <Link
+              to="/contact"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <LifeBuoy className="size-5 text-muted-foreground" /> Help & Support
+            </Link>
+            <Link
+              to="/about"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-5 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <Info className="size-5 text-muted-foreground" /> About Us
+            </Link>
+
+            {user ? (
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-5 py-3 text-sm font-medium text-destructive hover:bg-muted/50 transition-colors mt-2"
+              >
+                <LogOut className="size-5" /> Logout
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-5 py-3 text-sm font-medium text-primary hover:bg-muted/50 transition-colors mt-2"
+              >
+                <User className="size-5" /> Sign In
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -736,6 +860,127 @@ export function Header() {
           </div>
         </div>
       )}
-    </header>
+
+      {/* Mobile Full-Screen Search Modal */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[110] bg-background md:hidden transition-transform duration-300 ease-out flex flex-col",
+          searchOpen ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="flex items-center gap-2 p-3 border-b border-border/60">
+          <button
+            onClick={() => {
+              setSearchOpen(false);
+              setShowSuggestions(false);
+            }}
+            className="p-2 rounded-full hover:bg-muted transition"
+            aria-label="Close search"
+          >
+            <ChevronLeft className="size-6 text-foreground" />
+          </button>
+          <form className="flex-1 relative" onSubmit={(e) => submitSearch(e)}>
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              autoFocus={searchOpen}
+              type="search"
+              value={term}
+              onChange={(e) => {
+                setTerm(e.target.value);
+                setShowSuggestions(true);
+              }}
+              placeholder="Search products..."
+              className="w-full rounded-full bg-muted/50 py-2 pl-9 pr-4 text-sm outline-none focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all border border-transparent focus:border-primary/50"
+            />
+            {term && (
+              <button
+                type="button"
+                onClick={() => setTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full bg-muted-foreground/20 hover:bg-muted-foreground/40 text-foreground transition"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </form>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          {!term.trim() && recent.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-foreground text-sm">Recent Searches</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {recent.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => submitSearch({ preventDefault: () => {} } as React.FormEvent, r)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-border bg-muted/30 text-sm font-medium hover:bg-muted hover:border-border/80 transition"
+                  >
+                    <History className="size-3.5 text-muted-foreground" />
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {term.trim() && suggestions.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Search className="size-6 text-muted-foreground" />
+              </div>
+              <h3 className="font-bold text-lg">No results found</h3>
+              <p className="text-muted-foreground text-sm mt-1">
+                We couldn't find anything for "{term}"
+              </p>
+            </div>
+          )}
+
+          {term.trim() && suggestions.length > 0 && (
+            <div>
+              <h3 className="font-bold text-foreground text-sm mb-4">Suggested Products</h3>
+              <ul className="space-y-4">
+                {suggestions.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSuggestionClick(p.id)}
+                      className="flex w-full items-center gap-4 text-left group"
+                    >
+                      <ResponsiveMedia
+                        src={p.image}
+                        alt={p.name}
+                        width={64}
+                        height={64}
+                        fit="cover"
+                        aspect="1/1"
+                        containerClassName="size-16 shrink-0 rounded-2xl bg-card border border-border/50 group-hover:border-primary/30 transition-colors"
+                      />
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                          {p.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-0.5">{p.brand}</span>
+                        <span className="text-sm font-bold mt-1 text-primary">
+                          ₹{p.price.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={(e) => submitSearch(e as unknown as React.FormEvent)}
+                className="mt-6 w-full rounded-2xl bg-primary/10 py-3.5 text-center text-sm font-bold text-primary hover:bg-primary/20 transition active:scale-[0.98]"
+              >
+                See all results
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

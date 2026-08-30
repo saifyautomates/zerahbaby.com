@@ -119,10 +119,7 @@ export function SMSLogsTab() {
   // Safe delete mutation (fixes 'Cannot coerce' error on double click)
   const deleteMutation = useMutation({
     mutationFn: async (logId: string) => {
-      const { error } = await supabase
-        .from("sms_logs")
-        .delete()
-        .eq("id", logId);
+      const { error } = await supabase.from("sms_logs").delete().eq("id", logId);
       if (error) throw error;
       return logId;
     },
@@ -139,10 +136,7 @@ export function SMSLogsTab() {
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: async (logIds: string[]) => {
-      const { error } = await supabase
-        .from("sms_logs")
-        .delete()
-        .in("id", logIds);
+      const { error } = await supabase.from("sms_logs").delete().in("id", logIds);
       if (error) throw error;
       return logIds;
     },
@@ -281,9 +275,7 @@ export function SMSLogsTab() {
                 <th className="px-4 py-3.5">
                   <input
                     type="checkbox"
-                    checked={
-                      filteredLogs.length > 0 && selectedLogs.length === filteredLogs.length
-                    }
+                    checked={filteredLogs.length > 0 && selectedLogs.length === filteredLogs.length}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedLogs(filteredLogs.map((l) => l.id));

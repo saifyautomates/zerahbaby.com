@@ -75,7 +75,7 @@ function buildThermalHTML(
   sale: ThermalReceiptSale,
   items: ThermalReceiptItem[],
   date: Date,
-  store: ReturnType<typeof useSettings>
+  store: ReturnType<typeof useSettings>,
 ): string {
   const itemRows = items
     .map((item) => {

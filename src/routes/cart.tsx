@@ -36,11 +36,6 @@ export const Route = createFileRoute("/cart")({
 
 import { useState, useRef } from "react";
 
-/** Single source of truth for the free-delivery threshold */
-const FREE_DELIVERY_THRESHOLD = 999;
-/** Flat delivery fee below the free-delivery threshold */
-const DELIVERY_FEE = 79;
-
 function CartPage() {
   const {
     items,
@@ -53,17 +48,16 @@ function CartPage() {
     setQty,
     remove,
     clear,
+    shipping,
+    eligibleSubtotal,
+    isFreeDelivery,
+    freeDeliveryMessage,
+    amountToFreeDelivery,
   } = useCart();
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
   const [isApplying, setIsApplying] = useState(false);
-  // Shipping is free when cart is empty, subtotal meets threshold, or all items have free delivery
-  const maxItemShipping = items.reduce(
-    (max, i) =>
-      Math.max(max, i.product.deliveryFee !== undefined ? i.product.deliveryFee : DELIVERY_FEE),
-    0,
-  );
-  const shipping = subtotal === 0 || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : maxItemShipping;
+
   // Guard against duplicate checkout navigations from rapid clicking
   const isNavigatingRef = useRef(false);
 
@@ -88,7 +82,7 @@ function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10">
+    <div className="mx-auto max-w-7xl px-4 py-10 pb-32 sm:pb-10">
       <h1 className="font-display text-3xl font-bold">Your bag</h1>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
@@ -190,34 +184,39 @@ function CartPage() {
 
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           {/* Free Shipping Progress Bar */}
-          <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
-            {subtotal >= FREE_DELIVERY_THRESHOLD ? (
-              <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-                <span>🎉</span>
-                <span>
-                  You've unlocked <strong>FREE Delivery</strong> across India!
-                </span>
-              </div>
-            ) : (
-              <div>
-                <p className="text-xs font-semibold text-foreground">
-                  Add{" "}
-                  <strong className="text-primary">
-                    {formatPrice(FREE_DELIVERY_THRESHOLD - subtotal)}
-                  </strong>{" "}
-                  more to get <strong>FREE Delivery</strong>!
-                </p>
-                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-all duration-500 rounded-full"
-                    style={{
-                      width: `${Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100)}%`,
-                    }}
-                  />
+          {freeDeliveryMessage && (
+            <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
+              {isFreeDelivery ? (
+                <div className="flex items-center gap-2 text-xs font-bold text-green-600">
+                  <span>🎉</span>
+                  <span>{freeDeliveryMessage}</span>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {freeDeliveryMessage.split("₹{amount}").map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <strong className="text-primary">
+                            {formatPrice(amountToFreeDelivery)}
+                          </strong>
+                        )}
+                      </span>
+                    ))}
+                  </p>
+                  <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-all duration-500 rounded-full"
+                      style={{
+                        width: `${Math.min(100, (eligibleSubtotal / (eligibleSubtotal + amountToFreeDelivery)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <h2 className="font-display text-xl font-bold">Order summary</h2>
           <dl className="mt-4 space-y-2 text-sm">
@@ -297,13 +296,19 @@ function CartPage() {
               </div>
             )}
 
-            <div className="flex justify-between pt-2">
+            <div className="flex justify-between border-t border-border/40 pt-2">
               <dt className="text-muted-foreground">Delivery</dt>
-              <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
+              <dd className="font-semibold text-foreground">
+                {shipping === 0 ? (
+                  <span className="text-green-600 font-bold tracking-tight">FREE</span>
+                ) : (
+                  formatPrice(shipping)
+                )}
+              </dd>
             </div>
-            <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
-              <dt>Total</dt>
-              <dd>{formatPrice(total + shipping)}</dd>
+            <div className="flex justify-between border-t border-border/40 pt-3 text-lg font-bold">
+              <dt>Total amount</dt>
+              <dd>{formatPrice(total)}</dd>
             </div>
           </dl>
           {user ? (

@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,10 +20,15 @@ export const Route = createFileRoute("/_authenticated/profile")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  validateSearch: z.object({
+    tab: z.string().optional().catch(""),
+  }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate();
   const { user } = useSession();
   const { data: profile, isLoading } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
@@ -182,104 +188,111 @@ function ProfilePage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-8 md:grid-cols-2">
-        {/* Profile Info */}
-        <section>
-          <div className="flex items-center gap-2 text-lg font-bold">
-            <User className="size-5 text-primary" />
-            Personal Info (Optional)
+      <div className="mt-8">
+        {!tab || tab === "info" ? (
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Profile Info */}
+            <section>
+              <div className="flex items-center gap-2 text-lg font-bold">
+                <User className="size-5 text-primary" />
+                Personal Info (Optional)
+              </div>
+              <form onSubmit={handleSave} className="mt-4 space-y-3">
+                <label className="block text-sm font-semibold">
+                  Full Name
+                  <input
+                    value={form.full_name}
+                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                    placeholder="e.g. Priya Sharma"
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="block text-sm font-semibold">
+                  Phone Number
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="block text-sm font-semibold">
+                  Address (Street / Building)
+                  <input
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    placeholder="Flat / House no, Street area"
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="text-sm font-semibold">
+                    City
+                    <input
+                      value={form.city}
+                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      placeholder="City"
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+                  <label className="text-sm font-semibold">
+                    State
+                    <input
+                      value={form.state}
+                      onChange={(e) => setForm({ ...form, state: e.target.value })}
+                      placeholder="State"
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+                  <label className="text-sm font-semibold">
+                    Pincode
+                    <input
+                      value={form.pincode}
+                      onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+                      placeholder="Pincode"
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={saveProfile.isPending}
+                  className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-premium-sm"
+                >
+                  {saveProfile.isPending ? "Saving…" : "Save profile"}
+                </button>
+              </form>
+            </section>
           </div>
-          <form onSubmit={handleSave} className="mt-4 space-y-3">
-            <label className="block text-sm font-semibold">
-              Full Name
-              <input
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                placeholder="e.g. Priya Sharma"
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block text-sm font-semibold">
-              Phone Number
-              <input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+91 98765 43210"
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block text-sm font-semibold">
-              Address (Street / Building)
-              <input
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Flat / House no, Street area"
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm font-semibold">
-                City
-                <input
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  placeholder="City"
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="text-sm font-semibold">
-                State
-                <input
-                  value={form.state}
-                  onChange={(e) => setForm({ ...form, state: e.target.value })}
-                  placeholder="State"
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-                />
-              </label>
-              <label className="text-sm font-semibold">
-                Pincode
-                <input
-                  value={form.pincode}
-                  onChange={(e) => setForm({ ...form, pincode: e.target.value })}
-                  placeholder="Pincode"
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
-                />
-              </label>
+        ) : tab === "addresses" ? (
+          <section>
+            <div className="flex items-center gap-2 text-lg font-bold mb-6">
+              <MapPin className="size-5 text-primary" />
+              Saved Addresses
             </div>
-            <button
-              type="submit"
-              disabled={saveProfile.isPending}
-              className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-premium-sm"
-            >
-              {saveProfile.isPending ? "Saving…" : "Save profile"}
-            </button>
-          </form>
-        </section>
-
-        {/* Saved Addresses */}
-        <section>
-          <div className="flex items-center gap-2 text-lg font-bold">
-            <MapPin className="size-5 text-primary" />
-            Saved Addresses
-          </div>
-          <AddressList userId={user?.id} />
-        </section>
+            <AddressList userId={user?.id} />
+          </section>
+        ) : tab === "coupons" ? (
+          <section className="py-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+            <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4 text-foreground/40">
+              <span className="text-2xl font-bold">%</span>
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">No active coupons</h2>
+            <p className="text-sm">You don't have any coupons or offers available right now.</p>
+          </section>
+        ) : tab === "payments" ? (
+          <section className="py-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+            <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4 text-foreground/40">
+              <span className="text-2xl font-bold">💳</span>
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">No payment methods</h2>
+            <p className="text-sm">You haven't saved any payment methods yet.</p>
+          </section>
+        ) : null}
       </div>
 
       {/* Quick Links */}
-      <div className="mt-10 grid gap-3 sm:grid-cols-3">
-        <Link
-          to="/orders"
-          className="flex items-center gap-3 rounded-2xl border border-border p-4 transition hover:border-primary/30 hover:bg-muted/50"
-        >
-          <div className="grid size-10 place-items-center rounded-full bg-primary/10">
-            <Star className="size-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">My Orders</p>
-            <p className="text-xs text-muted-foreground">Track & manage orders</p>
-          </div>
-        </Link>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <Link
           to="/wishlist"
           className="flex items-center gap-3 rounded-2xl border border-border p-4 transition hover:border-primary/30 hover:bg-muted/50"

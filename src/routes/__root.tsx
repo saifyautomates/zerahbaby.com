@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { BottomNav } from "@/components/site/BottomNav";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { SplashScreen } from "@/components/site/SplashScreen";
@@ -332,13 +333,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <MaintenanceGuard isAdminRoute={isAdminRoute}>
-          <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden relative isolate">
+          <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden relative isolate pb-[72px] md:pb-0">
             {!isAdminRoute && <Header />}
             <main id="main" className="flex-1 fade-in-soft bg-muted/20 min-w-0">
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
               <Outlet />
             </main>
             {!isAdminRoute && <Footer />}
+            {!isAdminRoute && <BottomNav />}
           </div>
         </MaintenanceGuard>
         <Toaster />

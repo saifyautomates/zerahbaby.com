@@ -332,8 +332,8 @@ function ShopPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground">
+      {/* Breadcrumb - Hidden on Mobile */}
+      <nav aria-label="Breadcrumb" className="hidden md:block text-xs text-muted-foreground">
         <ol className="flex items-center gap-1.5">
           <li>
             <Link to="/" className="transition hover:text-primary">
@@ -366,7 +366,7 @@ function ShopPage() {
       </nav>
 
       {/* Header row */}
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+      <div className="mt-2 md:mt-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold sm:text-3xl">
             {q
@@ -383,39 +383,43 @@ function ShopPage() {
                 }`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <AdminAddProduct
-            {...(category ? { defaultCategory: category } : {})}
-            label={category ? `Add to ${activeCategory?.name ?? category}` : "Add product"}
-          />
-          {/* Mobile filter button */}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted lg:hidden"
-          >
-            <SlidersHorizontal className="size-4" />
-            Filters
-            {filterCount > 0 && (
-              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                {filterCount}
-              </span>
-            )}
-          </button>
-          {/* Sort */}
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            Sort
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+        <div className="sticky top-[3.75rem] md:static z-40 -mx-4 px-4 py-2 md:p-0 bg-background/95 backdrop-blur-md md:bg-transparent flex items-center justify-between gap-3 border-b border-border/50 md:border-0">
+          <div className="hidden md:block">
+            <AdminAddProduct
+              {...(category ? { defaultCategory: category } : {})}
+              label={category ? `Add to ${activeCategory?.name ?? category}` : "Add product"}
+            />
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto">
+            {/* Mobile filter button */}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold transition hover:bg-muted lg:hidden whitespace-nowrap shrink-0 shadow-sm"
             >
-              <option value="popular">Popularity</option>
-              <option value="rating">Rating</option>
-              <option value="newest">Newest</option>
-              <option value="low">Price: low → high</option>
-              <option value="high">Price: high → low</option>
-            </select>
-          </label>
+              <SlidersHorizontal className="size-4" />
+              Filters
+              {filterCount > 0 && (
+                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                  {filterCount}
+                </span>
+              )}
+            </button>
+            {/* Sort */}
+            <label className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap shrink-0 ml-auto md:ml-0">
+              <span className="hidden md:inline">Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="rounded-full border border-border bg-card px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-primary shadow-sm"
+              >
+                <option value="popular">Popularity</option>
+                <option value="rating">Rating</option>
+                <option value="newest">Newest</option>
+                <option value="low">Price: low → high</option>
+                <option value="high">Price: high → low</option>
+              </select>
+            </label>
+          </div>
         </div>
       </div>
 

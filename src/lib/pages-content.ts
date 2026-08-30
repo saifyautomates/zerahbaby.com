@@ -246,20 +246,20 @@ export const DEFAULT_ABOUT_CONTENT: AboutPageContent = {
     "Our mission is to make safe, comfortable, non-toxic, and affordable baby care accessible to every parent with transparency, honest pricing, and genuine warmth.",
   values: [
     {
-      title: "Gentle Materials",
-      text: "100% GOTS certified organic cotton, food-grade silicone, and non-toxic water-based finishes come first.",
+      title: "100% Organic & Safe",
+      text: "We rigorously test every fabric and toy to ensure it is completely free from harsh chemicals, toxic dyes, and irritants.",
     },
     {
-      title: "Tested Twice",
-      text: "Every product is lab safety certified and tested hands-on by our parent panel before being listed.",
+      title: "Parent-Tested Quality",
+      text: "Every item in our store is something we would proudly use for our own children. No compromises on safety or durability.",
     },
     {
       title: "Honest Pricing",
       text: "No inflated MRPs or deceptive sales — real discounts, fair prices, and transparent delivery costs.",
     },
     {
-      title: "Dedicated Parent Support",
-      text: "Real humans on WhatsApp & call, 7 days a week from 8:00 AM to 9:00 PM.",
+      title: "Sustainable & Ethical",
+      text: "We partner with ethical manufacturers and prioritize eco-friendly packaging to leave a better world for our little ones.",
     },
   ],
 };

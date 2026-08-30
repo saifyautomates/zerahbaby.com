@@ -1,6 +1,7 @@
 import { type Category } from "@/lib/store";
 import { Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useAdminMode } from "@/lib/admin-mode";
 
 /**
  * Simple admin controls for a given category.
@@ -9,6 +10,9 @@ import { useState } from "react";
  */
 export function AdminCategoryControls({ category }: { category: Category }) {
   const [deleting, setDeleting] = useState(false);
+  const adminMode = useAdminMode();
+
+  if (!adminMode) return null;
 
   const handleEdit = () => {
     // TODO: Implement edit navigation or modal

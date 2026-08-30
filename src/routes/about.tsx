@@ -10,6 +10,8 @@ import {
   Save,
   Sparkles,
   RotateCcw,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import hero from "@/assets/hero-baby.jpg";
@@ -160,15 +162,40 @@ function AboutPage() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
-              Core Brand Values (4 Cards)
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
+                Core Brand Values
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    values: [...draft.values, { title: "", text: "" }],
+                  })
+                }
+                className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+              >
+                <Plus className="size-3.5" /> Add Card
+              </button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {draft.values.map((val, idx) => (
                 <div
                   key={idx}
-                  className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2"
+                  className="relative rounded-2xl border border-border bg-muted/20 p-4 space-y-2 group"
                 >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = draft.values.filter((_, i) => i !== idx);
+                      setDraft({ ...draft, values: updated });
+                    }}
+                    className="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full border border-destructive/30 bg-destructive/10 text-destructive opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                    title="Remove Card"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                   <input
                     type="text"
                     value={val.title}
@@ -227,52 +254,80 @@ function AboutPage() {
           </div>
         </div>
       ) : (
-        <>
-          <h1 className="font-display text-4xl font-bold">{content.title}</h1>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            {content.subtitle || content.story}
-          </p>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+          {/* Premium Hero Section */}
+          <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-gradient-to-b from-primary/5 to-transparent px-6 py-16 sm:py-24 lg:px-16 flex flex-col lg:flex-row items-center gap-12 border border-primary/10 shadow-sm">
+            {/* Background blur orbs */}
+            <div className="absolute -top-24 -left-24 size-96 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 size-96 rounded-full bg-emerald-500/10 blur-[100px] pointer-events-none" />
 
-          <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-3xl bg-muted">
-            <img
-              src={hero}
-              alt="Parent playing with toddlers among soft pastel toys"
-              loading="eager"
-              width={1600}
-              height={900}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <div className="lg:w-1/2 relative z-10 text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 mb-6 text-sm font-semibold text-primary">
+                <Sparkles className="size-4" />
+                <span>Our Story</span>
+              </div>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
+                {content.title}
+              </h1>
+              <p className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                {content.subtitle || content.story}
+              </p>
+
+              <div className="mt-10">
+                <Link
+                  to="/shop"
+                  className="inline-block rounded-full bg-primary px-8 py-4 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105 hover:shadow-xl shadow-primary/25"
+                >
+                  Browse the collection
+                </Link>
+              </div>
+            </div>
+
+            <div className="lg:w-1/2 relative z-10 w-full">
+              <div className="aspect-[4/3] sm:aspect-[16/9] lg:aspect-square overflow-hidden rounded-3xl shadow-2xl ring-1 ring-black/5 relative group">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent z-10" />
+                <img
+                  src={hero}
+                  alt="Parent playing with toddlers among soft pastel toys"
+                  loading="eager"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2">
-            {content.values.map((v, i) => {
-              const Icon = valueIcons[i % valueIcons.length] || Heart;
-              return (
-                <div key={v.title} className="rounded-2xl border border-border p-6 shadow-2xs">
-                  <span className="grid size-10 place-items-center rounded-full bg-secondary text-primary">
-                    <Icon className="size-5" />
-                  </span>
-                  <h2 className="mt-4 font-semibold">{v.title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{v.text}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-12 rounded-3xl bg-secondary p-8 text-center">
-            <p className="font-display text-4xl font-bold text-primary">2500+</p>
-            <p className="mt-1 text-sm text-muted-foreground">Families served across India</p>
-          </div>
-
-          <div className="mt-12 text-center">
-            <Link
-              to="/shop"
-              className="inline-block rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 shadow-md"
-            >
-              Browse the collection
-            </Link>
-          </div>
-        </>
+          {/* Premium Values Grid */}
+          {content.values.length > 0 && (
+            <div className="mt-24">
+              <div className="text-center mb-12">
+                <h2 className="font-display text-3xl font-bold tracking-tight">
+                  Our Promise to You
+                </h2>
+                <p className="mt-2 text-muted-foreground">
+                  The values that guide every product we choose.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-6 max-w-4xl mx-auto">
+                {content.values.map((v, i) => {
+                  const Icon = valueIcons[i % valueIcons.length] || Heart;
+                  return (
+                    <div
+                      key={v.title}
+                      className="w-full sm:w-[calc(50%-12px)] group relative overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1"
+                    >
+                      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-primary/20 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <span className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-6 transition-transform group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground">
+                        <Icon className="size-6" />
+                      </span>
+                      <h3 className="text-xl font-bold tracking-tight">{v.title}</h3>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{v.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
