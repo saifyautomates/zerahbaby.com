@@ -1,12 +1,16 @@
-<!-- LOVABLE:BEGIN -->
+# ZÉRAH BABY & KIDS — Repository Guidelines & Architecture
 
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
+## Overview
+This repository contains the complete production full-stack application for **Zérah Baby & Kids** (https://zerahkids.com).
 
-<!-- LOVABLE:END -->
+### Core Stack
+- **Framework**: TanStack Start / React 19 / TypeScript / Vite / Tailwind CSS v4
+- **Backend & Database**: Supabase (PostgreSQL with RLS, Security Definer RPCs, Edge Functions)
+- **State Management**: TanStack React Query + LocalStorage for offline POS / cart resiliency
+- **Payments**: Razorpay (HMAC verified, webhook driven)
+- **Logistics**: ShipRocket API integration
+
+## Production Guidelines
+1. **Branch Protection**: Keep `main` branch always buildable, fully type-checked (`tsc --noEmit`), and production-ready.
+2. **Database Migrations**: Add all schema changes as forward SQL migrations under `supabase/migrations/`.
+3. **Data Integrity**: Financial totals, shipping thresholds, and coupons must always be strictly verified server-side through canonical RPCs (`place_order`, `place_offline_sale`).

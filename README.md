@@ -1,24 +1,27 @@
-# Your Happy Space
+# Zérah Baby & Kids
 
-hi
+Official full-stack e-commerce and POS platform for **Zérah Baby & Kids** (Kota, Rajasthan, India).
 
-This project was built with [Lovable](https://lovable.dev).
+## 🚀 Features
 
-## Build with Lovable
+- **Storefront**: Mobile-first, responsive customer catalog, search, wishlist, coupons, and secure checkout.
+- **Unified POS**: In-store billing, hardware barcode scanner support, A4 & 80mm thermal receipts, offline synchronization with conflict resolution.
+- **Backend & Database**: Supabase PostgreSQL with Row Level Security (RLS) & server-side validation RPCs.
+- **Payments**: Razorpay gateway integration with webhook signatures & server-side integrity checks.
+- **Logistics & Notifications**: ShipRocket shipping rate calculator & transactional SMS via MSG91.
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/94c28eb7-b2c7-4e78-a2e2-d2a74cf32421).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## 🛠️ Development
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+# Install dependencies
+npm install
+
+# Start local dev server
 npm run dev
+
+# Run type check
+npx tsc --noEmit
+
+# Production build
+npm run build
 ```

@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://zerahbaby.lovable.app/sitemap.xml
+Sitemap: https://zerahkids.com/sitemap.xml
