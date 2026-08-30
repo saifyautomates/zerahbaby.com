@@ -1,5 +1,6 @@
 //
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
   Search,
@@ -98,6 +99,7 @@ export function Header() {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: categories } = useCategories();
   const { data: products } = useProducts();
   const { brandName, announcement } = useSettings();
@@ -157,6 +159,8 @@ export function Header() {
   })();
 
   const handleSignOut = async () => {
+    await qc.cancelQueries();
+    qc.clear();
     await supabase.auth.signOut();
     navigate({ to: "/" });
   };
