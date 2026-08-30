@@ -193,8 +193,6 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
-    max-width: 100vw;
-    overflow-x: clip;
   }
 
   body {
@@ -208,8 +206,9 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
-    max-width: 100vw;
-    overflow-x: clip;
+    -webkit-touch-callout: default;
+    user-select: auto;
+    -webkit-user-select: auto;
   }
 
   /*
