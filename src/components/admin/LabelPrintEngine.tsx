@@ -4,10 +4,13 @@
  * Supports:
  * - One-Click Direct Printing without intermediate UI modals
  * - Label types: "barcode-only" | "full"
- * - Layouts:     "thermal-108" (HGR HT-300X 108mm roll) | "thermal-58" (58mm roll) | "a4" (4-column grid)
+ * - Layouts:     "thermal-108" (HPRT HT300 / 108mm roll) | "thermal-58" (58mm roll) | "a4" (4-column grid)
  * - Automatic Code 128 Barcode generation with quiet zone & human readable text
  * - Dynamic MRP / Discount calculation
+ * - Configurable label width/height in mm (read from Admin Print Settings → site_settings)
  * - Print isolation: only the labels print when window.print() is executed
+ *
+ * PRINT PROFILE: THERMAL_BARCODE_LABEL
  */
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -43,6 +46,10 @@ type Props = {
   labelType: LabelType;
   layout: LabelLayout;
   showDiscount: boolean;
+  /** Label width in mm — from Admin Print Settings. Defaults: thermal=50mm, a4=A4 */
+  widthMm?: number;
+  /** Label height in mm — from Admin Print Settings. Defaults: thermal=25mm, a4=A4 */
+  heightMm?: number;
 };
 
 /** Safe discount % calculation — never shows NaN, Infinity, or negative values */
@@ -192,7 +199,14 @@ function FullProductLabel({
    Main Engine
    ───────────────────────────────────────────── */
 
-export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: Props) {
+export function LabelPrintEngine({
+  entries,
+  labelType,
+  layout,
+  showDiscount,
+  widthMm,
+  heightMm,
+}: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
@@ -200,6 +214,11 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
       <p className="py-16 text-center text-sm text-gray-400 print:hidden">No labels to print.</p>
     );
   }
+
+  // Resolve configurable label dimensions with sensible defaults
+  const resolvedWidthMm =
+    widthMm ?? (layout === "thermal-58" ? 54 : layout === "thermal-108" ? 100 : undefined);
+  const resolvedHeightMm = heightMm;
 
   /* Grid config */
   const gridClass =
@@ -229,19 +248,19 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
               : ""
           }
 
-          /* Thermal 58mm */
+          /* Thermal 58mm — uses admin-configured width/height if provided */
           ${
             layout === "thermal-58"
-              ? `@page { size: 58mm auto; margin: 2mm; }
-                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: 54mm !important; max-width: 54mm !important; }`
+              ? `@page { size: ${resolvedWidthMm ? resolvedWidthMm + "mm" : "58mm"} ${resolvedHeightMm ? resolvedHeightMm + "mm" : "auto"}; margin: 2mm; }
+                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: ${resolvedWidthMm ? resolvedWidthMm - 4 + "mm" : "54mm"} !important; max-width: ${resolvedWidthMm ? resolvedWidthMm - 4 + "mm" : "54mm"} !important; }`
               : ""
           }
 
-          /* Thermal 108mm (HGR HT-300X standard) */
+          /* Thermal 108mm (HPRT HT300) — uses admin-configured width/height if provided */
           ${
             layout === "thermal-108"
-              ? `@page { size: 108mm auto; margin: 3mm; }
-                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: 100mm !important; max-width: 100mm !important; }`
+              ? `@page { size: ${resolvedWidthMm ? resolvedWidthMm + "mm" : "108mm"} ${resolvedHeightMm ? resolvedHeightMm + "mm" : "auto"}; margin: 3mm; }
+                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: ${resolvedWidthMm ? resolvedWidthMm - 8 + "mm" : "100mm"} !important; max-width: ${resolvedWidthMm ? resolvedWidthMm - 8 + "mm" : "100mm"} !important; }`
               : ""
           }
         }

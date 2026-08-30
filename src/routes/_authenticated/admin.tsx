@@ -2147,7 +2147,372 @@ function SettingsTab() {
         </div>
       </div>
 
+      {/* ─── PRINT SETTINGS ─────────────────────────────────────── */}
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+              🖨️ Print Settings
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Configure invoice printer, HPRT HT300 thermal label printer, and label dimensions. All
+              settings persist across POS sessions.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-6">
+          {/* ── PROFILE A: Invoice (A4) ── */}
+          <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8B2020]">
+                Profile 1 — Invoice (A4)
+              </span>
+              <span className="text-[10px] bg-[#8B2020]/10 text-[#8B2020] border border-[#8B2020]/20 rounded-full px-2 py-0.5 font-semibold">
+                Normal A4 Printer
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Printer Name (reference only)
+                </span>
+                <input
+                  type="text"
+                  value={current["print_invoice_printer_name"] ?? "Default A4 Printer"}
+                  onChange={(e) =>
+                    setValues({ ...current, print_invoice_printer_name: e.target.value })
+                  }
+                  placeholder="e.g. HP LaserJet M1005"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Invoice Copies
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={current["print_invoice_copies"] ?? "1"}
+                  onChange={(e) => setValues({ ...current, print_invoice_copies: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+            </div>
+
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer hover:bg-muted/40 transition">
+              <div>
+                <span className="block text-sm font-bold text-foreground">
+                  Auto-Print After POS Sale
+                </span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  Automatically triggers thermal receipt print when a sale is completed.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={current["print_invoice_auto_print"] !== "false"}
+                onChange={(e) =>
+                  setValues({
+                    ...current,
+                    print_invoice_auto_print: e.target.checked ? "true" : "false",
+                  })
+                }
+                className="size-4 accent-primary cursor-pointer ml-4 shrink-0"
+              />
+            </label>
+
+            {/* Test Invoice Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const iframe = document.createElement("iframe");
+                iframe.style.cssText =
+                  "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;visibility:hidden;";
+                document.body.appendChild(iframe);
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (doc) {
+                  doc.open();
+                  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Test Invoice Print</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 portrait;margin:15mm 12mm;}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#000;padding:20px;}
+.header{border-bottom:3px solid #8B2020;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;}
+.brand{font-size:20px;font-weight:900;color:#8B2020;}table{width:100%;border-collapse:collapse;}
+thead tr{background:#8B2020;color:#fff;}th,td{padding:7px 8px;border-bottom:1px solid #eee;}
+.footer{border-top:2px solid #8B2020;padding-top:10px;margin-top:20px;font-size:10px;color:#666;}
+</style></head><body>
+<div class="header"><div><div class="brand">ZÉRAH BABY &amp; KIDS</div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
+<div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#8B2020;">TEST INVOICE</div><div>INV-TEST-001</div></div></div>
+<table><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+<tbody><tr><td>Test Product A</td><td>2</td><td>₹499</td><td>₹998</td></tr>
+<tr><td style="background:#faf8f8;">Test Product B</td><td>1</td><td>₹299</td><td>₹299</td></tr></tbody></table>
+<div style="text-align:right;margin-top:12px;"><div>Subtotal: ₹1,297</div><div style="font-size:15px;font-weight:900;color:#8B2020;">TOTAL: ₹1,297</div></div>
+<div class="footer">TEST PRINT — No business data was created · Zérah Baby &amp; Kids</div>
+</body></html>`);
+                  doc.close();
+                  iframe.onload = () => {
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                    setTimeout(() => document.body.removeChild(iframe), 2000);
+                  };
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#8B2020]/30 bg-[#8B2020]/5 px-4 py-2 text-xs font-bold text-[#8B2020] hover:bg-[#8B2020]/10 transition cursor-pointer"
+            >
+              🖨️ Test Invoice Printer
+            </button>
+          </div>
+
+          {/* ── PROFILE B: Thermal Barcode Label (HPRT HT300) ── */}
+          <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                Profile 2 — Thermal Barcode Label
+              </span>
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2 py-0.5 font-semibold">
+                HPRT HT300
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Thermal Printer Name
+                </span>
+                <input
+                  type="text"
+                  value={current["print_thermal_printer_name"] ?? "HPRT HT300"}
+                  onChange={(e) =>
+                    setValues({ ...current, print_thermal_printer_name: e.target.value })
+                  }
+                  placeholder="e.g. HPRT HT300"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  DPI (203 for HPRT HT300)
+                </span>
+                <input
+                  type="number"
+                  min={72}
+                  max={600}
+                  value={current["print_label_dpi"] ?? "203"}
+                  onChange={(e) => setValues({ ...current, print_label_dpi: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+            </div>
+
+            {/* Label Dimensions */}
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Label Size (mm) — Max 108mm width for HPRT HT300
+              </span>
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setValues({
+                      ...current,
+                      print_label_width_mm: "50",
+                      print_label_height_mm: "25",
+                    })
+                  }
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                    (current["print_label_width_mm"] ?? "50") === "50" &&
+                    (current["print_label_height_mm"] ?? "25") === "25"
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  50 × 25 mm (default)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setValues({
+                      ...current,
+                      print_label_width_mm: "60",
+                      print_label_height_mm: "30",
+                    })
+                  }
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                    (current["print_label_width_mm"] ?? "50") === "60" &&
+                    (current["print_label_height_mm"] ?? "25") === "30"
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  60 × 30 mm
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setValues({
+                      ...current,
+                      print_label_width_mm: "80",
+                      print_label_height_mm: "40",
+                    })
+                  }
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                    (current["print_label_width_mm"] ?? "50") === "80" &&
+                    (current["print_label_height_mm"] ?? "25") === "40"
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  80 × 40 mm
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Width (mm)</span>
+                  <input
+                    type="number"
+                    min={20}
+                    max={108}
+                    value={current["print_label_width_mm"] ?? "50"}
+                    onChange={(e) =>
+                      setValues({ ...current, print_label_width_mm: e.target.value })
+                    }
+                    className="w-20 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition focus:border-primary shadow-2xs"
+                  />
+                </label>
+                <span className="text-muted-foreground font-bold">×</span>
+                <label className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Height (mm)</span>
+                  <input
+                    type="number"
+                    min={10}
+                    max={297}
+                    value={current["print_label_height_mm"] ?? "25"}
+                    onChange={(e) =>
+                      setValues({ ...current, print_label_height_mm: e.target.value })
+                    }
+                    className="w-20 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition focus:border-primary shadow-2xs"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Label Copies
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={current["print_label_copies"] ?? "1"}
+                  onChange={(e) => setValues({ ...current, print_label_copies: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Label Type
+                </span>
+                <select
+                  value={current["print_label_type"] ?? "full"}
+                  onChange={(e) => setValues({ ...current, print_label_type: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs cursor-pointer"
+                >
+                  <option value="full">Full (Name + SKU + Price + Barcode)</option>
+                  <option value="barcode-only">Barcode Only (Store + Name + Barcode)</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer hover:bg-muted/40 transition">
+              <span className="text-sm font-medium text-foreground">Show Discount % on Labels</span>
+              <input
+                type="checkbox"
+                checked={current["print_label_show_discount"] === "true"}
+                onChange={(e) =>
+                  setValues({
+                    ...current,
+                    print_label_show_discount: e.target.checked ? "true" : "false",
+                  })
+                }
+                className="size-4 accent-primary cursor-pointer"
+              />
+            </label>
+
+            {/* Test Thermal Label Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const wMm = parseFloat(current["print_label_width_mm"] ?? "50") || 50;
+                const hMm = parseFloat(current["print_label_height_mm"] ?? "25") || 25;
+                const iframe = document.createElement("iframe");
+                iframe.style.cssText =
+                  "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;visibility:hidden;";
+                document.body.appendChild(iframe);
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (doc) {
+                  doc.open();
+                  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Test Label Print</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:${wMm}mm ${hMm}mm;margin:1mm;}
+body{font-family:'Courier New',monospace;font-size:8px;width:${wMm - 2}mm;background:#fff;color:#000;}
+.box{border:1px solid #000;padding:2mm;width:100%;height:${hMm - 2}mm;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;}
+.cross{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+</style></head><body>
+<div class="box">
+<div style="font-weight:900;font-size:10px;">ZÉRAH BABY &amp; KIDS</div>
+<div>TEST LABEL · ${wMm}×${hMm}mm</div>
+<div style="border:1px solid #000;padding:3px 6px;font-family:monospace;font-size:14px;font-weight:900;letter-spacing:2px;">||| ||| |||</div>
+<div style="font-size:7px;">SKU: TEST-001 · Scan to verify</div>
+<div style="font-size:7px;color:#555;">Calibration sheet — no business data</div>
+</div>
+</body></html>`);
+                  doc.close();
+                  iframe.onload = () => {
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                    setTimeout(() => document.body.removeChild(iframe), 2000);
+                  };
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+            >
+              🏷️ Test Thermal Label Printer
+            </button>
+          </div>
+
+          {/* ── QZ Tray Status ── */}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-2">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">⚡</span>
+              <div>
+                <h4 className="font-bold text-sm text-amber-900">
+                  Direct Printing (TSPL/ZPL Native Commands)
+                </h4>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  For native direct printing to the HPRT HT300 without the Windows print dialog,
+                  install <strong>QZ Tray</strong> on the Windows machine running the POS. When QZ
+                  Tray is active, this system automatically uses TSPL commands instead of browser
+                  printing.
+                </p>
+                <a
+                  href="https://qz.io/download/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-xs font-bold text-amber-700 underline hover:text-amber-900"
+                >
+                  Download QZ Tray →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ─── MAINTENANCE MODE ─────────────────────────────────── */}
+
       <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="space-y-1">

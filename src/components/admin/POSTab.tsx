@@ -61,6 +61,7 @@ import {
   generateIdempotencyKey,
 } from "@/lib/pos";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
+import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
 import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
@@ -102,8 +103,12 @@ export function POSTab() {
 
   // Sale result
   const [saleResult, setSaleResult] = useState<SaleResult | null>(null);
+  // Frozen snapshot of cart items at sale commit time — used for receipt/invoice
+  // (cart may be cleared before modal opens on a new sale)
+  const [saleItems, setSaleItems] = useState<A4InvoiceItem[]>([]);
   const [showLabels, setShowLabels] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isA4InvoiceOpen, setIsA4InvoiceOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
 
   // Product detail drawer
@@ -381,7 +386,12 @@ export function POSTab() {
         toast.warning("This sale was already processed (duplicate prevented)");
       }
 
+      // Snapshot cart items NOW before any reset
+      setSaleItems(
+        cart.map((c) => ({ name: c.name, sku: c.sku, price: c.price, mrp: c.mrp, qty: c.qty })),
+      );
       setSaleResult(result);
+      // Only open receipt modal (with autoPrint) if not a duplicate
       setIsReceiptModalOpen(true);
       setStep("success");
       toast.success(`Sale completed! ${result.sale_number}`);
@@ -402,6 +412,7 @@ export function POSTab() {
     setCustomerId(null);
     setPaymentMethod("cash");
     setSaleResult(null);
+    setSaleItems([]);
     setStep("cart");
     setIdempotencyKey(generateIdempotencyKey());
     setProductSearch("");
@@ -1269,10 +1280,17 @@ export function POSTab() {
                   Reprint Thermal Receipt
                 </button>
                 <button
+                  onClick={() => setIsA4InvoiceOpen(true)}
+                  className="w-full rounded-xl border-2 border-[#8B2020] text-[#8B2020] bg-card py-3 text-sm font-bold shadow-sm hover:bg-[#8B2020]/5 transition-all flex items-center justify-center gap-2"
+                >
+                  <ReceiptText className="size-4" />
+                  Print A4 Invoice
+                </button>
+                <button
                   onClick={() => setShowLabels(true)}
                   className="w-full rounded-xl border border-border bg-card py-3 text-sm font-bold text-muted-foreground shadow-sm hover:bg-muted transition-all flex items-center justify-center gap-2"
                 >
-                  <ReceiptText className="size-4" />
+                  <Package className="size-4" />
                   Print Barcode Labels
                 </button>
                 <button
@@ -1288,7 +1306,7 @@ export function POSTab() {
         )}
       </div>
 
-      {/* Receipt Modal */}
+      {/* Thermal Receipt Modal */}
       {isReceiptModalOpen && saleResult && (
         <ThermalReceipt
           sale={{
@@ -1302,15 +1320,51 @@ export function POSTab() {
             total: saleResult.total,
             payment_method: saleResult.payment_method,
             pos_token_number: saleResult.pos_token_number,
+            // Pass duplicate flag so autoPrint is correctly guarded
+            duplicate: saleResult.duplicate,
           }}
-          items={cart.map((c) => ({
-            name: c.name,
-            sku: c.sku,
-            price: c.price,
-            qty: c.qty,
-          }))}
+          items={
+            saleItems.length > 0
+              ? saleItems
+              : cart.map((c) => ({
+                  name: c.name,
+                  sku: c.sku,
+                  price: c.price,
+                  qty: c.qty,
+                }))
+          }
           autoPrint={true}
           onClose={() => setIsReceiptModalOpen(false)}
+        />
+      )}
+
+      {/* A4 Invoice Modal */}
+      {isA4InvoiceOpen && saleResult && (
+        <A4Invoice
+          sale={{
+            sale_number: saleResult.sale_number,
+            customer_name: saleResult.customer_name,
+            customer_phone: saleResult.customer_phone,
+            subtotal: saleResult.subtotal,
+            discount: saleResult.discount,
+            discount_type: saleResult.discount_type,
+            discount_value: saleResult.discount_value,
+            total: saleResult.total,
+            payment_method: saleResult.payment_method,
+          }}
+          items={
+            saleItems.length > 0
+              ? saleItems
+              : cart.map((c) => ({
+                  name: c.name,
+                  sku: c.sku,
+                  price: c.price,
+                  mrp: c.mrp,
+                  qty: c.qty,
+                }))
+          }
+          autoPrint={false}
+          onClose={() => setIsA4InvoiceOpen(false)}
         />
       )}
 
