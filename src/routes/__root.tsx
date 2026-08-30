@@ -117,6 +117,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image", content: "https://zerahkids.com/logo.png" },
       {
         name: "google-site-verification",
+        content: "Gb8-IGMq85AIv7UMDmz6EOQ1XXBtR9vqXLnZVQFtP4k",
+      },
+      {
+        name: "google-site-verification",
         content: "LMGRXFIKXaUzB14HSDoKn8SrBMcWTee6mpmGioA1RXo",
       },
     ],
