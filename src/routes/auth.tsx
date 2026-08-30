@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import logo from "@/assets/zerah-logo.png";
+import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
@@ -323,19 +324,22 @@ function AuthPage() {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
-      <div className="rounded-3xl border border-border bg-card p-8">
-        <img
-          src={logo}
-          alt="Zerah Baby And Kid's logo"
-          width={64}
-          height={64}
-          className="mx-auto mb-6 size-16 object-contain rounded-full"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.opacity = "0";
-          }}
-        />
-        <h1 className="mt-4 text-center font-display text-2xl font-bold">
-          {mode === "input" ? "Sign in to Zerah" : "Enter Verification Code"}
+      <div className="rounded-3xl border border-border bg-card p-8 shadow-xl">
+        <div className="flex flex-col items-center justify-center mb-6">
+          <img
+            src={logo}
+            alt="Zérah Baby &amp; Kids"
+            width={64}
+            height={64}
+            className="size-16 object-contain rounded-full shadow-md mb-3"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.opacity = "0";
+            }}
+          />
+          <BrandName size="lg" align="center" />
+        </div>
+        <h1 className="text-center font-display text-xl font-bold">
+          {mode === "input" ? "Sign In to Your Account" : "Enter Verification Code"}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"

@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { MapPin, Star } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/ui/BrandIcons";
 import logo from "@/assets/zerah-logo.png";
+import { BrandName } from "@/components/site/BrandName";
 import { useCategories, useSettings } from "@/lib/store";
 
 export function Footer() {
@@ -57,16 +58,14 @@ export function Footer() {
                 src={logo}
                 alt={`${brandName} logo`}
                 loading="lazy"
-                width={36}
-                height={36}
-                className="size-9 object-contain rounded-full shadow-sm"
+                width={40}
+                height={40}
+                className="size-10 object-contain rounded-full shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
               />
-              <span className="font-display text-lg font-black tracking-tight text-foreground whitespace-nowrap">
-                {brandName.replace(/\n/g, " ")}
-              </span>
+              <BrandName size="lg" />
             </div>
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground text-pretty">
               A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by

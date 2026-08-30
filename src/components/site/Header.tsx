@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { BrandName } from "@/components/site/BrandName";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
 import { uploadMedia } from "@/lib/uploads";
 import { toast } from "sonner";
@@ -284,23 +285,21 @@ export function Header() {
             <Link
               to="/"
               className={cn(
-                "focus-ring press min-w-0 items-center gap-2 rounded-lg transition-transform duration-200 hover:-translate-y-0.5",
+                "focus-ring press min-w-0 items-center gap-2 sm:gap-2.5 rounded-lg transition-transform duration-200 hover:-translate-y-0.5",
                 isSubPage ? "hidden md:flex" : "flex",
               )}
             >
               <img
                 src={logo}
                 alt={`${brandName} logo`}
-                width={32}
-                height={32}
-                className="size-7 object-contain rounded-full sm:size-8 shadow-sm"
+                width={36}
+                height={36}
+                className="size-8 object-contain rounded-full sm:size-9 shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
               />
-              <span className="font-display text-base font-bold leading-[1.1] tracking-tight text-foreground sm:text-xl whitespace-nowrap truncate max-w-[140px] sm:max-w-none">
-                {brandName.replace(/\n/g, " ")}
-              </span>
+              <BrandName size="md" />
             </Link>
 
             <div

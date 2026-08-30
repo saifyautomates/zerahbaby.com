@@ -339,7 +339,7 @@ export function useSettings() {
   return {
     ...q,
     settings: s,
-    brandName: s["brand_name"] ?? "Zerah Baby And Kid's",
+    brandName: s["brand_name"] ?? "Zérah Baby & Kids",
     announcement: s["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
     heroTitle: s["hero_title"] ?? "Everything little ones need, in one happy place",
     heroSubtitle:

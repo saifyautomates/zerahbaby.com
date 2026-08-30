@@ -50,6 +50,7 @@ import {
   FileText,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo.png";
+import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
@@ -385,16 +386,9 @@ function AdminPage() {
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
-        <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-          <img src={logo} alt="Zérah Baby &amp; Kids" className="h-8 w-auto object-contain" />
-          <div className="leading-tight">
-            <span className="font-display text-sm font-black tracking-wide text-foreground">
-              Zérah Baby &amp; Kids
-            </span>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Administration
-            </span>
-          </div>
+        <div className="flex h-16 items-center gap-3 border-b border-border px-5">
+          <img src={logo} alt="Zérah Baby &amp; Kids" className="h-9 w-auto object-contain rounded-full shadow-xs" />
+          <BrandName size="sm" />
         </div>
 
         {/* Navigation */}
