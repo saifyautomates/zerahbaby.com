@@ -28,7 +28,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, loading } = useSession();
   const { items } = useCart();
   const isOAuthRedirect =
     typeof window !== "undefined" && window.location.hash.includes("access_token");
@@ -311,12 +311,14 @@ function AuthPage() {
 
   // ─── RENDER ───────────────────────────────────────────────────────────────────
 
-  if ((busy && mode === "verify") || success || isOAuthRedirect) {
+  if (loading || user || (busy && mode === "verify") || success || isOAuthRedirect) {
     return (
       <div className="mx-auto flex min-h-[70vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm font-medium text-muted-foreground animate-pulse">Signing in...</p>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">
+            {loading || user ? "Loading..." : "Signing in..."}
+          </p>
         </div>
       </div>
     );
