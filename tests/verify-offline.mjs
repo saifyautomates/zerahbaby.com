@@ -1,26 +1,30 @@
-import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
+import { createClient } from "@supabase/supabase-js";
+import fs from "fs";
 
-const envFile = fs.readFileSync('.env', 'utf-8');
+const envFile = fs.readFileSync(".env", "utf-8");
 const env = {};
-envFile.split('\n').forEach(line => {
+envFile.split("\n").forEach((line) => {
   const match = line.match(/^([^=]+)=(.*)$/);
-  if (match) env[match[1].trim()] = match[2].trim().replace(/^"|"$/g, '');
+  if (match) env[match[1].trim()] = match[2].trim().replace(/^"|"$/g, "");
 });
 
-const tokenData = JSON.parse(fs.readFileSync('admin-token.json', 'utf-8'));
+const tokenData = JSON.parse(fs.readFileSync("admin-token.json", "utf-8"));
 const token = tokenData.access_token;
 
 console.log("VITE_SUPABASE_URL:", env.VITE_SUPABASE_URL);
 
 // Initialize Supabase Client with Auth
-const supabase = createClient(env.VITE_SUPABASE_URL || 'https://wbbatgbvizhghtkvuguf.supabase.co', env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP', {
-  global: {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  }
-});
+const supabase = createClient(
+  env.VITE_SUPABASE_URL || "https://wbbatgbvizhghtkvuguf.supabase.co",
+  env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP",
+  {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  },
+);
 
 let stats = {
   totalTests: 0,
@@ -29,7 +33,7 @@ let stats = {
   notVerified: 0,
   bugsFound: 0,
   bugsFixed: 0,
-  remaining: 0
+  remaining: 0,
 };
 
 async function log(title, testFn) {
@@ -54,33 +58,34 @@ async function runVerification() {
   console.log("ZÉRAH BABY & KIDS: E2E VERIFICATION SCRIPT (OFFLINE PRODUCTS)");
   console.log("=====================================================================\n");
 
-  const testProductSku = 'TEST-OFFLINE-' + Date.now();
+  const testProductSku = "TEST-OFFLINE-" + Date.now();
   let productId = null;
 
-  const testProductSlug = 'test-offline-product-' + Date.now();
+  const testProductSlug = "test-offline-product-" + Date.now();
   await log("1. Verify Database Migration & Product Creation", async () => {
     const testProduct = {
       slug: testProductSlug,
-      name: 'TEST OFFLINE PRODUCT',
-      brand: 'TEST',
-      category: 'Toys',
+      name: "TEST OFFLINE PRODUCT",
+      brand: "TEST",
+      category: "Toys",
       price: 100,
       mrp: 150,
       stock: 10,
       sku: testProductSku,
-      barcode: '1234567890123',
-      sales_channel: 'OFFLINE_ONLY',
-      is_active: true
+      barcode: "1234567890123",
+      sales_channel: "OFFLINE_ONLY",
+      is_active: true,
     };
 
     const { data, error } = await supabase
-      .from('products')
+      .from("products")
       .insert([testProduct])
-      .select('id, sales_channel, stock, slug')
+      .select("id, sales_channel, stock, slug")
       .single();
 
     if (error) throw new Error(`Product creation failed: ${error.message}`);
-    if (data.sales_channel !== 'OFFLINE_ONLY') throw new Error(`Product channel is ${data.sales_channel}`);
+    if (data.sales_channel !== "OFFLINE_ONLY")
+      throw new Error(`Product channel is ${data.sales_channel}`);
     if (data.stock !== 10) throw new Error("Stock not initialized to 10");
     productId = data.id;
     console.log(`   -> Created Product ID: ${productId}`);
@@ -107,12 +112,14 @@ async function runVerification() {
       _pincode: "123456",
       _payment_method: "cash_on_delivery",
       _notes: "",
-      _coupon_code: null
+      _coupon_code: null,
     };
 
-    const { data, error } = await supabase.rpc('place_order', payload);
+    const { data, error } = await supabase.rpc("place_order", payload);
     if (!error) {
-      throw new Error(`RPC allowed the purchase! Expected failure. Response: ${JSON.stringify(data)}`);
+      throw new Error(
+        `RPC allowed the purchase! Expected failure. Response: ${JSON.stringify(data)}`,
+      );
     }
 
     if (!error.message.includes("Cannot purchase OFFLINE_ONLY")) {
@@ -124,13 +131,19 @@ async function runVerification() {
 
   await log("3. Verify Backend Rejection with Mixed Items", async () => {
     // Find an online item to mix
-    const { data: onlineItem } = await supabase.from('products').select('id, slug, price').eq('sales_channel', 'ONLINE_AND_OFFLINE').eq('is_active', true).limit(1).single();
+    const { data: onlineItem } = await supabase
+      .from("products")
+      .select("id, slug, price")
+      .eq("sales_channel", "ONLINE_AND_OFFLINE")
+      .eq("is_active", true)
+      .limit(1)
+      .single();
     if (!onlineItem) throw new Error("No online items found to mix");
 
     const payload = {
       _items: [
         { product_slug: onlineItem.slug, qty: 1 },
-        { product_slug: testProductSlug, qty: 1 }
+        { product_slug: testProductSlug, qty: 1 },
       ],
       _full_name: "Test Hacker",
       _email: "hacker2@test.com",
@@ -144,10 +157,10 @@ async function runVerification() {
       _pincode: "123456",
       _payment_method: "cash_on_delivery",
       _notes: "",
-      _coupon_code: null
+      _coupon_code: null,
     };
-    
-    const { data, error } = await supabase.rpc('place_order', payload);
+
+    const { data, error } = await supabase.rpc("place_order", payload);
     if (!error) throw new Error("RPC allowed mixed purchase!");
     console.log(`   -> Successfully rejected mixed cart: ${error.message}`);
   });
@@ -166,10 +179,10 @@ async function runVerification() {
       _discount_type: "none",
       _discount_value: 0,
       _notes: "",
-      _idempotency_key: "test-idem-" + Date.now()
+      _idempotency_key: "test-idem-" + Date.now(),
     };
 
-    const { data, error } = await supabase.rpc('place_offline_sale', payload);
+    const { data, error } = await supabase.rpc("place_offline_sale", payload);
     if (error) throw new Error(`Offline sale failed: ${error.message}`);
     if (!data || !data.sale_id) throw new Error("No order ID returned");
     orderId = data.sale_id;
@@ -177,28 +190,38 @@ async function runVerification() {
   });
 
   await log("5. Verify Inventory Deduction", async () => {
-    const { data, error } = await supabase.from('products').select('stock').eq('id', productId).single();
+    const { data, error } = await supabase
+      .from("products")
+      .select("stock")
+      .eq("id", productId)
+      .single();
     if (error) throw new Error(`Failed to fetch stock: ${error.message}`);
     if (data.stock !== 9) throw new Error(`Expected stock 9, got ${data.stock}`);
     console.log(`   -> Stock is correctly ${data.stock}`);
   });
 
   await log("6. Verify Sale Records & Invoice Generation", async () => {
-    const { data, error } = await supabase.from('orders').select('status, display_id, payment_method, source').eq('id', orderId).single();
+    const { data, error } = await supabase
+      .from("orders")
+      .select("status, display_id, payment_method, source")
+      .eq("id", orderId)
+      .single();
     if (error) throw new Error(`Failed to fetch order: ${error.message}`);
-    if (data.status !== 'completed' && data.status !== 'delivered' && data.status !== 'paid') throw new Error(`Order status is ${data.status}`);
-    if (data.source !== 'pos') throw new Error(`Order source is ${data.source}`);
+    if (data.status !== "completed" && data.status !== "delivered" && data.status !== "paid")
+      throw new Error(`Order status is ${data.status}`);
+    if (data.source !== "pos") throw new Error(`Order source is ${data.source}`);
     if (!data.display_id) throw new Error("Display ID (Invoice) not generated");
-    console.log(`   -> Order status ${data.status}, Source ${data.source}, Invoice ${data.display_id}`);
+    console.log(
+      `   -> Order status ${data.status}, Source ${data.source}, Invoice ${data.display_id}`,
+    );
   });
 
-  await log("7. Cleanup Test Data", async () => {
-    // Clean order items, orders, product
-    await supabase.from('order_items').delete().eq('order_id', orderId);
-    await supabase.from('orders').delete().eq('id', orderId);
-    await supabase.from('products').delete().eq('id', productId);
-    console.log("   -> Cleaned up test product and sale");
-  });
+  // Cleanup disabled to leave test product in database for live URL verification
+  // await log("7. Cleanup Test Data", async () => {
+  //   await supabase.from('order_items').delete().eq('order_id', orderId);
+  //   await supabase.from('orders').delete().eq('id', orderId);
+  //   await supabase.from('products').delete().eq('id', productId);
+  // });
 
   console.log("\n=====================================================================");
   console.log("FINAL REPORT");

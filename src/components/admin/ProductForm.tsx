@@ -919,7 +919,7 @@ export function ProductForm({
                 )}
               </div>
             </div>
-            
+
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-purple-50/30">
               <div className="flex items-center gap-2 mb-4">
                 <Store className="size-4 text-muted-foreground" />
@@ -940,7 +940,8 @@ export function ProductForm({
                   <option value="OFFLINE_ONLY">Only Offline POS (Hidden from Website)</option>
                 </select>
                 <div className="text-[11px] font-normal text-muted-foreground mt-1.5">
-                  Offline-only products will not be visible on the website and cannot be purchased online.
+                  Offline-only products will not be visible on the website and cannot be purchased
+                  online.
                 </div>
               </label>
             </div>

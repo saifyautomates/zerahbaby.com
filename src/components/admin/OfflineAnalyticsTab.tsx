@@ -109,7 +109,7 @@ export function OfflineAnalyticsTab() {
         _sale_id: saleId,
       });
       if (error) throw error;
-      
+
       const { error: delError } = await supabase.from("offline_sales").delete().eq("id", saleId);
       if (delError) throw delError;
 

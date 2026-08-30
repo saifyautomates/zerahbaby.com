@@ -632,7 +632,9 @@
 @utility table-stack {
   @media (max-width: 640px) {
     display: block;
-    &.thead { display: none; }
+    &.thead {
+      display: none;
+    }
     &.tr {
       display: flex;
       flex-direction: column;
@@ -647,7 +649,9 @@
       align-items: center;
       padding: 0.375rem 0;
       border-bottom: 1px solid color-mix(in oklab, var(--color-border) 50%, transparent);
-      &:last-child { border-bottom: none; }
+      &:last-child {
+        border-bottom: none;
+      }
       &::before {
         content: attr(data-label);
         font-size: 0.65rem;
@@ -700,13 +704,27 @@
 }
 
 /* Responsive typography — fluid scale from mobile to desktop */
-.text-fluid-sm { font-size: clamp(0.75rem, 1.5vw, 0.875rem); }
-.text-fluid-base { font-size: clamp(0.875rem, 2vw, 1rem); }
-.text-fluid-lg { font-size: clamp(1rem, 2.5vw, 1.125rem); }
-.text-fluid-xl { font-size: clamp(1.125rem, 3vw, 1.25rem); }
-.text-fluid-2xl { font-size: clamp(1.25rem, 4vw, 1.5rem); }
-.text-fluid-3xl { font-size: clamp(1.5rem, 5vw, 2rem); }
-.text-fluid-4xl { font-size: clamp(1.875rem, 6vw, 2.5rem); }
+.text-fluid-sm {
+  font-size: clamp(0.75rem, 1.5vw, 0.875rem);
+}
+.text-fluid-base {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+.text-fluid-lg {
+  font-size: clamp(1rem, 2.5vw, 1.125rem);
+}
+.text-fluid-xl {
+  font-size: clamp(1.125rem, 3vw, 1.25rem);
+}
+.text-fluid-2xl {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+}
+.text-fluid-3xl {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+.text-fluid-4xl {
+  font-size: clamp(1.875rem, 6vw, 2.5rem);
+}
 
 /* ================================================================
    SCROLLBAR UTILITIES
@@ -751,6 +769,11 @@
    PRINT MEDIA SAFETY
    ================================================================ */
 @media print {
-  .no-print { display: none !important; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print {
+    display: none !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

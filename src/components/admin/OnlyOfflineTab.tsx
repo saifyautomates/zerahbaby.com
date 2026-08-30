@@ -1,21 +1,39 @@
-import { useState, useMemo, useRef, Suspense, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { mapProduct, formatPrice, imageFor, type Product } from '@/lib/store';
-import { useDirectLabelPrint } from '@/lib/label-printer';
-import type { Database } from '@/integrations/supabase/types';
-import { ProductForm, type ProductDraft } from '@/components/admin/ProductForm';
-import { PrintLabelsModal } from '@/components/admin/PrintLabelsModal';
-import { BulkImportTab } from '@/components/admin/BulkImportTab';
+import { useState, useMemo, useRef, Suspense, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { mapProduct, formatPrice, imageFor, type Product } from "@/lib/store";
+import { useDirectLabelPrint } from "@/lib/label-printer";
+import type { Database } from "@/integrations/supabase/types";
+import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+import { BulkImportTab } from "@/components/admin/BulkImportTab";
 import {
-  Printer, Trash2, Plus, Upload, Download, Package, GripVertical, Settings2, Shield, Settings,
+  Printer,
+  Trash2,
+  Plus,
+  Upload,
+  Download,
+  Package,
+  GripVertical,
+  Settings2,
+  Shield,
+  Settings,
   AlertTriangle,
-  FileText, Store, ChevronRight, Edit3, Image as ImageIcon, Archive, ExternalLink, RefreshCw,
-  Check, Truck, X, Pencil
-} from 'lucide-react';
-
+  FileText,
+  Store,
+  ChevronRight,
+  Edit3,
+  Image as ImageIcon,
+  Archive,
+  ExternalLink,
+  RefreshCw,
+  Check,
+  Truck,
+  X,
+  Pencil,
+} from "lucide-react";
 
 export function OnlyOfflineTab() {
   const qc = useQueryClient();
@@ -45,7 +63,8 @@ export function OnlyOfflineTab() {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
           .from("products")
-          .select("*, product_images(public_url, is_primary, sort_order)").eq("sales_channel", "OFFLINE_ONLY")
+          .select("*, product_images(public_url, is_primary, sort_order)")
+          .eq("sales_channel", "OFFLINE_ONLY")
           .order("sort_order"),
         supabase.from("product_costs").select("product_id, buying_price"),
         supabase

@@ -6,9 +6,12 @@ serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  return new Response(JSON.stringify({
-    RAZORPAY_KEY_ID: Deno.env.get("RAZORPAY_KEY_ID"),
-    SHIPROCKET_EMAIL: Deno.env.get("SHIPROCKET_EMAIL"),
-    SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-  }), { headers: { "Content-Type": "application/json" } });
+  return new Response(
+    JSON.stringify({
+      RAZORPAY_KEY_ID: Deno.env.get("RAZORPAY_KEY_ID"),
+      SHIPROCKET_EMAIL: Deno.env.get("SHIPROCKET_EMAIL"),
+      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+    }),
+    { headers: { "Content-Type": "application/json" } },
+  );
 });

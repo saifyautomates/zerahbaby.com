@@ -846,7 +846,9 @@ serve(async (req) => {
     let dispatchError: string | null = null;
 
     if (!resendApiKey) {
-      console.warn("[send-owner-sale-notification] RESEND_API_KEY is not configured. Simulating successful send.");
+      console.warn(
+        "[send-owner-sale-notification] RESEND_API_KEY is not configured. Simulating successful send.",
+      );
       resendMessageId = `simulated_${Date.now()}`;
       dispatchError = null;
     } else {

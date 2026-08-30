@@ -1,1 +1,58 @@
-{"access_token":"eyJhbGciOiJFUzI1NiIsImtpZCI6IjI3ZTc2NWYxLTI4OGItNDFmMi1hZjAyLTQ2NDJiODM3ZjE1YiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3diYmF0Z2J2aXpoZ2h0a3Z1Z3VmLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI1NzM2MGI3Yi05YTRmLTQwNWUtYmM4YS0wMDc4ODI4YmQ2YWIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg4MDQ5OTM1LCJpYXQiOjE3ODgwNDYzMzUsImVtYWlsIjoiamFja3hwYXJyb3d3d0BnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6Imdvb2dsZSIsInByb3ZpZGVycyI6WyJnb29nbGUiXX0sInVzZXJfbWV0YWRhdGEiOnsiYXZhdGFyX3VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0tFd2ZYNHU0MzRVNkNUUUd1OTdpQjI4b3p2dFEtblhEYVh0VU9ZbGxqeXZveDZNUTg9czk2LWMiLCJlbWFpbCI6ImphY2t4cGFycm93d3dAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IkphY2sgU3BhcnJvdyIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbSIsIm5hbWUiOiJKYWNrIFNwYXJyb3ciLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLRXdmWDR1NDM0VTZDVFFHdTk3aUIyOG96dnRRLW5YRGFYdFVPWWxsanl2b3g2TVE4PXM5Ni1jIiwicHJvdmlkZXJfaWQiOiIxMDAwODY3MzMzMTg5MTgzMjAzMDQiLCJzdWIiOiIxMDAwODY3MzMzMTg5MTgzMjAzMDQifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvYXV0aCIsInRpbWVzdGFtcCI6MTc4ODAyNzUwMn1dLCJzZXNzaW9uX2lkIjoiMGM2ZDNlZGEtYTIyYi00NTMxLWFkY2UtNDcxNTQxZjNiNWRlIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.SarU2i8Y7O3awXuO7MWQcq1VzNwFg2MY_RFckfToRyv1DtXCsupNnUL3GpuoQ1A9DJGJeJEa1nSzT2avuYjQ4g","token_type":"bearer","expires_in":3600,"expires_at":1788049935,"refresh_token":"zd2wsgul4ljy","user":{"id":"57360b7b-9a4f-405e-bc8a-0078828bd6ab","aud":"authenticated","role":"authenticated","email":"jackxparrowww@gmail.com","email_confirmed_at":"2026-08-15T21:20:46.436477Z","phone":"","confirmed_at":"2026-08-15T21:20:46.436477Z","recovery_sent_at":"2026-08-28T17:11:14.45024Z","last_sign_in_at":"2026-08-29T18:18:22.193452Z","app_metadata":{"provider":"google","providers":["google"]},"user_metadata":{"avatar_url":"https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c","email":"jackxparrowww@gmail.com","email_verified":true,"full_name":"Jack Sparrow","iss":"https://accounts.google.com","name":"Jack Sparrow","phone_verified":false,"picture":"https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c","provider_id":"100086733318918320304","sub":"100086733318918320304"},"identities":[{"identity_id":"9f11b89b-f997-4985-b9d0-b78b4b223a9f","id":"100086733318918320304","user_id":"57360b7b-9a4f-405e-bc8a-0078828bd6ab","identity_data":{"avatar_url":"https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c","email":"jackxparrowww@gmail.com","email_verified":true,"full_name":"Jack Sparrow","iss":"https://accounts.google.com","name":"Jack Sparrow","phone_verified":false,"picture":"https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c","provider_id":"100086733318918320304","sub":"100086733318918320304"},"provider":"google","last_sign_in_at":"2026-08-15T21:20:46.430357Z","created_at":"2026-08-15T21:20:46.430429Z","updated_at":"2026-08-29T18:18:22.165664Z","email":"jackxparrowww@gmail.com"}],"created_at":"2026-08-15T21:20:46.411927Z","updated_at":"2026-08-29T23:32:15.496041Z","is_anonymous":false}}
+{
+  "access_token": "eyJhbGciOiJFUzI1NiIsImtpZCI6IjI3ZTc2NWYxLTI4OGItNDFmMi1hZjAyLTQ2NDJiODM3ZjE1YiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3diYmF0Z2J2aXpoZ2h0a3Z1Z3VmLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI1NzM2MGI3Yi05YTRmLTQwNWUtYmM4YS0wMDc4ODI4YmQ2YWIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg4MDQ5OTM1LCJpYXQiOjE3ODgwNDYzMzUsImVtYWlsIjoiamFja3hwYXJyb3d3d0BnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6Imdvb2dsZSIsInByb3ZpZGVycyI6WyJnb29nbGUiXX0sInVzZXJfbWV0YWRhdGEiOnsiYXZhdGFyX3VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0tFd2ZYNHU0MzRVNkNUUUd1OTdpQjI4b3p2dFEtblhEYVh0VU9ZbGxqeXZveDZNUTg9czk2LWMiLCJlbWFpbCI6ImphY2t4cGFycm93d3dAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IkphY2sgU3BhcnJvdyIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbSIsIm5hbWUiOiJKYWNrIFNwYXJyb3ciLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLRXdmWDR1NDM0VTZDVFFHdTk3aUIyOG96dnRRLW5YRGFYdFVPWWxsanl2b3g2TVE4PXM5Ni1jIiwicHJvdmlkZXJfaWQiOiIxMDAwODY3MzMzMTg5MTgzMjAzMDQiLCJzdWIiOiIxMDAwODY3MzMzMTg5MTgzMjAzMDQifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvYXV0aCIsInRpbWVzdGFtcCI6MTc4ODAyNzUwMn1dLCJzZXNzaW9uX2lkIjoiMGM2ZDNlZGEtYTIyYi00NTMxLWFkY2UtNDcxNTQxZjNiNWRlIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.SarU2i8Y7O3awXuO7MWQcq1VzNwFg2MY_RFckfToRyv1DtXCsupNnUL3GpuoQ1A9DJGJeJEa1nSzT2avuYjQ4g",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "expires_at": 1788049935,
+  "refresh_token": "zd2wsgul4ljy",
+  "user": {
+    "id": "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "jackxparrowww@gmail.com",
+    "email_confirmed_at": "2026-08-15T21:20:46.436477Z",
+    "phone": "",
+    "confirmed_at": "2026-08-15T21:20:46.436477Z",
+    "recovery_sent_at": "2026-08-28T17:11:14.45024Z",
+    "last_sign_in_at": "2026-08-29T18:18:22.193452Z",
+    "app_metadata": { "provider": "google", "providers": ["google"] },
+    "user_metadata": {
+      "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c",
+      "email": "jackxparrowww@gmail.com",
+      "email_verified": true,
+      "full_name": "Jack Sparrow",
+      "iss": "https://accounts.google.com",
+      "name": "Jack Sparrow",
+      "phone_verified": false,
+      "picture": "https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c",
+      "provider_id": "100086733318918320304",
+      "sub": "100086733318918320304"
+    },
+    "identities": [
+      {
+        "identity_id": "9f11b89b-f997-4985-b9d0-b78b4b223a9f",
+        "id": "100086733318918320304",
+        "user_id": "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
+        "identity_data": {
+          "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c",
+          "email": "jackxparrowww@gmail.com",
+          "email_verified": true,
+          "full_name": "Jack Sparrow",
+          "iss": "https://accounts.google.com",
+          "name": "Jack Sparrow",
+          "phone_verified": false,
+          "picture": "https://lh3.googleusercontent.com/a/ACg8ocKEwfX4u434U6CTQGu97iB28ozvtQ-nXDaXtUOYlljyvox6MQ8=s96-c",
+          "provider_id": "100086733318918320304",
+          "sub": "100086733318918320304"
+        },
+        "provider": "google",
+        "last_sign_in_at": "2026-08-15T21:20:46.430357Z",
+        "created_at": "2026-08-15T21:20:46.430429Z",
+        "updated_at": "2026-08-29T18:18:22.165664Z",
+        "email": "jackxparrowww@gmail.com"
+      }
+    ],
+    "created_at": "2026-08-15T21:20:46.411927Z",
+    "updated_at": "2026-08-29T23:32:15.496041Z",
+    "is_anonymous": false
+  }
+}

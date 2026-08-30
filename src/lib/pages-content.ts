@@ -186,8 +186,7 @@ export const DEFAULT_SHIPPING_DELIVERY: PolicyPageContent = {
     {
       id: "sec-3",
       title: "3. Delivery Timelines",
-      content:
-        "Delivery typically takes up to 7 days across India.",
+      content: "Delivery typically takes up to 7 days across India.",
     },
     {
       id: "sec-4",

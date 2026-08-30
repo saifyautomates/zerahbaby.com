@@ -300,10 +300,13 @@ function RootComponent() {
 
         // Fetch user data if logged in
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session?.user) {
             const user = session.user;
-            customer_name = user.user_metadata?.full_name || user.user_metadata?.name || user.email || null;
+            customer_name =
+              user.user_metadata?.full_name || user.user_metadata?.name || user.email || null;
           }
         } catch (e) {
           // ignore auth errors
