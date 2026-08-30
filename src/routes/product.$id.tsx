@@ -142,7 +142,6 @@ function ProductPage() {
 
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
   const [isZooming, setIsZooming] = useState(false);
-  const [dispatchTime, setDispatchTime] = useState("");
 
   const list = useMemo(
     () => products ?? loaderData?.products ?? [],
@@ -228,7 +227,6 @@ function ProductPage() {
   const featSwatches = siteSettings?.feature_swatches !== "false";
   const featStickyCart = siteSettings?.feature_sticky_cart !== "false";
   const featSizeGuide = siteSettings?.feature_size_guide !== "false";
-  const dispatchHour = parseInt(siteSettings?.urgency_dispatch_cutoff_hour || "14", 10);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -261,23 +259,6 @@ function ProductPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleNext, handlePrev]);
-
-  useEffect(() => {
-    const updateDispatch = () => {
-      const now = new Date();
-      const target = new Date();
-      target.setHours(dispatchHour, 0, 0, 0);
-      if (now > target) target.setDate(target.getDate() + 1);
-
-      const diff = target.getTime() - now.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setDispatchTime(`${hours}h ${mins}m`);
-    };
-    updateDispatch();
-    const int = setInterval(updateDispatch, 60000);
-    return () => clearInterval(int);
-  }, [dispatchHour]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
