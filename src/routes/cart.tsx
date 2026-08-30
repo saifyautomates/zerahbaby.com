@@ -90,7 +90,7 @@ function CartPage() {
           {items.map(({ product, qty }, i) => (
             <li
               key={product.id}
-              className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border border-border p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+              className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border border-border/60 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both bg-card shadow-premium-sm hover:shadow-premium-md transition-shadow"
               style={{ animationDelay: `${i * 75}ms` }}
             >
               <div className="flex flex-1 gap-3 sm:gap-4">
@@ -182,7 +182,7 @@ function CartPage() {
           </li>
         </ul>
 
-        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
+        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-md lg:sticky lg:top-24">
           {/* Free Shipping Progress Bar */}
           {freeDeliveryMessage && (
             <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
@@ -288,7 +288,7 @@ function CartPage() {
                   <button
                     type="submit"
                     disabled={isApplying || !couponInput.trim()}
-                    className="rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold transition hover:bg-secondary/80 disabled:opacity-50"
+                    className="focus-ring press rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold transition hover:bg-secondary/80 disabled:opacity-50"
                   >
                     {isApplying ? "..." : "Apply"}
                   </button>

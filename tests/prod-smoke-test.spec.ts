@@ -66,12 +66,21 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
     await expect(nav).toBeVisible();
 
     // Check search functionality
+    const searchTrigger = page.locator('button[aria-label="Search"]:visible').first();
+    if ((await searchTrigger.count()) > 0 && (await searchTrigger.isVisible())) {
+      await searchTrigger.click();
+    }
     const searchInput = page
       .locator('input[type="search"]:visible, input[placeholder*="search" i]:visible')
       .first();
     if ((await searchInput.count()) > 0 && (await searchInput.isVisible())) {
-      await searchInput.fill("baby");
-      expect(await searchInput.inputValue()).toBe("baby");
+      console.log("Search input outerHTML:", await searchInput.evaluate((node) => node.outerHTML));
+      await searchInput.click();
+      await page.keyboard.type("baby", { delay: 100 });
+      await page.waitForTimeout(500); // give React a moment if needed
+      const val = await searchInput.inputValue();
+      console.log("Search input value after fill:", val);
+      expect(val).toBe("baby");
     }
   });
 

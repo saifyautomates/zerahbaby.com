@@ -253,7 +253,7 @@ export function Header() {
         </a>
         {/* AnnouncementBanner */}
         <AnnouncementBanner />
-        <div className="border-b border-border/50 bg-background/75 backdrop-blur-xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)]">
+        <div className="glass-header border-b border-border/50 shadow-premium-sm">
           <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-1.5 sm:gap-4 sm:px-4 sm:py-2 relative">
             {/* Mobile Menu or Back Button */}
             {isSubPage ? (
@@ -694,14 +694,19 @@ export function Header() {
       >
         {/* Backdrop */}
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         />
-
-        {/* Drawer Content */}
+      </div>
+      <div
+        className="fixed inset-y-0 z-[110] flex w-full pointer-events-none md:hidden"
+        style={{ pointerEvents: open ? "auto" : "none" }}
+      >
         <div
+          role="dialog"
+          aria-modal="true"
           className={cn(
-            "absolute inset-y-0 left-0 w-[280px] bg-background shadow-2xl transition-transform duration-300 ease-out flex flex-col",
+            "mobile-drawer-content relative flex w-full max-w-[85vw] sm:max-w-md flex-col bg-background shadow-2xl transition-transform duration-300 ease-out pointer-events-auto",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >

@@ -492,7 +492,7 @@ export function POSTab() {
           <div className="p-4 border-b border-border/50 bg-card">
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <Scan className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Scan className="absolute left-4 top-3.5 size-5 text-muted-foreground" />
                 <input
                   ref={scanInputRef}
                   type="text"
@@ -506,7 +506,7 @@ export function POSTab() {
                   }}
                   placeholder="Scan barcode or type SKU and press Enter..."
                   aria-label="Scan barcode or SKU"
-                  className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-4 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all"
                   autoFocus
                 />
               </div>
@@ -704,7 +704,7 @@ export function POSTab() {
               </div>
               <button
                 onClick={() => setStep("checkout")}
-                className="rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="focus-ring press rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 Proceed to Checkout
                 <ChevronRight className="size-4" />

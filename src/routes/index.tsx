@@ -244,7 +244,7 @@ function Index() {
           <div className="rise-in delay-3 mt-8 flex w-full flex-row items-center justify-center gap-2.5 sm:mt-10 sm:w-auto sm:flex-wrap px-2">
             <Link
               to="/shop"
-              className="flex-1 sm:flex-none focus-ring press rounded-full bg-primary px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground shadow-lg shadow-primary/25 transition duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-xl text-center"
+              className="flex-1 sm:flex-none focus-ring press rounded-full bg-primary px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground shadow-premium-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-premium-hover text-center"
             >
               <span className="sm:hidden">Shop all</span>
               <span className="hidden sm:inline">Shop all products</span>

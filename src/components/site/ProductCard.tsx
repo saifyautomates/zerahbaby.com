@@ -127,7 +127,7 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="font-display text-sm sm:text-base font-bold tracking-tight text-foreground">
+          <span className="font-display text-sm sm:text-base font-bold tracking-tight text-primary">
             {formatPrice(product.price)}
           </span>
           {product.mrp > product.price && (
