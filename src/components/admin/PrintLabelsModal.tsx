@@ -11,6 +11,7 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, Minus, Plus, Settings2, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Product } from "@/lib/store";
 import {
   LabelPrintEngine,
@@ -25,6 +26,7 @@ import {
   setSavedLabelType,
   getSavedShowDiscount,
   setSavedShowDiscount,
+  printThermalLabelsDirectly,
 } from "@/lib/label-printer";
 
 export function PrintLabelsModal({
@@ -151,7 +153,29 @@ export function PrintLabelsModal({
             </button>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={async () => {
+                if (layout === "a4") {
+                  window.print();
+                } else {
+                  const toastId = toast.loading("Sending to thermal printer...");
+                  const res = await printThermalLabelsDirectly({
+                    products: printableProducts,
+                    quantities,
+                    layout,
+                    labelType,
+                    showDiscount,
+                  });
+                  if (res.success) {
+                    toast.success("Printed to thermal printer directly!", { id: toastId });
+                  } else {
+                    toast.error(
+                      "Direct print failed, falling back to system dialog: " + res.error,
+                      { id: toastId },
+                    );
+                    window.print();
+                  }
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2 text-sm font-bold text-white shadow-xs hover:bg-[#7a1c1c] cursor-pointer"
             >
               <Printer className="size-4" /> Print Labels

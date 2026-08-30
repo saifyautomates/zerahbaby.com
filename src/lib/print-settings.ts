@@ -147,18 +147,31 @@ export const DEFAULT_PRINT_SETTINGS_RECORD: Record<string, string> = {
  * Installation: https://qz.io/download/
  * Must be installed and running on the Windows machine running the POS.
  */
-export async function detectQZTray(): Promise<boolean> {
+import qz from "qz-tray";
+
+let qzConnected = false;
+
+/**
+ * Ensures QZ Tray is connected before attempting to use it.
+ */
+export async function connectQZTray(): Promise<boolean> {
+  if (qzConnected && qz.websocket.isActive()) {
+    return true;
+  }
   try {
-    // QZ Tray exposes a global `qz` object when its browser extension/applet is active.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const qz = (window as any).qz;
-    if (typeof qz?.websocket?.isActive === "function") {
-      return qz.websocket.isActive();
+    if (!qz.websocket.isActive()) {
+      await qz.websocket.connect();
     }
-    return false;
-  } catch {
+    qzConnected = true;
+    return true;
+  } catch (err) {
+    console.warn("QZ Tray connection failed:", err);
     return false;
   }
+}
+
+export async function detectQZTray(): Promise<boolean> {
+  return await connectQZTray();
 }
 
 /**
@@ -233,7 +246,7 @@ export async function sendTSPLViaQZTray(
   printerName: string,
   tsplCommands: string,
 ): Promise<{ success: boolean; error?: string; fallback?: "window.print" }> {
-  const isActive = await detectQZTray();
+  const isActive = await connectQZTray();
   if (!isActive) {
     return {
       success: false,
@@ -243,16 +256,56 @@ export async function sendTSPLViaQZTray(
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const qz = (window as any).qz;
     const config = qz.configs.create(printerName);
     const data = [{ type: "raw", format: "plain", data: tsplCommands }];
-    await qz.print(config, data);
+    await qz.print(config, data as any);
     return { success: true };
   } catch (err: unknown) {
     return {
       success: false,
       error: err instanceof Error ? err.message : "QZ Tray print failed",
+      fallback: "window.print",
+    };
+  }
+}
+
+/**
+ * Attempts to send HTML directly to an A4 printer via QZ Tray.
+ */
+export async function sendHTMLViaQZTray(
+  printerName: string,
+  htmlData: string,
+  options?: { isThermal?: boolean; widthMm?: number },
+): Promise<{ success: boolean; error?: string; fallback?: "window.print" }> {
+  const isActive = await connectQZTray();
+  if (!isActive) {
+    return {
+      success: false,
+      error: "QZ Tray not detected. Install QZ Tray on this Windows machine for direct printing.",
+      fallback: "window.print",
+    };
+  }
+
+  try {
+    const qzConfig: any = {
+      margins: options?.isThermal ? 0 : 0, // Let CSS handle margins
+    };
+    // If it's thermal, we might specify width, otherwise rely on printer defaults (A4).
+    const config = qz.configs.create(printerName, qzConfig);
+    const data = [
+      {
+        type: "pixel",
+        format: "html",
+        flavor: "plain",
+        data: htmlData,
+      },
+    ];
+    await qz.print(config, data as any);
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "QZ Tray HTML print failed",
       fallback: "window.print",
     };
   }

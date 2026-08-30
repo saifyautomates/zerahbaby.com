@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
+import { buildTSPLLabel, sendTSPLViaQZTray } from "@/lib/print-settings";
 
 export type LabelPrinterProfile = "thermal-108" | "a4" | "thermal-58";
 export type LabelType = "barcode-only" | "full";
@@ -164,7 +166,7 @@ let isDirectPrintingLock = false;
 /**
  * Trigger an instant 1-click product label print job without any configuration modal.
  */
-export function triggerDirectLabelPrint(
+export async function triggerDirectLabelPrint(
   target: Product | PrintableProduct | Array<Product | PrintableProduct>,
   options?: {
     quantity?: number;
@@ -173,7 +175,7 @@ export function triggerDirectLabelPrint(
     labelType?: LabelType;
     showDiscount?: boolean;
   },
-): boolean {
+): Promise<boolean> {
   if (isDirectPrintingLock) {
     toast.info("A print job is already preparing. Please wait...");
     return false;
@@ -235,38 +237,116 @@ export function triggerDirectLabelPrint(
     showDiscount,
   };
 
-  // Dispatch to the active DirectLabelPrintHost
-  listeners.forEach((listener) => listener(payload));
+  // If layout is A4, it uses the PrintLabelsModal host or a DOM host.
+  if (layout === "a4") {
+    // Dispatch to the active DirectLabelPrintHost
+    listeners.forEach((listener) => listener(payload));
 
-  // Small delay to allow React-Barcode SVG render in the DOM, then invoke print
-  setTimeout(() => {
-    try {
-      // Check for native desktop shell / kiosk print bridge if available
-      interface WindowWithElectron extends Window {
-        electronAPI?: {
-          printDirect: () => void;
-        };
-      }
-      const win = window as unknown as WindowWithElectron;
-      if (typeof win.electronAPI?.printDirect === "function") {
-        win.electronAPI.printDirect();
-      } else {
+    // Small delay to allow React-Barcode SVG render in the DOM, then invoke print
+    setTimeout(() => {
+      try {
         window.print();
+        toast.success("Print job initiated", { id: toastId });
+      } catch (err) {
+        console.error("[label-printer] Print invocation failed:", err);
+        toast.error("Failed to invoke printer dialog", { id: toastId });
+      } finally {
+        setTimeout(() => {
+          listeners.forEach((listener) => listener(null));
+          isDirectPrintingLock = false;
+        }, 1000);
       }
-      toast.success("Print job initiated", { id: toastId });
-    } catch (err) {
-      console.error("[label-printer] Print invocation failed:", err);
-      toast.error("Failed to invoke printer dialog", { id: toastId });
-    } finally {
-      // Release lock and clean up print portal after dialog
+    }, 350);
+  } else {
+    // Thermal printing directly via QZ Tray (No DOM rendering)
+    const res = await printThermalLabelsDirectly({
+      products: rawProducts,
+      quantities,
+      layout,
+      labelType,
+      showDiscount,
+    });
+
+    if (res.success) {
+      toast.success("Printed to thermal printer directly!", { id: toastId });
+      isDirectPrintingLock = false;
+    } else {
+      toast.error("Direct print failed, falling back to system dialog: " + res.error, {
+        id: toastId,
+      });
+
+      // Fallback: Dispatch to host and use window.print()
+      listeners.forEach((listener) => listener(payload));
       setTimeout(() => {
-        listeners.forEach((listener) => listener(null));
-        isDirectPrintingLock = false;
-      }, 1000);
+        try {
+          window.print();
+        } finally {
+          setTimeout(() => {
+            listeners.forEach((listener) => listener(null));
+            isDirectPrintingLock = false;
+          }, 1000);
+        }
+      }, 350);
     }
-  }, 350);
+  }
 
   return true;
+}
+
+/**
+ * Directly print thermal labels without needing the DOM or window.print.
+ */
+export async function printThermalLabelsDirectly(params: {
+  products: (Product | PrintableProduct)[];
+  quantities: Record<string, number>;
+  layout: LabelPrinterProfile;
+  labelType: LabelType;
+  showDiscount: boolean;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["print_thermal_printer_name"]);
+
+    const printerName =
+      data?.find((d) => d.key === "print_thermal_printer_name")?.value || "HPRT HT300";
+
+    const is58 = params.layout === "thermal-58";
+    const widthMm = is58 ? 58 : 100;
+    const heightMm = 25;
+
+    let allTspl = "";
+
+    for (const product of params.products) {
+      const key = product.uuid || product.id || product.sku || product.name;
+      const copies = params.quantities[key] || 1;
+      if (copies <= 0) continue;
+
+      const tspl = buildTSPLLabel({
+        productName: product.name,
+        sku: product.sku || "",
+        barcode: product.barcode || product.sku || "NO-BARCODE",
+        price: product.price,
+        mrp: product.mrp,
+        widthMm,
+        heightMm,
+        copies,
+      });
+
+      allTspl += tspl + "\n";
+    }
+
+    if (!allTspl) return { success: true };
+
+    const result = await sendTSPLViaQZTray(printerName, allTspl);
+    if (!result.success) {
+      return { success: false, error: result.error || "QZ Tray failed" };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
 
 /**
@@ -287,9 +367,10 @@ export function useDirectLabelPrint() {
       },
     ) => {
       setIsPrinting(true);
-      const success = triggerDirectLabelPrint(target, options);
-      setTimeout(() => setIsPrinting(false), 1200);
-      return success;
+      triggerDirectLabelPrint(target, options).finally(() => {
+        setTimeout(() => setIsPrinting(false), 1200);
+      });
+      return true;
     },
     [],
   );
