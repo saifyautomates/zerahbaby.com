@@ -32,6 +32,11 @@ export function BottomNav() {
               <Link
                 key={item.label}
                 to={item.path}
+                onClick={() => {
+                  if (item.path === "/") {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
                 className={cn(
                   "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",

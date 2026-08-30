@@ -287,6 +287,9 @@ export function Header() {
             {/* Logo */}
             <Link
               to="/"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className={cn(
                 "focus-ring press min-w-0 items-center gap-2 sm:gap-2.5 rounded-lg transition-transform duration-200 hover:-translate-y-0.5",
                 isSubPage ? "hidden md:flex" : "flex",

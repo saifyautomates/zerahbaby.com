@@ -53,7 +53,13 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           {/* Brand & Bio */}
           <div className="flex flex-col gap-2.5 lg:col-span-2">
-            <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="flex items-center gap-3 w-fit focus-ring rounded-lg group transition-opacity hover:opacity-90"
+            >
               <img
                 src={logo}
                 alt={`${brandName} logo`}
@@ -66,7 +72,7 @@ export function Footer() {
                 }}
               />
               <BrandName size="lg" />
-            </div>
+            </Link>
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground text-pretty">
               A gentle little shop for babies and kids — clothing, toys, care and gear, chosen by
               parents.

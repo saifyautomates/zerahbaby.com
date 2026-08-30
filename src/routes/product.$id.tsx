@@ -180,6 +180,12 @@ function ProductPage() {
     queryKey: ["product-relations", product?.uuid],
     queryFn: async () => {
       if (!product?.uuid) return [];
+
+      // Validate UUID format
+      const uuidRegex =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+      if (!uuidRegex.test(product.uuid)) return [];
       const { data, error } = await supabase.rpc("get_related_products", {
         p_product_id: product.uuid,
         p_limit: 8,

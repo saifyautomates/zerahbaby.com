@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --fix",
     "lint:strict": "tsc -p tsconfig.strict.json --noEmit",
     "format": "prettier --write .",
+    "test:full": "npm run lint && npx tsc --noEmit",
     "test:mobile": "playwright test tests/mobile-layout.spec.ts"
   },
   "dependencies": {
