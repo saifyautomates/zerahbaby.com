@@ -15,16 +15,13 @@ export function AdminCategoryControls({ category }: { category: Category }) {
   if (!adminMode) return null;
 
   const handleEdit = () => {
-    // TODO: Implement edit navigation or modal
-    console.log("Edit category", category.slug);
+    // TODO: wire up full edit modal
   };
 
   const handleDelete = async () => {
     if (confirm(`Delete category "${category.name}"? This action cannot be undone.`)) {
       setDeleting(true);
       // Placeholder for delete logic
-      await new Promise((res) => setTimeout(res, 500));
-      console.log("Deleted category", category.slug);
       setDeleting(false);
     }
   };

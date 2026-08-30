@@ -178,7 +178,7 @@ export type Database = {
           id: string;
           price_at_add: number;
           product_id: string;
-
+          quantity: number;
           updated_at: string;
           variant_id: string | null;
         };
@@ -188,7 +188,7 @@ export type Database = {
           id?: string;
           price_at_add?: number;
           product_id: string;
-
+          quantity?: number;
           updated_at?: string;
           variant_id?: string | null;
         };
@@ -198,7 +198,7 @@ export type Database = {
           id?: string;
           price_at_add?: number;
           product_id?: string;
-
+          quantity?: number;
           updated_at?: string;
           variant_id?: string | null;
         };
