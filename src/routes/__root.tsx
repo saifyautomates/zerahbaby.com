@@ -114,6 +114,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@zerah_kids" },
       { property: "og:site_name", content: "Zerah Baby And Kid's" },
+      { property: "og:image", content: "https://zerahkids.com/logo.png" },
       {
         name: "google-site-verification",
         content: "LMGRXFIKXaUzB14HSDoKn8SrBMcWTee6mpmGioA1RXo",
