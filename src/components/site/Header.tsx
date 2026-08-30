@@ -277,8 +277,8 @@ export function Header() {
 
             {/* Mobile Page Title */}
             {isSubPage && (
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:hidden pointer-events-none">
-                <span className="font-display text-lg font-bold text-foreground whitespace-nowrap">
+              <div className="flex items-center min-w-0 flex-1 ml-1 md:hidden">
+                <span className="font-display text-base sm:text-lg font-bold text-foreground truncate">
                   {pageTitle}
                 </span>
               </div>
@@ -547,7 +547,7 @@ export function Header() {
               {user && (
                 <Link
                   to="/wishlist"
-                  className="flex focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                  className="hidden sm:flex focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
                   aria-label={`Wishlist with ${wishlistIds.length} items`}
                 >
                   <Heart
