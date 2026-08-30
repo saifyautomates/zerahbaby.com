@@ -15,6 +15,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CancellationRefundRouteImport } from './routes/cancellation-refund'
 import { Route as CartRouteImport } from './routes/cart'
+import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as Google9046c9669db277c7DothtmlRouteImport } from './routes/google9046c9669db277c7[.]html'
 import { Route as Googlef2fa4f5b077bfca9DothtmlRouteImport } from './routes/googlef2fa4f5b077bfca9[.]html'
@@ -58,6 +59,11 @@ const CancellationRefundRoute = CancellationRefundRouteImport.update({
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cancellation-refund': typeof CancellationRefundRoute
   '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cancellation-refund'
     | '/cart'
+    | '/categories'
     | '/contact'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cancellation-refund'
     | '/cart'
+    | '/categories'
     | '/contact'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cancellation-refund'
     | '/cart'
+    | '/categories'
     | '/contact'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CancellationRefundRoute: typeof CancellationRefundRoute
   CartRoute: typeof CartRoute
+  CategoriesRoute: typeof CategoriesRoute
   ContactRoute: typeof ContactRoute
   Google9046c9669db277c7DothtmlRoute: typeof Google9046c9669db277c7DothtmlRoute
   Googlef2fa4f5b077bfca9DothtmlRoute: typeof Googlef2fa4f5b077bfca9DothtmlRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       path: '/cart'
       fullPath: '/cart'
       preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -473,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CancellationRefundRoute: CancellationRefundRoute,
   CartRoute: CartRoute,
+  CategoriesRoute: CategoriesRoute,
   ContactRoute: ContactRoute,
   Google9046c9669db277c7DothtmlRoute: Google9046c9669db277c7DothtmlRoute,
   Googlef2fa4f5b077bfca9DothtmlRoute: Googlef2fa4f5b077bfca9DothtmlRoute,

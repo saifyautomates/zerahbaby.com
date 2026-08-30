@@ -53,8 +53,24 @@ import { productsQueryOptions } from "@/lib/store";
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
     const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
+    const target = params.id;
+    const decoded = (() => {
+      try {
+        return decodeURIComponent(target);
+      } catch {
+        return target;
+      }
+    })();
+    const product = products.find(
+      (p) =>
+        p.id === target ||
+        p.uuid === target ||
+        p.id === decoded ||
+        p.uuid === decoded ||
+        p.id.toLowerCase() === decoded.toLowerCase(),
+    );
     return {
-      product: products.find((p) => p.id === params.id || p.uuid === params.id),
+      product,
       products,
     };
   },
@@ -132,7 +148,23 @@ function ProductPage() {
     () => products ?? loaderData?.products ?? [],
     [products, loaderData?.products],
   );
-  const product = list.find((p) => p.id === id || p.uuid === id) ?? loaderData?.product;
+  const decodedId = useMemo(() => {
+    try {
+      return decodeURIComponent(id);
+    } catch {
+      return id;
+    }
+  }, [id]);
+
+  const product =
+    list.find(
+      (p) =>
+        p.id === id ||
+        p.uuid === id ||
+        p.id === decodedId ||
+        p.uuid === decodedId ||
+        p.id.toLowerCase() === decodedId.toLowerCase(),
+    ) ?? loaderData?.product;
   const isLoading = productsLoading && !product;
   const gallery = (product?.images.length ? product.images : [product?.image]).filter(
     Boolean,

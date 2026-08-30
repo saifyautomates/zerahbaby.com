@@ -47,7 +47,9 @@ export function useIsAdmin(userId: string | undefined) {
       // 1. Try atomic check_is_admin RPC first
       try {
         const { data: rpcAdmin, error: rpcErr } = await (
-          supabase.rpc as (fn: string) => Promise<{ data: boolean | null; error: unknown }>
+          supabase.rpc as unknown as (
+            fn: string,
+          ) => Promise<{ data: boolean | null; error: unknown }>
         )("check_is_admin");
         if (!rpcErr && typeof rpcAdmin === "boolean") {
           return rpcAdmin;
