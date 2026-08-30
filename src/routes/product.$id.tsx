@@ -651,11 +651,11 @@ function ProductPage() {
               className="relative z-0 border-t border-border/50 pt-4 md:border-none md:pt-0"
             >
               <div className="mx-auto flex max-w-7xl items-center gap-3">
-                <div className="hidden md:flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-sm">
+                <div className="flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-sm">
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                     aria-label="Decrease quantity"
-                    className="hover:text-primary transition-colors"
+                    className="hover:text-primary transition-colors cursor-pointer"
                   >
                     <Minus className="size-4" />
                   </button>
@@ -663,7 +663,7 @@ function ProductPage() {
                   <button
                     onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
                     aria-label="Increase quantity"
-                    className="hover:text-primary transition-colors"
+                    className="hover:text-primary transition-colors cursor-pointer"
                   >
                     <Plus className="size-4" />
                   </button>
@@ -770,7 +770,7 @@ function ProductPage() {
       {/* Global Sticky Add to Cart Bar */}
       {featStickyCart && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-[60] border-t border-border/20 bg-background/95 backdrop-blur-xl p-3 sm:p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${isStickyVisible ? "translate-y-0" : "translate-y-full"}`}
+          className={`fixed bottom-[4.5rem] md:bottom-0 left-0 right-0 z-40 border-t border-border/20 bg-background/95 backdrop-blur-xl p-3 sm:p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${isStickyVisible ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="hidden md:flex items-center gap-4">
