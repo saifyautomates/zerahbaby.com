@@ -770,10 +770,10 @@ function ProductPage() {
       {product && <RelatedProducts currentProductId={product.id} category={product.category} />}
       {product && <RecentlyViewed currentProductId={product.id} />}
 
-      {/* Global Sticky Add to Cart Bar */}
+      {/* Global Sticky Add to Cart Bar (Desktop only to prevent mobile dual-bar overlap) */}
       {featStickyCart && (
         <div
-          className={`fixed bottom-[4.5rem] md:bottom-0 left-0 right-0 z-40 border-t border-border/20 bg-background/95 backdrop-blur-xl p-3 sm:p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${isStickyVisible ? "translate-y-0" : "translate-y-full"}`}
+          className={`hidden md:block fixed bottom-0 left-0 right-0 z-40 border-t border-border/20 bg-background/95 backdrop-blur-xl p-3 sm:p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${isStickyVisible ? "translate-y-0" : "translate-y-full"}`}
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="hidden md:flex items-center gap-4">

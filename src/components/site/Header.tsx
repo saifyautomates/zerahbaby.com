@@ -662,7 +662,7 @@ export function Header() {
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">
                     Age:
                   </span>
-                  <div className="flex flex-wrap gap-1 shrink-0">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 shrink-0">
                     {ageGroups.map((a) => (
                       <Link
                         key={a}
