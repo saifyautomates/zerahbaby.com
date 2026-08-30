@@ -32,6 +32,7 @@ type SaleItem = {
   qty: number;
   subtotal: number;
   mrp_snapshot?: number;
+  mrp?: number;
 };
 
 type Sale = {
@@ -141,6 +142,7 @@ export function CustomerHistoryPanel() {
             name: i.name,
             sku: i.sku,
             price: i.price,
+            mrp: i.mrp,
             qty: i.qty,
           }))}
           saleDate={new Date(reprintSale.created_at)}

@@ -1330,6 +1330,7 @@ export function POSTab() {
                   name: c.name,
                   sku: c.sku,
                   price: c.price,
+                  mrp: c.mrp,
                   qty: c.qty,
                 }))
           }

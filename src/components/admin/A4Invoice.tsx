@@ -23,6 +23,7 @@ import { X, Printer, MonitorOff, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import { sendHTMLViaQZTray } from "@/lib/print-settings";
 import { supabase } from "@/integrations/supabase/client";
+import { useSettings } from "@/lib/store";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -85,7 +86,7 @@ const STORE = {
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
-function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[]): string {
+function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[], store: ReturnType<typeof useSettings>): string {
   const date = sale.sale_date ?? new Date();
 
   const dateStr = date.toLocaleDateString("en-IN", {
@@ -99,16 +100,26 @@ function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[]): string {
   });
 
   const itemRows = items
-    .map(
-      (item, i) => `
+    .map((item, i) => {
+      const lineTotal = item.price * item.qty;
+      const hasMRP = item.mrp && item.mrp > item.price;
+      const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
+      
+      return `
     <tr class="${i % 2 === 0 ? "even" : ""}">
-      <td class="item-name">${escapeHtml(item.name)}${item.sku ? `<br/><span class="sku">SKU: ${escapeHtml(item.sku)}</span>` : ""}</td>
+      <td>
+        <div class="item-name">${escapeHtml(item.name)}</div>
+        ${item.sku ? `<div class="sku">SKU: ${escapeHtml(item.sku)}</div>` : ""}
+      </td>
       <td class="center">${item.qty}</td>
-      <td class="right">₹${item.price.toLocaleString("en-IN")}</td>
-      ${item.mrp && item.mrp > item.price ? `<td class="right mrp-col">₹${item.mrp.toLocaleString("en-IN")}</td>` : `<td class="right">—</td>`}
-      <td class="right bold">₹${(item.price * item.qty).toLocaleString("en-IN")}</td>
-    </tr>`,
-    )
+      <td class="right">
+        ${hasMRP ? `<div class="mrp-col">MRP: ₹${item.mrp!.toLocaleString("en-IN")}</div>` : ""}
+        <div class="bold">₹${item.price.toLocaleString("en-IN")}</div>
+        ${hasMRP ? `<div style="font-size: 9px; color: #15803d; margin-top: 2px;">Save: ₹${(item.mrp! - item.price).toLocaleString("en-IN")}</div>` : ""}
+      </td>
+      <td class="right bold">₹${lineTotal.toLocaleString("en-IN")}</td>
+    </tr>`;
+    })
     .join("");
 
   const discountLabel =
@@ -147,22 +158,31 @@ function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[]): string {
     padding-bottom: 12px;
     margin-bottom: 16px;
   }
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    text-align: center;
+  }
+  .invoice-meta-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
   .brand-name {
-    font-size: 22px;
+    font-size: 26px;
     font-weight: 900;
     color: #8B2020;
-    letter-spacing: -0.5px;
-  }
-  .brand-tagline {
-    font-size: 10px;
-    color: #666;
-    margin-top: 2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
   .brand-contact {
-    font-size: 9.5px;
+    font-size: 11px;
     color: #555;
-    margin-top: 4px;
+    margin-top: 6px;
     line-height: 1.6;
+    text-align: center;
   }
   .invoice-meta {
     text-align: right;
@@ -318,16 +338,18 @@ function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[]): string {
 
 <!-- ── HEADER ── -->
 <div class="header">
-  <div>
-    <div class="brand-name">${escapeHtml(STORE.name)}</div>
-    <div class="brand-tagline">${escapeHtml(STORE.tagline)}</div>
+  <div class="header-left">
+    <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
     <div class="brand-contact">
-      ${escapeHtml(STORE.address.replace(/\n/g, "<br/>"))}<br/>
-      Ph: ${escapeHtml(STORE.phone)}<br/>
-      ${escapeHtml(STORE.email)} · ${escapeHtml(STORE.website)}
+      In Front of Hanumanji Temple,<br/>
+      Atwal Nagar, Kota, Rajasthan<br/>
+      Ph: ${escapeHtml(store.contactPhone)}<br/>
+      ${escapeHtml(store.contactEmail)}
     </div>
   </div>
-  <div class="invoice-meta">
+</div>
+<div class="invoice-meta-container">
+  <div>
     <div class="invoice-title">Invoice</div>
     <div class="invoice-number">${escapeHtml(sale.sale_number)}</div>
     <div class="invoice-date">${dateStr}<br/>${timeStr}</div>
@@ -355,8 +377,7 @@ function buildA4HTML(sale: A4InvoiceSale, items: A4InvoiceItem[]): string {
     <tr>
       <th style="text-align:left;">Product</th>
       <th class="center">Qty</th>
-      <th class="right">Price</th>
-      <th class="right">MRP</th>
+      <th class="right">Price / Savings</th>
       <th class="right">Total</th>
     </tr>
   </thead>
@@ -400,13 +421,13 @@ ${
   <div>
     <div class="footer-policy">
       <strong>Return &amp; Exchange Policy:</strong><br/>
-      ${escapeHtml(STORE.returnPolicy)}
+      Exchange/Return within 7 days with original receipt & tags intact.
     </div>
     <div style="margin-top:6px;font-size:9px;color:#aaa;">GST: Not Applicable</div>
   </div>
   <div class="footer-thanks">
     Thank You For Shopping!
-    <div class="footer-web">${escapeHtml(STORE.website)} · ${escapeHtml(STORE.instagram)}</div>
+    <div class="footer-web">zerahkids.com · ${escapeHtml(store.instagramUrl)}</div>
   </div>
 </div>
 
@@ -432,6 +453,7 @@ function escapeHtml(str: string): string {
 /* ------------------------------------------------------------------ */
 
 export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail, onClose }: Props) {
+  const storeSettings = useSettings();
   const [printStatus, setPrintStatus] = useState<PrintStatus>("idle");
   const [printFailedReason, setPrintFailedReason] = useState<string | null>(null);
   const [invoicePrinter, setInvoicePrinter] = useState<string>("Default A4 Printer");
@@ -450,9 +472,8 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
   /** Print directly via QZ Tray (No Browser Dialog) */
   const doDirectPrint = async () => {
     setPrintStatus("printing");
-    setPrintFailedReason(null);
     try {
-      const html = buildA4HTML(sale, items);
+      const html = buildA4HTML(sale, items, storeSettings);
 
       const res = await sendHTMLViaQZTray(invoicePrinter, html, { isThermal: false });
       if (res.success) {
@@ -489,7 +510,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       }
 
       doc.open();
-      doc.write(buildA4HTML(sale, items));
+      doc.write(buildA4HTML(sale, items, storeSettings));
       doc.close();
 
       iframe.onload = () => {

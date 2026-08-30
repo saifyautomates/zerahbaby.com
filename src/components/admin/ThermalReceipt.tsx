@@ -19,7 +19,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, RotateCcw, CheckCircle, AlertTriangle } from "lucide-react";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, useSettings } from "@/lib/store";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -48,6 +48,7 @@ export type ThermalReceiptItem = {
   name: string;
   sku?: string;
   price: number;
+  mrp?: number;
   qty: number;
 };
 
@@ -74,18 +75,31 @@ function buildThermalHTML(
   sale: ThermalReceiptSale,
   items: ThermalReceiptItem[],
   date: Date,
+  store: ReturnType<typeof useSettings>
 ): string {
   const itemRows = items
-    .map(
-      (item) => `
+    .map((item) => {
+      const hasMRP = item.mrp && item.mrp > item.price;
+      const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
+
+      let priceInfo = `<div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${item.sku ? ` · SKU: ${escHtml(item.sku)}` : ""}</div>`;
+      if (hasMRP) {
+        priceInfo += `
+        <div style="font-size:10px;color:#666;margin-top:2px;">
+          <span style="text-decoration:line-through;margin-right:6px;">MRP ₹${item.mrp!.toLocaleString("en-IN")}</span>
+          <span style="color:#15803d;font-weight:600;">Save ₹${savings.toLocaleString("en-IN")}</span>
+        </div>`;
+      }
+
+      return `
     <div style="margin-bottom:6px;">
       <div style="display:flex;justify-content:space-between;gap:4px;">
         <span style="flex:1;font-weight:600;word-break:break-word;">${escHtml(item.name)}</span>
         <span style="white-space:nowrap;font-weight:600;">₹${(item.price * item.qty).toLocaleString("en-IN")}</span>
       </div>
-      <div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${item.sku ? ` · SKU: ${escHtml(item.sku)}` : ""}</div>
-    </div>`,
-    )
+      ${priceInfo}
+    </div>`;
+    })
     .join("");
 
   const discountRow =
@@ -125,10 +139,9 @@ function buildThermalHTML(
 </head>
 <body>
   <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
-    <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS</div>
-    <div style="font-size:10px;color:#555;">Premium Children's Clothing</div>
-    <div style="font-size:9.5px;color:#555;">Gordhanpura, Kota, Rajasthan 324001</div>
-    <div style="font-size:9.5px;color:#555;">Ph: 9057074777 / 9667571712</div>
+    <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS STORE</div>
+    <div style="font-size:9.5px;color:#555;margin-top:4px;">In Front of Hanumanji Temple,<br/>Atwal Nagar, Kota, Rajasthan</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone)}</div>
   </div>
 
   <div style="font-size:11px;margin-bottom:8px;">
@@ -166,7 +179,7 @@ function buildThermalHTML(
   <div style="text-align:center;font-size:10px;color:#555;">
     <div style="font-weight:700;">Thank You For Shopping!</div>
     <div>Exchange/Return within 7 days with receipt.</div>
-    <div style="margin-top:2px;">Visit us again · zerah_kids</div>
+    <div style="margin-top:2px;">Visit us again · ${escHtml(store.instagramUrl)}</div>
   </div>
 </body>
 </html>`;
@@ -194,6 +207,7 @@ export function ThermalReceipt({
   onPrintSuccess,
   onPrintFail,
 }: Props) {
+  const storeSettings = useSettings();
   const date = saleDate ?? new Date();
   const [printStatus, setPrintStatus] = useState<ThermalPrintStatus>("idle");
 
@@ -213,7 +227,7 @@ export function ThermalReceipt({
       }
 
       doc.open();
-      doc.write(buildThermalHTML(sale, items, date));
+      doc.write(buildThermalHTML(sale, items, date, storeSettings));
       doc.close();
 
       iframe.onload = () => {
