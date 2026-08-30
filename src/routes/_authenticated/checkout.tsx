@@ -612,9 +612,14 @@ function CheckoutPage() {
               <dt className="text-muted-foreground">Subtotal</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Delivery</dt>
-              <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
+            <div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Delivery</dt>
+                <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Delivery time up to 7 days
+              </p>
             </div>
             {couponDiscount > 0 && (
               <div className="flex justify-between text-primary">

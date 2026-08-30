@@ -726,8 +726,11 @@ function ProductPage() {
                       ? "Fast & Free Delivery"
                       : `Standard Delivery: ₹${product?.deliveryFee ?? 79}`}
                   </span>
+                  <span className="text-[10px] text-green-600 font-bold">
+                    Delivery time up to 7 days
+                  </span>
                   {featUrgency && dispatchTime && (
-                    <span className="text-[10px] text-green-600 font-bold">
+                    <span className="text-[10px] text-muted-foreground font-medium">
                       Order in {dispatchTime} for dispatch today
                     </span>
                   )}

@@ -296,15 +296,20 @@ function CartPage() {
               </div>
             )}
 
-            <div className="flex justify-between border-t border-border/40 pt-2">
-              <dt className="text-muted-foreground">Delivery</dt>
-              <dd className="font-semibold text-foreground">
-                {shipping === 0 ? (
-                  <span className="text-green-600 font-bold tracking-tight">FREE</span>
-                ) : (
-                  formatPrice(shipping)
-                )}
-              </dd>
+            <div className="border-t border-border/40 pt-2">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Delivery</dt>
+                <dd className="font-semibold text-foreground">
+                  {shipping === 0 ? (
+                    <span className="text-green-600 font-bold tracking-tight">FREE</span>
+                  ) : (
+                    formatPrice(shipping)
+                  )}
+                </dd>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Delivery time up to 7 days
+              </p>
             </div>
             <div className="flex justify-between border-t border-border/40 pt-3 text-lg font-bold">
               <dt>Total amount</dt>
