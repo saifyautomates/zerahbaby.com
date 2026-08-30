@@ -89,24 +89,26 @@ function Index() {
   const { data: realReviews } = useQuery({
     queryKey: ["homepage-reviews"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("reviews")
-        .select("rating, comment, profiles(full_name)")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(3);
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from("reviews")
+          .select("rating, comment")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(3);
+        if (error) return null;
+        return data;
+      } catch {
+        return null;
+      }
     },
   });
 
   const displayReviews =
     realReviews && realReviews.length > 0
-      ? realReviews.map((r: any) => {
-          const rawName =
-            (r.profiles as { full_name?: string })?.full_name?.trim() || "Verified Parent";
-          const firstName = rawName.split(/\s+/)[0] || rawName;
+      ? realReviews.map((r: { rating: number; comment: string }) => {
           return {
-            name: firstName,
+            name: "Verified Parent",
             text: r.comment,
             rating: r.rating,
           };
