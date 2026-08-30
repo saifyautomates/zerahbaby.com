@@ -169,9 +169,9 @@ export function DashboardDrillDown({
             slug: p?.slug || null,
             image: getProductImage(p),
             source: "POS",
-            qty: item.quantity || 1,
+            qty: item.qty || 1,
             price: item.price || 0,
-            total: (item.price || 0) * (item.quantity || 1),
+            total: (item.price || 0) * (item.qty || 1),
           });
         });
       });
@@ -563,8 +563,8 @@ export function DashboardDrillDown({
         s.offline_sale_items?.forEach((item) => {
           const p = getProduct(item.product_id || "");
           const bp = getBuyingPrice(p);
-          const rev = (item.price || 0) * (item.quantity || 1);
-          const cogs = bp * (item.quantity || 1);
+          const rev = (item.price || 0) * (item.qty || 1);
+          const cogs = bp * (item.qty || 1);
           const profit = rev - cogs;
           totalRev += rev;
           totalCogs += cogs;
@@ -572,7 +572,7 @@ export function DashboardDrillDown({
           allItems.push({
             date: s.created_at,
             product: p ? p.name : "Unknown",
-            qty: item.quantity || 1,
+            qty: item.qty || 1,
             rev,
             cogs,
             profit,

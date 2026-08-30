@@ -101,6 +101,7 @@ export function useGlobalRealtimeSync() {
           notifyListeners("offline_sales", payload.eventType, payload);
           debouncedInvalidate(qc, [
             ["offline-sales"],
+            ["offline-sales-badge-count"],
             ["admin-dashboard"],
             ["admin-products"],
             ["products"],

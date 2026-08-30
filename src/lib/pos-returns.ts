@@ -296,6 +296,7 @@ export function useProcessOfflineReturn() {
       qc.invalidateQueries({ queryKey: ["admin-products-count"] });
       qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
     },
   });
 }

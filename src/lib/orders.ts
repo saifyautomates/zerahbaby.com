@@ -424,6 +424,7 @@ export function useDeleteCancelledOrder() {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
     },
     onError: (e: Error) => {
       toast.error(e.message || "Unable to delete this order. No changes were made.");

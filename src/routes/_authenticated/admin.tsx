@@ -241,7 +241,7 @@ function AdminPage() {
   // Real data for Orders badge
   const { data: onlineOrders = [] } = useAllOrders(true);
   const { data: posSales = [] } = useQuery({
-    queryKey: ["offline-sales"],
+    queryKey: ["offline-sales-badge-count"],
     queryFn: async () => {
       const { data, error } = await (
         supabase as unknown as {

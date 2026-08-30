@@ -334,6 +334,7 @@ export function usePlaceOfflineSale() {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
     },
   });
