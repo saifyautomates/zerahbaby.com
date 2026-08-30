@@ -121,7 +121,7 @@ export function OfflineAnalyticsTab() {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to delete sale");
     },
   });

@@ -495,7 +495,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
       let title = ev.event_name;
 
-      const profile = (ev as any).profiles as { full_name?: string } | null;
+      const profile = (ev as { profiles?: { full_name?: string } | null }).profiles;
       const product = ev.products as { name?: string } | null;
 
       if (ev.event_name === "view_product") {
@@ -997,7 +997,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickFormatter={(v) => `₹${v}`}
                 />
                 <Tooltip
-                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
+                  formatter={(value: unknown, name: unknown) => [
+                    formatPrice(Number(value) || 0),
+                    String(name ?? ""),
+                  ]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1073,7 +1076,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(val: any, _name: any) => [`${val ?? 0} visitors`, _name]}
+                  formatter={(val: unknown, _name: unknown) => [
+                    `${Number(val) || 0} visitors`,
+                    String(_name ?? ""),
+                  ]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",
@@ -1134,7 +1140,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: any, name: any) => [formatPrice(value ?? 0), name]}
+                  formatter={(value: unknown, name: unknown) => [
+                    formatPrice(Number(value) || 0),
+                    String(name ?? ""),
+                  ]}
                   contentStyle={{
                     backgroundColor: "var(--card)",
                     borderColor: "var(--border)",

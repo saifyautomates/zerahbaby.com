@@ -56,7 +56,9 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
     await page.goto(PROD_URL);
 
     // Check for logo
-    const logo = page.locator('header img[alt*="Zérah"], header img[alt*="Zerah"], header img').first();
+    const logo = page
+      .locator('header img[alt*="Zérah"], header img[alt*="Zerah"], header img')
+      .first();
     await expect(logo).toBeVisible();
 
     // Check navigation
@@ -85,7 +87,11 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
     await expect(page).toHaveURL(/\/product\//);
 
     // Verify product detail elements
-    const addToCart = page.locator('button:has-text("Add to bag"), button:has-text("Add To Bag"), button:has-text("Add to Cart")').first();
+    const addToCart = page
+      .locator(
+        'button:has-text("Add to bag"), button:has-text("Add To Bag"), button:has-text("Add to Cart")',
+      )
+      .first();
     if (await addToCart.isVisible()) {
       // Add to cart
       await addToCart.click();

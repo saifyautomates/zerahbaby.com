@@ -344,8 +344,9 @@ export async function printThermalLabelsDirectly(params: {
       return { success: false, error: result.error || "QZ Tray failed" };
     }
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errorMsg };
   }
 }
 

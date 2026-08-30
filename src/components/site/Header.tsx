@@ -219,7 +219,10 @@ export function Header() {
   const location = useLocation();
   const getPageTitle = () => {
     const path = location.pathname;
-    const tab = (location.search as any)?.tab;
+    const searchParams = new URLSearchParams(
+      typeof location.search === "string" ? location.search : "",
+    );
+    const tab = searchParams.get("tab");
     if (path.startsWith("/profile")) {
       if (tab === "addresses") return "Saved Addresses";
       if (tab === "payments") return "Payment Methods";
@@ -809,7 +812,7 @@ export function Header() {
             </Link>
             <Link
               to="/profile"
-              search={{ tab: "addresses" } as any}
+              search={{ tab: "addresses" }}
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
             >
@@ -817,7 +820,7 @@ export function Header() {
             </Link>
             <Link
               to="/profile"
-              search={{ tab: "payments" } as any}
+              search={{ tab: "payments" }}
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
             >
@@ -825,7 +828,7 @@ export function Header() {
             </Link>
             <Link
               to="/profile"
-              search={{ tab: "coupons" } as any}
+              search={{ tab: "coupons" }}
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
             >

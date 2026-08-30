@@ -258,7 +258,7 @@ export async function sendTSPLViaQZTray(
   try {
     const config = qz.configs.create(printerName);
     const data = [{ type: "raw", format: "plain", data: tsplCommands }];
-    await qz.print(config, data as any);
+    await (qz.print as (c: unknown, d: unknown) => Promise<void>)(config, data);
     return { success: true };
   } catch (err: unknown) {
     return {
@@ -287,7 +287,7 @@ export async function sendHTMLViaQZTray(
   }
 
   try {
-    const qzConfig: any = {
+    const qzConfig: Record<string, unknown> = {
       margins: options?.isThermal ? 0 : 0, // Let CSS handle margins
     };
     // If it's thermal, we might specify width, otherwise rely on printer defaults (A4).
@@ -300,7 +300,7 @@ export async function sendHTMLViaQZTray(
         data: htmlData,
       },
     ];
-    await qz.print(config, data as any);
+    await (qz.print as (c: unknown, d: unknown) => Promise<void>)(config, data);
     return { success: true };
   } catch (err: unknown) {
     return {

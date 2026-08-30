@@ -288,17 +288,24 @@ function RootComponent() {
         let country = "India";
         let customer_name = null;
 
-        // Fetch location data
+        // Fetch location data (CORS-safe with 3s timeout)
         try {
-          const res = await fetch("https://ipapi.co/json/");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch("https://ipwho.is/", {
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
           if (res.ok) {
             const data = await res.json();
-            city = data.city;
-            region = data.region;
-            country = data.country_name || "India";
+            if (data.success !== false) {
+              city = data.city || null;
+              region = data.region || null;
+              country = data.country || "India";
+            }
           }
-        } catch (e) {
-          // ignore ip fetch errors
+        } catch {
+          // Graceful fallback to default country
         }
 
         // Fetch user data if logged in
