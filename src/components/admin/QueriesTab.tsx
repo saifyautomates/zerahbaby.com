@@ -48,6 +48,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [selectedQuery, setSelectedQuery] = useState<ContactMessageRecord | null>(null);
   const [adminNotesDraft, setAdminNotesDraft] = useState("");
+  const [selectedQueries, setSelectedQueries] = useState<string[]>([]);
 
   // Fetch real queries from database
   const {
@@ -151,14 +152,12 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
   // Mutation: Delete query
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("contact_messages")
         .delete()
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id", id);
       if (error) throw error;
-      return data;
+      return id;
     },
     onSuccess: () => {
       toast.success("Query deleted successfully");
@@ -167,6 +166,27 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
     },
     onError: (err: unknown) => {
       toast.error((err as Error).message || "Failed to delete query");
+    },
+  });
+
+  // Mutation: Bulk Delete queries
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("contact_messages")
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
+      return ids;
+    },
+    onSuccess: () => {
+      toast.success("Selected queries deleted successfully");
+      setSelectedQueries([]);
+      qc.invalidateQueries({ queryKey: ["admin-queries"] });
+      setSelectedQuery(null);
+    },
+    onError: (err: unknown) => {
+      toast.error((err as Error).message || "Failed to delete selected queries");
     },
   });
 
@@ -223,17 +243,33 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
             Authoritative inbox for customer questions, order support, and contact form messages.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:bg-muted/50 focus:outline-none disabled:opacity-50 cursor-pointer"
-        >
-          <RefreshCw
-            className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`}
-          />
-          <span>{isFetching ? "Syncing..." : "Refresh"}</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedQueries.length > 0 && (
+            <button
+              onClick={() => bulkDeleteMutation.mutate(selectedQueries)}
+              disabled={bulkDeleteMutation.isPending}
+              className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-100 transition disabled:opacity-50"
+            >
+              {bulkDeleteMutation.isPending ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Delete ({selectedQueries.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:bg-muted/50 focus:outline-none disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw
+              className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`}
+            />
+            <span>{isFetching ? "Syncing..." : "Refresh"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
@@ -319,6 +355,22 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground border-b border-border">
               <tr>
+                <th className="px-4 py-3.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredQueries.length > 0 && selectedQueries.length === filteredQueries.length
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedQueries(filteredQueries.map((q) => q.id));
+                      } else {
+                        setSelectedQueries([]);
+                      }
+                    }}
+                    className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </th>
                 <th className="px-4 py-3.5 font-semibold">Date</th>
                 <th className="px-4 py-3.5 font-semibold">Customer</th>
                 <th className="px-4 py-3.5 font-semibold">Order Ref</th>
@@ -331,7 +383,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="size-6 animate-spin text-primary" />
                       <span>Loading customer inquiries...</span>
@@ -340,7 +392,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                 </tr>
               ) : !filteredQueries.length ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <MessageSquareText className="size-8 text-muted-foreground/50 mb-1" />
                       <span className="font-medium text-foreground">
@@ -365,9 +417,23 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                       key={q.id}
                       onClick={() => setSelectedQuery(q)}
                       className={`group transition-colors hover:bg-muted/30 cursor-pointer ${
-                        isNew ? "bg-amber-500/[0.03] font-medium" : ""
-                      }`}
+                        selectedQuery?.id === q.id ? "bg-muted/50" : ""
+                      } ${isNew ? "bg-amber-500/[0.03] font-medium" : ""}`}
                     >
+                      <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedQueries.includes(q.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedQueries((prev) => [...prev, q.id]);
+                            } else {
+                              setSelectedQueries((prev) => prev.filter((id) => id !== q.id));
+                            }
+                          }}
+                          className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </td>
                       {/* Date */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-muted-foreground">
                         {new Date(q.created_at).toLocaleString("en-IN", {

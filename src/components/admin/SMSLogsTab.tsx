@@ -41,6 +41,7 @@ export function SMSLogsTab() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [eventFilter, setEventFilter] = useState<string>("ALL");
   const [activeMessagePreview, setActiveMessagePreview] = useState<string | null>(null);
+  const [selectedLogs, setSelectedLogs] = useState<string[]>([]);
 
   // Fetch real SMS logs from database
   const {
@@ -115,24 +116,43 @@ export function SMSLogsTab() {
     },
   });
 
-  // Safe delete mutation
+  // Safe delete mutation (fixes 'Cannot coerce' error on double click)
   const deleteMutation = useMutation({
     mutationFn: async (logId: string) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("sms_logs")
         .delete()
-        .eq("id", logId)
-        .select()
-        .single();
+        .eq("id", logId);
       if (error) throw error;
-      return data;
+      return logId;
     },
-    onSuccess: () => {
+    onSuccess: (logId) => {
       toast.success("SMS log deleted successfully");
+      setSelectedLogs((prev) => prev.filter((id) => id !== logId));
       qc.invalidateQueries({ queryKey: ["sms_logs"] });
     },
     onError: (err: unknown) => {
       toast.error((err as Error).message || "Failed to delete SMS log");
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (logIds: string[]) => {
+      const { error } = await supabase
+        .from("sms_logs")
+        .delete()
+        .in("id", logIds);
+      if (error) throw error;
+      return logIds;
+    },
+    onSuccess: () => {
+      toast.success("Selected SMS logs deleted successfully");
+      setSelectedLogs([]);
+      qc.invalidateQueries({ queryKey: ["sms_logs"] });
+    },
+    onError: (err: unknown) => {
+      toast.error((err as Error).message || "Failed to delete selected SMS logs");
     },
   });
 
@@ -178,21 +198,37 @@ export function SMSLogsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight">Transactional SMS Logs</h2>
-          <p className="text-sm text-muted-foreground">
-            Authoritative delivery audit for online orders, POS sales, cancellations, and returns.
+          <p className="text-sm text-muted-foreground mt-1">
+            Track MSG91 delivery status, retries, and errors for system-generated messages.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:bg-muted/50 focus:outline-none disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`size-4 ${isFetching ? "animate-spin text-primary" : "text-muted-foreground"}`}
-          />
-          <span>{isFetching ? "Syncing..." : "Refresh"}</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedLogs.length > 0 && (
+            <button
+              onClick={() => bulkDeleteMutation.mutate(selectedLogs)}
+              disabled={bulkDeleteMutation.isPending}
+              className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-100 transition disabled:opacity-50"
+            >
+              {bulkDeleteMutation.isPending ? (
+                <RefreshCw className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Delete ({selectedLogs.length})
+            </button>
+          )}
+          <button
+            onClick={() => {
+              refetch();
+              toast.success("Refreshed from Supabase & RPC fallback");
+            }}
+            disabled={isFetching}
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium shadow-sm hover:bg-muted transition disabled:opacity-50"
+          >
+            <RefreshCw className={`size-4 ${isFetching ? "animate-spin text-primary" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -242,6 +278,22 @@ export function SMSLogsTab() {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground border-b border-border">
               <tr>
+                <th className="px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredLogs.length > 0 && selectedLogs.length === filteredLogs.length
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedLogs(filteredLogs.map((l) => l.id));
+                      } else {
+                        setSelectedLogs([]);
+                      }
+                    }}
+                    className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </th>
                 <th className="px-4 py-3.5 font-semibold">Timestamp</th>
                 <th className="px-4 py-3.5 font-semibold">Recipient</th>
                 <th className="px-4 py-3.5 font-semibold">Phone</th>
@@ -255,7 +307,7 @@ export function SMSLogsTab() {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="size-6 animate-spin text-primary" />
                       <span>Loading SMS logs...</span>
@@ -264,7 +316,7 @@ export function SMSLogsTab() {
                 </tr>
               ) : !filteredLogs.length ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <MessageSquare className="size-8 text-muted-foreground/50 mb-1" />
                       <span className="font-medium text-foreground">No SMS logs found.</span>
@@ -287,6 +339,22 @@ export function SMSLogsTab() {
 
                   return (
                     <tr key={log.id} className="transition-colors hover:bg-muted/30">
+                      {/* Checkbox */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedLogs.includes(log.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLogs((prev) => [...prev, log.id]);
+                            } else {
+                              setSelectedLogs((prev) => prev.filter((id) => id !== log.id));
+                            }
+                          }}
+                          className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </td>
+
                       {/* Timestamp */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-muted-foreground">
                         {new Date(log.created_at).toLocaleString("en-IN", {
