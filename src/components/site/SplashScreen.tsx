@@ -46,21 +46,17 @@ export function SplashScreen() {
       }`}
     >
       <div className="flex flex-col items-center justify-center">
-        <div className="relative splash-logo-fast">
+        <div className="relative splash-logo-fast flex justify-center">
           <img
             src={logo}
             alt={brandName}
             width={120}
             height={120}
-            className="size-24 rounded-full object-cover shadow-2xl shadow-primary/20 sm:size-32 border-2 border-primary/20"
+            className="size-24 object-contain drop-shadow-xl sm:size-32"
           />
         </div>
-        <div
-          role="status"
-          aria-live="polite"
-          className="mt-8 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl splash-text-fast"
-        >
-          Welcome to Zérah Baby And Kids Store
+        <div className="mt-8 h-1 w-32 overflow-hidden rounded-full bg-primary/20 relative splash-text-fast">
+          <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-primary rounded-full splash-loader" />
         </div>
       </div>
     </div>

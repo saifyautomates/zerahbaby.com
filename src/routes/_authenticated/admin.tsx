@@ -385,7 +385,7 @@ function AdminPage() {
           <img
             src={logo}
             alt="Zérah Baby &amp; Kids"
-            className="h-9 w-auto object-contain rounded-full shadow-xs"
+            className="h-9 w-auto object-contain drop-shadow-sm"
           />
           <BrandName size="sm" />
         </div>

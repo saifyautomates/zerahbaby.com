@@ -29,6 +29,7 @@ import {
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
+import { useUploader, type UploadJob } from "@/lib/use-uploader";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,10 +170,76 @@ export function ProductForm({
 
   const { data: categories } = useCategories();
   const { data: allProducts } = useProducts();
-  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { 
+    jobs, 
+    addFiles: startUploads, 
+    removeJob, 
+    retryJob,
+    reorderJobs, 
+    setInitialJobs, 
+    isUploading 
+  } = useUploader({
+    concurrency: 3,
+    prefix: product ? product.uuid : "drafts",
+    onSuccess: async (job) => {
+      // Immediate database save for existing products
+      if (product?.uuid && job.publicUrl) {
+        try {
+          const isVideo = job.file && job.file.type.startsWith('video/');
+          if (isVideo) {
+            await supabase.from('product_videos').insert({
+              product_id: product.uuid,
+              video_url: job.publicUrl,
+              sort_order: 99,
+            });
+          } else {
+            await supabase.from('product_images').insert({
+              product_id: product.uuid,
+              public_url: job.publicUrl,
+              sort_order: 99,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to save media record immediately", e);
+        }
+      }
+    }
+  });
+
+  // Sync initial images to uploader jobs
+  useEffect(() => {
+    if (draft.images.length > 0) {
+      setInitialJobs(
+        draft.images.map((url) => ({
+          id: url,
+          file: null as any,
+          previewUrl: url,
+          publicUrl: url,
+          progress: 100,
+          state: "SAVED",
+        }))
+      );
+    }
+  }, [draft.images.length, setInitialJobs]); // Only run when draft.images length changes (initial load or external set)
+
+  // Sync uploader jobs back to draft.images whenever jobs change
+  useEffect(() => {
+    const urls = jobs
+      .filter((j) => j.state === "SAVED" && j.publicUrl)
+      .map((j) => j.publicUrl!);
+    
+    // Check if urls actually changed to prevent infinite loops
+    const currentStr = JSON.stringify(draft.images);
+    const newStr = JSON.stringify(urls);
+    if (currentStr !== newStr) {
+      setDraft((d) => ({ ...d, images: urls, imageUrl: urls[0] ?? "" }));
+    }
+  }, [jobs, draft.images]);
+
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [printing, setPrinting] = useState(false);
   const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
   const { printLabel, isPrinting: isDirectPrinting } = useDirectLabelPrint();
@@ -186,33 +253,16 @@ export function ProductForm({
   const addFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
-      const room = MAX_IMAGES - draft.images.length;
+      const room = MAX_IMAGES - jobs.length;
       if (room <= 0) {
         toast.error(`Up to ${MAX_IMAGES} images per product`);
         return;
       }
-      setUploading(true);
-      try {
-        const prefix = product ? product.uuid : "drafts";
-        const uploadedUrls: string[] = [];
-        for (const file of Array.from(files).slice(0, room)) {
-          const url = await uploadMedia(file, prefix);
-          uploadedUrls.push(url);
-        }
-        setDraft((d) => {
-          const images = [...d.images, ...uploadedUrls].slice(0, MAX_IMAGES);
-          return { ...d, images, imageUrl: d.imageUrl || images[0] || "" };
-        });
-        toast.success(
-          `${uploadedUrls.length} image${uploadedUrls.length > 1 ? "s" : ""} uploaded successfully`,
-        );
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Upload failed");
-      } finally {
-        setUploading(false);
-      }
+      
+      const filesArray = Array.from(files).slice(0, room);
+      startUploads(filesArray);
     },
-    [draft.images, product],
+    [jobs.length, startUploads]
   );
 
   const handleDragOverContainer = useCallback((e: React.DragEvent) => {
@@ -252,13 +302,7 @@ export function ProductForm({
   );
 
   function reorder(from: number, to: number) {
-    setDraft((d) => {
-      const images = [...d.images];
-      const [moved] = images.splice(from, 1);
-      if (moved === undefined) return d;
-      images.splice(to, 0, moved);
-      return { ...d, images, imageUrl: images[0] ?? d.imageUrl };
-    });
+    reorderJobs(from, to);
   }
 
   function handleSave() {
@@ -331,16 +375,16 @@ export function ProductForm({
               </div>
               <button
                 type="button"
-                disabled={uploading}
+                disabled={isUploading}
                 onClick={() => fileInputRef.current?.click()}
                 className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60 shadow-xs active:scale-95"
               >
-                {uploading ? (
+                {isUploading ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <Upload className="size-4" />
                 )}
-                <span>{uploading ? "Uploading…" : "Upload files"}</span>
+                <span>{isUploading ? "Uploading…" : "Upload files"}</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -348,7 +392,7 @@ export function ProductForm({
                 accept="image/*,video/*"
                 multiple
                 className="hidden"
-                disabled={uploading}
+                disabled={saving || isUploading}
                 onChange={(e) => {
                   void addFiles(e.target.files);
                   e.target.value = "";
@@ -357,7 +401,7 @@ export function ProductForm({
             </div>
 
             {/* If no images uploaded yet: large interactive clickable dropzone */}
-            {draft.images.length === 0 ? (
+            {jobs.length === 0 ? (
               <div
                 role="button"
                 tabIndex={0}
@@ -378,7 +422,7 @@ export function ProductForm({
                   <UploadCloud className="size-6" />
                 </div>
                 <p className="text-sm font-bold text-foreground">
-                  {uploading
+                  {isUploading
                     ? "Uploading media files…"
                     : isDraggingOver
                       ? "Drop images right here!"
@@ -390,10 +434,15 @@ export function ProductForm({
               </div>
             ) : (
               <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {draft.images.map((url, i) => (
+                {jobs.map((job, i) => {
+                  const url = job.previewUrl || job.publicUrl || "";
+                  const isError = job.state === "FAILED";
+                  const isProcessing = job.state !== "SAVED" && !isError;
+                  
+                  return (
                   <div
-                    key={url}
-                    draggable
+                    key={job.id}
+                    draggable={!isProcessing}
                     onDragStart={() => setDragIndex(i)}
                     onDragEnd={() => setDragIndex(null)}
                     onDragOver={(e) => e.preventDefault()}
@@ -402,12 +451,12 @@ export function ProductForm({
                       if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
                       setDragIndex(null);
                     }}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/20 shadow-2xs"
+                    className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? 'bg-muted/40 animate-pulse' : 'bg-muted/20'}`}
                   >
-                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
+                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) || (job.file && job.file.type.startsWith('video/')) ? (
                       <video
                         src={url}
-                        className="size-full object-cover"
+                        className={`size-full object-cover ${isProcessing ? 'opacity-50' : ''}`}
                         playsInline
                         muted
                         autoPlay
@@ -418,7 +467,7 @@ export function ProductForm({
                         src={url}
                         alt=""
                         loading="lazy"
-                        className="size-full object-cover"
+                        className={`size-full object-cover ${isProcessing ? 'opacity-50' : ''}`}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = generateProductFallbackSvg({
                             name: draft.name,
@@ -428,32 +477,54 @@ export function ProductForm({
                         }}
                       />
                     )}
-                    {i === 0 && (
+                    
+                    {/* Progress overlay */}
+                    {isProcessing && (
+                      <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
+                        <div className="text-[10px] font-semibold text-center mb-1">
+                          {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
+                        </div>
+                        <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
+                           <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${job.progress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Error overlay */}
+                    {isError && (
+                      <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
+                        <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">{job.error || "Failed"}</span>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); retryJob(job.id); }} className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer">Retry</button>
+                      </div>
+                    )}
+
+                    {i === 0 && !isProcessing && (
                       <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
                         <Star className="size-3" /> Main
                       </span>
                     )}
-                    <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
-                      <GripVertical className="size-3" />
-                    </span>
+                    
+                    {!isProcessing && (
+                      <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
+                        <GripVertical className="size-3" />
+                      </span>
+                    )}
+                    
                     <button
                       type="button"
                       aria-label="Remove image"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDraft((d) => {
-                          const images = d.images.filter((u) => u !== url);
-                          return { ...d, images, imageUrl: images[0] ?? "" };
-                        });
+                        removeJob(job.id);
                       }}
-                      className="absolute right-1 top-1 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                      className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
                   </div>
-                ))}
+                )})}
 
-                {draft.images.length < MAX_IMAGES && (
+                {jobs.length < MAX_IMAGES && (
                   <div
                     role="button"
                     tabIndex={0}
@@ -464,11 +535,10 @@ export function ProductForm({
                         fileInputRef.current?.click();
                       }
                     }}
-                    className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-muted/10 transition-all hover:border-primary hover:bg-muted/40 text-muted-foreground hover:text-primary"
-                    title="Add more images"
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-muted/20 p-4 text-muted-foreground transition hover:border-primary/50 hover:bg-muted/40 hover:text-primary active:scale-95"
                   >
-                    <Plus className="size-5 mb-1" />
-                    <span className="text-[11px] font-bold">Add More</span>
+                    <Plus className="size-6 mb-1 opacity-70" />
+                    <span className="text-[10px] font-bold">Add media</span>
                   </div>
                 )}
               </div>
@@ -1135,7 +1205,7 @@ export function ProductForm({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || uploading || !draft.name || !draft.slug}
+            disabled={saving || isUploading || !draft.name || !draft.slug}
             className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save product"}

@@ -333,7 +333,7 @@ function AuthPage() {
             alt="Zérah Baby &amp; Kids"
             width={64}
             height={64}
-            className="size-16 object-cover rounded-full shadow-md mb-3 border border-primary/20"
+            className="size-16 object-contain drop-shadow-md mb-3"
             onError={(e) => {
               (e.target as HTMLImageElement).style.opacity = "0";
             }}

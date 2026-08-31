@@ -381,7 +381,7 @@ export function Header() {
                 alt={`${brandName} logo`}
                 width={36}
                 height={36}
-                className="size-8 object-cover rounded-full sm:size-9 shadow-xs flex-shrink-0 border border-primary/20"
+                className="size-8 object-contain sm:size-9 drop-shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
