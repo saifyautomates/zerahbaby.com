@@ -1372,10 +1372,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               <span className="font-bold text-foreground">{visitors.length}</span>
             </p>
           </div>
-          <div className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-            <Users className="h-3.5 w-3.5" />
-            <span>{stats.visitorsCount} this period</span>
-          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">

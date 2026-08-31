@@ -7,12 +7,29 @@ import {
   AlertTriangle,
   Info,
   Trash2,
+  Plus,
+  Minus,
+  Pencil,
+  ExternalLink,
+  Search,
+  Check,
+  X,
+  Truck,
+  Tag,
 } from "lucide-react";
+import { useState, useMemo, Suspense, lazy } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { formatPrice, imageFor } from "@/lib/store";
+import type { Database } from "@/integrations/supabase/types";
+import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
+import type { ProductDraft } from "@/components/admin/ProductForm";
 import { format } from "date-fns";
-import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
+
+const ProductForm = lazy(() =>
+  import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
+);
 
 interface DrillDownOrderItem {
   product_id?: string;
@@ -458,67 +475,11 @@ export function DashboardDrillDown({
     }
 
     if (type === "stock") {
-      const inStockItems = products.filter((p) => (p.stock ?? 0) > 0);
       return {
-        title: "Total Stock Value",
+        title: "Total Stock Value & Inventory Control",
         icon: Package,
         colorClass: "text-blue-600 bg-blue-50",
-        renderContent: () => (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
-              <thead className="bg-muted text-xs uppercase text-foreground">
-                <tr>
-                  <th className="px-6 py-3">Product</th>
-                  <th className="px-6 py-3 text-right">Selling Price</th>
-                  <th className="px-6 py-3 text-right">In Stock</th>
-                  <th className="px-6 py-3 text-right">Total Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inStockItems.map((p, i) => (
-                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                    <td className="px-6 py-4">
-                      <Link
-                        to="/product/$id"
-                        params={{ id: p.id || p.slug }}
-                        className="flex items-center gap-3 hover:text-primary transition-colors group"
-                      >
-                        {getProductImage(p) ? (
-                          <img
-                            src={getProductImage(p) || undefined}
-                            alt={p.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                          {p.name}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 text-right">{formatPrice(p.price || 0)}</td>
-                    <td className="px-6 py-4 text-right font-bold">{p.stock ?? 0}</td>
-                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                      {formatPrice((p.price || 0) * (p.stock ?? 0))}
-                    </td>
-                  </tr>
-                ))}
-                {inStockItems.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center">
-                      No active stock available.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        ),
+        renderContent: () => <StockDrillDownView products={products} />,
       };
     }
 
@@ -859,6 +820,569 @@ export function DashboardDrillDown({
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">{renderContent()}</div>
       </div>
+    </div>
+  );
+}
+
+function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "in_stock" | "low" | "out">("all");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [stockVal, setStockVal] = useState<number>(0);
+
+  const updateStock = useMutation({
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ stock: Math.max(0, stock) })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Stock updated successfully");
+      setEditingStockId(null);
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Product deleted");
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveProduct = useMutation({
+    mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
+      const row: Record<string, unknown> = {
+        slug: draft.slug.trim(),
+        name: draft.name.trim(),
+        brand: draft.brand.trim(),
+        category: draft.category,
+        price: Number(draft.price),
+        mrp: Number(draft.mrp),
+        age_group: draft.ageGroup,
+        low_stock_at: Number(draft.lowStockAt),
+        sku: draft.sku.trim(),
+        barcode: draft.barcode.trim(),
+        description: draft.description,
+        highlights: draft.highlights
+          .split("\n")
+          .map((h) => h.trim())
+          .filter(Boolean),
+        is_featured: draft.isFeatured,
+        is_active: draft.isActive,
+        sort_order: Number(draft.sortOrder),
+        recommendation_mode: draft.recommendationMode,
+        stock: Number(draft.stock),
+      };
+
+      let productId = uuid;
+      if (uuid) {
+        const { error } = await supabase
+          .from("products")
+          .update(row as Database["public"]["Tables"]["products"]["Update"])
+          .eq("id", uuid);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("products")
+          .insert(row as Database["public"]["Tables"]["products"]["Insert"])
+          .select("id")
+          .single();
+        if (error) throw error;
+        productId = data.id;
+      }
+
+      if (draft.buyingPrice !== undefined && productId) {
+        await supabase
+          .from("product_costs")
+          .upsert({ product_id: productId, buying_price: Number(draft.buyingPrice) });
+      }
+
+      if (draft.deliveryFee !== undefined && productId) {
+        const { data: currentSetting } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "product_delivery_fees")
+          .maybeSingle();
+
+        let currentFees: Record<string, number> = {};
+        if (currentSetting?.value) {
+          try {
+            currentFees = JSON.parse(currentSetting.value);
+          } catch {
+            currentFees = {};
+          }
+        }
+        currentFees[productId] = draft.deliveryFee;
+        currentFees[draft.slug] = draft.deliveryFee;
+        await supabase.from("site_settings").upsert({
+          key: "product_delivery_fees",
+          value: JSON.stringify(currentFees),
+        });
+      }
+
+      if (productId) {
+        const allUrls = new Set<string>();
+        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
+        draft.images.forEach((img) => {
+          if (img.trim()) allUrls.add(img.trim());
+        });
+
+        const urlsArray = Array.from(allUrls);
+        const { data: existing } = await supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", productId);
+
+        const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
+        for (const del of toDelete) {
+          await supabase.from("product_images").delete().eq("id", del.id);
+        }
+
+        for (let i = 0; i < urlsArray.length; i++) {
+          const url = urlsArray[i];
+          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+          const existingRow = (existing || []).find((e) => e.public_url === url);
+
+          if (existingRow) {
+            await supabase
+              .from("product_images")
+              .update({ is_primary: isPrimary, sort_order: i })
+              .eq("id", existingRow.id);
+          } else {
+            await supabase.from("product_images").insert({
+              product_id: productId,
+              public_url: url,
+              is_primary: isPrimary,
+              sort_order: i,
+            });
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success(isCreating ? "Product added" : "Product updated");
+      setEditingProduct(null);
+      setIsCreating(false);
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const totalValue = products.reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
+  const totalUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
+  const lowCount = products.filter(
+    (p) => (p.stock || 0) > 0 && (p.stock || 0) <= (p.low_stock_at || 5),
+  ).length;
+  const outCount = products.filter((p) => (p.stock || 0) === 0).length;
+
+  const filtered = products.filter((p) => {
+    const stock = p.stock || 0;
+    const lowAt = p.low_stock_at || 5;
+    if (filter === "in_stock" && stock === 0) return false;
+    if (filter === "low" && !(stock > 0 && stock <= lowAt)) return false;
+    if (filter === "out" && stock !== 0) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.brand || "").toLowerCase().includes(q) ||
+        (p.sku || "").toLowerCase().includes(q) ||
+        (p.category || "").toLowerCase().includes(q) ||
+        (p.slug || "").toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const getProductImage = (p: DrillDownProduct) => {
+    let url: string | null = null;
+    if (p.image) url = p.image;
+    else if (p.image_url) url = p.image_url;
+    else if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
+      const sorted = [...p.product_images].sort(
+        (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+      );
+      const primary = sorted.find((img) => img.is_primary) || sorted[0];
+      url = primary?.public_url || null;
+    }
+    return imageFor(p.category || "clothing", url);
+  };
+
+  const getBuyingPrice = (p: DrillDownProduct) => {
+    const costs = p.product_costs;
+    return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
+  };
+
+  return (
+    <div className="space-y-4 p-4">
+      {/* Top Overview Cards */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border bg-background p-3.5 shadow-2xs">
+          <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+            Total Stock Value
+          </p>
+          <p className="mt-1 text-xl font-extrabold text-emerald-600">{formatPrice(totalValue)}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-background p-3.5 shadow-2xs">
+          <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+            Total In-Stock Units
+          </p>
+          <p className="mt-1 text-xl font-extrabold text-foreground">{totalUnits} units</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-2xs">
+          <p className="text-[11px] font-semibold uppercase text-amber-800">Low Stock Items</p>
+          <p className="mt-1 text-xl font-extrabold text-amber-600">{lowCount}</p>
+        </div>
+        <div className="rounded-xl border border-red-200 bg-red-50/50 p-3.5 shadow-2xs">
+          <p className="text-[11px] font-semibold uppercase text-red-800">Out of Stock</p>
+          <p className="mt-1 text-xl font-extrabold text-red-600">{outCount}</p>
+        </div>
+      </div>
+
+      {/* Control Bar: Filters, Search, Add Product */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              { key: "all", label: `All (${products.length})` },
+              { key: "in_stock", label: `In Stock (${products.length - outCount})` },
+              { key: "low", label: `Low Alert (${lowCount})` },
+              { key: "out", label: `Out of Stock (${outCount})` },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setFilter(item.key)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                filter === item.key
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by name, SKU..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+            />
+          </div>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-[#8B2020] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#731a1a] transition cursor-pointer shrink-0"
+          >
+            <Plus className="size-3.5" />
+            <span>Add Product</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full text-left text-sm whitespace-nowrap">
+          <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+            <tr>
+              <th className="px-4 py-3">Product</th>
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Selling Price</th>
+              <th className="px-4 py-3">Buying Cost</th>
+              <th className="px-4 py-3">Stock (Units)</th>
+              <th className="px-4 py-3">Total Value</th>
+              <th
+                className="px-4 py-3"
+                title="Jab stock is limit par ya isse kam bachega tab Low Stock alert aayega"
+              >
+                Alert (≤)
+              </th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {filtered.map((p) => {
+              const stock = p.stock || 0;
+              const lowAt = p.low_stock_at || 5;
+              const isOut = stock === 0;
+              const isLow = stock > 0 && stock <= lowAt;
+              const buyingPrice = getBuyingPrice(p);
+              const totalVal = (p.price || 0) * stock;
+              const isEditingThisStock = editingStockId === p.id;
+
+              return (
+                <tr key={p.id} className="hover:bg-muted/40 transition-colors">
+                  {/* Product */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Link
+                        to="/product/$id"
+                        params={{ id: p.id || p.slug }}
+                        className="relative block size-10 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30"
+                      >
+                        <img
+                          src={getProductImage(p) || undefined}
+                          alt={p.name}
+                          loading="lazy"
+                          className="size-full object-cover"
+                        />
+                      </Link>
+                      <div className="max-w-[200px]">
+                        <Link
+                          to="/product/$id"
+                          params={{ id: p.id || p.slug }}
+                          className="font-semibold text-foreground line-clamp-1 hover:text-primary transition"
+                        >
+                          {p.name}
+                        </Link>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          {p.sku || p.brand || p.id}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Category */}
+                  <td className="px-4 py-3">
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-semibold capitalize text-foreground">
+                      {p.category || "General"}
+                    </span>
+                  </td>
+
+                  {/* Price */}
+                  <td className="px-4 py-3 font-semibold text-foreground">
+                    {formatPrice(p.price || 0)}
+                  </td>
+
+                  {/* Cost */}
+                  <td className="px-4 py-3">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {formatPrice(buyingPrice)}
+                    </div>
+                    <div
+                      className={`text-[10px] font-bold ${
+                        (p.price || 0) - buyingPrice < 0 ? "text-destructive" : "text-emerald-600"
+                      }`}
+                    >
+                      {buyingPrice > 0
+                        ? `${((((p.price || 0) - buyingPrice) / buyingPrice) * 100).toFixed(1)}%`
+                        : "100%"}
+                    </div>
+                  </td>
+
+                  {/* Stock Quick +/- & Edit */}
+                  <td className="px-4 py-3">
+                    {isEditingThisStock ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={stockVal === 0 ? "" : stockVal}
+                          placeholder="0"
+                          autoFocus
+                          onChange={(e) =>
+                            setStockVal(
+                              e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                            )
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              updateStock.mutate({ id: p.id, stock: stockVal });
+                            }
+                          }}
+                          className="w-16 rounded-md border border-primary bg-background px-2 py-1 text-xs font-bold outline-none"
+                        />
+                        <button
+                          onClick={() => updateStock.mutate({ id: p.id, stock: stockVal })}
+                          className="rounded-md bg-emerald-600 text-white p-1 hover:bg-emerald-700 transition cursor-pointer"
+                          title="Save Stock"
+                        >
+                          <Check className="size-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditingStockId(null)}
+                          className="rounded-md border border-border p-1 text-muted-foreground hover:bg-muted transition cursor-pointer"
+                          title="Cancel"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateStock.mutate({ id: p.id, stock: Math.max(0, stock - 1) })
+                          }
+                          disabled={stock === 0 || updateStock.isPending}
+                          title="Decrease Stock (-1)"
+                          className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30 cursor-pointer"
+                        >
+                          <Minus className="size-3" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStockId(p.id);
+                            setStockVal(stock);
+                          }}
+                          title="Click to edit stock number"
+                          className={`min-w-8 px-2 py-0.5 rounded-md text-xs font-bold text-center transition cursor-pointer ${
+                            isOut
+                              ? "bg-red-50 text-red-700 border border-red-200"
+                              : isLow
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                : "bg-muted text-foreground border border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {stock}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => updateStock.mutate({ id: p.id, stock: stock + 1 })}
+                          disabled={updateStock.isPending}
+                          title="Increase Stock (+1)"
+                          className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                        >
+                          <Plus className="size-3" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Total Value */}
+                  <td className="px-4 py-3 font-bold text-emerald-600">{formatPrice(totalVal)}</td>
+
+                  {/* Low Stock Alert */}
+                  <td className="px-4 py-3">
+                    <span
+                      className="inline-flex rounded-md bg-muted/60 border border-border px-2 py-0.5 text-xs font-mono font-bold text-muted-foreground"
+                      title={`Jab stock ${lowAt} ya isse kam hoga tab Low Stock alert dikhega`}
+                    >
+                      ≤ {lowAt}
+                    </span>
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    {isOut ? (
+                      <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600">
+                        Out of stock
+                      </span>
+                    ) : isLow ? (
+                      <span className="inline-flex rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600">
+                        Low stock
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+                        In stock
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        to="/product/$id"
+                        params={{ id: p.id || p.slug }}
+                        title="View on store"
+                        className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </Link>
+
+                      <button
+                        onClick={() => {
+                          const mapped = mapProduct(p as never);
+                          setEditingProduct(mapped);
+                        }}
+                        title="Edit product details"
+                        className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition cursor-pointer"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete "${p.name}"? This action cannot be undone.`)) {
+                            deleteProduct.mutate(p.id);
+                          }
+                        }}
+                        title="Delete product"
+                        className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition cursor-pointer"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
+                  No stock items match your filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Product Form Modal for Add / Edit */}
+      {(isCreating || editingProduct) && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="bg-background p-8 rounded-2xl animate-pulse">
+                Loading product editor...
+              </div>
+            </div>
+          }
+        >
+          <ProductForm
+            product={editingProduct}
+            saving={saveProduct.isPending}
+            onCancel={() => {
+              setIsCreating(false);
+              setEditingProduct(null);
+            }}
+            onSave={(draft) =>
+              saveProduct.mutate(editingProduct ? { draft, uuid: editingProduct.uuid } : { draft })
+            }
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
