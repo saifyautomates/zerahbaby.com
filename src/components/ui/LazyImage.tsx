@@ -37,5 +37,14 @@ export const LazyImage: React.FC<LazyImageProps> = ({ src, placeholderSrc, alt =
     };
   }, [src]);
 
-  return <img ref={imgRef} src={visibleSrc} alt={alt} loading="lazy" decoding="async" {...rest} />;
+  return (
+    <img
+      ref={imgRef}
+      src={visibleSrc || undefined}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      {...rest}
+    />
+  );
 };
