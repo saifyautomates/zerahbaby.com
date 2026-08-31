@@ -1,6 +1,6 @@
 import { useSettings } from "@/lib/store";
 import { Mail, Phone, Lock, X } from "lucide-react";
-import logoUrl from "@/assets/zerah-logo.png"; // Fallback logo
+import logoUrl from "@/assets/zerah-logo-official.png"; // Fallback logo
 import { useState, useEffect } from "react";
 
 export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
@@ -42,14 +42,14 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
       <div className="max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out flex flex-col items-center">
         {/* Logo */}
         <div
-          className="mb-8 cursor-pointer select-none size-24 flex items-center justify-center drop-shadow-md"
+          className="mb-8 cursor-pointer select-none h-24 flex items-center justify-center drop-shadow-md"
           title="Admin access"
           onClick={handleLogoClick}
         >
           <img
             src={settings?.logo_url || logoUrl}
             alt="Store Logo"
-            className="size-full object-contain"
+            className="h-full w-auto object-contain"
           />
         </div>
 

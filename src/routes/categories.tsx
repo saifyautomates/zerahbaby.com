@@ -3,7 +3,6 @@ import { useState, useMemo } from "react";
 import { Search, ChevronRight, Sparkles, Layers, Package, ArrowRight } from "lucide-react";
 import { useCategories, useProducts, ageGroups } from "@/lib/store";
 import { LazyImage } from "@/components/ui/LazyImage";
-import { BrandName } from "@/components/site/BrandName";
 
 export const Route = createFileRoute("/categories")({
   head: () => ({

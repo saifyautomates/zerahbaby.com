@@ -25,7 +25,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo-official.png";
 import { ageGroups, useCategories, useSettings, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
-import { BrandName } from "@/components/site/BrandName";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
 import { CategoriesTab } from "@/components/admin/CategoriesManager";
 import { uploadMedia } from "@/lib/uploads";
@@ -379,14 +378,11 @@ export function Header() {
               <img
                 src={logo}
                 alt={`${brandName} logo`}
-                width={36}
-                height={36}
-                className="size-8 object-contain sm:size-9 drop-shadow-sm flex-shrink-0"
+                className="h-10 sm:h-12 md:h-14 w-auto object-contain drop-shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
               />
-              <BrandName size="md" />
             </Link>
 
             <div

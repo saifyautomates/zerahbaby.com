@@ -50,8 +50,7 @@ import {
   Truck,
   FileText,
 } from "lucide-react";
-import logo from "@/assets/zerah-logo.png";
-import { BrandName } from "@/components/site/BrandName";
+import logo from "@/assets/zerah-logo-official.png";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
@@ -384,10 +383,9 @@ function AdminPage() {
         <div className="flex h-16 items-center gap-3 border-b border-border px-5">
           <img
             src={logo}
-            alt="Zérah Baby &amp; Kids"
-            className="h-9 w-auto object-contain drop-shadow-sm"
+            alt="Zérah Baby & Kids"
+            className="h-10 w-auto object-contain drop-shadow-sm"
           />
-          <BrandName size="sm" />
         </div>
 
         {/* Navigation */}
@@ -452,8 +450,11 @@ function AdminPage() {
           <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-2.5">
-                <img src={logo} alt="Zérah Baby &amp; Kids" className="h-7 w-auto object-contain" />
-                <span className="font-display text-sm font-black text-foreground">Admin Menu</span>
+                <img
+                  src={logo}
+                  alt="Zérah Baby & Kids"
+                  className="h-8 w-auto object-contain drop-shadow-sm"
+                />
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -707,7 +708,7 @@ function AdminPage() {
             {/* Authenticated Admin Profile Brand Logo & Name */}
             <div className="flex items-center gap-2.5 pl-3 border-l border-border">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card shadow-xs overflow-hidden select-none p-1">
-                <img src={logo} alt="Zerah Baby & Kids" className="h-full w-full object-contain" />
+                <img src={logo} alt="Zerah Baby & Kids" className="h-full w-auto object-contain" />
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-foreground truncate max-w-32">{adminName}</p>
@@ -2441,7 +2442,7 @@ function SettingsTab() {
 thead tr{background:#8B2020;color:#fff;}th,td{padding:7px 8px;border-bottom:1px solid #eee;}
 .footer{border-top:2px solid #8B2020;padding-top:10px;margin-top:20px;font-size:10px;color:#666;}
 </style></head><body>
-<div class="header"><div><div class="brand">ZÉRAH BABY &amp; KIDS</div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
+<div class="header"><div><div class="brand" style="display:flex;align-items:center;gap:12px;"><img src="\${window.location.origin}/logo.png" style="width:60px;height:auto;" alt="Zerah"/><div>ZÉRAH BABY &amp; KIDS</div></div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
 <div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#8B2020;">TEST INVOICE</div><div>INV-TEST-001</div></div></div>
 <table><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
 <tbody><tr><td>Test Product A</td><td>2</td><td>₹499</td><td>₹998</td></tr>

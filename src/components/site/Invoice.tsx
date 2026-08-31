@@ -4,6 +4,7 @@ import { FileText, Printer, X } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
+import logo from "@/assets/zerah-logo-official.png";
 
 /** Small clickable invoice chip — opens the full printable invoice. */
 export function InvoiceBox({ order }: { order: Order }) {
@@ -48,12 +49,15 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
         <div className="flex-1 min-h-0 overflow-y-auto p-8 print:p-0 print:overflow-visible">
           {/* Header section */}
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6 print:border-slate-300">
-            <div>
-              <p className="font-display text-3xl font-black tracking-tight">{brandName}</p>
-              <p className="mt-2 max-w-xs text-sm text-slate-600">{storeAddress}</p>
-              <p className="mt-1 text-sm font-medium text-slate-600">
-                {contactPhone} · {contactEmail}
-              </p>
+            <div className="flex gap-4 items-center">
+              <img src={logo} alt={brandName} className="size-20 object-contain" />
+              <div>
+                <p className="font-display text-3xl font-black tracking-tight">{brandName}</p>
+                <p className="mt-2 max-w-xs text-sm text-slate-600">{storeAddress}</p>
+                <p className="mt-1 text-sm font-medium text-slate-600">
+                  {contactPhone} · {contactEmail}
+                </p>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-sm font-bold uppercase tracking-widest text-slate-400">

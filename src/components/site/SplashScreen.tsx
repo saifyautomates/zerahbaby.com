@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import logo from "@/assets/zerah-logo.png";
+import logo from "@/assets/zerah-logo-official.png";
 import { useSettings } from "@/lib/store";
 
 export function SplashScreen() {
@@ -50,9 +50,7 @@ export function SplashScreen() {
           <img
             src={logo}
             alt={brandName}
-            width={120}
-            height={120}
-            className="size-24 object-contain drop-shadow-xl sm:size-32"
+            className="h-24 w-auto object-contain drop-shadow-xl sm:h-32"
           />
         </div>
         <div className="mt-8 h-1 w-32 overflow-hidden rounded-full bg-primary/20 relative splash-text-fast">
