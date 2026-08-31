@@ -183,83 +183,62 @@ function CartPage() {
         </ul>
 
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-md lg:sticky lg:top-24">
-          {/* Free Shipping Progress Bar */}
-          {freeDeliveryMessage && (
-            <div className="mb-6 rounded-2xl bg-secondary/50 p-4 border border-border/40">
-              {isFreeDelivery ? (
-                <div className="flex items-center gap-2 text-xs font-bold text-green-600">
-                  <span>🎉</span>
-                  <span>{freeDeliveryMessage}</span>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs font-semibold text-foreground">
-                    {freeDeliveryMessage.split("₹{amount}").map((part, i, arr) => (
-                      <span key={i}>
-                        {part}
-                        {i < arr.length - 1 && (
-                          <strong className="text-primary">
-                            {formatPrice(amountToFreeDelivery)}
-                          </strong>
-                        )}
-                      </span>
-                    ))}
-                  </p>
-                  <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all duration-500 rounded-full"
-                      style={{
-                        width: `${Math.min(100, (eligibleSubtotal / (eligibleSubtotal + amountToFreeDelivery)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <h2 className="font-display text-xl font-bold tracking-tight text-foreground">
+            Order summary
+          </h2>
 
-          <h2 className="font-display text-xl font-bold">Order summary</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
-              <dd>{formatPrice(subtotal)}</dd>
+          <div className="mt-5 space-y-3.5 text-sm">
+            {/* Subtotal */}
+            <div className="flex justify-between items-center text-foreground">
+              <span className="text-muted-foreground font-medium">Subtotal</span>
+              <span className="font-semibold tabular-nums text-right">{formatPrice(subtotal)}</span>
             </div>
+
+            {/* You save (positive display, never negative) */}
             {savings > 0 && (
               <div className="flex justify-between items-center">
-                <dt className="text-muted-foreground flex items-center gap-1.5">
+                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
                   You save
-                  {/* Tooltip: explains how savings are calculated without cluttering the label */}
                   <span
-                    title="Savings = MRP minus our selling price, across all items in your bag"
-                    aria-label="Savings = MRP minus our selling price"
-                    className="inline-flex size-4 cursor-help items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors select-none"
+                    title={`You save ${formatPrice(savings)} compared with the original MRP value.`}
+                    aria-label={`You save ${formatPrice(savings)} compared with original MRP`}
+                    className="inline-flex size-4 cursor-help items-center justify-center rounded-full bg-muted/80 text-[11px] font-bold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors select-none"
                   >
-                    ?
+                    ⓘ
                   </span>
-                </dt>
-                <dd className="text-primary font-semibold">−{formatPrice(savings)}</dd>
+                </span>
+                <span className="font-semibold tabular-nums text-primary text-right">
+                  {formatPrice(savings)}
+                </span>
               </div>
             )}
 
-            {coupon ? (
-              <div className="flex items-center justify-between text-green-600">
-                <dt className="flex items-center gap-2">
-                  Code: {coupon.code}
+            {/* Coupon discount line if applied */}
+            {coupon && (
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                <span className="font-medium flex items-center gap-2">
+                  Coupon ({coupon.code})
                   <button
+                    type="button"
                     onClick={() => {
                       removeCoupon();
                       setCouponInput("");
                       toast.success("Coupon removed");
                     }}
-                    className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-destructive underline"
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-destructive underline cursor-pointer"
                   >
                     Remove
                   </button>
-                </dt>
-                <dd>−{formatPrice(coupon.discount)}</dd>
+                </span>
+                <span className="font-semibold tabular-nums text-right">
+                  −{formatPrice(coupon.discount)}
+                </span>
               </div>
-            ) : (
-              <div className="pt-2">
+            )}
+
+            {/* Promo Code Input (when no coupon applied) */}
+            {!coupon && (
+              <div className="pt-1">
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -279,16 +258,16 @@ function CartPage() {
                 >
                   <input
                     type="text"
-                    placeholder="Promo code"
+                    placeholder="PROMO CODE"
                     aria-label="Promo code"
                     value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm uppercase outline-none focus:border-primary"
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-semibold uppercase tracking-wider outline-none focus:border-primary placeholder:text-muted-foreground/60 transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={isApplying || !couponInput.trim()}
-                    className="focus-ring press rounded-lg bg-secondary px-3 py-1.5 text-sm font-semibold transition hover:bg-secondary/80 disabled:opacity-50"
+                    className="focus-ring press shrink-0 rounded-xl bg-secondary px-4 py-2 text-xs font-bold transition hover:bg-secondary/80 disabled:opacity-50 cursor-pointer"
                   >
                     {isApplying ? "..." : "Apply"}
                   </button>
@@ -296,26 +275,71 @@ function CartPage() {
               </div>
             )}
 
-            <div className="border-t border-border/40 pt-2">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Delivery</dt>
-                <dd className="font-semibold text-foreground">
-                  {shipping === 0 ? (
-                    <span className="text-green-600 font-bold tracking-tight">FREE</span>
-                  ) : (
-                    formatPrice(shipping)
+            {/* Delivery Status / Free Delivery Block */}
+            <div className="pt-2">
+              {isFreeDelivery ? (
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Delivery</span>
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      FREE
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1.5 border-t border-emerald-500/15 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                    <span className="text-base select-none">🎉</span>
+                    <span>Free delivery unlocked</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium pl-6">
+                    Delivery within 7 days
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Delivery</span>
+                    <span className="font-semibold tabular-nums text-foreground text-right">
+                      {formatPrice(shipping)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Delivery within 7 days</p>
+                  {freeDeliveryMessage && amountToFreeDelivery > 0 && (
+                    <div className="rounded-2xl bg-secondary/50 p-3 border border-border/40 text-xs">
+                      <p className="font-medium text-foreground">
+                        Add{" "}
+                        <strong className="text-primary font-bold">
+                          {formatPrice(amountToFreeDelivery)}
+                        </strong>{" "}
+                        more for <span className="font-bold text-primary">FREE DELIVERY</span> 🎉
+                      </p>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary transition-all duration-500 rounded-full"
+                          style={{
+                            width: `${Math.min(100, (eligibleSubtotal / (eligibleSubtotal + amountToFreeDelivery)) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
-                </dd>
-              </div>
-              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                Delivery time up to 7 days
-              </p>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between border-t border-border/40 pt-3 text-lg font-bold">
-              <dt>Total amount</dt>
-              <dd>{formatPrice(total)}</dd>
+
+            {/* Divider */}
+            <div className="border-t border-border/60 my-4" />
+
+            {/* TOTAL TO PAY */}
+            <div className="flex justify-between items-baseline pt-1">
+              <span className="text-sm sm:text-base font-black uppercase tracking-wider text-foreground">
+                TOTAL TO PAY
+              </span>
+              <span className="text-xl sm:text-2xl font-black font-display tracking-tight text-foreground tabular-nums text-right">
+                {formatPrice(total)}
+              </span>
             </div>
-          </dl>
+          </div>
+
+          {/* Primary CTA */}
           {user ? (
             <Link
               to="/checkout"
@@ -325,12 +349,11 @@ function CartPage() {
                   return;
                 }
                 isNavigatingRef.current = true;
-                // Reset after 2s in case navigation is cancelled
                 setTimeout(() => {
                   isNavigatingRef.current = false;
                 }, 2000);
               }}
-              className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
+              className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover cursor-pointer"
             >
               Proceed to checkout
             </Link>
@@ -340,18 +363,20 @@ function CartPage() {
                 to="/auth"
                 search={{ redirect: "/checkout" }}
                 onClick={() => toast.info("Please sign in to place your order")}
-                className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
+                className="focus-ring press mt-6 block w-full rounded-full bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover cursor-pointer"
               >
-                Sign in to check out
+                Proceed to checkout
               </Link>
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                Your bag is saved — you'll come right back here.
+                Sign in to quickly complete your order.
               </p>
             </>
           )}
+
+          {/* Secondary Action */}
           <Link
             to="/shop"
-            className="mt-3 block text-center text-sm text-muted-foreground hover:text-primary"
+            className="mt-3.5 block text-center text-xs font-semibold text-muted-foreground hover:text-primary transition-colors py-1 cursor-pointer"
           >
             Continue shopping
           </Link>

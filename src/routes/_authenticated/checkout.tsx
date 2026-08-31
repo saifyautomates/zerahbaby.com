@@ -29,7 +29,8 @@ export const Route = createFileRoute("/_authenticated/checkout")({
 function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useSession();
-  const { items, subtotal, total, coupon, clear, applyCoupon, removeCoupon, shipping } = useCart();
+  const { items, subtotal, savings, total, coupon, clear, applyCoupon, removeCoupon, shipping } =
+    useCart();
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
@@ -607,31 +608,75 @@ function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
-              <dd>{formatPrice(subtotal)}</dd>
+          <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+            <div className="flex justify-between items-center text-foreground">
+              <span className="text-muted-foreground font-medium">Subtotal</span>
+              <span className="font-semibold tabular-nums text-right">{formatPrice(subtotal)}</span>
             </div>
-            <div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Delivery</dt>
-                <dd>{shipping === 0 ? "Free" : formatPrice(shipping)}</dd>
-              </div>
-              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                Delivery time up to 7 days
-              </p>
-            </div>
-            {couponDiscount > 0 && (
-              <div className="flex justify-between text-primary">
-                <dt>Coupon discount</dt>
-                <dd>−{formatPrice(couponDiscount)}</dd>
+            {savings > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                  You save
+                  <span
+                    title={`You save ${formatPrice(savings)} compared with the original MRP value.`}
+                    aria-label={`You save ${formatPrice(savings)} compared with original MRP`}
+                    className="inline-flex size-4 cursor-help items-center justify-center rounded-full bg-muted/80 text-[11px] font-bold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors select-none"
+                  >
+                    ⓘ
+                  </span>
+                </span>
+                <span className="font-semibold tabular-nums text-primary text-right">
+                  {formatPrice(savings)}
+                </span>
               </div>
             )}
-            <div className="flex justify-between border-t border-border pt-3 text-base font-bold">
-              <dt>Total</dt>
-              <dd>{formatPrice(finalTotal)}</dd>
+            {shipping === 0 ? (
+              <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Delivery</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    FREE
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 pt-1 border-t border-emerald-500/15 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                  <span className="text-sm select-none">🎉</span>
+                  <span>Free delivery unlocked</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground font-medium pl-5">
+                  Delivery within 7 days
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Delivery</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {formatPrice(shipping)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                  Delivery within 7 days
+                </p>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                <span className="font-medium">Coupon discount</span>
+                <span className="font-semibold tabular-nums text-right">
+                  −{formatPrice(couponDiscount)}
+                </span>
+              </div>
+            )}
+            <div className="border-t border-border/60 my-3" />
+            <div className="flex justify-between items-baseline pt-1">
+              <span className="text-sm font-black uppercase tracking-wider text-foreground">
+                TOTAL TO PAY
+              </span>
+              <span className="text-xl font-black font-display tracking-tight text-foreground tabular-nums text-right">
+                {formatPrice(finalTotal)}
+              </span>
             </div>
-          </dl>
+          </div>
 
           {/* Coupon code */}
           <div className="mt-4 border-t border-border pt-4">
