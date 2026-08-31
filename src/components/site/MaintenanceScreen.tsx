@@ -42,14 +42,14 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
       <div className="max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out flex flex-col items-center">
         {/* Logo */}
         <div
-          className="mb-8 overflow-hidden rounded-2xl bg-white p-4 shadow-sm border border-border cursor-pointer select-none"
+          className="mb-8 overflow-hidden rounded-full bg-white p-2 shadow-sm border border-primary/20 cursor-pointer select-none size-24 flex items-center justify-center"
           title="Admin access"
           onClick={handleLogoClick}
         >
           <img
             src={settings?.logo_url || logoUrl}
             alt="Store Logo"
-            className="h-16 w-auto object-contain"
+            className="size-full object-cover rounded-full"
           />
         </div>
 

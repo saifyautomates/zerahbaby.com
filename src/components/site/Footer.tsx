@@ -66,7 +66,7 @@ export function Footer() {
                 loading="lazy"
                 width={40}
                 height={40}
-                className="size-10 object-contain rounded-full shadow-sm flex-shrink-0"
+                className="size-10 object-cover rounded-full shadow-sm flex-shrink-0 border border-primary/20"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}

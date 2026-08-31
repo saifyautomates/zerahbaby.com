@@ -52,7 +52,7 @@ export function SplashScreen() {
             alt={brandName}
             width={120}
             height={120}
-            className="size-24 rounded-full object-contain shadow-2xl shadow-primary/20 sm:size-32"
+            className="size-24 rounded-full object-cover shadow-2xl shadow-primary/20 sm:size-32 border-2 border-primary/20"
           />
         </div>
         <div
