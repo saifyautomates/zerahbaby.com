@@ -3824,7 +3824,12 @@ function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
                 <th className="px-6 py-4 font-semibold tracking-wider">Price</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Delivery</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Stock</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Threshold</th>
+                <th
+                  className="px-6 py-4 font-semibold tracking-wider"
+                  title="Alert Level: Jab stock is number ya isse kam bachega, tab Low Stock warning aayegi"
+                >
+                  Low Stock Alert (≤)
+                </th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
                 <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
               </tr>
@@ -4054,9 +4059,14 @@ function InventoryRow({
         )}
       </td>
 
-      {/* THRESHOLD */}
-      <td className="px-6 py-4 text-xs font-semibold text-muted-foreground">
-        {product.lowStockAt}
+      {/* LOW STOCK ALERT (THRESHOLD) */}
+      <td className="px-6 py-4">
+        <span
+          className="inline-flex items-center gap-1 rounded-lg bg-muted/60 border border-border px-2.5 py-1 text-xs font-bold font-mono text-muted-foreground"
+          title={`Jab stock ${product.lowStockAt} ya isse kam bachega tab Low Stock warning alert aayega`}
+        >
+          ≤ {product.lowStockAt}
+        </span>
       </td>
 
       {/* STATUS */}
