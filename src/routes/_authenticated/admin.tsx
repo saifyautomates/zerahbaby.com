@@ -51,6 +51,7 @@ import {
   FileText,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
+import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
@@ -384,8 +385,9 @@ function AdminPage() {
           <img
             src={logo}
             alt="Zérah Baby & Kids"
-            className="h-10 w-auto object-contain drop-shadow-sm"
+            className="size-9 object-contain drop-shadow-sm"
           />
+          <BrandName size="sm" />
         </div>
 
         {/* Navigation */}

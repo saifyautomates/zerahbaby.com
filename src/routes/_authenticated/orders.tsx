@@ -224,7 +224,7 @@ function OrdersPage() {
               </ul>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-                {isAdmin && <InvoiceBox order={order} />}
+                <InvoiceBox order={order} />
                 <p className="ml-auto text-sm font-bold">
                   Total {formatPrice(Number(order.total))}
                 </p>

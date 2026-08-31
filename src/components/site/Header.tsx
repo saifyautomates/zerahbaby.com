@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { BrandName } from "@/components/site/BrandName";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
 import { CategoriesTab } from "@/components/admin/CategoriesManager";
 import { uploadMedia } from "@/lib/uploads";
@@ -378,11 +379,12 @@ export function Header() {
               <img
                 src={logo}
                 alt={`${brandName} logo`}
-                className="h-10 sm:h-12 md:h-14 w-auto object-contain drop-shadow-sm flex-shrink-0"
+                className="size-9 sm:size-10 md:size-11 object-contain drop-shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
               />
+              <BrandName size="md" />
             </Link>
 
             <div

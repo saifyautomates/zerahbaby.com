@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import logo from "@/assets/zerah-logo-official.png";
+import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
@@ -330,11 +331,12 @@ function AuthPage() {
           <img
             src={logo}
             alt="Zérah Baby & Kids"
-            className="h-20 w-auto object-contain drop-shadow-md mb-6"
+            className="size-16 object-contain drop-shadow-md mb-3"
             onError={(e) => {
               (e.target as HTMLImageElement).style.opacity = "0";
             }}
           />
+          <BrandName size="lg" align="center" />
         </div>
         <h1 className="text-center font-display text-xl font-bold">
           {mode === "input" ? "Sign In to Your Account" : "Enter Verification Code"}
