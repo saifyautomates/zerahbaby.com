@@ -216,19 +216,38 @@ export function Header() {
 
   const location = useLocation();
 
+  const closeDrawer = () => {
+    setOpen(false);
+  };
+
   // Close drawer on route change
   useEffect(() => {
     setOpen(false);
   }, [location.pathname, location.search]);
 
-  // Close drawer on Escape key
+  // Handle browser back button (popstate) to dismiss mobile drawer if open
   useEffect(() => {
     if (!open) return;
+
+    // Push dummy state so browser back button closes the drawer instead of leaving the page
+    const stateObj = { zerahDrawerOpen: true };
+    window.history.pushState(stateObj, "");
+
+    const handlePopState = () => {
+      setOpen(false);
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
+    window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   const getPageTitle = () => {
@@ -759,8 +778,8 @@ export function Header() {
       >
         {/* Backdrop */}
         <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer"
+          onClick={closeDrawer}
         />
       </div>
       <div
@@ -775,8 +794,27 @@ export function Header() {
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >
+          {/* Drawer Top Dismiss Bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border/50">
+            <button
+              type="button"
+              onClick={closeDrawer}
+              className="flex items-center gap-1 text-xs font-bold text-foreground/80 hover:text-foreground active:scale-95 transition-all py-1 px-2.5 rounded-lg hover:bg-muted cursor-pointer"
+            >
+              <ChevronLeft className="size-4 text-primary" /> Back
+            </button>
+            <button
+              type="button"
+              onClick={closeDrawer}
+              className="size-7 flex items-center justify-center rounded-full bg-background border border-border text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
+              aria-label="Close menu"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+
           {/* Profile Header */}
-          <div className="flex items-center gap-3 bg-muted/30 p-5 border-b border-border/60">
+          <div className="flex items-center gap-3 bg-muted/20 p-4 border-b border-border/60">
             <div className="relative group size-12 shrink-0">
               <div className="size-full rounded-full overflow-hidden bg-background flex items-center justify-center border border-border/50 shadow-sm">
                 {userProfile?.avatar_url ? (
@@ -823,14 +861,6 @@ export function Header() {
                 {user ? "Welcome back!" : "Sign in to sync"}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="size-9 shrink-0 flex items-center justify-center rounded-full bg-background border border-border/70 text-foreground hover:bg-muted active:scale-95 transition-all cursor-pointer shadow-2xs"
-              aria-label="Close menu"
-            >
-              <X className="size-4" />
-            </button>
           </div>
 
           {/* Links */}
