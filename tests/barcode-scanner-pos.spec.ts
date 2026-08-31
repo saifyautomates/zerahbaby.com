@@ -70,8 +70,8 @@ test.describe("Global Barcode Scanner & POS Suite", () => {
   test("2. Input Field Protection during Normal Typing", async ({ page }) => {
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
 
-    const input = page.getByPlaceholder(/Email or Mobile Number/i);
-    await expect(input).toBeVisible();
+    const input = page.locator("#auth-contact-input");
+    await expect(input).toBeVisible({ timeout: 10000 });
 
     // Human typing in input field
     await input.focus();

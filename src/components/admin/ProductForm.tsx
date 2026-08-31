@@ -130,13 +130,16 @@ export function ProductForm({
   useEffect(() => {
     async function loadRelated() {
       if (!product?.uuid) return;
+      const uuidRegex =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+      if (!uuidRegex.test(product.uuid)) return;
       try {
         const { data, error } = await supabase.rpc("get_related_products", {
           p_product_id: product.uuid,
           p_limit: 50,
         });
         if (error) throw error;
-        const manualIds = data
+        const manualIds = (data || [])
           .filter((d: Record<string, unknown>) => d.relation_source === "manual")
           .map((d: Record<string, unknown>) => String(d.id));
         setDraft((prev) => ({ ...prev, relatedProductIds: manualIds }));

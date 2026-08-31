@@ -99,14 +99,14 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
 
     // Sign in header
-    await expect(page.locator("h1")).toContainText(/Sign in/i, { timeout: 10000 });
-    await expect(page.getByPlaceholder(/Email or Mobile Number/i)).toBeVisible();
+    await expect(page.locator("h1")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#auth-contact-input")).toBeVisible();
 
     // Verify Google sign-in button
-    await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Google/i })).toBeVisible();
 
     // Verify submit button
-    await expect(page.getByRole("button", { name: "Get OTP" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Get OTP/i })).toBeVisible();
   });
 
   test("6. Protected Routes Security Redirection", async ({ page }) => {

@@ -59,17 +59,18 @@ test.describe("Storefront Post-Polish Audit", () => {
   test("Audit Category Routing and Mobile Header", async ({ page, isMobile }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    // Check Mobile Header Menu
+    // Check Navigation
     if (isMobile) {
-      console.log(`[AUDIT] Testing Mobile Header...`);
-      const menuButton = page.locator('button[aria-label="Toggle menu"]').first();
-      if (await menuButton.isVisible()) {
-        await menuButton.click();
-        const drawer = page.locator('.mobile-drawer-content, [role="dialog"]').first();
-        await expect(drawer).toBeVisible();
-        await page.mouse.click(0, 0); // Click outside to close
+      console.log(`[AUDIT] Testing Navigation on Mobile/Tablet...`);
+      const width = page.viewportSize()?.width ?? 1280;
+      if (width < 768) {
+        const bottomNav = page.locator("nav").last();
+        await expect(bottomNav).toBeVisible();
+        console.log("[PASS] Mobile App BottomNav active and visible");
       } else {
-        console.log(`[UI ISSUE] Mobile Menu button not found on Mobile Viewport!`);
+        const headerNav = page.locator("header").first();
+        await expect(headerNav).toBeVisible();
+        console.log("[PASS] Tablet Header navigation visible");
       }
     }
   });
@@ -87,9 +88,9 @@ test.describe("Storefront Post-Polish Audit", () => {
       const addToCartBtn = page.getByRole("button", { name: /add to cart|add to bag/i }).first();
       if (await addToCartBtn.isVisible()) {
         await addToCartBtn.click();
-        // Check if toast appears
-        const toast = page.locator(".toaster, .toast").first();
-        await expect(toast).toBeVisible();
+        // Check if toast appears or cart updates
+        const toast = page.locator("[data-sonner-toast]").first();
+        await expect(toast).toBeVisible({ timeout: 10000 });
       } else {
         console.log("[FUNCTIONAL ISSUE] Add to Cart button missing on product page");
       }

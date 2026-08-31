@@ -17,9 +17,9 @@ test("Check Phone Auth Flow", async ({ page }) => {
   // Click Get OTP
   await page.locator("#auth-send-otp-btn").click();
 
-  // Wait for either OTP field or error toast
+  // Wait for OTP field or error toast
   const otpInput = page.locator("#auth-otp-input");
-  const errorToast = page.locator("[data-sonner-toast]");
+  const errorToast = page.locator("[data-sonner-toast][data-type='error']");
 
   await Promise.race([
     otpInput.waitFor({ state: "visible", timeout: 10000 }),
@@ -32,5 +32,6 @@ test("Check Phone Auth Flow", async ({ page }) => {
     throw new Error(`Auth failed: ${errorText}`);
   }
 
+  await expect(otpInput).toBeVisible({ timeout: 5000 });
   console.log("OTP field appeared successfully! Phone OTP sent.");
 });

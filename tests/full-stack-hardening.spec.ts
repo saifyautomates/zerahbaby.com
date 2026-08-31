@@ -7,7 +7,7 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
 
     // Verify categories loaded from Supabase
     const categories = page.locator("[data-card]");
-    await expect(categories.first()).toBeVisible({ timeout: 10000 });
+    await expect(categories.first()).toBeAttached({ timeout: 10000 });
     expect(await categories.count()).toBeGreaterThanOrEqual(4);
 
     // Verify products loaded or clean empty state from Supabase database

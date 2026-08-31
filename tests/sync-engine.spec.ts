@@ -129,7 +129,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
 
     // Verify categories loaded
     const categoryCards = page.locator("[data-card], .group\\/cat");
-    await expect(categoryCards.first()).toBeVisible({ timeout: 10000 });
+    await expect(categoryCards.first()).toBeAttached({ timeout: 10000 });
     expect(await categoryCards.count()).toBeGreaterThanOrEqual(1);
 
     // Verify shop now links

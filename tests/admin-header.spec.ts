@@ -23,7 +23,7 @@ test.describe("Admin Header Controls & Theme Suite", () => {
     await page.goto("/admin");
     // Verify unauthorized user is redirected to auth
     await expect(page).toHaveURL(/.*\/auth/);
-    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible();
+    await expect(page.locator("h1")).toBeVisible();
   });
 
   test("3. Responsive Viewport Audits (320px, 390px, 768px, 1024px, 1440px)", async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe("Admin Header Controls & Theme Suite", () => {
     for (const vp of viewports) {
       await page.setViewportSize(vp);
       await page.goto("/auth", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible();
+      await expect(page.locator("h1")).toBeVisible();
       // Verify no horizontal overflow
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);

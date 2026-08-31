@@ -85,27 +85,33 @@ test.describe("Customer Query / Contact Form System E2E Suite", () => {
     await page.goto("/contact", { waitUntil: "domcontentloaded" });
 
     const idempotencyKey = `idem_e2e_${Date.now()}`;
-    const result = await page.evaluate(async (k) => {
-      const { supabase } = await import("/src/integrations/supabase/client.ts");
-      const payload = {
-        _name: "Aakash Verma",
-        _email: "aakash@example.com",
-        _message: "Idempotency test query message for customer service",
-        _order_number: "ORD-IDEM-01",
-        _phone: "9123456789",
-        _idempotency_key: k,
-      };
+    const testEmail = `aakash_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
+    const result = await page.evaluate(
+      async ({ k, email }) => {
+        const { supabase } = await import("/src/integrations/supabase/client.ts");
+        const payload = {
+          _name: "Aakash Verma",
+          _email: email,
+          _message: "Idempotency test query message for customer service",
+          _order_number: "ORD-IDEM-01",
+          _phone: "9123456789",
+          _idempotency_key: k,
+        };
 
-      // Call 1
-      const res1 = await supabase.rpc("submit_customer_query", payload);
-      // Call 2 with exact same idempotency key
-      const res2 = await supabase.rpc("submit_customer_query", payload);
+        // Call 1
+        const res1 = await supabase.rpc("submit_customer_query", payload);
+        // Call 2 with exact same idempotency key
+        const res2 = await supabase.rpc("submit_customer_query", payload);
 
-      return {
-        res1: res1.data,
-        res2: res2.data,
-      };
-    }, idempotencyKey);
+        return {
+          res1: res1.data,
+          res2: res2.data,
+          err1: res1.error,
+          err2: res2.error,
+        };
+      },
+      { k: idempotencyKey, email: testEmail },
+    );
 
     expect(result.res1.success).toBe(true);
     expect(result.res1.already_submitted).toBe(false);
