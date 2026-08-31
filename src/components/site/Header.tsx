@@ -15,9 +15,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
   MapPin,
-  Percent,
   LifeBuoy,
   Info,
   LogOut,
@@ -225,8 +223,6 @@ export function Header() {
     const tab = searchParams.get("tab");
     if (path.startsWith("/profile")) {
       if (tab === "addresses") return "Saved Addresses";
-      if (tab === "payments") return "Payment Methods";
-      if (tab === "coupons") return "Coupons & Offers";
       return "My Profile";
     }
     if (path.startsWith("/orders")) return "My Orders";
@@ -825,22 +821,6 @@ export function Header() {
               className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
             >
               <MapPin className="size-5 text-muted-foreground" /> Addresses
-            </Link>
-            <Link
-              to="/profile"
-              search={{ tab: "payments" }}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
-            >
-              <CreditCard className="size-5 text-muted-foreground" /> Payment Methods
-            </Link>
-            <Link
-              to="/profile"
-              search={{ tab: "coupons" }}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
-            >
-              <Percent className="size-5 text-muted-foreground" /> Coupons & Offers
             </Link>
 
             <div className="h-px bg-border/60 mx-5 my-2" />

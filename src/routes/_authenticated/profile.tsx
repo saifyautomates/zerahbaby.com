@@ -272,22 +272,6 @@ function ProfilePage() {
             </div>
             <AddressList userId={user?.id} />
           </section>
-        ) : tab === "coupons" ? (
-          <section className="py-12 text-center text-muted-foreground flex flex-col items-center justify-center">
-            <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4 text-foreground/40">
-              <span className="text-2xl font-bold">%</span>
-            </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">No active coupons</h2>
-            <p className="text-sm">You don't have any coupons or offers available right now.</p>
-          </section>
-        ) : tab === "payments" ? (
-          <section className="py-12 text-center text-muted-foreground flex flex-col items-center justify-center">
-            <div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4 text-foreground/40">
-              <span className="text-2xl font-bold">💳</span>
-            </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">No payment methods</h2>
-            <p className="text-sm">You haven't saved any payment methods yet.</p>
-          </section>
         ) : null}
       </div>
 
