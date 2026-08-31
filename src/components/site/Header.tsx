@@ -22,6 +22,7 @@ import {
   ShoppingBag,
   Camera,
   Loader2,
+  LayoutGrid,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import logo from "@/assets/zerah-logo.png";
@@ -827,17 +828,89 @@ export function Header() {
               </>
             )}
 
+            {/* Customer Store Navigation */}
+            <div className="px-4 py-2 space-y-1">
+              <Link
+                to="/shop"
+                search={{}}
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between rounded-2xl bg-primary/10 px-4 py-3 text-sm font-bold text-primary hover:bg-primary/20 transition-all shadow-2xs"
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkle className="size-5" />
+                  <span>Shop All Products</span>
+                </div>
+                <ChevronRight className="size-4" />
+              </Link>
+
+              <Link
+                to="/categories"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <LayoutGrid className="size-5 text-muted-foreground" />
+                  <span>All Categories</span>
+                </div>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </Link>
+            </div>
+
+            {/* Quick Category Chips in Mobile Drawer */}
+            {categories && categories.length > 0 && (
+              <div className="px-4 py-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2 px-1">
+                  Popular Categories
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {categories.slice(0, 6).map((c) => (
+                    <Link
+                      key={c.slug}
+                      to="/shop"
+                      search={{ category: c.slug }}
+                      onClick={() => setOpen(false)}
+                      className="rounded-full bg-muted/70 px-3 py-1 text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all"
+                    >
+                      {c.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Age Group Filter Chips in Mobile Drawer */}
+            <div className="px-4 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2 px-1">
+                Shop by Age
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {ageGroups.map((age) => (
+                  <Link
+                    key={age}
+                    to="/shop"
+                    search={{ age }}
+                    onClick={() => setOpen(false)}
+                    className="rounded-full border border-border/80 bg-background px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:border-primary hover:text-primary transition-all"
+                  >
+                    {age}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px bg-border/60 mx-5 my-2" />
+
             <Link
               to="/orders"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+              className="flex items-center gap-3 px-5 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
             >
               <ShoppingBag className="size-5 text-muted-foreground" /> My Orders
             </Link>
             <Link
               to="/wishlist"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+              className="flex items-center gap-3 px-5 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
             >
               <Heart className="size-5 text-muted-foreground" /> Wishlist
             </Link>
