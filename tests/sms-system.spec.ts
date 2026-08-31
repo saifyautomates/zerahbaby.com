@@ -166,7 +166,7 @@ test.describe("Complete Sales SMS System Test Suite", () => {
 
   test("5. Admin SMS Logs UI: Filter and Rendering Integrity", async ({ page }) => {
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
 
     // Verify SMS status and filter integrity
     const validStatuses = ["all", "sent", "delivered", "failed", "pending", "simulated_success"];

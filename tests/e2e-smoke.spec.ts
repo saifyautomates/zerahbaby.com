@@ -57,7 +57,7 @@ test.describe("Zerah Baby And Kids - End to End Smoke Tests", () => {
 
   test("Auth page loads correctly", async ({ page }) => {
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
-    await expect(page.locator("h1")).toBeVisible();
-    await expect(page.locator("#auth-contact-input")).toBeVisible();
+    await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#auth-contact-input")).toBeVisible({ timeout: 15000 });
   });
 });

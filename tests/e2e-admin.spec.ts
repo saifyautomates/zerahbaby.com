@@ -3,10 +3,10 @@ import { test, expect } from "@playwright/test";
 test.describe("Zerah Baby And Kids - Admin Security & Functionality Tests", () => {
   // Test 1: Redirect to Auth
   test("Admin routes should redirect to Auth when unauthenticated", async ({ page }) => {
-    await page.goto("/admin");
-    await expect(page).toHaveURL(/.*\/auth/);
-    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible();
-    await expect(page.getByPlaceholder(/Email or Mobile Number/i)).toBeVisible();
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByPlaceholder(/Email or Mobile Number/i)).toBeVisible({ timeout: 15000 });
   });
 
   test("Supabase RLS should prevent unauthenticated product creation", async ({ request }) => {

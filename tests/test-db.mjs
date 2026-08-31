@@ -3,7 +3,7 @@ import fs from "fs";
 
 const envFile = fs.readFileSync(".env", "utf-8");
 const env = {};
-envFile.split("\n").forEach((line) => {
+envFile.split(/\r?\n/).forEach((line) => {
   const match = line.match(/^([^=]+)=(.*)$/);
   if (match) env[match[1].trim()] = match[2].trim().replace(/^"|"$/g, "");
 });

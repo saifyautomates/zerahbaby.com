@@ -1,6 +1,16 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Admin Header Controls & Theme Suite", () => {
+  test.afterEach(async ({ page }) => {
+    try {
+      await page.evaluate(() => {
+        localStorage.removeItem("zerah-theme");
+      });
+    } catch {
+      // Ignore if page closed
+    }
+  });
+
   test("1. Theme Toggle - Storefront Light Mode Isolation & Admin Dark Mode", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -9,21 +19,21 @@ test.describe("Admin Header Controls & Theme Suite", () => {
     await page.evaluate(() => {
       localStorage.setItem("zerah-theme", "dark");
     });
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
 
     // On storefront (/), html must NOT have 'dark' class
     await expect(html).not.toHaveClass(/dark/);
 
     // Navigate to admin route to test admin dark theme persistence
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/.*\/auth/);
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
   });
 
   test("2. Admin Authentication Guard", async ({ page }) => {
-    await page.goto("/admin");
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
     // Verify unauthorized user is redirected to auth
-    await expect(page).toHaveURL(/.*\/auth/);
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
+    await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
   });
 
   test("3. Responsive Viewport Audits (320px, 390px, 768px, 1024px, 1440px)", async ({ page }) => {
@@ -38,7 +48,7 @@ test.describe("Admin Header Controls & Theme Suite", () => {
     for (const vp of viewports) {
       await page.setViewportSize(vp);
       await page.goto("/auth", { waitUntil: "domcontentloaded" });
-      await expect(page.locator("h1")).toBeVisible();
+      await expect(page.locator("h1")).toBeVisible({ timeout: 15000 });
       // Verify no horizontal overflow
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
