@@ -42,7 +42,8 @@ import {
   Eye,
   Activity,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
@@ -105,6 +106,28 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isDateDropdownOpen]);
+
+  const queryClient = useQueryClient();
+
+  const clearVisitorsMutation = useMutation({
+    mutationFn: async () => {
+      const { error: rpcErr } = await supabase.rpc("clear_website_visitors" as never);
+      if (rpcErr) {
+        const { error: delErr } = await supabase
+          .from("website_visitors")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        if (delErr) throw delErr;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Visitor logs cleared successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
+    },
+    onError: (e: Error) => {
+      toast.error("Failed to clear visitor logs: " + e.message);
+    },
+  });
 
   // Authoritative Queries
   const { data: orders = [], isLoading: ordersLoading } = useAllOrders(true);
@@ -1372,6 +1395,25 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               <span className="font-bold text-foreground">{visitors.length}</span>
             </p>
           </div>
+          {visitors.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Are you sure you want to permanently wipe all recorded/fake visitor logs?",
+                  )
+                ) {
+                  clearVisitorsMutation.mutate();
+                }
+              }}
+              disabled={clearVisitorsMutation.isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{clearVisitorsMutation.isPending ? "Clearing..." : "Clear Fake/All Logs"}</span>
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
