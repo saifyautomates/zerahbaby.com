@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { BrandName } from "@/components/site/BrandName";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
+import { CategoriesTab } from "@/components/admin/CategoriesManager";
 import { uploadMedia } from "@/lib/uploads";
 import { toast } from "sonner";
 
@@ -93,8 +94,6 @@ function useRecentSearches() {
 
   return { recent, addSearch, removeSearch };
 }
-
-import { CategoriesTab } from "@/components/admin/CategoriesManager";
 
 export function Header() {
   const { count } = useCart();
