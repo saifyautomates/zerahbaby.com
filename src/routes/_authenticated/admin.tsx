@@ -759,10 +759,13 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
+  const [channelTab, setChannelTab] = useState<"ONLINE_AND_OFFLINE" | "OFFLINE_ONLY">(
+    "ONLINE_AND_OFFLINE",
+  );
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived" | "offline_only"
+    "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived"
   >("all");
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [stockVal, setStockVal] = useState<number>(0);
@@ -1286,11 +1289,12 @@ function ProductsTab() {
       else if (statusFilter === "low_stock")
         matchesStatus = (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5);
       else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) === 0;
-      else if (statusFilter === "offline_only") matchesStatus = p.salesChannel === "OFFLINE_ONLY";
 
-      return matchesSearch && matchesCat && matchesStatus;
+      const matchesChannel = p.salesChannel === channelTab;
+
+      return matchesSearch && matchesCat && matchesStatus && matchesChannel;
     });
-  }, [data, search, categoryFilter, statusFilter]);
+  }, [data, search, categoryFilter, statusFilter, channelTab]);
 
   // Handle header checkbox indeterminate state
   const isAllSelected = list.length > 0 && list.every((p) => selectedIds.has(p.uuid));
@@ -1397,6 +1401,31 @@ function ProductsTab() {
           <p className="mt-1 text-lg font-extrabold text-red-600">{outOfStockCount}</p>
         </div>
       </div>
+      {/* Channel Segmented Control */}
+      <div className="flex p-1 bg-muted/30 rounded-2xl border border-border w-fit max-w-full overflow-x-auto mx-auto sm:mx-0">
+        <button
+          onClick={() => setChannelTab("ONLINE_AND_OFFLINE")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+            channelTab === "ONLINE_AND_OFFLINE"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          }`}
+        >
+          <Package className="size-4" />
+          <span>Online & Offline Store</span>
+        </button>
+        <button
+          onClick={() => setChannelTab("OFFLINE_ONLY")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+            channelTab === "OFFLINE_ONLY"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          }`}
+        >
+          <Store className="size-4" />
+          <span>Only Offline (POS)</span>
+        </button>
+      </div>
 
       {/* Top action & search bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1433,20 +1462,13 @@ function ProductsTab() {
             onChange={(e) =>
               setStatusFilter(
                 e.target.value as
-                  | "all"
-                  | "active"
-                  | "in_stock"
-                  | "low_stock"
-                  | "out_of_stock"
-                  | "archived"
-                  | "offline_only",
+                  "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived",
               )
             }
             className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
           >
             <option value="all">All Products ({totalProducts})</option>
             <option value="active">Live Store ({activeCount})</option>
-            <option value="offline_only">POS Only ({offlineOnlyCount})</option>
             <option value="in_stock">In Stock ({inStockCount})</option>
             <option value="low_stock">Low Stock (≤ alert) ({lowStockCount})</option>
             <option value="out_of_stock">Out of Stock ({outOfStockCount})</option>
