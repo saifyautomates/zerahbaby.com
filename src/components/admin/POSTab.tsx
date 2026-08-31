@@ -170,6 +170,7 @@ export function POSTab() {
       ...prev,
       {
         product_id: `custom-${Date.now()}`,
+        variant_id: `00000000-0000-0000-0000-000000000000`, // dummy variant for custom item
         slug: "custom",
         name: quickOrderProduct,
         brand: "Custom Item",
@@ -258,6 +259,7 @@ export function POSTab() {
 
       const added = addToCart({
         product_id: result.product_id!,
+        variant_id: result.variant_id || "",
         slug: result.slug!,
         name: result.name!,
         brand: result.brand ?? "",
@@ -312,16 +314,18 @@ export function POSTab() {
       toast.error(`"${product.name}" is out of stock`);
       return;
     }
+    const defaultVariant = product.variants?.length ? product.variants[0] : undefined;
     addToCart({
       product_id: product.uuid,
+      variant_id: defaultVariant?.id || "",
       slug: product.id,
       name: product.name,
       brand: product.brand,
       category: product.category,
-      price: product.price,
+      price: defaultVariant?.priceOverride || product.price,
       mrp: product.mrp,
-      stock: product.stock,
-      sku: product.sku,
+      stock: defaultVariant ? defaultVariant.stock : product.stock,
+      sku: defaultVariant?.sku || product.sku,
       barcode: product.barcode,
       image_url: product.imageUrl || product.image,
       age_group: product.ageGroup,
@@ -359,6 +363,7 @@ export function POSTab() {
 
     const rpcItems = cart.map((item) => ({
       product_id: item.isCustom ? undefined : item.product_id,
+      variant_id: item.variant_id || "",
       product_slug: item.isCustom ? `custom-${Date.now()}` : item.slug,
       name: item.name,
       sku: item.sku,
@@ -1396,6 +1401,7 @@ export function POSTab() {
             reviews: 0,
             ageGroup: item.age_group,
             images: [],
+            variants: [],
           }))}
           onClose={() => setShowLabels(false)}
         />

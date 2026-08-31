@@ -202,6 +202,7 @@ export function usePlaceOrder() {
       discount?: number;
       coupon_code?: string;
       items: {
+        variant_id: string;
         product_slug: string;
         name: string;
         image_url: string | null;
@@ -209,9 +210,9 @@ export function usePlaceOrder() {
         qty: number;
       }[];
     }) => {
-      // Build items payload for the RPC (only slug + qty needed; server fetches prices)
+      // Build items payload for the RPC (only variant_id + qty needed; server fetches prices)
       const rpcItems = input.items.map((item) => ({
-        product_slug: item.product_slug,
+        variant_id: item.variant_id,
         qty: item.qty,
       }));
 

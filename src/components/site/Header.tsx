@@ -1,5 +1,5 @@
 //
-import { Link, useNavigate, useLocation } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
@@ -215,6 +215,22 @@ export function Header() {
   }
 
   const location = useLocation();
+
+  // Close drawer on route change
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search]);
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
   const getPageTitle = () => {
     const path = location.pathname;
     const searchParams = new URLSearchParams(
@@ -251,11 +267,26 @@ export function Header() {
   const pageTitle = getPageTitle();
   const isSubPage = location.pathname !== "/";
 
+  const router = useRouter();
+
   const handleBack = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      window.history.back();
+    // Check if TanStack router has internal history in this session
+    const hasInternalHistory =
+      typeof window !== "undefined" && window.history.state?.__TSR_index > 0;
+
+    if (hasInternalHistory) {
+      router.history.back();
     } else {
-      navigate({ to: "/" });
+      // Logical fallbacks based on current route
+      if (location.pathname.startsWith("/product/")) {
+        navigate({ to: "/shop" });
+      } else if (location.pathname.startsWith("/checkout")) {
+        navigate({ to: "/cart" });
+      } else if (location.pathname.startsWith("/admin")) {
+        navigate({ to: "/admin" });
+      } else {
+        navigate({ to: "/" });
+      }
     }
   };
 
@@ -784,7 +815,7 @@ export function Header() {
                 </>
               )}
             </div>
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-semibold text-muted-foreground truncate">
                 Hello, {user ? user.user_metadata?.full_name || "Parent" : "Guest"} 👋
               </span>
@@ -792,6 +823,14 @@ export function Header() {
                 {user ? "Welcome back!" : "Sign in to sync"}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="size-9 shrink-0 flex items-center justify-center rounded-full bg-background border border-border/70 text-foreground hover:bg-muted active:scale-95 transition-all cursor-pointer shadow-2xs"
+              aria-label="Close menu"
+            >
+              <X className="size-4" />
+            </button>
           </div>
 
           {/* Links */}

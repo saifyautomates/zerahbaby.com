@@ -2158,6 +2158,8 @@ const SETTING_LABELS: Record<string, string> = {
   free_delivery_threshold: "Free Delivery Threshold Amount (₹)",
   standard_shipping_charge: "Standard Shipping Charge (₹)",
   free_delivery_message: "Free Delivery Cart Message",
+  enable_cod: "Enable Cash on Delivery (true/false)",
+  enable_open_box: "Enable Open Box Delivery (true/false)",
 };
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -2178,10 +2180,14 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
     "Agar order free delivery threshold se kam hai, toh yeh charge lagega (e.g. 79).",
   free_delivery_message:
     "Cart me progress bar ke liye message. Use {amount} as placeholder. (e.g. Add ₹{amount} more for FREE DELIVERY 🎉)",
+  enable_cod: "True likhne par Cash on Delivery payment option on ho jayega, false par disable.",
+  enable_open_box: "True likhne par Checkout me Open Box Delivery option dikhega, false par nahi.",
 };
 const DEFAULT_SETTINGS: Record<string, string> = {
   brand_name: "Zerah Baby And Kid's",
   announcement: "Free delivery on orders above ₹999 · Easy 7-day returns",
+  enable_cod: "true",
+  enable_open_box: "true",
   hero_title: "Everything little ones need, in one happy place",
   hero_subtitle:
     "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",

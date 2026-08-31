@@ -164,11 +164,12 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
-              items: items.map(({ product, qty }) => ({
+              items: items.map(({ product, qty, variantId, price }) => ({
+                variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
                 name: product.name,
                 image_url: product.imageUrl,
-                price: product.price,
+                price: price,
                 qty,
               })),
             }
@@ -190,11 +191,12 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
-              items: items.map(({ product, qty }) => ({
+              items: items.map(({ product, qty, variantId, price }) => ({
+                variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
                 name: product.name,
                 image_url: product.imageUrl || product.image,
-                price: product.price,
+                price: price,
                 qty,
               })),
             };

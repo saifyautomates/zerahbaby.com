@@ -230,15 +230,12 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
           : "Check back soon — new arrivals are added regularly."}
       </p>
       {hasFilters ? (
-        <button
-          onClick={() => {
-            // Using window.history or Link search reset
-            window.location.href = "/shop";
-          }}
-          className="focus-ring mt-8 rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
+        <Link
+          to="/shop"
+          className="focus-ring mt-8 rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover flex items-center justify-center w-max mx-auto block"
         >
           Clear all filters
-        </button>
+        </Link>
       ) : (
         <Link
           to="/"

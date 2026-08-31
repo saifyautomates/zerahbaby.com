@@ -4,21 +4,29 @@ import { useProducts, type Product } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 
-export type CartLine = { id: string; qty: number };
+export type CartLine = { id: string; qty: number; variantId?: string };
+
+export type CartItem = {
+  product: Product;
+  qty: number;
+  variantId?: string;
+  price: number;
+  stock: number;
+};
 
 export type CartCoupon = { code: string; discount: number; id: string };
 
 type CartContextValue = {
   lines: CartLine[];
-  items: { product: Product; qty: number }[];
+  items: CartItem[];
   count: number;
   subtotal: number;
   savings: number;
   total: number;
   coupon: CartCoupon | null;
-  add: (id: string, qty?: number) => void;
-  setQty: (id: string, qty: number) => void;
-  remove: (id: string) => void;
+  add: (id: string, qty?: number, variantId?: string) => void;
+  setQty: (id: string, qty: number, variantId?: string) => void;
+  remove: (id: string, variantId?: string) => void;
   clear: () => void;
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => void;
@@ -64,6 +72,7 @@ async function syncToSupabase(userId: string, lines: CartLine[], products: Produ
           return {
             cart_id: cart.id,
             product_id: product.uuid,
+            variant_id: line.variantId || (product.variants?.length ? product.variants[0].id : null),
             quantity: line.qty,
             price_at_add: product.price,
           };
@@ -92,7 +101,7 @@ async function loadFromSupabase(userId: string, products: Product[]): Promise<Ca
 
     const { data: items } = await supabase
       .from("cart_items")
-      .select("product_id, quantity")
+      .select("product_id, quantity, variant_id")
       .eq("cart_id", cart.id);
 
     if (!items || items.length === 0) return null;
@@ -102,7 +111,7 @@ async function loadFromSupabase(userId: string, products: Product[]): Promise<Ca
     for (const item of items) {
       const product = products.find((p) => p.uuid === item.product_id);
       if (product) {
-        lines.push({ id: product.id, qty: item.quantity });
+        lines.push({ id: product.id, qty: item.quantity, variantId: item.variant_id ?? undefined });
       }
     }
     return lines.length > 0 ? lines : null;
@@ -217,16 +226,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     const list = products ?? [];
-    const items = lines
-      .map((line) => {
+    const items: CartItem[] = lines
+      .map((line): CartItem | null => {
         const product = list.find((x) => x.id === line.id);
         if (!product) return null;
-        const clampedQty = Math.min(line.qty, product.stock);
-        return { product, qty: clampedQty };
-      })
-      .filter((x): x is { product: Product; qty: number } => x !== null && x.qty > 0);
+        
+        const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
+        const vId = line.variantId || defaultVariantId;
+        const variant = product.variants?.find(v => v.id === vId);
+        const stock = variant ? variant.stock : product.stock;
+        const price = variant?.priceOverride || product.price;
 
-    const subtotal = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+        const clampedQty = Math.min(line.qty, stock);
+        return { product, qty: clampedQty, variantId: vId, price, stock };
+      })
+      .filter((x): x is CartItem => x !== null && x.qty > 0);
+
+    const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
     const eligibleSubtotal = Math.max(0, subtotal - (coupon?.discount || 0));
 
     // Default to true and 999 if settings are not loaded yet
@@ -257,7 +273,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count: items.reduce((sum, i) => sum + i.qty, 0),
       subtotal,
       savings: items.reduce(
-        (sum, i) => sum + Math.max(0, i.product.mrp - i.product.price) * i.qty,
+        (sum, i) => sum + Math.max(0, i.product.mrp - i.price) * i.qty,
         0,
       ),
       total,
@@ -267,31 +283,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
       freeDeliveryMessage,
       amountToFreeDelivery,
       coupon,
-      add: (id, qty = 1) =>
+      add: (id, qty = 1, variantId) =>
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
           if (!product) return prev;
 
-          const existing = prev.find((l) => l.id === id);
+          const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
+          const vId = variantId || defaultVariantId;
+          const variant = product.variants?.find(v => v.id === vId);
+          const stock = variant ? variant.stock : product.stock;
+
+          const existing = prev.find((l) => l.id === id && (l.variantId || defaultVariantId) === vId);
           const requestedQty = (existing?.qty || 0) + qty;
-          const finalQty = Math.min(requestedQty, product.stock);
+          const finalQty = Math.min(requestedQty, stock);
 
           if (existing) {
-            return prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
+            return prev.map((l) => (l.id === id && (l.variantId || defaultVariantId) === vId ? { ...l, qty: finalQty } : l));
           }
-          return [...prev, { id, qty: finalQty }];
+          return [...prev, { id, qty: finalQty, variantId: vId }];
         }),
-      setQty: (id, qty) =>
+      setQty: (id, qty, variantId) =>
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
           if (!product) return prev;
 
-          const finalQty = Math.min(qty, product.stock);
+          const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
+          const vId = variantId || defaultVariantId;
+          const variant = product.variants?.find(v => v.id === vId);
+          const stock = variant ? variant.stock : product.stock;
+
+          const finalQty = Math.min(qty, stock);
           return finalQty <= 0
-            ? prev.filter((l) => l.id !== id)
-            : prev.map((l) => (l.id === id ? { ...l, qty: finalQty } : l));
+            ? prev.filter((l) => !(l.id === id && (l.variantId || defaultVariantId) === vId))
+            : prev.map((l) => (l.id === id && (l.variantId || defaultVariantId) === vId ? { ...l, qty: finalQty } : l));
         }),
-      remove: (id) => setLines((prev) => prev.filter((l) => l.id !== id)),
+      remove: (id, variantId) => setLines((prev) => prev.filter((l) => {
+        if (!variantId) return l.id !== id; // if no variantId provided, remove all variants of this product
+        const product = list.find((p) => p.id === id);
+        const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
+        return !(l.id === id && (l.variantId || defaultVariantId) === variantId);
+      })),
       clear: async () => {
         setLines([]);
         setCoupon(null);

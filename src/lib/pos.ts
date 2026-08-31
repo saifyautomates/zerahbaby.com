@@ -14,6 +14,7 @@ import { formatPrice } from "@/lib/store";
 
 export type POSCartItem = {
   product_id: string;
+  variant_id: string;
   slug: string;
   name: string;
   brand: string;
@@ -59,9 +60,7 @@ export type OfflineSale = {
   created_by: string;
   owner_notification_status?: string | null;
   owner_notified_at?: string | null;
-  /** Daily sequential walk-in token (1, 2, 3...). Resets each IST calendar day. */
   pos_token_number: number | null;
-  /** IST calendar date this token belongs to. */
   pos_token_date: string | null;
   created_at: string;
   updated_at: string;
@@ -96,9 +95,7 @@ export type SaleResult = {
   customer_phone?: string;
   items_count: number;
   duplicate: boolean;
-  /** Daily sequential walk-in token number (1, 2, 3...). Always present on a completed POS sale. */
   pos_token_number: number | null;
-  /** IST calendar date string (YYYY-MM-DD) for the token. */
   pos_token_date: string | null;
 };
 
@@ -111,6 +108,7 @@ export type BarcodeResult = {
   archived?: boolean;
   error?: string;
   product_id?: string;
+  variant_id?: string;
   slug?: string;
   name?: string;
   brand?: string;
@@ -159,17 +157,19 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   // Fallback to local offline catalog
   const localMatch = await findOfflineProductByCode(clean);
   if (localMatch) {
+    const vMatch = localMatch.matchedVariant as any;
     return {
       found: true,
       product_id: (localMatch.uuid as string) || (localMatch.id as string),
+      variant_id: vMatch?.id,
       slug: (localMatch.slug as string) || (localMatch.id as string),
-      name: (localMatch.name as string) || "",
+      name: (localMatch.name as string) || "" + (vMatch && vMatch.name !== "Default" ? ` - ${vMatch.name}` : ""),
       brand: (localMatch.brand as string) || "Zérah Baby & Kids",
       category: (localMatch.category as string) || "clothing",
-      price: Number(localMatch.price) || 0,
+      price: vMatch?.priceOverride ?? Number(localMatch.price) ?? 0,
       mrp: Number(localMatch.mrp) || Number(localMatch.price) || 0,
-      stock: Number(localMatch.stock) || 10,
-      sku: (localMatch.sku as string) || "",
+      stock: vMatch?.stock ?? Number(localMatch.stock) ?? 10,
+      sku: vMatch?.sku || (localMatch.sku as string) || "",
       barcode: (localMatch.barcode as string) || clean,
       image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,
       age_group: (localMatch.ageGroup as string) || (localMatch.age_group as string) || "",
@@ -195,7 +195,8 @@ export type PlaceSaleInput = {
   customer_id: string | null;
   items: Array<{
     product_id?: string;
-    product_slug: string;
+    variant_id: string;
+    product_slug?: string;
     name?: string;
     sku?: string;
     qty: number;

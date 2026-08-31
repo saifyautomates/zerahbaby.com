@@ -28,11 +28,13 @@ export type OfflineQueueItem = {
   customer_id: string | null;
   items: Array<{
     product_id?: string;
-    product_slug: string;
+    variant_id?: string;
+    product_slug?: string;
     name?: string;
     sku?: string;
     qty: number;
     custom_price?: number;
+    price?: number;
   }>;
   total: number;
   subtotal: number;
@@ -319,16 +321,44 @@ export async function findOfflineProductByCode(
       const req = store.getAll();
       req.onsuccess = () => {
         const all = req.result || [];
-        const match = all.find(
-          (p: Record<string, unknown>) =>
-            p.is_active !== false &&
-            p.isActive !== false &&
-            (String(p.barcode || "").toLowerCase() === clean ||
-              String(p.sku || "").toLowerCase() === clean ||
-              String(p.slug || "").toLowerCase() === clean ||
-              String(p.id || "").toLowerCase() === clean),
-        );
-        resolve(match || null);
+        let matchedVariant = null;
+        let matchedProduct = null;
+
+        for (const p of all) {
+          if (p.is_active === false || p.isActive === false) continue;
+
+          // Check variants first
+          if (Array.isArray(p.variants)) {
+            const vMatch = p.variants.find(
+              (v: any) => String(v.sku || "").toLowerCase() === clean,
+            );
+            if (vMatch) {
+              matchedVariant = vMatch;
+              matchedProduct = p;
+              break;
+            }
+          }
+
+          // Then check parent
+          if (
+            String(p.barcode || "").toLowerCase() === clean ||
+            String(p.sku || "").toLowerCase() === clean ||
+            String(p.slug || "").toLowerCase() === clean ||
+            String(p.id || "").toLowerCase() === clean
+          ) {
+            matchedProduct = p;
+            matchedVariant = Array.isArray(p.variants)
+              ? p.variants.find((v: any) => v.name === "Default") || p.variants[0]
+              : null;
+            break;
+          }
+        }
+
+        if (matchedProduct) {
+          resolve(Object.assign({}, matchedProduct, { matchedVariant }));
+        } else {
+          resolve(null);
+        }
       };
       req.onerror = () => resolve(null);
     });

@@ -24,6 +24,7 @@ import {
   Truck,
   Settings2,
   Store,
+  Layers,
 } from "lucide-react";
 import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
 import { generateProductFallbackSvg } from "@/lib/product-media";
@@ -58,6 +59,7 @@ export type ProductDraft = {
   recommendationMode: "manual" | "auto" | "manual_fallback";
   relatedProductIds: string[];
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+  variants: { id?: string; name: string; sku: string; stock: number; price_override: number | null }[];
 };
 
 const CATEGORY_PREFIXES: Record<string, string> = {
@@ -102,9 +104,18 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => (
   isActive: p?.isActive ?? true,
   sortOrder: p?.sortOrder ?? 0,
   buyingPrice: p?.buyingPrice ?? 0,
-  recommendationMode: p?.recommendationMode ?? "manual_fallback",
-  relatedProductIds: [], // Will be hydrated by useEffect if editing
+  recommendationMode: p?.recommendationMode ?? "manual",
+  relatedProductIds: (p as any)?.relatedProductIds ?? [],
   salesChannel: p?.salesChannel ?? "ONLINE_AND_OFFLINE",
+  variants: p?.variants?.length
+    ? p.variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        sku: v.sku ?? "",
+        stock: v.stock,
+        price_override: v.priceOverride ?? null,
+      }))
+    : [{ name: "Default", sku: p?.sku ?? "", stock: p?.stock ?? 10, price_override: null }],
 });
 
 const input =
@@ -778,19 +789,108 @@ export function ProductForm({
                 )}
               </div>
             </div>
-            <label className="text-sm font-semibold">
-              Stock on hand
-              <input
-                type="number"
-                min="0"
-                className={input}
-                placeholder="0"
-                value={draft.stock === 0 ? "" : draft.stock}
-                onChange={(e) =>
-                  set("stock", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                }
-              />
-            </label>
+            {/* VARIANTS SECTION */}
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Layers className="size-4 text-muted-foreground" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Product Variants & Stock
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    set("variants", [
+                      ...draft.variants,
+                      { name: "", sku: generateSKU(draft.category), stock: 10, price_override: null },
+                    ])
+                  }
+                  className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition"
+                >
+                  <Plus className="size-3" /> Add Variant
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {draft.variants.map((v, idx) => (
+                  <div key={idx} className="flex flex-wrap gap-3 items-end p-3 rounded-lg border border-border bg-background">
+                    <label className="flex-1 min-w-[120px] text-xs font-semibold text-muted-foreground">
+                      Variant Name
+                      <input
+                        className={`${input} mt-1 text-foreground`}
+                        value={v.name}
+                        placeholder="e.g. Size M, Red"
+                        onChange={(e) => {
+                          const updated = [...draft.variants];
+                          updated[idx].name = e.target.value;
+                          set("variants", updated);
+                        }}
+                      />
+                    </label>
+                    <label className="w-24 text-xs font-semibold text-muted-foreground">
+                      Stock
+                      <input
+                        type="number"
+                        min="0"
+                        className={`${input} mt-1 text-foreground`}
+                        value={v.stock}
+                        onChange={(e) => {
+                          const updated = [...draft.variants];
+                          updated[idx].stock = Math.max(0, Number(e.target.value));
+                          set("variants", updated);
+                          // Auto update parent stock
+                          set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                        }}
+                      />
+                    </label>
+                    <label className="w-32 text-xs font-semibold text-muted-foreground">
+                      SKU
+                      <input
+                        className={`${input} mt-1 text-foreground`}
+                        value={v.sku}
+                        placeholder="Auto"
+                        onChange={(e) => {
+                          const updated = [...draft.variants];
+                          updated[idx].sku = e.target.value;
+                          set("variants", updated);
+                        }}
+                      />
+                    </label>
+                    <label className="w-32 text-xs font-semibold text-muted-foreground">
+                      Price (₹)
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Default"
+                        className={`${input} mt-1 text-foreground`}
+                        value={v.price_override ?? ""}
+                        onChange={(e) => {
+                          const updated = [...draft.variants];
+                          updated[idx].price_override = e.target.value ? Number(e.target.value) : null;
+                          set("variants", updated);
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = draft.variants.filter((_, i) => i !== idx);
+                        if (updated.length === 0) {
+                          updated.push({ name: "Default", sku: generateSKU(draft.category), stock: 10, price_override: null });
+                        }
+                        set("variants", updated);
+                        set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                      }}
+                      className="p-2 mb-0.5 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition"
+                      title="Remove Variant"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
             <label className="text-sm font-semibold">
               Low-stock alert at
               <input
