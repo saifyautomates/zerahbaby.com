@@ -3,8 +3,9 @@ import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from "web-vitals";
 export function initPerformanceMetrics() {
   if (typeof window === "undefined") return;
   const sendMetric = (name: string, value: number) => {
-    console.log(`[Web Vitals] ${name}: ${value}`);
-    // TODO: integrate with analytics if needed
+    if (import.meta.env.DEV) {
+      console.log(`[Web Vitals] ${name}: ${value}`);
+    }
   };
   onCLS((metric: Metric) => sendMetric("CLS", metric.value));
   onINP((metric: Metric) => sendMetric("INP", metric.value));
