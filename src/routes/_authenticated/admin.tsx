@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   LogOut,
   Plus,
+  Minus,
   Pencil,
   Trash2,
   Store,
@@ -103,9 +104,6 @@ const BulkImportTab = lazy(() =>
 const PagesPoliciesTab = lazy(() =>
   import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
 );
-const OnlyOfflineTab = lazy(() =>
-  import("@/components/admin/OnlyOfflineTab").then((m) => ({ default: m.OnlyOfflineTab })),
-);
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
@@ -141,12 +139,10 @@ type Tab =
   | "admins"
   | "coupons"
   | "reviews"
-  | "inventory"
   | "marketing"
   | "sms"
   | "queries"
-  | "pages"
-  | "offline_products";
+  | "pages";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -347,10 +343,8 @@ function AdminPage() {
       badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
     },
     { key: "products", label: "Products", icon: Package },
-    { key: "offline_products", label: "Only Offline", icon: Store },
     { key: "categories", label: "Categories", icon: Layers },
     { key: "customers", label: "Customers", icon: Users },
-    { key: "inventory", label: "Inventory", icon: Layers },
     { key: "coupons", label: "Coupons", icon: Tag },
     { key: "reviews", label: "Reviews", icon: Star },
     { key: "hero", label: "Hero Media", icon: Images },
@@ -736,13 +730,11 @@ function AdminPage() {
               {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "billing" && <BillingCenterTab />}
               {tab === "products" && <ProductsTab />}
-              {tab === "offline_products" && <OnlyOfflineTab />}
               {tab === "hero" && <HeroMediaManager />}
               {tab === "media" && <MediaLibrary />}
               {tab === "orders" && <OnlineSalesTab />}
               {tab === "customers" && <CustomersTab />}
               {tab === "categories" && <CategoriesTab />}
-              {tab === "inventory" && <InventoryTab onNavigate={setTab as (tab: string) => void} />}
               {tab === "marketing" && <MarketingTab />}
               {tab === "pages" && <PagesPoliciesTab />}
               {tab === "settings" && <SettingsTab />}
@@ -769,9 +761,11 @@ function ProductsTab() {
   const [printingLabels, setPrintingLabels] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "low_stock">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived" | "offline_only"
+  >("all");
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [stockVal, setStockVal] = useState<number>(0);
   const { printLabel, isPrinting } = useDirectLabelPrint();
 
   // Selection states
@@ -832,7 +826,24 @@ function ProductsTab() {
     qc.invalidateQueries({ queryKey: ["categories"] });
     qc.invalidateQueries({ queryKey: ["admin-search-products"] });
     qc.invalidateQueries({ queryKey: ["product-relations"] });
+    qc.invalidateQueries({ queryKey: ["admin-products-count"] });
   };
+
+  const updateStock = useMutation({
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ stock: Math.max(0, stock) })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Stock updated successfully");
+      setEditingStockId(null);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const setDeliveryFeeQuick = useMutation({
     mutationFn: async ({ uuid, slug, fee }: { uuid: string; slug: string; fee: number }) => {
@@ -929,6 +940,7 @@ function ProductsTab() {
         is_active: draft.isActive,
         sort_order: Number(draft.sortOrder),
         recommendation_mode: draft.recommendationMode,
+        sales_channel: draft.salesChannel,
       };
 
       if (!uuid) {
@@ -1247,6 +1259,18 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const totalProducts = data?.length ?? 0;
+  const totalStockUnits = (data ?? []).reduce((sum, p) => sum + (p.stock || 0), 0);
+  const totalStockValue = (data ?? []).reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
+  const inStockCount = (data ?? []).filter((p) => (p.stock || 0) > 0).length;
+  const lowStockCount = (data ?? []).filter(
+    (p) => (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5),
+  ).length;
+  const outOfStockCount = (data ?? []).filter((p) => (p.stock || 0) === 0).length;
+  const activeCount = (data ?? []).filter((p) => p.isActive).length;
+  const archivedCount = (data ?? []).filter((p) => !p.isActive).length;
+  const offlineOnlyCount = (data ?? []).filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
+
   const list = useMemo(() => {
     return (data ?? []).filter((p) => {
       const matchesSearch = (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
@@ -1258,7 +1282,11 @@ function ProductsTab() {
       let matchesStatus = true;
       if (statusFilter === "active") matchesStatus = p.isActive;
       else if (statusFilter === "archived") matchesStatus = !p.isActive;
-      else if (statusFilter === "low_stock") matchesStatus = p.stock <= p.lowStockAt;
+      else if (statusFilter === "in_stock") matchesStatus = (p.stock || 0) > 0;
+      else if (statusFilter === "low_stock")
+        matchesStatus = (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5);
+      else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) === 0;
+      else if (statusFilter === "offline_only") matchesStatus = p.salesChannel === "OFFLINE_ONLY";
 
       return matchesSearch && matchesCat && matchesStatus;
     });
@@ -1342,6 +1370,34 @@ function ProductsTab() {
 
   return (
     <div className="space-y-6">
+      {/* KPI Overview Summary (Unified Products & Inventory) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+          <p className="text-[11px] font-bold uppercase text-muted-foreground">Total Catalog</p>
+          <p className="mt-1 text-lg font-extrabold text-foreground">{totalProducts} items</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+          <p className="text-[11px] font-bold uppercase text-muted-foreground">
+            Total In-Stock Units
+          </p>
+          <p className="mt-1 text-lg font-extrabold text-blue-600">{totalStockUnits} units</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+          <p className="text-[11px] font-bold uppercase text-muted-foreground">Total Stock Value</p>
+          <p className="mt-1 text-lg font-extrabold text-emerald-600">
+            {formatPrice(totalStockValue)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-2xs">
+          <p className="text-[11px] font-bold uppercase text-amber-800">Low Stock Alert</p>
+          <p className="mt-1 text-lg font-extrabold text-amber-600">{lowStockCount}</p>
+        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50/50 p-3.5 shadow-2xs col-span-2 sm:col-span-1">
+          <p className="text-[11px] font-bold uppercase text-red-800">Out of Stock</p>
+          <p className="mt-1 text-lg font-extrabold text-red-600">{outOfStockCount}</p>
+        </div>
+      </div>
+
       {/* Top action & search bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -1375,14 +1431,26 @@ function ProductsTab() {
           <select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | "active" | "archived" | "low_stock")
+              setStatusFilter(
+                e.target.value as
+                  | "all"
+                  | "active"
+                  | "in_stock"
+                  | "low_stock"
+                  | "out_of_stock"
+                  | "archived"
+                  | "offline_only",
+              )
             }
             className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
           >
-            <option value="all">All Status</option>
-            <option value="active">Live Only</option>
-            <option value="archived">Archived Only</option>
-            <option value="low_stock">Low Stock (≤3)</option>
+            <option value="all">All Products ({totalProducts})</option>
+            <option value="active">Live Store ({activeCount})</option>
+            <option value="offline_only">POS Only ({offlineOnlyCount})</option>
+            <option value="in_stock">In Stock ({inStockCount})</option>
+            <option value="low_stock">Low Stock (≤ alert) ({lowStockCount})</option>
+            <option value="out_of_stock">Out of Stock ({outOfStockCount})</option>
+            <option value="archived">Archived Only ({archivedCount})</option>
           </select>
         </div>
 
@@ -1629,8 +1697,21 @@ function ProductsTab() {
                             <span>{p.name}</span>
                             <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
                           </Link>
-                          <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                            {p.brand} <span className="opacity-50">•</span> {p.id}
+                          <p className="text-xs font-medium text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                            <span>{p.brand}</span>
+                            <span className="opacity-50">•</span>
+                            <span>{p.id}</span>
+                            {p.salesChannel === "OFFLINE_ONLY" && (
+                              <>
+                                <span className="opacity-50">•</span>
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] uppercase font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shadow-2xs"
+                                  title="This product is only available in the offline POS system"
+                                >
+                                  <Store className="size-2.5" /> POS Only
+                                </span>
+                              </>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -1710,17 +1791,91 @@ function ProductsTab() {
                       </button>
                     </td>
                     <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                          p.stock === 0
-                            ? "bg-red-50 text-red-600 border border-red-100"
-                            : p.stock <= p.lowStockAt
-                              ? "bg-amber-50 text-amber-600 border border-amber-100"
-                              : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                        }`}
-                      >
-                        {p.stock === 0 ? "Out of stock" : `${p.stock} in stock`}
-                      </span>
+                      {editingStockId === p.uuid ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={stockVal === 0 ? "" : stockVal}
+                            placeholder="0"
+                            autoFocus
+                            onChange={(e) =>
+                              setStockVal(
+                                e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                              )
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                updateStock.mutate({ id: p.uuid, stock: stockVal });
+                              }
+                            }}
+                            className="w-16 rounded-md border border-primary bg-background px-2 py-1 text-xs font-bold outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateStock.mutate({ id: p.uuid, stock: stockVal })}
+                            className="rounded-md bg-emerald-600 text-white p-1 hover:bg-emerald-700 transition cursor-pointer"
+                            title="Save Stock"
+                          >
+                            <Check className="size-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingStockId(null)}
+                            className="rounded-md border border-border p-1 text-muted-foreground hover:bg-muted transition cursor-pointer"
+                            title="Cancel"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateStock.mutate({ id: p.uuid, stock: Math.max(0, p.stock - 1) })
+                            }
+                            disabled={p.stock === 0 || updateStock.isPending}
+                            title="Decrease Stock (-1)"
+                            className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30 cursor-pointer"
+                          >
+                            <Minus className="size-3" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStockId(p.uuid);
+                              setStockVal(p.stock);
+                            }}
+                            title="Click to edit stock number"
+                            className={`min-w-8 px-2 py-0.5 rounded-md text-xs font-bold text-center transition cursor-pointer ${
+                              p.stock === 0
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : p.stock <= (p.lowStockAt || 5)
+                                  ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                  : "bg-muted text-foreground border border-border hover:border-primary/50"
+                            }`}
+                          >
+                            {p.stock}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateStock.mutate({ id: p.uuid, stock: p.stock + 1 })}
+                            disabled={updateStock.isPending}
+                            title="Increase Stock (+1)"
+                            className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                          >
+                            <Plus className="size-3" />
+                          </button>
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span>Val: {formatPrice((p.price || 0) * (p.stock || 0))}</span>
+                        <span className="opacity-40">•</span>
+                        <span title="Low stock alert trigger">≤{p.lowStockAt || 5}</span>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <span
@@ -3568,547 +3723,6 @@ function ReviewsTab() {
         ))}
       </ul>
     </div>
-  );
-}
-
-/* ---------------- Inventory ---------------- */
-function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
-  const qc = useQueryClient();
-  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
-  const [search, setSearch] = useState("");
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-  const { data: products = [], isLoading } = useQuery({
-    queryKey: ["inventory-products"],
-    queryFn: async () => {
-      const [productsRes, settingsRes] = await Promise.all([
-        supabase
-          .from("products")
-          .select("*, product_images(public_url, is_primary, sort_order)")
-          .order("stock", { ascending: true }),
-        supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "product_delivery_fees")
-          .maybeSingle(),
-      ]);
-
-      if (productsRes.error) throw productsRes.error;
-
-      let deliveryFees: Record<string, number> = {};
-      if (settingsRes.data?.value) {
-        try {
-          deliveryFees = JSON.parse(settingsRes.data.value);
-        } catch {
-          deliveryFees = {};
-        }
-      }
-
-      return (productsRes.data || []).map((r) => {
-        const prod = mapProduct(r as never);
-        if (deliveryFees[prod.uuid] !== undefined) {
-          prod.deliveryFee = deliveryFees[prod.uuid];
-        } else if (deliveryFees[prod.id] !== undefined) {
-          prod.deliveryFee = deliveryFees[prod.id];
-        }
-        return prod;
-      });
-    },
-  });
-
-  const updateStock = useMutation({
-    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
-      const { error } = await supabase.from("products").update({ stock }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Stock updated");
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const saveProduct = useMutation({
-    mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid: string }) => {
-      const row: Record<string, unknown> = {
-        slug: draft.slug.trim(),
-        name: draft.name.trim(),
-        brand: draft.brand.trim(),
-        category: draft.category,
-        price: Number(draft.price),
-        mrp: Number(draft.mrp),
-        age_group: draft.ageGroup,
-        low_stock_at: Number(draft.lowStockAt),
-        sku: draft.sku.trim(),
-        barcode: draft.barcode.trim(),
-        description: draft.description,
-        highlights: draft.highlights
-          .split("\n")
-          .map((h) => h.trim())
-          .filter(Boolean),
-        is_featured: draft.isFeatured,
-        is_active: draft.isActive,
-        sort_order: Number(draft.sortOrder),
-        recommendation_mode: draft.recommendationMode,
-        stock: Number(draft.stock),
-      };
-
-      const { error } = await supabase
-        .from("products")
-        .update(row as Database["public"]["Tables"]["products"]["Update"])
-        .eq("id", uuid);
-      if (error) throw error;
-
-      if (draft.buyingPrice !== undefined) {
-        await supabase
-          .from("product_costs")
-          .upsert({ product_id: uuid, buying_price: Number(draft.buyingPrice) });
-      }
-
-      if (draft.deliveryFee !== undefined) {
-        const { data: currentSetting } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "product_delivery_fees")
-          .maybeSingle();
-
-        let currentFees: Record<string, number> = {};
-        if (currentSetting?.value) {
-          try {
-            currentFees = JSON.parse(currentSetting.value);
-          } catch {
-            currentFees = {};
-          }
-        }
-        currentFees[uuid] = draft.deliveryFee;
-        currentFees[draft.slug] = draft.deliveryFee;
-        await supabase.from("site_settings").upsert({
-          key: "product_delivery_fees",
-          value: JSON.stringify(currentFees),
-        });
-      }
-
-      // Sync images
-      const allUrls = new Set<string>();
-      if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
-      draft.images.forEach((img) => {
-        if (img.trim()) allUrls.add(img.trim());
-      });
-
-      const urlsArray = Array.from(allUrls);
-      const { data: existing } = await supabase
-        .from("product_images")
-        .select("*")
-        .eq("product_id", uuid);
-
-      const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
-      for (const del of toDelete) {
-        await supabase.from("product_images").delete().eq("id", del.id);
-      }
-
-      for (let i = 0; i < urlsArray.length; i++) {
-        const url = urlsArray[i];
-        const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
-        const existingRow = (existing || []).find((e) => e.public_url === url);
-
-        if (existingRow) {
-          await supabase
-            .from("product_images")
-            .update({ is_primary: isPrimary, sort_order: i })
-            .eq("id", existingRow.id);
-        } else {
-          await supabase.from("product_images").insert({
-            product_id: uuid,
-            public_url: url,
-            is_primary: isPrimary,
-            sort_order: i,
-          });
-        }
-      }
-    },
-    onSuccess: () => {
-      toast.success("Product updated successfully");
-      setEditingProduct(null);
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const totalSKUs = products.length;
-  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.lowStockAt).length;
-  const outOfStock = products.filter((p) => p.stock === 0).length;
-
-  const filtered = products.filter((p) => {
-    if (filter === "low" && !(p.stock > 0 && p.stock <= p.lowStockAt)) return false;
-    if (filter === "out" && p.stock !== 0) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        p.barcode.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Total SKUs
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">{totalSKUs}</p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Low Stock
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-amber-600">{lowStock}</p>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Out of Stock
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-red-600">{outOfStock}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {(["all", "low", "out"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-xl border px-4 py-2 text-xs font-semibold capitalize transition-all cursor-pointer ${
-                filter === f
-                  ? "border-[#8B2020] bg-red-50 text-[#8B2020] shadow-xs"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {f === "low" ? "Low Stock" : f === "out" ? "Out of Stock" : "All Products"}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search inventory by name, SKU..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-border bg-card pl-9 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary shadow-2xs"
-          />
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap text-muted-foreground">
-            <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
-              <tr>
-                <th className="px-6 py-4 font-semibold tracking-wider w-16">Image</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Product</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">SKU / Barcode</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Category</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Price</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Delivery</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Stock</th>
-                <th
-                  className="px-6 py-4 font-semibold tracking-wider"
-                  title="Alert Level: Jab stock is number ya isse kam bachega, tab Low Stock warning aayegi"
-                >
-                  Low Stock Alert (≤)
-                </th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
-                <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="size-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      <span>Loading inventory...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-muted-foreground">
-                    No products found matching your filter.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((product) => (
-                  <InventoryRow
-                    key={product.uuid || product.id}
-                    product={product}
-                    onSave={(val) => updateStock.mutate({ id: product.uuid, stock: val })}
-                    onImageClick={(url) => setSelectedImage(url)}
-                    onEdit={(p) => setEditingProduct(p)}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {editingProduct && (
-        <Suspense
-          fallback={
-            <div className="p-12 text-center text-muted-foreground animate-pulse border bg-card rounded-2xl shadow-xl">
-              Loading product editor...
-            </div>
-          }
-        >
-          <ProductForm
-            product={editingProduct}
-            saving={saveProduct.isPending}
-            onCancel={() => setEditingProduct(null)}
-            onSave={(draft) => saveProduct.mutate({ draft, uuid: editingProduct.uuid })}
-          />
-        </Suspense>
-      )}
-
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <img
-            src={selectedImage}
-            alt="Product Preview"
-            className="max-h-[80vh] w-auto rounded-xl shadow-2xl object-contain bg-white"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InventoryRow({
-  product,
-  onSave,
-  onImageClick,
-  onEdit,
-}: {
-  product: Product;
-  onSave: (val: number) => void;
-  onImageClick?: (url: string) => void;
-  onEdit?: (product: Product) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(product.stock);
-
-  const isOut = product.stock === 0;
-  const isLow = product.stock > 0 && product.stock <= product.lowStockAt;
-
-  return (
-    <tr className="hover:bg-muted/50 transition-colors group">
-      {/* IMAGE */}
-      <td className="px-6 py-4">
-        <Link
-          to="/product/$id"
-          params={{ id: product.id || product.uuid }}
-          title={`Open ${product.name} on store`}
-          className="relative block group/thumb size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 shadow-2xs hover:scale-105 transition-transform"
-        >
-          <img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            width={48}
-            height={48}
-            className="size-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = imageFor(product.category, null, product);
-            }}
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
-            <ExternalLink className="size-3.5" />
-          </div>
-        </Link>
-      </td>
-
-      {/* PRODUCT NAME */}
-      <td className="px-6 py-4">
-        <Link
-          to="/product/$id"
-          params={{ id: product.id || product.uuid }}
-          title={`Open ${product.name} on store`}
-          className="font-semibold text-foreground hover:text-primary transition inline-flex items-center gap-1.5 group/link line-clamp-1 max-w-[280px]"
-        >
-          <span>{product.name}</span>
-          <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover/link:opacity-100 transition-opacity shrink-0" />
-        </Link>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          {product.brand} <span className="opacity-40">•</span> {product.id}
-        </div>
-      </td>
-
-      {/* SKU & BARCODE */}
-      <td className="px-6 py-4">
-        <div className="font-mono text-xs font-semibold text-foreground">{product.sku || "—"}</div>
-        {product.barcode && (
-          <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
-            {product.barcode}
-          </div>
-        )}
-      </td>
-
-      {/* CATEGORY */}
-      <td className="px-6 py-4">
-        <span className="inline-flex rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold capitalize text-foreground">
-          {product.category}
-        </span>
-      </td>
-
-      {/* PRICE */}
-      <td className="px-6 py-4">
-        <div className="font-semibold text-foreground">{formatPrice(product.price)}</div>
-        {product.mrp > product.price && (
-          <div className="text-[10px] text-muted-foreground line-through">
-            MRP {formatPrice(product.mrp)}
-          </div>
-        )}
-      </td>
-
-      {/* DELIVERY */}
-      <td className="px-6 py-4">
-        {(product.deliveryFee ?? 79) === 0 ? (
-          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold shadow-2xs">
-            <Truck className="size-3" /> Free (₹0)
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2 py-0.5 rounded-full text-xs font-bold shadow-2xs">
-            <Truck className="size-3 text-muted-foreground" /> ₹{product.deliveryFee ?? 79}
-          </span>
-        )}
-      </td>
-
-      {/* STOCK (EDITABLE) */}
-      <td className="px-6 py-4">
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              value={val === 0 ? "" : val}
-              placeholder="0"
-              onChange={(e) =>
-                setVal(e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  onSave(val);
-                  setEditing(false);
-                }
-              }}
-              autoFocus
-              className="w-18 rounded-lg border border-primary bg-background px-2.5 py-1 text-sm font-bold outline-none ring-2 ring-primary/20 shadow-xs"
-            />
-            <button
-              onClick={() => {
-                onSave(val);
-                setEditing(false);
-              }}
-              className="rounded-lg bg-emerald-600 text-white p-1.5 hover:bg-emerald-700 transition cursor-pointer shadow-xs"
-              title="Save Stock"
-            >
-              <Check className="size-3.5" />
-            </button>
-            <button
-              onClick={() => {
-                setVal(product.stock);
-                setEditing(false);
-              }}
-              className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted transition cursor-pointer"
-              title="Cancel"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setEditing(true)}
-            title="Click to edit stock"
-            className={`font-extrabold text-sm px-2.5 py-1 rounded-lg hover:bg-muted/80 transition cursor-pointer ${
-              isOut
-                ? "text-red-600 bg-red-50"
-                : isLow
-                  ? "text-amber-600 bg-amber-50"
-                  : "text-foreground"
-            }`}
-          >
-            {product.stock}
-          </button>
-        )}
-      </td>
-
-      {/* LOW STOCK ALERT (THRESHOLD) */}
-      <td className="px-6 py-4">
-        <span
-          className="inline-flex items-center gap-1 rounded-lg bg-muted/60 border border-border px-2.5 py-1 text-xs font-bold font-mono text-muted-foreground"
-          title={`Jab stock ${product.lowStockAt} ya isse kam bachega tab Low Stock warning alert aayega`}
-        >
-          ≤ {product.lowStockAt}
-        </span>
-      </td>
-
-      {/* STATUS */}
-      <td className="px-6 py-4">
-        {isOut ? (
-          <span className="inline-flex rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
-            Out of stock
-          </span>
-        ) : isLow ? (
-          <span className="inline-flex rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-amber-600 uppercase">
-            Low stock
-          </span>
-        ) : (
-          <span className="inline-flex rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[10px] font-bold tracking-wider text-emerald-700 uppercase">
-            In stock
-          </span>
-        )}
-      </td>
-
-      {/* ACTIONS */}
-      <td className="px-6 py-4 text-right">
-        <div className="flex items-center justify-end gap-1.5">
-          <Link
-            to="/product/$id"
-            params={{ id: product.id || product.uuid }}
-            title={`View ${product.name} live in store`}
-            className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer shadow-2xs"
-          >
-            <ExternalLink className="size-3.5" />
-            <span>Open</span>
-          </Link>
-          <button
-            onClick={() => onEdit?.(product)}
-            title="Edit product details"
-            className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition cursor-pointer shadow-2xs"
-          >
-            <Pencil className="size-3.5" />
-            <span>Edit</span>
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 }
 

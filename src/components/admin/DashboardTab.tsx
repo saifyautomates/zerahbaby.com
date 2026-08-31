@@ -1270,10 +1270,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             <h3 className="text-sm font-bold text-foreground">Low Stock Watchlist</h3>
             <button
               type="button"
-              onClick={() => onNavigate?.("inventory")}
+              onClick={() => onNavigate?.("products")}
               className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
-              <span>Inventory</span>
+              <span>Products</span>
               <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
@@ -1297,7 +1297,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   topProducts.map((p, idx) => (
                     <tr
                       key={idx}
-                      onClick={() => onNavigate?.("inventory")}
+                      onClick={() => onNavigate?.("products")}
                       className="hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <td className="py-2.5">
