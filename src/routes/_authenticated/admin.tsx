@@ -3577,6 +3577,7 @@ function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [search, setSearch] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["inventory-products"],
@@ -3623,6 +3624,114 @@ function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
     },
     onSuccess: () => {
       toast.success("Stock updated");
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveProduct = useMutation({
+    mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid: string }) => {
+      const row: Record<string, unknown> = {
+        slug: draft.slug.trim(),
+        name: draft.name.trim(),
+        brand: draft.brand.trim(),
+        category: draft.category,
+        price: Number(draft.price),
+        mrp: Number(draft.mrp),
+        age_group: draft.ageGroup,
+        low_stock_at: Number(draft.lowStockAt),
+        sku: draft.sku.trim(),
+        barcode: draft.barcode.trim(),
+        description: draft.description,
+        highlights: draft.highlights
+          .split("\n")
+          .map((h) => h.trim())
+          .filter(Boolean),
+        is_featured: draft.isFeatured,
+        is_active: draft.isActive,
+        sort_order: Number(draft.sortOrder),
+        recommendation_mode: draft.recommendationMode,
+        stock: Number(draft.stock),
+      };
+
+      const { error } = await supabase
+        .from("products")
+        .update(row as Database["public"]["Tables"]["products"]["Update"])
+        .eq("id", uuid);
+      if (error) throw error;
+
+      if (draft.buyingPrice !== undefined) {
+        await supabase
+          .from("product_costs")
+          .upsert({ product_id: uuid, buying_price: Number(draft.buyingPrice) });
+      }
+
+      if (draft.deliveryFee !== undefined) {
+        const { data: currentSetting } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "product_delivery_fees")
+          .maybeSingle();
+
+        let currentFees: Record<string, number> = {};
+        if (currentSetting?.value) {
+          try {
+            currentFees = JSON.parse(currentSetting.value);
+          } catch {
+            currentFees = {};
+          }
+        }
+        currentFees[uuid] = draft.deliveryFee;
+        currentFees[draft.slug] = draft.deliveryFee;
+        await supabase.from("site_settings").upsert({
+          key: "product_delivery_fees",
+          value: JSON.stringify(currentFees),
+        });
+      }
+
+      // Sync images
+      const allUrls = new Set<string>();
+      if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
+      draft.images.forEach((img) => {
+        if (img.trim()) allUrls.add(img.trim());
+      });
+
+      const urlsArray = Array.from(allUrls);
+      const { data: existing } = await supabase
+        .from("product_images")
+        .select("*")
+        .eq("product_id", uuid);
+
+      const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
+      for (const del of toDelete) {
+        await supabase.from("product_images").delete().eq("id", del.id);
+      }
+
+      for (let i = 0; i < urlsArray.length; i++) {
+        const url = urlsArray[i];
+        const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
+        const existingRow = (existing || []).find((e) => e.public_url === url);
+
+        if (existingRow) {
+          await supabase
+            .from("product_images")
+            .update({ is_primary: isPrimary, sort_order: i })
+            .eq("id", existingRow.id);
+        } else {
+          await supabase.from("product_images").insert({
+            product_id: uuid,
+            public_url: url,
+            is_primary: isPrimary,
+            sort_order: i,
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Product updated successfully");
+      setEditingProduct(null);
       qc.invalidateQueries({ queryKey: ["inventory-products"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
@@ -3743,7 +3852,7 @@ function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
                     product={product}
                     onSave={(val) => updateStock.mutate({ id: product.uuid, stock: val })}
                     onImageClick={(url) => setSelectedImage(url)}
-                    onNavigate={onNavigate}
+                    onEdit={(p) => setEditingProduct(p)}
                   />
                 ))
               )}
@@ -3751,6 +3860,23 @@ function InventoryTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
           </table>
         </div>
       </div>
+
+      {editingProduct && (
+        <Suspense
+          fallback={
+            <div className="p-12 text-center text-muted-foreground animate-pulse border bg-card rounded-2xl shadow-xl">
+              Loading product editor...
+            </div>
+          }
+        >
+          <ProductForm
+            product={editingProduct}
+            saving={saveProduct.isPending}
+            onCancel={() => setEditingProduct(null)}
+            onSave={(draft) => saveProduct.mutate({ draft, uuid: editingProduct.uuid })}
+          />
+        </Suspense>
+      )}
 
       {selectedImage && (
         <div
@@ -3773,12 +3899,12 @@ function InventoryRow({
   product,
   onSave,
   onImageClick,
-  onNavigate,
+  onEdit,
 }: {
   product: Product;
   onSave: (val: number) => void;
   onImageClick?: (url: string) => void;
-  onNavigate?: (tab: string) => void;
+  onEdit?: (product: Product) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(product.stock);
@@ -3963,8 +4089,8 @@ function InventoryRow({
             <span>Open</span>
           </Link>
           <button
-            onClick={() => onNavigate?.("products")}
-            title="Edit in Products tab"
+            onClick={() => onEdit?.(product)}
+            title="Edit product details"
             className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition cursor-pointer shadow-2xs"
           >
             <Pencil className="size-3.5" />
