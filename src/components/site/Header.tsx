@@ -226,16 +226,37 @@ export function Header() {
     }
     if (path.startsWith("/orders")) return "My Orders";
     if (path.startsWith("/wishlist")) return "Wishlist";
-    if (path.startsWith("/cart")) return "Shopping Cart";
+    if (path.startsWith("/cart")) return "Shopping Bag";
     if (path.startsWith("/checkout")) return "Checkout";
     if (path.startsWith("/about")) return "About Us";
     if (path.startsWith("/contact")) return "Contact Support";
     if (path.startsWith("/product/")) return "Product Details";
+    if (path.startsWith("/shop")) return "Shop All";
+    if (path.startsWith("/categories")) return "Categories";
+    if (path.startsWith("/auth")) return "Sign In";
+    if (path.startsWith("/returns")) return "Returns & Exchange";
+    if (path.startsWith("/shipping-delivery")) return "Shipping Policy";
+    if (path.startsWith("/terms-conditions")) return "Terms & Conditions";
+    if (path.startsWith("/cancellation-refund")) return "Cancellation & Refund";
+    if (path.startsWith("/privacy-policy")) return "Privacy Policy";
+    if (path.startsWith("/admin")) return "Admin Dashboard";
+    if (path !== "/") {
+      const clean = path.replace(/^\//, "").replace(/-/g, " ");
+      return clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
     return null;
   };
 
   const pageTitle = getPageTitle();
-  const isSubPage = pageTitle !== null && location.pathname !== "/";
+  const isSubPage = location.pathname !== "/";
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate({ to: "/" });
+    }
+  };
 
   return (
     <>
@@ -253,15 +274,17 @@ export function Header() {
             {/* Mobile Menu or Back Button */}
             {isSubPage ? (
               <button
-                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
+                type="button"
+                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden cursor-pointer"
                 aria-label="Go back"
-                onClick={() => window.history.back()}
+                onClick={handleBack}
               >
                 <ChevronLeft className="size-6" />
               </button>
             ) : (
               <button
-                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden"
+                type="button"
+                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden cursor-pointer"
                 aria-label="Toggle menu"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
@@ -274,9 +297,21 @@ export function Header() {
             {isSubPage && (
               <div className="flex items-center min-w-0 flex-1 ml-1 mr-3 md:hidden">
                 <span className="font-display text-base sm:text-lg font-bold text-foreground truncate block w-full">
-                  {pageTitle}
+                  {pageTitle || "Back"}
                 </span>
               </div>
+            )}
+
+            {/* Desktop Back Button */}
+            {isSubPage && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="hidden md:inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted/80 transition-colors mr-1 cursor-pointer border border-border/50 shadow-2xs"
+                aria-label="Go back"
+              >
+                <ChevronLeft className="size-4" /> Back
+              </button>
             )}
 
             {/* Logo */}
