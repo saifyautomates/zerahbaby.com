@@ -176,7 +176,7 @@ function ProductPage() {
     setActiveImage(0);
     setQty(1);
     setIsZooming(false);
-    
+
     if (product?.variants?.length) {
       if (product.variants.length === 1 && product.variants[0].name === "Default") {
         setSelectedVariantId(product.variants[0].id);
@@ -233,7 +233,7 @@ function ProductPage() {
   }, [product, selectedVariantId]);
 
   const activeStock = activeVariant ? activeVariant.stock : (product?.stock ?? 0);
-  const activePrice = activeVariant?.priceOverride ?? (product?.price ?? 0);
+  const activePrice = activeVariant?.priceOverride ?? product?.price ?? 0;
   const soldOut = activeStock <= 0;
 
   const { data: siteSettings } = useQuery({
@@ -264,24 +264,29 @@ function ProductPage() {
 
   const handleAddToCart = () => {
     if (!product) return;
-    const variantIdToUse = selectedVariantId ?? (product.variants?.length ? product.variants[0].id : undefined);
-    
+    const variantIdToUse =
+      selectedVariantId ?? (product.variants?.length ? product.variants[0].id : undefined);
+
     // Check stock for this specific variant in cart
-    const inCart = items.find((i) => i.product.id === product.id && i.variantId === variantIdToUse)?.qty || 0;
+    const inCart =
+      items.find((i) => i.product.id === product.id && i.variantId === variantIdToUse)?.qty || 0;
     const remaining = Math.max(0, activeStock - inCart);
     if (qty > remaining) {
       toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
       return;
     }
-    
+
     if (product.variants?.length > 1 && !selectedVariantId) {
       toast.error("Please select a variant");
       return;
     }
 
     add(product.id, qty, variantIdToUse);
-    trackEvent("add_to_cart", { productId: product.uuid, metadata: { qty, variantId: variantIdToUse, from: "product_page" } });
-    
+    trackEvent("add_to_cart", {
+      productId: product.uuid,
+      metadata: { qty, variantId: variantIdToUse, from: "product_page" },
+    });
+
     const variantName = activeVariant?.name !== "Default" ? ` - ${activeVariant?.name}` : "";
     toast.success("Added to bag", { description: `${qty} × ${product.name}${variantName}` });
   };
@@ -646,31 +651,33 @@ function ProductPage() {
           )}
 
           {/* Variant Selector */}
-          {product.variants && product.variants.length > 0 && !(product.variants.length === 1 && product.variants[0].name === "Default") && (
-            <div className="mt-8">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                Select Option
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {product.variants.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                      setSelectedVariantId(v.id);
-                      setQty(1);
-                    }}
-                    className={`px-4 py-2 text-sm font-semibold rounded-xl border-2 transition-all ${
-                      selectedVariantId === v.id
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border hover:border-primary/50 text-foreground"
-                    } ${v.stock <= 0 ? "opacity-50" : ""}`}
-                  >
-                    {v.name}
-                  </button>
-                ))}
+          {product.variants &&
+            product.variants.length > 0 &&
+            !(product.variants.length === 1 && product.variants[0].name === "Default") && (
+              <div className="mt-8">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                  Select Option
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                        setSelectedVariantId(v.id);
+                        setQty(1);
+                      }}
+                      className={`px-4 py-2 text-sm font-semibold rounded-xl border-2 transition-all ${
+                        selectedVariantId === v.id
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border hover:border-primary/50 text-foreground"
+                      } ${v.stock <= 0 ? "opacity-50" : ""}`}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <div className="mt-8 flex flex-col gap-4">
             <p className="text-sm font-bold uppercase tracking-wide">
@@ -713,8 +720,12 @@ function ProductPage() {
                   </button>
                 </div>
                 {(() => {
-                  const variantIdToUse = selectedVariantId ?? (product.variants?.length ? product.variants[0].id : undefined);
-                  const inCart = items.find((i) => i.product.id === product.id && i.variantId === variantIdToUse)?.qty || 0;
+                  const variantIdToUse =
+                    selectedVariantId ??
+                    (product.variants?.length ? product.variants[0].id : undefined);
+                  const inCart =
+                    items.find((i) => i.product.id === product.id && i.variantId === variantIdToUse)
+                      ?.qty || 0;
                   const remaining = Math.max(0, activeStock - inCart);
                   const maxed = remaining <= 0;
 
@@ -749,7 +760,10 @@ function ProductPage() {
                               });
                               return;
                             }
-                            trackEvent("buy_now", { productId: product.uuid, metadata: { qty, variantId: variantIdToUse } });
+                            trackEvent("buy_now", {
+                              productId: product.uuid,
+                              metadata: { qty, variantId: variantIdToUse },
+                            });
                             setShowBuyNowModal(true);
                           }}
                           className="focus-ring flex-1 rounded-full border-2 border-primary bg-background px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -72,7 +72,8 @@ async function syncToSupabase(userId: string, lines: CartLine[], products: Produ
           return {
             cart_id: cart.id,
             product_id: product.uuid,
-            variant_id: line.variantId || (product.variants?.length ? product.variants[0].id : null),
+            variant_id:
+              line.variantId || (product.variants?.length ? product.variants[0].id : null),
             quantity: line.qty,
             price_at_add: product.price,
           };
@@ -230,10 +231,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .map((line): CartItem | null => {
         const product = list.find((x) => x.id === line.id);
         if (!product) return null;
-        
+
         const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
         const vId = line.variantId || defaultVariantId;
-        const variant = product.variants?.find(v => v.id === vId);
+        const variant = product.variants?.find((v) => v.id === vId);
         const stock = variant ? variant.stock : product.stock;
         const price = variant?.priceOverride || product.price;
 
@@ -272,10 +273,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       count: items.reduce((sum, i) => sum + i.qty, 0),
       subtotal,
-      savings: items.reduce(
-        (sum, i) => sum + Math.max(0, i.product.mrp - i.price) * i.qty,
-        0,
-      ),
+      savings: items.reduce((sum, i) => sum + Math.max(0, i.product.mrp - i.price) * i.qty, 0),
       total,
       shipping,
       eligibleSubtotal,
@@ -290,15 +288,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
-          const variant = product.variants?.find(v => v.id === vId);
+          const variant = product.variants?.find((v) => v.id === vId);
           const stock = variant ? variant.stock : product.stock;
 
-          const existing = prev.find((l) => l.id === id && (l.variantId || defaultVariantId) === vId);
+          const existing = prev.find(
+            (l) => l.id === id && (l.variantId || defaultVariantId) === vId,
+          );
           const requestedQty = (existing?.qty || 0) + qty;
           const finalQty = Math.min(requestedQty, stock);
 
           if (existing) {
-            return prev.map((l) => (l.id === id && (l.variantId || defaultVariantId) === vId ? { ...l, qty: finalQty } : l));
+            return prev.map((l) =>
+              l.id === id && (l.variantId || defaultVariantId) === vId
+                ? { ...l, qty: finalQty }
+                : l,
+            );
           }
           return [...prev, { id, qty: finalQty, variantId: vId }];
         }),
@@ -309,20 +313,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
-          const variant = product.variants?.find(v => v.id === vId);
+          const variant = product.variants?.find((v) => v.id === vId);
           const stock = variant ? variant.stock : product.stock;
 
           const finalQty = Math.min(qty, stock);
           return finalQty <= 0
             ? prev.filter((l) => !(l.id === id && (l.variantId || defaultVariantId) === vId))
-            : prev.map((l) => (l.id === id && (l.variantId || defaultVariantId) === vId ? { ...l, qty: finalQty } : l));
+            : prev.map((l) =>
+                l.id === id && (l.variantId || defaultVariantId) === vId
+                  ? { ...l, qty: finalQty }
+                  : l,
+              );
         }),
-      remove: (id, variantId) => setLines((prev) => prev.filter((l) => {
-        if (!variantId) return l.id !== id; // if no variantId provided, remove all variants of this product
-        const product = list.find((p) => p.id === id);
-        const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
-        return !(l.id === id && (l.variantId || defaultVariantId) === variantId);
-      })),
+      remove: (id, variantId) =>
+        setLines((prev) =>
+          prev.filter((l) => {
+            if (!variantId) return l.id !== id; // if no variantId provided, remove all variants of this product
+            const product = list.find((p) => p.id === id);
+            const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
+            return !(l.id === id && (l.variantId || defaultVariantId) === variantId);
+          }),
+        ),
       clear: async () => {
         setLines([]);
         setCoupon(null);

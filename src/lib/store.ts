@@ -95,7 +95,16 @@ type ProductRow = {
   barcode?: string | null;
   delivery_fee?: number | null;
   product_images?: { public_url: string; is_primary: boolean; sort_order: number }[] | null;
-  product_variants?: { id: string; name: string; sku: string; stock: number; price_override?: number; conflict_reconciliation_needed?: boolean }[] | null;
+  product_variants?:
+    | {
+        id: string;
+        name: string;
+        sku: string;
+        stock: number;
+        price_override?: number;
+        conflict_reconciliation_needed?: boolean;
+      }[]
+    | null;
   recommendation_mode?: string;
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 };
@@ -138,7 +147,7 @@ export const mapProduct = (row: ProductRow): Product => {
     recommendationMode:
       (row.recommendation_mode as "manual_fallback" | "manual" | "auto") ?? "manual_fallback",
     salesChannel: row.sales_channel ?? "ONLINE_AND_OFFLINE",
-    variants: (row.product_variants || []).map(v => ({
+    variants: (row.product_variants || []).map((v) => ({
       id: v.id,
       name: v.name,
       sku: v.sku,
@@ -163,7 +172,9 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
   try {
     let query = supabase
       .from("products")
-      .select("*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, conflict_reconciliation_needed)")
+      .select(
+        "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, conflict_reconciliation_needed)",
+      )
       .order("sort_order", { ascending: true });
     if (!includeInactive) {
       query = query.eq("is_active", true).eq("sales_channel", "ONLINE_AND_OFFLINE");

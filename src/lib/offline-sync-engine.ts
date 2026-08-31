@@ -329,9 +329,7 @@ export async function findOfflineProductByCode(
 
           // Check variants first
           if (Array.isArray(p.variants)) {
-            const vMatch = p.variants.find(
-              (v: any) => String(v.sku || "").toLowerCase() === clean,
-            );
+            const vMatch = p.variants.find((v: any) => String(v.sku || "").toLowerCase() === clean);
             if (vMatch) {
               matchedVariant = vMatch;
               matchedProduct = p;

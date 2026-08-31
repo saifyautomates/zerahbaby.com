@@ -163,12 +163,14 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       product_id: (localMatch.uuid as string) || (localMatch.id as string),
       variant_id: vMatch?.id,
       slug: (localMatch.slug as string) || (localMatch.id as string),
-      name: (localMatch.name as string) || "" + (vMatch && vMatch.name !== "Default" ? ` - ${vMatch.name}` : ""),
+      name:
+        (localMatch.name as string) ||
+        "" + (vMatch && vMatch.name !== "Default" ? ` - ${vMatch.name}` : ""),
       brand: (localMatch.brand as string) || "Zérah Baby & Kids",
       category: (localMatch.category as string) || "clothing",
-      price: vMatch?.priceOverride ?? Number(localMatch.price) ?? 0,
+      price: vMatch?.priceOverride ?? (Number(localMatch.price) || 0),
       mrp: Number(localMatch.mrp) || Number(localMatch.price) || 0,
-      stock: vMatch?.stock ?? Number(localMatch.stock) ?? 10,
+      stock: vMatch?.stock ?? (Number(localMatch.stock) || 10),
       sku: vMatch?.sku || (localMatch.sku as string) || "",
       barcode: (localMatch.barcode as string) || clean,
       image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,

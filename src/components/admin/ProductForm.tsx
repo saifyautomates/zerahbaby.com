@@ -59,7 +59,13 @@ export type ProductDraft = {
   recommendationMode: "manual" | "auto" | "manual_fallback";
   relatedProductIds: string[];
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
-  variants: { id?: string; name: string; sku: string; stock: number; price_override: number | null }[];
+  variants: {
+    id?: string;
+    name: string;
+    sku: string;
+    stock: number;
+    price_override: number | null;
+  }[];
 };
 
 const CATEGORY_PREFIXES: Record<string, string> = {
@@ -803,7 +809,12 @@ export function ProductForm({
                   onClick={() =>
                     set("variants", [
                       ...draft.variants,
-                      { name: "", sku: generateSKU(draft.category), stock: 10, price_override: null },
+                      {
+                        name: "",
+                        sku: generateSKU(draft.category),
+                        stock: 10,
+                        price_override: null,
+                      },
                     ])
                   }
                   className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition"
@@ -814,7 +825,10 @@ export function ProductForm({
 
               <div className="space-y-3">
                 {draft.variants.map((v, idx) => (
-                  <div key={idx} className="flex flex-wrap gap-3 items-end p-3 rounded-lg border border-border bg-background">
+                  <div
+                    key={idx}
+                    className="flex flex-wrap gap-3 items-end p-3 rounded-lg border border-border bg-background"
+                  >
                     <label className="flex-1 min-w-[120px] text-xs font-semibold text-muted-foreground">
                       Variant Name
                       <input
@@ -840,7 +854,10 @@ export function ProductForm({
                           updated[idx].stock = Math.max(0, Number(e.target.value));
                           set("variants", updated);
                           // Auto update parent stock
-                          set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                          set(
+                            "stock",
+                            updated.reduce((sum, val) => sum + val.stock, 0),
+                          );
                         }}
                       />
                     </label>
@@ -867,7 +884,9 @@ export function ProductForm({
                         value={v.price_override ?? ""}
                         onChange={(e) => {
                           const updated = [...draft.variants];
-                          updated[idx].price_override = e.target.value ? Number(e.target.value) : null;
+                          updated[idx].price_override = e.target.value
+                            ? Number(e.target.value)
+                            : null;
                           set("variants", updated);
                         }}
                       />
@@ -877,10 +896,18 @@ export function ProductForm({
                       onClick={() => {
                         const updated = draft.variants.filter((_, i) => i !== idx);
                         if (updated.length === 0) {
-                          updated.push({ name: "Default", sku: generateSKU(draft.category), stock: 10, price_override: null });
+                          updated.push({
+                            name: "Default",
+                            sku: generateSKU(draft.category),
+                            stock: 10,
+                            price_override: null,
+                          });
                         }
                         set("variants", updated);
-                        set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                        set(
+                          "stock",
+                          updated.reduce((sum, val) => sum + val.stock, 0),
+                        );
                       }}
                       className="p-2 mb-0.5 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition"
                       title="Remove Variant"
