@@ -171,15 +171,15 @@ export function ProductForm({
   const { data: categories } = useCategories();
   const { data: allProducts } = useProducts();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const { 
-    jobs, 
-    addFiles: startUploads, 
-    removeJob, 
+
+  const {
+    jobs,
+    addFiles: startUploads,
+    removeJob,
     retryJob,
-    reorderJobs, 
-    setInitialJobs, 
-    isUploading 
+    reorderJobs,
+    setInitialJobs,
+    isUploading,
   } = useUploader({
     concurrency: 3,
     prefix: product ? product.uuid : "drafts",
@@ -187,15 +187,15 @@ export function ProductForm({
       // Immediate database save for existing products
       if (product?.uuid && job.publicUrl) {
         try {
-          const isVideo = job.file && job.file.type.startsWith('video/');
+          const isVideo = job.file && job.file.type.startsWith("video/");
           if (isVideo) {
-            await supabase.from('product_videos').insert({
+            await supabase.from("product_videos").insert({
               product_id: product.uuid,
               video_url: job.publicUrl,
               sort_order: 99,
             });
           } else {
-            await supabase.from('product_images').insert({
+            await supabase.from("product_images").insert({
               product_id: product.uuid,
               public_url: job.publicUrl,
               sort_order: 99,
@@ -205,7 +205,7 @@ export function ProductForm({
           console.error("Failed to save media record immediately", e);
         }
       }
-    }
+    },
   });
 
   // Sync initial images to uploader jobs
@@ -219,17 +219,15 @@ export function ProductForm({
           publicUrl: url,
           progress: 100,
           state: "SAVED",
-        }))
+        })),
       );
     }
   }, [draft.images.length, setInitialJobs]); // Only run when draft.images length changes (initial load or external set)
 
   // Sync uploader jobs back to draft.images whenever jobs change
   useEffect(() => {
-    const urls = jobs
-      .filter((j) => j.state === "SAVED" && j.publicUrl)
-      .map((j) => j.publicUrl!);
-    
+    const urls = jobs.filter((j) => j.state === "SAVED" && j.publicUrl).map((j) => j.publicUrl!);
+
     // Check if urls actually changed to prevent infinite loops
     const currentStr = JSON.stringify(draft.images);
     const newStr = JSON.stringify(urls);
@@ -258,11 +256,11 @@ export function ProductForm({
         toast.error(`Up to ${MAX_IMAGES} images per product`);
         return;
       }
-      
+
       const filesArray = Array.from(files).slice(0, room);
       startUploads(filesArray);
     },
-    [jobs.length, startUploads]
+    [jobs.length, startUploads],
   );
 
   const handleDragOverContainer = useCallback((e: React.DragEvent) => {
@@ -438,91 +436,107 @@ export function ProductForm({
                   const url = job.previewUrl || job.publicUrl || "";
                   const isError = job.state === "FAILED";
                   const isProcessing = job.state !== "SAVED" && !isError;
-                  
-                  return (
-                  <div
-                    key={job.id}
-                    draggable={!isProcessing}
-                    onDragStart={() => setDragIndex(i)}
-                    onDragEnd={() => setDragIndex(null)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.stopPropagation();
-                      if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
-                      setDragIndex(null);
-                    }}
-                    className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? 'bg-muted/40 animate-pulse' : 'bg-muted/20'}`}
-                  >
-                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) || (job.file && job.file.type.startsWith('video/')) ? (
-                      <video
-                        src={url}
-                        className={`size-full object-cover ${isProcessing ? 'opacity-50' : ''}`}
-                        playsInline
-                        muted
-                        autoPlay
-                        loop
-                      />
-                    ) : (
-                      <img
-                        src={url}
-                        alt=""
-                        loading="lazy"
-                        className={`size-full object-cover ${isProcessing ? 'opacity-50' : ''}`}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = generateProductFallbackSvg({
-                            name: draft.name,
-                            category: draft.category,
-                            slug: draft.slug,
-                          });
-                        }}
-                      />
-                    )}
-                    
-                    {/* Progress overlay */}
-                    {isProcessing && (
-                      <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
-                        <div className="text-[10px] font-semibold text-center mb-1">
-                          {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
-                        </div>
-                        <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
-                           <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${job.progress}%` }} />
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Error overlay */}
-                    {isError && (
-                      <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
-                        <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">{job.error || "Failed"}</span>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); retryJob(job.id); }} className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer">Retry</button>
-                      </div>
-                    )}
 
-                    {i === 0 && !isProcessing && (
-                      <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
-                        <Star className="size-3" /> Main
-                      </span>
-                    )}
-                    
-                    {!isProcessing && (
-                      <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
-                        <GripVertical className="size-3" />
-                      </span>
-                    )}
-                    
-                    <button
-                      type="button"
-                      aria-label="Remove image"
-                      onClick={(e) => {
+                  return (
+                    <div
+                      key={job.id}
+                      draggable={!isProcessing}
+                      onDragStart={() => setDragIndex(i)}
+                      onDragEnd={() => setDragIndex(null)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
                         e.stopPropagation();
-                        removeJob(job.id);
+                        if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
+                        setDragIndex(null);
                       }}
-                      className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                      className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? "bg-muted/40 animate-pulse" : "bg-muted/20"}`}
                     >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                )})}
+                      {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
+                      (job.file && job.file.type.startsWith("video/")) ? (
+                        <video
+                          src={url}
+                          className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
+                          playsInline
+                          muted
+                          autoPlay
+                          loop
+                        />
+                      ) : (
+                        <img
+                          src={url}
+                          alt=""
+                          loading="lazy"
+                          className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = generateProductFallbackSvg({
+                              name: draft.name,
+                              category: draft.category,
+                              slug: draft.slug,
+                            });
+                          }}
+                        />
+                      )}
+
+                      {/* Progress overlay */}
+                      {isProcessing && (
+                        <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
+                          <div className="text-[10px] font-semibold text-center mb-1">
+                            {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
+                          </div>
+                          <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
+                            <div
+                              className="h-full bg-primary transition-all duration-300 ease-out"
+                              style={{ width: `${job.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error overlay */}
+                      {isError && (
+                        <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
+                          <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">
+                            {job.error || "Failed"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              retryJob(job.id);
+                            }}
+                            className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+
+                      {i === 0 && !isProcessing && (
+                        <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
+                          <Star className="size-3" /> Main
+                        </span>
+                      )}
+
+                      {!isProcessing && (
+                        <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
+                          <GripVertical className="size-3" />
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        aria-label="Remove image"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeJob(job.id);
+                        }}
+                        className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
 
                 {jobs.length < MAX_IMAGES && (
                   <div

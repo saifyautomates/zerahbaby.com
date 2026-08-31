@@ -89,10 +89,10 @@ export function ProductCard({ product }: { product: Product }) {
             toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
           }}
           aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          className="press absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/70 backdrop-blur-md shadow-premium-sm transition-all duration-300 hover:scale-110 hover:bg-background border border-white/20"
+          className="press absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-background/80 backdrop-blur-md shadow-premium-sm transition-all duration-300 hover:scale-110 hover:bg-background border border-white/20"
         >
           <Heart
-            className={`size-4 transition-colors duration-300 ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground group-hover/btn:text-red-400"}`}
+            className={`size-4 transition-colors duration-300 ${wishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500"}`}
           />
         </button>
       )}
@@ -147,13 +147,13 @@ export function ProductCard({ product }: { product: Product }) {
             toast.success("Added to bag", { description: product.name });
             setTimeout(() => setIsAdding(false), 500);
           }}
-          className="focus-ring press mt-auto pt-4 w-full"
+          className={`focus-ring press mt-auto mt-3.5 w-full rounded-full py-2.5 sm:py-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 ${
+            isAdding
+              ? "bg-primary/80 text-primary-foreground/90 scale-95"
+              : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium-sm hover:shadow-premium-md"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <div
-            className={`w-full rounded-full py-2.5 sm:py-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 ${isAdding ? "bg-primary/80 text-primary-foreground/90 scale-95" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium-sm hover:shadow-premium-md"} disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {product.stock === 0 ? "Out of stock" : isAdding ? "Added!" : "Add to bag"}
-          </div>
+          {product.stock === 0 ? "Out of stock" : isAdding ? "Added!" : "Add to bag"}
         </button>
       </div>
     </article>

@@ -470,22 +470,28 @@ function ProductPage() {
                     </button>
                   </>
                 )}
+                {gallery.length > 1 && (
+                  <span className="absolute bottom-3.5 right-3.5 z-10 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-white shadow-xs pointer-events-none">
+                    {activeImage + 1} / {gallery.length}
+                  </span>
+                )}
               </div>
             );
           })()}
           {gallery.length > 1 && (
-            <div className="mt-4 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-3 pb-2 sm:flex-wrap sm:overflow-visible sm:snap-none sm:pb-0 px-1">
+            <div className="mt-4 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-2.5 pb-2 sm:flex-wrap sm:overflow-visible sm:snap-none sm:pb-0 px-1">
               {gallery.map((url, i) => {
                 const isVideo = !!url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
                 return (
                   <button
                     key={url}
+                    type="button"
                     onClick={() => setActiveImage(i)}
-                    aria-label={`View media ${i + 1}`}
-                    className={`size-16 shrink-0 snap-start overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
+                    aria-label={`View product media ${i + 1} of ${gallery.length}`}
+                    className={`size-16 sm:size-18 shrink-0 snap-start overflow-hidden rounded-2xl border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       i === activeImage
-                        ? "border-primary shadow-premium-sm scale-105"
-                        : "border-transparent bg-muted/50 hover:border-primary/30"
+                        ? "border-primary ring-2 ring-primary/20 shadow-premium-sm scale-105"
+                        : "border-border/60 bg-muted/30 hover:border-primary/40 opacity-75 hover:opacity-100"
                     }`}
                   >
                     <ResponsiveMedia
@@ -825,7 +831,7 @@ function ProductPage() {
       {/* Reviews Section */}
       {product && <ReviewsSection product={product} user={user} />}
 
-      {product && <RelatedProducts currentProductId={product.id} category={product.category} />}
+      {product && <RelatedProducts currentProduct={product} />}
       {product && <RecentlyViewed currentProductId={product.id} />}
 
       {/* Global Sticky Add to Cart Bar (Desktop only to prevent mobile dual-bar overlap) */}

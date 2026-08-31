@@ -411,7 +411,7 @@ export function Header() {
 
               {/* Desktop Autocomplete Dropdown */}
               {showSuggestions && (term.trim() || recent.length > 0) && (
-                <div className="absolute left-1/2 top-full mt-2 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-2xl border border-border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute left-1/2 top-full mt-2 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-2xl border border-border/80 bg-background/95 backdrop-blur-xl p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[72vh] overflow-y-auto">
                   {!term.trim() && recent.length > 0 && (
                     <div className="p-2">
                       <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">

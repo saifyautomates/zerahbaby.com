@@ -4,13 +4,7 @@ import * as tus from "tus-js-client";
 import { uploadMedia } from "@/lib/uploads"; // use the existing compressor and simple uploader for images
 
 export type UploadState =
-  | "SELECTED"
-  | "PREPROCESSING"
-  | "UPLOADING"
-  | "SAVING"
-  | "SAVED"
-  | "FAILED"
-  | "CANCELLED";
+  "SELECTED" | "PREPROCESSING" | "UPLOADING" | "SAVING" | "SAVED" | "FAILED" | "CANCELLED";
 
 export type UploadJob = {
   id: string;
@@ -47,9 +41,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
   }, [jobs]);
 
   const updateJob = useCallback((id: string, updates: Partial<UploadJob>) => {
-    setJobs((prev) =>
-      prev.map((job) => (job.id === id ? { ...job, ...updates } : job))
-    );
+    setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)));
   }, []);
 
   const processNext = useCallback(async () => {
@@ -125,17 +117,25 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
         publicUrl = await uploadMedia(job.file, prefix);
         updateJob(job.id, { progress: 100 });
       }
-      
+
       const uploadDuration = performance.now() - startTime;
-      console.log(`[Upload Performance] ${job.file.name} uploaded in ${Math.round(uploadDuration)}ms`);
+      console.log(
+        `[Upload Performance] ${job.file.name} uploaded in ${Math.round(uploadDuration)}ms`,
+      );
 
       if (onSuccess) {
         updateJob(job.id, { state: "SAVING", publicUrl });
         const dbSaveStart = performance.now();
-        const latestJob = { ...jobsRef.current.find((j) => j.id === job.id)!, publicUrl, progress: 100 };
+        const latestJob = {
+          ...jobsRef.current.find((j) => j.id === job.id)!,
+          publicUrl,
+          progress: 100,
+        };
         await onSuccess(latestJob);
         const dbSaveDuration = performance.now() - dbSaveStart;
-        console.log(`[Upload Performance] DB Save for ${job.file.name} completed in ${Math.round(dbSaveDuration)}ms`);
+        console.log(
+          `[Upload Performance] DB Save for ${job.file.name} completed in ${Math.round(dbSaveDuration)}ms`,
+        );
       }
 
       updateJob(job.id, { state: "SAVED", publicUrl, progress: 100 });
@@ -171,7 +171,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
         processNext();
       }
     },
-    [concurrency, processNext]
+    [concurrency, processNext],
   );
 
   const removeJob = useCallback((id: string) => {
@@ -185,7 +185,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       }
       URL.revokeObjectURL(job.previewUrl);
     }
-    
+
     queueRef.current = queueRef.current.filter((qid) => qid !== id);
     setJobs((prev) => prev.filter((j) => j.id !== id));
   }, []);
@@ -199,7 +199,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
         processNext();
       }
     },
-    [processNext, updateJob]
+    [processNext, updateJob],
   );
 
   const reorderJobs = useCallback((fromIndex: number, toIndex: number) => {
@@ -231,6 +231,8 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
     retryJob,
     reorderJobs,
     setInitialJobs,
-    isUploading: jobs.some((j) => j.state === "UPLOADING" || j.state === "PREPROCESSING" || j.state === "SAVING"),
+    isUploading: jobs.some(
+      (j) => j.state === "UPLOADING" || j.state === "PREPROCESSING" || j.state === "SAVING",
+    ),
   };
 }

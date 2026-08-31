@@ -343,7 +343,10 @@ function buildA4HTML(
 <!-- ── HEADER ── -->
 <div class="header">
   <div class="header-left">
-    <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px;">
+      <img src="${window.location.origin}/logo.png" style="width:54px;height:54px;object-fit:contain;" alt="Zerah Logo"/>
+      <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
+    </div>
     <div class="brand-contact">
       In Front of Hanumanji Temple,<br/>
       Atwal Nagar, Kota, Rajasthan<br/>
