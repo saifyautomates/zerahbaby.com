@@ -8,6 +8,7 @@ import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/o
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { Sparkles, TicketPercent, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -624,73 +625,59 @@ function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+          <div className="mt-4 space-y-3.5 border-t border-border pt-4 text-sm">
             <div className="flex justify-between items-center text-foreground">
               <span className="text-muted-foreground font-medium">Subtotal</span>
               <span className="font-semibold tabular-nums text-right">{formatPrice(subtotal)}</span>
             </div>
             {savings > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                  You save
-                  <span
-                    title={`You save ${formatPrice(savings)} compared with the original MRP value.`}
-                    aria-label={`You save ${formatPrice(savings)} compared with original MRP`}
-                    className="inline-flex size-4 cursor-help items-center justify-center rounded-full bg-muted/80 text-[11px] font-bold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors select-none"
-                  >
-                    ⓘ
-                  </span>
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                <span className="font-medium flex items-center gap-1.5">
+                  <Sparkles className="size-3.5" />
+                  Product Savings
                 </span>
-                <span className="font-semibold tabular-nums text-primary text-right">
-                  {formatPrice(savings)}
+                <span className="font-semibold tabular-nums text-right">
+                  - {formatPrice(savings)}
                 </span>
-              </div>
-            )}
-            {shipping === 0 ? (
-              <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground font-medium">Delivery</span>
-                  <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                    FREE
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1 border-t border-emerald-500/15 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                  <span className="text-sm select-none">🎉</span>
-                  <span>Free delivery unlocked</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground font-medium pl-5">
-                  Delivery within 7 days
-                </p>
-              </div>
-            ) : (
-              <div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">Delivery</span>
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {formatPrice(shipping)}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                  Delivery within 7 days
-                </p>
               </div>
             )}
             {couponDiscount > 0 && (
-              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                <span className="font-medium">Coupon discount</span>
-                <span className="font-semibold tabular-nums text-right">
-                  −{formatPrice(couponDiscount)}
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                <span className="font-medium flex items-center gap-2 text-xs">
+                  <TicketPercent className="size-4 text-emerald-600" />
+                  Coupon ({couponCode})
+                </span>
+                <span className="font-bold text-xs tabular-nums text-right">
+                  - {formatPrice(couponDiscount)}
                 </span>
               </div>
             )}
-            <div className="border-t border-border/60 my-3" />
-            <div className="flex justify-between items-baseline pt-1">
-              <span className="text-sm font-black uppercase tracking-wider text-foreground">
-                TOTAL TO PAY
+            <div className="flex justify-between items-center text-foreground">
+              <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                <Truck className="size-4 text-primary" />
+                Delivery Fee
               </span>
-              <span className="text-xl font-black font-display tracking-tight text-foreground tabular-nums text-right">
-                {formatPrice(finalTotal)}
+              <span className={`font-bold tabular-nums text-right ${shipping === 0 ? "text-emerald-600 font-black uppercase" : ""}`}>
+                {shipping === 0 ? "FREE" : `+ ${formatPrice(shipping)}`}
               </span>
+            </div>
+            <div className="border-t border-dashed border-border/80 my-3" />
+            <div className="flex items-center justify-between pt-1">
+              <div className="space-y-0.5">
+                <span className="text-base font-bold text-foreground block">Total to pay</span>
+                <span className="text-[11px] text-muted-foreground block">Inclusive of all taxes</span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">
+                  {formatPrice(finalTotal)}
+                </span>
+                {(savings > 0 || couponDiscount > 0) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 mt-1">
+                    <Sparkles className="size-3" />
+                    You save {formatPrice(savings + couponDiscount)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

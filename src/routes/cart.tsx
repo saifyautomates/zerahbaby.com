@@ -13,6 +13,7 @@ import {
   Undo2,
   BadgeCheck,
   Lock,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatPrice, imageFor } from "@/lib/store";
@@ -239,18 +240,21 @@ function CartPage() {
           <div className="border-t border-border/40 my-5" />
 
           <div className="space-y-4 text-sm">
-            {/* Subtotal (MRP Sum = Selling subtotal + savings) */}
+            {/* Subtotal (Item sum) */}
             <div className="flex justify-between items-center text-foreground">
               <span className="text-muted-foreground font-medium">Subtotal</span>
               <span className="font-semibold tabular-nums text-right">
-                {formatPrice(subtotal + savings)}
+                {formatPrice(subtotal)}
               </span>
             </div>
 
-            {/* Discount (The savings amount) */}
+            {/* MRP Savings Discount */}
             {savings > 0 && (
-              <div className="flex justify-between items-center text-primary">
-                <span className="text-muted-foreground font-medium">Discount</span>
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                <span className="font-medium flex items-center gap-1.5">
+                  <Sparkles className="size-3.5" />
+                  Product Savings
+                </span>
                 <span className="font-semibold tabular-nums text-right">
                   - {formatPrice(savings)}
                 </span>
@@ -259,8 +263,9 @@ function CartPage() {
 
             {/* Coupon discount line if applied */}
             {coupon && (
-              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                <span className="font-medium flex items-center gap-2">
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                <span className="font-medium flex items-center gap-2 text-xs">
+                  <TicketPercent className="size-4 text-emerald-600" />
                   Coupon ({coupon.code})
                   <button
                     type="button"
@@ -269,34 +274,72 @@ function CartPage() {
                       setCouponInput("");
                       toast.success("Coupon removed");
                     }}
-                    className="text-[11px] font-semibold text-muted-foreground hover:text-destructive underline cursor-pointer"
+                    className="text-[11px] font-bold text-muted-foreground hover:text-destructive underline cursor-pointer ml-1"
                   >
                     Remove
                   </button>
                 </span>
-                <span className="font-semibold tabular-nums text-right">
-                  −{formatPrice(coupon.discount)}
+                <span className="font-bold text-xs tabular-nums text-right">
+                  - {formatPrice(coupon.discount)}
                 </span>
               </div>
             )}
 
+            {/* Delivery Charges (Listed BEFORE Total to pay for clear math) */}
+            <div className="flex justify-between items-center text-foreground">
+              <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                <Truck className="size-4 text-primary" />
+                Delivery Fee
+              </span>
+              <span className={`font-bold tabular-nums text-right ${isFreeDelivery ? "text-emerald-600 font-black uppercase" : ""}`}>
+                {isFreeDelivery ? "FREE" : `+ ${formatPrice(shipping)}`}
+              </span>
+            </div>
+
+            {/* Free Delivery Banner / Progress */}
+            <div className="pt-1">
+              {!isFreeDelivery && amountToFreeDelivery > 0 ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300">
+                    <span>Add {formatPrice(amountToFreeDelivery)} more for FREE Delivery! 🎉</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-amber-500/20">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, Math.round(((subtotal - (coupon?.discount || 0)) / (amountToFreeDelivery + subtotal - (coupon?.discount || 0))) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : isFreeDelivery ? (
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  Yay! You've unlocked FREE Delivery on this order 🎉
+                </div>
+              ) : null}
+            </div>
+
             {/* Dashed Divider */}
-            <div className="border-t border-dashed border-border/60 my-4" />
+            <div className="border-t border-dashed border-border/80 my-3" />
 
             {/* TOTAL TO PAY */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-base font-bold text-foreground">Total to pay</span>
-                {savings > 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
-                    <Tag className="size-3" />
-                    You save {formatPrice(savings)}
-                  </div>
+            <div className="flex items-center justify-between pt-1">
+              <div className="space-y-0.5">
+                <span className="text-base font-bold text-foreground block">Total to pay</span>
+                <span className="text-[11px] text-muted-foreground block">Inclusive of all taxes</span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">
+                  {formatPrice(total)}
+                </span>
+                {(savings > 0 || (coupon && coupon.discount > 0)) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 mt-1">
+                    <Sparkles className="size-3" />
+                    You save {formatPrice(savings + (coupon?.discount || 0))}
+                  </span>
                 )}
               </div>
-              <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums text-right">
-                {formatPrice(total)}
-              </span>
             </div>
 
             {/* Promo Code Input */}
@@ -340,63 +383,10 @@ function CartPage() {
                 </form>
               ) : null}
             </div>
-
-            {/* Delivery Box */}
-            <div className="pt-2">
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-8 place-items-center rounded-full bg-emerald-500/10 text-emerald-600">
-                      <Truck className="size-4.5" />
-                    </div>
-                    <span className="font-bold text-foreground">Delivery</span>
-                  </div>
-                  <span className="font-black uppercase tracking-wider text-emerald-600">
-                    {isFreeDelivery ? "FREE" : formatPrice(shipping)}
-                  </span>
-                </div>
-
-                {isFreeDelivery ? (
-                  <div className="pt-1">
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 className="size-4" />
-                      Yay! You've unlocked free delivery
-                    </div>
-                    <p className="mt-1 pl-6 text-[11px] font-medium text-muted-foreground">
-                      Get your order within 7 days
-                    </p>
-                  </div>
-                ) : (
-                  <div className="pt-1">
-                    <p className="text-[11px] font-medium text-muted-foreground pl-11">
-                      Delivery within 7 days
-                    </p>
-                    {freeDeliveryMessage && amountToFreeDelivery > 0 && (
-                      <div className="mt-2 rounded-lg bg-background p-2.5 border border-border/40 text-xs">
-                        <p className="font-medium text-foreground">
-                          Add{" "}
-                          <strong className="text-primary font-bold">
-                            {formatPrice(amountToFreeDelivery)}
-                          </strong>{" "}
-                          more for <span className="font-bold text-primary">FREE DELIVERY</span> 🎉
-                        </p>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full bg-primary transition-all duration-500 rounded-full"
-                            style={{
-                              width: `${Math.min(100, (eligibleSubtotal / (eligibleSubtotal + amountToFreeDelivery)) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+          </div>
 
             {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border/40 my-4">
               <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
                 <ShieldCheck className="size-5 text-primary/70" strokeWidth={1.5} />
                 <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
@@ -422,7 +412,6 @@ function CartPage() {
                 </span>
               </div>
             </div>
-          </div>
 
           {/* Primary CTA */}
           <div className="mt-6">
