@@ -50,6 +50,7 @@ import {
   Upload,
   Truck,
   FileText,
+  Copy,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
@@ -2079,10 +2080,30 @@ function ProductsTab() {
                         <button
                           onClick={() => setEditing(p)}
                           aria-label={`Edit ${p.name}`}
-                          title="Edit"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted"
+                          title="Edit Product"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted cursor-pointer"
                         >
                           <Pencil className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const duplicated: Product = {
+                              ...p,
+                              uuid: "",
+                              id: "",
+                              name: `Copy of ${p.name}`,
+                              sku: "",
+                              barcode: "",
+                              stock: p.stock,
+                            };
+                            setEditing(duplicated);
+                            setCreating(true);
+                          }}
+                          aria-label={`Duplicate ${p.name}`}
+                          title="Duplicate Product (Clone with new SKU & Barcode)"
+                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                        >
+                          <Copy className="size-4" />
                         </button>
                         {!p.isActive ? (
                           <button
