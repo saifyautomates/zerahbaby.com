@@ -2102,25 +2102,28 @@ function ProductsTab() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex justify-end gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
+                          type="button"
                           onClick={() => printLabel(p)}
                           disabled={isPrinting}
                           aria-label={`Print label for ${p.name}`}
-                          title="Print Label (1-Click Direct Print)"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-2xs transition-all hover:border-[#8B2020] hover:text-[#8B2020] hover:bg-red-50/50 cursor-pointer disabled:opacity-50"
+                          title="Print Barcode Label (1-Click Direct Thermal Print)"
+                          className="rounded-lg border border-red-200/80 bg-red-50/70 p-2 text-[#8B2020] shadow-2xs transition-all hover:bg-red-100 hover:scale-105 cursor-pointer disabled:opacity-40"
                         >
                           <Printer className="size-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setEditing(p)}
                           aria-label={`Edit ${p.name}`}
-                          title="Edit Product"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-border hover:text-foreground hover:bg-muted cursor-pointer"
+                          title="Edit Product Details"
+                          className="rounded-lg border border-slate-200/80 bg-slate-50 p-2 text-slate-700 shadow-2xs transition-all hover:bg-slate-100 hover:text-slate-900 hover:scale-105 cursor-pointer"
                         >
                           <Pencil className="size-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             const duplicated: Product = {
                               ...p,
@@ -2136,21 +2139,23 @@ function ProductsTab() {
                           }}
                           aria-label={`Duplicate ${p.name}`}
                           title="Duplicate Product (Clone with new SKU & Barcode)"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                          className="rounded-lg border border-blue-200/80 bg-blue-50/70 p-2 text-blue-700 shadow-2xs transition-all hover:bg-blue-100 hover:scale-105 cursor-pointer"
                         >
                           <Copy className="size-4" />
                         </button>
                         {!p.isActive ? (
                           <button
+                            type="button"
                             onClick={() => restore.mutate(p.uuid)}
                             aria-label={`Restore ${p.name}`}
-                            title="Restore to store"
-                            className="rounded-lg border border-emerald-200 bg-card p-2 text-emerald-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50"
+                            title="Restore product to store"
+                            className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 p-2 text-emerald-700 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 cursor-pointer"
                           >
                             <Package className="size-4" />
                           </button>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => {
                               if (
                                 window.confirm(
@@ -2160,13 +2165,14 @@ function ProductsTab() {
                                 archive.mutate(p.uuid);
                             }}
                             aria-label={`Archive ${p.name}`}
-                            title="Archive (hide from store)"
-                            className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-amber-200 hover:text-amber-700 hover:bg-amber-50"
+                            title="Archive product (hide from store)"
+                            className="rounded-lg border border-amber-200/80 bg-amber-50/70 p-2 text-amber-700 shadow-2xs transition-all hover:bg-amber-100 hover:scale-105 cursor-pointer"
                           >
                             <Package className="size-4" />
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => {
                             if (
                               window.confirm(
@@ -2176,8 +2182,8 @@ function ProductsTab() {
                               remove.mutate(p.uuid);
                           }}
                           aria-label={`Delete ${p.name}`}
-                          title="Delete permanently"
-                          className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-sm transition-all hover:border-red-200 hover:text-red-700 hover:bg-red-50"
+                          title="Delete product permanently"
+                          className="rounded-lg border border-rose-200/80 bg-rose-50/70 p-2 text-rose-700 shadow-2xs transition-all hover:bg-rose-100 hover:scale-105 cursor-pointer"
                         >
                           <Trash2 className="size-4" />
                         </button>
