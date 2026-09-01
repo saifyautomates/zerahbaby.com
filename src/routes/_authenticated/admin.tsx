@@ -785,6 +785,17 @@ function AdminPage() {
                                 markAsRead(notif.id);
                                 if (notif.tab === "billing" && notif.filter) {
                                   localStorage.setItem("zerah_admin_active_subtab", notif.filter);
+                                  const url = new URL(window.location.href);
+                                  url.searchParams.set("tab", "billing");
+                                  url.searchParams.set("subtab", notif.filter);
+                                  window.history.replaceState({}, "", url.toString());
+                                } else if (notif.tab) {
+                                  const url = new URL(window.location.href);
+                                  url.searchParams.set("tab", notif.tab);
+                                  if (notif.filter) {
+                                    url.searchParams.set("status", notif.filter);
+                                  }
+                                  window.history.replaceState({}, "", url.toString());
                                 }
                                 setTab(notif.tab as Tab);
                                 setIsNotifOpen(false);
