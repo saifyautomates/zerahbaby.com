@@ -5,7 +5,7 @@
  * - Barcode preview in form
  * - Post-creation print prompt (label + invoice)
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
@@ -443,9 +443,52 @@ export function ProductForm({
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  // The barcode/sku to preview (shows auto-generated values)
   const previewSKU = draft.sku || generateSKU(draft.category);
   const previewBarcode = draft.barcode || generateBarcode();
+
+  const currentPrintableProduct: Product = useMemo(() => {
+    if (product) return product;
+    return {
+      uuid: "new-product-preview",
+      id: draft.slug || "new-product",
+      name: draft.name || "Product Name",
+      brand: draft.brand || "Zérah Baby & Kids",
+      category: draft.category || "clothing",
+      price: Number(draft.price) || 0,
+      mrp: Number(draft.mrp) || Number(draft.price) || 0,
+      rating: 0,
+      reviews: 0,
+      ageGroup: draft.ageGroup || "0-6m",
+      image: draft.images[0] || "",
+      imageUrl: draft.images[0] || "",
+      description: draft.description || "",
+      highlights: [],
+      isFeatured: draft.isFeatured,
+      isActive: draft.isActive,
+      sortOrder: draft.sortOrder,
+      stock: Number(draft.stock) || 1,
+      lowStockAt: Number(draft.lowStockAt) || 5,
+      sku: draft.sku.trim() || previewSKU,
+      barcode: draft.barcode.trim() || previewBarcode,
+      images: draft.images,
+      product_images: [],
+      deliveryFee: draft.deliveryFee,
+      recommendationMode: "manual",
+      salesChannel: draft.salesChannel,
+      variants: draft.variants.map((v, idx) => ({
+        id: v.id || `variant-${idx}`,
+        name: v.name,
+        color: v.color ?? null,
+        size: v.size ?? null,
+        sku: v.sku,
+        barcode: v.barcode ?? null,
+        stock: v.stock,
+        priceOverride: v.price_override ?? undefined,
+        mrpOverride: v.mrp_override ?? undefined,
+        imageUrl: v.image_url ?? null,
+      })),
+    };
+  }, [product, draft, previewSKU, previewBarcode]);
 
   const addFiles = useCallback(
     async (files: FileList | null) => {
@@ -1694,28 +1737,18 @@ export function ProductForm({
         </div>
 
         <div className="shrink-0 border-t border-border p-6 flex justify-end gap-3 bg-muted/50">
-          {product && (
-            <div className="mr-auto inline-flex items-center rounded-full border border-border bg-card shadow-2xs overflow-hidden">
-              <button
-                type="button"
-                onClick={() => printLabel(product)}
-                disabled={isDirectPrinting}
-                title="Print Label (1-Click Direct Print)"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
-              >
-                <Printer className="size-4 text-[#8B2020]" />
-                <span>Print Label</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrinting(true)}
-                title="More print options (Customize quantities & format)"
-                className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted transition cursor-pointer"
-              >
-                <Settings2 className="size-3.5" />
-              </button>
-            </div>
-          )}
+          <div className="mr-auto inline-flex items-center rounded-full border border-border bg-card shadow-2xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setPrinting(true)}
+              disabled={isDirectPrinting}
+              title="Preview & Print Thermal Barcode Label"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
+            >
+              <Printer className="size-4 text-[#8B2020]" />
+              <span>Print Label</span>
+            </button>
+          </div>
           <button
             type="button"
             onClick={onCancel}
@@ -1733,9 +1766,9 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* Print Labels modal */}
-      {printing && product && (
-        <PrintLabelsModal products={[product]} onClose={() => setPrinting(false)} />
+      {/* Print Labels modal — live sticker preview */}
+      {printing && (
+        <PrintLabelsModal products={[currentPrintableProduct]} onClose={() => setPrinting(false)} />
       )}
 
       {/* Post-creation prompt */}
