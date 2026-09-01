@@ -68,48 +68,53 @@ export function CustomerHistoryPanel() {
   const { data: customers = [], isLoading: searchLoading } = useQuery({
     queryKey: ["pos-customer-search", searchQuery],
     queryFn: async (): Promise<Customer[]> => {
-      if (!searchQuery.trim() || searchQuery.trim().length < 2) return [];
-      const { data } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: Customer[] | null; error: unknown }>
-      )("search_pos_customers", { _query: searchQuery.trim() });
-      return (data ?? []) as Customer[];
+      const q = searchQuery.trim();
+      if (!q || q.length < 2) return [];
+
+      try {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: Customer[] | null; error: unknown }>
+        )("search_pos_customers", { _query: q });
+        if (!error && data && data.length > 0) return data as Customer[];
+      } catch {
+        // continue to table fallback
+      }
+
+      try {
+        const { data } = await supabase
+          .from("pos_customers")
+          .select("id, name, phone, total_purchases, total_spend")
+          .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+          .limit(20);
+        return (data ?? []) as Customer[];
+      } catch {
+        return [];
+      }
     },
     enabled: searchQuery.trim().length >= 2,
   });
 
   /* ── Customer sales history ── */
   const { data: sales = [], isLoading: salesLoading } = useQuery({
-    queryKey: ["customer-sales", selectedCustomer?.id],
+    queryKey: ["customer-sales", selectedCustomer?.id, selectedCustomer?.phone],
     queryFn: async (): Promise<Sale[]> => {
-      if (!selectedCustomer) return [];
-      const { data, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (q: string) => {
-              eq: (
-                col: string,
-                val: string,
-              ) => {
-                order: (
-                  col: string,
-                  opts: { ascending: boolean },
-                ) => Promise<{ data: Sale[] | null; error: unknown }>;
-              };
-            };
-          };
-        }
-      )
-        .from("offline_sales")
-        .select("*, offline_sale_items(*)")
-        .eq("customer_phone", selectedCustomer.phone)
-        .order("created_at", { ascending: false });
-      if (error) return [];
-      return (data ?? []) as Sale[];
+      if (!selectedCustomer?.phone) return [];
+      try {
+        const { data, error } = await supabase
+          .from("offline_sales")
+          .select("*, offline_sale_items(*)")
+          .eq("customer_phone", selectedCustomer.phone)
+          .order("created_at", { ascending: false });
+        if (error) return [];
+        return (data ?? []) as Sale[];
+      } catch {
+        return [];
+      }
     },
-    enabled: !!selectedCustomer,
+    enabled: !!selectedCustomer?.phone,
   });
 
   const handleSelectCustomer = (c: Customer) => {
