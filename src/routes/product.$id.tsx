@@ -321,24 +321,34 @@ function ProductPage() {
       const uuidRegex =
         /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-      if (!uuidRegex.test(product.uuid)) return [];
-      const { data, error } = await supabase.rpc("get_related_products", {
-        p_product_id: product.uuid,
-        p_limit: 8,
-      });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.rpc("get_related_products", {
+          p_product_id: product.uuid,
+          p_limit: 8,
+        });
+        if (!error && Array.isArray(data) && data.length > 0) return data;
+      } catch {
+        // Fallback to in-memory list
+      }
+      return [];
     },
     enabled: !!product?.uuid,
   });
 
   const swatches = useMemo(() => {
-    if (!swatchesData || !list) return [];
-    const idMap = new Map(list.map((p) => [p.uuid, p]));
-    return swatchesData
-      .map((d: Record<string, unknown>) => idMap.get(d.id as string))
-      .filter(Boolean) as Product[];
-  }, [swatchesData, list]);
+    if (swatchesData && swatchesData.length > 0 && list) {
+      const idMap = new Map(list.map((p) => [p.uuid, p]));
+      const mapped = swatchesData
+        .map((d: Record<string, unknown>) => idMap.get(d.id as string))
+        .filter(Boolean) as Product[];
+      if (mapped.length > 0) return mapped;
+    }
+    // Resilient fallback: other products in same category
+    if (!product || !list) return [];
+    return list
+      .filter((p) => p.uuid !== product.uuid && p.category === product.category)
+      .slice(0, 8);
+  }, [swatchesData, list, product]);
 
   const addToCartRef = useRef<HTMLDivElement>(null);
   const [isStickyVisible, setIsStickyVisible] = useState(false);
