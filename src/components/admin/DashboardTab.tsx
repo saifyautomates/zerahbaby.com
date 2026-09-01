@@ -236,6 +236,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     isError: ordersError,
     refetch: refetchOrders,
   } = useAllOrders(true);
+
   const {
     data: rawPosSales = [],
     isLoading: posLoading,
@@ -243,8 +244,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     refetch: refetchPos,
   } = useQuery<OfflineSale[]>({
     queryKey: ["offline-sales"],
-    staleTime: 1000 * 5,
-    refetchInterval: 15000,
+    staleTime: 1000 * 60 * 3,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -265,8 +265,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     }>
   >({
     queryKey: ["offline-returns"],
-    staleTime: 1000 * 10,
-    refetchInterval: 15000,
+    staleTime: 1000 * 60 * 3,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_returns")
@@ -286,13 +285,16 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     isError: visitorsError,
   } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
-    staleTime: 1000 * 15,
-    refetchInterval: 30000,
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase.from("website_visitors").select("*");
-      if (error) throw error;
-      const v = (data ?? []) as WebsiteVisitor[];
-      return v.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const { data, error } = await supabase
+        .from("website_visitors")
+        .select("id, created_at")
+        .gte("created_at", subDays(new Date(), 60).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) return [];
+      return (data ?? []) as unknown as WebsiteVisitor[];
     },
   });
 
@@ -302,15 +304,14 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     isError: productsError,
   } = useQuery({
     queryKey: ["admin-products-count"],
-    staleTime: 1000 * 10,
-    refetchInterval: 20000,
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select(
           "id, price, stock, name, is_active, slug, category, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
         );
-      if (error) throw error;
+      if (error) return [];
       return data ?? [];
     },
   });
@@ -909,10 +910,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         products={products}
       />
     );
-  }
-
-  if (ordersLoading && posLoading && orders.length === 0 && posSales.length === 0) {
-    return <AdminDashboardSkeleton />;
   }
 
   return (

@@ -98,9 +98,7 @@ const SMSLogsTab = safeLazy(() =>
 const QueriesTab = safeLazy(() =>
   import("@/components/admin/QueriesTab").then((m) => ({ default: m.QueriesTab })),
 );
-const DashboardTab = safeLazy(() =>
-  import("@/components/admin/DashboardTab").then((m) => ({ default: m.DashboardTab })),
-);
+import { DashboardTab } from "@/components/admin/DashboardTab";
 const OnlineSalesTab = safeLazy(() =>
   import("@/components/admin/OnlineSalesTab").then((m) => ({ default: m.OnlineSalesTab })),
 );
