@@ -10,6 +10,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import logo from "@/assets/zerah-logo-official.png";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { Header } from "@/components/site/Header";
@@ -52,57 +53,72 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error("[RootError] Unhandled route error:", error);
+  const [showManualAction, setShowManualAction] = useState(false);
 
   useEffect(() => {
-    const msg = error?.message || "";
-    if (
-      msg.includes("Failed to fetch dynamically imported module") ||
-      msg.includes("Importing a module script failed") ||
-      msg.includes("error loading dynamically imported module") ||
-      msg.includes("Loading chunk")
-    ) {
-      const key = "zerah_chunk_error_reload";
-      const lastReload = parseInt(sessionStorage.getItem(key) || "0", 10);
+    console.warn("[AutoRecovery] Route exception caught. Silently restoring application...", error);
+
+    const timer = setTimeout(() => {
+      const key = "zerah_auto_recover_timestamp";
+      const last = parseInt(sessionStorage.getItem(key) || "0", 10);
       const now = Date.now();
-      if (now - lastReload > 8000) {
+
+      if (now - last > 6000) {
         sessionStorage.setItem(key, now.toString());
         window.location.reload();
+      } else {
+        try {
+          reset();
+        } catch {
+          // ignore
+        }
+        setShowManualAction(true);
       }
-    }
-  }, [error]);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [error, reset]);
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center p-8 rounded-3xl border border-border bg-card shadow-premium-md animate-in fade-in zoom-in-95 duration-300">
-        <div className="size-16 mx-auto mb-4 grid place-items-center rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
-          <AlertTriangle className="size-8" />
+    <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center bg-background p-6 antialiased">
+      {/* Brand Skeleton Loading Screen */}
+      <div className="w-full max-w-md space-y-6 text-center animate-in fade-in duration-300">
+        <div className="flex justify-center">
+          <div className="relative size-16 flex items-center justify-center rounded-2xl bg-card border border-border p-3 shadow-xs">
+            <img src={logo} alt="Zérah Baby & Kids" className="h-full w-auto object-contain animate-pulse" />
+          </div>
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-foreground">
-          Page load issue detected
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          A temporary network or page loading update occurred. Click below to refresh smoothly.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              sessionStorage.removeItem("zerah_chunk_error_reload");
-              window.location.reload();
-            }}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-premium-sm transition-all hover:bg-primary/90 cursor-pointer"
-          >
-            <RefreshCw className="size-4" />
-            Reload page
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-full border border-border bg-background px-6 py-2.5 text-sm font-bold text-foreground transition-all hover:bg-muted cursor-pointer"
-          >
-            Go home
-          </a>
+
+        {/* Pulse Skeleton Skeleton Bar Simulation */}
+        <div className="space-y-3 pt-2">
+          <div className="h-4 w-3/4 mx-auto rounded-full bg-muted animate-pulse" />
+          <div className="h-3 w-1/2 mx-auto rounded-full bg-muted/60 animate-pulse" />
         </div>
+
+        {/* Card skeleton placeholders */}
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="h-20 rounded-2xl bg-muted/40 animate-pulse border border-border/40" />
+          <div className="h-20 rounded-2xl bg-muted/40 animate-pulse border border-border/40" />
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground pt-4">
+          <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span>Restoring application view…</span>
+        </div>
+
+        {/* Manual action fallback if network is completely disconnected */}
+        {showManualAction && (
+          <div className="pt-4 animate-in slide-in-from-bottom-2 duration-300">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground shadow-premium-sm transition-all hover:bg-primary/90 cursor-pointer"
+            >
+              <RefreshCw className="size-3.5" />
+              Tap to refresh page
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
