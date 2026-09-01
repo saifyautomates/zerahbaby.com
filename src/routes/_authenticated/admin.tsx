@@ -400,7 +400,7 @@ function AdminPage() {
     { key: "billing", label: "Offline Billing", icon: Settings2 },
     {
       key: "orders",
-      label: "Orders",
+      label: "Online Orders",
       icon: ShoppingBag,
       badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
     },
@@ -606,6 +606,10 @@ function AdminPage() {
               <p className="text-[11px] text-muted-foreground font-medium">
                 {tab === "dashboard"
                   ? "Overview of your store performance"
+                  : tab === "orders"
+                  ? "Manage online store orders, shipping, and fulfillment"
+                  : tab === "billing"
+                  ? "POS billing, receipt generation, and offline sales"
                   : `Manage ${tab} and settings`}
               </p>
             </div>
