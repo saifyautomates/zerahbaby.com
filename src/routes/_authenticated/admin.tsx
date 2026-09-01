@@ -1403,24 +1403,41 @@ function ProductsTab() {
   const activeCount = (data ?? []).filter((p) => p.isActive).length;
   const archivedCount = (data ?? []).filter((p) => !p.isActive).length;
   const offlineOnlyCount = (data ?? []).filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
+  const onlineAndOfflineCount = (data ?? []).filter((p) => p.salesChannel !== "OFFLINE_ONLY").length;
 
   const list = useMemo(() => {
+    const q = (search || "").trim().toLowerCase();
     return (data ?? []).filter((p) => {
-      const matchesSearch = (p.name + p.brand + p.category + p.id + p.sku + p.barcode)
-        .toLowerCase()
-        .includes(search.toLowerCase());
+      const searchBlob = [
+        p.name,
+        p.brand,
+        p.category,
+        p.id,
+        p.uuid,
+        p.sku,
+        p.barcode,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !q || searchBlob.includes(q);
 
       const matchesCat = categoryFilter === "all" || p.category === categoryFilter;
 
       let matchesStatus = true;
-      if (statusFilter === "active") matchesStatus = p.isActive;
+      if (statusFilter === "active") matchesStatus = Boolean(p.isActive);
       else if (statusFilter === "archived") matchesStatus = !p.isActive;
       else if (statusFilter === "in_stock") matchesStatus = (p.stock || 0) > 0;
       else if (statusFilter === "low_stock")
         matchesStatus = (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5);
       else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) === 0;
 
-      const matchesChannel = p.salesChannel === channelTab;
+      const pChannel = p.salesChannel ?? "ONLINE_AND_OFFLINE";
+      const matchesChannel =
+        channelTab === "OFFLINE_ONLY"
+          ? pChannel === "OFFLINE_ONLY"
+          : pChannel !== "OFFLINE_ONLY";
 
       return matchesSearch && matchesCat && matchesStatus && matchesChannel;
     });
@@ -1535,25 +1552,25 @@ function ProductsTab() {
       <div className="flex p-1 bg-muted/30 rounded-2xl border border-border w-fit max-w-full overflow-x-auto mx-auto sm:mx-0">
         <button
           onClick={() => setChannelTab("ONLINE_AND_OFFLINE")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
             channelTab === "ONLINE_AND_OFFLINE"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           }`}
         >
           <Package className="size-4" />
-          <span>Online & Offline Store</span>
+          <span>Online & Offline Store ({onlineAndOfflineCount})</span>
         </button>
         <button
           onClick={() => setChannelTab("OFFLINE_ONLY")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
             channelTab === "OFFLINE_ONLY"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           }`}
         >
           <Store className="size-4" />
-          <span>Only Offline (POS)</span>
+          <span>Only Offline (POS) ({offlineOnlyCount})</span>
         </button>
       </div>
 
