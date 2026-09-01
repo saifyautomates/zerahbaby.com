@@ -6,11 +6,15 @@ import { useSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data?.session?.user) {
+    let session = (await supabase.auth.getSession()).data.session;
+    if (!session?.user) {
+      const refreshed = await supabase.auth.refreshSession();
+      session = refreshed.data.session;
+    }
+    if (!session?.user) {
       throw redirect({ to: "/auth" });
     }
-    return { user: data.session.user };
+    return { user: session.user };
   },
   component: AuthenticatedLayout,
 });

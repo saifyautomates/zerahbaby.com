@@ -167,8 +167,8 @@ const VALID_TABS: Tab[] = [
 function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { user } = useSession();
-  const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
+  const { user, loading: sessionLoading } = useSession();
+  const { data: isAdmin, isLoading: roleLoading, isPending: rolePending, refetch: refetchRole } = useIsAdmin(user?.id);
   const { data: profile } = useProfile(user?.id);
 
   const [tab, setTabState] = useState<Tab>(() => {
@@ -362,16 +362,16 @@ function AdminPage() {
     staleTime: 15_000,
   });
 
-  if (roleLoading) {
+  if (sessionLoading || (user && isAdmin === undefined && (roleLoading || rolePending))) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-24 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-3">
-        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="font-medium text-foreground">Verifying admin credentials…</p>
+      <div className="flex h-[100dvh] w-full flex-col items-center justify-center bg-background p-4 text-center">
+        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-3" />
+        <p className="font-bold text-sm text-foreground">Verifying admin session…</p>
       </div>
     );
   }
 
-  if (!isAdmin) {
+  if (!user || !isAdmin) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold">Admin access needed</h1>
