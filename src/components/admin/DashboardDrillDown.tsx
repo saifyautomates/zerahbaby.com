@@ -93,6 +93,530 @@ interface DrillDownProduct {
   is_active?: boolean;
 }
 
+function SalesChannelDrillDown({
+  type,
+  validOrders,
+  validPosSales,
+  products,
+}: {
+  type: "orders" | "revenue";
+  validOrders: DrillDownOrder[];
+  validPosSales: DrillDownPOSSale[];
+  products: DrillDownProduct[];
+}) {
+  const [activeChannel, setActiveChannel] = useState<"all" | "online" | "offline">("all");
+  const [search, setSearch] = useState("");
+
+  const getProduct = (slugOrId: string) => {
+    return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
+  };
+
+  const getProductImage = (p: DrillDownProduct | undefined) => {
+    if (!p) return null;
+    let url: string | null = null;
+    if (p.image) url = p.image;
+    else if (p.image_url) url = p.image_url;
+    else if (p.product_images && Array.isArray(p.product_images) && p.product_images.length > 0) {
+      const sorted = [...p.product_images].sort(
+        (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+      );
+      const primary = sorted.find((img) => img.is_primary) || sorted[0];
+      url = primary?.public_url || null;
+    }
+    return imageFor(p.category || "clothing", url);
+  };
+
+  const onlineOrders = useMemo(() => {
+    return validOrders.map((o) => ({
+      sale_id: o.id,
+      date: o.created_at,
+      id: `#${o.id.substring(0, 8).toUpperCase()}`,
+      customer: o.full_name || o.email || "Guest",
+      source: "Online" as const,
+      total: o.total || 0,
+    }));
+  }, [validOrders]);
+
+  const onlineRevenueItems = useMemo(() => {
+    const items: Array<{
+      sale_id: string;
+      date: string;
+      product: string;
+      slug: string | null;
+      image: string | null;
+      source: "Online";
+      qty: number;
+      price: number;
+      total: number;
+    }> = [];
+    validOrders.forEach((o) => {
+      o.order_items?.forEach((item) => {
+        const p = products.find((prod) => prod.id === item.product_id);
+        items.push({
+          sale_id: o.id,
+          date: o.created_at,
+          product: item.product_name || "Product",
+          slug: p?.slug || null,
+          image: getProductImage(p),
+          source: "Online",
+          qty: item.qty || 1,
+          price: item.price || 0,
+          total: (item.price || 0) * (item.qty || 1),
+        });
+      });
+    });
+    return items;
+  }, [validOrders, products]);
+
+  const offlineSales = useMemo(() => {
+    return validPosSales.map((s) => ({
+      sale_id: s.id,
+      date: s.created_at,
+      id: s.sale_number || s.id.substring(0, 8),
+      customer: s.customer_name || "Walk-in Customer",
+      source: "POS" as const,
+      total: s.total || 0,
+    }));
+  }, [validPosSales]);
+
+  const offlineRevenueItems = useMemo(() => {
+    const items: Array<{
+      sale_id: string;
+      date: string;
+      product: string;
+      slug: string | null;
+      image: string | null;
+      source: "POS";
+      qty: number;
+      price: number;
+      total: number;
+    }> = [];
+    validPosSales.forEach((s) => {
+      s.offline_sale_items?.forEach((item) => {
+        const p = getProduct(item.product_id || "");
+        items.push({
+          sale_id: s.id,
+          date: s.created_at,
+          product: p ? p.name : item.name || "Product",
+          slug: p?.slug || null,
+          image: getProductImage(p),
+          source: "POS",
+          qty: item.qty || 1,
+          price: item.price || 0,
+          total: (item.price || 0) * (item.qty || 1),
+        });
+      });
+    });
+    return items;
+  }, [validPosSales, products]);
+
+  const onlineTotalRev = onlineRevenueItems.reduce((acc, i) => acc + i.total, 0);
+  const offlineTotalRev = offlineRevenueItems.reduce((acc, i) => acc + i.total, 0);
+
+  const onlineOrdersTotal = onlineOrders.reduce((acc, i) => acc + i.total, 0);
+  const offlineOrdersTotal = offlineSales.reduce((acc, i) => acc + i.total, 0);
+
+  if (type === "orders") {
+    let combined: Array<{
+      sale_id: string;
+      date: string;
+      id: string;
+      customer: string;
+      source: "Online" | "POS";
+      total: number;
+    }> = [];
+    if (activeChannel === "online") combined = onlineOrders;
+    else if (activeChannel === "offline") combined = offlineSales;
+    else combined = [...onlineOrders, ...offlineSales];
+
+    combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      combined = combined.filter(
+        (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q)
+      );
+    }
+
+    return (
+      <div className="space-y-5">
+        {/* 2 Main Sections: 1. Online Sales & 2. Offline Sales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setActiveChannel(activeChannel === "online" ? "all" : "online")}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeChannel === "online"
+                ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                : "border-border bg-card hover:border-primary/50 hover:bg-muted/40"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-xl">
+                  🌐
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-foreground">1. Online Sales (Website)</h4>
+                  <p className="text-xs text-muted-foreground">{onlineOrders.length} Orders</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-black text-primary">{formatPrice(onlineOrdersTotal)}</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Website Revenue
+                </span>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveChannel(activeChannel === "offline" ? "all" : "offline")}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeChannel === "offline"
+                ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30 shadow-md"
+                : "border-border bg-card hover:border-emerald-500/50 hover:bg-muted/40"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xl">
+                  🏪
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-foreground">2. Offline Sales (POS Store)</h4>
+                  <p className="text-xs text-muted-foreground">{offlineSales.length} Store Sales</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-black text-emerald-600">{formatPrice(offlineOrdersTotal)}</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Store Revenue
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Segmented Channel Control Tabs & Search */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+          <div className="inline-flex rounded-xl bg-muted p-1 gap-1 border border-border/50">
+            <button
+              type="button"
+              onClick={() => setActiveChannel("all")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeChannel === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All Sales ({onlineOrders.length + offlineSales.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveChannel("online")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeChannel === "online"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🌐 1. Online Sales ({onlineOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveChannel("offline")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeChannel === "offline"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🏪 2. Offline POS Sales ({offlineSales.length})
+            </button>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by order ID or customer..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+
+        {/* Orders Table */}
+        <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+          <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+            <thead className="bg-muted text-xs uppercase text-foreground">
+              <tr>
+                <th className="px-6 py-3.5">Date</th>
+                <th className="px-6 py-3.5">Order / Sale ID</th>
+                <th className="px-6 py-3.5">Customer</th>
+                <th className="px-6 py-3.5">Sales Section</th>
+                <th className="px-6 py-3.5 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {combined.map((item, i) => (
+                <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                  <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
+                  <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        item.source === "Online"
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                      }`}
+                    >
+                      {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right font-black text-foreground">{formatPrice(item.total)}</td>
+                </tr>
+              ))}
+              {combined.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                    No orders in this section for the selected period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // Revenue Drilldown
+  let combinedRev: Array<{
+    sale_id: string;
+    date: string;
+    product: string;
+    slug: string | null;
+    image: string | null;
+    source: "Online" | "POS";
+    qty: number;
+    price: number;
+    total: number;
+  }> = [];
+  if (activeChannel === "online") combinedRev = onlineRevenueItems;
+  else if (activeChannel === "offline") combinedRev = offlineRevenueItems;
+  else combinedRev = [...onlineRevenueItems, ...offlineRevenueItems];
+
+  combinedRev.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    combinedRev = combinedRev.filter((i) => i.product.toLowerCase().includes(q));
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* 2 Main Sections: 1. Online Sales & 2. Offline Sales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          type="button"
+          onClick={() => setActiveChannel(activeChannel === "online" ? "all" : "online")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeChannel === "online"
+              ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+              : "border-border bg-card hover:border-primary/50 hover:bg-muted/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-xl">
+                🌐
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">1. Online Sales Revenue</h4>
+                <p className="text-xs text-muted-foreground">{onlineRevenueItems.length} Sold Items</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black text-primary">{formatPrice(onlineTotalRev)}</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Website Revenue
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveChannel(activeChannel === "offline" ? "all" : "offline")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeChannel === "offline"
+              ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30 shadow-md"
+              : "border-border bg-card hover:border-emerald-500/50 hover:bg-muted/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xl">
+                🏪
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">2. Offline Sales Revenue</h4>
+                <p className="text-xs text-muted-foreground">{offlineRevenueItems.length} Store Items</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black text-emerald-600">{formatPrice(offlineTotalRev)}</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Store Revenue
+              </span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Segmented Channel Control Tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+        <div className="inline-flex rounded-xl bg-muted p-1 gap-1 border border-border/50">
+          <button
+            type="button"
+            onClick={() => setActiveChannel("all")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "all"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Revenue ({onlineRevenueItems.length + offlineRevenueItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveChannel("online")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "online"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🌐 1. Online Sales ({onlineRevenueItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveChannel("offline")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "offline"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🏪 2. Offline POS ({offlineRevenueItems.length})
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search product..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+
+      {/* Revenue Table */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+        <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+          <thead className="bg-muted text-xs uppercase text-foreground">
+            <tr>
+              <th className="px-6 py-3.5">Date</th>
+              <th className="px-6 py-3.5">Product</th>
+              <th className="px-6 py-3.5">Sales Section</th>
+              <th className="px-6 py-3.5 text-right">Quantity</th>
+              <th className="px-6 py-3.5 text-right">Total Revenue</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {combinedRev.map((item, i) => (
+              <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                <td className="px-6 py-4">
+                  {item.slug ? (
+                    <Link
+                      to="/product/$id"
+                      params={{ id: item.slug }}
+                      className="flex items-center gap-3 hover:text-primary transition-colors group"
+                    >
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.product}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                        {item.product}
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 text-foreground">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.product}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-9 h-9 rounded-md object-cover border"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="font-medium">{item.product}</span>
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                      item.source === "Online"
+                        ? "bg-primary/10 text-primary border border-primary/20"
+                        : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                    }`}
+                  >
+                    {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
+                <td className="px-6 py-4 text-right font-black text-foreground">{formatPrice(item.total)}</td>
+              </tr>
+            ))}
+            {combinedRev.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  No revenue items found in this section for the selected period.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardDrillDown({
   type,
   onBack,
@@ -149,201 +673,33 @@ export function DashboardDrillDown({
     const validPosSales = posSales.filter((s) => s.status !== "cancelled");
 
     if (type === "revenue") {
-      const allItems: Array<{
-        sale_id: string;
-        date: string;
-        product: string;
-        slug: string | null;
-        image: string | null;
-        source: "Online" | "POS";
-        qty: number;
-        price: number;
-        total: number;
-      }> = [];
-      validOrders.forEach((o) => {
-        o.order_items?.forEach((item) => {
-          const p = products.find((prod) => prod.id === item.product_id);
-          allItems.push({
-            sale_id: o.id,
-            date: o.created_at,
-            product: item.product_name || "Product",
-            slug: p?.slug || null,
-            image: getProductImage(p),
-            source: "Online",
-            qty: item.qty || 1,
-            price: item.price || 0,
-            total: (item.price || 0) * (item.qty || 1),
-          });
-        });
-      });
-      validPosSales.forEach((s) => {
-        s.offline_sale_items?.forEach((item) => {
-          const p = getProduct(item.product_id || "");
-          allItems.push({
-            sale_id: s.id,
-            date: s.created_at,
-            product: p ? p.name : "Unknown",
-            slug: p?.slug || null,
-            image: getProductImage(p),
-            source: "POS",
-            qty: item.qty || 1,
-            price: item.price || 0,
-            total: (item.price || 0) * (item.qty || 1),
-          });
-        });
-      });
-      allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
       return {
         title: "Total Revenue Details (Confirmed & Paid)",
         icon: TrendingUp,
         colorClass: "text-emerald-600 bg-emerald-50",
         renderContent: () => (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
-              <thead className="bg-muted text-xs uppercase text-foreground">
-                <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Product</th>
-                  <th className="px-6 py-3">Source</th>
-                  <th className="px-6 py-4 text-right">Discount</th>
-                  <th className="px-6 py-4 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allItems.map((item, i) => (
-                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                    <td className="px-6 py-4">{format(new Date(item.date), "MMM d, h:mm a")}</td>
-                    <td className="px-6 py-4">
-                      {item.slug ? (
-                        <Link
-                          to="/product/$id"
-                          params={{ id: item.slug }}
-                          className="flex items-center gap-3 hover:text-primary transition-colors group"
-                        >
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.product}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-9 h-9 rounded-md object-cover border group-hover:border-primary/50 transition-colors"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border group-hover:border-primary/50 transition-colors">
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                            {item.product}
-                          </span>
-                        </Link>
-                      ) : (
-                        <div className="flex items-center gap-3 text-foreground">
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.product}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-9 h-9 rounded-md object-cover border"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center border">
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <span className="font-medium">{item.product}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-foreground border border-border"}`}
-                      >
-                        {item.source}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">{item.qty}</td>
-                    <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
-                  </tr>
-                ))}
-                {allItems.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center">
-                      No sales in this period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <SalesChannelDrillDown
+            type="revenue"
+            validOrders={validOrders}
+            validPosSales={validPosSales}
+            products={products}
+          />
         ),
       };
     }
 
     if (type === "orders") {
-      const allOrders = [
-        ...validOrders.map((o) => ({
-          sale_id: o.id,
-          date: o.created_at,
-          id: `#${o.id.substring(0, 8).toUpperCase()}`,
-          customer: o.full_name || o.email || "Guest",
-          source: "Online",
-          total: o.total || 0,
-        })),
-        ...validPosSales.map((s) => ({
-          sale_id: s.id,
-          date: s.created_at,
-          id: s.sale_number,
-          customer: s.customer_name || "Walk-in",
-          source: "POS",
-          total: s.total || 0,
-        })),
-      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
       return {
         title: "Total Orders Details (Confirmed & Paid)",
         icon: ShoppingCart,
         colorClass: "text-blue-600 bg-blue-50",
         renderContent: () => (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
-              <thead className="bg-muted text-xs uppercase text-foreground">
-                <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Order ID</th>
-                  <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allOrders.map((item, i) => (
-                  <tr key={i} className="border-b bg-background hover:bg-muted/50">
-                    <td className="px-6 py-4">{format(new Date(item.date), "MMM d, h:mm a")}</td>
-                    <td className="px-6 py-4 font-medium text-foreground">{item.id}</td>
-                    <td className="px-6 py-4">{item.customer}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source === "Online" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-foreground border border-border"}`}
-                      >
-                        {item.source}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold">{formatPrice(item.total)}</td>
-                  </tr>
-                ))}
-                {allOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center">
-                      No orders in this period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <SalesChannelDrillDown
+            type="orders"
+            validOrders={validOrders}
+            validPosSales={validPosSales}
+            products={products}
+          />
         ),
       };
     }
