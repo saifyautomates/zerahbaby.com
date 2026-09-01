@@ -1,21 +1,17 @@
 /**
- * POSReturnsTab — Production-grade Offline POS Returns System.
+ * POSReturnsTab — Production-grade Offline POS Returns & Exchange System.
  *
  * Capabilities:
+ * - Search past orders / customer purchases by Customer Name, Phone, or Receipt #
+ * - 1-Click item selection for return directly from past purchase histories
  * - Global hardware barcode scanner integration with audio tones
- * - Manual barcode / SKU / product search
- * - Return Cart with unit refund & line total calculations
- * - Historical sold price resolution with current price fallback
- * - Return reason & optional cashier notes
- * - Refund methods: Cash, UPI, Card
- * - Customer association (Walk-in or POS Customer)
- * - Atomic database transaction with inventory restock (+stock)
- * - Double-submit & duplicate return prevention
- * - 80mm thermal return receipt printing
- * - Background owner email notification
- * - Return History view with search, inspection, and re-print
+ * - Return Cart with unit return value & line total calculations
+ * - Exchange-First Policy: Default settlement as "Exchange Credit Voucher" (Store Credit)
+ * - Restocks inventory atomically (+stock)
+ * - Generates and prints 80mm thermal Exchange Credit Vouchers & A4 slips
+ * - Return History view with search, inspection, and re-printing
  */
-import { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -34,17 +30,18 @@ import {
   Smartphone,
   CreditCard,
   ChevronRight,
+  ChevronDown,
   X,
-  UserPlus,
   History,
   FileText,
-  ArrowLeft,
   Calendar,
-  Send,
-  Eye,
+  Sparkles,
+  ShoppingBag,
+  Tag,
+  Receipt,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { mapProduct, formatPrice, type Product } from "@/lib/store";
+import { mapProduct, formatPrice, imageFor, type Product } from "@/lib/store";
 import { playScanSuccess, playScanError } from "@/lib/audio";
 import { useGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 import { generateIdempotencyKey, useSearchPOSCustomers, useCreatePOSCustomer } from "@/lib/pos";
@@ -58,8 +55,39 @@ import {
   useOfflineReturnsList,
 } from "@/lib/pos-returns";
 import { POSReturnReceipt, type ReturnReceiptData } from "@/components/admin/POSReturnReceipt";
+import clothing from "@/assets/cat-clothing.jpg";
 
 type ReturnView = "process" | "history";
+
+type SaleItemRecord = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  qty: number;
+  subtotal: number;
+  product_id?: string | null;
+  product_slug?: string;
+  variant_info?: string;
+  mrp_snapshot?: number;
+  barcode_snapshot?: string;
+};
+
+type OfflineSaleLookupRecord = {
+  id: string;
+  sale_number: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  customer_id: string | null;
+  payment_method: string;
+  total: number;
+  subtotal: number;
+  created_at: string;
+  status: string;
+  pos_token_number?: number | null;
+  offline_sale_items?: SaleItemRecord[];
+};
 
 export function POSReturnsTab() {
   const qc = useQueryClient();
@@ -72,10 +100,14 @@ export function POSReturnsTab() {
   const [productSearch, setProductSearch] = useState("");
   const scanInputRef = useRef<HTMLInputElement>(null);
 
-  // Return Details State
+  // Customer & Past Order Search Query
+  const [pastOrderSearch, setPastOrderSearch] = useState("");
+  const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+
+  // Return Details State (Default to Exchange Credit Voucher per store policy)
   const [returnReason, setReturnReason] = useState<string>(RETURN_REASONS[0]);
   const [returnNotes, setReturnNotes] = useState("");
-  const [refundMethod, setRefundMethod] = useState<string>("cash");
+  const [refundMethod, setRefundMethod] = useState<string>("exchange_credit");
 
   // Customer State
   const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">("walkin");
@@ -108,10 +140,45 @@ export function POSReturnsTab() {
     },
   });
 
+  // Query past offline sales for customer lookup
+  const { data: pastSales = [] } = useQuery({
+    queryKey: ["offline-sales-for-returns-history-lookup"],
+    queryFn: async (): Promise<OfflineSaleLookupRecord[]> => {
+      const { data, error } = await supabase
+        .from("offline_sales")
+        .select("*, offline_sale_items(*)")
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return (data ?? []) as unknown as OfflineSaleLookupRecord[];
+    },
+    staleTime: 10_000,
+  });
+
   const searchCustomers = useSearchPOSCustomers();
   const createCustomer = useCreatePOSCustomer();
   const processReturnMutation = useProcessOfflineReturn();
   const { data: returnsList = [], isLoading: isHistoryLoading } = useOfflineReturnsList();
+
+  // Filter past sales based on search query (name, phone, receipt number, SKU)
+  const matchedPastSales = useMemo(() => {
+    const q = pastOrderSearch.trim().toLowerCase();
+    if (!q) return [];
+    return pastSales
+      .filter((s) => {
+        if (s.status === "cancelled") return false;
+        const nameMatch = (s.customer_name || "").toLowerCase().includes(q);
+        const phoneMatch = (s.customer_phone || "").toLowerCase().includes(q);
+        const saleNumMatch = (s.sale_number || "").toLowerCase().includes(q);
+        const tokenMatch = s.pos_token_number != null && String(s.pos_token_number).includes(q);
+        const itemMatch = (s.offline_sale_items ?? []).some(
+          (item) =>
+            (item.name || "").toLowerCase().includes(q) ||
+            (item.sku || "").toLowerCase().includes(q),
+        );
+        return nameMatch || phoneMatch || saleNumMatch || tokenMatch || itemMatch;
+      })
+      .slice(0, 10);
+  }, [pastSales, pastOrderSearch]);
 
   // Handle Adding Item by Barcode or Lookup
   const handleBarcodeLookupAndAdd = useCallback(async (code: string) => {
@@ -177,11 +244,81 @@ export function POSReturnsTab() {
 
   // Hook up Hardware Global Barcode Scanner
   useGlobalBarcodeScanner((scannedCode) => {
-    // Only intercept when in process view
     if (view === "process" && !isConfirmModalOpen && !isReceiptOpen) {
       handleBarcodeLookupAndAdd(scannedCode);
     }
   });
+
+  // Handle adding an item directly from past sale history
+  const handleAddPastSaleItemToReturnCart = (
+    sale: OfflineSaleLookupRecord,
+    item: SaleItemRecord,
+  ) => {
+    playScanSuccess();
+
+    const matchedProd = allProducts.find(
+      (p) =>
+        p.id === item.product_id ||
+        (p.sku && p.sku.toLowerCase() === item.sku?.toLowerCase()) ||
+        p.name.toLowerCase() === item.name?.toLowerCase(),
+    );
+
+    const resolvedImage =
+      matchedProd?.imageUrl ||
+      matchedProd?.image ||
+      imageFor(matchedProd?.category || "clothing", undefined);
+
+    setReturnCart((prev) => {
+      const existingIdx = prev.findIndex(
+        (i) =>
+          (item.product_id && i.product_id === item.product_id) ||
+          (item.sku && i.sku.toLowerCase() === item.sku.toLowerCase()),
+      );
+
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        const newQty = updated[existingIdx].qty + 1;
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          qty: newQty,
+        };
+        toast.success(`Incremented '${item.name}' (Qty: ${newQty})`);
+        return updated;
+      }
+
+      const newItem: ReturnCartItem = {
+        product_id: item.product_id || matchedProd?.id || null,
+        product_slug: item.product_slug || matchedProd?.id || "",
+        name: item.name,
+        sku: item.sku || matchedProd?.sku || "",
+        barcode: item.barcode_snapshot || matchedProd?.barcode || item.sku || "",
+        image_url: resolvedImage,
+        current_price: matchedProd?.price || item.price,
+        recent_sold_price: item.price,
+        refund_price: item.price,
+        mrp: item.mrp_snapshot || matchedProd?.mrp || item.price,
+        current_stock: matchedProd?.stock || 0,
+        variant_info: item.variant_info || "",
+        qty: 1,
+      };
+
+      toast.success(`Selected '${item.name}' for Return (₹${item.price})`);
+      return [newItem, ...prev];
+    });
+
+    // Auto-fill customer association
+    if (sale.customer_name && sale.customer_name !== "Walk-in Customer") {
+      setCustomerMode("existing");
+      setCustomerName(sale.customer_name);
+      setCustomerPhone(sale.customer_phone || "");
+      setCustomerEmail(sale.customer_email || "");
+      setCustomerId(sale.customer_id || null);
+    } else if (sale.customer_phone) {
+      setCustomerMode("existing");
+      setCustomerName(`Customer (${sale.customer_phone})`);
+      setCustomerPhone(sale.customer_phone);
+    }
+  };
 
   // Quantity modification
   const handleUpdateQty = (idx: number, delta: number) => {
@@ -267,7 +404,7 @@ export function POSReturnsTab() {
           qty: item.qty,
           mrp: item.mrp,
         })),
-        idempotency_key: "", // Bypass backend SELECT INTO bug where it overwrites total to NULL on no-match
+        idempotency_key: "",
       };
 
       const result = await processReturnMutation.mutateAsync(payload);
@@ -297,7 +434,11 @@ export function POSReturnsTab() {
       setIsReceiptOpen(true);
       setIsConfirmModalOpen(false);
       handleClearCart();
-      toast.success(`Return #${result.return_number} processed! Inventory restocked.`);
+      toast.success(
+        refundMethod === "exchange_credit"
+          ? `Exchange Credit Voucher #${result.return_number} issued!`
+          : `Return #${result.return_number} processed! Inventory restocked.`,
+      );
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to process offline return");
     }
@@ -322,13 +463,16 @@ export function POSReturnsTab() {
       {/* ── Sub-Header & Navigation Tabs ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <RotateCcw className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">Offline POS Returns</h2>
+            <h2 className="text-base font-bold text-foreground">
+              Offline POS Returns &amp; Exchange
+            </h2>
             <p className="text-xs text-muted-foreground">
-              Scan barcode gun to accept customer returns, restock inventory, and issue refunds.
+              Search past customer purchases, select items for return, restock inventory, and issue
+              Exchange Vouchers.
             </p>
           </div>
         </div>
@@ -344,7 +488,7 @@ export function POSReturnsTab() {
             }`}
           >
             <Scan className="h-4 w-4" />
-            <span>Process Return</span>
+            <span>Process Return / Exchange</span>
           </button>
 
           <button
@@ -365,9 +509,143 @@ export function POSReturnsTab() {
       {/* ── VIEW 1: PROCESS RETURN ── */}
       {view === "process" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 flex-1 overflow-hidden">
-          {/* LEFT 7-COL: Scanner, Cart & Items */}
-          <div className="lg:col-span-7 flex flex-col space-y-4 overflow-hidden">
-            {/* Barcode Scanner Input Box */}
+          {/* LEFT 7-COL: Past Order Lookup, Barcode Scanner, Cart & Items */}
+          <div className="lg:col-span-7 flex flex-col space-y-4 overflow-y-auto pr-1">
+            {/* 1. Find Customer / Past Purchase Lookup Box */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-bold text-foreground">
+                    Look Up Past Purchase / Customer History
+                  </h3>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Search by Customer Name, Phone, or Receipt #
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={pastOrderSearch}
+                  onChange={(e) => setPastOrderSearch(e.target.value)}
+                  placeholder="e.g. Jack Sparrow, 9876543210, or POS-2609-00009..."
+                  className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+                {pastOrderSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPastOrderSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Matched Past Sales List */}
+              {pastOrderSearch.trim() && (
+                <div className="space-y-2 mt-2 max-h-72 overflow-y-auto pr-1">
+                  {matchedPastSales.length === 0 ? (
+                    <div className="p-4 text-center rounded-xl bg-muted/30 border border-border text-xs text-muted-foreground">
+                      No matching past sales found for "{pastOrderSearch}". You can also scan
+                      product barcode directly below.
+                    </div>
+                  ) : (
+                    matchedPastSales.map((sale) => {
+                      const isExpanded =
+                        expandedSaleId === sale.id || matchedPastSales.length === 1;
+                      return (
+                        <div
+                          key={sale.id}
+                          className="rounded-xl border border-border/80 bg-muted/20 overflow-hidden text-xs transition"
+                        >
+                          {/* Receipt Summary Header */}
+                          <div
+                            onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                            className="p-3 flex items-center justify-between gap-2 hover:bg-muted/40 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {isExpanded ? (
+                                <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                              ) : (
+                                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="font-mono font-bold text-foreground truncate">
+                                {sale.sale_number}
+                              </span>
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                {sale.customer_name || "Walk-in"}
+                              </span>
+                              {sale.customer_phone && (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  {sale.customer_phone}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="font-bold text-primary block">
+                                {formatPrice(sale.total)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(sale.created_at).toLocaleDateString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Items in this past sale */}
+                          {isExpanded && (
+                            <div className="p-3 border-t border-border/60 bg-background/80 space-y-2">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                Items in this Sale ({sale.offline_sale_items?.length || 0}) — Click
+                                "+ Select for Return"
+                              </p>
+                              <div className="divide-y divide-border/60">
+                                {(sale.offline_sale_items ?? []).map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="py-2 flex items-center justify-between gap-3"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-bold text-foreground text-xs truncate">
+                                        {item.name}
+                                      </p>
+                                      <p className="text-[10px] text-muted-foreground font-mono">
+                                        SKU: {item.sku || "—"} | Bought Qty: {item.qty} | Paid:{" "}
+                                        {formatPrice(item.price)}
+                                      </p>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddPastSaleItemToReturnCart(sale, item)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-xs transition cursor-pointer shadow-2xs shrink-0"
+                                    >
+                                      <Plus className="size-3.5" />
+                                      Select for Return
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Barcode Scanner Input Box */}
             <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-card p-4 shadow-xs">
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <div className="relative flex-1 w-full">
@@ -407,7 +685,7 @@ export function POSReturnsTab() {
                     type="text"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Search product name manually..."
+                    placeholder="Search product catalog manually..."
                     className="w-full rounded-lg border border-border bg-muted/30 pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:bg-background outline-none transition"
                   />
                 </div>
@@ -455,11 +733,11 @@ export function POSReturnsTab() {
               </div>
             </div>
 
-            {/* Return Cart Table */}
+            {/* 3. Return Cart Table */}
             <div className="flex-1 rounded-2xl border border-border bg-card shadow-xs flex flex-col overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-muted/20">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold text-foreground">Return Cart</h3>
+                  <h3 className="text-xs font-bold text-foreground">Return Cart Items</h3>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {totalReturnUnits} units
                   </span>
@@ -476,13 +754,14 @@ export function POSReturnsTab() {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto divide-y divide-border">
+              <div className="flex-1 overflow-y-auto divide-y divide-border min-h-[160px]">
                 {returnCart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-                    <Scan className="h-10 w-10 text-muted-foreground/40 mb-2" />
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <ShoppingBag className="h-10 w-10 text-muted-foreground/30 mb-2" />
                     <p className="text-xs font-bold text-foreground">Return Cart is Empty</p>
                     <p className="text-[11px] max-w-xs mt-1">
-                      Scan product barcodes using the scanner gun to start the return workflow.
+                      Search customer past purchase above or scan barcodes with the gun to add
+                      items.
                     </p>
                   </div>
                 ) : (
@@ -500,6 +779,9 @@ export function POSReturnsTab() {
                             loading="lazy"
                             decoding="async"
                             className="h-10 w-10 rounded-xl object-cover shrink-0 border border-border"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = clothing;
+                            }}
                           />
                         ) : (
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground shrink-0">
@@ -510,12 +792,11 @@ export function POSReturnsTab() {
                           <p className="font-bold text-xs text-foreground truncate">{item.name}</p>
                           <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                             {item.sku && <span>SKU: {item.sku}</span>}
-                            {item.barcode && <span>Barcode: {item.barcode}</span>}
                             {item.variant_info && <span>({item.variant_info})</span>}
                           </div>
                           {item.recent_sold_price != null && (
-                            <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
-                              Historical sold price detected: {formatPrice(item.recent_sold_price)}
+                            <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                              Historical purchase price: {formatPrice(item.recent_sold_price)}
                             </p>
                           )}
                         </div>
@@ -545,7 +826,7 @@ export function POSReturnsTab() {
                           </button>
                         </div>
 
-                        {/* Unit Refund Price input */}
+                        {/* Unit Return Price input */}
                         <div className="flex flex-col items-end">
                           <div className="flex items-center gap-1">
                             <span className="text-[10px] text-muted-foreground">₹</span>
@@ -557,7 +838,7 @@ export function POSReturnsTab() {
                                 handleUpdateRefundPrice(idx, parseFloat(e.target.value) || 0)
                               }
                               className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-right text-xs font-bold text-foreground focus:ring-1 focus:ring-primary outline-none"
-                              title="Unit Refund Price"
+                              title="Unit Return Value"
                             />
                           </div>
                           <span className="text-[10px] text-muted-foreground mt-0.5">
@@ -582,13 +863,13 @@ export function POSReturnsTab() {
             </div>
           </div>
 
-          {/* RIGHT 5-COL: Return Reason, Customer, Refund Method & Actions */}
+          {/* RIGHT 5-COL: Customer, Resolution / Exchange Method, Notes & Actions */}
           <div className="lg:col-span-5 flex flex-col space-y-4 overflow-y-auto pr-1">
             {/* Customer Association */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <User className="h-4 w-4 text-primary" />
                   <h3 className="text-xs font-bold text-foreground">Customer Association</h3>
                 </div>
                 <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/40 p-0.5 text-[10px]">
@@ -615,7 +896,7 @@ export function POSReturnsTab() {
                         : "text-muted-foreground"
                     }`}
                   >
-                    Search
+                    Lookup
                   </button>
                   <button
                     type="button"
@@ -633,7 +914,7 @@ export function POSReturnsTab() {
 
               {customerMode === "walkin" && (
                 <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-2.5">
-                  Walk-in Customer selected. No customer lookup required for direct barcode return.
+                  Walk-in Customer selected. No profile required.
                 </p>
               )}
 
@@ -643,14 +924,14 @@ export function POSReturnsTab() {
                     type="text"
                     value={customerSearchQuery}
                     onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                    placeholder="Search POS customer by name or phone..."
+                    placeholder="Search POS customer profile by name or phone..."
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none"
                   />
                   {customerName && (
                     <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-2.5 text-xs text-primary">
                       <div>
                         <p className="font-bold">{customerName}</p>
-                        {customerPhone && <p className="text-[10px]">{customerPhone}</p>}
+                        {customerPhone && <p className="text-[10px] font-mono">{customerPhone}</p>}
                       </div>
                       <Check className="h-4 w-4" />
                     </div>
@@ -678,12 +959,89 @@ export function POSReturnsTab() {
               )}
             </div>
 
+            {/* Return Settlement Method — EXCHANGE FIRST POLICY */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-foreground">Settlement / Return Method</h3>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Exchange Only Policy
+                </span>
+              </div>
+
+              {/* Primary Exchange Option */}
+              <button
+                type="button"
+                onClick={() => setRefundMethod("exchange_credit")}
+                className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
+                  refundMethod === "exchange_credit"
+                    ? "border-emerald-600 bg-emerald-500/10 shadow-xs"
+                    : "border-border bg-card hover:bg-muted/40"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`p-2 rounded-xl shrink-0 ${
+                      refundMethod === "exchange_credit"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <Sparkles className="size-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-foreground">Exchange Credit Voucher</p>
+                      <span className="rounded-md bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Issues a store credit slip allowing customer to buy or exchange any item in
+                      store.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Alternative payout methods (if explicitly required) */}
+              <div className="pt-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Alternative Refund (Direct Payout)
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: "cash", label: "Cash", icon: Banknote },
+                    { key: "upi", label: "UPI", icon: Smartphone },
+                    { key: "card", label: "Card", icon: CreditCard },
+                  ].map((m) => {
+                    const Icon = m.icon;
+                    const active = refundMethod === m.key;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => setRefundMethod(m.key)}
+                        className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-2.5 border font-semibold text-xs transition cursor-pointer ${
+                          active
+                            ? "border-primary bg-primary/10 text-primary shadow-xs"
+                            : "border-border bg-card text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Return Reason & Notes */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-bold text-foreground">Return Reason &amp; Notes</h3>
               <div>
                 <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                  Reason for Return
+                  Reason for Return / Exchange
                 </label>
                 <select
                   value={returnReason}
@@ -706,56 +1064,26 @@ export function POSReturnsTab() {
                   rows={2}
                   value={returnNotes}
                   onChange={(e) => setReturnNotes(e.target.value)}
-                  placeholder="Additional notes about product condition or reason..."
+                  placeholder="Notes about product condition or exchange request..."
                   className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none"
                 />
               </div>
             </div>
 
-            {/* Refund Method */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
-              <h3 className="text-xs font-bold text-foreground">Refund Method</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { key: "cash", label: "Cash", icon: Banknote },
-                  { key: "upi", label: "UPI", icon: Smartphone },
-                  { key: "card", label: "Card", icon: CreditCard },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const active = refundMethod === m.key;
-                  return (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => setRefundMethod(m.key)}
-                      className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border font-semibold text-xs transition cursor-pointer ${
-                        active
-                          ? "border-primary bg-primary/10 text-primary shadow-xs"
-                          : "border-border bg-card text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span>{m.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Refund Summary & Action Button */}
+            {/* Summary & Action Button */}
             <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Total Items to Return</span>
+                  <span>Total Items to Restock</span>
                   <span className="font-bold text-foreground">+{totalReturnUnits} units</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Refund Method</span>
-                  <span className="font-bold uppercase text-foreground">{refundMethod}</span>
-                </div>
-                <div className="flex justify-between items-baseline pt-2 border-t border-border">
-                  <span className="text-sm font-extrabold text-foreground">TOTAL REFUND</span>
-                  <span className="text-xl font-black text-rose-600 dark:text-rose-400">
+                <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-border">
+                  <span className="text-foreground">
+                    {refundMethod === "exchange_credit"
+                      ? "Exchange Credit Value"
+                      : "Total Refund Amount"}
+                  </span>
+                  <span className="text-xl font-black text-primary">
                     {formatPrice(totalRefundAmount)}
                   </span>
                 </div>
@@ -764,17 +1092,16 @@ export function POSReturnsTab() {
               <button
                 type="button"
                 onClick={() => setIsConfirmModalOpen(true)}
-                disabled={returnCart.length === 0}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 p-3.5 text-sm font-bold text-white shadow-md hover:from-rose-700 hover:to-rose-800 disabled:opacity-40 transition cursor-pointer"
+                disabled={returnCart.length === 0 || processReturnMutation.isPending}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition shadow-xs cursor-pointer"
               >
-                <RotateCcw className="h-4 w-4" />
-                <span>Confirm Return ({formatPrice(totalRefundAmount)})</span>
+                <Sparkles className="h-4 w-4" />
+                <span>
+                  {refundMethod === "exchange_credit"
+                    ? `Issue Exchange Voucher (${formatPrice(totalRefundAmount)})`
+                    : `Process Return (${formatPrice(totalRefundAmount)})`}
+                </span>
               </button>
-
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground justify-center">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span>Inventory will be automatically restocked upon confirmation.</span>
-              </div>
             </div>
           </div>
         </div>
@@ -782,120 +1109,96 @@ export function POSReturnsTab() {
 
       {/* ── VIEW 2: RETURN HISTORY ── */}
       {view === "history" && (
-        <div className="flex-1 rounded-2xl border border-border bg-card shadow-xs flex flex-col overflow-hidden">
-          {/* Filter / Search Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-border bg-muted/20">
+        <div className="flex-1 flex flex-col rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+          {/* History Search Header */}
+          <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search returns by number, customer, or phone..."
-                className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none"
+                placeholder="Search returns by voucher #, customer, or phone..."
+                className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Showing <span className="font-bold text-foreground">{filteredHistory.length}</span>{" "}
-              returns
-            </p>
+            <span className="text-xs text-muted-foreground">
+              Showing {filteredHistory.length} return / exchange records
+            </span>
           </div>
 
-          {/* Returns Table */}
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground font-semibold bg-muted/10">
-                  <th className="p-3">Return #</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Customer</th>
-                  <th className="p-3">Reason</th>
-                  <th className="p-3">Refund Amount</th>
-                  <th className="p-3">Method</th>
-                  <th className="p-3">Email Alert</th>
-                  <th className="p-3 text-right">Actions</th>
+          {/* History Table */}
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="px-5 py-3.5">Voucher / Return #</th>
+                  <th className="px-5 py-3.5">Customer</th>
+                  <th className="px-5 py-3.5">Date (IST)</th>
+                  <th className="px-5 py-3.5">Settlement Mode</th>
+                  <th className="px-5 py-3.5">Reason</th>
+                  <th className="px-5 py-3.5 text-right">Value</th>
+                  <th className="px-5 py-3.5 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/60">
                 {isHistoryLoading ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                      Loading return history...
+                    <td colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
+                      Loading return history…
                     </td>
                   </tr>
                 ) : filteredHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                      No returns recorded yet.
+                    <td colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
+                      No returns found matching search criteria.
                     </td>
                   </tr>
                 ) : (
                   filteredHistory.map((ret) => (
-                    <tr key={ret.id} className="hover:bg-muted/40 transition">
-                      <td className="p-3 font-bold text-foreground">{ret.return_number}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {new Date(ret.created_at).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                    <tr
+                      key={ret.id}
+                      className="hover:bg-muted/40 transition cursor-pointer"
+                      onClick={() => setSelectedHistoryReturn(ret)}
+                    >
+                      <td className="px-5 py-3.5 font-mono font-bold text-foreground text-xs">
+                        {ret.return_number}
                       </td>
-                      <td className="p-3">
-                        <p className="font-semibold text-foreground">{ret.customer_name}</p>
+                      <td className="px-5 py-3.5">
+                        <p className="font-bold text-foreground text-xs">{ret.customer_name}</p>
                         {ret.customer_phone && (
-                          <p className="text-[10px] text-muted-foreground">{ret.customer_phone}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">
+                            {ret.customer_phone}
+                          </p>
                         )}
                       </td>
-                      <td className="p-3 text-muted-foreground max-w-xs truncate">
-                        {ret.return_reason}
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                        {new Date(ret.created_at).toLocaleString("en-IN")}
                       </td>
-                      <td className="p-3 font-bold text-rose-600 dark:text-rose-400">
-                        {formatPrice(ret.refund_amount)}
-                      </td>
-                      <td className="p-3 uppercase font-semibold text-foreground">
-                        {ret.refund_method}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                            ret.owner_notification_status === "sent"
-                              ? "bg-emerald-500/10 text-emerald-600"
-                              : "bg-amber-500/10 text-amber-600"
-                          }`}
-                        >
-                          {ret.owner_notification_status || "pending"}
+                      <td className="px-5 py-3.5">
+                        <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                          {ret.refund_method === "exchange_credit"
+                            ? "Exchange Voucher"
+                            : ret.refund_method}
                         </span>
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground truncate max-w-xs">
+                        {ret.return_reason}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-bold text-primary text-sm">
+                        {formatPrice(ret.refund_amount)}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
                         <button
                           type="button"
-                          onClick={() => {
-                            const receiptData: ReturnReceiptData = {
-                              return_number: ret.return_number,
-                              customer_name: ret.customer_name,
-                              customer_phone: ret.customer_phone,
-                              refund_amount: Number(ret.refund_amount),
-                              refund_method: ret.refund_method,
-                              return_reason: ret.return_reason,
-                              notes: ret.notes,
-                              created_at: ret.created_at,
-                              items: (ret.offline_return_items || []).map((i) => ({
-                                name: i.name,
-                                sku: i.sku,
-                                barcode: i.barcode,
-                                variant_info: i.variant_info,
-                                refund_price: Number(i.refund_price),
-                                qty: Number(i.qty),
-                                subtotal: Number(i.subtotal),
-                              })),
-                            };
-                            setActiveReceipt(receiptData);
-                            setIsReceiptOpen(true);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedHistoryReturn(ret);
                           }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+                          className="flex items-center gap-1 mx-auto px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold text-foreground transition cursor-pointer shadow-2xs"
                         >
-                          <Printer className="h-3 w-3" />
-                          <span>Receipt</span>
+                          <Printer className="size-3 text-primary" />
+                          Reprint Slip
                         </button>
                       </td>
                     </tr>
@@ -907,31 +1210,33 @@ export function POSReturnsTab() {
         </div>
       )}
 
-      {/* ── CONFIRMATION MODAL ── */}
+      {/* Confirmation Modal */}
       {isConfirmModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-border pb-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
-                <RotateCcw className="h-4 w-4" />
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setIsConfirmModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                <Sparkles className="size-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-foreground">Confirm Offline Return</h3>
+                <h3 className="text-base font-bold text-foreground">
+                  Confirm Return &amp; Exchange
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  Verify return details before restock
+                  {refundMethod === "exchange_credit"
+                    ? "Generate Exchange Credit Voucher and restock inventory"
+                    : "Process return payout and restock inventory"}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Returned Items:</span>
-                <span className="font-bold text-foreground">+{totalReturnUnits} units</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Refund Method:</span>
-                <span className="font-bold uppercase text-foreground">{refundMethod}</span>
-              </div>
+            <div className="rounded-2xl bg-muted/40 border border-border p-4 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer:</span>
                 <span className="font-bold text-foreground">
@@ -939,46 +1244,52 @@ export function POSReturnsTab() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Reason:</span>
-                <span className="font-bold text-foreground">{returnReason}</span>
+                <span className="text-muted-foreground">Units to Restock:</span>
+                <span className="font-bold text-foreground">+{totalReturnUnits} units</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-border text-sm font-black text-rose-600">
-                <span>TOTAL REFUND:</span>
-                <span>{formatPrice(totalRefundAmount)}</span>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Settlement:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                  {refundMethod === "exchange_credit" ? "Exchange Credit Voucher" : refundMethod}
+                </span>
               </div>
-            </div>
-
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                Inventory will be increased immediately. This transaction cannot be undone.
-              </span>
+              <div className="flex justify-between pt-2 border-t border-border text-sm font-bold">
+                <span className="text-foreground">Total Credit Value:</span>
+                <span className="text-primary font-black text-base">
+                  {formatPrice(totalRefundAmount)}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setIsConfirmModalOpen(false)}
-                disabled={processReturnMutation.isPending}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-border bg-background text-xs font-bold text-muted-foreground hover:bg-muted transition cursor-pointer"
               >
-                Go Back
+                Cancel
               </button>
-
               <button
                 type="button"
                 onClick={handleConfirmReturn}
                 disabled={processReturnMutation.isPending}
-                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50 transition shadow-sm cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-xs cursor-pointer flex items-center gap-1.5"
               >
-                {processReturnMutation.isPending ? "Restocking..." : "Confirm & Restock"}
+                {processReturnMutation.isPending ? (
+                  "Processing…"
+                ) : (
+                  <>
+                    <Check className="size-4" />
+                    Confirm &amp; Print Voucher
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── 80mm THERMAL RETURN RECEIPT MODAL ── */}
+      {/* Return & Exchange Voucher Receipt Modal */}
       {isReceiptOpen && activeReceipt && (
         <POSReturnReceipt
           returnData={activeReceipt}
@@ -986,6 +1297,33 @@ export function POSReturnsTab() {
             setIsReceiptOpen(false);
             setActiveReceipt(null);
           }}
+          autoPrint={true}
+        />
+      )}
+
+      {/* History Reprint Receipt Modal */}
+      {selectedHistoryReturn && (
+        <POSReturnReceipt
+          returnData={{
+            return_number: selectedHistoryReturn.return_number,
+            customer_name: selectedHistoryReturn.customer_name,
+            customer_phone: selectedHistoryReturn.customer_phone,
+            refund_amount: selectedHistoryReturn.refund_amount,
+            refund_method: selectedHistoryReturn.refund_method,
+            return_reason: selectedHistoryReturn.return_reason,
+            notes: selectedHistoryReturn.notes,
+            created_at: selectedHistoryReturn.created_at,
+            items: (selectedHistoryReturn.offline_return_items ?? []).map((i) => ({
+              name: i.name,
+              sku: i.sku,
+              barcode: i.barcode,
+              variant_info: i.variant_info,
+              refund_price: i.refund_price,
+              qty: i.qty,
+              subtotal: i.subtotal,
+            })),
+          }}
+          onClose={() => setSelectedHistoryReturn(null)}
         />
       )}
     </div>

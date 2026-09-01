@@ -1,17 +1,17 @@
 /**
- * POSReturnReceipt — 80mm thermal printer optimized receipt for Offline Returns.
+ * POSReturnReceipt — 80mm Thermal & A4 Exchange Credit Voucher for Offline Returns.
  *
  * Displays:
- * - Return Number & Date/Time
- * - Customer info
- * - Itemized returned products with quantities & refund prices
- * - Total refund amount & Refund Method (Cash, UPI, Card)
- * - Return Reason & Notes
- * - Inventory Restock confirmation
+ * - Return Voucher Number & Date/Time
+ * - Customer info & original sale reference
+ * - Itemized returned products with quantities & return value
+ * - Store Credit Voucher Available balance
+ * - Exchange Policy note: "Exchange only — valid for purchasing any item at Zérah Baby & Kids"
+ * - Restock confirmation
  */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, RotateCcw } from "lucide-react";
+import { X, Printer, RotateCcw, Sparkles, Tag, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 
 export type ReturnReceiptData = {
@@ -43,6 +43,8 @@ type Props = {
 
 export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Props) {
   const date = returnData.created_at ? new Date(returnData.created_at) : new Date();
+  const isExchangeCredit =
+    returnData.refund_method === "exchange_credit" || !returnData.refund_method;
 
   useEffect(() => {
     if (autoPrint) {
@@ -65,15 +67,14 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
 
   const content = (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs print:block print:bg-transparent print:p-0 print:inset-auto print:fixed-none animate-in fade-in duration-150"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs print:block print:bg-transparent print:p-0 print:inset-auto print:fixed-none animate-in fade-in duration-150"
       role="dialog"
-      aria-label="Return Receipt"
+      aria-label="Return Receipt & Exchange Voucher"
       onClick={onClose}
     >
       {/* ── Print CSS ── */}
       <style>{`
         @media print {
-          /* Hide everything except the thermal receipt */
           body > *:not(#thermal-return-receipt-portal) { display: none !important; }
           #thermal-return-receipt-portal { display: block !important; }
 
@@ -107,18 +108,20 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
 
       <div
         id="thermal-return-receipt-portal"
-        className="flex w-full max-w-sm flex-col rounded-2xl border border-border bg-card shadow-2xl print:rounded-none print:border-0 print:shadow-none print:max-w-none print:w-[72mm]"
+        className="flex w-full max-w-sm flex-col rounded-3xl border border-border bg-card shadow-2xl print:rounded-none print:border-0 print:shadow-none print:max-w-none print:w-[72mm] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Screen header (hidden during print) ── */}
-        <div className="thermal-no-print flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="thermal-no-print flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <RotateCcw className="h-4 w-4" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-foreground">Return Receipt</h2>
-              <p className="text-xs text-muted-foreground">{returnData.return_number}</p>
+              <h2 className="text-sm font-bold text-foreground">
+                {isExchangeCredit ? "Exchange Credit Voucher" : "Return Receipt"}
+              </h2>
+              <p className="text-xs font-mono text-muted-foreground">{returnData.return_number}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,33 +135,50 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-xs cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
-              Print
+              Print Slip
             </button>
           </div>
         </div>
 
         {/* ── Printable receipt body ── */}
-        <div className="thermal-body overflow-y-auto p-5 print:p-0 print:overflow-visible font-mono text-xs text-foreground bg-card">
+        <div className="thermal-body overflow-y-auto max-h-[80vh] p-5 print:p-0 print:overflow-visible font-mono text-xs text-foreground bg-card">
           {/* Store header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
             <p className="text-sm font-black tracking-tight text-foreground">
               ZÉRAH BABY &amp; KIDS
             </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Offline POS Returns</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Offline POS Returns &amp; Exchange
+            </p>
             <p className="text-[10px] text-muted-foreground">Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
+            <p className="text-[10px] text-muted-foreground">Support: +91 90570 74777</p>
             <div className="mt-2 inline-block rounded border border-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
-              RETURN RECEIPT
+              {isExchangeCredit ? "EXCHANGE CREDIT VOUCHER" : "RETURN RECEIPT"}
             </div>
           </div>
+
+          {/* Prominent Exchange Voucher Box */}
+          {isExchangeCredit && (
+            <div className="my-2.5 rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-500/10 p-2.5 text-center print:border-black print:bg-transparent">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 print:text-black block">
+                STORE CREDIT VOUCHER VALUE
+              </span>
+              <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 print:text-black block mt-0.5">
+                {formatPrice(returnData.refund_amount)}
+              </span>
+              <span className="text-[9px] font-semibold text-emerald-900 dark:text-emerald-200 print:text-black block mt-1">
+                ✓ Valid for purchasing any item at Zérah Baby &amp; Kids
+              </span>
+            </div>
+          )}
 
           {/* Return details */}
           <div className="text-[11px] space-y-0.5 mb-3">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Return #</span>
+              <span className="text-muted-foreground">Voucher / Return #</span>
               <span className="font-bold text-foreground">{returnData.return_number}</span>
             </div>
             <div className="flex justify-between">
@@ -200,7 +220,7 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
               <span className="w-[50%]">Item Returned</span>
               <span className="w-[20%] text-center">Qty</span>
-              <span className="w-[30%] text-right">Refund</span>
+              <span className="w-[30%] text-right">Value</span>
             </div>
           </div>
 
@@ -216,7 +236,9 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
                     {item.variant_info && (
                       <p className="text-[9px] text-muted-foreground">{item.variant_info}</p>
                     )}
-                    {item.barcode && <p className="text-[9px] text-gray-400">{item.barcode}</p>}
+                    {item.sku && (
+                      <p className="text-[9px] text-muted-foreground">SKU: {item.sku}</p>
+                    )}
                   </div>
                   <span className="w-[20%] text-center font-bold text-foreground">{item.qty}</span>
                   <span className="w-[30%] text-right font-bold text-foreground">
@@ -234,12 +256,16 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               <span className="font-bold text-foreground">+{totalItemsCount}</span>
             </div>
             <div className="flex justify-between text-[13px] font-black text-foreground pt-1 border-t border-dashed border-border">
-              <span>TOTAL REFUNDED</span>
-              <span>{formatPrice(returnData.refund_amount)}</span>
+              <span>{isExchangeCredit ? "TOTAL EXCHANGE CREDIT" : "TOTAL REFUNDED"}</span>
+              <span className={isExchangeCredit ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                {formatPrice(returnData.refund_amount)}
+              </span>
             </div>
-            <div className="flex justify-between text-[11px] font-bold text-blue-700">
-              <span>Refund Method</span>
-              <span className="uppercase">{returnData.refund_method}</span>
+            <div className="flex justify-between text-[11px] font-bold text-primary">
+              <span>Settlement Mode</span>
+              <span className="uppercase">
+                {isExchangeCredit ? "Exchange Credit Voucher" : returnData.refund_method}
+              </span>
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
               <span>Reason</span>
@@ -252,10 +278,16 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             )}
           </div>
 
-          {/* Footer Note */}
-          <div className="border-t border-dashed border-gray-400 mt-3 pt-2 text-center text-[10px] text-muted-foreground">
-            <p className="font-semibold text-emerald-800">✓ Inventory Restocked</p>
-            <p className="mt-1">Thank you for visiting Zérah Baby &amp; Kids!</p>
+          {/* Footer Note & Exchange Policy */}
+          <div className="border-t border-dashed border-gray-400 mt-3 pt-2 text-center text-[10px] text-muted-foreground space-y-1">
+            <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+              ✓ Inventory Restocked
+            </p>
+            <p className="text-[9px] text-foreground font-medium">
+              Policy: We do not offer cash refunds. Store credit voucher is valid for purchasing any
+              products at Zérah Baby &amp; Kids store.
+            </p>
+            <p className="pt-1">Thank you for visiting Zérah Baby &amp; Kids!</p>
           </div>
         </div>
       </div>
