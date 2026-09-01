@@ -147,7 +147,9 @@ export function useAdminNotifications() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_sales")
-        .select("id, sale_number, customer_name, total, payment_method, pos_token_number, created_at, status")
+        .select(
+          "id, sale_number, customer_name, total, payment_method, pos_token_number, created_at, status",
+        )
         .order("created_at", { ascending: false })
         .limit(15);
       if (error) return [];
@@ -171,7 +173,9 @@ export function useAdminNotifications() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_returns")
-        .select("id, return_number, customer_name, refund_amount, refund_method, return_reason, created_at, status")
+        .select(
+          "id, return_number, customer_name, refund_amount, refund_method, return_reason, created_at, status",
+        )
         .order("created_at", { ascending: false })
         .limit(15);
       if (error) return [];
@@ -193,38 +197,25 @@ export function useAdminNotifications() {
   useEffect(() => {
     const channel = supabase
       .channel("admin-notifications-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "offline_sales" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
-          qc.invalidateQueries({ queryKey: ["offline-sales"] });
-          qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "offline_returns" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["admin-notif-offline-returns"] });
-          qc.invalidateQueries({ queryKey: ["offline-returns"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
-          qc.invalidateQueries({ queryKey: ["admin-orders"] });
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "offline_sales" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
+        qc.invalidateQueries({ queryKey: ["offline-sales"] });
+        qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "offline_returns" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-notif-offline-returns"] });
+        qc.invalidateQueries({ queryKey: ["offline-returns"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
+        qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [qc]);
-
 
   // Combine and sort notifications
   const notifications = useMemo<AdminNotification[]>(() => {
@@ -356,7 +347,16 @@ export function useAdminNotifications() {
         if (a.read !== b.read) return a.read ? 1 : -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-  }, [rawOrders, rawOfflineSales, rawOfflineReturns, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
+  }, [
+    rawOrders,
+    rawOfflineSales,
+    rawOfflineReturns,
+    rawLowStock,
+    rawFailedLogs,
+    rawQueries,
+    readIds,
+    dismissedIds,
+  ]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -437,7 +437,6 @@ export function useAdminNotifications() {
     qc.invalidateQueries({ queryKey: ["offline-sales"] });
     qc.invalidateQueries({ queryKey: ["offline-returns"] });
   }, [qc]);
-
 
   return {
     notifications,

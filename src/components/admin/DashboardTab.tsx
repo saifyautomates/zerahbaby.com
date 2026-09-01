@@ -188,9 +188,13 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         queryClient.invalidateQueries({ queryKey: ["admin-products"] });
         queryClient.invalidateQueries({ queryKey: ["products"] });
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "website_visitors" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
-      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "website_visitors" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
+        },
+      )
       .subscribe();
 
     return () => {
@@ -285,7 +289,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const isAnyLoading = ordersLoading || posLoading || visitorsLoading || productsLoading;
   const isAnyError = ordersError || posError || visitorsError || productsError;
-
 
   // Date Range Bounds & Comparison Windows
   const { dateRangeText, compareLabel, inCurrentPeriod, inPrevPeriod } = useMemo(() => {
@@ -574,7 +577,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       source: "Online" as const,
       created_at: o.created_at,
       itemCount: o.order_items?.length || 1,
-      itemsSummary: o.order_items?.map((i) => i.name).filter(Boolean).join(", ") || "Order items",
+      itemsSummary:
+        o.order_items
+          ?.map((i) => i.name)
+          .filter(Boolean)
+          .join(", ") || "Order items",
     }));
 
     const posMapped = posSales.map((s) => ({
@@ -589,7 +596,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       source: "POS" as const,
       created_at: s.created_at,
       itemCount: s.offline_sale_items?.length || 1,
-      itemsSummary: s.offline_sale_items?.map((i) => i.name || i.product_slug).filter(Boolean).join(", ") || "POS items",
+      itemsSummary:
+        s.offline_sale_items
+          ?.map((i) => i.name || i.product_slug)
+          .filter(Boolean)
+          .join(", ") || "POS items",
     }));
 
     let combined = [...onlineMapped, ...posMapped].sort(
@@ -876,7 +887,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
       {/* Top 5 Vibrant, Clickable, Fully-Responsive KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-
         {/* 1. Total Revenue Card (Emerald Green) */}
         <div
           role="button"
@@ -1496,7 +1506,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                   <td colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
                     <ShoppingBag className="size-8 mx-auto mb-2 opacity-30" />
                     <p className="font-semibold">No sales recorded matching this filter.</p>
-                    <p className="text-[11px] mt-0.5">Sales made online or via Offline POS will immediately appear here in real-time.</p>
+                    <p className="text-[11px] mt-0.5">
+                      Sales made online or via Offline POS will immediately appear here in
+                      real-time.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -1509,9 +1522,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     }}
                     className="hover:bg-muted/50 transition-colors cursor-pointer group"
                   >
-                    <td className="py-3 pl-2 font-bold text-foreground font-mono">
-                      {s.id}
-                    </td>
+                    <td className="py-3 pl-2 font-bold text-foreground font-mono">{s.id}</td>
                     <td className="py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
@@ -1534,7 +1545,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                         )}
                       </div>
                     </td>
-                    <td className="py-3 text-muted-foreground max-w-[180px] truncate" title={s.itemsSummary}>
+                    <td
+                      className="py-3 text-muted-foreground max-w-[180px] truncate"
+                      title={s.itemsSummary}
+                    >
                       {s.itemsSummary}
                     </td>
                     <td className="py-3 font-semibold uppercase text-[11px] text-muted-foreground">
@@ -1568,7 +1582,6 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
       {/* Middle Section: Low Stock Watchlist & Live Activity */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
         {/* Low Stock Watchlist */}
         <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
           <div className="flex items-center justify-between mb-4">

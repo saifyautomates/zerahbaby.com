@@ -508,4 +508,3 @@ export function MediaLibraryPicker({
     document.body,
   );
 }
-

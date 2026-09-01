@@ -141,7 +141,8 @@ export function PrintLabelsModal({
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {totalLabels} label{totalLabels !== 1 ? "s" : ""} • {printableProducts.length} product{printableProducts.length !== 1 ? "s" : ""}
+                {totalLabels} label{totalLabels !== 1 ? "s" : ""} • {printableProducts.length}{" "}
+                product{printableProducts.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -249,7 +250,10 @@ export function PrintLabelsModal({
                 key={key}
                 className="flex items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-1 shadow-2xs"
               >
-                <span className="text-xs font-bold text-foreground max-w-[110px] truncate" title={p.name}>
+                <span
+                  className="text-xs font-bold text-foreground max-w-[110px] truncate"
+                  title={p.name}
+                >
                   {p.name}
                 </span>
                 <div className="flex items-center gap-1">
@@ -307,7 +311,9 @@ export function PrintLabelsModal({
             className="flex items-center gap-1.5 font-bold text-[#8B2020] hover:underline cursor-pointer disabled:opacity-50"
           >
             <Printer className="size-3.5" />
-            <span>Ready to Print {totalLabels} Label{totalLabels !== 1 ? "s" : ""}</span>
+            <span>
+              Ready to Print {totalLabels} Label{totalLabels !== 1 ? "s" : ""}
+            </span>
           </button>
         </div>
       </div>

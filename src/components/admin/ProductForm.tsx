@@ -119,32 +119,97 @@ const CATEGORY_PREFIXES: Record<string, string> = {
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   clothing: [
-    "frock", "dress", "shirt", "t-shirt", "tshirt", "pant", "jeans", "onesie",
-    "romper", "dangri", "suit", "kurta", "top", "shorts", "cotton", "cloth",
-    "sweater", "jacket", "pyjama", "trousers", "socks", "hoodie", "dungaree", "wear"
+    "frock",
+    "dress",
+    "shirt",
+    "t-shirt",
+    "tshirt",
+    "pant",
+    "jeans",
+    "onesie",
+    "romper",
+    "dangri",
+    "suit",
+    "kurta",
+    "top",
+    "shorts",
+    "cotton",
+    "cloth",
+    "sweater",
+    "jacket",
+    "pyjama",
+    "trousers",
+    "socks",
+    "hoodie",
+    "dungaree",
+    "wear",
   ],
   toys: [
-    "toy", "rattle", "game", "puzzle", "lego", "car", "doll", "plush",
-    "bear", "musical", "blocks", "slimes", "ball", "stacking", "robot", "ride"
+    "toy",
+    "rattle",
+    "game",
+    "puzzle",
+    "lego",
+    "car",
+    "doll",
+    "plush",
+    "bear",
+    "musical",
+    "blocks",
+    "slimes",
+    "ball",
+    "stacking",
+    "robot",
+    "ride",
   ],
   gear: [
-    "stroller", "pram", "walker", "carrier", "car seat", "gear", "crib",
-    "cot bed", "swing", "high chair", "bouncer", "rocker", "bassinet"
+    "stroller",
+    "pram",
+    "walker",
+    "carrier",
+    "car seat",
+    "gear",
+    "crib",
+    "cot bed",
+    "swing",
+    "high chair",
+    "bouncer",
+    "rocker",
+    "bassinet",
   ],
   feeding: [
-    "bottle", "sipper", "bib", "spoon", "feeder", "teether", "nipple",
-    "bowl", "feeding", "sterilizer", "warmer", "breast pump", "highchair"
+    "bottle",
+    "sipper",
+    "bib",
+    "spoon",
+    "feeder",
+    "teether",
+    "nipple",
+    "bowl",
+    "feeding",
+    "sterilizer",
+    "warmer",
+    "breast pump",
+    "highchair",
   ],
-  diapering: [
-    "diaper", "wipes", "nappy", "potty", "mat", "rash cream", "training pants"
-  ],
+  diapering: ["diaper", "wipes", "nappy", "potty", "mat", "rash cream", "training pants"],
   care: [
-    "soap", "lotion", "oil", "shampoo", "cream", "bath", "towel", "care",
-    "thermometer", "nasal", "nail clipper", "powder", "wash", "skincare"
+    "soap",
+    "lotion",
+    "oil",
+    "shampoo",
+    "cream",
+    "bath",
+    "towel",
+    "care",
+    "thermometer",
+    "nasal",
+    "nail clipper",
+    "powder",
+    "wash",
+    "skincare",
   ],
-  footwear: [
-    "shoes", "booties", "sandals", "footwear", "slippers", "sneakers"
-  ],
+  footwear: ["shoes", "booties", "sandals", "footwear", "slippers", "sneakers"],
 };
 
 const POPULAR_CATEGORIES = [
@@ -165,10 +230,16 @@ const LAST_USED_BRAND_KEY = "zerah_last_used_brand";
 export function generateSKU(category: string, color?: string | null, size?: string | null): string {
   const prefix = CATEGORY_PREFIXES[category] ?? "GN";
   const colorPart = color
-    ? `-${color.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+    ? `-${color
+        .slice(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")}`
     : "";
   const sizePart = size
-    ? `-${size.slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+    ? `-${size
+        .slice(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")}`
     : "";
   const random = Math.floor(100000 + Math.random() * 900000);
   return `ZR-${prefix}${colorPart}${sizePart}-${random}`;
@@ -628,7 +699,8 @@ export function ProductForm({
       for (const s of sizes) {
         const colorName = c === "Default" ? null : c;
         const sizeName = s === "Standard" ? null : s;
-        const varName = colorName && sizeName ? `${colorName} / ${sizeName}` : colorName || sizeName || "Default";
+        const varName =
+          colorName && sizeName ? `${colorName} / ${sizeName}` : colorName || sizeName || "Default";
         newVariants.push({
           name: varName,
           color: colorName,
@@ -674,7 +746,9 @@ export function ProductForm({
               )}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {product ? `Editing SKU: ${draft.sku}` : "Fill basic details; SKU, barcode, and slugs are auto-generated."}
+              {product
+                ? `Editing SKU: ${draft.sku}`
+                : "Fill basic details; SKU, barcode, and slugs are auto-generated."}
             </p>
           </div>
 
@@ -684,7 +758,9 @@ export function ProductForm({
                 type="button"
                 onClick={() => setMode("quick")}
                 className={`px-3 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                  mode === "quick" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  mode === "quick"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Zap className="size-3 text-amber-500" /> Quick Add
@@ -693,7 +769,9 @@ export function ProductForm({
                 type="button"
                 onClick={() => setMode("full")}
                 className={`px-3 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                  mode === "full" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  mode === "full"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Layers className="size-3" /> Full Details
@@ -712,9 +790,12 @@ export function ProductForm({
               </div>
 
               <div>
-                <h3 className="text-xl font-black text-foreground">Product Created Successfully! 🎉</h3>
+                <h3 className="text-xl font-black text-foreground">
+                  Product Created Successfully! 🎉
+                </h3>
                 <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                  <b>{createdProduct.name}</b> has been synchronized with Online Storefront, Inventory, POS Terminal, and Barcode Engine.
+                  <b>{createdProduct.name}</b> has been synchronized with Online Storefront,
+                  Inventory, POS Terminal, and Barcode Engine.
                 </p>
               </div>
 
@@ -725,24 +806,32 @@ export function ProductForm({
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
                       Category
                     </span>
-                    <p className="text-xs font-bold text-foreground capitalize">{createdProduct.category}</p>
+                    <p className="text-xs font-bold text-foreground capitalize">
+                      {createdProduct.category}
+                    </p>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
                       Stock
                     </span>
-                    <p className="text-xs font-bold text-emerald-600">{createdProduct.stock} units</p>
+                    <p className="text-xs font-bold text-emerald-600">
+                      {createdProduct.stock} units
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-baseline justify-between">
                   <div>
                     <span className="text-xs text-muted-foreground">Selling Price</span>
-                    <p className="text-lg font-black text-foreground">{formatPrice(createdProduct.price)}</p>
+                    <p className="text-lg font-black text-foreground">
+                      {formatPrice(createdProduct.price)}
+                    </p>
                   </div>
                   <div className="text-right">
                     <span className="text-xs text-muted-foreground">MRP</span>
-                    <p className="text-sm font-bold text-muted-foreground line-through">{formatPrice(createdProduct.mrp)}</p>
+                    <p className="text-sm font-bold text-muted-foreground line-through">
+                      {formatPrice(createdProduct.mrp)}
+                    </p>
                   </div>
                 </div>
 
@@ -798,7 +887,13 @@ export function ProductForm({
                 <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs">
                   <div className="flex items-center gap-2">
                     <Sparkles className="size-4 text-amber-600 shrink-0" />
-                    <span>Unsaved draft found for <b>{JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || "{}").name || "Product"}</b></span>
+                    <span>
+                      Unsaved draft found for{" "}
+                      <b>
+                        {JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || "{}").name ||
+                          "Product"}
+                      </b>
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
@@ -824,7 +919,9 @@ export function ProductForm({
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                     <span>Product Name *</span>
-                    <span className="text-[10px] text-muted-foreground/80 font-normal">Autofocused</span>
+                    <span className="text-[10px] text-muted-foreground/80 font-normal">
+                      Autofocused
+                    </span>
                   </label>
                   <input
                     ref={nameInputRef}
@@ -859,7 +956,9 @@ export function ProductForm({
                         onClick={() => set("category", suggestedCategory)}
                         className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold hover:scale-105 transition cursor-pointer"
                       >
-                        <span>Set category to <b>{suggestedCategory.toUpperCase()}</b></span>
+                        <span>
+                          Set category to <b>{suggestedCategory.toUpperCase()}</b>
+                        </span>
                         <Check className="size-3" />
                       </button>
                     </div>
@@ -908,9 +1007,8 @@ export function ProductForm({
                         {c.name}
                       </option>
                     ))}
-                    {!(categories ?? []).some((c) => c.slug === draft.category) && draft.category && (
-                      <option value={draft.category}>{draft.category}</option>
-                    )}
+                    {!(categories ?? []).some((c) => c.slug === draft.category) &&
+                      draft.category && <option value={draft.category}>{draft.category}</option>}
                   </select>
                 </div>
               </div>
@@ -919,7 +1017,9 @@ export function ProductForm({
               <div className="rounded-2xl border border-border p-4 bg-muted/20 space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>Product Availability Mode *</span>
-                  <span className="text-[10px] text-muted-foreground font-semibold">Authoritative Channel</span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">
+                    Authoritative Channel
+                  </span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
@@ -936,7 +1036,9 @@ export function ProductForm({
                     </div>
                     <div>
                       <p className="text-xs font-bold text-foreground">ONLINE & OFFLINE STORE</p>
-                      <p className="text-[11px] text-muted-foreground">Storefront, Search, Cart, POS & Inventory</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Storefront, Search, Cart, POS & Inventory
+                      </p>
                     </div>
                   </button>
 
@@ -954,7 +1056,9 @@ export function ProductForm({
                     </div>
                     <div>
                       <p className="text-xs font-bold text-foreground">ONLY OFFLINE (POS)</p>
-                      <p className="text-[11px] text-muted-foreground">In-Store POS, Barcode, Returns & Inventory Only</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        In-Store POS, Barcode, Returns & Inventory Only
+                      </p>
                     </div>
                   </button>
                 </div>
@@ -979,13 +1083,20 @@ export function ProductForm({
                       MRP (₹) *
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                        ₹
+                      </span>
                       <input
                         type="number"
                         min="0"
                         placeholder="e.g. 999"
                         value={draft.mrp === 0 ? "" : draft.mrp}
-                        onChange={(e) => set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))}
+                        onChange={(e) =>
+                          set(
+                            "mrp",
+                            e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                          )
+                        }
                         className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2.5 text-base font-bold text-foreground outline-none focus:border-primary"
                       />
                     </div>
@@ -996,13 +1107,20 @@ export function ProductForm({
                       Selling Price (₹) *
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                        ₹
+                      </span>
                       <input
                         type="number"
                         min="0"
                         placeholder="e.g. 799"
                         value={draft.price === 0 ? "" : draft.price}
-                        onChange={(e) => set("price", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))}
+                        onChange={(e) =>
+                          set(
+                            "price",
+                            e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                          )
+                        }
                         className="w-full rounded-xl border-2 border-primary/40 bg-background pl-8 pr-3 py-2.5 text-base font-black text-foreground outline-none focus:border-primary"
                       />
                     </div>
@@ -1022,7 +1140,9 @@ export function ProductForm({
                   <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Store className="size-3.5 text-primary" /> Inventory & Identifiers
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-semibold">Auto-Generated</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">
+                    Auto-Generated
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1035,7 +1155,12 @@ export function ProductForm({
                       min="0"
                       placeholder="10"
                       value={draft.stock === 0 ? "" : draft.stock}
-                      onChange={(e) => set("stock", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))}
+                      onChange={(e) =>
+                        set(
+                          "stock",
+                          e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                        )
+                      }
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     />
                   </div>
@@ -1083,7 +1208,9 @@ export function ProductForm({
 
                 {/* Horizontal Barcode Live Sticker Preview */}
                 <div className="pt-2 border-t border-border/60 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Live Thermal Barcode Preview:</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">
+                    Live Thermal Barcode Preview:
+                  </span>
                   <div className="scale-90 origin-right">
                     <Barcode
                       value={draft.barcode || draft.sku || "000000000000"}
@@ -1133,7 +1260,11 @@ export function ProductForm({
                     onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition cursor-pointer"
                   >
-                    {isUploading ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                    {isUploading ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="size-3.5" />
+                    )}
                     <span>Upload</span>
                   </button>
                   <input
@@ -1155,8 +1286,12 @@ export function ProductForm({
                     className="py-6 border-2 border-dashed border-border/80 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-muted/30 transition"
                   >
                     <UploadCloud className="size-8 text-muted-foreground/60 mb-1.5" />
-                    <p className="text-xs font-bold text-foreground">Click to upload or drag images here</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Supports JPG, PNG, WebP (First image = Primary)</p>
+                    <p className="text-xs font-bold text-foreground">
+                      Click to upload or drag images here
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Supports JPG, PNG, WebP (First image = Primary)
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-1">
@@ -1200,14 +1335,20 @@ export function ProductForm({
                     <Info className="size-3.5 text-muted-foreground" />
                     <span>Additional Options (Sales Channel, Delivery, Age, Variants)</span>
                   </span>
-                  {showAdvanced ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+                  {showAdvanced ? (
+                    <ChevronUp className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  )}
                 </button>
 
                 {showAdvanced && (
                   <div className="p-4 border-t border-border space-y-4 animate-in fade-in duration-150 bg-muted/10">
                     {/* Sales Channel */}
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground block mb-1">Sales Channel</label>
+                      <label className="text-xs font-bold text-muted-foreground block mb-1">
+                        Sales Channel
+                      </label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -1241,13 +1382,17 @@ export function ProductForm({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {draft.salesChannel !== "OFFLINE_ONLY" && (
                         <div>
-                          <label className="text-xs font-bold text-muted-foreground block mb-1">Delivery Fee (₹)</label>
+                          <label className="text-xs font-bold text-muted-foreground block mb-1">
+                            Delivery Fee (₹)
+                          </label>
                           <div className="flex gap-1.5">
                             <button
                               type="button"
                               onClick={() => set("deliveryFee", 0)}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                                draft.deliveryFee === 0 ? "bg-emerald-600 text-white border-emerald-600" : "bg-background border-border"
+                                draft.deliveryFee === 0
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-background border-border"
                               }`}
                             >
                               Free (₹0)
@@ -1256,7 +1401,9 @@ export function ProductForm({
                               type="button"
                               onClick={() => set("deliveryFee", 79)}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                                draft.deliveryFee === 79 ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+                                draft.deliveryFee === 79
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border"
                               }`}
                             >
                               Standard (₹79)
@@ -1266,14 +1413,18 @@ export function ProductForm({
                       )}
 
                       <div>
-                        <label className="text-xs font-bold text-muted-foreground block mb-1">Age Group</label>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1">
+                          Age Group
+                        </label>
                         <select
                           value={draft.ageGroup}
                           onChange={(e) => set("ageGroup", e.target.value)}
                           className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground outline-none"
                         >
                           {ageGroups.map((a) => (
-                            <option key={a} value={a}>{a}</option>
+                            <option key={a} value={a}>
+                              {a}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1282,7 +1433,9 @@ export function ProductForm({
                     {/* Description & Brand */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs font-bold text-muted-foreground block mb-1">Brand</label>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1">
+                          Brand
+                        </label>
                         <input
                           type="text"
                           value={draft.brand}
@@ -1292,7 +1445,9 @@ export function ProductForm({
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-muted-foreground block mb-1">Slug (URL)</label>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1">
+                          Slug (URL)
+                        </label>
                         <input
                           type="text"
                           value={draft.slug}
@@ -1305,7 +1460,9 @@ export function ProductForm({
                     {/* Color × Size Variants Generator */}
                     <div className="pt-2 border-t border-border/60">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-foreground">Color × Size Variants ({draft.variants.length})</span>
+                        <span className="text-xs font-bold text-foreground">
+                          Color × Size Variants ({draft.variants.length})
+                        </span>
                         <button
                           type="button"
                           onClick={handleGenerateMatrix}
@@ -1322,9 +1479,15 @@ export function ProductForm({
                             <button
                               key={sz}
                               type="button"
-                              onClick={() => setMatrixSizes((prev) => (isSel ? prev.filter((s) => s !== sz) : [...prev, sz]))}
+                              onClick={() =>
+                                setMatrixSizes((prev) =>
+                                  isSel ? prev.filter((s) => s !== sz) : [...prev, sz],
+                                )
+                              }
                               className={`px-2 py-0.5 rounded text-[11px] font-semibold transition cursor-pointer ${
-                                isSel ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                isSel
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-muted-foreground"
                               }`}
                             >
                               {sz}
@@ -1358,8 +1521,14 @@ export function ProductForm({
                 disabled={saving || isUploading}
                 className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#721a1a] transition active:scale-95 cursor-pointer disabled:opacity-50"
               >
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                <span>{saving ? "Saving..." : product ? "Update Product" : "Create Product (Ctrl+S)"}</span>
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Check className="size-4" />
+                )}
+                <span>
+                  {saving ? "Saving..." : product ? "Update Product" : "Create Product (Ctrl+S)"}
+                </span>
               </button>
             </div>
           </div>
@@ -1368,10 +1537,7 @@ export function ProductForm({
 
       {/* Embedded Print Labels Modal on Post-Creation */}
       {showPrintModal && createdProduct && (
-        <PrintLabelsModal
-          products={[createdProduct]}
-          onClose={() => setShowPrintModal(false)}
-        />
+        <PrintLabelsModal products={[createdProduct]} onClose={() => setShowPrintModal(false)} />
       )}
     </div>,
     document.body,

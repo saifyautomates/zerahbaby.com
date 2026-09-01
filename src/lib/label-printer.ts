@@ -401,7 +401,9 @@ export function buildLabelPrintHtml(params: {
     }
 
     const hasDiscount = typeof p.mrp === "number" && p.mrp > p.price;
-    const discountPct = hasDiscount ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
+    const discountPct = hasDiscount
+      ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100)
+      : 0;
     const mrpText =
       showDiscount && hasDiscount && discountPct > 0
         ? `MRP: ${mrpFormatted} (-${discountPct}%)`

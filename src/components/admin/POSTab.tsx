@@ -276,7 +276,8 @@ export function POSTab() {
             image_url: result.image_url ?? null,
             age_group: result.age_group ?? "",
             qty: 1,
-            sales_channel: (result.sales_channel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            sales_channel: (result.sales_channel || "ONLINE_AND_OFFLINE") as
+              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
           });
 
           if (added) {
@@ -394,7 +395,8 @@ export function POSTab() {
       image_url: swatchImg || product.imageUrl || product.image,
       age_group: product.ageGroup,
       qty: 1,
-      sales_channel: (product.salesChannel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+      sales_channel: (product.salesChannel || "ONLINE_AND_OFFLINE") as
+        "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
     });
     setProductSearch("");
     const isOfflineOnly = product.salesChannel === "OFFLINE_ONLY";
@@ -1637,7 +1639,9 @@ export function POSTab() {
                         : "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
                     }`}
                   >
-                    {selectedPOSItem.sales_channel === "OFFLINE_ONLY" ? "Offline Only" : "Online + Store"}
+                    {selectedPOSItem.sales_channel === "OFFLINE_ONLY"
+                      ? "Offline Only"
+                      : "Online + Store"}
                   </span>
                 </div>
 

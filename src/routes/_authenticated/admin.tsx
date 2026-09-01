@@ -185,10 +185,8 @@ function AdminPage() {
 
       const hash = window.location.hash.replace("#", "") as Tab;
       if (hash && VALID_TABS.includes(hash)) return hash;
-
-      const saved = localStorage.getItem("zerah_admin_active_tab") as Tab | null;
-      if (saved && VALID_TABS.includes(saved)) return saved;
     }
+    // Default to Dashboard on /admin or /admin/
     return "dashboard";
   });
 
@@ -197,7 +195,11 @@ function AdminPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("zerah_admin_active_tab", newTab);
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", newTab);
+      if (newTab === "dashboard") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", newTab);
+      }
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
@@ -206,8 +208,16 @@ function AdminPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem("zerah_admin_active_tab", tab);
       const url = new URL(window.location.href);
-      if (url.searchParams.get("tab") !== tab) {
-        url.searchParams.set("tab", tab);
+      const currentParam = url.searchParams.get("tab");
+      if (tab === "dashboard" && !currentParam) {
+        return;
+      }
+      if (currentParam !== tab) {
+        if (tab === "dashboard") {
+          url.searchParams.delete("tab");
+        } else {
+          url.searchParams.set("tab", tab);
+        }
         window.history.replaceState({}, "", url.toString());
       }
     }
@@ -1404,20 +1414,14 @@ function ProductsTab() {
   const activeCount = (data ?? []).filter((p) => p.isActive).length;
   const archivedCount = (data ?? []).filter((p) => !p.isActive).length;
   const offlineOnlyCount = (data ?? []).filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
-  const onlineAndOfflineCount = (data ?? []).filter((p) => p.salesChannel !== "OFFLINE_ONLY").length;
+  const onlineAndOfflineCount = (data ?? []).filter(
+    (p) => p.salesChannel !== "OFFLINE_ONLY",
+  ).length;
 
   const list = useMemo(() => {
     const q = (search || "").trim().toLowerCase();
     return (data ?? []).filter((p) => {
-      const searchBlob = [
-        p.name,
-        p.brand,
-        p.category,
-        p.id,
-        p.uuid,
-        p.sku,
-        p.barcode,
-      ]
+      const searchBlob = [p.name, p.brand, p.category, p.id, p.uuid, p.sku, p.barcode]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();

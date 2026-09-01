@@ -84,7 +84,8 @@ function SingleStickerPreview({
   const previewW = Math.round(cfg.labelWidthMm * SCALE);
   const previewH = Math.round(cfg.labelHeightMm * SCALE);
 
-  const bcHeight = labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.34);
+  const bcHeight =
+    labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.34);
 
   return (
     <div
