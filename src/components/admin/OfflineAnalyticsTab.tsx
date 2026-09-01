@@ -24,6 +24,8 @@ import {
   Clock,
   Ban,
   Trash2,
+  Search,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -54,6 +56,7 @@ type Sale = {
   sale_number: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string | null;
   subtotal: number;
   discount: number;
   discount_type: string;
@@ -194,10 +197,46 @@ export function OfflineAnalyticsTab() {
     },
   });
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card">("all");
+
   const activeSales = useMemo(
     () => (sales ?? []).filter((s) => (s as { status?: string }).status !== "cancelled"),
     [sales],
   );
+
+  const filteredSales = useMemo(() => {
+    if (!sales) return [];
+    let list = sales;
+
+    if (paymentFilter !== "all") {
+      list = list.filter((s) => s.payment_method === paymentFilter);
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((s) => {
+      const matchesSaleNumber = (s.sale_number || "").toLowerCase().includes(q);
+      const matchesCustomerName = (s.customer_name || "").toLowerCase().includes(q);
+      const matchesCustomerPhone = (s.customer_phone || "").toLowerCase().includes(q);
+      const matchesCustomerEmail = (s.customer_email || "").toLowerCase().includes(q);
+      const matchesToken = s.pos_token_number != null && String(s.pos_token_number).includes(q);
+      const matchesItem = (s.offline_sale_items ?? []).some(
+        (item: SaleItem) =>
+          (item.name || "").toLowerCase().includes(q) || (item.sku || "").toLowerCase().includes(q),
+      );
+
+      return (
+        matchesSaleNumber ||
+        matchesCustomerName ||
+        matchesCustomerPhone ||
+        matchesCustomerEmail ||
+        matchesToken ||
+        matchesItem
+      );
+    });
+  }, [sales, searchQuery, paymentFilter]);
 
   // ──────────── Customer Footfall Analytics ────────────
   const today = todayIST();
@@ -595,278 +634,328 @@ export function OfflineAnalyticsTab() {
         </div>
       )}
 
-      {/* Sales Table */}
-      <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
-            <tr>
-              <th className="px-5 py-4 w-8"></th>
-              <th className="px-5 py-4">Token</th>
-              <th className="px-5 py-4">Receipt No</th>
-              <th className="px-5 py-4">Date (IST)</th>
-              <th className="px-5 py-4 min-w-[220px]">Items / Products</th>
-              <th className="px-5 py-4">Customer</th>
-              <th className="px-5 py-4">Payment</th>
-              <th className="px-5 py-4">Discount</th>
-              <th className="px-5 py-4 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {(sales ?? []).map((sale) => {
-              const isExpanded = expandedSale === sale.id;
-              return (
-                <React.Fragment key={sale.id}>
-                  <tr
-                    className={`group cursor-pointer transition-colors hover:bg-muted/40 ${sale.status === "cancelled" ? "opacity-50 grayscale bg-muted/20" : ""}`}
-                    onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
-                  >
-                    <td className="px-5 py-4 w-8">
-                      {isExpanded ? (
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                      )}
-                    </td>
-                    {/* Token badge */}
-                    <td className="px-5 py-4">
-                      {sale.pos_token_number != null ? (
-                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-800 font-black text-sm border border-indigo-200">
-                          {sale.pos_token_number}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 font-bold text-foreground font-mono">
-                      {sale.sale_number}
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground font-medium text-xs">
-                      {new Date(sale.created_at).toLocaleString("en-IN")}
-                    </td>
-                    {/* Product thumbnails & names */}
-                    <td className="px-5 py-4 whitespace-normal">
-                      <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[280px]">
-                        {(sale.offline_sale_items ?? []).map((item: SaleItem, i: number) => {
-                          const prod = resolveProduct(item);
-                          const itemImg = imageFor(
-                            prod?.category || "clothing",
-                            (prod as { product_images?: { public_url: string }[] })
-                              ?.product_images?.[0]?.public_url,
-                          );
-                          return (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              <img
-                                src={itemImg}
-                                alt={item.name}
-                                loading="lazy"
-                                decoding="async"
-                                className="size-8 rounded-md object-cover border border-border shrink-0 bg-muted"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = clothing;
-                                }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-bold text-foreground truncate text-xs leading-tight"
-                                  title={item.name}
-                                >
-                                  {item.name}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  <span className="font-semibold text-primary">x{item.qty}</span> •{" "}
-                                  {formatPrice(item.price)}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {(!sale.offline_sale_items || sale.offline_sale_items.length === 0) && (
+      {/* Sales Table with Live Search */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+        {/* Table Search & Filter Bar */}
+        <div className="p-4 sm:p-5 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1 max-w-lg">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by receipt # (e.g. POS-2609), customer name, phone, or product..."
+              className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="Clear search"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {[
+              { id: "all", label: `All (${sales?.length || 0})` },
+              { id: "cash", label: `💵 Cash (${cashSales.length})` },
+              { id: "upi", label: `📱 UPI (${upiSales.length})` },
+              { id: "card", label: `💳 Card (${cardSales.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setPaymentFilter(tab.id as "all" | "cash" | "upi" | "card")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
+                  paymentFilter === tab.id
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+              <tr>
+                <th className="px-5 py-4 w-8"></th>
+                <th className="px-5 py-4">Token</th>
+                <th className="px-5 py-4">Receipt No</th>
+                <th className="px-5 py-4">Date (IST)</th>
+                <th className="px-5 py-4 min-w-[220px]">Items / Products</th>
+                <th className="px-5 py-4">Customer</th>
+                <th className="px-5 py-4">Payment</th>
+                <th className="px-5 py-4">Discount</th>
+                <th className="px-5 py-4 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {filteredSales.map((sale) => {
+                const isExpanded = expandedSale === sale.id;
+                return (
+                  <React.Fragment key={sale.id}>
+                    <tr
+                      className={`group cursor-pointer transition-colors hover:bg-muted/40 ${sale.status === "cancelled" ? "opacity-50 grayscale bg-muted/20" : ""}`}
+                      onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
+                    >
+                      <td className="px-5 py-4 w-8">
+                        {isExpanded ? (
+                          <ChevronDown className="size-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="size-4 text-muted-foreground" />
+                        )}
+                      </td>
+                      {/* Token badge */}
+                      <td className="px-5 py-4">
+                        {sale.pos_token_number != null ? (
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-800 font-black text-sm border border-indigo-200">
+                            {sale.pos_token_number}
+                          </span>
+                        ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="font-semibold text-foreground">
-                        {sale.customer_name || "Guest"}
-                      </span>
-                      {sale.customer_phone && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {sale.customer_phone}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
-                        {sale.payment_method}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-sm">
-                      {Number(sale.discount) > 0 ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                          −{formatPrice(Number(sale.discount))}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-right font-bold text-primary">
-                      {formatPrice(Number(sale.total))}
-                    </td>
-                  </tr>
-                  {/* Expanded Details */}
-                  {isExpanded && (
-                    <tr className="bg-muted/10">
-                      <td colSpan={9} className="p-0">
-                        <div className="border-t border-border px-8 py-4">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-muted-foreground font-bold uppercase tracking-wider">
-                                <th className="py-2 text-left">Product</th>
-                                <th className="py-2 text-left">SKU</th>
-                                <th className="py-2 text-right">Price</th>
-                                <th className="py-2 text-right">Qty</th>
-                                <th className="py-2 text-right">Subtotal</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/40">
-                              {(sale.offline_sale_items ?? []).map((item: SaleItem) => {
-                                const prod = resolveProduct(item);
-                                const itemImg = imageFor(
-                                  prod?.category || "clothing",
-                                  (prod as { product_images?: { public_url: string }[] })
-                                    ?.product_images?.[0]?.public_url,
-                                );
-                                const slug = prod?.slug || item.product_slug || item.sku;
-
-                                return (
-                                  <tr
-                                    key={item.id || item.product_id || item.sku}
-                                    className="hover:bg-muted/30 transition-colors"
+                      </td>
+                      <td className="px-5 py-4 font-bold text-foreground font-mono">
+                        {sale.sale_number}
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground font-medium text-xs">
+                        {new Date(sale.created_at).toLocaleString("en-IN")}
+                      </td>
+                      {/* Product thumbnails & names */}
+                      <td className="px-5 py-4 whitespace-normal">
+                        <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[280px]">
+                          {(sale.offline_sale_items ?? []).map((item: SaleItem, i: number) => {
+                            const prod = resolveProduct(item);
+                            const itemImg = imageFor(
+                              prod?.category || "clothing",
+                              (prod as { product_images?: { public_url: string }[] })
+                                ?.product_images?.[0]?.public_url,
+                            );
+                            return (
+                              <div key={i} className="flex items-center gap-2 text-xs">
+                                <img
+                                  src={itemImg}
+                                  alt={item.name}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="size-8 rounded-md object-cover border border-border shrink-0 bg-muted"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = clothing;
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-bold text-foreground truncate text-xs leading-tight"
+                                    title={item.name}
                                   >
-                                    <td className="py-2.5 font-semibold text-foreground">
-                                      <div
-                                        className="flex items-center gap-2.5 cursor-pointer group/item"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (slug) window.location.href = getProductUrl(slug);
-                                        }}
-                                        title={`Open "${item.name}" in store`}
-                                      >
-                                        <div className="size-9 rounded-lg border border-border bg-card overflow-hidden shrink-0">
-                                          <img
-                                            src={itemImg}
-                                            alt={item.name}
-                                            loading="lazy"
-                                            decoding="async"
-                                            className="h-full w-full object-cover group-hover/item:scale-105 transition"
-                                            onError={(e) => {
-                                              (e.target as HTMLImageElement).src = clothing;
-                                            }}
-                                          />
-                                        </div>
-                                        <div>
-                                          <p className="font-bold text-xs text-foreground group-hover/item:text-primary transition-colors flex items-center gap-1">
-                                            <span>{item.name}</span>
-                                          </p>
-                                          <p className="text-[10px] text-muted-foreground font-mono">
-                                            {item.sku}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5 font-mono text-xs text-muted-foreground">
-                                      {item.sku || "—"}
-                                    </td>
-                                    <td className="py-2.5 text-right font-medium text-foreground">
-                                      {formatPrice(Number(item.price))}
-                                    </td>
-                                    <td className="py-2.5 text-right font-bold text-foreground">
-                                      {item.qty}
-                                    </td>
-                                    <td className="py-2.5 text-right font-extrabold text-foreground">
-                                      {formatPrice(
-                                        Number(item.subtotal || Number(item.price) * item.qty),
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="text-xs text-muted-foreground space-y-0.5">
-                              <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
-                              {Number(sale.discount) > 0 && (
-                                <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                  Discount (
-                                  {sale.discount_type === "percentage"
-                                    ? `${sale.discount_value}%`
-                                    : sale.discount_type === "fixed"
-                                      ? `₹${sale.discount_value}`
-                                      : ""}
-                                  ): −{formatPrice(Number(sale.discount))}
-                                </p>
-                              )}
-                              <p className="font-bold text-foreground text-sm">
-                                Total: {formatPrice(Number(sale.total))}
-                              </p>
-                            </div>
-
-                            {sale.status !== "cancelled" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Are you sure you want to delete this POS sale? This will permanently delete the transaction and restore stock for all items.",
-                                    )
-                                  ) {
-                                    deleteSaleMutation.mutate(sale.id);
-                                  }
-                                }}
-                                disabled={deleteSaleMutation.isPending}
-                                className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                              >
-                                <Trash2 className="size-4" />
-                                Delete
-                              </button>
-                            )}
-                            {sale.status === "cancelled" && (
-                              <div className="flex items-center gap-1.5 text-sm font-bold text-destructive px-4 py-2 bg-destructive/5 rounded-xl border border-destructive/20">
-                                <Trash2 className="size-4" />
-                                Deleted
+                                    {item.name}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    <span className="font-semibold text-primary">x{item.qty}</span>{" "}
+                                    • {formatPrice(item.price)}
+                                  </p>
+                                </div>
                               </div>
-                            )}
-                          </div>
+                            );
+                          })}
+                          {(!sale.offline_sale_items || sale.offline_sale_items.length === 0) && (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </div>
                       </td>
+                      <td className="px-5 py-4">
+                        <span className="font-semibold text-foreground">
+                          {sale.customer_name || "Guest"}
+                        </span>
+                        {sale.customer_phone && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {sale.customer_phone}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
+                          {sale.payment_method}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-sm">
+                        {Number(sale.discount) > 0 ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            −{formatPrice(Number(sale.discount))}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right font-bold text-primary">
+                        {formatPrice(Number(sale.total))}
+                      </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-            {!isLoading && (sales ?? []).length === 0 && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
-                >
-                  No POS sales yet.
-                </td>
-              </tr>
-            )}
-            {isLoading && (
-              <tr>
-                <td colSpan={8} className="px-5 py-16 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <tr className="bg-muted/10">
+                        <td colSpan={9} className="p-0">
+                          <div className="border-t border-border px-8 py-4">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-muted-foreground font-bold uppercase tracking-wider">
+                                  <th className="py-2 text-left">Product</th>
+                                  <th className="py-2 text-left">SKU</th>
+                                  <th className="py-2 text-right">Price</th>
+                                  <th className="py-2 text-right">Qty</th>
+                                  <th className="py-2 text-right">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/40">
+                                {(sale.offline_sale_items ?? []).map((item: SaleItem) => {
+                                  const prod = resolveProduct(item);
+                                  const itemImg = imageFor(
+                                    prod?.category || "clothing",
+                                    (prod as { product_images?: { public_url: string }[] })
+                                      ?.product_images?.[0]?.public_url,
+                                  );
+                                  const slug = prod?.slug || item.product_slug || item.sku;
+
+                                  return (
+                                    <tr
+                                      key={item.id || item.product_id || item.sku}
+                                      className="hover:bg-muted/30 transition-colors"
+                                    >
+                                      <td className="py-2.5 font-semibold text-foreground">
+                                        <div
+                                          className="flex items-center gap-2.5 cursor-pointer group/item"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (slug) window.location.href = getProductUrl(slug);
+                                          }}
+                                          title={`Open "${item.name}" in store`}
+                                        >
+                                          <div className="size-9 rounded-lg border border-border bg-card overflow-hidden shrink-0">
+                                            <img
+                                              src={itemImg}
+                                              alt={item.name}
+                                              loading="lazy"
+                                              decoding="async"
+                                              className="h-full w-full object-cover group-hover/item:scale-105 transition"
+                                              onError={(e) => {
+                                                (e.target as HTMLImageElement).src = clothing;
+                                              }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <p className="font-bold text-xs text-foreground group-hover/item:text-primary transition-colors flex items-center gap-1">
+                                              <span>{item.name}</span>
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground font-mono">
+                                              {item.sku}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-2.5 font-mono text-xs text-muted-foreground">
+                                        {item.sku || "—"}
+                                      </td>
+                                      <td className="py-2.5 text-right font-medium text-foreground">
+                                        {formatPrice(Number(item.price))}
+                                      </td>
+                                      <td className="py-2.5 text-right font-bold text-foreground">
+                                        {item.qty}
+                                      </td>
+                                      <td className="py-2.5 text-right font-extrabold text-foreground">
+                                        {formatPrice(
+                                          Number(item.subtotal || Number(item.price) * item.qty),
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
+                                {Number(sale.discount) > 0 && (
+                                  <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    Discount (
+                                    {sale.discount_type === "percentage"
+                                      ? `${sale.discount_value}%`
+                                      : sale.discount_type === "fixed"
+                                        ? `₹${sale.discount_value}`
+                                        : ""}
+                                    ): −{formatPrice(Number(sale.discount))}
+                                  </p>
+                                )}
+                                <p className="font-bold text-foreground text-sm">
+                                  Total: {formatPrice(Number(sale.total))}
+                                </p>
+                              </div>
+
+                              {sale.status !== "cancelled" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        "Are you sure you want to delete this POS sale? This will permanently delete the transaction and restore stock for all items.",
+                                      )
+                                    ) {
+                                      deleteSaleMutation.mutate(sale.id);
+                                    }
+                                  }}
+                                  disabled={deleteSaleMutation.isPending}
+                                  className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete
+                                </button>
+                              )}
+                              {sale.status === "cancelled" && (
+                                <div className="flex items-center gap-1.5 text-sm font-bold text-destructive px-4 py-2 bg-destructive/5 rounded-xl border border-destructive/20">
+                                  <Trash2 className="size-4" />
+                                  Deleted
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {!isLoading && filteredSales.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
+                  >
+                    {searchQuery || paymentFilter !== "all"
+                      ? `No POS sales found matching the current search / filter.`
+                      : "No POS sales yet."}
+                  </td>
+                </tr>
+              )}
+              {isLoading && (
+                <tr>
+                  <td colSpan={9} className="px-5 py-16 text-center">
+                    <div className="flex justify-center">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
