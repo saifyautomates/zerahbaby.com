@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useRef, Suspense, lazy } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -145,6 +145,25 @@ type Tab =
   | "queries"
   | "pages";
 
+const VALID_TABS: Tab[] = [
+  "dashboard",
+  "billing",
+  "products",
+  "hero",
+  "media",
+  "orders",
+  "customers",
+  "categories",
+  "settings",
+  "admins",
+  "coupons",
+  "reviews",
+  "marketing",
+  "sms",
+  "queries",
+  "pages",
+];
+
 function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -152,7 +171,42 @@ function AdminPage() {
   const { data: isAdmin, isLoading: roleLoading, refetch: refetchRole } = useIsAdmin(user?.id);
   const { data: profile } = useProfile(user?.id);
 
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTabState] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const searchTab = urlParams.get("tab") as Tab | null;
+      if (searchTab && VALID_TABS.includes(searchTab)) return searchTab;
+
+      const hash = window.location.hash.replace("#", "") as Tab;
+      if (hash && VALID_TABS.includes(hash)) return hash;
+
+      const saved = localStorage.getItem("zerah_admin_active_tab") as Tab | null;
+      if (saved && VALID_TABS.includes(saved)) return saved;
+    }
+    return "dashboard";
+  });
+
+  const setTab = useCallback((newTab: Tab) => {
+    setTabState(newTab);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_admin_active_tab", newTab);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", newTab);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_admin_active_tab", tab);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") !== tab) {
+        url.searchParams.set("tab", tab);
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [tab]);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);

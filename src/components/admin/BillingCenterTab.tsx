@@ -28,7 +28,26 @@ import {
 type BillingTab = "pos" | "returns" | "labels" | "sales" | "customers";
 
 export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: BillingTab }) {
-  const [activeTab, setActiveTab] = useState<BillingTab>(initialSubTab);
+  const [activeTab, setActiveTabState] = useState<BillingTab>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sub = urlParams.get("subtab") as BillingTab | null;
+      if (sub && ["pos", "returns", "labels", "sales", "customers"].includes(sub)) return sub;
+      const saved = localStorage.getItem("zerah_admin_active_subtab") as BillingTab | null;
+      if (saved && ["pos", "returns", "labels", "sales", "customers"].includes(saved)) return saved;
+    }
+    return initialSubTab;
+  });
+
+  const setActiveTab = (tab: BillingTab) => {
+    setActiveTabState(tab);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_admin_active_subtab", tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set("subtab", tab);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
