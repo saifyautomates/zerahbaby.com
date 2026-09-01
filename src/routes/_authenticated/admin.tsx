@@ -158,7 +158,14 @@ function AdminPage() {
   const notifRef = useRef<HTMLDivElement>(null);
 
   const { theme, isDark, toggleTheme } = useTheme();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useAdminNotifications();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAllNotifications,
+  } = useAdminNotifications();
 
   // Detect OS for shortcut badge
   const isMac = useMemo(() => {
@@ -632,15 +639,27 @@ function AdminPage() {
                         </span>
                       )}
                     </div>
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={markAllAsRead}
-                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                      >
-                        Mark all as read
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllAsRead}
+                          className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                        >
+                          Mark read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearAllNotifications}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer flex items-center gap-1"
+                          title="Clear all notifications"
+                        >
+                          <Trash2 className="size-3" /> Clear all
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="max-h-[min(440px,calc(100vh-140px))] overflow-y-auto p-2 divide-y divide-border/30">
@@ -655,7 +674,7 @@ function AdminPage() {
                     ) : (
                       <ul className="space-y-1">
                         {notifications.map((notif) => (
-                          <li key={notif.id}>
+                          <li key={notif.id} className="group relative flex items-center gap-1 rounded-2xl transition hover:bg-muted/40 p-1">
                             <button
                               type="button"
                               onClick={() => {
@@ -663,9 +682,9 @@ function AdminPage() {
                                 setTab(notif.tab as Tab);
                                 setIsNotifOpen(false);
                               }}
-                              className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition cursor-pointer ${
+                              className={`flex flex-1 items-start gap-3 rounded-2xl p-2.5 text-left transition cursor-pointer ${
                                 notif.read
-                                  ? "opacity-60 hover:opacity-100 hover:bg-muted/40"
+                                  ? "opacity-60 hover:opacity-100"
                                   : "bg-muted/40 hover:bg-muted"
                               }`}
                             >
@@ -697,6 +716,17 @@ function AdminPage() {
                               {!notif.read && (
                                 <span className="size-2 rounded-full bg-primary shrink-0 mt-1.5" />
                               )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notif.id);
+                              }}
+                              title="Delete notification"
+                              className="p-2 text-muted-foreground/50 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="size-4" />
                             </button>
                           </li>
                         ))}

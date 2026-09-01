@@ -23,6 +23,7 @@ export interface AdminNotification {
 }
 
 const READ_NOTIFS_STORAGE_KEY = "zerah-admin-read-notifs";
+const DISMISSED_NOTIFS_STORAGE_KEY = "zerah-admin-dismissed-notifs";
 
 function getStoredReadIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -46,9 +47,32 @@ function persistReadIds(ids: Set<string>) {
   }
 }
 
+function getStoredDismissedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DISMISSED_NOTIFS_STORAGE_KEY);
+    if (raw) {
+      return new Set(JSON.parse(raw));
+    }
+  } catch {
+    // Ignore storage parse error
+  }
+  return new Set();
+}
+
+function persistDismissedIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DISMISSED_NOTIFS_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // Ignore storage write error
+  }
+}
+
 export function useAdminNotifications() {
   const qc = useQueryClient();
   const [readIds, setReadIds] = useState<Set<string>>(() => getStoredReadIds());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getStoredDismissedIds());
 
   // 1. Fetch actionable orders (placed, processing, cancelled, or failed payment)
   const { data: rawOrders = [] } = useQuery({
@@ -205,12 +229,14 @@ export function useAdminNotifications() {
       });
     }
 
-    // Sort by unread first, then date descending
-    return list.sort((a, b) => {
-      if (a.read !== b.read) return a.read ? 1 : -1;
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-    });
-  }, [rawOrders, rawLowStock, rawFailedLogs, rawQueries, readIds]);
+    // Filter out dismissed notifications and sort by unread first, then date descending
+    return list
+      .filter((n) => !dismissedIds.has(n.id))
+      .sort((a, b) => {
+        if (a.read !== b.read) return a.read ? 1 : -1;
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      });
+  }, [rawOrders, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -234,6 +260,53 @@ export function useAdminNotifications() {
     });
   }, [notifications]);
 
+  const deleteNotification = useCallback(
+    async (id: string) => {
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        persistDismissedIds(next);
+        return next;
+      });
+
+      if (id.startsWith("query-")) {
+        const rawId = id.replace("query-", "");
+        try {
+          await supabase.from("contact_messages").delete().eq("id", rawId);
+          qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
+          qc.invalidateQueries({ queryKey: ["admin-queries"] });
+        } catch {
+          // Ignore DB error, already dismissed locally
+        }
+      }
+    },
+    [qc],
+  );
+
+  const clearAllNotifications = useCallback(async () => {
+    const currentNotifs = notifications;
+    setDismissedIds((prev) => {
+      const next = new Set(prev);
+      currentNotifs.forEach((n) => next.add(n.id));
+      persistDismissedIds(next);
+      return next;
+    });
+
+    const queryIds = currentNotifs
+      .filter((n) => n.id.startsWith("query-"))
+      .map((n) => n.id.replace("query-", ""));
+
+    if (queryIds.length > 0) {
+      try {
+        await supabase.from("contact_messages").delete().in("id", queryIds);
+        qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
+        qc.invalidateQueries({ queryKey: ["admin-queries"] });
+      } catch {
+        // Ignore
+      }
+    }
+  }, [notifications, qc]);
+
   const refresh = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-low-stock"] });
@@ -246,6 +319,8 @@ export function useAdminNotifications() {
     unreadCount,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
+    clearAllNotifications,
     refresh,
   };
 }
