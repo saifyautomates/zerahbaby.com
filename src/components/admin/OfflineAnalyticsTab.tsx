@@ -10,6 +10,7 @@ import { formatPrice, imageFor, getProductUrl } from "@/lib/store";
 import { toast } from "sonner";
 import clothing from "@/assets/cat-clothing.jpg";
 import { useOfflineReturnsList } from "@/lib/pos-returns";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   BarChart3,
   Receipt,
@@ -102,6 +103,7 @@ function todayIST(): string {
 export function OfflineAnalyticsTab() {
   const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<{ id: string; sale_number: string } | null>(null);
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
@@ -109,22 +111,28 @@ export function OfflineAnalyticsTab() {
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>
-      )("admin_void_offline_sale", {
+        ) => Promise<{ data: { success?: boolean; message?: string } | null; error: { message: string } | null }>
+      )("admin_delete_offline_sale", {
         _sale_id: saleId,
       });
-      if (error) throw error;
 
-      const { error: delError } = await supabase.from("offline_sales").delete().eq("id", saleId);
-      if (delError) throw delError;
+      if (error) {
+        // Fallback: direct delete from offline_sales
+        const { error: delError } = await supabase.from("offline_sales").delete().eq("id", saleId);
+        if (delError) throw new Error(error.message || delError.message);
+      }
 
       return data;
     },
     onSuccess: () => {
       toast.success("Sale deleted and stock restored successfully!");
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
       qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-for-returns-history-lookup"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to delete sale");
@@ -931,17 +939,15 @@ export function OfflineAnalyticsTab() {
                               {sale.status !== "cancelled" && (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        "Are you sure you want to delete this POS sale? This will permanently delete the transaction and restore stock for all items.",
-                                      )
-                                    ) {
-                                      deleteSaleMutation.mutate(sale.id);
-                                    }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSaleToDelete({
+                                      id: sale.id,
+                                      sale_number: sale.sale_number,
+                                    });
                                   }}
                                   disabled={deleteSaleMutation.isPending}
-                                  className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                  className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 cursor-pointer"
                                 >
                                   <Trash2 className="size-4" />
                                   Delete
@@ -1009,6 +1015,26 @@ export function OfflineAnalyticsTab() {
           </table>
         </div>
       </div>
+
+      {saleToDelete && (
+        <ConfirmDialog
+          title={`Delete POS Sale #${saleToDelete.sale_number}?`}
+          message="Are you sure you want to delete this POS sale? This will permanently delete the transaction and automatically restore inventory stock for all products."
+          confirmLabel="Delete & Restore Stock"
+          cancelLabel="Keep Sale"
+          destructive
+          busy={deleteSaleMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await deleteSaleMutation.mutateAsync(saleToDelete.id);
+              setSaleToDelete(null);
+            } catch {
+              // error handled by mutation onError
+            }
+          }}
+          onCancel={() => setSaleToDelete(null)}
+        />
+      )}
     </div>
   );
 }
