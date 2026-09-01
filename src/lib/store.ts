@@ -415,6 +415,31 @@ export type SingleProductResult = {
   isError: boolean;
 };
 
+let cachedDeliveryFees: Record<string, number> | null = null;
+let lastDeliveryFeesFetch = 0;
+
+async function getDeliveryFeesMap(): Promise<Record<string, number>> {
+  const now = Date.now();
+  if (cachedDeliveryFees && now - lastDeliveryFeesFetch < 1000 * 60 * 5) {
+    return cachedDeliveryFees;
+  }
+  try {
+    const { data: settingsData } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "product_delivery_fees")
+      .maybeSingle();
+    if (settingsData?.value) {
+      cachedDeliveryFees = JSON.parse(settingsData.value);
+      lastDeliveryFeesFetch = now;
+      return cachedDeliveryFees || {};
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
 export async function fetchSingleProduct(
   rawIdentifier: string,
   includeInactive = false,
@@ -511,15 +536,8 @@ export async function fetchSingleProduct(
 
       let deliveryFee: number | undefined;
       try {
-        const { data: settingsData } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "product_delivery_fees")
-          .maybeSingle();
-        if (settingsData?.value) {
-          const parsed = JSON.parse(settingsData.value);
-          deliveryFee = parsed[row.id] ?? parsed[row.slug];
-        }
+        const feeMap = await getDeliveryFeesMap();
+        deliveryFee = feeMap[row.id] ?? feeMap[row.slug];
       } catch {
         // ignore
       }
