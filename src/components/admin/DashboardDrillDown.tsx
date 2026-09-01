@@ -966,7 +966,7 @@ export function DashboardDrillDown({
               </div>
               <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Total COGS
+                  Total Cost Price
                 </p>
                 <p className="text-2xl font-bold mt-1 text-rose-600">{formatPrice(totalCogs)}</p>
               </div>
@@ -984,7 +984,7 @@ export function DashboardDrillDown({
                     <th className="px-6 py-3">Product</th>
                     <th className="px-6 py-3 text-right">Qty</th>
                     <th className="px-6 py-3 text-right">Revenue</th>
-                    <th className="px-6 py-3 text-right">COGS</th>
+                    <th className="px-6 py-3 text-right">Cost Price</th>
                     <th className="px-6 py-3 text-right">Profit</th>
                   </tr>
                 </thead>

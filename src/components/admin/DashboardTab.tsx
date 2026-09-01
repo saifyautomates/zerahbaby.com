@@ -1006,7 +1006,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
-            <span className="font-semibold text-white truncate mr-2">Based on COGS</span>
+            <span className="font-semibold text-white truncate mr-2">Based on Cost Price</span>
             <button
               type="button"
               onClick={(e) => {
