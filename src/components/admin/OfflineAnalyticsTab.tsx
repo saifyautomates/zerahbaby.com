@@ -604,6 +604,7 @@ export function OfflineAnalyticsTab() {
               <th className="px-5 py-4">Token</th>
               <th className="px-5 py-4">Receipt No</th>
               <th className="px-5 py-4">Date (IST)</th>
+              <th className="px-5 py-4 min-w-[220px]">Items / Products</th>
               <th className="px-5 py-4">Customer</th>
               <th className="px-5 py-4">Payment</th>
               <th className="px-5 py-4">Discount</th>
@@ -642,6 +643,48 @@ export function OfflineAnalyticsTab() {
                     <td className="px-5 py-4 text-muted-foreground font-medium text-xs">
                       {new Date(sale.created_at).toLocaleString("en-IN")}
                     </td>
+                    {/* Product thumbnails & names */}
+                    <td className="px-5 py-4 whitespace-normal">
+                      <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[280px]">
+                        {(sale.offline_sale_items ?? []).map((item: SaleItem, i: number) => {
+                          const prod = resolveProduct(item);
+                          const itemImg = imageFor(
+                            prod?.category || "clothing",
+                            (prod as { product_images?: { public_url: string }[] })
+                              ?.product_images?.[0]?.public_url,
+                          );
+                          return (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              <img
+                                src={itemImg}
+                                alt={item.name}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-8 rounded-md object-cover border border-border shrink-0 bg-muted"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = clothing;
+                                }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className="font-bold text-foreground truncate text-xs leading-tight"
+                                  title={item.name}
+                                >
+                                  {item.name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  <span className="font-semibold text-primary">x{item.qty}</span> •{" "}
+                                  {formatPrice(item.price)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {(!sale.offline_sale_items || sale.offline_sale_items.length === 0) && (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-4">
                       <span className="font-semibold text-foreground">
                         {sale.customer_name || "Guest"}
@@ -673,7 +716,7 @@ export function OfflineAnalyticsTab() {
                   {/* Expanded Details */}
                   {isExpanded && (
                     <tr className="bg-muted/10">
-                      <td colSpan={8} className="p-0">
+                      <td colSpan={9} className="p-0">
                         <div className="border-t border-border px-8 py-4">
                           <table className="w-full text-xs">
                             <thead>
