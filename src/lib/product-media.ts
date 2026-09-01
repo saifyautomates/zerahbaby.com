@@ -91,7 +91,9 @@ export type ProductMediaRow = {
   imageUrl?: string | null;
   image?: string | null;
   images?: string[] | null;
-  product_images?: { public_url: string; is_primary?: boolean; sort_order?: number }[] | null;
+  product_images?:
+    | { public_url: string; is_primary?: boolean; sort_order?: number; color?: string | null }[]
+    | null;
 };
 
 export interface ResolvedProductMedia {

@@ -164,11 +164,11 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
-              items: items.map(({ product, qty, variantId, price }) => ({
+              items: items.map(({ product, qty, variantId, price, image }) => ({
                 variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
                 name: product.name,
-                image_url: product.imageUrl,
+                image_url: image || product.imageUrl || product.image,
                 price: price,
                 qty,
               })),
@@ -191,11 +191,11 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
-              items: items.map(({ product, qty, variantId, price }) => ({
+              items: items.map(({ product, qty, variantId, price, image }) => ({
                 variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
                 name: product.name,
-                image_url: product.imageUrl || product.image,
+                image_url: image || product.imageUrl || product.image,
                 price: price,
                 qty,
               })),
@@ -585,11 +585,14 @@ function CheckoutPage() {
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Your order</h2>
           <ul className="mt-4 space-y-4 text-sm">
-            {items.map(({ product, qty }) => (
-              <li key={product.id} className="flex gap-4 items-center">
+            {items.map(({ product, qty, variantId, variant, price, color, size, image }) => (
+              <li
+                key={`${product.id}-${variantId || "default"}`}
+                className="flex gap-4 items-center"
+              >
                 <div className="size-16 shrink-0 rounded-xl overflow-hidden bg-muted border border-border/50">
                   <img
-                    src={product.image}
+                    src={image || product.image}
                     alt={product.name}
                     loading="lazy"
                     onError={(e) => {
@@ -604,9 +607,20 @@ function CheckoutPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{product.name}</p>
+                  {(color || size || (variant && variant.name !== "Default")) && (
+                    <p className="text-[11px] text-primary font-medium truncate">
+                      {[
+                        color && `Color: ${color}`,
+                        size && `Size: ${size}`,
+                        !color && !size && variant?.name !== "Default" && variant?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
                   <p className="text-muted-foreground text-xs">Qty: {qty}</p>
                 </div>
-                <span className="font-semibold shrink-0">{formatPrice(product.price * qty)}</span>
+                <span className="font-semibold shrink-0">{formatPrice(price * qty)}</span>
               </li>
             ))}
           </ul>

@@ -89,39 +89,40 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Zerah Baby And Kid's — Best Kids Store in Kota" },
+      { title: "Zérah Baby & Kids — Best Kids Store in Kota" },
       {
         name: "description",
         content:
-          "Looking for a kids store near me in Kota? Zerah Baby And Kid's offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
+          "Looking for a kids store near me in Kota? Zérah Baby & Kids offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
       },
       {
         name: "keywords",
         content:
-          "kids store in kota, baby shop near me, baby clothes kota, toys shop kota, zerah Baby And Kid's, baby gear",
+          "kids store in kota, baby shop near me, baby clothes kota, toys shop kota, Zérah Baby & Kids, baby gear",
       },
-      { name: "author", content: "Zerah Baby And Kid's" },
+      { name: "author", content: "Zérah Baby & Kids" },
       {
         property: "og:title",
-        content: "Zerah Baby And Kid's — Best Kids Store in Kota",
+        content: "Zérah Baby & Kids — Best Kids Store in Kota",
       },
       {
         property: "og:description",
         content:
-          "Looking for a kids store near me in Kota? Zerah Baby And Kid's offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
+          "Looking for a kids store near me in Kota? Zérah Baby & Kids offers the best organic baby clothing, safe toys, nursery care, and travel gear.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://zerahkids.com" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@zerah_kids" },
-      { property: "og:site_name", content: "Zerah Baby And Kid's" },
+      { property: "og:site_name", content: "Zérah Baby & Kids" },
       { property: "og:image", content: "https://zerahkids.com/logo.png" },
       { property: "og:image:secure_url", content: "https://zerahkids.com/logo.png" },
       { property: "og:image:type", content: "image/png" },
       { property: "og:image:width", content: "1024" },
       { property: "og:image:height", content: "1024" },
-      { property: "og:image:alt", content: "Zerah Baby And Kid's Logo" },
+      { property: "og:image:alt", content: "Zérah Baby & Kids Logo" },
       { name: "twitter:image", content: "https://zerahkids.com/logo.png" },
-      { name: "twitter:image:alt", content: "Zerah Baby And Kid's Logo" },
+      { name: "twitter:image:alt", content: "Zérah Baby & Kids Logo" },
       {
         name: "google-site-verification",
         content: "Gb8-IGMq85AIv7UMDmz6EOQ1XXBtR9vqXLnZVQFtP4k",
@@ -138,12 +139,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           {
             "@context": "https://schema.org",
             "@type": "Organization",
-            name: "Zerah Baby And Kid's",
+            name: "Zérah Baby & Kids",
             url: "https://zerahkids.com",
             logo: "https://zerahkids.com/logo.png",
             image: "https://zerahkids.com/logo.png",
             description:
-              "Zerah Baby And Kid's — Premium baby and kids clothing, safe toys, gear, and essentials.",
+              "Zérah Baby & Kids — Premium baby and kids clothing, safe toys, gear, and essentials.",
             email: "hello@zerahkids.com",
             telephone: "+919057074777",
             address: {
@@ -159,7 +160,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           {
             "@context": "https://schema.org",
             "@type": "WebSite",
-            name: "Zerah Baby And Kid's",
+            name: "Zérah Baby & Kids",
             url: "https://zerahkids.com",
             potentialAction: {
               "@type": "SearchAction",

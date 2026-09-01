@@ -20,30 +20,58 @@ export const Route = createFileRoute("/shop")({
     age: typeof search["age"] === "string" ? (search["age"] as string) : undefined,
     q: typeof search["q"] === "string" && search["q"] ? (search["q"] as string) : undefined,
   }),
-  loader: async ({ context }) => {
+  loaderDeps: ({ search }) => search,
+  loader: async ({ context, deps }) => {
     const [products, categories] = await Promise.all([
       context.queryClient.ensureQueryData(productsQueryOptions(false)),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
     ]).catch(() => [null, null]);
-    return { products, categories };
+    return { products, categories, search: deps };
   },
-  head: () => ({
-    meta: [
-      { title: "Shop Baby & Kids Essentials — Zerah Baby And Kid's" },
-      {
-        name: "description",
-        content:
-          "Browse the full Zerah Baby And Kid's range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.",
-      },
-      { property: "og:title", content: "Shop Baby & Kids Essentials — Zerah Baby And Kid's" },
-      {
-        property: "og:description",
-        content: "Filter baby clothing, toys, care and gear by age, brand and price.",
-      },
+  head: (ctx) => {
+    const categoryParam = ctx.loaderData?.search?.category;
+    const qParam = ctx.loaderData?.search?.q;
+
+    let title = "Shop Baby & Kids Essentials — Zérah Baby & Kids";
+    const desc =
+      "Browse the full Zérah Baby & Kids range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.";
+    let canonicalUrl = "https://zerahkids.com/shop";
+    const robots: any[] = [];
+
+    if (qParam) {
+      title = `Search results for "${qParam}" | Zérah Baby & Kids`;
+      canonicalUrl = `https://zerahkids.com/shop?q=${encodeURIComponent(qParam)}`;
+      robots.push({ name: "robots", content: "noindex, follow" });
+    } else if (categoryParam) {
+      const cat = ctx.loaderData?.categories?.find(
+        (c: { slug: string; name: string }) => c.slug === categoryParam,
+      );
+      const catName = cat
+        ? cat.name
+        : categoryParam
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+      title = `${catName} | Kids Clothing | Zérah Baby & Kids`;
+      canonicalUrl = `https://zerahkids.com/shop?category=${encodeURIComponent(categoryParam)}`;
+    }
+
+    const meta = [
+      { title },
+      { name: "description", content: desc },
+      { property: "og:title", content: title },
+      { property: "og:description", content: desc },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: canonicalUrl },
       { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+      ...robots,
+    ];
+
+    return {
+      meta,
+      links: [{ rel: "canonical", href: canonicalUrl }],
+    };
+  },
   component: ShopPage,
 });
 

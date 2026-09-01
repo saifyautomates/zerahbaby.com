@@ -1,6 +1,5 @@
-//
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useProducts, type Product } from "@/lib/store";
+import { useProducts, getColorSwatchImage, type Product, type ProductVariant } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -10,8 +9,13 @@ export type CartItem = {
   product: Product;
   qty: number;
   variantId?: string;
+  variant?: ProductVariant | null;
   price: number;
   stock: number;
+  color?: string | null;
+  size?: string | null;
+  image: string;
+  sku?: string;
 };
 
 export type CartCoupon = { code: string; discount: number; id: string };
@@ -237,9 +241,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const variant = product.variants?.find((v) => v.id === vId);
         const stock = variant ? variant.stock : product.stock;
         const price = variant?.priceOverride || product.price;
+        const color = variant?.color || null;
+        const size = variant?.size || null;
+        const image = color ? getColorSwatchImage(product, color) : product.image;
+        const sku = variant?.sku || product.sku;
 
         const clampedQty = Math.min(line.qty, stock);
-        return { product, qty: clampedQty, variantId: vId, price, stock };
+        return {
+          product,
+          qty: clampedQty,
+          variantId: vId,
+          variant: variant || null,
+          price,
+          stock,
+          color,
+          size,
+          image,
+          sku,
+        };
       })
       .filter((x): x is CartItem => x !== null && x.qty > 0);
 

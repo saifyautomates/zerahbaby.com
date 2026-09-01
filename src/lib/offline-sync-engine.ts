@@ -327,9 +327,13 @@ export async function findOfflineProductByCode(
         for (const p of all) {
           if (p.is_active === false || p.isActive === false) continue;
 
-          // Check variants first
+          // Check variants first (by barcode or sku)
           if (Array.isArray(p.variants)) {
-            const vMatch = p.variants.find((v: any) => String(v.sku || "").toLowerCase() === clean);
+            const vMatch = p.variants.find(
+              (v: any) =>
+                String(v.barcode || "").toLowerCase() === clean ||
+                String(v.sku || "").toLowerCase() === clean,
+            );
             if (vMatch) {
               matchedVariant = vMatch;
               matchedProduct = p;
@@ -419,14 +423,8 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
         await updateQueuedSaleStatus(item.operation_id, "SYNCED");
         syncedCount++;
 
-        // Trigger transactional SMS and owner email for synced sale (non-blocking)
+        // Trigger transactional SMS for synced sale (non-blocking)
         if (data?.sale_id) {
-          supabase.functions
-            .invoke("send-owner-sale-notification", {
-              body: { type: "offline_sale", sale_id: data.sale_id },
-            })
-            .catch(() => {});
-
           supabase.functions
             .invoke("msg91-transactional", {
               body: {

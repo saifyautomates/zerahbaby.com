@@ -613,7 +613,31 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { type, order_id, sale_id, return_id, force_retry, recipient: customRecipient } = payload;
+    let type = payload.type;
+    let order_id = payload.order_id;
+    let sale_id = payload.sale_id;
+    let return_id = payload.return_id;
+    const force_retry = payload.force_retry;
+    const customRecipient = payload.recipient;
+
+    // Support Supabase Database Webhook format
+    if (payload.table && payload.record && ["INSERT", "UPDATE"].includes(payload.type)) {
+      if (payload.table === "offline_sales") {
+        type = "offline_sale";
+        sale_id = payload.record.id;
+      } else if (payload.table === "orders" && payload.record.payment_status === "paid") {
+        type = "online_order";
+        order_id = payload.record.id;
+      } else if (payload.table === "offline_returns") {
+        type = "offline_return";
+        return_id = payload.record.id;
+      } else {
+        return new Response(JSON.stringify({ success: true, message: "Ignored webhook event" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
 
     if (
       !type ||
@@ -908,6 +932,24 @@ serve(async (req) => {
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", return_id);
+    }
+
+    if (referenceId && referenceId !== "test") {
+      // Upsert into admin_notification_logs
+      await adminClient
+        .from("admin_notification_logs")
+        .upsert(
+          {
+            event_type: type,
+            reference_id: referenceId,
+            status: isSuccess ? "sent" : "failed",
+            provider_id: resendMessageId,
+            error_message: dispatchError,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "event_type,reference_id" },
+        )
+        .select();
     }
 
     // Log to owner_notification_logs

@@ -267,26 +267,7 @@ export function useProcessOfflineReturn() {
 
       const result = data as ReturnResult;
 
-      // 2. Dispatch internal owner email notification in background (non-blocking)
-      if (result && result.return_id && !result.duplicate) {
-        try {
-          supabase.functions
-            .invoke("send-owner-sale-notification", {
-              body: {
-                type: "offline_return",
-                return_id: result.return_id,
-              },
-            })
-            .catch((e: unknown) => {
-              console.warn(
-                "[pos-returns] Owner return email notification background trigger error:",
-                e,
-              );
-            });
-        } catch {
-          // Non-blocking
-        }
-      }
+      // 2. Dispatch internal owner email notification via Webhook (Database will handle this)
 
       return result;
     },

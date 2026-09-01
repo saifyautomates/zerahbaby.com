@@ -4,11 +4,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type OrderItem = {
   id: string;
+  order_id?: string;
   product_slug: string;
+  variant_id?: string | null;
   name: string;
+  product_name_snapshot?: string | null;
   image_url: string | null;
+  image_url_snapshot?: string | null;
+  sku_snapshot?: string | null;
+  barcode_snapshot?: string | null;
+  color?: string | null;
+  size?: string | null;
   price: number;
+  price_at_time?: number;
   qty: number;
+  subtotal?: number;
 };
 
 export type Order = {

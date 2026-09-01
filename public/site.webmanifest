@@ -19,17 +19,10 @@
   "theme_color": "#8B2020",
   "background_color": "#FFFFFF",
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui",
-    "browser"
-  ],
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "start_url": "/",
   "scope": "/",
   "orientation": "portrait-primary",
   "lang": "en-IN",
-  "categories": [
-    "shopping",
-    "lifestyle"
-  ]
+  "categories": ["shopping", "lifestyle"]
 }

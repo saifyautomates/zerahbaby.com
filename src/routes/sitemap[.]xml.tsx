@@ -34,20 +34,34 @@ export const Route = createFileRoute("/sitemap.xml")({
             import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY;
 
           if (base && key) {
-            const res = await fetch(
-              `${base}/rest/v1/products?select=slug&is_active=eq.true&limit=1000`,
-              {
+            const [prodRes, catRes] = await Promise.all([
+              fetch(
+                `${base}/rest/v1/products?select=slug&is_active=eq.true&sales_channel=neq.OFFLINE_ONLY&limit=1000`,
+                { headers: { apikey: key } },
+              ),
+              fetch(`${base}/rest/v1/categories?select=slug&limit=100`, {
                 headers: { apikey: key },
-              },
-            );
-            if (res.ok) {
-              const rows = (await res.json()) as Array<{ slug: string }>;
+              }),
+            ]);
+
+            if (prodRes.ok) {
+              const rows = (await prodRes.json()) as Array<{ slug: string }>;
               productUrls = rows
                 .filter((r) => r.slug && r.slug.trim())
                 .map(
                   (r) =>
                     `<url><loc>${BASE_URL}/product/${encodeURIComponent(r.slug)}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
                 );
+            }
+            if (catRes.ok) {
+              const rows = (await catRes.json()) as Array<{ slug: string }>;
+              const catUrls = rows
+                .filter((r) => r.slug && r.slug.trim())
+                .map(
+                  (r) =>
+                    `<url><loc>${BASE_URL}/shop?category=${encodeURIComponent(r.slug)}</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>`,
+                );
+              productUrls = [...catUrls, ...productUrls];
             }
           }
         } catch {

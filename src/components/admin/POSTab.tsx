@@ -48,7 +48,7 @@ import {
   Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { type Product, mapProduct, formatPrice, imageFor } from "@/lib/store";
+import { type Product, mapProduct, formatPrice, imageFor, getColorSwatchImage } from "@/lib/store";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
@@ -294,7 +294,9 @@ export function POSTab() {
   function addToCart(item: POSCartItem): boolean {
     let added = true;
     setCart((prev) => {
-      const existing = prev.find((p) => p.product_id === item.product_id);
+      const existing = prev.find(
+        (p) => p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || ""),
+      );
       if (existing) {
         if (existing.qty >= item.stock) {
           playScanError();
@@ -302,43 +304,56 @@ export function POSTab() {
           added = false;
           return prev;
         }
-        return prev.map((p) => (p.product_id === item.product_id ? { ...p, qty: p.qty + 1 } : p));
+        return prev.map((p) =>
+          p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || "")
+            ? { ...p, qty: p.qty + 1 }
+            : p,
+        );
       }
       return [...prev, { ...item, qty: 1 }];
     });
     return added;
   }
 
-  function addProductManually(product: Product) {
-    if (product.stock <= 0) {
-      toast.error(`"${product.name}" is out of stock`);
+  function addProductManually(product: Product, variant?: (typeof product.variants)[0]) {
+    const selectedVar = variant || (product.variants?.length ? product.variants[0] : undefined);
+    const stock = selectedVar ? selectedVar.stock : product.stock;
+    if (stock <= 0) {
+      toast.error(
+        `"${product.name}${selectedVar?.name && selectedVar.name !== "Default" ? ` (${selectedVar.name})` : ""}" is out of stock`,
+      );
       return;
     }
-    const defaultVariant = product.variants?.length ? product.variants[0] : undefined;
+
+    const varName = selectedVar && selectedVar.name !== "Default" ? ` - ${selectedVar.name}` : "";
+    const color = selectedVar?.color || null;
+    const size = selectedVar?.size || null;
+    const swatchImg = color ? getColorSwatchImage(product, color) : null;
+
     addToCart({
       product_id: product.uuid,
-      variant_id: defaultVariant?.id || "",
+      variant_id: selectedVar?.id || "",
       slug: product.id,
-      name: product.name,
+      name: `${product.name}${varName}`,
       brand: product.brand,
       category: product.category,
-      price: defaultVariant?.priceOverride || product.price,
-      mrp: product.mrp,
-      stock: defaultVariant ? defaultVariant.stock : product.stock,
-      sku: defaultVariant?.sku || product.sku,
-      barcode: product.barcode,
-      image_url: product.imageUrl || product.image,
+      price: selectedVar?.priceOverride || product.price,
+      mrp: selectedVar?.mrpOverride || product.mrp,
+      stock: stock,
+      sku: selectedVar?.sku || product.sku,
+      barcode: selectedVar?.barcode || product.barcode,
+      image_url: swatchImg || product.imageUrl || product.image,
       age_group: product.ageGroup,
       qty: 1,
     });
     setProductSearch("");
-    toast.success(`Added: ${product.name}`);
+    toast.success(`Added: ${product.name}${varName}`);
   }
 
-  function updateQty(productId: string, newQty: number) {
+  function updateQty(productId: string, newQty: number, variantId?: string) {
     setCart((prev) =>
       prev.map((p) => {
-        if (p.product_id === productId) {
+        if (p.product_id === productId && (p.variant_id || "") === (variantId || "")) {
           const clamped = Math.max(1, Math.min(p.stock, newQty));
           if (newQty > p.stock) {
             toast.error(`Only ${p.stock} available for "${p.name}"`);
@@ -350,8 +365,12 @@ export function POSTab() {
     );
   }
 
-  function removeFromCart(productId: string) {
-    setCart((prev) => prev.filter((p) => p.product_id !== productId));
+  function removeFromCart(productId: string, variantId?: string) {
+    setCart((prev) =>
+      prev.filter(
+        (p) => !(p.product_id === productId && (p.variant_id || "") === (variantId || "")),
+      ),
+    );
   }
 
   // Complete sale
@@ -601,7 +620,7 @@ export function POSTab() {
                   <tbody>
                     {cart.map((item) => (
                       <tr
-                        key={item.product_id}
+                        key={`${item.product_id}-${item.variant_id || "def"}`}
                         className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                       >
                         <td className="py-3 pr-4">
@@ -639,17 +658,7 @@ export function POSTab() {
                         <td className="py-3 font-mono text-xs text-muted-foreground">
                           {item.sku || "—"}
                         </td>
-                        <td className="py-3 text-right">
-                          <input
-                            type="number"
-                            value={item.price}
-                            onChange={
-                              (e) => updateQty(item.product_id, item.qty) // simplified placeholder for custom logic
-                            }
-                            className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-right text-xs font-semibold outline-none focus:border-primary"
-                            min={0}
-                          />
-                        </td>
+                        <td className="py-3 text-right font-semibold">{formatPrice(item.price)}</td>
                         <td className="py-3 text-center">
                           <span
                             className={`text-xs font-semibold ${
@@ -662,16 +671,20 @@ export function POSTab() {
                         <td className="py-3 text-center">
                           <div className="inline-flex items-center rounded-lg border border-border bg-background">
                             <button
-                              onClick={() => updateQty(item.product_id, item.qty - 1)}
-                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                              onClick={() =>
+                                updateQty(item.product_id, item.qty - 1, item.variant_id)
+                              }
+                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                             >
                               <Minus className="size-3" />
                             </button>
                             <span className="w-8 text-center text-xs font-bold">{item.qty}</span>
                             <button
-                              onClick={() => updateQty(item.product_id, item.qty + 1)}
+                              onClick={() =>
+                                updateQty(item.product_id, item.qty + 1, item.variant_id)
+                              }
                               disabled={item.qty >= item.stock}
-                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"
+                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                             >
                               <Plus className="size-3" />
                             </button>
@@ -682,8 +695,8 @@ export function POSTab() {
                         </td>
                         <td className="py-3 text-right pl-2">
                           <button
-                            onClick={() => removeFromCart(item.product_id)}
-                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50"
+                            onClick={() => removeFromCart(item.product_id, item.variant_id)}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50 cursor-pointer"
                           >
                             <Trash2 className="size-4" />
                           </button>

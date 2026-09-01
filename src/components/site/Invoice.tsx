@@ -132,16 +132,31 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                 <tr key={item.id}>
                   <td className="py-4">
                     <span className="block font-bold text-slate-900">{item.name}</span>
-                    <span className="block text-xs text-slate-500 mt-1">
-                      Ref: {item.product_slug}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
+                      {item.color && (
+                        <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">
+                          Color: {item.color}
+                        </span>
+                      )}
+                      {item.size && (
+                        <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">
+                          Size: {item.size}
+                        </span>
+                      )}
+                      {item.sku_snapshot && (
+                        <span className="font-mono text-[11px] text-slate-500">
+                          SKU: {item.sku_snapshot}
+                        </span>
+                      )}
+                      {!item.sku_snapshot && <span>Ref: {item.product_slug}</span>}
+                    </div>
                   </td>
                   <td className="py-4 text-center font-medium text-slate-700">{item.qty}</td>
                   <td className="py-4 text-right font-medium text-slate-700">
-                    {formatPrice(Number(item.price))}
+                    {formatPrice(Number(item.price || item.price_at_time || 0))}
                   </td>
                   <td className="py-4 text-right font-bold text-slate-900">
-                    {formatPrice(Number(item.price) * item.qty)}
+                    {formatPrice(Number(item.price || item.price_at_time || 0) * item.qty)}
                   </td>
                 </tr>
               ))}

@@ -81,16 +81,41 @@ export function useSaveProduct() {
           .upsert({ product_id: productId, buying_price: draft.buyingPrice });
         if (costError) throw costError;
 
-        // Sync product_images with strict order preservation
-        const primaryUrl = draft.imageUrl.trim() || draft.images[0]?.trim() || "";
-        const urlsArray: string[] = [];
-        if (primaryUrl) urlsArray.push(primaryUrl);
-        draft.images.forEach((img) => {
-          const trimmed = img.trim();
-          if (trimmed && !urlsArray.includes(trimmed)) {
-            urlsArray.push(trimmed);
+        // Sync product_images with color association and order preservation
+        const incomingImages =
+          draft.productImages && draft.productImages.length > 0
+            ? draft.productImages
+            : draft.images.map((url, idx) => ({
+                public_url: url.trim(),
+                is_primary: idx === 0,
+                sort_order: idx,
+                color: null,
+                alt_text: draft.name,
+              }));
+
+        const primaryUrl = draft.imageUrl?.trim() || incomingImages[0]?.public_url?.trim() || "";
+        const processedImages: {
+          public_url: string;
+          is_primary: boolean;
+          sort_order: number;
+          color?: string | null;
+          alt_text?: string | null;
+        }[] = [];
+
+        incomingImages.forEach((img, i) => {
+          const url = img.public_url.trim();
+          if (url && !processedImages.some((p) => p.public_url === url)) {
+            processedImages.push({
+              public_url: url,
+              is_primary: primaryUrl === url || (i === 0 && !primaryUrl),
+              sort_order: i,
+              color: img.color ? img.color.trim() : null,
+              alt_text: img.alt_text || draft.name,
+            });
           }
         });
+
+        const urlsArray = processedImages.map((p) => p.public_url);
 
         const { data: existing } = await supabase
           .from("product_images")
@@ -111,50 +136,71 @@ export function useSaveProduct() {
         );
 
         await Promise.all(
-          urlsArray.map(async (url, i) => {
-            const isPrimary = i === 0;
-            const existingRow = (existing || []).find((e) => e.public_url === url);
+          processedImages.map(async (img, i) => {
+            const existingRow = (existing || []).find((e) => e.public_url === img.public_url);
 
             if (existingRow) {
-              await supabase
-                .from("product_images")
-                .update({ is_primary: isPrimary, sort_order: i })
-                .eq("id", existingRow.id);
+              await (supabase
+                .from("product_images" as any)
+                .update({
+                  is_primary: img.is_primary,
+                  sort_order: i,
+                  color: img.color ?? null,
+                  alt_text: img.alt_text ?? draft.name,
+                })
+                .eq("id", existingRow.id) as any);
             } else {
-              // We can optionally extract a storage path if the URL points to our bucket
               let storagePath = "";
-              if (url.includes("product-images/")) {
-                storagePath = url.split("product-images/")[1];
+              if (img.public_url.includes("product-images/")) {
+                storagePath = img.public_url.split("product-images/")[1];
               }
-              await supabase.from("product_images").insert({
+              await (supabase.from("product_images" as any).insert({
                 product_id: productId,
-                public_url: url,
+                public_url: img.public_url,
                 storage_path: storagePath,
-                alt_text: draft.name,
-                is_primary: isPrimary,
+                alt_text: img.alt_text || draft.name,
+                is_primary: img.is_primary,
                 sort_order: i,
-              });
+                color: img.color ?? null,
+              }) as any);
             }
           }),
         );
 
-        // Sync variants
+        // Sync variants (with color, size, barcode, mrp_override, image_url)
         if (draft.variants && draft.variants.length > 0) {
-          const variantsToInsert = draft.variants.map((v) => ({
-            id: v.id || undefined, // undefined will omit and let DB generate
-            product_id: productId,
-            name: v.name || "Default",
-            sku: v.sku,
-            stock: v.stock,
-            price_override: v.price_override,
-          }));
+          const variantsToInsert = draft.variants.map((v) => {
+            // Build descriptive name if color / size present
+            let variantName = v.name;
+            if (v.color && v.size) {
+              variantName = `${v.color} / ${v.size}`;
+            } else if (v.color) {
+              variantName = v.color;
+            } else if (v.size) {
+              variantName = v.size;
+            }
+
+            return {
+              id: v.id || undefined,
+              product_id: productId,
+              name: variantName || "Default",
+              color: v.color ? v.color.trim() : null,
+              size: v.size ? v.size.trim() : null,
+              sku: v.sku ? v.sku.trim() : draft.sku,
+              barcode: v.barcode ? v.barcode.trim() : null,
+              stock: Number(v.stock) || 0,
+              price_override: v.price_override,
+              mrp_override: v.mrp_override ?? null,
+              image_url: v.image_url ?? null,
+            };
+          });
 
           const { error: varError } = await (supabase
             .from("product_variants" as any)
             .upsert(variantsToInsert, { onConflict: "id" }) as any);
           if (varError) throw varError;
 
-          // Cleanup deleted variants (variants that are in DB but not in draft)
+          // Cleanup deleted variants
           const keepIds = draft.variants.map((v) => v.id).filter(Boolean);
           if (keepIds.length > 0) {
             await (supabase
@@ -162,12 +208,6 @@ export function useSaveProduct() {
               .delete()
               .eq("product_id", productId)
               .not("id", "in", `(${keepIds.join(",")})`) as any);
-          } else {
-            // If no variants have IDs yet (all newly added), don't delete any?
-            // Actually, if there were old variants and we removed them, we'd want to delete them.
-            // But we should be careful not to delete variants that are in carts/orders.
-            // If someone deletes a variant, it will fail if it has FK constraints (which it does for order_items).
-            // That's a good safety measure.
           }
         }
 

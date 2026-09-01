@@ -47,6 +47,9 @@ export type ThermalReceiptSale = {
 export type ThermalReceiptItem = {
   name: string;
   sku?: string;
+  barcode?: string;
+  color?: string | null;
+  size?: string | null;
   price: number;
   mrp?: number;
   qty: number;
@@ -81,8 +84,15 @@ function buildThermalHTML(
     .map((item) => {
       const hasMRP = item.mrp && item.mrp > item.price;
       const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
+      const variantDetails = [
+        item.color ? `Color: ${escHtml(item.color)}` : "",
+        item.size ? `Size: ${escHtml(item.size)}` : "",
+        item.sku ? `SKU: ${escHtml(item.sku)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
-      let priceInfo = `<div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${item.sku ? ` · SKU: ${escHtml(item.sku)}` : ""}</div>`;
+      let priceInfo = `<div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${variantDetails ? ` · ${variantDetails}` : ""}</div>`;
       if (hasMRP) {
         priceInfo += `
         <div style="font-size:10px;color:#666;margin-top:2px;">

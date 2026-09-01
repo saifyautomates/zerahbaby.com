@@ -28,7 +28,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { discountPct, formatPrice, useProducts, type Product } from "@/lib/store";
+import {
+  discountPct,
+  formatPrice,
+  useProducts,
+  getProductColors,
+  getColorGallery,
+  getColorSwatchImage,
+  type Product,
+} from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import {
@@ -84,11 +92,56 @@ export const Route = createFileRoute("/product/$id")({
       ? product.image
       : `https://zerahkids.com${product.image}`;
 
+    const hasVariants = product.variants && product.variants.length > 0;
+    const offers = hasVariants
+      ? product.variants.map((v: any) => ({
+          "@type": "Offer",
+          url,
+          itemCondition: "https://schema.org/NewCondition",
+          priceCurrency: "INR",
+          price: v.priceOverride ?? product.price,
+          availability:
+            v.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          sku: v.sku || v.id,
+          seller: { "@type": "Organization", name: "Zérah Baby & Kids" },
+        }))
+      : {
+          "@type": "Offer",
+          url,
+          itemCondition: "https://schema.org/NewCondition",
+          priceCurrency: "INR",
+          price: product.price,
+          availability:
+            (product.stock ?? 0) > 0
+              ? "https://schema.org/InStock"
+              : "https://schema.org/OutOfStock",
+          seller: { "@type": "Organization", name: "Zérah Baby & Kids" },
+        };
+
+    const schema: any = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      description: product.description,
+      image: [image],
+      brand: { "@type": "Brand", name: product.brand || "Zérah Baby & Kids" },
+      sku: product.sku || product.id,
+      offers,
+    };
+
+    if (product.reviews > 0 && product.rating > 0) {
+      schema.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: product.rating,
+        reviewCount: product.reviews,
+      };
+    }
+
     return {
       meta: [
-        { title: `${product.name} — Zerah Baby And Kid's Kota` },
+        { title: `${product.name} | Zérah Baby & Kids` },
         { name: "description", content: description },
-        { property: "og:title", content: `${product.name} — Zerah Baby And Kid's` },
+        { property: "og:title", content: `${product.name} | Zérah Baby & Kids` },
         { property: "og:description", content: description },
         { property: "og:image", content: image },
         { name: "twitter:image", content: image },
@@ -100,26 +153,7 @@ export const Route = createFileRoute("/product/$id")({
       scripts: [
         {
           type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Product",
-            name: product.name,
-            description: product.description,
-            image: [image],
-            brand: { "@type": "Brand", name: product.brand || "Zerah Baby And Kid's" },
-            sku: product.id,
-            offers: {
-              "@type": "Offer",
-              url,
-              priceCurrency: "INR",
-              price: product.price,
-              availability:
-                (product.stock ?? 0) > 0
-                  ? "https://schema.org/InStock"
-                  : "https://schema.org/OutOfStock",
-              seller: { "@type": "Organization", name: "Zerah Baby And Kid's" },
-            },
-          }),
+          children: JSON.stringify(schema),
         },
       ],
     };
@@ -165,28 +199,64 @@ function ProductPage() {
         p.id.toLowerCase() === decodedId.toLowerCase(),
     ) ?? loaderData?.product;
   const isLoading = productsLoading && !product;
-  const gallery = (product?.images.length ? product.images : [product?.image]).filter(
-    Boolean,
-  ) as string[];
 
+  const productColors = useMemo(() => (product ? getProductColors(product) : []), [product]);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
 
-  // Reset image view, quantity, and variant when changing product
+  // Initialize selectedColor and variant when changing product
   useEffect(() => {
     setActiveImage(0);
     setQty(1);
     setIsZooming(false);
 
-    if (product?.variants?.length) {
-      if (product.variants.length === 1 && product.variants[0].name === "Default") {
-        setSelectedVariantId(product.variants[0].id);
+    if (product) {
+      const colors = getProductColors(product);
+      const initialColor = colors.length > 0 ? colors[0] : null;
+      setSelectedColor(initialColor);
+
+      if (product.variants?.length) {
+        if (initialColor) {
+          const matchingVar = product.variants.find(
+            (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase(),
+          );
+          setSelectedVariantId(matchingVar ? matchingVar.id : product.variants[0].id);
+        } else {
+          setSelectedVariantId(product.variants[0].id);
+        }
       } else {
-        setSelectedVariantId(product.variants[0].id);
+        setSelectedVariantId(null);
       }
-    } else {
-      setSelectedVariantId(null);
     }
   }, [id, product]);
+
+  const gallery = useMemo(() => {
+    if (!product) return [];
+    return getColorGallery(product, selectedColor);
+  }, [product, selectedColor]);
+
+  const handleColorChange = (color: string) => {
+    setSelectedColor(color);
+    setActiveImage(0);
+    if (product?.variants?.length) {
+      const currentSize = activeVariant?.size;
+      let nextVar = product.variants.find(
+        (v) =>
+          v.color &&
+          v.color.toLowerCase() === color.toLowerCase() &&
+          currentSize &&
+          v.size?.toLowerCase() === currentSize.toLowerCase(),
+      );
+      if (!nextVar) {
+        nextVar = product.variants.find(
+          (v) => v.color && v.color.toLowerCase() === color.toLowerCase(),
+        );
+      }
+      if (nextVar) {
+        setSelectedVariantId(nextVar.id);
+      }
+    }
+  };
 
   const { data: swatchesData } = useQuery({
     queryKey: ["product-relations", product?.uuid],
@@ -619,13 +689,137 @@ function ProductPage() {
             ))}
           </ul>
 
+          {/* COLOR SWATCHES SELECTOR */}
+          {productColors.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Color:{" "}
+                  <span className="text-primary font-bold normal-case text-sm ml-1">
+                    {selectedColor || "Default"}
+                  </span>
+                </p>
+                <span className="text-xs text-muted-foreground">{productColors.length} Colors</span>
+              </div>
+              <div className="flex items-center gap-3 overflow-x-auto scrollbar-none pb-2 pt-1 px-1">
+                {productColors.map((color) => {
+                  const isSelected = selectedColor?.toLowerCase() === color.toLowerCase();
+                  const swatchImg = getColorSwatchImage(product, color);
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => handleColorChange(color)}
+                      aria-label={`Select color ${color}`}
+                      className="group relative flex flex-col items-center gap-1.5 transition-all duration-200 cursor-pointer focus-visible:outline-none"
+                    >
+                      <div
+                        className={`size-14 sm:size-16 rounded-2xl overflow-hidden border-2 transition-all p-0.5 bg-card shadow-xs ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/30 scale-105 shadow-md"
+                            : "border-border/80 hover:border-primary/50 opacity-85 hover:opacity-100 hover:scale-102"
+                        }`}
+                      >
+                        <div className="size-full rounded-xl overflow-hidden bg-muted/30">
+                          {swatchImg ? (
+                            <img src={swatchImg} alt={color} className="size-full object-cover" />
+                          ) : (
+                            <div className="size-full flex items-center justify-center font-bold text-xs bg-muted">
+                              {color[0]}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[11px] font-semibold transition ${
+                          isSelected
+                            ? "text-primary font-bold"
+                            : "text-muted-foreground group-hover:text-foreground"
+                        }`}
+                      >
+                        {color}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SIZE / VARIANT SELECTOR */}
+          {(() => {
+            const availableVariants = selectedColor
+              ? (product.variants || []).filter(
+                  (v) => v.color && v.color.toLowerCase() === selectedColor.toLowerCase(),
+                )
+              : product.variants || [];
+
+            const showSizes =
+              availableVariants.length > 0 &&
+              !(
+                availableVariants.length === 1 &&
+                (!availableVariants[0].size || availableVariants[0].name === "Default")
+              );
+
+            if (!showSizes && (!product.variants || product.variants.length <= 1)) return null;
+
+            return (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Select Size
+                  </p>
+                  {featSizeGuide && (
+                    <button
+                      onClick={() => setShowSizeGuide(true)}
+                      className="text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 cursor-pointer"
+                    >
+                      Size Guide
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2.5">
+                  {availableVariants.map((v) => {
+                    const isSelected = selectedVariantId === v.id;
+                    const isOutOfStock = v.stock <= 0;
+                    const label = v.size || v.name;
+
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVariantId(v.id);
+                          setQty(1);
+                        }}
+                        className={`relative min-w-[54px] px-4 py-2.5 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/20 scale-102"
+                            : isOutOfStock
+                              ? "border-border/60 bg-muted/40 text-muted-foreground/60 line-through cursor-not-allowed"
+                              : "border-border bg-card text-foreground hover:border-primary/60 hover:bg-muted/30"
+                        }`}
+                      >
+                        <span>{label}</span>
+                        {v.priceOverride && v.priceOverride !== product.price && (
+                          <span className="block text-[10px] font-normal text-muted-foreground mt-0.5">
+                            {formatPrice(v.priceOverride)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {featSwatches && swatches.length > 0 && (
             <div className="mt-8">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                 More in this style
               </p>
               <div className="flex items-center gap-3 overflow-x-auto scrollbar-none pb-2">
-                {/* Current Active Product */}
                 <div
                   className="size-14 shrink-0 rounded-full border-[2.5px] border-primary p-0.5 overflow-hidden shadow-sm ring-2 ring-primary/20"
                   title={`${product.name} (Current)`}
@@ -635,7 +829,6 @@ function ProductPage() {
                   </div>
                 </div>
 
-                {/* Swatch Links */}
                 {swatches.map((s) => (
                   <Link
                     key={s.id || s.uuid}
@@ -655,35 +848,6 @@ function ProductPage() {
               </div>
             </div>
           )}
-
-          {/* Variant Selector */}
-          {product.variants &&
-            product.variants.length > 0 &&
-            !(product.variants.length === 1 && product.variants[0].name === "Default") && (
-              <div className="mt-8">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                  Select Option
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {product.variants.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => {
-                        setSelectedVariantId(v.id);
-                        setQty(1);
-                      }}
-                      className={`px-4 py-2 text-sm font-semibold rounded-xl border-2 transition-all ${
-                        selectedVariantId === v.id
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border hover:border-primary/50 text-foreground"
-                      } ${v.stock <= 0 ? "opacity-50" : ""}`}
-                    >
-                      {v.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
           <div className="mt-8 flex flex-col gap-4">
             <p className="text-sm font-bold uppercase tracking-wide">
@@ -815,6 +979,8 @@ function ProductPage() {
       {showBuyNowModal && product && (
         <BuyNowModal
           product={product}
+          variant={activeVariant}
+          color={selectedColor}
           qty={qty}
           user={user}
           onClose={() => setShowBuyNowModal(false)}
@@ -1377,11 +1543,15 @@ function ReviewsSection({
 
 function BuyNowModal({
   product,
+  variant,
+  color,
   qty,
   user,
   onClose,
 }: {
   product: Product;
+  variant?: (typeof product.variants)[0] | null;
+  color?: string | null;
   qty: number;
   user: { id: string; email?: string } | null;
   onClose: () => void;
@@ -1438,9 +1608,11 @@ function BuyNowModal({
     form.pincode.trim(),
   );
 
-  const subtotal = product.price * qty;
+  const price = variant?.priceOverride || product.price;
+  const subtotal = price * qty;
   const shipping = subtotal >= 999 ? 0 : (product.deliveryFee ?? 79);
   const finalTotal = subtotal + shipping;
+  const swatchImg = color ? getColorSwatchImage(product, color) : product.imageUrl || product.image;
 
   async function handleBuyNowPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -1504,11 +1676,11 @@ function BuyNowModal({
         discount: 0,
         items: [
           {
-            variant_id: product.variants?.[0]?.id || "",
+            variant_id: variant?.id || (product.variants?.length ? product.variants[0].id : ""),
             product_slug: product.id,
-            name: product.name,
-            image_url: product.image,
-            price: product.price,
+            name: `${product.name}${variant && variant.name !== "Default" ? ` - ${variant.name}` : ""}`,
+            image_url: swatchImg,
+            price: price,
             qty,
           },
         ],

@@ -26,13 +26,34 @@ import {
   Store,
   Layers,
 } from "lucide-react";
-import { ageGroups, formatPrice, useCategories, useProducts, type Product } from "@/lib/store";
+import {
+  ageGroups,
+  formatPrice,
+  useCategories,
+  useProducts,
+  getProductColors,
+  getColorSwatchImage,
+  type Product,
+} from "@/lib/store";
 import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
 import { useUploader, type UploadJob } from "@/lib/use-uploader";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { supabase } from "@/integrations/supabase/client";
+
+export type ProductVariantDraft = {
+  id?: string;
+  name: string;
+  color?: string | null;
+  size?: string | null;
+  sku: string;
+  barcode?: string | null;
+  stock: number;
+  price_override: number | null;
+  mrp_override?: number | null;
+  image_url?: string | null;
+};
 
 export type ProductDraft = {
   slug: string;
@@ -46,6 +67,14 @@ export type ProductDraft = {
   ageGroup: string;
   imageUrl: string;
   images: string[];
+  productImages: {
+    id?: string;
+    public_url: string;
+    is_primary: boolean;
+    sort_order: number;
+    color?: string | null;
+    alt_text?: string | null;
+  }[];
   stock: number;
   lowStockAt: number;
   deliveryFee: number;
@@ -60,13 +89,8 @@ export type ProductDraft = {
   recommendationMode: "manual" | "auto" | "manual_fallback";
   relatedProductIds: string[];
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
-  variants: {
-    id?: string;
-    name: string;
-    sku: string;
-    stock: number;
-    price_override: number | null;
-  }[];
+  colors: string[];
+  variants: ProductVariantDraft[];
 };
 
 const CATEGORY_PREFIXES: Record<string, string> = {
@@ -77,10 +101,22 @@ const CATEGORY_PREFIXES: Record<string, string> = {
 };
 
 /** Generate a unique SKU like ZR-CL-XXXXXX */
-function generateSKU(category: string): string {
+function generateSKU(category: string, color?: string | null, size?: string | null): string {
   const prefix = CATEGORY_PREFIXES[category] ?? "GN";
-  const random = Math.floor(100000 + Math.random() * 900000);
-  return `ZR-${prefix}-${random}`;
+  const colorPart = color
+    ? `-${color
+        .slice(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")}`
+    : "";
+  const sizePart = size
+    ? `-${size
+        .slice(0, 3)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")}`
+    : "";
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `ZR-${prefix}${colorPart}${sizePart}-${random}`;
 }
 
 /** Generate a unique 12-digit numeric barcode */
@@ -88,42 +124,87 @@ function generateBarcode(): string {
   return Math.floor(100000000000 + Math.random() * 900000000000).toString();
 }
 
-const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => ({
-  slug: p?.id ?? "",
-  name: p?.name ?? "",
-  brand: p?.brand ?? "",
-  category: p?.category ?? defaultCategory ?? "clothing",
-  price: p?.price ?? 0,
-  mrp: p?.mrp ?? 0,
-  rating: p?.rating ?? 0,
-  reviews: p?.reviews ?? 0,
-  ageGroup: p?.ageGroup ?? "0-6m",
-  imageUrl: p?.imageUrl ?? "",
-  images: p?.images ?? [],
-  stock: p?.stock ?? 10,
-  lowStockAt: p?.lowStockAt ?? 5,
-  deliveryFee: p?.deliveryFee ?? (p ? 0 : 79),
-  sku: p?.sku ?? "",
-  barcode: p?.barcode ?? "",
-  description: p?.description ?? "",
-  highlights: (p?.highlights ?? []).join("\n"),
-  isFeatured: p?.isFeatured ?? false,
-  isActive: p?.isActive ?? true,
-  sortOrder: p?.sortOrder ?? 0,
-  buyingPrice: p?.buyingPrice ?? 0,
-  recommendationMode: p?.recommendationMode ?? "manual",
-  relatedProductIds: (p as any)?.relatedProductIds ?? [],
-  salesChannel: p?.salesChannel ?? "ONLINE_AND_OFFLINE",
-  variants: p?.variants?.length
-    ? p.variants.map((v) => ({
-        id: v.id,
-        name: v.name,
-        sku: v.sku ?? "",
-        stock: v.stock,
-        price_override: v.priceOverride ?? null,
-      }))
-    : [{ name: "Default", sku: p?.sku ?? "", stock: p?.stock ?? 10, price_override: null }],
-});
+const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => {
+  const pImages = (p?.product_images || []).map((img, i) => ({
+    id: img.id,
+    public_url: img.public_url,
+    is_primary: img.is_primary ?? i === 0,
+    sort_order: img.sort_order ?? i,
+    color: img.color ?? null,
+    alt_text: img.alt_text ?? null,
+  }));
+
+  if (pImages.length === 0 && p?.images?.length) {
+    p.images.forEach((url, i) => {
+      pImages.push({
+        id: undefined,
+        public_url: url,
+        is_primary: i === 0,
+        sort_order: i,
+        color: null,
+        alt_text: null,
+      });
+    });
+  }
+
+  const existingColors = p ? getProductColors(p) : [];
+
+  return {
+    slug: p?.id ?? "",
+    name: p?.name ?? "",
+    brand: p?.brand ?? "",
+    category: p?.category ?? defaultCategory ?? "clothing",
+    price: p?.price ?? 0,
+    mrp: p?.mrp ?? 0,
+    rating: p?.rating ?? 0,
+    reviews: p?.reviews ?? 0,
+    ageGroup: p?.ageGroup ?? "0-6m",
+    imageUrl: p?.imageUrl ?? "",
+    images: p?.images ?? [],
+    productImages: pImages,
+    stock: p?.stock ?? 10,
+    lowStockAt: p?.lowStockAt ?? 5,
+    deliveryFee: p?.deliveryFee ?? (p ? 0 : 79),
+    sku: p?.sku ?? "",
+    barcode: p?.barcode ?? "",
+    description: p?.description ?? "",
+    highlights: (p?.highlights ?? []).join("\n"),
+    isFeatured: p?.isFeatured ?? false,
+    isActive: p?.isActive ?? true,
+    sortOrder: p?.sortOrder ?? 0,
+    buyingPrice: p?.buyingPrice ?? 0,
+    recommendationMode: p?.recommendationMode ?? "manual",
+    relatedProductIds: (p as any)?.relatedProductIds ?? [],
+    salesChannel: p?.salesChannel ?? "ONLINE_AND_OFFLINE",
+    colors: existingColors,
+    variants: p?.variants?.length
+      ? p.variants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          color: v.color ?? null,
+          size: v.size ?? null,
+          sku: v.sku ?? "",
+          barcode: v.barcode ?? null,
+          stock: v.stock,
+          price_override: v.priceOverride ?? null,
+          mrp_override: v.mrpOverride ?? null,
+          image_url: v.imageUrl ?? null,
+        }))
+      : [
+          {
+            name: "Default",
+            color: null,
+            size: null,
+            sku: p?.sku || generateSKU(p?.category || defaultCategory || "clothing"),
+            barcode: p?.barcode || generateBarcode(),
+            stock: p?.stock ?? 10,
+            price_override: null,
+            mrp_override: null,
+            image_url: null,
+          },
+        ],
+  };
+};
 
 const input =
   "mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
@@ -235,6 +316,113 @@ export function ProductForm({
       setDraft((d) => ({ ...d, images: urls, imageUrl: urls[0] ?? "" }));
     }
   }, [jobs, draft.images]);
+
+  const [activeColorTab, setActiveColorTab] = useState<string>("ALL");
+  const [newColorName, setNewColorName] = useState<string>("");
+  const [matrixSizes, setMatrixSizes] = useState<string[]>(["S", "M", "L"]);
+  const [customSizeInput, setCustomSizeInput] = useState<string>("");
+
+  const handleAddColor = () => {
+    const trimmed = newColorName.trim();
+    if (!trimmed) return;
+    if (!draft.colors.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const updatedColors = [...draft.colors, trimmed];
+      setDraft((d) => ({ ...d, colors: updatedColors }));
+      setActiveColorTab(trimmed);
+    }
+    setNewColorName("");
+  };
+
+  const handleRemoveColor = (colorToRemove: string) => {
+    const updatedColors = draft.colors.filter((c) => c !== colorToRemove);
+    // Unassign color from images and variants that had this color
+    const updatedImages = (draft.productImages || []).map((img) =>
+      img.color === colorToRemove ? { ...img, color: null } : img,
+    );
+    const updatedVariants = draft.variants.map((v) =>
+      v.color === colorToRemove ? { ...v, color: null } : v,
+    );
+    setDraft((d) => ({
+      ...d,
+      colors: updatedColors,
+      productImages: updatedImages,
+      variants: updatedVariants,
+    }));
+    if (activeColorTab === colorToRemove) {
+      setActiveColorTab("ALL");
+    }
+  };
+
+  const handleSetImageColor = (imgUrl: string, color: string | null) => {
+    const existing = draft.productImages || [];
+    const idx = existing.findIndex((p) => p.public_url === imgUrl);
+    let updated: typeof existing;
+    if (idx >= 0) {
+      updated = [...existing];
+      updated[idx] = { ...updated[idx], color };
+    } else {
+      updated = [
+        ...existing,
+        {
+          public_url: imgUrl,
+          is_primary: existing.length === 0,
+          sort_order: existing.length,
+          color,
+          alt_text: draft.name,
+        },
+      ];
+    }
+    setDraft((d) => ({ ...d, productImages: updated }));
+  };
+
+  const handleGenerateMatrix = () => {
+    const colors = draft.colors.length > 0 ? draft.colors : ["Default"];
+    const sizes = matrixSizes.length > 0 ? matrixSizes : ["Standard"];
+
+    const newVariants: ProductVariantDraft[] = [];
+
+    for (const c of colors) {
+      for (const s of sizes) {
+        const colorName = c === "Default" ? null : c;
+        const sizeName = s === "Standard" ? null : s;
+        const varName =
+          colorName && sizeName ? `${colorName} / ${sizeName}` : colorName || sizeName || "Default";
+
+        // Find if an existing variant matches this color + size
+        const existing = draft.variants.find(
+          (v) => (v.color ?? null) === colorName && (v.size ?? null) === sizeName,
+        );
+
+        if (existing) {
+          newVariants.push(existing);
+        } else {
+          newVariants.push({
+            name: varName,
+            color: colorName,
+            size: sizeName,
+            sku: generateSKU(draft.category, colorName, sizeName),
+            barcode: generateBarcode(),
+            stock: 10,
+            price_override: null,
+            mrp_override: null,
+            image_url: colorName
+              ? getColorSwatchImage(
+                  { ...product, product_images: draft.productImages } as any,
+                  colorName,
+                )
+              : null,
+          });
+        }
+      }
+    }
+
+    setDraft((d) => ({
+      ...d,
+      variants: newVariants,
+      stock: newVariants.reduce((sum, v) => sum + v.stock, 0),
+    }));
+    toast.success(`Generated ${newVariants.length} Color × Size variants!`);
+  };
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -367,8 +555,8 @@ export function ProductForm({
               <div>
                 <p className="text-sm font-semibold">Media gallery</p>
                 <p className="text-xs text-muted-foreground">
-                  Up to {MAX_IMAGES} photos or videos · drag to reorder · first image is the main
-                  thumbnail
+                  Up to {MAX_IMAGES} photos or videos · assign colors to images · first image is the
+                  main thumbnail
                 </p>
               </div>
               <button
@@ -398,6 +586,83 @@ export function ProductForm({
               />
             </div>
 
+            {/* COLOR MANAGEMENT FOR MEDIA */}
+            <div className="mt-4 pt-3 border-t border-border/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Product Colors ({draft.colors.length})
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="e.g. Pink, Beige, Blue"
+                    value={newColorName}
+                    onChange={(e) => setNewColorName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddColor();
+                      }
+                    }}
+                    className="h-7 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary w-36"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddColor}
+                    className="h-7 rounded-lg bg-primary px-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="size-3" /> Add Color
+                  </button>
+                </div>
+              </div>
+
+              {/* Color filter tabs */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveColorTab("ALL")}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                    activeColorTab === "ALL"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  All Photos ({jobs.length})
+                </button>
+                {draft.colors.map((c) => {
+                  const count = (draft.productImages || []).filter(
+                    (img) => img.color && img.color.toLowerCase() === c.toLowerCase(),
+                  ).length;
+                  return (
+                    <div
+                      key={c}
+                      className={`inline-flex items-center rounded-lg border text-xs font-semibold overflow-hidden transition ${
+                        activeColorTab === c
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-card border-border text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveColorTab(c)}
+                        className="px-2.5 py-1 cursor-pointer"
+                      >
+                        {c} ({count})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveColor(c)}
+                        className="px-1.5 py-1 hover:bg-destructive/20 text-destructive-foreground/80 hover:text-destructive cursor-pointer"
+                        title={`Remove color ${c}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* If no images uploaded yet: large interactive clickable dropzone */}
             {jobs.length === 0 ? (
               <div
@@ -410,7 +675,7 @@ export function ProductForm({
                     fileInputRef.current?.click();
                   }
                 }}
-                className={`mt-4 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+                className={`mt-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
                   isDraggingOver
                     ? "border-primary bg-primary/10"
                     : "border-border/80 bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
@@ -431,112 +696,140 @@ export function ProductForm({
                 </p>
               </div>
             ) : (
-              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {jobs.map((job, i) => {
-                  const url = job.previewUrl || job.publicUrl || "";
-                  const isError = job.state === "FAILED";
-                  const isProcessing = job.state !== "SAVED" && !isError;
+              <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {jobs
+                  .filter((job) => {
+                    if (activeColorTab === "ALL") return true;
+                    const url = job.previewUrl || job.publicUrl || "";
+                    const assignedColor = draft.productImages?.find(
+                      (img) => img.public_url === url,
+                    )?.color;
+                    return assignedColor?.toLowerCase() === activeColorTab.toLowerCase();
+                  })
+                  .map((job, i) => {
+                    const url = job.previewUrl || job.publicUrl || "";
+                    const isError = job.state === "FAILED";
+                    const isProcessing = job.state !== "SAVED" && !isError;
+                    const assignedColor =
+                      draft.productImages?.find((img) => img.public_url === url)?.color || "";
 
-                  return (
-                    <div
-                      key={job.id}
-                      draggable={!isProcessing}
-                      onDragStart={() => setDragIndex(i)}
-                      onDragEnd={() => setDragIndex(null)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.stopPropagation();
-                        if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
-                        setDragIndex(null);
-                      }}
-                      className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? "bg-muted/40 animate-pulse" : "bg-muted/20"}`}
-                    >
-                      {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
-                      (job.file && job.file.type.startsWith("video/")) ? (
-                        <video
-                          src={url}
-                          className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
-                          playsInline
-                          muted
-                          autoPlay
-                          loop
-                        />
-                      ) : (
-                        <img
-                          src={url}
-                          alt=""
-                          loading="lazy"
-                          className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = generateProductFallbackSvg({
-                              name: draft.name,
-                              category: draft.category,
-                              slug: draft.slug,
-                            });
-                          }}
-                        />
-                      )}
-
-                      {/* Progress overlay */}
-                      {isProcessing && (
-                        <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
-                          <div className="text-[10px] font-semibold text-center mb-1">
-                            {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
-                          </div>
-                          <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
-                            <div
-                              className="h-full bg-primary transition-all duration-300 ease-out"
-                              style={{ width: `${job.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Error overlay */}
-                      {isError && (
-                        <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
-                          <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">
-                            {job.error || "Failed"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              retryJob(job.id);
-                            }}
-                            className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      )}
-
-                      {i === 0 && !isProcessing && (
-                        <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
-                          <Star className="size-3" /> Main
-                        </span>
-                      )}
-
-                      {!isProcessing && (
-                        <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
-                          <GripVertical className="size-3" />
-                        </span>
-                      )}
-
-                      <button
-                        type="button"
-                        aria-label="Remove image"
-                        onClick={(e) => {
+                    return (
+                      <div
+                        key={job.id}
+                        draggable={!isProcessing}
+                        onDragStart={() => setDragIndex(i)}
+                        onDragEnd={() => setDragIndex(null)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
                           e.stopPropagation();
-                          removeJob(job.id);
+                          if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
+                          setDragIndex(null);
                         }}
-                        className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                        className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? "bg-muted/40 animate-pulse" : "bg-muted/20"}`}
                       >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
+                        {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
+                        (job.file && job.file.type.startsWith("video/")) ? (
+                          <video
+                            src={url}
+                            className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
+                            playsInline
+                            muted
+                            autoPlay
+                            loop
+                          />
+                        ) : (
+                          <img
+                            src={url}
+                            alt=""
+                            loading="lazy"
+                            className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = generateProductFallbackSvg({
+                                name: draft.name,
+                                category: draft.category,
+                                slug: draft.slug,
+                              });
+                            }}
+                          />
+                        )}
+
+                        {/* Progress overlay */}
+                        {isProcessing && (
+                          <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
+                            <div className="text-[10px] font-semibold text-center mb-1">
+                              {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
+                            </div>
+                            <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
+                              <div
+                                className="h-full bg-primary transition-all duration-300 ease-out"
+                                style={{ width: `${job.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Error overlay */}
+                        {isError && (
+                          <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
+                            <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">
+                              {job.error || "Failed"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                retryJob(job.id);
+                              }}
+                              className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
+
+                        {i === 0 && !isProcessing && (
+                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
+                            <Star className="size-3" /> Main
+                          </span>
+                        )}
+
+                        {/* Color Assignment Selector */}
+                        <div className="absolute bottom-1 right-1 z-20">
+                          <select
+                            value={assignedColor}
+                            onChange={(e) => handleSetImageColor(url, e.target.value || null)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-md bg-background/90 text-[10px] font-bold text-foreground px-1.5 py-0.5 border border-border shadow-xs outline-none cursor-pointer hover:bg-background"
+                          >
+                            <option value="">No Color</option>
+                            {draft.colors.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {!isProcessing && (
+                          <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
+                            <GripVertical className="size-3" />
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          aria-label="Remove image"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeJob(job.id);
+                          }}
+                          className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
 
                 {jobs.length < MAX_IMAGES && (
                   <div
@@ -885,7 +1178,7 @@ export function ProductForm({
                 <div className="flex items-center gap-2">
                   <Layers className="size-4 text-muted-foreground" />
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Product Variants & Stock
+                    Color × Size Variants & Stock ({draft.variants.length})
                   </span>
                 </div>
                 <button
@@ -895,111 +1188,273 @@ export function ProductForm({
                       ...draft.variants,
                       {
                         name: "",
-                        sku: generateSKU(draft.category),
+                        color: draft.colors[0] || null,
+                        size: "M",
+                        sku: generateSKU(draft.category, draft.colors[0], "M"),
+                        barcode: generateBarcode(),
                         stock: 10,
                         price_override: null,
                       },
                     ])
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition cursor-pointer"
                 >
-                  <Plus className="size-3" /> Add Variant
+                  <Plus className="size-3" /> Add Single Variant
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {draft.variants.map((v, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-wrap gap-3 items-end p-3 rounded-lg border border-border bg-background"
+              {/* Quick Matrix Generator Box */}
+              <div className="mb-4 rounded-xl border border-border/80 bg-background p-3.5 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    ⚡ Quick Matrix Generator (Colors × Sizes)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGenerateMatrix}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition flex items-center gap-1 cursor-pointer"
                   >
-                    <label className="flex-1 min-w-[120px] text-xs font-semibold text-muted-foreground">
-                      Variant Name
-                      <input
-                        className={`${input} mt-1 text-foreground`}
-                        value={v.name}
-                        placeholder="e.g. Size M, Red"
-                        onChange={(e) => {
-                          const updated = [...draft.variants];
-                          updated[idx].name = e.target.value;
+                    <span>⚡ Generate Color × Size Matrix</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-muted-foreground w-16">Colors:</span>
+                    {draft.colors.length === 0 ? (
+                      <span className="text-amber-600 text-xs italic">
+                        No colors added yet. Add colors in the Media Gallery above first.
+                      </span>
+                    ) : (
+                      draft.colors.map((c) => (
+                        <span
+                          key={c}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground text-xs"
+                        >
+                          <span className="size-2 rounded-full bg-primary" /> {c}
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-semibold text-muted-foreground w-16">Sizes:</span>
+                    {[
+                      "0-3m",
+                      "3-6m",
+                      "6-12m",
+                      "1-2Y",
+                      "2-3Y",
+                      "S",
+                      "M",
+                      "L",
+                      "XL",
+                      "Free Size",
+                    ].map((sz) => {
+                      const isSel = matrixSizes.includes(sz);
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => {
+                            setMatrixSizes((prev) =>
+                              isSel ? prev.filter((s) => s !== sz) : [...prev, sz],
+                            );
+                          }}
+                          className={`rounded px-2 py-0.5 text-xs font-semibold transition cursor-pointer ${
+                            isSel
+                              ? "bg-primary text-primary-foreground shadow-2xs"
+                              : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Variants List */}
+              <div className="space-y-3">
+                {draft.variants.map((v, idx) => {
+                  const swatchImg = v.color
+                    ? getColorSwatchImage(
+                        { ...product, product_images: draft.productImages } as any,
+                        v.color,
+                      )
+                    : draft.images[0] || "";
+
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-wrap gap-2.5 items-end p-3 rounded-lg border border-border bg-background shadow-2xs"
+                    >
+                      {/* Swatch preview */}
+                      <div className="size-9 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted/30 mb-0.5">
+                        {swatchImg ? (
+                          <img src={swatchImg} alt="" className="size-full object-cover" />
+                        ) : (
+                          <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
+                            {v.color?.[0] || "D"}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Color */}
+                      <label className="w-28 text-xs font-semibold text-muted-foreground">
+                        Color
+                        <select
+                          className={`${input} mt-1 text-foreground font-medium`}
+                          value={v.color ?? ""}
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            const newColor = e.target.value || null;
+                            updated[idx].color = newColor;
+                            updated[idx].name =
+                              newColor && updated[idx].size
+                                ? `${newColor} / ${updated[idx].size}`
+                                : newColor || updated[idx].size || "Default";
+                            updated[idx].sku = generateSKU(
+                              draft.category,
+                              newColor,
+                              updated[idx].size,
+                            );
+                            set("variants", updated);
+                          }}
+                        >
+                          <option value="">(No Color)</option>
+                          {draft.colors.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {/* Size */}
+                      <label className="w-24 text-xs font-semibold text-muted-foreground">
+                        Size
+                        <input
+                          className={`${input} mt-1 text-foreground font-medium`}
+                          value={v.size ?? ""}
+                          placeholder="e.g. M, 6-12m"
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            const newSize = e.target.value || null;
+                            updated[idx].size = newSize;
+                            updated[idx].name =
+                              updated[idx].color && newSize
+                                ? `${updated[idx].color} / ${newSize}`
+                                : updated[idx].color || newSize || "Default";
+                            updated[idx].sku = generateSKU(
+                              draft.category,
+                              updated[idx].color,
+                              newSize,
+                            );
+                            set("variants", updated);
+                          }}
+                        />
+                      </label>
+
+                      {/* Stock */}
+                      <label className="w-20 text-xs font-semibold text-muted-foreground">
+                        Stock
+                        <input
+                          type="number"
+                          min="0"
+                          className={`${input} mt-1 text-foreground font-bold`}
+                          value={v.stock}
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            updated[idx].stock = Math.max(0, Number(e.target.value));
+                            set("variants", updated);
+                            set(
+                              "stock",
+                              updated.reduce((sum, val) => sum + val.stock, 0),
+                            );
+                          }}
+                        />
+                      </label>
+
+                      {/* SKU */}
+                      <label className="flex-1 min-w-[130px] text-xs font-semibold text-muted-foreground">
+                        SKU
+                        <input
+                          className={`${input} mt-1 text-foreground font-mono text-xs`}
+                          value={v.sku}
+                          placeholder="Auto"
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            updated[idx].sku = e.target.value;
+                            set("variants", updated);
+                          }}
+                        />
+                      </label>
+
+                      {/* Barcode */}
+                      <label className="w-28 text-xs font-semibold text-muted-foreground">
+                        Barcode
+                        <input
+                          className={`${input} mt-1 text-foreground font-mono text-xs`}
+                          value={v.barcode ?? ""}
+                          placeholder="Auto"
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            updated[idx].barcode = e.target.value;
+                            set("variants", updated);
+                          }}
+                        />
+                      </label>
+
+                      {/* Price Override */}
+                      <label className="w-24 text-xs font-semibold text-muted-foreground">
+                        Price (₹)
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Default"
+                          className={`${input} mt-1 text-foreground`}
+                          value={v.price_override ?? ""}
+                          onChange={(e) => {
+                            const updated = [...draft.variants];
+                            updated[idx].price_override = e.target.value
+                              ? Number(e.target.value)
+                              : null;
+                            set("variants", updated);
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = draft.variants.filter((_, i) => i !== idx);
+                          if (updated.length === 0) {
+                            updated.push({
+                              name: "Default",
+                              color: null,
+                              size: null,
+                              sku: generateSKU(draft.category),
+                              barcode: generateBarcode(),
+                              stock: 10,
+                              price_override: null,
+                            });
+                          }
                           set("variants", updated);
-                        }}
-                      />
-                    </label>
-                    <label className="w-24 text-xs font-semibold text-muted-foreground">
-                      Stock
-                      <input
-                        type="number"
-                        min="0"
-                        className={`${input} mt-1 text-foreground`}
-                        value={v.stock}
-                        onChange={(e) => {
-                          const updated = [...draft.variants];
-                          updated[idx].stock = Math.max(0, Number(e.target.value));
-                          set("variants", updated);
-                          // Auto update parent stock
                           set(
                             "stock",
                             updated.reduce((sum, val) => sum + val.stock, 0),
                           );
                         }}
-                      />
-                    </label>
-                    <label className="w-32 text-xs font-semibold text-muted-foreground">
-                      SKU
-                      <input
-                        className={`${input} mt-1 text-foreground`}
-                        value={v.sku}
-                        placeholder="Auto"
-                        onChange={(e) => {
-                          const updated = [...draft.variants];
-                          updated[idx].sku = e.target.value;
-                          set("variants", updated);
-                        }}
-                      />
-                    </label>
-                    <label className="w-32 text-xs font-semibold text-muted-foreground">
-                      Price (₹)
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Default"
-                        className={`${input} mt-1 text-foreground`}
-                        value={v.price_override ?? ""}
-                        onChange={(e) => {
-                          const updated = [...draft.variants];
-                          updated[idx].price_override = e.target.value
-                            ? Number(e.target.value)
-                            : null;
-                          set("variants", updated);
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = draft.variants.filter((_, i) => i !== idx);
-                        if (updated.length === 0) {
-                          updated.push({
-                            name: "Default",
-                            sku: generateSKU(draft.category),
-                            stock: 10,
-                            price_override: null,
-                          });
-                        }
-                        set("variants", updated);
-                        set(
-                          "stock",
-                          updated.reduce((sum, val) => sum + val.stock, 0),
-                        );
-                      }}
-                      className="p-2 mb-0.5 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition"
-                      title="Remove Variant"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                ))}
+                        className="p-2 mb-0.5 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition cursor-pointer"
+                        title="Remove Variant"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <label className="text-sm font-semibold">

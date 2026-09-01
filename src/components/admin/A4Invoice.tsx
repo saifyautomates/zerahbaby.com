@@ -47,6 +47,9 @@ export type A4InvoiceSale = {
 export type A4InvoiceItem = {
   name: string;
   sku?: string;
+  barcode?: string;
+  color?: string | null;
+  size?: string | null;
   price: number;
   mrp?: number;
   qty: number;
@@ -78,8 +81,12 @@ const STORE = {
   email: "hello@zerahkids.com",
   website: "zerahkids.com",
   instagram: "@zerah_kids",
-  gst: "", // Not implemented — intentionally blank
-  returnPolicy: "Exchange/Return within 7 days with original receipt & tags intact.",
+  gstin: "08XXXXXXXXXXXXX",
+  bank_name: "HDFC Bank",
+  account_no: "5020XXXXXXXXXX",
+  ifsc: "HDFC000XXXX",
+  branch: "Kota Main Branch",
+  upi_id: "zerahkids@hdfcbank",
 };
 
 /* ------------------------------------------------------------------ */
@@ -107,13 +114,19 @@ function buildA4HTML(
     .map((item, i) => {
       const lineTotal = item.price * item.qty;
       const hasMRP = item.mrp && item.mrp > item.price;
-      const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
+      const variantDetails = [
+        item.color ? `Color: ${escapeHtml(item.color)}` : "",
+        item.size ? `Size: ${escapeHtml(item.size)}` : "",
+        item.sku ? `SKU: ${escapeHtml(item.sku)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
       return `
     <tr class="${i % 2 === 0 ? "even" : ""}">
       <td>
         <div class="item-name">${escapeHtml(item.name)}</div>
-        ${item.sku ? `<div class="sku">SKU: ${escapeHtml(item.sku)}</div>` : ""}
+        ${variantDetails ? `<div class="sku" style="font-size: 10px; color: #475569; margin-top: 2px;">${variantDetails}</div>` : ""}
       </td>
       <td class="center">${item.qty}</td>
       <td class="right">
