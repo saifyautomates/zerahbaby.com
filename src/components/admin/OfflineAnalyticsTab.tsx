@@ -6,7 +6,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatPrice, imageFor } from "@/lib/store";
+import { formatPrice, imageFor, getProductUrl } from "@/lib/store";
 import { toast } from "sonner";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
@@ -541,11 +541,11 @@ export function OfflineAnalyticsTab() {
                   key={i}
                   role="button"
                   tabIndex={0}
-                  onClick={() => slug && (window.location.href = `/product/${slug}`)}
+                  onClick={() => slug && (window.location.href = getProductUrl(slug))}
                   onKeyDown={(e) => {
                     if ((e.key === "Enter" || e.key === " ") && slug) {
                       e.preventDefault();
-                      window.location.href = `/product/${slug}`;
+                      window.location.href = getProductUrl(slug);
                     }
                   }}
                   title={`Open "${p.name}" in store`}
@@ -705,7 +705,7 @@ export function OfflineAnalyticsTab() {
                                         className="flex items-center gap-2.5 cursor-pointer group/item"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (slug) window.location.href = `/product/${slug}`;
+                                          if (slug) window.location.href = getProductUrl(slug);
                                         }}
                                         title={`Open "${item.name}" in store`}
                                       >

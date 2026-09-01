@@ -58,8 +58,7 @@ function expand(entries: LabelEntry[]): LabelProduct[] {
   return out;
 }
 
-const barcodeVal = (p: LabelProduct) =>
-  sanitizeBarcode(p.barcode, p.sku) || "PREVIEW";
+const barcodeVal = (p: LabelProduct) => sanitizeBarcode(p.barcode, p.sku) || "PREVIEW";
 
 /* ─────────────────────────────────────────────
    Single Sticker Preview Card
@@ -176,9 +175,7 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
-    return (
-      <p className="py-16 text-center text-sm text-muted-foreground">No labels to preview.</p>
-    );
+    return <p className="py-16 text-center text-sm text-muted-foreground">No labels to preview.</p>;
   }
 
   const formatLabel = (() => {
@@ -191,7 +188,9 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
     <div className="space-y-3">
       <div className="text-center pb-1 border-b border-border/40">
         <p className="text-xs font-bold text-muted-foreground">{formatLabel}</p>
-        <p className="text-[10px] text-muted-foreground/70">{labels.length} label{labels.length !== 1 ? "s" : ""} total</p>
+        <p className="text-[10px] text-muted-foreground/70">
+          {labels.length} label{labels.length !== 1 ? "s" : ""} total
+        </p>
       </div>
 
       {layout === "thermal-108" || layout === "thermal-58" ? (

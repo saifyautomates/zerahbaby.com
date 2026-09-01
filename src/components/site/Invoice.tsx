@@ -50,7 +50,13 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           {/* Header section */}
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6 print:border-slate-300">
             <div className="flex gap-4 items-center">
-              <img loading="lazy" decoding="async" src={logo} alt={brandName} className="size-20 object-contain" />
+              <img
+                loading="lazy"
+                decoding="async"
+                src={logo}
+                alt={brandName}
+                className="size-20 object-contain"
+              />
               <div>
                 <p className="font-display text-3xl font-black tracking-tight">{brandName}</p>
                 <p className="mt-2 max-w-xs text-sm text-slate-600">{storeAddress}</p>

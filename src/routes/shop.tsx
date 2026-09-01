@@ -296,7 +296,9 @@ function ShopPage() {
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch {}
+        } catch {
+          /* ignore parsing error */
+        }
       }
     }
     return [];
@@ -309,7 +311,9 @@ function ShopPage() {
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch {}
+        } catch {
+          /* ignore parsing error */
+        }
       }
     }
     return [];
@@ -584,48 +588,50 @@ function ShopPage() {
       </div>
 
       {/* Mobile filter drawer */}
-      {drawerOpen && typeof document !== "undefined" && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[200] bg-foreground/30 backdrop-blur-sm"
-            onClick={() => setDrawerOpen(false)}
-            aria-hidden
-          />
-          <div className="fixed inset-x-0 bottom-0 z-[210] max-h-[85svh] overflow-y-auto scroll-ios rounded-t-3xl border-t border-border bg-background p-5 pb-safe shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold">Filters</h2>
+      {drawerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[200] bg-foreground/30 backdrop-blur-sm"
+              onClick={() => setDrawerOpen(false)}
+              aria-hidden
+            />
+            <div className="fixed inset-x-0 bottom-0 z-[210] max-h-[85svh] overflow-y-auto scroll-ios rounded-t-3xl border-t border-border bg-background p-5 pb-safe shadow-2xl animate-in slide-in-from-bottom duration-300">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold">Filters</h2>
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="Close filters"
+                  className="rounded-full p-2 min-touch transition hover:bg-muted"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <FilterPanel
+                brands={brands}
+                selectedBrands={selectedBrands}
+                onBrandToggle={onBrandToggle}
+                ageGroupsList={ageGroups}
+                selectedAgeGroups={selectedAgeGroups}
+                onAgeGroupToggle={onAgeGroupToggle}
+                maxPrice={maxPrice}
+                onMaxPrice={setMaxPrice}
+                inStockOnly={inStockOnly}
+                onInStockToggle={() => setInStockOnly((v) => !v)}
+                onClearAll={onClearAll}
+                hasActiveFilters={hasActiveFilters}
+              />
               <button
                 onClick={() => setDrawerOpen(false)}
-                aria-label="Close filters"
-                className="rounded-full p-2 min-touch transition hover:bg-muted"
+                className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 min-touch cursor-pointer"
               >
-                <X className="size-5" />
+                Show {visible.length} result{visible.length === 1 ? "" : "s"}
               </button>
             </div>
-            <FilterPanel
-              brands={brands}
-              selectedBrands={selectedBrands}
-              onBrandToggle={onBrandToggle}
-              ageGroupsList={ageGroups}
-              selectedAgeGroups={selectedAgeGroups}
-              onAgeGroupToggle={onAgeGroupToggle}
-              maxPrice={maxPrice}
-              onMaxPrice={setMaxPrice}
-              inStockOnly={inStockOnly}
-              onInStockToggle={() => setInStockOnly((v) => !v)}
-              onClearAll={onClearAll}
-              hasActiveFilters={hasActiveFilters}
-            />
-            <button
-              onClick={() => setDrawerOpen(false)}
-              className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 min-touch cursor-pointer"
-            >
-              Show {visible.length} result{visible.length === 1 ? "" : "s"}
-            </button>
-          </div>
-        </>,
-        document.body
-      )}
+          </>,
+          document.body,
+        )}
     </div>
   );
 }

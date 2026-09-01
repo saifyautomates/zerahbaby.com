@@ -218,11 +218,13 @@ function LabelPrintingSubTab() {
               Clear selection
             </button>
           )}
-          <span className={`text-sm font-bold px-3 py-1 rounded-full border transition-all ${
-            selectedIds.size > 0
-              ? "bg-[#8B2020]/10 text-[#8B2020] border-[#8B2020]/30"
-              : "text-muted-foreground border-transparent"
-          }`}>
+          <span
+            className={`text-sm font-bold px-3 py-1 rounded-full border transition-all ${
+              selectedIds.size > 0
+                ? "bg-[#8B2020]/10 text-[#8B2020] border-[#8B2020]/30"
+                : "text-muted-foreground border-transparent"
+            }`}
+          >
             ✓ {selectedIds.size} of {list.length} selected
           </span>
           <button

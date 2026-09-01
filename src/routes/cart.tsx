@@ -257,18 +257,14 @@ function CartPage() {
                   <Sparkles className="size-3.5" />
                   MRP Discount
                 </span>
-                <span className="font-bold tabular-nums text-right">
-                  - {formatPrice(savings)}
-                </span>
+                <span className="font-bold tabular-nums text-right">- {formatPrice(savings)}</span>
               </div>
             )}
 
             {/* Subtotal / Bag Value */}
             <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40">
               <span className="text-foreground font-semibold">Subtotal</span>
-              <span className="font-bold tabular-nums text-right">
-                {formatPrice(subtotal)}
-              </span>
+              <span className="font-bold tabular-nums text-right">{formatPrice(subtotal)}</span>
             </div>
 
             {/* Coupon discount line if applied */}
@@ -301,7 +297,9 @@ function CartPage() {
                 <Truck className="size-4 text-primary" />
                 Delivery Fee
               </span>
-              <span className={`font-bold tabular-nums text-right ${isFreeDelivery ? "text-emerald-600 font-black uppercase" : ""}`}>
+              <span
+                className={`font-bold tabular-nums text-right ${isFreeDelivery ? "text-emerald-600 font-black uppercase" : ""}`}
+              >
                 {isFreeDelivery ? "FREE" : `+ ${formatPrice(shipping)}`}
               </span>
             </div>
@@ -337,7 +335,9 @@ function CartPage() {
             <div className="flex items-center justify-between pt-1">
               <div className="space-y-0.5">
                 <span className="text-base font-bold text-foreground block">Total to pay</span>
-                <span className="text-[11px] text-muted-foreground block">Inclusive of all taxes</span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Inclusive of all taxes
+                </span>
               </div>
               <div className="text-right">
                 <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">
@@ -395,33 +395,33 @@ function CartPage() {
             </div>
           </div>
 
-            {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border/40 my-4">
-              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
-                <ShieldCheck className="size-5 text-primary/70" strokeWidth={1.5} />
-                <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
-                  Secure
-                  <br />
-                  Checkout
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
-                <Undo2 className="size-5 text-primary/70" strokeWidth={1.5} />
-                <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
-                  7 Days
-                  <br />
-                  Easy Returns
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
-                <BadgeCheck className="size-5 text-primary/70" strokeWidth={1.5} />
-                <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
-                  100% Original
-                  <br />
-                  Products
-                </span>
-              </div>
+          {/* Trust Badges */}
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-border/40 my-4">
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
+              <ShieldCheck className="size-5 text-primary/70" strokeWidth={1.5} />
+              <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
+                Secure
+                <br />
+                Checkout
+              </span>
             </div>
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
+              <Undo2 className="size-5 text-primary/70" strokeWidth={1.5} />
+              <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
+                7 Days
+                <br />
+                Easy Returns
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-3 text-center">
+              <BadgeCheck className="size-5 text-primary/70" strokeWidth={1.5} />
+              <span className="text-[9px] font-medium leading-tight text-muted-foreground sm:text-[10px]">
+                100% Original
+                <br />
+                Products
+              </span>
+            </div>
+          </div>
 
           {/* Primary CTA */}
           <div className="mt-6">

@@ -1293,7 +1293,13 @@ export function ProductForm({
                       {/* Swatch preview */}
                       <div className="size-9 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted/30 mb-0.5">
                         {swatchImg ? (
-                          <img loading="lazy" decoding="async" src={swatchImg} alt="" className="size-full object-cover" />
+                          <img
+                            loading="lazy"
+                            decoding="async"
+                            src={swatchImg}
+                            alt=""
+                            className="size-full object-cover"
+                          />
                         ) : (
                           <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
                             {v.color?.[0] || "D"}
@@ -1314,7 +1320,8 @@ export function ProductForm({
                             onChange={(e) => {
                               const updated = [...draft.variants];
                               const rawVal = e.target.value;
-                              const newColor = rawVal.trim() === "(No Color)" ? null : rawVal.trim() || null;
+                              const newColor =
+                                rawVal.trim() === "(No Color)" ? null : rawVal.trim() || null;
                               updated[idx].color = newColor;
                               updated[idx].name =
                                 newColor && updated[idx].size
@@ -1329,7 +1336,9 @@ export function ProductForm({
 
                               if (
                                 newColor &&
-                                !draft.colors.some((c) => c.toLowerCase() === newColor.toLowerCase())
+                                !draft.colors.some(
+                                  (c) => c.toLowerCase() === newColor.toLowerCase(),
+                                )
                               ) {
                                 setDraft((d) => ({
                                   ...d,
@@ -1581,7 +1590,12 @@ export function ProductForm({
                               }}
                             />
                             {p.imageUrl ? (
-                              <img loading="lazy" decoding="async" src={p.imageUrl} className="size-8 rounded-md object-cover" />
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={p.imageUrl}
+                                className="size-8 rounded-md object-cover"
+                              />
                             ) : (
                               <div className="size-8 rounded-md bg-muted" />
                             )}

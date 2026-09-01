@@ -162,7 +162,13 @@ function Index() {
             >
               <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center p-1 group-hover:bg-primary/10 transition-colors border border-border/40 overflow-hidden shadow-sm">
                 {c.image ? (
-                  <img loading="lazy" decoding="async" src={c.image} alt={c.name} className="size-full object-cover rounded-full" />
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={c.image}
+                    alt={c.name}
+                    className="size-full object-cover rounded-full"
+                  />
                 ) : (
                   <div className="size-full bg-muted rounded-full" />
                 )}

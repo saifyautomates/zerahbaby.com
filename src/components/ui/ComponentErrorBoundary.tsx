@@ -44,7 +44,8 @@ export class ComponentErrorBoundary extends Component<Props, State> {
             {this.props.fallbackTitle || "Unable to display this section"}
           </h3>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            A temporary loading issue occurred in this component. Click below to refresh this section.
+            A temporary loading issue occurred in this component. Click below to refresh this
+            section.
           </p>
           <div className="flex justify-center gap-2 pt-1">
             <button

@@ -168,7 +168,12 @@ function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, loading: sessionLoading } = useSession();
-  const { data: isAdmin, isLoading: roleLoading, isPending: rolePending, refetch: refetchRole } = useIsAdmin(user?.id);
+  const {
+    data: isAdmin,
+    isLoading: roleLoading,
+    isPending: rolePending,
+    refetch: refetchRole,
+  } = useIsAdmin(user?.id);
   const { data: profile } = useProfile(user?.id);
 
   const [tab, setTabState] = useState<Tab>(() => {
@@ -451,7 +456,9 @@ function AdminPage() {
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-          <img loading="lazy" decoding="async"
+          <img
+            loading="lazy"
+            decoding="async"
             src={logo}
             alt="Zérah Baby & Kids"
             className="size-9 object-contain drop-shadow-sm"
@@ -521,7 +528,9 @@ function AdminPage() {
           <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-2.5">
-                <img loading="lazy" decoding="async"
+                <img
+                  loading="lazy"
+                  decoding="async"
                   src={logo}
                   alt="Zérah Baby & Kids"
                   className="h-8 w-auto object-contain drop-shadow-sm"
@@ -614,10 +623,10 @@ function AdminPage() {
                 {tab === "dashboard"
                   ? "Overview of your store performance"
                   : tab === "orders"
-                  ? "Manage online store orders, shipping, and fulfillment"
-                  : tab === "billing"
-                  ? "POS billing, receipt generation, and offline sales"
-                  : `Manage ${tab} and settings`}
+                    ? "Manage online store orders, shipping, and fulfillment"
+                    : tab === "billing"
+                      ? "POS billing, receipt generation, and offline sales"
+                      : `Manage ${tab} and settings`}
               </p>
             </div>
           </div>
@@ -740,7 +749,10 @@ function AdminPage() {
                     ) : (
                       <ul className="space-y-1">
                         {notifications.map((notif) => (
-                          <li key={notif.id} className="group relative flex items-center gap-1 rounded-2xl transition hover:bg-muted/40 p-1">
+                          <li
+                            key={notif.id}
+                            className="group relative flex items-center gap-1 rounded-2xl transition hover:bg-muted/40 p-1"
+                          >
                             <button
                               type="button"
                               onClick={() => {
@@ -806,7 +818,13 @@ function AdminPage() {
             {/* Authenticated Admin Profile Brand Logo & Name */}
             <div className="flex items-center gap-2.5 pl-3 border-l border-border">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card shadow-xs overflow-hidden select-none p-1">
-                <img loading="lazy" decoding="async" src={logo} alt="Zerah Baby & Kids" className="h-full w-auto object-contain" />
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={logo}
+                  alt="Zerah Baby & Kids"
+                  className="h-full w-auto object-contain"
+                />
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-foreground truncate max-w-32">{adminName}</p>
@@ -830,7 +848,9 @@ function AdminPage() {
                   </div>
                 }
               >
-                {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
+                {tab === "dashboard" && (
+                  <DashboardTab onNavigate={setTab as (tab: string) => void} />
+                )}
                 {tab === "billing" && <BillingCenterTab />}
                 {tab === "products" && <ProductsTab />}
                 {tab === "hero" && <HeroMediaManager />}
@@ -2230,7 +2250,9 @@ function ProductsTab() {
           }
         >
           <PrintLabelsModal
-            products={selectedIds.size > 0 ? selectedProducts : list.length > 0 ? list : data ?? []}
+            products={
+              selectedIds.size > 0 ? selectedProducts : list.length > 0 ? list : (data ?? [])
+            }
             onClose={() => setPrintingLabels(false)}
           />
         </Suspense>
@@ -3252,13 +3274,21 @@ function CustomersTab() {
                             }
                           }}
                           className={`size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs group/dp transition-transform ${
-                            c.avatar_url ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-primary/40" : "cursor-pointer"
+                            c.avatar_url
+                              ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-primary/40"
+                              : "cursor-pointer"
                           }`}
-                          title={c.avatar_url ? "Click to view full customer photo" : "Click to view profile info"}
+                          title={
+                            c.avatar_url
+                              ? "Click to view full customer photo"
+                              : "Click to view profile info"
+                          }
                         >
                           {c.avatar_url ? (
                             <div className="relative size-full">
-                              <img loading="lazy" decoding="async"
+                              <img
+                                loading="lazy"
+                                decoding="async"
                                 src={c.avatar_url}
                                 alt={c.full_name || "Customer avatar"}
                                 className="size-full object-cover"
@@ -3400,13 +3430,17 @@ function CustomersTab() {
                     }
                   }}
                   className={`size-20 rounded-full border-4 border-card bg-muted overflow-hidden shadow-premium-md shrink-0 flex items-center justify-center relative group/modal-dp ${
-                    selectedCustomer.avatar_url ? "cursor-pointer hover:ring-4 hover:ring-primary/40 transition-all" : ""
+                    selectedCustomer.avatar_url
+                      ? "cursor-pointer hover:ring-4 hover:ring-primary/40 transition-all"
+                      : ""
                   }`}
                   title={selectedCustomer.avatar_url ? "Click to view full photo" : ""}
                 >
                   {selectedCustomer.avatar_url ? (
                     <>
-                      <img loading="lazy" decoding="async"
+                      <img
+                        loading="lazy"
+                        decoding="async"
                         src={selectedCustomer.avatar_url}
                         alt={selectedCustomer.full_name || "Customer avatar"}
                         className="size-full object-cover"
@@ -3571,7 +3605,9 @@ function CustomersTab() {
               className="relative max-w-3xl max-h-[80vh] overflow-hidden rounded-3xl border border-white/20 bg-card/10 shadow-2xl flex items-center justify-center p-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <img loading="lazy" decoding="async"
+              <img
+                loading="lazy"
+                decoding="async"
                 src={viewPhoto.url}
                 alt={viewPhoto.title}
                 className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
@@ -3696,7 +3732,12 @@ function CouponsTab() {
                   min={1}
                   max={100}
                   value={form.discount_value}
-                  onChange={(e) => setForm({ ...form, discount_value: Math.max(1, Math.min(100, Number(e.target.value))) })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      discount_value: Math.max(1, Math.min(100, Number(e.target.value))),
+                    })
+                  }
                   className="w-full rounded-xl border border-border bg-background pl-3.5 pr-8 py-2.5 text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
@@ -3716,7 +3757,9 @@ function CouponsTab() {
                   type="number"
                   min={0}
                   value={form.minimum_order_value}
-                  onChange={(e) => setForm({ ...form, minimum_order_value: Math.max(0, Number(e.target.value)) })}
+                  onChange={(e) =>
+                    setForm({ ...form, minimum_order_value: Math.max(0, Number(e.target.value)) })
+                  }
                   placeholder="0 = No Minimum"
                   className="w-full rounded-xl border border-border bg-background pl-7 pr-3.5 py-2.5 text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
@@ -3772,10 +3815,16 @@ function CouponsTab() {
                   </span>
                 </td>
                 <td className="px-5 py-4 font-bold text-emerald-600 dark:text-emerald-400">
-                  {c.discount_type === "percentage" ? `${c.discount_value}% OFF` : formatPrice(c.discount_value)}
+                  {c.discount_type === "percentage"
+                    ? `${c.discount_value}% OFF`
+                    : formatPrice(c.discount_value)}
                 </td>
                 <td className="px-5 py-4 font-medium text-foreground">
-                  {c.minimum_order_value > 0 ? formatPrice(c.minimum_order_value) : <span className="text-muted-foreground font-normal">No Min Order</span>}
+                  {c.minimum_order_value > 0 ? (
+                    formatPrice(c.minimum_order_value)
+                  ) : (
+                    <span className="text-muted-foreground font-normal">No Min Order</span>
+                  )}
                 </td>
                 <td className="px-5 py-4">
                   <button
@@ -3830,7 +3879,10 @@ function CouponsTab() {
             ))}
             {!isLoading && (coupons ?? []).length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-xs font-medium text-muted-foreground">
+                <td
+                  colSpan={6}
+                  className="px-5 py-12 text-center text-xs font-medium text-muted-foreground"
+                >
                   No coupons created yet. Click "Add new coupon" above to create one.
                 </td>
               </tr>
@@ -3881,7 +3933,8 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
             </div>
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                Coupon Usage: <span className="font-mono text-primary font-black">{couponCode}</span>
+                Coupon Usage:{" "}
+                <span className="font-mono text-primary font-black">{couponCode}</span>
               </h3>
               <p className="text-xs text-muted-foreground">
                 Customers who redeemed this coupon code
@@ -3900,16 +3953,24 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
         {/* Usage Summary Cards */}
         <div className="grid grid-cols-3 gap-3 p-5 bg-muted/10 border-b border-border">
           <div className="rounded-2xl border border-border bg-card p-3 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Uses</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Total Uses
+            </p>
             <p className="text-lg font-black text-foreground mt-0.5">{totalOrders}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-3 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Revenue Sales</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Revenue Sales
+            </p>
             <p className="text-lg font-black text-primary mt-0.5">{formatPrice(totalRevenue)}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-3 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Savings</p>
-            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{formatPrice(totalSavings)}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Total Savings
+            </p>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+              {formatPrice(totalSavings)}
+            </p>
           </div>
         </div>
 
@@ -3922,8 +3983,12 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
           ) : orders.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground space-y-2">
               <Users className="size-8 mx-auto text-muted-foreground/40" />
-              <p className="text-xs font-bold text-foreground">No customers have redeemed this coupon yet.</p>
-              <p className="text-[11px]">When customers place orders using {couponCode}, their details will appear here.</p>
+              <p className="text-xs font-bold text-foreground">
+                No customers have redeemed this coupon yet.
+              </p>
+              <p className="text-[11px]">
+                When customers place orders using {couponCode}, their details will appear here.
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-border">
@@ -3941,8 +4006,12 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
                   {orders.map((ord) => (
                     <tr key={ord.id} className="hover:bg-muted/40 transition">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-foreground">{ord.full_name || "Guest Customer"}</p>
-                        <p className="text-[11px] text-muted-foreground font-mono">{ord.customer_phone || ord.phone || ord.email || "N/A"}</p>
+                        <p className="font-bold text-foreground">
+                          {ord.full_name || "Guest Customer"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground font-mono">
+                          {ord.customer_phone || ord.phone || ord.email || "N/A"}
+                        </p>
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-primary">
                         {ord.order_number || ord.id.slice(0, 8)}
@@ -4101,7 +4170,9 @@ function ReviewsTab() {
                         href={imgUrl}
                         className="group relative size-14 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105"
                       >
-                        <img loading="lazy" decoding="async"
+                        <img
+                          loading="lazy"
+                          decoding="async"
                           src={imgUrl}
                           alt={`Review photo ${idx + 1}`}
                           className="w-full h-full object-cover"

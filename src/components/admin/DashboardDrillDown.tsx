@@ -234,7 +234,7 @@ function SalesChannelDrillDown({
     if (search.trim()) {
       const q = search.toLowerCase();
       combined = combined.filter(
-        (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q)
+        (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q),
       );
     }
 
@@ -285,12 +285,16 @@ function SalesChannelDrillDown({
                   🏪
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-foreground">2. Offline Sales (POS Store)</h4>
+                  <h4 className="text-sm font-bold text-foreground">
+                    2. Offline Sales (POS Store)
+                  </h4>
                   <p className="text-xs text-muted-foreground">{offlineSales.length} Store Sales</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-black text-emerald-600">{formatPrice(offlineOrdersTotal)}</p>
+                <p className="text-lg font-black text-emerald-600">
+                  {formatPrice(offlineOrdersTotal)}
+                </p>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Store Revenue
                 </span>
@@ -364,7 +368,9 @@ function SalesChannelDrillDown({
             <tbody className="divide-y divide-border/60">
               {combined.map((item, i) => (
                 <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {format(new Date(item.date), "MMM d, h:mm a")}
+                  </td>
                   <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
                   <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -378,7 +384,9 @@ function SalesChannelDrillDown({
                       {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right font-black text-foreground">{formatPrice(item.total)}</td>
+                  <td className="px-6 py-4 text-right font-black text-foreground">
+                    {formatPrice(item.total)}
+                  </td>
                 </tr>
               ))}
               {combined.length === 0 && (
@@ -438,7 +446,9 @@ function SalesChannelDrillDown({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-foreground">1. Online Sales Revenue</h4>
-                <p className="text-xs text-muted-foreground">{onlineRevenueItems.length} Sold Items</p>
+                <p className="text-xs text-muted-foreground">
+                  {onlineRevenueItems.length} Sold Items
+                </p>
               </div>
             </div>
             <div className="text-right">
@@ -466,7 +476,9 @@ function SalesChannelDrillDown({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-foreground">2. Offline Sales Revenue</h4>
-                <p className="text-xs text-muted-foreground">{offlineRevenueItems.length} Store Items</p>
+                <p className="text-xs text-muted-foreground">
+                  {offlineRevenueItems.length} Store Items
+                </p>
               </div>
             </div>
             <div className="text-right">
@@ -544,7 +556,9 @@ function SalesChannelDrillDown({
           <tbody className="divide-y divide-border/60">
             {combinedRev.map((item, i) => (
               <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">{format(new Date(item.date), "MMM d, h:mm a")}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {format(new Date(item.date), "MMM d, h:mm a")}
+                </td>
                 <td className="px-6 py-4">
                   {item.slug ? (
                     <Link
@@ -600,7 +614,9 @@ function SalesChannelDrillDown({
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
-                <td className="px-6 py-4 text-right font-black text-foreground">{formatPrice(item.total)}</td>
+                <td className="px-6 py-4 text-right font-black text-foreground">
+                  {formatPrice(item.total)}
+                </td>
               </tr>
             ))}
             {combinedRev.length === 0 && (

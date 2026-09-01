@@ -161,8 +161,8 @@ export async function connectQZTray(): Promise<boolean> {
   try {
     if (!qz.websocket.isActive()) {
       const connectPromise = qz.websocket.connect({ retries: 0, delay: 1 });
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("QZ Tray timeout")), 1500)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("QZ Tray timeout")), 1500),
       );
       await Promise.race([connectPromise, timeoutPromise]);
     }

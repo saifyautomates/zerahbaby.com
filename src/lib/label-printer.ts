@@ -57,8 +57,8 @@ export interface PrintFormatConfig {
   /** For A4 only — grid columns */
   gridColumns: number;
   /** Barcode options */
-  barcodeBarWidthPx: number;  // JsBarcode "width" (bar width in pixels at 96dpi render)
-  barcodeHeightMm: number;    // SVG height in mm
+  barcodeBarWidthPx: number; // JsBarcode "width" (bar width in pixels at 96dpi render)
+  barcodeHeightMm: number; // SVG height in mm
   barcodeFontPt: number;
   /** Typography */
   brandFontPt: number;
@@ -72,11 +72,11 @@ export interface PrintFormatConfig {
 export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig> = {
   /** ─── 1-UP 108mm THERMAL ROLL ─── */
   "thermal-108": {
-    pageWidthMm: 100,        // roll width: 100mm printable (108mm physical roll)
-    pageHeightMm: 25,        // single label height: 25mm
+    pageWidthMm: 100, // roll width: 100mm printable (108mm physical roll)
+    pageHeightMm: 25, // single label height: 25mm
     pageMarginMm: 0,
-    labelWidthMm: 98,        // 1mm bleed on each side
-    labelHeightMm: 24,       // 0.5mm top+bottom bleed
+    labelWidthMm: 98, // 1mm bleed on each side
+    labelHeightMm: 24, // 0.5mm top+bottom bleed
     paddingTopMm: 1,
     paddingHorizMm: 2.5,
     paddingBottomMm: 0.5,
@@ -92,7 +92,7 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
   },
   /** ─── 1-UP 58mm THERMAL ROLL ─── */
   "thermal-58": {
-    pageWidthMm: 50,         // roll width: 50mm printable (58mm physical roll)
+    pageWidthMm: 50, // roll width: 50mm printable (58mm physical roll)
     pageHeightMm: 25,
     pageMarginMm: 0,
     labelWidthMm: 48,
@@ -111,7 +111,7 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     isThermalRoll: true,
   },
   /** ─── A4 GRID ─── */
-  "a4": {
+  a4: {
     pageWidthMm: 210,
     pageHeightMm: 297,
     pageMarginMm: 8,
@@ -150,26 +150,40 @@ export function getSavedLabelProfile(): LabelPrinterProfile {
     try {
       const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY);
       if (saved === "a4" || saved === "thermal-58" || saved === "thermal-108") return saved;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   return memoryProfile;
 }
 export function setSavedLabelProfile(profile: LabelPrinterProfile): void {
   memoryProfile = profile;
   if (typeof window !== "undefined") {
-    try { localStorage.setItem(DEFAULT_LABEL_PROFILE_KEY, profile); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(DEFAULT_LABEL_PROFILE_KEY, profile);
+    } catch {
+      /* ignore */
+    }
   }
 }
 export function getSavedShowDiscount(): boolean {
   if (typeof window !== "undefined") {
-    try { return localStorage.getItem(LABEL_DISCOUNT_KEY) === "true"; } catch { /* ignore */ }
+    try {
+      return localStorage.getItem(LABEL_DISCOUNT_KEY) === "true";
+    } catch {
+      /* ignore */
+    }
   }
   return memoryShowDiscount;
 }
 export function setSavedShowDiscount(show: boolean): void {
   memoryShowDiscount = show;
   if (typeof window !== "undefined") {
-    try { localStorage.setItem(LABEL_DISCOUNT_KEY, show ? "true" : "false"); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(LABEL_DISCOUNT_KEY, show ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
   }
 }
 export function getSavedLabelType(): LabelType {
@@ -177,14 +191,20 @@ export function getSavedLabelType(): LabelType {
     try {
       const saved = localStorage.getItem(LABEL_TYPE_KEY);
       if (saved === "barcode-only" || saved === "full") return saved;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   return memoryLabelType;
 }
 export function setSavedLabelType(type: LabelType): void {
   memoryLabelType = type;
   if (typeof window !== "undefined") {
-    try { localStorage.setItem(LABEL_TYPE_KEY, type); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(LABEL_TYPE_KEY, type);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -230,7 +250,8 @@ export function validatePrintableProduct(product: PrintableProduct): {
   error?: string;
 } {
   if (!product) return { valid: false, error: "Invalid product data" };
-  if (!product.name?.trim()) return { valid: false, error: "Product name is required to print label." };
+  if (!product.name?.trim())
+    return { valid: false, error: "Product name is required to print label." };
   // Price 0 is valid (free products / POS samples)
   if (product.price === undefined || product.price === null || isNaN(Number(product.price))) {
     return { valid: false, error: `Product "${product.name}" has an invalid price.` };
@@ -273,8 +294,8 @@ export function generateBarcodeSvgString(
     JsBarcode(svg, safeText, {
       format: "CODE128",
       width: cfg.barWidthPx,
-      height: Math.round(cfg.heightMm * 3.7795),  // mm → px at 96dpi
-      fontSize: Math.round(cfg.fontPt * 1.333),    // pt → px
+      height: Math.round(cfg.heightMm * 3.7795), // mm → px at 96dpi
+      fontSize: Math.round(cfg.fontPt * 1.333), // pt → px
       margin: 2,
       marginTop: 0,
       marginBottom: 1,
@@ -293,15 +314,18 @@ export function generateBarcodeSvgString(
     svg.removeAttribute("height");
     svg.setAttribute("width", `${cfg.maxWidthMm}mm`);
     svg.setAttribute("height", `${cfg.heightMm + cfg.fontPt * 0.35 + 1}mm`);
-    svg.setAttribute("style",
-      "display:block;margin:0 auto;shape-rendering:crispEdges;overflow:visible;"
+    svg.setAttribute(
+      "style",
+      "display:block;margin:0 auto;shape-rendering:crispEdges;overflow:visible;",
     );
     return svg.outerHTML;
   } catch (err) {
     console.error("[ZerahPrint] Barcode SVG generation failed for:", safeText, err);
     // Fallback: text-only representation
-    return `<div style="font-family:monospace;font-size:${cfg.fontPt}pt;font-weight:bold;` +
-      `text-align:center;letter-spacing:1px;padding:1mm 0;word-break:break-all;">${escapeHtml(safeText)}</div>`;
+    return (
+      `<div style="font-family:monospace;font-size:${cfg.fontPt}pt;font-weight:bold;` +
+      `text-align:center;letter-spacing:1px;padding:1mm 0;word-break:break-all;">${escapeHtml(safeText)}</div>`
+    );
   }
 }
 
@@ -342,18 +366,18 @@ export function buildLabelPrintHtml(params: {
   }
 
   if (labels.length === 0) {
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>` +
+    return (
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>` +
       `<body style="font-family:sans-serif;padding:20px;text-align:center;">` +
-      `<p>No labels to print.</p></body></html>`;
+      `<p>No labels to print.</p></body></html>`
+    );
   }
 
   // ── 2. Render a single label cell's inner HTML content ────────────
   const renderLabelContent = (p: PrintableProduct): string => {
     const barcodeValue = sanitizeBarcode(p.barcode, p.sku) || "SKU-" + (p.sku || "NONE");
     const hasMrp = typeof p.mrp === "number" && p.mrp > p.price;
-    const discPct = showDiscount && hasMrp
-      ? Math.round(((p.mrp! - p.price) / p.mrp!) * 100)
-      : null;
+    const discPct = showDiscount && hasMrp ? Math.round(((p.mrp! - p.price) / p.mrp!) * 100) : null;
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
@@ -373,9 +397,7 @@ export function buildLabelPrintHtml(params: {
     }
 
     // Full label
-    const metaParts: string[] = [
-      `<span class="lbl-price">${formatINR(p.price)}</span>`,
-    ];
+    const metaParts: string[] = [`<span class="lbl-price">${formatINR(p.price)}</span>`];
     if (hasMrp) {
       metaParts.push(`<span class="lbl-mrp">${formatINR(p.mrp!)}</span>`);
     }
@@ -419,9 +441,7 @@ export function buildLabelPrintHtml(params: {
     ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`
     : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm portrait`;
 
-  const pageMarginDecl = cfg.isThermalRoll
-    ? "0mm"
-    : `${cfg.pageMarginMm}mm`;
+  const pageMarginDecl = cfg.isThermalRoll ? "0mm" : `${cfg.pageMarginMm}mm`;
 
   const css = `
     /* ── Reset ── */
@@ -637,7 +657,7 @@ export function printLabelsViaIframe(params: {
       top: "-9999px",
       left: "-9999px",
       // Give it the physical page width so CSS mm-based layout works correctly
-      width: `${cfg.pageWidthMm * 3.7795}px`,   // mm → px at 96dpi
+      width: `${cfg.pageWidthMm * 3.7795}px`, // mm → px at 96dpi
       height: `${cfg.pageHeightMm * 3.7795}px`,
       border: "none",
       overflow: "hidden",
@@ -652,7 +672,9 @@ export function printLabelsViaIframe(params: {
       setTimeout(() => {
         try {
           if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }, 5000);
     };
 
@@ -686,10 +708,14 @@ export function printLabelsViaIframe(params: {
       return;
     }
 
-    iframe.addEventListener("load", () => {
-      // Extra settle time after load for SVG barcode rendering + font decode
-      setTimeout(triggerPrint, 350);
-    }, { once: true });
+    iframe.addEventListener(
+      "load",
+      () => {
+        // Extra settle time after load for SVG barcode rendering + font decode
+        setTimeout(triggerPrint, 350);
+      },
+      { once: true },
+    );
 
     // Fallback: if load event doesn't fire (some browsers skip it for srcdoc)
     const loadTimeout = setTimeout(() => {
@@ -799,7 +825,9 @@ export async function triggerDirectLabelPrint(
     labelType,
     showDiscount,
     onDone: () => {
-      setTimeout(() => { _printingLock = false; }, 1500);
+      setTimeout(() => {
+        _printingLock = false;
+      }, 1500);
     },
   });
 

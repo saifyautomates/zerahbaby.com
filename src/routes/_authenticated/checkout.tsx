@@ -637,9 +637,7 @@ function CheckoutPage() {
                   <Sparkles className="size-3.5" />
                   MRP Discount
                 </span>
-                <span className="font-bold tabular-nums text-right">
-                  - {formatPrice(savings)}
-                </span>
+                <span className="font-bold tabular-nums text-right">- {formatPrice(savings)}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40">
@@ -662,7 +660,9 @@ function CheckoutPage() {
                 <Truck className="size-4 text-primary" />
                 Delivery Fee
               </span>
-              <span className={`font-bold tabular-nums text-right ${shipping === 0 ? "text-emerald-600 font-black uppercase" : ""}`}>
+              <span
+                className={`font-bold tabular-nums text-right ${shipping === 0 ? "text-emerald-600 font-black uppercase" : ""}`}
+              >
                 {shipping === 0 ? "FREE" : `+ ${formatPrice(shipping)}`}
               </span>
             </div>
@@ -670,7 +670,9 @@ function CheckoutPage() {
             <div className="flex items-center justify-between pt-1">
               <div className="space-y-0.5">
                 <span className="text-base font-bold text-foreground block">Total to pay</span>
-                <span className="text-[11px] text-muted-foreground block">Inclusive of all taxes</span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Inclusive of all taxes
+                </span>
               </div>
               <div className="text-right">
                 <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">

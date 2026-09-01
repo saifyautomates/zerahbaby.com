@@ -390,6 +390,188 @@ async function fetchSettings(): Promise<Record<string, string>> {
   return Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
 }
 
+/**
+ * Canonical product URL generator.
+ * Standardizes product URL generation across the entire application.
+ * Safely accepts a Product, ProductRow, ProductDraft, string identifier, or partial object.
+ */
+export function getProductUrl(
+  product: { id?: string; slug?: string; uuid?: string; sku?: string } | string | null | undefined,
+): string {
+  if (!product) return "/shop";
+  if (typeof product === "string") {
+    const clean = product.trim();
+    return clean ? `/product/${encodeURIComponent(clean)}` : "/shop";
+  }
+  const identifier =
+    product.id?.trim() || product.slug?.trim() || product.uuid?.trim() || product.sku?.trim() || "";
+  return identifier ? `/product/${encodeURIComponent(identifier)}` : "/shop";
+}
+
+export type SingleProductResult = {
+  product: Product | null;
+  error: Error | null;
+  isNotFound: boolean;
+  isError: boolean;
+};
+
+export async function fetchSingleProduct(
+  rawIdentifier: string,
+  includeInactive = false,
+): Promise<SingleProductResult> {
+  if (!rawIdentifier || !rawIdentifier.trim()) {
+    return { product: null, error: null, isNotFound: true, isError: false };
+  }
+
+  let decoded = rawIdentifier.trim();
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // preserve raw identifier
+  }
+
+  const isUuid =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(decoded);
+
+  const selectFields =
+    "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, conflict_reconciliation_needed)";
+
+  try {
+    let row: ProductRow | null = null;
+
+    if (isUuid) {
+      const query = supabase.from("products").select(selectFields).eq("id", decoded);
+      if (!includeInactive) {
+        const { data, error } = await query.eq("is_active", true).maybeSingle();
+        if (error) throw error;
+        if (data) {
+          row = data as unknown as ProductRow;
+        } else {
+          // Check if it exists without the active filter (for admin preview)
+          const { data: anyData, error: anyError } = await supabase
+            .from("products")
+            .select(selectFields)
+            .eq("id", decoded)
+            .maybeSingle();
+          if (anyError) throw anyError;
+          if (anyData) row = anyData as unknown as ProductRow;
+        }
+      } else {
+        const { data, error } = await query.maybeSingle();
+        if (error) throw error;
+        if (data) row = data as unknown as ProductRow;
+      }
+    } else {
+      // 1. Try slug (case-insensitive)
+      let slugQuery = supabase.from("products").select(selectFields).ilike("slug", decoded);
+      if (!includeInactive) {
+        slugQuery = slugQuery.eq("is_active", true);
+      }
+      const { data: slugData, error: slugError } = await slugQuery.maybeSingle();
+      if (slugError) throw slugError;
+      if (slugData) {
+        row = slugData as unknown as ProductRow;
+      } else {
+        // Try slug without active filter
+        const { data: rawSlugData } = await supabase
+          .from("products")
+          .select(selectFields)
+          .ilike("slug", decoded)
+          .maybeSingle();
+        if (rawSlugData) {
+          row = rawSlugData as unknown as ProductRow;
+        } else {
+          // 2. Try SKU
+          const { data: skuData } = await supabase
+            .from("products")
+            .select(selectFields)
+            .ilike("sku", decoded)
+            .maybeSingle();
+          if (skuData) {
+            row = skuData as unknown as ProductRow;
+          } else {
+            // 3. Try Barcode
+            const { data: barcodeData } = await supabase
+              .from("products")
+              .select(selectFields)
+              .eq("barcode", decoded)
+              .maybeSingle();
+            if (barcodeData) {
+              row = barcodeData as unknown as ProductRow;
+            }
+          }
+        }
+      }
+    }
+
+    if (row) {
+      let deliveryFee: number | undefined;
+      try {
+        const { data: settingsData } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "product_delivery_fees")
+          .maybeSingle();
+        if (settingsData?.value) {
+          const parsed = JSON.parse(settingsData.value);
+          deliveryFee = parsed[row.id] ?? parsed[row.slug];
+        }
+      } catch {
+        // ignore
+      }
+
+      const prod = mapProduct(row);
+      if (deliveryFee !== undefined) {
+        prod.deliveryFee = deliveryFee;
+      }
+      return { product: prod, error: null, isNotFound: false, isError: false };
+    }
+
+    return { product: null, error: null, isNotFound: true, isError: false };
+  } catch (err: unknown) {
+    console.error("[fetchSingleProduct] Supabase fetch error:", err);
+
+    // Offline / network failure fallback to IndexedDB catalog cache
+    try {
+      const { getCachedCatalog } = await import("@/lib/offline-sync-engine");
+      const cached = await getCachedCatalog();
+      if (cached && cached.length > 0) {
+        const match = cached.find((r: any) => {
+          const s = (r.slug || "").toLowerCase();
+          const u = (r.id || "").toLowerCase();
+          const k = (r.sku || "").toLowerCase();
+          const b = r.barcode || "";
+          const target = decoded.toLowerCase();
+          return s === target || u === target || k === target || b === decoded;
+        });
+        if (match) {
+          return {
+            product: mapProduct(match as unknown as ProductRow),
+            error: null,
+            isNotFound: false,
+            isError: false,
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      product: null,
+      error: err instanceof Error ? err : new Error(String(err)),
+      isNotFound: false,
+      isError: true,
+    };
+  }
+}
+
+export const singleProductQueryOptions = (identifier: string, includeInactive = false) => ({
+  queryKey: ["product", identifier, includeInactive] as const,
+  queryFn: () => fetchSingleProduct(identifier, includeInactive),
+  staleTime: 1000 * 60 * 5, // 5 minutes caching
+});
+
 export const productsQueryOptions = (includeInactive = false) => ({
   queryKey: ["products", includeInactive] as const,
   queryFn: () => fetchProducts(includeInactive),
@@ -487,6 +669,10 @@ export const settingsQueryOptions = () => ({
 
 export function useProducts(includeInactive = false) {
   return useQuery(productsQueryOptions(includeInactive));
+}
+
+export function useProduct(identifier: string, includeInactive = false) {
+  return useQuery(singleProductQueryOptions(identifier, includeInactive));
 }
 
 export function useCategories() {

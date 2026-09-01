@@ -268,18 +268,6 @@ export function PrintLabelsModal({
             })}
           </div>
         </div>
-
-        {/* Preview Engine Area */}
-        <div className="flex-1 overflow-y-auto p-6 bg-muted/10 print:p-0 print:overflow-visible">
-          <div className="max-w-xl mx-auto rounded-2xl bg-card border border-border/60 p-6 shadow-xs print:border-0 print:shadow-none print:p-0 print:max-w-none">
-            <LabelPrintEngine
-              entries={entries}
-              labelType={labelType}
-              layout={layout}
-              showDiscount={showDiscount}
-            />
-          </div>
-        </div>
       </div>
     </div>,
     document.body,

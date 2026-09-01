@@ -34,6 +34,9 @@ import {
   formatPrice,
   imageFor,
   useProducts,
+  useProduct,
+  getProductUrl,
+  fetchSingleProduct,
   getProductColors,
   getColorGallery,
   getColorSwatchImage,
@@ -58,11 +61,10 @@ import { RelatedProducts } from "@/components/site/RelatedProducts";
 import { RecentlyViewed } from "@/components/site/RecentlyViewed";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 
-import { productsQueryOptions } from "@/lib/store";
+import { productsQueryOptions, singleProductQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
-    const products = await context.queryClient.ensureQueryData(productsQueryOptions(false));
     const target = params.id;
     const decoded = (() => {
       try {
@@ -71,25 +73,58 @@ export const Route = createFileRoute("/product/$id")({
         return target;
       }
     })();
-    const product = products.find(
+
+    // 1. Check if product exists in queryClient memory cache
+    const cachedProducts = context.queryClient.getQueryData<Product[]>(["products", false]);
+    let product = cachedProducts?.find(
       (p) =>
         p.id === target ||
         p.uuid === target ||
         p.id === decoded ||
         p.uuid === decoded ||
-        p.id.toLowerCase() === decoded.toLowerCase(),
+        p.id.toLowerCase() === decoded.toLowerCase() ||
+        p.sku?.toLowerCase() === decoded.toLowerCase() ||
+        p.barcode === target,
     );
+
+    let error: string | null = null;
+    let isNotFound = false;
+
+    // 2. If not cached, perform authoritative single product fetch
+    if (!product) {
+      const result = await context.queryClient.ensureQueryData(
+        singleProductQueryOptions(decoded, false),
+      );
+      if (result.product) {
+        product = result.product;
+      } else {
+        isNotFound = result.isNotFound;
+        error = result.error ? result.error.message : null;
+      }
+    }
+
     return {
-      product,
-      products,
+      product: product ?? null,
+      error,
+      isNotFound,
+      identifier: decoded,
     };
   },
   head: (ctx) => {
     const product = ctx.loaderData?.product;
-    if (!product) return { meta: [{ title: "Product Not Found" }] };
+    if (!product) {
+      return {
+        meta: [
+          { title: "Product Not Found | Zérah Baby & Kids" },
+          { name: "description", content: "The requested product could not be found." },
+        ],
+      };
+    }
 
-    const url = `https://zerahkids.com/product/${ctx.params.id}`;
-    const description = product.description.substring(0, 155);
+    const canonicalUrl = `https://zerahkids.com${getProductUrl(product)}`;
+    const description = product.description
+      ? product.description.substring(0, 155)
+      : `Buy ${product.name} at Zérah Baby & Kids`;
     const image = /^https?:\/\//.test(product.image)
       ? product.image
       : `https://zerahkids.com${product.image}`;
@@ -98,7 +133,7 @@ export const Route = createFileRoute("/product/$id")({
     const offers = hasVariants
       ? product.variants.map((v: any) => ({
           "@type": "Offer",
-          url,
+          url: canonicalUrl,
           itemCondition: "https://schema.org/NewCondition",
           priceCurrency: "INR",
           price: v.priceOverride ?? product.price,
@@ -109,7 +144,7 @@ export const Route = createFileRoute("/product/$id")({
         }))
       : {
           "@type": "Offer",
-          url,
+          url: canonicalUrl,
           itemCondition: "https://schema.org/NewCondition",
           priceCurrency: "INR",
           price: product.price,
@@ -124,7 +159,7 @@ export const Route = createFileRoute("/product/$id")({
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.name,
-      description: product.description,
+      description,
       image: [image],
       brand: { "@type": "Brand", name: product.brand || "Zérah Baby & Kids" },
       sku: product.sku || product.id,
@@ -147,11 +182,11 @@ export const Route = createFileRoute("/product/$id")({
         { property: "og:description", content: description },
         { property: "og:image", content: image },
         { name: "twitter:image", content: image },
-        { property: "og:url", content: url },
+        { property: "og:url", content: canonicalUrl },
         { property: "og:type", content: "product" },
         { name: "twitter:card", content: "summary_large_image" },
       ],
-      links: [{ rel: "canonical", href: url }],
+      links: [{ rel: "canonical", href: canonicalUrl }],
       scripts: [
         {
           type: "application/ld+json",
@@ -167,6 +202,13 @@ function ProductPage() {
   const { id } = Route.useParams();
   const loaderData = Route.useLoaderData();
   const { data: products, isLoading: productsLoading } = useProducts();
+  const {
+    data: singleResult,
+    isLoading: singleLoading,
+    isError: singleQueryError,
+    refetch,
+  } = useProduct(id);
+
   const { add, items } = useCart();
   const { user } = useSession();
   const navigate = useNavigate();
@@ -179,10 +221,6 @@ function ProductPage() {
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
   const [isZooming, setIsZooming] = useState(false);
 
-  const list = useMemo(
-    () => products ?? loaderData?.products ?? [],
-    [products, loaderData?.products],
-  );
   const decodedId = useMemo(() => {
     try {
       return decodeURIComponent(id);
@@ -191,16 +229,30 @@ function ProductPage() {
     }
   }, [id]);
 
-  const product =
-    list.find(
+  const list = useMemo(() => products ?? [], [products]);
+
+  // Authoritative product resolution:
+  // 1. Direct single-product query result
+  // 2. Loader initial data
+  // 3. Match from active catalog products list (by slug, uuid, sku, barcode)
+  const product: Product | null = useMemo(() => {
+    if (singleResult?.product) return singleResult.product;
+    if (loaderData?.product) return loaderData.product;
+    const match = list.find(
       (p) =>
         p.id === id ||
         p.uuid === id ||
         p.id === decodedId ||
         p.uuid === decodedId ||
-        p.id.toLowerCase() === decodedId.toLowerCase(),
-    ) ?? loaderData?.product;
-  const isLoading = productsLoading && !product;
+        p.id.toLowerCase() === decodedId.toLowerCase() ||
+        p.sku?.toLowerCase() === decodedId.toLowerCase() ||
+        p.barcode === id,
+    );
+    return match ?? null;
+  }, [singleResult, loaderData?.product, list, id, decodedId]);
+
+  const isLoading = (singleLoading || productsLoading) && !product;
+  const isNetworkError = (singleQueryError || singleResult?.isError) && !product;
 
   const productColors = useMemo(() => (product ? getProductColors(product) : []), [product]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -456,19 +508,57 @@ function ProductPage() {
     );
   }
 
+  if (isNetworkError) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24 text-center">
+        <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <RotateCcw className="size-6" />
+        </div>
+        <h1 className="font-display text-2xl font-bold">Unable to load product</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          We encountered an issue communicating with the catalog. Please check your connection and
+          try again.
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 cursor-pointer shadow-xs"
+          >
+            Try again
+          </button>
+          <Link
+            to="/shop"
+            className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-semibold hover:bg-muted"
+          >
+            Back to shop
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-display text-3xl font-bold">Product not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This item may have sold out or been renamed.
+          This item may have sold out, been renamed, or the link may have changed.
         </p>
-        <Link
-          to="/shop"
-          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
-        >
-          Back to shop
-        </Link>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <Link
+            to="/shop"
+            className="inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 shadow-xs"
+          >
+            Browse all products
+          </Link>
+          <Link
+            to="/"
+            className="inline-block rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold hover:bg-muted"
+          >
+            Return to home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -727,7 +817,13 @@ function ProductPage() {
                       >
                         <div className="size-full rounded-xl overflow-hidden bg-muted/30">
                           {swatchImg ? (
-                            <img loading="lazy" decoding="async" src={swatchImg} alt={color} className="size-full object-cover" />
+                            <img
+                              loading="lazy"
+                              decoding="async"
+                              src={swatchImg}
+                              alt={color}
+                              className="size-full object-cover"
+                            />
                           ) : (
                             <div className="size-full flex items-center justify-center font-bold text-xs bg-muted">
                               {color[0]}
@@ -830,7 +926,13 @@ function ProductPage() {
                   title={`${product.name} (Current)`}
                 >
                   <div className="w-full h-full rounded-full overflow-hidden bg-muted">
-                    <img loading="lazy" decoding="async" src={product.image} alt="Current" className="w-full h-full object-cover" />
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={product.image}
+                      alt="Current"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
 
@@ -847,7 +949,13 @@ function ProductPage() {
                     className="size-14 shrink-0 rounded-full border-2 border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary transition-all duration-300 hover:scale-110 hover:shadow-md cursor-pointer bg-muted"
                     title={s.name}
                   >
-                    <img loading="lazy" decoding="async" src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={s.image}
+                      alt={s.name}
+                      className="w-full h-full object-cover"
+                    />
                   </Link>
                 ))}
               </div>
@@ -931,7 +1039,7 @@ function ProductPage() {
                               toast.info("Please log in to proceed with Buy Now");
                               navigate({
                                 to: "/auth",
-                                search: { redirect: `/product/${product.id}` },
+                                search: { redirect: getProductUrl(product) },
                               });
                               return;
                             }
@@ -1012,7 +1120,9 @@ function ProductPage() {
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="hidden md:flex items-center gap-4">
-              <img loading="lazy" decoding="async"
+              <img
+                loading="lazy"
+                decoding="async"
                 src={product?.image}
                 className="size-12 rounded-lg object-cover shadow-sm"
                 alt=""
@@ -1053,96 +1163,107 @@ function ProductPage() {
       )}
 
       {/* Fullscreen Lightbox */}
-      {showLightbox && product && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-300"
-          onClick={() => setShowLightbox(false)}
-        >
-          <button
-            onClick={() => setShowLightbox(false)}
-            className="absolute top-6 right-6 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
-            aria-label="Close fullscreen"
-          >
-            <X className="size-6 sm:size-8" />
-          </button>
-
-          {gallery.length > 1 && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev();
-                }}
-                className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
-                aria-label="Previous image"
-              >
-                <ChevronLeft className="size-6 sm:size-8" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext();
-                }}
-                className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
-                aria-label="Next image"
-              >
-                <ChevronRight className="size-6 sm:size-8" />
-              </button>
-            </>
-          )}
-
+      {showLightbox &&
+        product &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="relative w-full max-w-5xl max-h-[85vh] flex items-center justify-center animate-in zoom-in-95 duration-300"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-300"
+            onClick={() => setShowLightbox(false)}
           >
-            {(() => {
-              const activeUrl = gallery[activeImage] ?? product.image;
-              const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
-              return isVideo ? (
-                <video
-                  src={activeUrl}
-                  controls
-                  autoPlay
-                  className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
-                />
-              ) : (
-                <img loading="lazy" decoding="async"
-                  src={activeUrl}
-                  alt={product.name}
-                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-                />
-              );
-            })()}
-          </div>
+            <button
+              onClick={() => setShowLightbox(false)}
+              className="absolute top-6 right-6 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
+              aria-label="Close fullscreen"
+            >
+              <X className="size-6 sm:size-8" />
+            </button>
 
-          {/* Thumbnails inside lightbox */}
-          {gallery.length > 1 && (
+            {gallery.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrev();
+                  }}
+                  className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="size-6 sm:size-8" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNext();
+                  }}
+                  className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="size-6 sm:size-8" />
+                </button>
+              </>
+            )}
+
             <div
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 max-w-[90vw] overflow-x-auto pb-2 scrollbar-none px-4"
+              className="relative w-full max-w-5xl max-h-[85vh] flex items-center justify-center animate-in zoom-in-95 duration-300"
               onClick={(e) => e.stopPropagation()}
             >
-              {gallery.map((url, i) => (
-                <button
-                  key={url}
-                  onClick={() => setActiveImage(i)}
-                  className={`size-12 sm:size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
-                    i === activeImage
-                      ? "border-white scale-110"
-                      : "border-transparent opacity-50 hover:opacity-100"
-                  }`}
-                >
-                  {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
-                    <video src={url} className="size-full object-cover" />
-                  ) : (
-                    <img loading="lazy" decoding="async" src={url} alt="" className="size-full object-cover" />
-                  )}
-                </button>
-              ))}
+              {(() => {
+                const activeUrl = gallery[activeImage] ?? product.image;
+                const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+                return isVideo ? (
+                  <video
+                    src={activeUrl}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
+                  />
+                ) : (
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={activeUrl}
+                    alt={product.name}
+                    className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                  />
+                );
+              })()}
             </div>
-          )}
-        </div>,
-        document.body
-      )}
+
+            {/* Thumbnails inside lightbox */}
+            {gallery.length > 1 && (
+              <div
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 max-w-[90vw] overflow-x-auto pb-2 scrollbar-none px-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {gallery.map((url, i) => (
+                  <button
+                    key={url}
+                    onClick={() => setActiveImage(i)}
+                    className={`size-12 sm:size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
+                      i === activeImage
+                        ? "border-white scale-110"
+                        : "border-transparent opacity-50 hover:opacity-100"
+                    }`}
+                  >
+                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
+                      <video src={url} className="size-full object-cover" />
+                    ) : (
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={url}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </main>
   );
 }
@@ -1336,7 +1457,13 @@ function ReviewsSection({
                 onClick={() => setSelectedPhoto(img.url)}
                 className="group relative size-20 sm:size-24 rounded-2xl overflow-hidden border-2 border-border hover:border-[#8B2020] shrink-0 transition hover:scale-105 cursor-pointer shadow-2xs"
               >
-                <img loading="lazy" decoding="async" src={img.url} alt={img.title} className="w-full h-full object-cover" />
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={img.url}
+                  alt={img.title}
+                  className="w-full h-full object-cover"
+                />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                 <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-bold flex items-center gap-0.5">
                   ★ {img.rating}
@@ -1482,7 +1609,9 @@ function ReviewsSection({
                       onClick={() => setSelectedPhoto(imgUrl)}
                       className="group relative size-16 sm:size-20 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105 cursor-pointer"
                     >
-                      <img loading="lazy" decoding="async"
+                      <img
+                        loading="lazy"
+                        decoding="async"
                         src={imgUrl}
                         alt={`Review photo ${idx + 1}`}
                         className="w-full h-full object-cover"
@@ -1519,31 +1648,35 @@ function ReviewsSection({
       )}
 
       {/* Full-Screen Photo Lightbox */}
-      {selectedPhoto && typeof document !== "undefined" && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
-            <button
-              type="button"
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white rounded-full bg-black/50 hover:bg-black/80 transition cursor-pointer"
-            >
-              <X className="size-6" />
-            </button>
-            <img loading="lazy" decoding="async"
-              src={selectedPhoto}
-              alt="Enlarged review photo"
-              className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl border border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+      {selectedPhoto &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
+              <button
+                type="button"
+                onClick={() => setSelectedPhoto(null)}
+                className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white rounded-full bg-black/50 hover:bg-black/80 transition cursor-pointer"
+              >
+                <X className="size-6" />
+              </button>
+              <img
+                loading="lazy"
+                decoding="async"
+                src={selectedPhoto}
+                alt="Enlarged review photo"
+                className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl border border-white/10"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
@@ -1879,7 +2012,9 @@ function BuyNowModal({
 
         {/* Product preview */}
         <div className="mt-4 flex items-center gap-3.5 rounded-2xl border border-border bg-muted/30 p-3.5">
-          <img loading="lazy" decoding="async"
+          <img
+            loading="lazy"
+            decoding="async"
             src={product.image}
             alt={product.name}
             className="size-16 rounded-xl border border-border object-cover"

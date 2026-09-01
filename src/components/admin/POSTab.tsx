@@ -239,7 +239,9 @@ export function POSTab() {
         if (result && result.found) {
           if (result.archived) {
             playScanError();
-            toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
+            toast.error(`"${result.name}" is archived and unavailable for sale`, {
+              duration: 5000,
+            });
             return;
           }
 
