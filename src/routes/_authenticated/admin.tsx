@@ -1,6 +1,7 @@
 //
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useRef, Suspense, lazy } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -3080,6 +3081,7 @@ function CustomersTab() {
   const [selectedCustomer, setSelectedCustomer] = useState<
     Database["public"]["Tables"]["profiles"]["Row"] | null
   >(null);
+  const [viewPhoto, setViewPhoto] = useState<{ url: string; title: string } | null>(null);
 
   const stats = useMemo(() => {
     const map = new Map<string, { count: number; spend: number; lastOrderDate: string | null }>();
@@ -3160,13 +3162,33 @@ function CustomersTab() {
                     {/* DP & Name */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
+                        <div
+                          onClick={() => {
+                            if (c.avatar_url) {
+                              setViewPhoto({
+                                url: c.avatar_url,
+                                title: c.full_name || "Customer DP",
+                              });
+                            } else {
+                              setSelectedCustomer(c);
+                            }
+                          }}
+                          className={`size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs group/dp transition-transform ${
+                            c.avatar_url ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-primary/40" : "cursor-pointer"
+                          }`}
+                          title={c.avatar_url ? "Click to view full customer photo" : "Click to view profile info"}
+                        >
                           {c.avatar_url ? (
-                            <img
-                              src={c.avatar_url}
-                              alt={c.full_name || "Customer avatar"}
-                              className="size-full object-cover"
-                            />
+                            <div className="relative size-full">
+                              <img
+                                src={c.avatar_url}
+                                alt={c.full_name || "Customer avatar"}
+                                className="size-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dp:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                <Eye className="size-4" />
+                              </div>
+                            </div>
                           ) : (
                             <div className="size-full bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 flex items-center justify-center font-display text-sm font-bold text-primary">
                               {initials}
@@ -3290,13 +3312,32 @@ function CustomersTab() {
               </button>
 
               <div className="flex items-center gap-4 pt-2">
-                <div className="size-20 rounded-full border-4 border-card bg-muted overflow-hidden shadow-premium-md shrink-0 flex items-center justify-center">
+                <div
+                  onClick={() => {
+                    if (selectedCustomer.avatar_url) {
+                      setViewPhoto({
+                        url: selectedCustomer.avatar_url,
+                        title: selectedCustomer.full_name || "Customer DP",
+                      });
+                    }
+                  }}
+                  className={`size-20 rounded-full border-4 border-card bg-muted overflow-hidden shadow-premium-md shrink-0 flex items-center justify-center relative group/modal-dp ${
+                    selectedCustomer.avatar_url ? "cursor-pointer hover:ring-4 hover:ring-primary/40 transition-all" : ""
+                  }`}
+                  title={selectedCustomer.avatar_url ? "Click to view full photo" : ""}
+                >
                   {selectedCustomer.avatar_url ? (
-                    <img
-                      src={selectedCustomer.avatar_url}
-                      alt={selectedCustomer.full_name || "Customer avatar"}
-                      className="size-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={selectedCustomer.avatar_url}
+                        alt={selectedCustomer.full_name || "Customer avatar"}
+                        className="size-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/modal-dp:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-[10px] font-bold gap-0.5">
+                        <Eye className="size-4" />
+                        <span>Enlarge</span>
+                      </div>
+                    </>
                   ) : (
                     <div className="size-full bg-primary/20 flex items-center justify-center font-display text-2xl font-bold text-primary">
                       {selectedCustomer.full_name
@@ -3408,6 +3449,59 @@ function CustomersTab() {
           </div>
         </div>
       )}
+
+      {/* Customer DP Full Photo Lightbox Portal */}
+      {viewPhoto &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-150"
+            onClick={() => setViewPhoto(null)}
+          >
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3 bg-black/50 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 text-white">
+                <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm border border-primary/30">
+                  DP
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">{viewPhoto.title}</p>
+                  <p className="text-[10px] text-white/70">Customer Profile Picture</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={viewPhoto.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/25 transition-colors cursor-pointer border border-white/20"
+                >
+                  <ExternalLink className="size-3.5" /> Full Size / Open Original
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setViewPhoto(null)}
+                  className="grid size-9 place-items-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25 transition-colors cursor-pointer border border-white/20"
+                  aria-label="Close photo"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="relative max-w-3xl max-h-[80vh] overflow-hidden rounded-3xl border border-white/20 bg-card/10 shadow-2xl flex items-center justify-center p-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={viewPhoto.url}
+                alt={viewPhoto.title}
+                className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
