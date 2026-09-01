@@ -395,11 +395,11 @@ export function POSTab() {
       image_url: swatchImg || product.imageUrl || product.image,
       age_group: product.ageGroup,
       qty: 1,
-      sales_channel: (product.salesChannel || "ONLINE_AND_OFFLINE") as
+      sales_channel: (product.sales_channel || product.salesChannel || "ONLINE_AND_OFFLINE") as
         "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
     });
     setProductSearch("");
-    const isOfflineOnly = product.salesChannel === "OFFLINE_ONLY";
+    const isOfflineOnly = (product.sales_channel || product.salesChannel) === "OFFLINE_ONLY";
     toast.success(`Added: ${product.name}${varName}`, {
       description: `${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • ₹${selectedVar?.priceOverride || product.price}`,
     });
@@ -1525,7 +1525,8 @@ export function POSTab() {
             stock: item.stock,
             sku: item.sku,
             barcode: item.barcode,
-            salesChannel: "ONLINE_AND_OFFLINE",
+            salesChannel: item.sales_channel || "ONLINE_AND_OFFLINE",
+            sales_channel: item.sales_channel || "ONLINE_AND_OFFLINE",
             image: item.image_url ?? "",
             imageUrl: item.image_url,
             description: "",

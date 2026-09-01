@@ -75,6 +75,7 @@ export type Product = {
   deliveryFee?: number;
   recommendationMode?: "manual" | "auto" | "manual_fallback";
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+  sales_channel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   variants: ProductVariant[];
 };
 
@@ -271,7 +272,10 @@ export const mapProduct = (row: ProductRow): Product => {
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
     recommendationMode:
       (row.recommendation_mode as "manual_fallback" | "manual" | "auto") ?? "manual_fallback",
-    salesChannel: row.sales_channel ?? "ONLINE_AND_OFFLINE",
+    salesChannel:
+      (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
+    sales_channel:
+      (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
     variants: (row.product_variants || []).map((v) => ({
       id: v.id,
       name: v.name,
