@@ -68,15 +68,47 @@ import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
 
 type POSStep = "cart" | "checkout" | "success";
 
+const POS_DRAFT_KEY = "zerah_pos_terminal_draft_v1";
+
+type POSDraftState = {
+  cart: POSCartItem[];
+  step: POSStep;
+  discountType: "none" | "percentage" | "fixed";
+  discountValue: number;
+  customerMode: "walkin" | "existing" | "new";
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerId: string | null;
+  paymentMethod: string;
+};
+
+function loadPOSDraft(): POSDraftState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(POS_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function POSTab() {
   const qc = useQueryClient();
   const { user } = useSession();
   const syncStatus = useOfflineSyncStatus();
   const scanInputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<POSStep>("cart");
+  const [step, setStep] = useState<POSStep>(() => {
+    const draft = loadPOSDraft();
+    return draft?.step === "checkout" && (draft.cart?.length || 0) > 0 ? "checkout" : "cart";
+  });
 
-  // Cart state
-  const [cart, setCart] = useState<POSCartItem[]>([]);
+  // Persistent Cart state
+  const [cart, setCart] = useState<POSCartItem[]>(() => {
+    const draft = loadPOSDraft();
+    return draft?.cart || [];
+  });
   const [scanValue, setScanValue] = useState("");
   const [scanLoading, setScanLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -86,20 +118,97 @@ export function POSTab() {
   const [quickOrderPrice, setQuickOrderPrice] = useState("");
 
   // Discount state
-  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
-  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">(() => {
+    const draft = loadPOSDraft();
+    return draft?.discountType || "none";
+  });
+  const [discountValue, setDiscountValue] = useState<number>(() => {
+    const draft = loadPOSDraft();
+    return draft?.discountValue || 0;
+  });
 
   // Customer state
-  const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">("walkin");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">(() => {
+    const draft = loadPOSDraft();
+    return draft?.customerMode || "walkin";
+  });
+  const [customerName, setCustomerName] = useState(() => {
+    const draft = loadPOSDraft();
+    return draft?.customerName || "";
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    const draft = loadPOSDraft();
+    return draft?.customerPhone || "";
+  });
+  const [customerEmail, setCustomerEmail] = useState(() => {
+    const draft = loadPOSDraft();
+    return draft?.customerEmail || "";
+  });
+  const [customerId, setCustomerId] = useState<string | null>(() => {
+    const draft = loadPOSDraft();
+    return draft?.customerId || null;
+  });
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
 
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<string>(() => {
+    const draft = loadPOSDraft();
+    return draft?.paymentMethod || "cash";
+  });
   const [cashTendered, setCashTendered] = useState<number | "">("");
+
+  // Auto-save active POS cart and cashier state to localStorage
+  useEffect(() => {
+    if (cart.length > 0 && step !== "success") {
+      const draft: POSDraftState = {
+        cart,
+        step,
+        discountType,
+        discountValue,
+        customerMode,
+        customerName,
+        customerPhone,
+        customerEmail,
+        customerId,
+        paymentMethod,
+      };
+      try {
+        localStorage.setItem(POS_DRAFT_KEY, JSON.stringify(draft));
+      } catch {
+        // ignore storage quota errors
+      }
+    } else if (cart.length === 0) {
+      try {
+        localStorage.removeItem(POS_DRAFT_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, [
+    cart,
+    step,
+    discountType,
+    discountValue,
+    customerMode,
+    customerName,
+    customerPhone,
+    customerEmail,
+    customerId,
+    paymentMethod,
+  ]);
+
+  // Prevent accidental page unload / refresh when items are in POS cart
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (cart.length > 0 && step !== "success") {
+        e.preventDefault();
+        e.returnValue = "You have active unbilled items in your POS cart.";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [cart.length, step]);
 
   // Sale result
   const [saleResult, setSaleResult] = useState<SaleResult | null>(null);
@@ -498,6 +607,11 @@ export function POSTab() {
     setProductSearch("");
     setScanValue("");
     setCustomerSearchQuery("");
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
   }
 
   // Filtered products for manual search
@@ -833,13 +947,33 @@ export function POSTab() {
                 </span>
                 <span className="font-bold text-2xl text-primary">{formatPrice(subtotal)}</span>
               </div>
-              <button
-                onClick={() => setStep("checkout")}
-                className="focus-ring press rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                Proceed to Checkout
-                <ChevronRight className="size-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Are you sure you want to cancel and clear all items from this POS cart?",
+                      )
+                    ) {
+                      resetPOS();
+                    }
+                  }}
+                  className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs font-bold text-red-700 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Cancel and clear active POS cart"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Cancel Cart</span>
+                </button>
+
+                <button
+                  onClick={() => setStep("checkout")}
+                  className="focus-ring press rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Proceed to Checkout
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
