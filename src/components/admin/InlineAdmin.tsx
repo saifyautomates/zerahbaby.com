@@ -76,12 +76,19 @@ export function AdminProductControls({ product }: { product: Product }) {
         <ConfirmDialog
           destructive
           title="Delete this product?"
-          message={`"${product.name}" will be permanently removed from the store.`}
+          message={`"${product.name}" will be removed from the active store.`}
           confirmLabel="Yes, delete"
           busy={remove.isPending}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() =>
-            remove.mutate(product.uuid, { onSuccess: () => setConfirmDelete(false) })
+            remove.mutate(product.uuid, {
+              onSuccess: () => {
+                setConfirmDelete(false);
+                if (typeof window !== "undefined" && window.location.pathname.startsWith("/product/")) {
+                  window.location.href = "/shop";
+                }
+              },
+            })
           }
         />
       )}

@@ -249,28 +249,44 @@ export function useDeleteProduct() {
   const invalidate = useInvalidateCatalogue();
   return useMutation({
     mutationFn: async (uuid: string) => {
-      // 1. Fetch related images to delete from storage first
-      const { data: images } = await supabase
-        .from("product_images")
-        .select("storage_path")
-        .eq("product_id", uuid);
-      if (images) {
-        for (const img of images) {
-          if (img.storage_path) {
-            await supabase.rpc("delete_storage_object", {
-              bucket: "product-images",
-              object_path: img.storage_path,
-            });
-          }
-        }
+      // 1. Try atomic RPC first (handles clean cascade delete or smart auto-archiving)
+      const { data: rpcRes, error: rpcErr } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{
+          data: { success?: boolean; deleted?: number; archived?: number } | null;
+          error: { message: string } | null;
+        }>
+      )("admin_delete_products", {
+        _product_ids: [uuid],
+      });
+
+      if (!rpcErr && rpcRes) {
+        return rpcRes;
       }
 
-      // 2. Delete the product (cascades to product_images table)
-      const { error } = await supabase.from("products").delete().eq("id", uuid);
-      if (error) throw error;
+      // 2. Fallback: try hard delete, if historical transactions exist, archive it (is_active = false)
+      const { error: delErr } = await supabase.from("products").delete().eq("id", uuid);
+      if (delErr) {
+        if (delErr.message.includes("historical transactions") || delErr.code === "23503") {
+          const { error: archiveErr } = await supabase
+            .from("products")
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq("id", uuid);
+          if (archiveErr) throw archiveErr;
+          return { archived: 1, deleted: 0 };
+        }
+        throw delErr;
+      }
+      return { deleted: 1, archived: 0 };
     },
-    onSuccess: () => {
-      toast.success("Product removed from the store");
+    onSuccess: (res) => {
+      if (res && typeof res === "object" && "archived" in res && (res.archived as number) > 0) {
+        toast.success("Product has sales history — archived and removed from store");
+      } else {
+        toast.success("Product removed from the store");
+      }
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
