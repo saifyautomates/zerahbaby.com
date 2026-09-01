@@ -400,12 +400,19 @@ export function buildLabelPrintHtml(params: {
       ].join("");
     }
 
+    const hasDiscount = typeof p.mrp === "number" && p.mrp > p.price;
+    const discountPct = hasDiscount ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
+    const mrpText =
+      showDiscount && hasDiscount && discountPct > 0
+        ? `MRP: ${mrpFormatted} (-${discountPct}%)`
+        : `MRP: ${mrpFormatted}`;
+
     // Standard Horizontal Product Label Sticker
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-row-middle">`,
       `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      `  <div class="lbl-mrp">MRP: ${mrpFormatted}</div>`,
+      `  <div class="lbl-mrp">${mrpText}</div>`,
       `</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,

@@ -112,7 +112,16 @@ function SingleStickerPreview({
             className="font-black text-black whitespace-nowrap text-right shrink-0"
             style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
           >
-            MRP: {formatPrice(mrpVal)}
+            {showDiscount && typeof product.mrp === "number" && product.mrp > product.price ? (
+              <>
+                MRP: {formatPrice(mrpVal)}{" "}
+                <span className="font-extrabold text-emerald-800">
+                  (-{Math.round(((product.mrp - product.price) / product.mrp) * 100)}%)
+                </span>
+              </>
+            ) : (
+              `MRP: ${formatPrice(mrpVal)}`
+            )}
           </span>
         </div>
       )}
