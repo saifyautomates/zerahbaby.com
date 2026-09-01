@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
@@ -290,12 +290,68 @@ function ShopPage() {
     initialData: loaderData?.categories ?? undefined,
   });
 
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>(age ? [age] : []);
-  const [maxPrice, setMaxPrice] = useState(20000);
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [sort, setSort] = useState("popular");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("zerah_shop_brands");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>(() => {
+    if (age) return [age];
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("zerah_shop_age_groups");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  const [maxPrice, setMaxPrice] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("zerah_shop_max_price");
+      if (saved) {
+        const val = Number(saved);
+        if (!isNaN(val)) return val;
+      }
+    }
+    return 20000;
+  });
+
+  const [inStockOnly, setInStockOnly] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("zerah_shop_instock") === "true";
+    }
+    return false;
+  });
+
+  const [sort, setSort] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("zerah_shop_sort") || "popular";
+    }
+    return "popular";
+  });
+
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Sync shop filter state to sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("zerah_shop_brands", JSON.stringify(selectedBrands));
+      sessionStorage.setItem("zerah_shop_age_groups", JSON.stringify(selectedAgeGroups));
+      sessionStorage.setItem("zerah_shop_max_price", maxPrice.toString());
+      sessionStorage.setItem("zerah_shop_instock", inStockOnly.toString());
+      sessionStorage.setItem("zerah_shop_sort", sort);
+    }
+  }, [selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
 
   const list = useMemo(() => products ?? [], [products]);
   const brands = useMemo(
@@ -320,6 +376,12 @@ function ShopPage() {
     setSelectedAgeGroups([]);
     setMaxPrice(20000);
     setInStockOnly(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("zerah_shop_brands");
+      sessionStorage.removeItem("zerah_shop_age_groups");
+      sessionStorage.removeItem("zerah_shop_max_price");
+      sessionStorage.removeItem("zerah_shop_instock");
+    }
   }, []);
 
   const hasActiveFilters =

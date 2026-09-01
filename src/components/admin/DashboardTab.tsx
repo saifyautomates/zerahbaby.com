@@ -88,8 +88,57 @@ function calculateDelta(current: number, prev: number, periodLabel: string) {
 }
 
 export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
-  const [activeDrillDown, setActiveDrillDown] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<DateRangePreset>("7d");
+  const [activeDrillDown, setActiveDrillDownState] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dd = urlParams.get("drilldown");
+      if (dd) return dd;
+      const saved = localStorage.getItem("zerah_admin_dashboard_drilldown");
+      if (saved) return saved;
+    }
+    return null;
+  });
+
+  const setActiveDrillDown = (val: string | null) => {
+    setActiveDrillDownState(val);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (val) {
+        localStorage.setItem("zerah_admin_dashboard_drilldown", val);
+        url.searchParams.set("drilldown", val);
+      } else {
+        localStorage.removeItem("zerah_admin_dashboard_drilldown");
+        url.searchParams.delete("drilldown");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const [datePreset, setDatePresetState] = useState<DateRangePreset>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const preset = urlParams.get("datePreset") as DateRangePreset | null;
+      if (preset && ["today", "yesterday", "7d", "30d", "this_month", "all"].includes(preset)) {
+        return preset;
+      }
+      const saved = localStorage.getItem("zerah_admin_date_preset") as DateRangePreset | null;
+      if (saved && ["today", "yesterday", "7d", "30d", "this_month", "all"].includes(saved)) {
+        return saved;
+      }
+    }
+    return "7d";
+  });
+
+  const setDatePreset = (val: DateRangePreset) => {
+    setDatePresetState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_admin_date_preset", val);
+      const url = new URL(window.location.href);
+      url.searchParams.set("datePreset", val);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
