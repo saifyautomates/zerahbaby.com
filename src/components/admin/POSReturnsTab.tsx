@@ -567,7 +567,7 @@ export function POSReturnsTab() {
                     No past sales found for "{pastOrderSearch}". You can also scan product barcode directly below.
                   </div>
                 ) : (
-                  matchedPastSales.map((sale) => {
+                  matchedPastSales.slice(0, 50).map((sale) => {
                     const isExpanded =
                       expandedSaleId === sale.id || !!pastOrderSearch.trim() || matchedPastSales.length === 1;
                     return (
@@ -1210,7 +1210,7 @@ export function POSReturnsTab() {
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map((ret) => (
+                  filteredHistory.slice(0, 50).map((ret) => (
                     <tr
                       key={ret.id}
                       className="hover:bg-muted/40 transition cursor-pointer"

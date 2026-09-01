@@ -732,11 +732,11 @@ export function OfflineAnalyticsTab() {
                 <th className="px-5 py-4">Customer</th>
                 <th className="px-5 py-4">Payment</th>
                 <th className="px-5 py-4">Discount</th>
-                <th className="px-5 py-4 text-right">Total</th>
+              <th className="px-5 py-4 text-right">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {filteredSales.map((sale) => {
+              {filteredSales.slice(0, 50).map((sale) => {
                 const isExpanded = expandedSale === sale.id;
                 return (
                   <React.Fragment key={sale.id}>

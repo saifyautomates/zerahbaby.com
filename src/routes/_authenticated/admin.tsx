@@ -86,9 +86,7 @@ const PrintLabelsModal = safeLazy(() =>
   import("@/components/admin/PrintLabelsModal").then((m) => ({ default: m.PrintLabelsModal })),
 );
 
-const BillingCenterTab = safeLazy(() =>
-  import("@/components/admin/BillingCenterTab").then((m) => ({ default: m.BillingCenterTab })),
-);
+import { BillingCenterTab } from "@/components/admin/BillingCenterTab";
 const CategoriesTab = safeLazy(() =>
   import("@/components/admin/CategoriesManager").then((m) => ({ default: m.CategoriesTab })),
 );
@@ -99,9 +97,7 @@ const QueriesTab = safeLazy(() =>
   import("@/components/admin/QueriesTab").then((m) => ({ default: m.QueriesTab })),
 );
 import { DashboardTab } from "@/components/admin/DashboardTab";
-const OnlineSalesTab = safeLazy(() =>
-  import("@/components/admin/OnlineSalesTab").then((m) => ({ default: m.OnlineSalesTab })),
-);
+import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
 const AdminGlobalSearch = safeLazy(() =>
   import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
 );

@@ -249,7 +249,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_sales")
-        .select("*, offline_sale_items(*)");
+        .select("*, offline_sale_items(*)")
+        .order("created_at", { ascending: false })
+        .limit(1500);
       if (error) throw error;
       return (data ?? []) as unknown as OfflineSale[];
     },
@@ -269,7 +271,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_returns")
-        .select("id, refund_amount, created_at, status, refund_status");
+        .select("id, refund_amount, created_at, status, refund_status")
+        .order("created_at", { ascending: false })
+        .limit(1500);
       if (error) return [];
       return (data ?? []) as never[];
     },

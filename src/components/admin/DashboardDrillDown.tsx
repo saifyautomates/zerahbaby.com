@@ -404,7 +404,7 @@ function SalesChannelDrillDown({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {combined.map((item, i) => (
+              {combined.slice(0, 50).map((item, i) => (
                 <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     {format(new Date(item.date), "MMM d, h:mm a")}
@@ -592,7 +592,7 @@ function SalesChannelDrillDown({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {combinedRev.map((item, i) => (
+            {combinedRev.slice(0, 50).map((item, i) => (
               <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   {format(new Date(item.date), "MMM d, h:mm a")}
