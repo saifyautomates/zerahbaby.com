@@ -120,15 +120,6 @@ function buildThermalHTML(
          </div>`
       : "";
 
-  // Token row — only shown on thermal POS receipt, never on A4 invoice
-  const tokenRow =
-    sale.pos_token_number != null
-      ? `<div style="text-align:center;margin-top:10px;padding:6px 0;border:2px solid #000;border-radius:4px;">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#555;">Walk-In Token</div>
-          <div style="font-size:28px;font-weight:900;color:#000;line-height:1;">${sale.pos_token_number}</div>
-         </div>`
-      : "";
-
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -182,8 +173,6 @@ function buildThermalHTML(
       <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method)}</span>
     </div>
   </div>
-
-  ${tokenRow}
 
   <div class="divider"></div>
   <div style="text-align:center;font-size:10px;color:#555;">
@@ -451,21 +440,6 @@ export function ThermalReceipt({
               <span className="font-bold uppercase">{sale.payment_method}</span>
             </div>
           </div>
-
-          {/* Token number (walk-in queue — shown on thermal, NOT on A4 invoice) */}
-          {sale.pos_token_number != null && (
-            <>
-              <div className="border-t border-dashed border-gray-400 my-3" />
-              <div className="text-center border-2 border-gray-800 rounded-lg p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Walk-In Token
-                </p>
-                <p className="text-5xl font-black text-foreground leading-none mt-1">
-                  {sale.pos_token_number}
-                </p>
-              </div>
-            </>
-          )}
 
           <div className="border-t border-dashed border-gray-400 my-3" />
 
