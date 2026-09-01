@@ -470,14 +470,20 @@ function AdminPage() {
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-          <img
-            loading="lazy"
-            decoding="async"
-            src={logo}
-            alt="Zérah Baby & Kids"
-            className="size-9 object-contain drop-shadow-sm"
-          />
-          <BrandName size="sm" />
+          <Link
+            to="/"
+            className="flex items-center gap-3 hover:opacity-80 transition cursor-pointer group"
+            title="Go to Zérah Baby & Kids Home"
+          >
+            <img
+              loading="lazy"
+              decoding="async"
+              src={logo}
+              alt="Zérah Baby & Kids"
+              className="size-9 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+            />
+            <BrandName size="sm" />
+          </Link>
         </div>
 
         {/* Navigation */}
@@ -541,7 +547,12 @@ function AdminPage() {
           />
           <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <div className="flex items-center gap-2.5">
+              <Link
+                to="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 hover:opacity-80 transition cursor-pointer"
+                title="Go to Zérah Baby & Kids Home"
+              >
                 <img
                   loading="lazy"
                   decoding="async"
@@ -549,7 +560,8 @@ function AdminPage() {
                   alt="Zérah Baby & Kids"
                   className="h-8 w-auto object-contain drop-shadow-sm"
                 />
-              </div>
+                <BrandName size="sm" />
+              </Link>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted transition"
