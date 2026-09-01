@@ -18,7 +18,15 @@ export type CartItem = {
   sku?: string;
 };
 
-export type CartCoupon = { code: string; discount: number; id: string };
+export type CartCoupon = {
+  code: string;
+  id: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  minimumOrderValue: number;
+  maximumDiscount: number;
+  discount: number;
+};
 
 type CartContextValue = {
   lines: CartLine[];
@@ -263,7 +271,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .filter((x): x is CartItem => x !== null && x.qty > 0);
 
     const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const eligibleSubtotal = Math.max(0, subtotal - (coupon?.discount || 0));
+
+    // Dynamically recalculate coupon discount based on current subtotal
+    let activeCoupon: CartCoupon | null = null;
+    if (coupon) {
+      let calculatedDiscount = 0;
+      if (subtotal >= coupon.minimumOrderValue) {
+        if (coupon.discountType === "percentage") {
+          calculatedDiscount = (subtotal * coupon.discountValue) / 100;
+          if (coupon.maximumDiscount > 0 && calculatedDiscount > coupon.maximumDiscount) {
+            calculatedDiscount = coupon.maximumDiscount;
+          }
+        } else {
+          calculatedDiscount = Math.min(subtotal, coupon.discountValue);
+        }
+      }
+      calculatedDiscount = Math.round(calculatedDiscount);
+      activeCoupon = {
+        ...coupon,
+        discount: calculatedDiscount,
+      };
+    }
+
+    const couponDiscount = activeCoupon?.discount || 0;
+    const eligibleSubtotal = Math.max(0, subtotal - couponDiscount);
 
     // Default to true and 999 if settings are not loaded yet
     const freeDeliveryEnabled = settingsData?.free_delivery_enabled !== "false";
@@ -299,7 +330,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       isFreeDelivery,
       freeDeliveryMessage,
       amountToFreeDelivery,
-      coupon,
+      coupon: activeCoupon,
       add: (id, qty = 1, variantId) =>
         setLines((prev) => {
           const product = list.find((p) => p.id === id);
@@ -382,12 +413,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
           code?: string;
           discount?: number;
           coupon_id?: string;
+          discount_type?: string;
+          discount_value?: number;
+          minimum_order_value?: number;
+          maximum_discount?: number;
           error?: string;
         } | null;
         if (!result || !result.valid) {
           throw new Error(result?.error || "Invalid coupon");
         }
-        setCoupon({ code: result.code!, discount: result.discount!, id: result.coupon_id! });
+        setCoupon({
+          code: result.code!,
+          id: result.coupon_id!,
+          discountType: (result.discount_type as "percentage" | "fixed") || "percentage",
+          discountValue: Number(result.discount_value || 0),
+          minimumOrderValue: Number(result.minimum_order_value || 0),
+          maximumDiscount: Number(result.maximum_discount || 0),
+          discount: Number(result.discount || 0),
+        });
       },
       removeCoupon: () => setCoupon(null),
     };
