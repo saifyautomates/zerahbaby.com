@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/checkout")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  component: CheckoutPage,
 });
 
 function CheckoutPage() {
