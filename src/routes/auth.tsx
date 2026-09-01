@@ -91,7 +91,17 @@ function AuthPage() {
 
   // ─── Redirect when session arrives ────────────────────────────────────────────
   useEffect(() => {
-    if (user) navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
+    if (user) {
+      const searchParams =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirectTarget = searchParams?.get("redirect");
+
+      if (redirectTarget && redirectTarget.startsWith("/") && !redirectTarget.startsWith("//")) {
+        window.location.href = redirectTarget;
+      } else {
+        navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
+      }
+    }
   }, [user, items.length, navigate]);
 
   // ─── SEND OTP (first time) ────────────────────────────────────────────────────

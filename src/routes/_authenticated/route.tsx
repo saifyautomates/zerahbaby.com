@@ -5,14 +5,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated")({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
+    // During SSR, localStorage is not available on server; do not throw false redirect to /auth
+    if (typeof window === "undefined") {
+      return {};
+    }
     let session = (await supabase.auth.getSession()).data.session;
     if (!session?.user) {
       const refreshed = await supabase.auth.refreshSession();
       session = refreshed.data.session;
     }
     if (!session?.user) {
-      throw redirect({ to: "/auth" });
+      const targetUrl = location.pathname + location.search;
+      throw redirect({
+        to: "/auth",
+        search: targetUrl && targetUrl !== "/" ? { redirect: targetUrl } : undefined,
+      });
     }
     return { user: session.user };
   },
@@ -25,7 +33,15 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: "/auth", replace: true });
+      const redirectUrl =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : undefined;
+      navigate({
+        to: "/auth",
+        search: redirectUrl && redirectUrl !== "/" ? { redirect: redirectUrl } : undefined,
+        replace: true,
+      });
     }
   }, [user, loading, navigate]);
 

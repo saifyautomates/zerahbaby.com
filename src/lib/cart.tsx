@@ -137,7 +137,17 @@ async function loadFromSupabase(userId: string, products: Product[]): Promise<Ca
 import { useQuery } from "@tanstack/react-query";
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const [lines, setLines] = useState<CartLine[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw) as CartLine[];
+      } catch {
+        /* ignore */
+      }
+    }
+    return [];
+  });
   const { data: products } = useProducts();
   const { user } = useSession();
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
@@ -172,15 +182,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Load from localStorage on mount
+  // Keep localStorage updated when lines change
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setLines(JSON.parse(raw) as CartLine[]);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
     } catch {
-      /* ignore malformed storage */
+      /* ignore */
     }
-  }, []);
+  }, [lines]);
 
   // Reset DB load flag if user changes (e.g., logout then login as another user)
   useEffect(() => {
