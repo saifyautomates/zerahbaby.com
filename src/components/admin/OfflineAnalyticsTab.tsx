@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatPrice, imageFor, getProductUrl } from "@/lib/store";
 import { toast } from "sonner";
 import clothing from "@/assets/cat-clothing.jpg";
+import { useOfflineReturnsList } from "@/lib/pos-returns";
 import {
   BarChart3,
   Receipt,
@@ -26,6 +27,7 @@ import {
   Trash2,
   Search,
   X,
+  RotateCcw,
 } from "lucide-react";
 import {
   BarChart,
@@ -277,8 +279,24 @@ export function OfflineAnalyticsTab() {
     [hourlyFootfall],
   );
 
+  const { data: returnsList = [] } = useOfflineReturnsList();
+
+  // Returns calculations
+  const totalReturnsAmount = useMemo(
+    () => returnsList.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
+    [returnsList],
+  );
+  const todayReturnsAmount = useMemo(
+    () =>
+      returnsList
+        .filter((r) => utcToISTDate(r.created_at) === today)
+        .reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
+    [returnsList, today],
+  );
+
   // Stats
-  const totalRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const grossRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const totalRevenue = Math.max(0, grossRevenue - totalReturnsAmount);
   const totalSalesCount = activeSales.length;
   const cashSales = activeSales.filter((s) => s.payment_method === "cash");
   const upiSales = activeSales.filter((s) => s.payment_method === "upi");
@@ -292,7 +310,8 @@ export function OfflineAnalyticsTab() {
   const totalDiscount = activeSales.reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
 
   // Today's revenue
-  const todayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
+  const rawTodayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
+  const todayRevenue = Math.max(0, rawTodayRevenue - todayReturnsAmount);
 
   // Top products with rich metadata
   const topProducts = useMemo(() => {
@@ -490,16 +509,26 @@ export function OfflineAnalyticsTab() {
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <BarChart3 className="size-4 text-emerald-600" /> Total Revenue
+            <BarChart3 className="size-4 text-emerald-600" /> Net Revenue
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-primary">
             {formatPrice(totalRevenue)}
           </p>
-          {totalDiscount > 0 && (
-            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              Discounts given: {formatPrice(totalDiscount)}
+          <div className="mt-1 space-y-0.5 text-xs">
+            <p className="text-muted-foreground">
+              Gross: {formatPrice(grossRevenue)}
+              {totalReturnsAmount > 0 && (
+                <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1.5">
+                  (Returns: −{formatPrice(totalReturnsAmount)})
+                </span>
+              )}
             </p>
-          )}
+            {totalDiscount > 0 && (
+              <p className="text-emerald-600 dark:text-emerald-400 font-medium">
+                Discounts given: {formatPrice(totalDiscount)}
+              </p>
+            )}
+          </div>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">

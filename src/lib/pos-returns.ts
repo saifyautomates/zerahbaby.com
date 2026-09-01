@@ -273,13 +273,18 @@ export function useProcessOfflineReturn() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["offline-returns"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-for-returns-history-lookup"] });
+      qc.invalidateQueries({ queryKey: ["offline-analytics"] });
+      qc.invalidateQueries({ queryKey: ["offline-analytics-timeseries"] });
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       qc.invalidateQueries({ queryKey: ["admin-products-count"] });
       qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
-      qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product"] });
+      qc.invalidateQueries({ queryKey: ["pos-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-search-products"] });
     },
   });
 }

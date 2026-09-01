@@ -182,6 +182,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         queryClient.invalidateQueries({ queryKey: ["admin-offline-sales"] });
         queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "offline_returns" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["offline-returns"] });
+        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_sale_items" }, () => {
         queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
       })
@@ -247,6 +252,27 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .select("*, offline_sale_items(*)");
       if (error) throw error;
       return (data ?? []) as unknown as OfflineSale[];
+    },
+  });
+
+  const { data: offlineReturns = [] } = useQuery<
+    Array<{
+      id: string;
+      refund_amount: number;
+      created_at: string;
+      status: string;
+      refund_status: string;
+    }>
+  >({
+    queryKey: ["offline-returns"],
+    staleTime: 1000 * 10,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offline_returns")
+        .select("id, refund_amount, created_at, status, refund_status");
+      if (error) return [];
+      return (data ?? []) as never[];
     },
   });
 
@@ -388,10 +414,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     const prevOrders = validOrders.filter((o) => inPrevPeriod(o.created_at));
     const prevPos = posSales.filter((s) => inPrevPeriod(s.created_at));
 
+    // Current period returns
+    const currReturns = offlineReturns.filter((r) => inCurrentPeriod(r.created_at));
+    const currReturnsAmount = currReturns.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0);
+
+    // Previous period returns
+    const prevReturns = offlineReturns.filter((r) => inPrevPeriod(r.created_at));
+    const prevReturnsAmount = prevReturns.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0);
+
     // Current metrics
     const currOnlineRevenue = currOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const currPosRevenue = currPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
-    const revenue = currOnlineRevenue + currPosRevenue;
+    const grossRevenue = currOnlineRevenue + currPosRevenue;
+    const revenue = Math.max(0, grossRevenue - currReturnsAmount);
 
     // Period Metrics (Net Profit)
     let currOnlineCogs = 0;
@@ -424,7 +459,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     // Previous metrics
     const prevOnlineRevenue = prevOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const prevPosRevenue = prevPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
-    const prevRevenue = prevOnlineRevenue + prevPosRevenue;
+    const prevGrossRevenue = prevOnlineRevenue + prevPosRevenue;
+    const prevRevenue = Math.max(0, prevGrossRevenue - prevReturnsAmount);
     const prevOrdersCount = prevOrders.length + prevPos.length;
 
     // Visitors
