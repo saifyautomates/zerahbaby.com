@@ -41,6 +41,9 @@ import {
   Check,
   Eye,
   Activity,
+  ShoppingBag,
+  CheckCircle2,
+  Heart,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -521,16 +524,37 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       const profile = (ev as { profiles?: { full_name?: string } | null }).profiles;
       const product = ev.products as { name?: string } | null;
 
-      if (ev.event_name === "view_product") {
-        title = `${profile?.full_name || "A visitor"} viewed ${product?.name || "a product"}`;
+      if (ev.event_name === "view_product" || ev.event_name === "product_view") {
+        title = `${profile?.full_name || "A visitor"} viewed ${product?.name ? `"${product.name}"` : "a product"}`;
         icon = Eye;
         color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
       } else if (ev.event_name === "add_to_cart") {
-        title = `${profile?.full_name || "A visitor"} added ${product?.name || "item"} to cart`;
+        title = `${profile?.full_name || "A visitor"} added ${product?.name ? `"${product.name}"` : "an item"} to bag`;
         icon = ShoppingCart;
         color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
+      } else if (ev.event_name === "buy_now") {
+        title = `${profile?.full_name || "A visitor"} initiated Quick Buy for ${product?.name ? `"${product.name}"` : "an item"}`;
+        icon = ShoppingBag;
+        color = "text-rose-500 bg-rose-50 dark:bg-rose-950/50";
+      } else if (ev.event_name === "checkout_started") {
+        title = `${profile?.full_name || "A visitor"} started checkout`;
+        icon = ShoppingBag;
+        color = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50";
+      } else if (ev.event_name === "order_created") {
+        title = `${profile?.full_name || "A customer"} placed an order`;
+        icon = CheckCircle2;
+        color = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50";
+      } else if (ev.event_name === "wishlist_add") {
+        title = `${profile?.full_name || "A visitor"} saved ${product?.name ? `"${product.name}"` : "an item"} to wishlist`;
+        icon = Heart;
+        color = "text-pink-500 bg-pink-50 dark:bg-pink-950/50";
+      } else if (ev.event_name === "wishlist_remove") {
+        title = `${profile?.full_name || "A visitor"} removed ${product?.name ? `"${product.name}"` : "an item"} from wishlist`;
+        icon = Heart;
+        color = "text-gray-500 bg-gray-50 dark:bg-gray-950/50";
       } else {
-        title = `${profile?.full_name || "A visitor"} performed ${ev.event_name}`;
+        const readable = ev.event_name.replace(/_/g, " ");
+        title = `${profile?.full_name || "A visitor"} ${readable}`;
       }
 
       return {
