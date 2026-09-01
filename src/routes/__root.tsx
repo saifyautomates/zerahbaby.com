@@ -313,10 +313,12 @@ function RootComponent() {
   const isAdminRoute = location.pathname.startsWith("/admin");
 
   useEffect(() => {
-    // Global barcode scanner listener: navigate to admin POS if scanned anywhere
+    // Global barcode scanner listener: navigate to admin POS if scanned anywhere on the website
     const unbindScanner = initGlobalBarcodeScanner((_code) => {
+      localStorage.setItem("zerah_admin_active_tab", "billing");
+      localStorage.setItem("zerah_admin_active_subtab", "pos");
       if (!location.pathname.startsWith("/admin")) {
-        router.navigate({ to: "/admin" });
+        router.navigate({ to: "/admin", search: { tab: "billing", subtab: "pos" } });
       }
     });
     return unbindScanner;

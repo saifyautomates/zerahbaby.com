@@ -277,16 +277,18 @@ function AdminPage() {
   // Global hardware barcode scanner logic: instantly switches to POS from any admin page
   useEffect(() => {
     if (hasPendingScans() && tab !== "billing") {
+      localStorage.setItem("zerah_admin_active_subtab", "pos");
       setTab("billing");
     }
 
     const unbind = initGlobalBarcodeScanner((_code) => {
+      localStorage.setItem("zerah_admin_active_subtab", "pos");
       if (tab !== "billing") {
         setTab("billing");
       }
     });
     return unbind;
-  }, [tab]);
+  }, [tab, setTab]);
 
   async function signOut() {
     await qc.cancelQueries();

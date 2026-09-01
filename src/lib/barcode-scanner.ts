@@ -157,7 +157,18 @@ export function initGlobalBarcodeScanner(onScan?: (code: string) => void): () =>
     if (onScan) {
       globalCallbacks.delete(onScan);
     }
-    // We intentionally keep the global listener bound for the lifetime of the app
+  };
+}
+
+// Auto-bind on browser boot
+if (typeof window !== "undefined" && !isGlobalListenerBound) {
+  window.addEventListener("keydown", handleGlobalKeyDown, true);
+  isGlobalListenerBound = true;
+  (window as unknown as Record<string, unknown>).__zerahBarcodeScanner = {
+    initGlobalBarcodeScanner,
+    pushPendingScan,
+    popPendingScans,
+    hasPendingScans,
   };
 }
 

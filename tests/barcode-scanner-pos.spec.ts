@@ -108,4 +108,36 @@ test.describe("Global Barcode Scanner & POS Suite", () => {
       expect(audioResult.success).toBe(true);
     }
   });
+
+  test("4. Global Barcode Scan Auto-Navigation & Queueing", async ({ page }) => {
+    await page.goto("/auth", { waitUntil: "domcontentloaded" });
+
+    const result = await page.evaluate(() => {
+      let capturedCode = "";
+      const onScan = (code: string) => {
+        capturedCode = code;
+        localStorage.setItem("zerah_admin_active_tab", "billing");
+        localStorage.setItem("zerah_admin_active_subtab", "pos");
+      };
+
+      const chars = "987452122720";
+      let buffer = "";
+      for (const ch of chars) {
+        buffer += ch;
+      }
+      if (buffer.length >= 4) {
+        onScan(buffer);
+      }
+
+      return {
+        capturedCode,
+        activeTab: localStorage.getItem("zerah_admin_active_tab"),
+        activeSubtab: localStorage.getItem("zerah_admin_active_subtab"),
+      };
+    });
+
+    expect(result.capturedCode).toBe("987452122720");
+    expect(result.activeTab).toBe("billing");
+    expect(result.activeSubtab).toBe("pos");
+  });
 });

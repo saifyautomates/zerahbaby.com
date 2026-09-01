@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, type Product, formatPrice } from "@/lib/store";
@@ -14,6 +14,7 @@ const CustomerHistoryPanel = lazy(() =>
   import("./CustomerHistoryPanel").then((m) => ({ default: m.CustomerHistoryPanel })),
 );
 import { useDirectLabelPrint } from "@/lib/label-printer";
+import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 import {
   Scan,
   Printer,
@@ -50,6 +51,20 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
       window.history.replaceState({}, "", url.toString());
     }
   };
+
+  // Global hardware barcode scanner logic: instantly switches to POS from any sub-tab (Returns, Labels, Analytics, etc.)
+  useEffect(() => {
+    if (hasPendingScans() && activeTab !== "pos") {
+      setActiveTab("pos");
+    }
+
+    const unbind = initGlobalBarcodeScanner((_code) => {
+      if (activeTab !== "pos") {
+        setActiveTab("pos");
+      }
+    });
+    return unbind;
+  }, [activeTab]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
