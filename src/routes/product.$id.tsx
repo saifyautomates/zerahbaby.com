@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import {
   discountPct,
   formatPrice,
+  imageFor,
   useProducts,
   getProductColors,
   getColorGallery,
@@ -494,8 +495,11 @@ function ProductPage() {
         <div className="relative md:sticky md:top-24 self-start w-full max-w-md lg:max-w-lg mx-auto md:mx-0">
           <AdminProductControls product={product} />
           {(() => {
-            const activeUrl = gallery[activeImage] ?? product.image;
-            const isVideo = !!activeUrl.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
+            const activeUrl =
+              gallery[activeImage] ||
+              product.image ||
+              imageFor(product.category || "clothing", null);
+            const isVideo = !!activeUrl?.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i);
             return (
               <div className="relative aspect-[4/5] sm:aspect-square max-h-[460px] md:max-h-[500px] w-full overflow-hidden rounded-3xl border border-border/60 bg-white dark:bg-card shadow-premium-sm transition-all duration-300 group flex items-center justify-center">
                 <button

@@ -11,7 +11,7 @@
  * - Safe containment (never blows out parent)
  */
 
-import { useState, type CSSProperties, type ImgHTMLAttributes } from "react";
+import { useState, useEffect, type CSSProperties, type ImgHTMLAttributes } from "react";
 import { ImageOff } from "lucide-react";
 
 export type ObjectFitStrategy = "cover" | "contain" | "fill" | "scale-down" | "none";
@@ -65,6 +65,24 @@ export function ResponsiveMedia({
 }: ResponsiveMediaProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(src ? "loading" : "error");
 
+  useEffect(() => {
+    if (!src) {
+      setStatus("error");
+    } else {
+      setStatus("loading");
+    }
+  }, [src]);
+
+  const handleImgRef = (img: HTMLImageElement | null) => {
+    if (img && img.complete) {
+      if (img.naturalWidth > 0) {
+        setStatus("loaded");
+      } else if (img.naturalWidth === 0 && img.src) {
+        setStatus("error");
+      }
+    }
+  };
+
   const hasCustomBg = containerClassName?.includes("bg-");
   const containerClasses = [
     "relative overflow-hidden",
@@ -78,7 +96,7 @@ export function ResponsiveMedia({
 
   const mediaClasses = [
     "absolute inset-0 h-full w-full transition-opacity duration-300",
-    status === "loaded" ? "opacity-100" : "opacity-0",
+    status === "error" ? "opacity-0" : "opacity-100",
     className,
   ]
     .filter(Boolean)
@@ -98,7 +116,7 @@ export function ResponsiveMedia({
     <div className={containerClasses} style={{ ...aspectStyle, ...containerStyle }}>
       {/* Loading placeholder */}
       {showPlaceholder && status === "loading" && (
-        <div className="absolute inset-0 animate-pulse bg-muted" />
+        <div className="absolute inset-0 animate-pulse bg-muted/60 pointer-events-none" />
       )}
 
       {isVideo ? (
@@ -116,6 +134,7 @@ export function ResponsiveMedia({
         />
       ) : (
         <img
+          ref={handleImgRef}
           src={src}
           alt={alt}
           loading={loading}
