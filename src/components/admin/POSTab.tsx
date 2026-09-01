@@ -577,12 +577,33 @@ export function POSTab() {
         toast.warning("This sale was already processed (duplicate prevented)");
       }
 
-      // Snapshot cart items NOW before any reset
+      // Snapshot cart items NOW before any reset for printing
       setSaleItems(
         cart.map((c) => ({ name: c.name, sku: c.sku, price: c.price, mrp: c.mrp, qty: c.qty })),
       );
       setSaleResult(result);
-      // Only open receipt modal (with autoPrint) if not a duplicate
+
+      // Instantly clear cart, draft storage & customer states so everything is 100% fresh
+      setCart([]);
+      setDiscountType("none");
+      setDiscountValue(0);
+      setCustomerMode("walkin");
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerEmail("");
+      setCustomerId(null);
+      setCustomerSearchQuery("");
+      setProductSearch("");
+      setScanValue("");
+      setCashTendered("");
+      setIdempotencyKey(generateIdempotencyKey());
+      try {
+        localStorage.removeItem(POS_DRAFT_KEY);
+      } catch {
+        // ignore
+      }
+
+      // Open receipt modal (with autoPrint)
       setIsReceiptModalOpen(true);
       setStep("success");
       toast.success(`Sale completed! ${result.sale_number}`);
@@ -602,6 +623,7 @@ export function POSTab() {
     setCustomerEmail("");
     setCustomerId(null);
     setPaymentMethod("cash");
+    setCashTendered("");
     setSaleResult(null);
     setSaleItems([]);
     setStep("cart");
@@ -614,6 +636,7 @@ export function POSTab() {
     } catch {
       // ignore
     }
+    setTimeout(() => scanInputRef.current?.focus(), 80);
   }
 
   // Filtered products for manual search
@@ -1617,7 +1640,10 @@ export function POSTab() {
                 }))
           }
           autoPrint={true}
-          onClose={() => setIsReceiptModalOpen(false)}
+          onClose={() => {
+            setIsReceiptModalOpen(false);
+            resetPOS();
+          }}
         />
       )}
 
@@ -1647,7 +1673,10 @@ export function POSTab() {
                 }))
           }
           autoPrint={false}
-          onClose={() => setIsA4InvoiceOpen(false)}
+          onClose={() => {
+            setIsA4InvoiceOpen(false);
+            resetPOS();
+          }}
         />
       )}
 

@@ -437,6 +437,18 @@ export function POSReturnsTab() {
       setIsReceiptOpen(true);
       setIsConfirmModalOpen(false);
       handleClearCart();
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerEmail("");
+      setCustomerId(null);
+      setCustomerMode("walkin");
+      setCustomerSearchQuery("");
+      setPastOrderSearch("");
+      setScanInput("");
+      setProductSearch("");
+      setReturnNotes("");
+      setExpandedSaleId(null);
+      setIdempotencyKey(generateIdempotencyKey());
       toast.success(
         refundMethod === "exchange_credit"
           ? `Exchange Credit Voucher #${result.return_number} issued!`
