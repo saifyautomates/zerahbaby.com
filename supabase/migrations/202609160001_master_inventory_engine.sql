@@ -151,13 +151,13 @@ BEGIN
   END IF;
 
   -- Pre-fetch shipping settings (safe to assume standard defaults if missing)
-  SELECT value INTO _fd_enabled FROM public.store_settings WHERE key = 'free_shipping_enabled';
+  SELECT value INTO _fd_enabled FROM public.site_settings WHERE key = 'free_delivery_enabled';
   IF _fd_enabled IS NOT NULL THEN is_fd_enabled := (_fd_enabled = 'true'); END IF;
   
-  SELECT value INTO _fd_threshold FROM public.store_settings WHERE key = 'free_shipping_threshold';
+  SELECT value INTO _fd_threshold FROM public.site_settings WHERE key = 'free_delivery_threshold';
   IF _fd_threshold IS NOT NULL THEN fd_threshold := _fd_threshold::numeric; END IF;
   
-  SELECT value INTO _fd_charge FROM public.store_settings WHERE key = 'standard_shipping_rate';
+  SELECT value INTO _fd_charge FROM public.site_settings WHERE key = 'standard_shipping_charge';
   IF _fd_charge IS NOT NULL THEN std_shipping := _fd_charge::numeric; END IF;
 
   -- Initialize order ID
