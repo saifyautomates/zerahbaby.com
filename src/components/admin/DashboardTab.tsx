@@ -219,8 +219,18 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   });
 
   // Authoritative Queries with Real-time synchronization
-  const { data: orders = [], isLoading: ordersLoading } = useAllOrders(true);
-  const { data: rawPosSales = [], isLoading: posLoading } = useQuery<OfflineSale[]>({
+  const {
+    data: orders = [],
+    isLoading: ordersLoading,
+    isError: ordersError,
+    refetch: refetchOrders,
+  } = useAllOrders(true);
+  const {
+    data: rawPosSales = [],
+    isLoading: posLoading,
+    isError: posError,
+    refetch: refetchPos,
+  } = useQuery<OfflineSale[]>({
     queryKey: ["offline-sales"],
     staleTime: 1000 * 5,
     refetchInterval: 15000,
@@ -229,7 +239,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       const { data, error } = await supabase
         .from("offline_sales")
         .select("*, offline_sale_items(*)");
-      if (error) return [];
+      if (error) throw error;
       return (data ?? []) as unknown as OfflineSale[];
     },
   });
@@ -238,19 +248,27 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     return rawPosSales.filter((s) => s.status !== "cancelled");
   }, [rawPosSales]);
 
-  const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
+  const {
+    data: visitors = [],
+    isLoading: visitorsLoading,
+    isError: visitorsError,
+  } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
     staleTime: 1000 * 15,
     refetchInterval: 30000,
     queryFn: async () => {
       const { data, error } = await supabase.from("website_visitors").select("*");
-      if (error) return [];
+      if (error) throw error;
       const v = (data ?? []) as WebsiteVisitor[];
       return v.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
   });
 
-  const { data: products = [], isLoading: productsLoading } = useQuery({
+  const {
+    data: products = [],
+    isLoading: productsLoading,
+    isError: productsError,
+  } = useQuery({
     queryKey: ["admin-products-count"],
     staleTime: 1000 * 10,
     refetchInterval: 20000,
@@ -260,12 +278,14 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .select(
           "id, price, stock, name, is_active, slug, category, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
         );
-      if (error) return [];
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   const isAnyLoading = ordersLoading || posLoading || visitorsLoading || productsLoading;
+  const isAnyError = ordersError || posError || visitorsError || productsError;
+
 
   // Date Range Bounds & Comparison Windows
   const { dateRangeText, compareLabel, inCurrentPeriod, inPrevPeriod } = useMemo(() => {
@@ -832,8 +852,31 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </div>
 
+      {/* Query Error State Banner */}
+      {isAnyError && (
+        <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4 flex items-center justify-between gap-3 text-xs text-destructive">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="size-4 shrink-0" />
+            <span className="font-semibold">
+              Some metrics could not be fetched due to a network or connection issue.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              refetchOrders();
+              refetchPos();
+            }}
+            className="px-3 py-1.5 rounded-xl bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 transition cursor-pointer shrink-0 shadow-xs"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       {/* Top 5 Vibrant, Clickable, Fully-Responsive KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+
         {/* 1. Total Revenue Card (Emerald Green) */}
         <div
           role="button"

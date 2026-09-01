@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback, type DragEvent } from "react";
+import { useMemo, useRef, useState, useCallback, useEffect, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
@@ -464,6 +464,16 @@ export function MediaLibraryPicker({
   accept = "all",
   title = "Media library",
 }: MediaLibraryProps & { title?: string }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || typeof document === "undefined" || !document.body) {
+    return null;
+  }
+
   return createPortal(
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-foreground/50 p-4 sm:p-6"
@@ -498,3 +508,4 @@ export function MediaLibraryPicker({
     document.body,
   );
 }
+

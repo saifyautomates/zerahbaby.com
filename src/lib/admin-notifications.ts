@@ -9,7 +9,8 @@ export type AdminNotificationType =
   | "inventory_low"
   | "email_failed"
   | "contact_message"
-  | "pos_sale";
+  | "pos_sale"
+  | "pos_return";
 
 export interface AdminNotification {
   id: string;
@@ -164,7 +165,31 @@ export function useAdminNotifications() {
     staleTime: 10_000,
   });
 
-  // Realtime subscription to invalidate notifications immediately on new sales/orders
+  // 6. Fetch recent offline POS returns
+  const { data: rawOfflineReturns = [] } = useQuery({
+    queryKey: ["admin-notif-offline-returns"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offline_returns")
+        .select("id, return_number, customer_name, refund_amount, refund_method, return_reason, created_at, status")
+        .order("created_at", { ascending: false })
+        .limit(15);
+      if (error) return [];
+      return (data ?? []) as {
+        id: string;
+        return_number: string;
+        customer_name: string | null;
+        refund_amount: number;
+        refund_method: string;
+        return_reason: string | null;
+        created_at: string;
+        status?: string;
+      }[];
+    },
+    staleTime: 10_000,
+  });
+
+  // Realtime subscription to invalidate notifications immediately on new sales/orders/returns
   useEffect(() => {
     const channel = supabase
       .channel("admin-notifications-realtime")
@@ -175,6 +200,14 @@ export function useAdminNotifications() {
           qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
           qc.invalidateQueries({ queryKey: ["offline-sales"] });
           qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "offline_returns" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["admin-notif-offline-returns"] });
+          qc.invalidateQueries({ queryKey: ["offline-returns"] });
         },
       )
       .on(
@@ -191,6 +224,7 @@ export function useAdminNotifications() {
       supabase.removeChannel(channel);
     };
   }, [qc]);
+
 
   // Combine and sort notifications
   const notifications = useMemo<AdminNotification[]>(() => {
@@ -257,6 +291,22 @@ export function useAdminNotifications() {
       });
     }
 
+    // Process Offline POS Returns
+    for (const ret of rawOfflineReturns) {
+      if (ret.status === "cancelled") continue;
+      list.push({
+        id: `pos-return-${ret.id}`,
+        type: "pos_return",
+        title: `POS Return #${ret.return_number}`,
+        message: `${ret.customer_name || "Walk-in Customer"} • Refunded ₹${Number(ret.refund_amount).toLocaleString("en-IN")} via ${ret.refund_method?.toUpperCase() || "CASH"}${ret.return_reason ? ` (${ret.return_reason})` : ""}`,
+        timestamp: ret.created_at,
+        tab: "billing",
+        filter: "returns",
+        read: readIds.has(`pos-return-${ret.id}`),
+        priority: "normal",
+      });
+    }
+
     // Process Low Stock
     for (const prod of rawLowStock) {
       list.push({
@@ -306,7 +356,7 @@ export function useAdminNotifications() {
         if (a.read !== b.read) return a.read ? 1 : -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-  }, [rawOrders, rawOfflineSales, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
+  }, [rawOrders, rawOfflineSales, rawOfflineReturns, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -380,11 +430,14 @@ export function useAdminNotifications() {
   const refresh = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
+    qc.invalidateQueries({ queryKey: ["admin-notif-offline-returns"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-low-stock"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-failed-emails"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
     qc.invalidateQueries({ queryKey: ["offline-sales"] });
+    qc.invalidateQueries({ queryKey: ["offline-returns"] });
   }, [qc]);
+
 
   return {
     notifications,
