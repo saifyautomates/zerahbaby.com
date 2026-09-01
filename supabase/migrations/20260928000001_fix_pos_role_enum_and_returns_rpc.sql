@@ -1,111 +1,16 @@
--- ==============================================================================
--- Migration: Production-Hardening for Central Inventory, POS Returns, and Channels
--- Description: 
--- 1. Adds previous_quantity & new_quantity to inventory_transactions
--- 2. Hardens get_related_products to strictly exclude OFFLINE_ONLY products
--- 3. Updates process_offline_return to restock both parent & variant stock atomically
--- 4. Updates place_order & place_offline_sale to record previous & new stock in inventory_transactions
--- ==============================================================================
+-- Fix app_role enum and POS/Return RPC auth checks
+-- Date: 2026-09-02
 
--- 1. Schema Extensions for inventory_transactions
-ALTER TABLE public.inventory_transactions ADD COLUMN IF NOT EXISTS previous_quantity integer;
-ALTER TABLE public.inventory_transactions ADD COLUMN IF NOT EXISTS new_quantity integer;
-
--- 2. Harden get_related_products to strictly exclude OFFLINE_ONLY products from storefront recommendations
-CREATE OR REPLACE FUNCTION public.get_related_products(
-  p_product_id uuid,
-  p_limit integer DEFAULT 6
-)
-RETURNS TABLE (
-  id uuid,
-  name text,
-  slug text,
-  price numeric,
-  mrp numeric,
-  image_url text,
-  images text[],
-  category text,
-  brand text,
-  stock integer,
-  low_stock_at integer,
-  is_active boolean,
-  relation_source text,
-  sort_order integer
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_mode text;
-  v_category text;
-  v_brand text;
-  v_manual_count integer := 0;
+-- 1. Ensure 'pos' is safely recognized in app_role enum if present
+DO $$
 BEGIN
-  -- Get current product info
-  SELECT recommendation_mode, category, brand 
-  INTO v_mode, v_category, v_brand
-  FROM public.products 
-  WHERE products.id = p_product_id;
+  ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'pos';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_object THEN NULL;
+END $$;
 
-  IF NOT FOUND THEN
-    RETURN;
-  END IF;
-
-  -- 1. Fetch Manual Relations (strictly active and ONLINE_AND_OFFLINE)
-  RETURN QUERY
-  SELECT 
-    p.id, p.name, p.slug, p.price, p.mrp, p.image_url, p.images, p.category, p.brand, p.stock, p.low_stock_at, p.is_active,
-    'manual'::text AS relation_source,
-    CASE 
-      WHEN pr.product_1_id = p_product_id THEN pr.sort_order_1 
-      ELSE pr.sort_order_2 
-    END AS sort_order
-  FROM public.product_relations pr
-  JOIN public.products p ON (p.id = pr.product_1_id OR p.id = pr.product_2_id) AND p.id != p_product_id
-  WHERE (pr.product_1_id = p_product_id OR pr.product_2_id = p_product_id)
-    AND p.is_active = true
-    AND p.sales_channel = 'ONLINE_AND_OFFLINE'
-  ORDER BY sort_order ASC
-  LIMIT p_limit;
-
-  -- 2. Fetch Automatic Fallback (if applicable)
-  IF v_mode IN ('auto', 'manual_fallback') THEN
-    SELECT count(*) INTO v_manual_count 
-    FROM public.product_relations pr
-    JOIN public.products p ON (p.id = pr.product_1_id OR p.id = pr.product_2_id) AND p.id != p_product_id
-    WHERE (pr.product_1_id = p_product_id OR pr.product_2_id = p_product_id)
-      AND p.is_active = true
-      AND p.sales_channel = 'ONLINE_AND_OFFLINE';
-
-    IF v_manual_count < p_limit THEN
-      RETURN QUERY
-      SELECT 
-        p.id, p.name, p.slug, p.price, p.mrp, p.image_url, p.images, p.category, p.brand, p.stock, p.low_stock_at, p.is_active,
-        'auto'::text AS relation_source,
-        999 AS sort_order
-      FROM public.products p
-      WHERE p.id != p_product_id
-        AND p.is_active = true
-        AND p.sales_channel = 'ONLINE_AND_OFFLINE'
-        AND (p.category = v_category OR p.brand = v_brand)
-        AND p.id NOT IN (
-          SELECT CASE WHEN product_1_id = p_product_id THEN product_2_id ELSE product_1_id END 
-          FROM public.product_relations 
-          WHERE product_1_id = p_product_id OR product_2_id = p_product_id
-        )
-      ORDER BY 
-        CASE WHEN p.category = v_category AND p.brand = v_brand THEN 0 ELSE 1 END,
-        p.created_at DESC
-      LIMIT (p_limit - v_manual_count);
-    END IF;
-  END IF;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_related_products(uuid, integer) TO anon, authenticated, service_role;
-
--- 3. Update process_offline_return to restock both parent product & variant stock atomically
+-- 2. Update process_offline_return to use canonical 'admin' and 'staff' role checks
 CREATE OR REPLACE FUNCTION public.process_offline_return(
   _customer_name text DEFAULT 'Walk-in Customer',
   _customer_phone text DEFAULT '',
@@ -288,32 +193,146 @@ BEGIN
       sku,
       barcode,
       variant_info,
-      refund_price,
       qty,
-      subtotal,
-      mrp_snapshot
+      unit_mrp,
+      refund_price
     ) VALUES (
       new_return_id,
       item.product_id,
-      COALESCE(item.product_slug, ''),
-      COALESCE(item.name, ''),
+      item.product_slug,
+      item.name,
       COALESCE(item.sku, ''),
       COALESCE(item.barcode, ''),
-      COALESCE(item.variant_info, ''),
-      item.refund_price,
+      item.variant_info,
       item.qty,
-      item.refund_price * item.qty,
-      COALESCE(item.mrp, item.refund_price)
+      item.mrp,
+      item.refund_price
     );
   END LOOP;
 
+  -- 8. Return response
   RETURN jsonb_build_object(
     'return_id', new_return_id,
     'return_number', new_return_number,
     'refund_amount', computed_total_refund,
-    'duplicate', false
+    'items_count', item_count,
+    'status', 'completed'
   );
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.process_offline_return TO authenticated, service_role;
+
+-- 3. Update place_offline_sale to use canonical 'admin' and 'staff' role checks
+CREATE OR REPLACE FUNCTION public.place_offline_sale(
+  _customer_name text DEFAULT 'Walk-in Customer',
+  _customer_phone text DEFAULT '',
+  _customer_email text DEFAULT '',
+  _customer_id uuid DEFAULT NULL,
+  _payment_method text DEFAULT 'cash',
+  _discount_type text DEFAULT 'percentage',
+  _discount_value numeric DEFAULT 0,
+  _notes text DEFAULT '',
+  _items jsonb DEFAULT '[]'::jsonb,
+  _idempotency_key text DEFAULT NULL
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  uid uuid := auth.uid();
+  item record;
+  variant record;
+  new_sale_id uuid;
+  new_receipt_number text;
+  sale_subtotal numeric := 0;
+  final_discount_amount numeric := 0;
+  final_total numeric := 0;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+  IF NOT public.has_role(uid, 'admin') AND NOT public.has_role(uid, 'staff') THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  IF _idempotency_key IS NOT NULL AND _idempotency_key != '' THEN
+    SELECT id INTO new_sale_id FROM public.offline_sales WHERE idempotency_key = _idempotency_key;
+    IF FOUND THEN
+      RETURN jsonb_build_object('success', true, 'sale_id', new_sale_id, 'duplicate', true);
+    END IF;
+  END IF;
+
+  new_sale_id := gen_random_uuid();
+  new_receipt_number := public.generate_pos_sale_number();
+
+  INSERT INTO public.offline_sales (
+    id, receipt_number, cashier_id, customer_id, customer_name, customer_phone, customer_email,
+    subtotal, discount_type, discount_value, discount_amount, total_amount, payment_method, notes, idempotency_key
+  ) VALUES (
+    new_sale_id, new_receipt_number, uid, _customer_id, _customer_name, _customer_phone, _customer_email,
+    0, _discount_type, _discount_value, 0, 0, _payment_method, _notes, _idempotency_key
+  );
+
+  FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(
+    variant_id uuid,
+    product_id uuid,
+    product_name text,
+    sku text,
+    barcode text,
+    quantity int,
+    unit_price numeric,
+    item_type text,
+    notes text
+  )
+  LOOP
+    IF item.quantity <= 0 THEN RAISE EXCEPTION 'Quantity must be greater than 0'; END IF;
+    IF item.unit_price < 0 THEN RAISE EXCEPTION 'Price cannot be negative'; END IF;
+
+    sale_subtotal := sale_subtotal + (item.quantity * item.unit_price);
+
+    IF COALESCE(item.item_type, 'catalog') = 'catalog' AND item.variant_id IS NOT NULL THEN
+      SELECT * INTO variant FROM public.product_variants WHERE id = item.variant_id FOR UPDATE;
+      IF NOT FOUND THEN RAISE EXCEPTION 'Variant % not found', item.variant_id; END IF;
+      IF variant.stock < item.quantity THEN
+        RAISE EXCEPTION 'Insufficient stock for SKU % (Available: %, Requested: %)', variant.sku, variant.stock, item.quantity;
+      END IF;
+
+      UPDATE public.product_variants SET stock = stock - item.quantity WHERE id = variant.id;
+      UPDATE public.products SET stock = stock - item.quantity WHERE id = variant.product_id;
+
+      INSERT INTO public.inventory_transactions (
+        product_id, variant_id, type, quantity, previous_quantity, new_quantity, reference_type, reference_id, created_by
+      ) VALUES (
+        variant.product_id, variant.id, 'offline_sale', item.quantity, variant.stock, variant.stock - item.quantity, 'pos_receipt', new_sale_id, uid
+      );
+    END IF;
+
+    INSERT INTO public.offline_sale_items (
+      sale_id, variant_id, product_id, product_name, sku, barcode, quantity, unit_price, total_price, item_type, notes
+    ) VALUES (
+      new_sale_id, item.variant_id, item.product_id, item.product_name, item.sku, item.barcode,
+      item.quantity, item.unit_price, (item.quantity * item.unit_price), COALESCE(item.item_type, 'catalog'), item.notes
+    );
+  END LOOP;
+
+  IF _discount_type = 'percentage' THEN
+    final_discount_amount := round((sale_subtotal * (_discount_value / 100.0)), 2);
+  ELSE
+    final_discount_amount := LEAST(sale_subtotal, _discount_value);
+  END IF;
+
+  final_total := GREATEST(0, sale_subtotal - final_discount_amount);
+
+  UPDATE public.offline_sales
+  SET subtotal = sale_subtotal,
+      discount_amount = final_discount_amount,
+      total_amount = final_total
+  WHERE id = new_sale_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'sale_id', new_sale_id,
+    'receipt_number', new_receipt_number,
+    'total', final_total
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.place_offline_sale TO authenticated, service_role;
