@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { useProducts, getColorSwatchImage, type Product, type ProductVariant } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -237,6 +238,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const [coupon, setCoupon] = useState<CartCoupon | null>(null);
 
+  // Auto-remove coupon if subtotal falls below minimum order requirement
+  useEffect(() => {
+    if (!coupon) return;
+    const list = products ?? [];
+    const items = lines
+      .map((line) => {
+        const p = list.find((x) => x.id === line.id);
+        if (!p) return null;
+        const defaultVariantId = p.variants?.length ? p.variants[0].id : undefined;
+        const v = p.variants?.find((v) => v.id === (line.variantId || defaultVariantId));
+        return (v?.priceOverride || p.price) * line.qty;
+      })
+      .filter((x): x is number => x !== null);
+    const subtotal = items.reduce((sum, val) => sum + val, 0);
+
+    const minOrder = Number(coupon.minimumOrderValue || 0);
+    if (minOrder > 0 && subtotal > 0 && subtotal < minOrder) {
+      toast.error(`Coupon "${coupon.code}" removed (Min. order ₹${minOrder} required)`);
+      setCoupon(null);
+    }
+  }, [lines, products, coupon]);
+
   const value = useMemo<CartContextValue>(() => {
     const list = products ?? [];
     const items: CartItem[] = lines
@@ -275,22 +298,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // Dynamically recalculate coupon discount based on current subtotal
     let activeCoupon: CartCoupon | null = null;
     if (coupon) {
-      let calculatedDiscount = 0;
-      if (subtotal >= coupon.minimumOrderValue) {
-        if (coupon.discountType === "percentage") {
-          calculatedDiscount = (subtotal * coupon.discountValue) / 100;
-          if (coupon.maximumDiscount > 0 && calculatedDiscount > coupon.maximumDiscount) {
-            calculatedDiscount = coupon.maximumDiscount;
+      const minOrder = Number(coupon.minimumOrderValue || 0);
+      const discountType = coupon.discountType || "percentage";
+      const discountVal = Number(coupon.discountValue || 0);
+      const maxDiscount = Number(coupon.maximumDiscount || 0);
+
+      if (subtotal >= minOrder) {
+        let calculatedDiscount = 0;
+        if (discountType === "percentage" && discountVal > 0) {
+          calculatedDiscount = (subtotal * discountVal) / 100;
+          if (maxDiscount > 0 && calculatedDiscount > maxDiscount) {
+            calculatedDiscount = maxDiscount;
           }
+        } else if (discountVal > 0) {
+          calculatedDiscount = Math.min(subtotal, discountVal);
         } else {
-          calculatedDiscount = Math.min(subtotal, coupon.discountValue);
+          // Fallback if legacy object didn't have discountValue explicitly set
+          calculatedDiscount = coupon.discount || 0;
+        }
+
+        calculatedDiscount = Math.round(calculatedDiscount);
+        if (calculatedDiscount > 0) {
+          activeCoupon = {
+            ...coupon,
+            discount: calculatedDiscount,
+          };
         }
       }
-      calculatedDiscount = Math.round(calculatedDiscount);
-      activeCoupon = {
-        ...coupon,
-        discount: calculatedDiscount,
-      };
     }
 
     const couponDiscount = activeCoupon?.discount || 0;
