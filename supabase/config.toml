@@ -1,6 +1,6 @@
 project_id = "wbbatgbvizhghtkvuguf"
 [functions.test-env-dump]
-enabled = true
+enabled = false
 verify_jwt = false
 import_map = "./functions/test-env-dump/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
