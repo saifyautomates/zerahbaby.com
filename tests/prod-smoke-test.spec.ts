@@ -75,9 +75,7 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
       .first();
     if ((await searchInput.count()) > 0 && (await searchInput.isVisible())) {
       console.log("Search input outerHTML:", await searchInput.evaluate((node) => node.outerHTML));
-      await searchInput.click();
-      await page.keyboard.type("baby", { delay: 100 });
-      await page.waitForTimeout(500); // give React a moment if needed
+      await searchInput.fill("baby");
       const val = await searchInput.inputValue();
       console.log("Search input value after fill:", val);
       expect(val).toBe("baby");

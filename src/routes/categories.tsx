@@ -1,10 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { Search, ChevronRight, Sparkles, Layers, Package, ArrowRight } from "lucide-react";
-import { useCategories, useProducts, ageGroups } from "@/lib/store";
+import {
+  useCategories,
+  useProducts,
+  ageGroups,
+  categoriesQueryOptions,
+  productsQueryOptions,
+} from "@/lib/store";
+import { useQuery } from "@tanstack/react-query";
 import { LazyImage } from "@/components/ui/LazyImage";
 
 export const Route = createFileRoute("/categories")({
+  loader: async ({ context }) => {
+    const [categories, products] = await Promise.all([
+      context.queryClient.ensureQueryData(categoriesQueryOptions()),
+      context.queryClient.ensureQueryData(productsQueryOptions(false)),
+    ]).catch(() => [[], []]);
+    return {
+      categories,
+      products,
+    };
+  },
   head: () => ({
     meta: [
       { title: "All Categories — Zerah Baby And Kid's" },
@@ -51,8 +68,15 @@ export const Route = createFileRoute("/categories")({
 });
 
 function CategoriesPage() {
-  const { data: categories = [], isLoading: catLoading } = useCategories();
-  const { data: products = [] } = useProducts();
+  const loaderData = Route.useLoaderData();
+  const { data: categories = [], isLoading: catLoading } = useQuery({
+    ...categoriesQueryOptions(),
+    initialData: loaderData?.categories ?? undefined,
+  });
+  const { data: products = [] } = useQuery({
+    ...productsQueryOptions(false),
+    initialData: loaderData?.products ?? undefined,
+  });
   const [searchQuery, setSearchQuery] = useState("");
 
   // Calculate product counts per category

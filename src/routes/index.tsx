@@ -31,10 +31,14 @@ import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    await Promise.all([
+    const [products, categories] = await Promise.all([
       context.queryClient.ensureQueryData(productsQueryOptions(false)),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
-    ]).catch(() => null);
+    ]).catch(() => [[], []]);
+    return {
+      products,
+      categories,
+    };
   },
   head: () => ({
     meta: [
@@ -75,8 +79,15 @@ const defaultHeroSlides = [
 ];
 
 function Index() {
-  const { data: products, isLoading } = useProducts();
-  const { data: categories } = useCategories();
+  const loaderData = Route.useLoaderData();
+  const { data: products, isLoading } = useQuery({
+    ...productsQueryOptions(false),
+    initialData: loaderData?.products ?? undefined,
+  });
+  const { data: categories } = useQuery({
+    ...categoriesQueryOptions(),
+    initialData: loaderData?.categories ?? undefined,
+  });
   const { heroTitle, heroSubtitle } = useSettings();
   const { data: heroSlides } = useHeroMedia();
   const { adminMode } = useAdminMode();
