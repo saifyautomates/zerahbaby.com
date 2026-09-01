@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { AdminAddProduct } from "@/components/admin/InlineAdmin";
@@ -521,14 +522,14 @@ function ShopPage() {
       </div>
 
       {/* Mobile filter drawer */}
-      {drawerOpen && (
+      {drawerOpen && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-foreground/30 backdrop-blur-sm"
             onClick={() => setDrawerOpen(false)}
             aria-hidden
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85svh] overflow-y-auto scroll-ios rounded-t-3xl border-t border-border bg-background p-5 pb-safe shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-x-0 bottom-0 z-[210] max-h-[85svh] overflow-y-auto scroll-ios rounded-t-3xl border-t border-border bg-background p-5 pb-safe shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">Filters</h2>
               <button
@@ -555,12 +556,13 @@ function ShopPage() {
             />
             <button
               onClick={() => setDrawerOpen(false)}
-              className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 min-touch"
+              className="mt-6 w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 min-touch cursor-pointer"
             >
               Show {visible.length} result{visible.length === 1 ? "" : "s"}
             </button>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

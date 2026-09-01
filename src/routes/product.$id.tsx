@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Star,
   Truck,
@@ -1048,14 +1049,14 @@ function ProductPage() {
       )}
 
       {/* Fullscreen Lightbox */}
-      {showLightbox && product && (
+      {showLightbox && product && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-300"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-300"
           onClick={() => setShowLightbox(false)}
         >
           <button
             onClick={() => setShowLightbox(false)}
-            className="absolute top-6 right-6 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+            className="absolute top-6 right-6 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
             aria-label="Close fullscreen"
           >
             <X className="size-6 sm:size-8" />
@@ -1068,7 +1069,7 @@ function ProductPage() {
                   e.stopPropagation();
                   handlePrev();
                 }}
-                className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+                className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
                 aria-label="Previous image"
               >
                 <ChevronLeft className="size-6 sm:size-8" />
@@ -1078,7 +1079,7 @@ function ProductPage() {
                   e.stopPropagation();
                   handleNext();
                 }}
-                className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
+                className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors cursor-pointer"
                 aria-label="Next image"
               >
                 <ChevronRight className="size-6 sm:size-8" />
@@ -1120,7 +1121,7 @@ function ProductPage() {
                 <button
                   key={url}
                   onClick={() => setActiveImage(i)}
-                  className={`size-12 sm:size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                  className={`size-12 sm:size-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all cursor-pointer ${
                     i === activeImage
                       ? "border-white scale-110"
                       : "border-transparent opacity-50 hover:opacity-100"
@@ -1135,7 +1136,8 @@ function ProductPage() {
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </main>
   );
@@ -1513,11 +1515,11 @@ function ReviewsSection({
       )}
 
       {/* Full-Screen Photo Lightbox */}
-      {selectedPhoto && (
+      {selectedPhoto && typeof document !== "undefined" && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setSelectedPhoto(null)}
         >
           <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
@@ -1535,7 +1537,8 @@ function ReviewsSection({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
@@ -1843,12 +1846,12 @@ function BuyNowModal({
   const field =
     "w-full rounded-xl border border-border bg-background px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-primary transition";
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="buy-now-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
     >
       <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
@@ -2022,4 +2025,6 @@ function BuyNowModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
 }

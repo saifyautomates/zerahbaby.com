@@ -2,6 +2,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useProducts, formatPrice } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
@@ -279,12 +280,12 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
     }
   }
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="cancel-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
     >
       <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
@@ -378,6 +379,8 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }
 
 function OrderTimeline({ orderId }: { orderId: string }) {
