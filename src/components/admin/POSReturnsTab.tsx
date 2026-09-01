@@ -462,7 +462,7 @@ export function POSReturnsTab() {
   }, [returnsList, historySearch]);
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col space-y-5">
       {/* ── Sub-Header & Navigation Tabs ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 shrink-0">
         <div className="flex items-center gap-2">
@@ -511,9 +511,9 @@ export function POSReturnsTab() {
 
       {/* ── VIEW 1: PROCESS RETURN ── */}
       {view === "process" && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* LEFT 7-COL: Past Order Lookup, Barcode Scanner, Cart & Items */}
-          <div className="lg:col-span-7 flex flex-col space-y-4 overflow-y-auto pr-1">
+          <div className="lg:col-span-7 flex flex-col space-y-4">
             {/* 1. Find Customer / Past Purchase Lookup Box */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
@@ -895,7 +895,7 @@ export function POSReturnsTab() {
           </div>
 
           {/* RIGHT 5-COL: Customer, Resolution / Exchange Method, Notes & Actions */}
-          <div className="lg:col-span-5 flex flex-col space-y-4 overflow-y-auto pr-1">
+          <div className="lg:col-span-5 flex flex-col space-y-4 lg:sticky lg:top-4">
             {/* Customer Association */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between">

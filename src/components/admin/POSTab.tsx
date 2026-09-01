@@ -645,7 +645,7 @@ export function POSTab() {
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-background overflow-hidden relative">
+    <div className="flex min-h-full flex-col rounded-2xl border border-border/50 bg-background relative">
       {/* ====== LEFT PANEL: Cart & Scanning ====== */}
       <div className="flex flex-1 flex-col min-w-0 min-h-0">
         {/* Scanner Header with Realtime / Offline Sync Status */}

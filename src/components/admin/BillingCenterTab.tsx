@@ -67,7 +67,7 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
   }, [activeTab]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+    <div className="flex flex-col min-h-full bg-card rounded-2xl border border-border shadow-sm">
       {/* Header & Sub-navigation — World-Class Segmented Bar */}
       <div className="shrink-0 flex items-center justify-between border-b border-border/80 px-4 sm:px-6 py-3 bg-muted/30">
         <div className="flex items-center gap-1.5 p-1 bg-background rounded-xl border border-border/60 shadow-2xs overflow-x-auto no-scrollbar">
@@ -129,11 +129,11 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col p-4 bg-muted/10">
+      {/* Content Area — Natural smooth scrollable layout */}
+      <div className="flex-1 flex flex-col p-4 sm:p-6 bg-muted/10">
         <div
           key={activeTab}
-          className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden"
+          className="flex-1 animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col"
         >
           <ComponentErrorBoundary fallbackTitle="Sub-tab Loading Exception">
             <Suspense
@@ -146,16 +146,8 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
               {activeTab === "pos" && <POSTab />}
               {activeTab === "returns" && <POSReturnsTab />}
               {activeTab === "labels" && <LabelPrintingSubTab />}
-              {activeTab === "sales" && (
-                <div className="overflow-y-auto h-full pr-2 pb-10">
-                  <OfflineAnalyticsTab />
-                </div>
-              )}
-              {activeTab === "customers" && (
-                <div className="overflow-y-auto h-full pr-2 pb-10">
-                  <CustomerHistoryPanel />
-                </div>
-              )}
+              {activeTab === "sales" && <OfflineAnalyticsTab />}
+              {activeTab === "customers" && <CustomerHistoryPanel />}
             </Suspense>
           </ComponentErrorBoundary>
         </div>
