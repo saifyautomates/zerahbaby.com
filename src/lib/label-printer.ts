@@ -1,13 +1,13 @@
 /**
  * One-Click Direct Product Label Printer Engine & Standalone Print Bridge
  *
- * Supports:
- * - Persistent printer format profile (A4_GRID, THERMAL_108MM, THERMAL_58MM)
+ * Specifically engineered for Zérah Baby & Kids Thermal Barcode Label Printers:
+ * - 2-Up Sticker Roll (100mm width × 25mm height, 2 stickers per row) [Default for HPRT HT300 / 108mm]
+ * - 1-Up Single Sticker Roll (50mm width × 25mm height) [thermal-58]
+ * - A4 Grid (4 columns × 10 rows on A4 paper) [a4]
  * - 100% Isolated iframe-based printing: immune to screen styles, background modals, and toasts
- * - Strict physical millimeter geometry (50×25mm for 58mm, 100×50mm for 108mm, A4 Grid)
  * - Code 128 SVG Barcode rendering with quiet zones and human-readable text
  * - Dynamic MRP / Discount badge calculations
- * - Debounced duplicate-click prevention
  */
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
@@ -167,12 +167,12 @@ export function generateBarcodeSvgString(
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     JsBarcode(svg, safeText, {
       format: "CODE128",
-      width: options?.width ?? 1.1,
-      height: options?.height ?? 24,
-      fontSize: options?.fontSize ?? 8,
+      width: options?.width ?? 0.85,
+      height: options?.height ?? 16,
+      fontSize: options?.fontSize ?? 7,
       margin: 1,
       displayValue: options?.displayValue ?? true,
-      font: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      font: "ui-monospace, monospace, sans-serif",
       fontOptions: "bold",
       textMargin: 1,
       background: "transparent",
@@ -181,7 +181,7 @@ export function generateBarcodeSvgString(
     return svg.outerHTML;
   } catch (err) {
     console.error("Barcode SVG generation failed:", err);
-    return `<div style="font-family:monospace;font-size:9px;font-weight:bold;letter-spacing:1px;text-align:center;">${escapeHtml(safeText)}</div>`;
+    return `<div style="font-family:monospace;font-size:8px;font-weight:bold;letter-spacing:1px;text-align:center;">${escapeHtml(safeText)}</div>`;
   }
 }
 
@@ -227,25 +227,24 @@ export function buildLabelPrintHtml(params: {
   const is108 = layout === "thermal-108";
   const isA4 = layout === "a4";
 
-  // Exact physical dimensions
-  const labelWidth = params.widthMm || (is58 ? 50 : is108 ? 100 : 48);
-  const labelHeight = params.heightMm || (is58 ? 25 : is108 ? 50 : 26.5);
-
   let pageStyle = "";
   let bodyStyle = "";
 
-  if (is58) {
-    pageStyle = `@page { size: ${labelWidth}mm ${labelHeight}mm; margin: 0; }`;
-    bodyStyle = `width: ${labelWidth}mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
-  } else if (is108) {
-    pageStyle = `@page { size: ${labelWidth}mm ${labelHeight}mm; margin: 0; }`;
-    bodyStyle = `width: ${labelWidth}mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
+  if (is108) {
+    // 2-Up thermal stickers: 100mm total width × 25mm height (2 stickers of 48×24mm side-by-side)
+    pageStyle = `@page { size: 100mm 25mm; margin: 0; }`;
+    bodyStyle = `width: 100mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
+  } else if (is58) {
+    // 1-Up single sticker: 50mm width × 25mm height
+    pageStyle = `@page { size: 50mm 25mm; margin: 0; }`;
+    bodyStyle = `width: 50mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
   } else {
+    // A4 grid
     pageStyle = `@page { size: A4 portrait; margin: 8mm 6mm; }`;
     bodyStyle = `margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
   }
 
-  const renderSingleLabelContent = (p: PrintableProduct) => {
+  const renderSingleSticker = (p: PrintableProduct) => {
     const rawBarcode = p.barcode || p.sku || "NO-BARCODE";
     const hasMrp = p.mrp && p.mrp > p.price;
     const discPct =
@@ -253,9 +252,9 @@ export function buildLabelPrintHtml(params: {
 
     if (labelType === "barcode-only") {
       const bcSvg = generateBarcodeSvgString(rawBarcode, {
-        width: is58 ? 0.95 : is108 ? 1.4 : 1.0,
-        height: is58 ? 18 : is108 ? 32 : 20,
-        fontSize: is58 ? 7.5 : is108 ? 9 : 8,
+        width: 0.88,
+        height: 18,
+        fontSize: 7,
         displayValue: true,
       });
 
@@ -269,15 +268,15 @@ export function buildLabelPrintHtml(params: {
 
     // Full label
     const bcSvg = generateBarcodeSvgString(rawBarcode, {
-      width: is58 ? 0.9 : is108 ? 1.4 : 0.95,
-      height: is58 ? 16 : is108 ? 30 : 18,
-      fontSize: is58 ? 7 : is108 ? 9 : 7.5,
+      width: 0.85,
+      height: 15,
+      fontSize: 6.5,
       displayValue: true,
     });
 
     return `
       <div class="brand">ZÉRAH BABY &amp; KIDS</div>
-      <div class="prod-name clamp-2">${escapeHtml(p.name)}</div>
+      <div class="prod-name truncate">${escapeHtml(p.name)}</div>
       <div class="meta-row">
         <span class="sku">SKU: ${escapeHtml(p.sku || "—")}</span>
         <span class="price">₹${p.price.toLocaleString("en-IN")}</span>
@@ -290,30 +289,55 @@ export function buildLabelPrintHtml(params: {
 
   let labelsHtml = "";
 
-  if (isA4) {
+  if (is108) {
+    // Group into rows of 2 (2-Up format)
+    const rows: Array<[PrintableProduct, PrintableProduct | null]> = [];
+    for (let i = 0; i < expandedProducts.length; i += 2) {
+      rows.push([expandedProducts[i], expandedProducts[i + 1] || null]);
+    }
+
+    labelsHtml = rows
+      .map(
+        ([left, right]) => `
+      <div class="thermal-2up-page">
+        <div class="sticker-cell">
+          ${renderSingleSticker(left)}
+        </div>
+        <div class="sticker-cell ${right ? "" : "empty"}">
+          ${right ? renderSingleSticker(right) : ""}
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+  } else if (is58) {
+    // 1-Up single label
+    labelsHtml = expandedProducts
+      .map(
+        (p) => `
+      <div class="thermal-1up-page">
+        <div class="sticker-cell">
+          ${renderSingleSticker(p)}
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+  } else {
+    // A4 grid (4 columns)
     labelsHtml = `
       <div class="a4-grid">
         ${expandedProducts
           .map(
             (p) => `
           <div class="a4-label-cell">
-            ${renderSingleLabelContent(p)}
+            ${renderSingleSticker(p)}
           </div>
         `,
           )
           .join("")}
       </div>
     `;
-  } else {
-    labelsHtml = expandedProducts
-      .map(
-        (p) => `
-        <div class="thermal-label-page">
-          ${renderSingleLabelContent(p)}
-        </div>
-      `,
-      )
-      .join("");
   }
 
   return `
@@ -344,25 +368,31 @@ export function buildLabelPrintHtml(params: {
       width: 100%;
     }
 
-    .clamp-2 {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      width: 100%;
-    }
-
-    /* ─── THERMAL 58MM / 50x25MM ─── */
-    .thermal-label-page {
-      width: ${labelWidth}mm;
-      height: ${labelHeight}mm;
-      max-height: ${labelHeight}mm;
-      min-height: ${labelHeight}mm;
-      padding: ${is58 ? "1.2mm 2mm 0.8mm 2mm" : "2.5mm 3.5mm 1.5mm 3.5mm"};
+    /* ─── 2-UP THERMAL (100mm × 25mm row, 2 stickers side-by-side) ─── */
+    .thermal-2up-page {
+      width: 100mm;
+      height: 25mm;
+      max-height: 25mm;
+      min-height: 25mm;
       page-break-after: always;
       break-after: page;
       page-break-inside: avoid;
       break-inside: avoid;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      overflow: hidden;
+      background: #ffffff;
+      padding: 0 1mm;
+    }
+
+    .thermal-2up-page .sticker-cell {
+      width: 48mm;
+      height: 24mm;
+      max-height: 24mm;
+      min-height: 24mm;
+      padding: 1.2mm 2mm 0.8mm 2mm;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -372,59 +402,97 @@ export function buildLabelPrintHtml(params: {
       background: #ffffff;
     }
 
-    .thermal-label-page .brand {
-      font-size: ${is58 ? "6pt" : "8pt"};
+    .thermal-2up-page .sticker-cell.empty {
+      visibility: hidden;
+    }
+
+    /* ─── 1-UP THERMAL (50mm × 25mm) ─── */
+    .thermal-1up-page {
+      width: 50mm;
+      height: 25mm;
+      max-height: 25mm;
+      min-height: 25mm;
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .thermal-1up-page .sticker-cell {
+      width: 48mm;
+      height: 24mm;
+      max-height: 24mm;
+      min-height: 24mm;
+      padding: 1.2mm 2mm 0.8mm 2mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    /* Shared Typography for Thermal Stickers */
+    .brand {
+      font-size: 5.5pt;
       font-weight: 800;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
       text-transform: uppercase;
       line-height: 1;
       color: #333333;
     }
 
-    .thermal-label-page .prod-name {
-      font-size: ${is58 ? "7pt" : "9.5pt"};
+    .prod-name {
+      font-size: 6.8pt;
       font-weight: 700;
-      line-height: 1.1;
+      line-height: 1.05;
       color: #000000;
-      margin-top: 0.3mm;
+      max-width: 44mm;
+      margin-top: 0.2mm;
     }
 
-    .thermal-label-page .meta-row {
+    .meta-row {
       display: flex;
       align-items: baseline;
       justify-content: center;
-      gap: ${is58 ? "1.5mm" : "3mm"};
-      font-size: ${is58 ? "6.5pt" : "8.5pt"};
+      gap: 1.5mm;
+      font-size: 6pt;
       line-height: 1;
-      margin-top: 0.4mm;
+      margin-top: 0.3mm;
       flex-wrap: nowrap;
     }
 
-    .thermal-label-page .sku {
+    .sku {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: ${is58 ? "5.5pt" : "7pt"};
+      font-size: 5pt;
       color: #555555;
     }
 
-    .thermal-label-page .price {
-      font-size: ${is58 ? "7.5pt" : "10.5pt"};
+    .price {
+      font-size: 7.5pt;
       font-weight: 900;
       color: #000000;
     }
 
-    .thermal-label-page .mrp {
-      font-size: ${is58 ? "5.5pt" : "7pt"};
+    .mrp {
+      font-size: 5pt;
       text-decoration: line-through;
       color: #777777;
     }
 
-    .thermal-label-page .disc {
-      font-size: ${is58 ? "5.5pt" : "7pt"};
+    .disc {
+      font-size: 5pt;
       font-weight: 800;
       color: #000000;
     }
 
-    .thermal-label-page .barcode-container {
+    .barcode-container {
       width: 100%;
       display: flex;
       justify-content: center;
@@ -433,8 +501,8 @@ export function buildLabelPrintHtml(params: {
       margin-top: 0.2mm;
     }
 
-    .thermal-label-page .barcode-container svg {
-      max-width: 100%;
+    .barcode-container svg {
+      max-width: 44mm;
       display: block;
     }
 
@@ -442,16 +510,16 @@ export function buildLabelPrintHtml(params: {
     .a4-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      grid-auto-rows: ${labelHeight}mm;
+      grid-auto-rows: 26.5mm;
       gap: 1.5mm;
       width: 100%;
     }
 
     .a4-label-cell {
       width: 100%;
-      height: ${labelHeight}mm;
-      max-height: ${labelHeight}mm;
-      min-height: ${labelHeight}mm;
+      height: 26.5mm;
+      max-height: 26.5mm;
+      min-height: 26.5mm;
       padding: 1.2mm 1.5mm;
       border: 1px dashed #bbbbbb;
       border-radius: 1.5mm;
@@ -464,71 +532,6 @@ export function buildLabelPrintHtml(params: {
       text-align: center;
       overflow: hidden;
       background: #ffffff;
-    }
-
-    .a4-label-cell .brand {
-      font-size: 5.5pt;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: #444444;
-      line-height: 1;
-    }
-
-    .a4-label-cell .prod-name {
-      font-size: 6.5pt;
-      font-weight: 700;
-      line-height: 1.1;
-      color: #000000;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
-    }
-
-    .a4-label-cell .meta-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: 1mm;
-      font-size: 6pt;
-      line-height: 1;
-    }
-
-    .a4-label-cell .sku {
-      font-family: ui-monospace, monospace;
-      font-size: 5pt;
-      color: #666666;
-    }
-
-    .a4-label-cell .price {
-      font-size: 7pt;
-      font-weight: 900;
-      color: #000000;
-    }
-
-    .a4-label-cell .mrp {
-      font-size: 5pt;
-      text-decoration: line-through;
-      color: #888888;
-    }
-
-    .a4-label-cell .disc {
-      font-size: 5pt;
-      font-weight: 800;
-    }
-
-    .a4-label-cell .barcode-container {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-
-    .a4-label-cell .barcode-container svg {
-      max-width: 100%;
-      display: block;
     }
   </style>
 </head>
@@ -556,7 +559,7 @@ export function printLabelsViaIframe(params: {
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
   try {
-    // Dismiss any active toast notifications so they never get captured in print preview
+    // Dismiss active toast notifications
     toast.dismiss();
 
     const iframe = document.createElement("iframe");
@@ -739,7 +742,7 @@ export async function printThermalLabelsDirectly(params: {
 
     const is58 = params.layout === "thermal-58";
     const widthMm = is58 ? 50 : 100;
-    const heightMm = is58 ? 25 : 50;
+    const heightMm = 25;
 
     let allTspl = "";
 

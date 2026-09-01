@@ -1,13 +1,10 @@
 /**
  * LabelPrintEngine — Interactive Label Screen Preview Engine & Direct Host.
  *
- * Provides:
- * - Pixel-perfect screen preview matching the exact physical label dimensions:
- *   - "thermal-58": 50mm × 25mm standard retail barcode sticker
- *   - "thermal-108": 100mm × 50mm large thermal shipping/product label
- *   - "a4": 4-column A4 sheet grid
- * - Barcode-only vs Full product label modes
- * - Real-time MRP / Discount percentage calculations
+ * Supports:
+ * - "thermal-108": 2-Up Desktop Barcode Sticker Roll (100mm × 25mm row, 2 stickers per row)
+ * - "thermal-58": 1-Up POS Thermal Barcode Sticker (50mm × 25mm)
+ * - "a4": 4-column A4 grid sheet
  */
 import { useMemo } from "react";
 import Barcode from "react-barcode";
@@ -41,7 +38,7 @@ type Props = {
   heightMm?: number;
 };
 
-/** Safe discount % calculation — never shows NaN, Infinity, or negative values */
+/** Safe discount % calculation */
 function safeDiscountPct(mrp: number, price: number): number | null {
   if (!mrp || mrp <= 0 || price <= 0 || mrp <= price) return null;
   const pct = Math.round(((mrp - price) / mrp) * 100);
@@ -59,131 +56,72 @@ function expand(entries: LabelEntry[]): LabelProduct[] {
   return out;
 }
 
-/** Barcode value: prefer barcode, fall back to SKU */
+/** Barcode value */
 const barcodeVal = (p: LabelProduct) => (p.barcode || p.sku || "000000").trim();
 
 /* ─────────────────────────────────────────────
-   Individual Label Preview Cards
+   Single Sticker Preview Card (48×24mm)
    ───────────────────────────────────────────── */
 
-function BarcodeOnlyLabelPreview({
+function SingleStickerPreview({
   product,
-  layout,
-}: {
-  product: LabelProduct;
-  layout: LabelLayout;
-}) {
-  const is58 = layout === "thermal-58";
-  const is108 = layout === "thermal-108";
-
-  const bw = is58 ? 0.95 : is108 ? 1.4 : 1.0;
-  const bh = is58 ? 20 : is108 ? 32 : 22;
-
-  return (
-    <div
-      className={`relative flex flex-col justify-between items-center text-center rounded-xl border border-border bg-white text-black shadow-2xs overflow-hidden transition-all ${
-        is58
-          ? "w-[200px] h-[100px] p-2"
-          : is108
-            ? "w-[320px] h-[160px] p-3.5"
-            : "w-full min-h-[110px] p-2"
-      }`}
-    >
-      <div className="w-full">
-        <p className="text-[8px] font-extrabold uppercase tracking-wider text-gray-500 truncate">
-          Zérah Baby &amp; Kids
-        </p>
-        <p className="text-[10px] font-bold text-black truncate mt-0.5">{product.name}</p>
-      </div>
-
-      <div className="w-full flex justify-center items-center overflow-hidden my-auto">
-        <Barcode
-          value={barcodeVal(product)}
-          format="CODE128"
-          width={bw}
-          height={bh}
-          fontSize={8}
-          margin={1}
-          displayValue={true}
-          background="transparent"
-          lineColor="#000000"
-        />
-      </div>
-
-      <p className="text-[8px] text-gray-600 font-mono">SKU: {product.sku || "—"}</p>
-    </div>
-  );
-}
-
-function FullProductLabelPreview({
-  product,
-  layout,
+  labelType,
   showDiscount,
 }: {
   product: LabelProduct;
-  layout: LabelLayout;
+  labelType: LabelType;
   showDiscount: boolean;
 }) {
-  const is58 = layout === "thermal-58";
-  const is108 = layout === "thermal-108";
-
   const discPct = showDiscount ? safeDiscountPct(product.mrp, product.price) : null;
-  const bw = is58 ? 0.9 : is108 ? 1.4 : 0.95;
-  const bh = is58 ? 18 : is108 ? 30 : 20;
   const hasMrp = product.mrp > product.price;
 
   return (
-    <div
-      className={`relative flex flex-col justify-between items-center text-center rounded-xl border border-border bg-white text-black shadow-2xs overflow-hidden transition-all ${
-        is58
-          ? "w-[210px] h-[115px] p-2"
-          : is108
-            ? "w-[340px] h-[175px] p-3.5"
-            : "w-full min-h-[120px] p-2"
-      }`}
-    >
+    <div className="relative flex flex-col justify-between items-center text-center rounded-xl border border-gray-300 bg-white text-black shadow-xs overflow-hidden w-[190px] h-[100px] p-2 select-none">
       {/* Header */}
       <div className="w-full">
-        <p className="text-[8px] font-extrabold uppercase tracking-widest text-gray-500 truncate">
+        <p className="text-[7.5px] font-black uppercase tracking-widest text-gray-500 truncate">
           Zérah Baby &amp; Kids
         </p>
-        <p
-          className={`font-bold text-black leading-tight mt-0.5 ${
-            is58 ? "text-[9px] line-clamp-1" : is108 ? "text-[12px] line-clamp-2" : "text-[9px] line-clamp-2"
-          }`}
-        >
+        <p className="text-[9px] font-bold text-black truncate leading-tight mt-0.5">
           {product.name}
         </p>
       </div>
 
-      {/* Meta Row: SKU + Price + MRP */}
-      <div className="flex items-baseline justify-center gap-1.5 flex-wrap my-0.5">
-        <span className="text-[8px] text-gray-600 font-mono">SKU: {product.sku || "—"}</span>
-        <span className="text-[11px] font-black text-black">{formatPrice(product.price)}</span>
-        {hasMrp && (
-          <span className="text-[8px] text-gray-400 line-through">{formatPrice(product.mrp)}</span>
-        )}
-        {discPct !== null && (
-          <span className="text-[7.5px] font-extrabold text-black bg-gray-100 px-1 py-0.2 rounded border border-gray-300">
-            -{discPct}%
-          </span>
-        )}
-      </div>
+      {labelType === "full" && (
+        <div className="flex items-baseline justify-center gap-1.5 flex-wrap my-0.5">
+          <span className="text-[7.5px] text-gray-600 font-mono">SKU: {product.sku || "—"}</span>
+          <span className="text-[10.5px] font-black text-black">{formatPrice(product.price)}</span>
+          {hasMrp && (
+            <span className="text-[7.5px] text-gray-400 line-through">
+              {formatPrice(product.mrp)}
+            </span>
+          )}
+          {discPct !== null && (
+            <span className="text-[7px] font-black text-black bg-gray-100 px-1 rounded border border-gray-300">
+              -{discPct}%
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Barcode */}
       <div className="w-full flex justify-center items-center overflow-hidden">
         <Barcode
           value={barcodeVal(product)}
           format="CODE128"
-          width={bw}
-          height={bh}
-          fontSize={7.5}
+          width={0.82}
+          height={labelType === "barcode-only" ? 22 : 15}
+          fontSize={7}
           margin={1}
           displayValue={true}
           background="transparent"
           lineColor="#000000"
         />
       </div>
+
+      {labelType === "barcode-only" && (
+        <p className="text-[7.5px] text-gray-600 font-mono">SKU: {product.sku || "—"}</p>
+      )}
     </div>
   );
 }
@@ -192,12 +130,7 @@ function FullProductLabelPreview({
    Main Screen Preview Component
    ───────────────────────────────────────────── */
 
-export function LabelPrintEngine({
-  entries,
-  labelType,
-  layout,
-  showDiscount,
-}: Props) {
+export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
@@ -206,29 +139,82 @@ export function LabelPrintEngine({
     );
   }
 
-  const containerClass =
-    layout === "a4"
-      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"
-      : "flex flex-wrap items-center justify-center gap-4 py-2";
+  if (layout === "thermal-108") {
+    // 2-Up thermal sticker rows
+    const rows: Array<[LabelProduct, LabelProduct | null]> = [];
+    for (let i = 0; i < labels.length; i += 2) {
+      rows.push([labels[i], labels[i + 1] || null]);
+    }
 
+    return (
+      <div className="space-y-3">
+        <div className="text-center pb-1 border-b border-border/40">
+          <p className="text-xs font-bold text-muted-foreground">
+            2-Up Thermal Preview (100mm × 25mm • 2 Stickers / Row)
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          {rows.map(([left, right], idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-2 p-2 rounded-2xl bg-muted/40 border border-dashed border-border"
+            >
+              <SingleStickerPreview
+                product={left}
+                labelType={labelType}
+                showDiscount={showDiscount}
+              />
+              {right ? (
+                <SingleStickerPreview
+                  product={right}
+                  labelType={labelType}
+                  showDiscount={showDiscount}
+                />
+              ) : (
+                <div className="w-[190px] h-[100px] rounded-xl border border-dashed border-border/50 bg-card/40 flex items-center justify-center text-[10px] text-muted-foreground font-semibold">
+                  (Empty sticker slot)
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "thermal-58") {
+    return (
+      <div className="space-y-3">
+        <div className="text-center pb-1 border-b border-border/40">
+          <p className="text-xs font-bold text-muted-foreground">
+            1-Up Single Thermal Preview (50mm × 25mm)
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {labels.map((product, idx) => (
+            <SingleStickerPreview
+              key={`${product.uuid}-${idx}`}
+              product={product}
+              labelType={labelType}
+              showDiscount={showDiscount}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // A4 grid
   return (
-    <div className={containerClass}>
-      {labels.map((product, idx) =>
-        labelType === "barcode-only" ? (
-          <BarcodeOnlyLabelPreview
-            key={`${product.uuid}-${idx}`}
-            product={product}
-            layout={layout}
-          />
-        ) : (
-          <FullProductLabelPreview
-            key={`${product.uuid}-${idx}`}
-            product={product}
-            layout={layout}
-            showDiscount={showDiscount}
-          />
-        ),
-      )}
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+      {labels.map((product, idx) => (
+        <SingleStickerPreview
+          key={`${product.uuid}-${idx}`}
+          product={product}
+          labelType={labelType}
+          showDiscount={showDiscount}
+        />
+      ))}
     </div>
   );
 }
