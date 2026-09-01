@@ -1301,35 +1301,50 @@ export function ProductForm({
                         )}
                       </div>
 
-                      {/* Color */}
-                      <label className="w-28 text-xs font-semibold text-muted-foreground">
+                      {/* Color (Editable Input + Dropdown Datalist) */}
+                      <label className="w-32 text-xs font-semibold text-muted-foreground">
                         Color
-                        <select
-                          className={`${input} mt-1 text-foreground font-medium`}
-                          value={v.color ?? ""}
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            const newColor = e.target.value || null;
-                            updated[idx].color = newColor;
-                            updated[idx].name =
-                              newColor && updated[idx].size
-                                ? `${newColor} / ${updated[idx].size}`
-                                : newColor || updated[idx].size || "Default";
-                            updated[idx].sku = generateSKU(
-                              draft.category,
-                              newColor,
-                              updated[idx].size,
-                            );
-                            set("variants", updated);
-                          }}
-                        >
-                          <option value="">(No Color)</option>
-                          {draft.colors.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative mt-1">
+                          <input
+                            type="text"
+                            className={`${input} mt-0 text-foreground font-medium placeholder:font-normal placeholder:text-muted-foreground/60`}
+                            placeholder="Type or select color"
+                            value={v.color ?? ""}
+                            list={`variant-colors-list-${idx}`}
+                            onChange={(e) => {
+                              const updated = [...draft.variants];
+                              const rawVal = e.target.value;
+                              const newColor = rawVal.trim() === "(No Color)" ? null : rawVal.trim() || null;
+                              updated[idx].color = newColor;
+                              updated[idx].name =
+                                newColor && updated[idx].size
+                                  ? `${newColor} / ${updated[idx].size}`
+                                  : newColor || updated[idx].size || "Default";
+                              updated[idx].sku = generateSKU(
+                                draft.category,
+                                newColor,
+                                updated[idx].size,
+                              );
+                              set("variants", updated);
+
+                              if (
+                                newColor &&
+                                !draft.colors.some((c) => c.toLowerCase() === newColor.toLowerCase())
+                              ) {
+                                setDraft((d) => ({
+                                  ...d,
+                                  colors: [...d.colors, newColor],
+                                }));
+                              }
+                            }}
+                          />
+                          <datalist id={`variant-colors-list-${idx}`}>
+                            <option value="(No Color)" />
+                            {draft.colors.map((c) => (
+                              <option key={c} value={c} />
+                            ))}
+                          </datalist>
+                        </div>
                       </label>
 
                       {/* Size */}
