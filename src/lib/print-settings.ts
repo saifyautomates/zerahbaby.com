@@ -160,12 +160,16 @@ export async function connectQZTray(): Promise<boolean> {
   }
   try {
     if (!qz.websocket.isActive()) {
-      await qz.websocket.connect({ retries: 0, delay: 1 });
+      const connectPromise = qz.websocket.connect({ retries: 0, delay: 1 });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("QZ Tray timeout")), 1500)
+      );
+      await Promise.race([connectPromise, timeoutPromise]);
     }
     qzConnected = true;
     return true;
   } catch (err) {
-    console.warn("QZ Tray connection failed:", err);
+    console.warn("QZ Tray connection failed or timed out:", err);
     return false;
   }
 }

@@ -727,7 +727,7 @@ function ProductPage() {
                       >
                         <div className="size-full rounded-xl overflow-hidden bg-muted/30">
                           {swatchImg ? (
-                            <img src={swatchImg} alt={color} className="size-full object-cover" />
+                            <img loading="lazy" decoding="async" src={swatchImg} alt={color} className="size-full object-cover" />
                           ) : (
                             <div className="size-full flex items-center justify-center font-bold text-xs bg-muted">
                               {color[0]}
@@ -830,7 +830,7 @@ function ProductPage() {
                   title={`${product.name} (Current)`}
                 >
                   <div className="w-full h-full rounded-full overflow-hidden bg-muted">
-                    <img src={product.image} alt="Current" className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={product.image} alt="Current" className="w-full h-full object-cover" />
                   </div>
                 </div>
 
@@ -847,7 +847,7 @@ function ProductPage() {
                     className="size-14 shrink-0 rounded-full border-2 border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary transition-all duration-300 hover:scale-110 hover:shadow-md cursor-pointer bg-muted"
                     title={s.name}
                   >
-                    <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={s.image} alt={s.name} className="w-full h-full object-cover" />
                   </Link>
                 ))}
               </div>
@@ -1012,7 +1012,7 @@ function ProductPage() {
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="hidden md:flex items-center gap-4">
-              <img
+              <img loading="lazy" decoding="async"
                 src={product?.image}
                 className="size-12 rounded-lg object-cover shadow-sm"
                 alt=""
@@ -1106,7 +1106,7 @@ function ProductPage() {
                   className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
                 />
               ) : (
-                <img
+                <img loading="lazy" decoding="async"
                   src={activeUrl}
                   alt={product.name}
                   className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
@@ -1134,7 +1134,7 @@ function ProductPage() {
                   {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? (
                     <video src={url} className="size-full object-cover" />
                   ) : (
-                    <img src={url} alt="" className="size-full object-cover" />
+                    <img loading="lazy" decoding="async" src={url} alt="" className="size-full object-cover" />
                   )}
                 </button>
               ))}
@@ -1336,7 +1336,7 @@ function ReviewsSection({
                 onClick={() => setSelectedPhoto(img.url)}
                 className="group relative size-20 sm:size-24 rounded-2xl overflow-hidden border-2 border-border hover:border-[#8B2020] shrink-0 transition hover:scale-105 cursor-pointer shadow-2xs"
               >
-                <img src={img.url} alt={img.title} className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={img.url} alt={img.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                 <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-bold flex items-center gap-0.5">
                   ★ {img.rating}
@@ -1482,7 +1482,7 @@ function ReviewsSection({
                       onClick={() => setSelectedPhoto(imgUrl)}
                       className="group relative size-16 sm:size-20 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105 cursor-pointer"
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={imgUrl}
                         alt={`Review photo ${idx + 1}`}
                         className="w-full h-full object-cover"
@@ -1534,7 +1534,7 @@ function ReviewsSection({
             >
               <X className="size-6" />
             </button>
-            <img
+            <img loading="lazy" decoding="async"
               src={selectedPhoto}
               alt="Enlarged review photo"
               className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl border border-white/10"
@@ -1879,7 +1879,7 @@ function BuyNowModal({
 
         {/* Product preview */}
         <div className="mt-4 flex items-center gap-3.5 rounded-2xl border border-border bg-muted/30 p-3.5">
-          <img
+          <img loading="lazy" decoding="async"
             src={product.image}
             alt={product.name}
             className="size-16 rounded-xl border border-border object-cover"

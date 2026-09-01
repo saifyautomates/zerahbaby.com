@@ -1,50 +1,43 @@
 // src/components/ui/LazyImage.tsx
-import { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
+import { getOptimizedImageUrl } from "@/lib/product-media";
 
 interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   /** Optional placeholder src while image is not yet loaded */
   placeholderSrc?: string;
+  /** Desired optimized width (defaults to 600) */
+  optimizedWidth?: number;
 }
 
-export const LazyImage: React.FC<LazyImageProps> = ({ src, placeholderSrc, alt = "", ...rest }) => {
-  const [visibleSrc, setVisibleSrc] = useState<string>(placeholderSrc || "");
-  const imgRef = useRef<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (!src) return;
-    const img = imgRef.current;
-    if (!img) return;
-    let observer: IntersectionObserver;
-    if ("IntersectionObserver" in window) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              setVisibleSrc(src);
-              observer.disconnect();
-            }
-          });
-        },
-        { rootMargin: "200px" },
-      );
-      observer.observe(img);
-    } else {
-      // Fallback: load immediately
-      setVisibleSrc(src);
-    }
-    return () => {
-      if (observer) observer.disconnect();
-    };
-  }, [src]);
+export const LazyImage: React.FC<LazyImageProps> = ({
+  src,
+  placeholderSrc,
+  alt = "",
+  optimizedWidth = 600,
+  className = "",
+  onError,
+  ...rest
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const targetSrc = hasError
+    ? placeholderSrc || ""
+    : getOptimizedImageUrl(src, optimizedWidth) || placeholderSrc || "";
 
   return (
     <img
-      ref={imgRef}
-      src={visibleSrc || undefined}
+      src={targetSrc || undefined}
       alt={alt}
       loading="lazy"
       decoding="async"
+      className={className}
+      onError={(e) => {
+        if (!hasError && placeholderSrc && src !== placeholderSrc) {
+          setHasError(true);
+        }
+        onError?.(e);
+      }}
       {...rest}
     />
   );
 };
+

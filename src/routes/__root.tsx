@@ -85,7 +85,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="w-full max-w-md space-y-6 text-center animate-in fade-in duration-300">
         <div className="flex justify-center">
           <div className="relative size-16 flex items-center justify-center rounded-2xl bg-card border border-border p-3 shadow-xs">
-            <img src={logo} alt="Zérah Baby & Kids" className="h-full w-auto object-contain animate-pulse" />
+            <img loading="lazy" decoding="async" src={logo} alt="Zérah Baby & Kids" className="h-full w-auto object-contain animate-pulse" />
           </div>
         </div>
 

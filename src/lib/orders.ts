@@ -158,6 +158,7 @@ export function useAllOrders(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-orders"],
     enabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
@@ -173,6 +174,7 @@ export function useCustomers(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-customers"],
     enabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")

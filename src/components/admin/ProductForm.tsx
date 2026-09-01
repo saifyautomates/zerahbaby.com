@@ -1293,7 +1293,7 @@ export function ProductForm({
                       {/* Swatch preview */}
                       <div className="size-9 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted/30 mb-0.5">
                         {swatchImg ? (
-                          <img src={swatchImg} alt="" className="size-full object-cover" />
+                          <img loading="lazy" decoding="async" src={swatchImg} alt="" className="size-full object-cover" />
                         ) : (
                           <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
                             {v.color?.[0] || "D"}
@@ -1581,7 +1581,7 @@ export function ProductForm({
                               }}
                             />
                             {p.imageUrl ? (
-                              <img src={p.imageUrl} className="size-8 rounded-md object-cover" />
+                              <img loading="lazy" decoding="async" src={p.imageUrl} className="size-8 rounded-md object-cover" />
                             ) : (
                               <div className="size-8 rounded-md bg-muted" />
                             )}

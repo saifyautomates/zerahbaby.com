@@ -20,6 +20,33 @@ export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
 };
 
 /**
+ * Optimizes image URLs for fast web delivery.
+ * Reduces 5MB+ original camera uploads to lean responsive assets.
+ */
+export function getOptimizedImageUrl(
+  url: string | null | undefined,
+  width = 600,
+  quality = 80,
+): string {
+  if (!url) return "";
+  if (url.startsWith("data:") || url.startsWith("blob:") || url.endsWith(".svg")) return url;
+
+  // Supabase Storage Image Transformation
+  if (url.includes("/storage/v1/object/public/")) {
+    return (
+      url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") +
+      `?width=${width}&quality=${quality}&resize=contain`
+    );
+  }
+  // Unsplash CDN
+  if (url.includes("images.unsplash.com")) {
+    const clean = url.split("?")[0];
+    return `${clean}?w=${width}&q=${quality}&auto=format&fit=crop`;
+  }
+  return url;
+}
+
+/**
  * Generate a deterministic, high-contrast, beautiful inline SVG placeholder
  * specifically customized with this exact product's name, initials, and category color.
  * Guarantees that Product A NEVER displays Product B's image or a shared generic photo.

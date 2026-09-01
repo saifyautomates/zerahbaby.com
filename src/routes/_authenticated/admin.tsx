@@ -297,26 +297,33 @@ function AdminPage() {
     });
   }, [roleLoading, isAdmin, user, refetchRole]);
 
-  // Real data for Orders badge
-  const { data: onlineOrders = [] } = useAllOrders(true);
+  // Real data for Orders badge - Lightweight queries with staleTime
+  const { data: onlineOrdersSummary = [] } = useQuery({
+    queryKey: ["admin-orders-badge-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("created_at, status, payment_method, payment_status")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 1000 * 60 * 3, // 3 minutes cache
+  });
+
   const { data: posSales = [] } = useQuery({
     queryKey: ["offline-sales-badge-count"],
     queryFn: async () => {
-      const { data, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (q: string) => Promise<{
-              data: Array<{ created_at: string } & Record<string, unknown>> | null;
-              error: unknown;
-            }>;
-          };
-        }
-      )
+      const { data, error } = await supabase
         .from("offline_sales")
-        .select("*");
+        .select("created_at, status")
+        .order("created_at", { ascending: false })
+        .limit(100);
       if (error) return [];
-      return (data ?? []) as Array<{ created_at: string } & Record<string, unknown>>;
+      return data ?? [];
     },
+    staleTime: 1000 * 60 * 3, // 3 minutes cache
   });
 
   const [lastViewedOrdersTime, setLastViewedOrdersTime] = useState<number>(() => {
@@ -332,7 +339,7 @@ function AdminPage() {
   }, [tab]);
 
   const unseenOrdersCount = useMemo(() => {
-    const newOnline = onlineOrders.filter((o) => {
+    const newOnline = onlineOrdersSummary.filter((o) => {
       const t = new Date(o.created_at).getTime();
       const isPaidOrCod = o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid";
       return (
@@ -347,7 +354,7 @@ function AdminPage() {
       return t > lastViewedOrdersTime && (o as { status?: string }).status !== "cancelled";
     }).length;
     return newOnline + newOffline;
-  }, [onlineOrders, posSales, lastViewedOrdersTime]);
+  }, [onlineOrdersSummary, posSales, lastViewedOrdersTime]);
 
   const { data: newQueriesCount = 0 } = useQuery({
     queryKey: ["admin-new-queries-count"],
@@ -444,7 +451,7 @@ function AdminPage() {
       <aside className="hidden w-64 flex-col border-r border-border bg-card/60 backdrop-blur-md lg:flex">
         {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-          <img
+          <img loading="lazy" decoding="async"
             src={logo}
             alt="Zérah Baby & Kids"
             className="size-9 object-contain drop-shadow-sm"
@@ -514,7 +521,7 @@ function AdminPage() {
           <div className="relative flex w-72 flex-col bg-card border-r border-border p-4 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-2.5">
-                <img
+                <img loading="lazy" decoding="async"
                   src={logo}
                   alt="Zérah Baby & Kids"
                   className="h-8 w-auto object-contain drop-shadow-sm"
@@ -799,7 +806,7 @@ function AdminPage() {
             {/* Authenticated Admin Profile Brand Logo & Name */}
             <div className="flex items-center gap-2.5 pl-3 border-l border-border">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card shadow-xs overflow-hidden select-none p-1">
-                <img src={logo} alt="Zerah Baby & Kids" className="h-full w-auto object-contain" />
+                <img loading="lazy" decoding="async" src={logo} alt="Zerah Baby & Kids" className="h-full w-auto object-contain" />
               </div>
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-xs font-bold text-foreground truncate max-w-32">{adminName}</p>
@@ -879,6 +886,7 @@ function ProductsTab() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
+    staleTime: 1000 * 60 * 5, // 5 minutes caching for instant tab switching
     queryFn: async () => {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
@@ -2318,6 +2326,7 @@ function SettingsTab() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-settings"],
+    staleTime: 1000 * 60 * 5, // 5 minutes caching
     queryFn: async () => {
       const { data, error } = await supabase
         .from("site_settings")
@@ -2538,7 +2547,7 @@ function SettingsTab() {
 thead tr{background:#8B2020;color:#fff;}th,td{padding:7px 8px;border-bottom:1px solid #eee;}
 .footer{border-top:2px solid #8B2020;padding-top:10px;margin-top:20px;font-size:10px;color:#666;}
 </style></head><body>
-<div class="header"><div><div class="brand" style="display:flex;align-items:center;gap:12px;"><img src="\${window.location.origin}/logo.png" style="width:60px;height:auto;" alt="Zerah"/><div>ZÉRAH BABY &amp; KIDS</div></div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
+<div class="header"><div><div class="brand" style="display:flex;align-items:center;gap:12px;"><img loading="lazy" decoding="async" src="\${window.location.origin}/logo.png" style="width:60px;height:auto;" alt="Zerah"/><div>ZÉRAH BABY &amp; KIDS</div></div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
 <div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#8B2020;">TEST INVOICE</div><div>INV-TEST-001</div></div></div>
 <table><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
 <tbody><tr><td>Test Product A</td><td>2</td><td>₹499</td><td>₹998</td></tr>
@@ -3014,6 +3023,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-list"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("list_admins");
       if (error) throw error;
@@ -3243,7 +3253,7 @@ function CustomersTab() {
                         >
                           {c.avatar_url ? (
                             <div className="relative size-full">
-                              <img
+                              <img loading="lazy" decoding="async"
                                 src={c.avatar_url}
                                 alt={c.full_name || "Customer avatar"}
                                 className="size-full object-cover"
@@ -3391,7 +3401,7 @@ function CustomersTab() {
                 >
                   {selectedCustomer.avatar_url ? (
                     <>
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={selectedCustomer.avatar_url}
                         alt={selectedCustomer.full_name || "Customer avatar"}
                         className="size-full object-cover"
@@ -3556,7 +3566,7 @@ function CustomersTab() {
               className="relative max-w-3xl max-h-[80vh] overflow-hidden rounded-3xl border border-white/20 bg-card/10 shadow-2xl flex items-center justify-center p-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={viewPhoto.url}
                 alt={viewPhoto.title}
                 className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
@@ -4086,7 +4096,7 @@ function ReviewsTab() {
                         href={imgUrl}
                         className="group relative size-14 rounded-xl overflow-hidden border border-border hover:border-[#8B2020] transition hover:scale-105"
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={imgUrl}
                           alt={`Review photo ${idx + 1}`}
                           className="w-full h-full object-cover"

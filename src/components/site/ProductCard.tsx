@@ -3,15 +3,13 @@ import { Link } from "@tanstack/react-router";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
-import { discountPct, formatPrice, imageFor, type Product } from "@/lib/store";
+import { discountPct, formatPrice, imageFor, useSettings, type Product } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
 import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { LazyImage } from "@/components/ui/LazyImage";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 export function ProductCard({ product }: { product: Product }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -19,20 +17,10 @@ export function ProductCard({ product }: { product: Product }) {
   const { user } = useSession();
   const { isWishlisted, toggle } = useWishlist();
   const wishlisted = user ? isWishlisted(product.uuid) : false;
+  const { settings } = useSettings();
 
-  const { data: siteSettings } = useQuery({
-    queryKey: ["site_settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("site_settings").select("key, value");
-      if (error) throw error;
-      return Object.fromEntries(
-        data.map((r: { key: string; value: string }) => [r.key, r.value]),
-      ) as Record<string, string>;
-    },
-  });
-
-  const featHoverSwap = siteSettings?.feature_hover_swap !== "false";
-  const featPromoBadges = siteSettings?.feature_promo_badges !== "false";
+  const featHoverSwap = settings?.["feature_hover_swap"] !== "false";
+  const featPromoBadges = settings?.["feature_promo_badges"] !== "false";
 
   return (
     <article className="lift group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/30 hover:shadow-premium-hover">
