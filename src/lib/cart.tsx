@@ -51,7 +51,10 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "zerah-cart";
+const GUEST_STORAGE_KEY = "zerah-cart-guest";
+function getCartStorageKey(userId?: string) {
+  return userId ? `zerah-cart-${userId}` : GUEST_STORAGE_KEY;
+}
 
 /** Silently sync cart lines to Supabase for logged-in users */
 async function syncToSupabase(userId: string, lines: CartLine[], products: Product[]) {
@@ -98,7 +101,7 @@ async function syncToSupabase(userId: string, lines: CartLine[], products: Produ
       }
     }
   } catch {
-    // Silent fail — localStorage is the primary store
+    // Silent fail
   }
 }
 
@@ -137,19 +140,10 @@ async function loadFromSupabase(userId: string, products: Product[]): Promise<Ca
 import { useQuery } from "@tanstack/react-query";
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw) as CartLine[];
-      } catch {
-        /* ignore */
-      }
-    }
-    return [];
-  });
-  const { data: products } = useProducts();
   const { user } = useSession();
+  const [lines, setLines] = useState<CartLine[]>([]);
+  const { data: products } = useProducts();
+  const prevUserIdRef = useState<{ id?: string }>({ id: undefined })[0];
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
 
   const { data: settingsData } = useQuery({
@@ -182,36 +176,68 @@ export function CartProvider({ children }: { children: ReactNode }) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Keep localStorage updated when lines change
+  // Handle user authentication transitions & storage scoping
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
-    } catch {
-      /* ignore */
+    const currentUserId = user?.id;
+    const prevUserId = prevUserIdRef.id;
+
+    if (currentUserId !== prevUserId) {
+      prevUserIdRef.id = currentUserId;
+      setHasLoadedFromDb(false);
+
+      if (!currentUserId) {
+        // User logged out: clear memory cart and coupon
+        setLines([]);
+        setCoupon(null);
+      } else {
+        // User logged in / switched: load initial items from user-scoped storage or clear
+        if (typeof window !== "undefined") {
+          try {
+            const guestRaw = window.localStorage.getItem(GUEST_STORAGE_KEY);
+            const userRaw = window.localStorage.getItem(getCartStorageKey(currentUserId));
+            const initialLines = userRaw
+              ? (JSON.parse(userRaw) as CartLine[])
+              : guestRaw
+                ? (JSON.parse(guestRaw) as CartLine[])
+                : [];
+            setLines(initialLines);
+          } catch {
+            setLines([]);
+          }
+        }
+      }
     }
-  }, [lines]);
+  }, [user?.id, prevUserIdRef]);
 
-  // Reset DB load flag if user changes (e.g., logout then login as another user)
+  // Keep user-scoped localStorage updated when lines change
   useEffect(() => {
-    setHasLoadedFromDb(false);
-  }, [user?.id]);
+    if (typeof window === "undefined") return;
+    try {
+      const key = getCartStorageKey(user?.id);
+      window.localStorage.setItem(key, JSON.stringify(lines));
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [lines, user?.id]);
 
-  // On login: merge Supabase cart with localStorage cart
+  // On login: sync & merge Supabase cart with local cart
   useEffect(() => {
     if (!user || !products || products.length === 0 || hasLoadedFromDb) return;
 
     loadFromSupabase(user.id, products).then((dbLines) => {
-      if (dbLines && dbLines.length > 0) {
-        setLines((prev) => {
-          // Merge: keep localStorage items, add DB items that aren't already present
-          const merged = [...prev];
-          for (const dbLine of dbLines) {
-            if (!merged.find((l) => l.id === dbLine.id)) {
-              merged.push(dbLine);
-            }
+      setLines((prev) => {
+        const merged = [...(dbLines ?? [])];
+        for (const localLine of prev) {
+          if (!merged.find((l) => l.id === localLine.id)) {
+            merged.push(localLine);
           }
-          return merged;
-        });
+        }
+        return merged;
+      });
+
+      // Clear guest storage after successful merge
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(GUEST_STORAGE_KEY);
       }
       setHasLoadedFromDb(true);
     });
@@ -226,15 +252,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return filtered.length !== prev.length ? filtered : prev;
     });
   }, [products]);
-
-  // Persist to localStorage
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
-    } catch {
-      /* ignore quota errors */
-    }
-  }, [lines]);
 
   // Sync to Supabase (debounced)
   useEffect(() => {

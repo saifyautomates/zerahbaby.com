@@ -64,7 +64,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
       if (now - last > 20_000) {
         sessionStorage.setItem(key, now.toString());
-        console.warn("[RootErrorComponent] Detected stale chunk. Reloading page once for latest deployment...");
+        console.warn(
+          "[RootErrorComponent] Detected stale chunk. Reloading page once for latest deployment...",
+        );
         window.location.reload();
       }
     }
