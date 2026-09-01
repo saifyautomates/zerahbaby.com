@@ -626,26 +626,34 @@ function CheckoutPage() {
             ))}
           </ul>
           <div className="mt-4 space-y-3.5 border-t border-border pt-4 text-sm">
-            <div className="flex justify-between items-center text-foreground">
-              <span className="text-muted-foreground font-medium">Subtotal</span>
-              <span className="font-semibold tabular-nums text-right">{formatPrice(subtotal)}</span>
-            </div>
+            {savings > 0 && (
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span className="font-medium">Total MRP</span>
+                <span className="font-semibold tabular-nums text-right line-through">
+                  {formatPrice(subtotal + savings)}
+                </span>
+              </div>
+            )}
             {savings > 0 && (
               <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
                 <span className="font-medium flex items-center gap-1.5">
                   <Sparkles className="size-3.5" />
-                  Product Savings
+                  MRP Discount
                 </span>
-                <span className="font-semibold tabular-nums text-right">
+                <span className="font-bold tabular-nums text-right">
                   - {formatPrice(savings)}
                 </span>
               </div>
             )}
+            <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40">
+              <span className="text-foreground font-semibold">Subtotal</span>
+              <span className="font-bold tabular-nums text-right">{formatPrice(subtotal)}</span>
+            </div>
             {couponDiscount > 0 && (
               <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
                 <span className="font-medium flex items-center gap-2 text-xs">
                   <TicketPercent className="size-4 text-emerald-600" />
-                  Coupon ({couponCode})
+                  Promo Coupon ({couponCode})
                 </span>
                 <span className="font-bold text-xs tabular-nums text-right">
                   - {formatPrice(couponDiscount)}

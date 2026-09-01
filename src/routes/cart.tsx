@@ -239,34 +239,44 @@ function CartPage() {
 
           <div className="border-t border-border/40 my-5" />
 
-          <div className="space-y-4 text-sm">
-            {/* Subtotal (Item sum) */}
-            <div className="flex justify-between items-center text-foreground">
-              <span className="text-muted-foreground font-medium">Subtotal</span>
-              <span className="font-semibold tabular-nums text-right">
-                {formatPrice(subtotal)}
-              </span>
-            </div>
+          <div className="space-y-3.5 text-sm">
+            {/* Total MRP (Original Value before discount) */}
+            {savings > 0 && (
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span className="font-medium">Total MRP</span>
+                <span className="font-semibold tabular-nums text-right line-through">
+                  {formatPrice(subtotal + savings)}
+                </span>
+              </div>
+            )}
 
             {/* MRP Savings Discount */}
             {savings > 0 && (
               <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
                 <span className="font-medium flex items-center gap-1.5">
                   <Sparkles className="size-3.5" />
-                  Product Savings
+                  MRP Discount
                 </span>
-                <span className="font-semibold tabular-nums text-right">
+                <span className="font-bold tabular-nums text-right">
                   - {formatPrice(savings)}
                 </span>
               </div>
             )}
+
+            {/* Subtotal / Bag Value */}
+            <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40">
+              <span className="text-foreground font-semibold">Subtotal</span>
+              <span className="font-bold tabular-nums text-right">
+                {formatPrice(subtotal)}
+              </span>
+            </div>
 
             {/* Coupon discount line if applied */}
             {coupon && (
               <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
                 <span className="font-medium flex items-center gap-2 text-xs">
                   <TicketPercent className="size-4 text-emerald-600" />
-                  Coupon ({coupon.code})
+                  Promo Coupon ({coupon.code})
                   <button
                     type="button"
                     onClick={() => {
@@ -285,7 +295,7 @@ function CartPage() {
               </div>
             )}
 
-            {/* Delivery Charges (Listed BEFORE Total to pay for clear math) */}
+            {/* Delivery Charges */}
             <div className="flex justify-between items-center text-foreground">
               <span className="text-muted-foreground font-medium flex items-center gap-1.5">
                 <Truck className="size-4 text-primary" />

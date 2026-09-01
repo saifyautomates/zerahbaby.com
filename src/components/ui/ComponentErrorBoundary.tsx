@@ -13,7 +13,7 @@ interface State {
 }
 
 export class ComponentErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  public override state: State = {
     hasError: false,
     error: null,
   };
@@ -22,7 +22,7 @@ export class ComponentErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ComponentErrorBoundary] Caught error:", error, errorInfo);
   }
 
@@ -33,7 +33,7 @@ export class ComponentErrorBoundary extends Component<Props, State> {
     }
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       return (
         <div className="my-6 p-6 rounded-2xl border border-destructive/20 bg-destructive/5 text-center space-y-3 animate-in fade-in duration-300">
