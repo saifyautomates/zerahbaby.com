@@ -65,45 +65,46 @@ import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { useDirectLabelPrint } from "@/lib/label-printer";
+import { safeLazy } from "@/lib/safe-lazy";
 
-const HeroMediaManager = lazy(() =>
+const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
 );
-const MediaLibrary = lazy(() =>
+const MediaLibrary = safeLazy(() =>
   import("@/components/admin/MediaLibrary").then((m) => ({ default: m.MediaLibrary })),
 );
-const ProductForm = lazy(() =>
+const ProductForm = safeLazy(() =>
   import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
 );
-const PrintLabelsModal = lazy(() =>
+const PrintLabelsModal = safeLazy(() =>
   import("@/components/admin/PrintLabelsModal").then((m) => ({ default: m.PrintLabelsModal })),
 );
 
-const BillingCenterTab = lazy(() =>
+const BillingCenterTab = safeLazy(() =>
   import("@/components/admin/BillingCenterTab").then((m) => ({ default: m.BillingCenterTab })),
 );
-const CategoriesTab = lazy(() =>
+const CategoriesTab = safeLazy(() =>
   import("@/components/admin/CategoriesManager").then((m) => ({ default: m.CategoriesTab })),
 );
-const SMSLogsTab = lazy(() =>
+const SMSLogsTab = safeLazy(() =>
   import("@/components/admin/SMSLogsTab").then((m) => ({ default: m.SMSLogsTab })),
 );
-const QueriesTab = lazy(() =>
+const QueriesTab = safeLazy(() =>
   import("@/components/admin/QueriesTab").then((m) => ({ default: m.QueriesTab })),
 );
-const DashboardTab = lazy(() =>
+const DashboardTab = safeLazy(() =>
   import("@/components/admin/DashboardTab").then((m) => ({ default: m.DashboardTab })),
 );
-const OnlineSalesTab = lazy(() =>
+const OnlineSalesTab = safeLazy(() =>
   import("@/components/admin/OnlineSalesTab").then((m) => ({ default: m.OnlineSalesTab })),
 );
-const AdminGlobalSearch = lazy(() =>
+const AdminGlobalSearch = safeLazy(() =>
   import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
 );
-const BulkImportTab = lazy(() =>
+const BulkImportTab = safeLazy(() =>
   import("@/components/admin/BulkImportTab").then((m) => ({ default: m.BulkImportTab })),
 );
-const PagesPoliciesTab = lazy(() =>
+const PagesPoliciesTab = safeLazy(() =>
   import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
 );
 import { useTheme } from "@/lib/theme";

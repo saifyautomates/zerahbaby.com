@@ -4,7 +4,13 @@ export const Route = createFileRoute("/_authenticated/admin/$")({
   beforeLoad: ({ params, search }) => {
     const splat = params._splat || "";
     const parts = splat.split("/").filter(Boolean);
+    if (parts.length === 0) {
+      return {};
+    }
     const sub = parts[0]?.toLowerCase();
+    if (!sub) {
+      return {};
+    }
     let targetTab = "dashboard";
     let subTab: string | undefined = undefined;
 

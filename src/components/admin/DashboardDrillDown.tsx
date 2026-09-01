@@ -26,8 +26,9 @@ import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
+import { safeLazy } from "@/lib/safe-lazy";
 
-const ProductForm = lazy(() =>
+const ProductForm = safeLazy(() =>
   import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
 );
 

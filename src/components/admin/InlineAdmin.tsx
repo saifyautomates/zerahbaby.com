@@ -1,8 +1,9 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { Check, Pencil, Plus, Trash2, X, Upload, FolderPlus } from "lucide-react";
 import { useAdminMode } from "@/lib/admin-mode";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-const ProductForm = lazy(() =>
+import { safeLazy } from "@/lib/safe-lazy";
+const ProductForm = safeLazy(() =>
   import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
 );
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";

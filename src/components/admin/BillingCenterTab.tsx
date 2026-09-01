@@ -1,16 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, type Product, formatPrice } from "@/lib/store";
-import { lazy, Suspense } from "react";
-const POSTab = lazy(() => import("./POSTab").then((m) => ({ default: m.POSTab })));
-const POSReturnsTab = lazy(() =>
+import { safeLazy } from "@/lib/safe-lazy";
+const POSTab = safeLazy(() => import("./POSTab").then((m) => ({ default: m.POSTab })));
+const POSReturnsTab = safeLazy(() =>
   import("./POSReturnsTab").then((m) => ({ default: m.POSReturnsTab })),
 );
-const OfflineAnalyticsTab = lazy(() =>
+const OfflineAnalyticsTab = safeLazy(() =>
   import("./OfflineAnalyticsTab").then((m) => ({ default: m.OfflineAnalyticsTab })),
 );
-const CustomerHistoryPanel = lazy(() =>
+const CustomerHistoryPanel = safeLazy(() =>
   import("./CustomerHistoryPanel").then((m) => ({ default: m.CustomerHistoryPanel })),
 );
 import { useDirectLabelPrint } from "@/lib/label-printer";

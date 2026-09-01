@@ -16,7 +16,16 @@ export const Route = createFileRoute("/_authenticated")({
       session = refreshed.data.session;
     }
     if (!session?.user) {
-      const targetUrl = location.pathname + location.search;
+      const searchStr =
+        location.searchStr ||
+        (typeof location.search === "string"
+          ? location.search
+          : typeof window !== "undefined"
+            ? window.location.search
+            : "");
+      const targetUrl =
+        location.pathname +
+        (searchStr ? (searchStr.startsWith("?") ? searchStr : `?${searchStr}`) : "");
       throw redirect({
         to: "/auth",
         search: targetUrl && targetUrl !== "/" ? { redirect: targetUrl } : undefined,

@@ -19,12 +19,13 @@ import { BottomNav } from "@/components/site/BottomNav";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { SplashScreen } from "@/components/site/SplashScreen";
 import { supabase } from "@/integrations/supabase/client";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { safeLazy, isChunkLoadError } from "@/lib/safe-lazy";
 
-const GlobalRealtimeSyncHost = lazy(() =>
+const GlobalRealtimeSyncHost = safeLazy(() =>
   import("@/lib/realtime-sync").then((m) => ({ default: m.GlobalRealtimeSyncHost })),
 );
-const OfflineSyncHost = lazy(() =>
+const OfflineSyncHost = safeLazy(() =>
   import("@/lib/offline-sync-engine").then((m) => ({ default: m.OfflineSyncHost })),
 );
 
@@ -53,31 +54,21 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  const [showManualAction, setShowManualAction] = useState(false);
-
   useEffect(() => {
-    console.warn("[AutoRecovery] Route exception caught. Silently restoring application...", error);
+    console.error("[RootErrorComponent] Caught root route error:", error);
 
-    const timer = setTimeout(() => {
-      const key = "zerah_auto_recover_timestamp";
+    if (typeof window !== "undefined" && isChunkLoadError(error)) {
+      const key = "zerah_chunk_reload_lock";
       const last = parseInt(sessionStorage.getItem(key) || "0", 10);
       const now = Date.now();
 
-      if (now - last > 6000) {
+      if (now - last > 20_000) {
         sessionStorage.setItem(key, now.toString());
+        console.warn("[RootErrorComponent] Detected stale chunk. Reloading page once for latest deployment...");
         window.location.reload();
-      } else {
-        try {
-          reset();
-        } catch {
-          // ignore
-        }
-        setShowManualAction(true);
       }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [error, reset]);
+    }
+  }, [error]);
 
   return (
     <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center bg-background p-6 antialiased">
@@ -107,24 +98,33 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           <div className="h-20 rounded-2xl bg-muted/40 animate-pulse border border-border/40" />
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground pt-4">
-          <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span>Restoring application view…</span>
-        </div>
-
-        {/* Manual action fallback if network is completely disconnected */}
-        {showManualAction && (
-          <div className="pt-4 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="pt-4 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {error?.message || "An unexpected issue occurred while loading this view."}
+          </p>
+          <div className="flex justify-center gap-2">
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                try {
+                  reset();
+                } catch {
+                  window.location.reload();
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground shadow-premium-sm transition-all hover:bg-primary/90 cursor-pointer"
             >
               <RefreshCw className="size-3.5" />
-              Tap to refresh page
+              Try again
             </button>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-2.5 text-xs font-bold text-foreground transition-all hover:bg-muted cursor-pointer"
+            >
+              Return Home
+            </Link>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -269,7 +269,7 @@ import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 import { useSettings } from "@/lib/store";
 import { MaintenanceScreen } from "@/components/site/MaintenanceScreen";
 
-const DirectLabelPrintHost = lazy(() =>
+const DirectLabelPrintHost = safeLazy(() =>
   import("@/components/admin/LabelPrintEngine").then((m) => ({ default: m.DirectLabelPrintHost })),
 );
 
