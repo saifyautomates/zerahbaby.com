@@ -168,7 +168,10 @@ const toDraft = (
     productImages: pImages,
     stock: p?.stock ?? 10,
     lowStockAt: p?.lowStockAt ?? 5,
-    deliveryFee: p?.deliveryFee ?? (p ? 0 : 79),
+    deliveryFee:
+      (p?.salesChannel ?? defaultSalesChannel) === "OFFLINE_ONLY"
+        ? 0
+        : (p?.deliveryFee ?? (p ? 0 : 79)),
     sku: p?.sku ?? "",
     barcode: p?.barcode ?? "",
     description: p?.description ?? "",
@@ -1050,93 +1053,95 @@ export function ProductForm({
                 </label>
               </div>
 
-              {/* Delivery Fee Section */}
-              <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2">
-                    <Truck className="size-4 text-primary" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Delivery / Shipping Price
+              {/* Delivery Fee Section — Only applicable for Online Store products */}
+              {draft.salesChannel !== "OFFLINE_ONLY" && (
+                <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Truck className="size-4 text-primary" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Delivery / Shipping Price
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-primary">
+                      {draft.deliveryFee === 0
+                        ? "🎉 Free Delivery Active"
+                        : `₹${draft.deliveryFee} Shipping Charge`}
                     </span>
                   </div>
-                  <span className="text-xs font-semibold text-primary">
-                    {draft.deliveryFee === 0
-                      ? "🎉 Free Delivery Active"
-                      : `₹${draft.deliveryFee} Shipping Charge`}
-                  </span>
-                </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                      Shipping Price (₹)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        className={`${input} pl-7 font-bold text-foreground`}
-                        placeholder="0 (Free Delivery)"
-                        value={draft.deliveryFee === 0 ? "" : draft.deliveryFee}
-                        onChange={(e) =>
-                          set(
-                            "deliveryFee",
-                            e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
-                          )
-                        }
-                      />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                        Shipping Price (₹)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          className={`${input} pl-7 font-bold text-foreground`}
+                          placeholder="0 (Free Delivery)"
+                          value={draft.deliveryFee === 0 ? "" : draft.deliveryFee}
+                          onChange={(e) =>
+                            set(
+                              "deliveryFee",
+                              e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                        Quick Presets
+                      </label>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => set("deliveryFee", 0)}
+                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                            draft.deliveryFee === 0
+                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                              : "bg-background border-border hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          Free (₹0)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => set("deliveryFee", 79)}
+                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                            draft.deliveryFee === 79
+                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                              : "bg-background border-border hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          Standard (₹79)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => set("deliveryFee", 149)}
+                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
+                            draft.deliveryFee === 149
+                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                              : "bg-background border-border hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          Express (₹149)
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                      Quick Presets
-                    </label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      <button
-                        type="button"
-                        onClick={() => set("deliveryFee", 0)}
-                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                          draft.deliveryFee === 0
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                            : "bg-background border-border hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        Free (₹0)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => set("deliveryFee", 79)}
-                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                          draft.deliveryFee === 79
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-background border-border hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        Standard (₹79)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => set("deliveryFee", 149)}
-                        className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                          draft.deliveryFee === 149
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-background border-border hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        Express (₹149)
-                      </button>
-                    </div>
-                  </div>
+                  <p className="mt-2.5 text-[11px] text-muted-foreground">
+                    💡 Naye product par default <b>₹79</b> rehta hai. Aap ise <b>Free (₹0)</b> ya apni
+                    marzi ka koi bhi amount set kar sakte hain.
+                  </p>
                 </div>
-                <p className="mt-2.5 text-[11px] text-muted-foreground">
-                  💡 Naye product par default <b>₹79</b> rehta hai. Aap ise <b>Free (₹0)</b> ya apni
-                  marzi ka koi bhi amount set kar sakte hain.
-                </p>
-              </div>
+              )}
 
               {/* Profit Calculation Box */}
               <div className="rounded-lg border border-border bg-card p-4">
@@ -1643,6 +1648,7 @@ export function ProductForm({
                     set("salesChannel", val);
                     if (val === "OFFLINE_ONLY") {
                       set("isFeatured", false);
+                      set("deliveryFee", 0);
                     }
                   }}
                 >

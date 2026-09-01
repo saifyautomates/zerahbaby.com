@@ -1919,27 +1919,33 @@ function ProductsTab() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newFee = (p.deliveryFee ?? 79) === 0 ? 79 : 0;
-                          setDeliveryFeeQuick.mutate({ uuid: p.uuid, slug: p.id, fee: newFee });
-                        }}
-                        disabled={setDeliveryFeeQuick.isPending}
-                        title="Click to toggle between Free (₹0) and ₹79"
-                        className="inline-flex items-center gap-1.5 transition hover:scale-105 cursor-pointer"
-                      >
-                        {(p.deliveryFee ?? 79) === 0 ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
-                            <Truck className="size-3" /> Free (₹0)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
-                            <Truck className="size-3 text-muted-foreground" /> ₹
-                            {p.deliveryFee ?? 79}
-                          </span>
-                        )}
-                      </button>
+                      {p.salesChannel === "OFFLINE_ONLY" ? (
+                        <span className="inline-flex items-center gap-1 text-muted-foreground bg-muted/50 border border-border/50 px-2.5 py-1 rounded-full text-xs font-semibold italic">
+                          — In-Store Only —
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFee = (p.deliveryFee ?? 79) === 0 ? 79 : 0;
+                            setDeliveryFeeQuick.mutate({ uuid: p.uuid, slug: p.id, fee: newFee });
+                          }}
+                          disabled={setDeliveryFeeQuick.isPending}
+                          title="Click to toggle between Free (₹0) and ₹79"
+                          className="inline-flex items-center gap-1.5 transition hover:scale-105 cursor-pointer"
+                        >
+                          {(p.deliveryFee ?? 79) === 0 ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
+                              <Truck className="size-3" /> Free (₹0)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
+                              <Truck className="size-3 text-muted-foreground" /> ₹
+                              {p.deliveryFee ?? 79}
+                            </span>
+                          )}
+                        </button>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       {editingStockId === p.uuid ? (
