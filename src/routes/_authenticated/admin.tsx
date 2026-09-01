@@ -1775,8 +1775,10 @@ function ProductsTab() {
                 return (
                   <tr
                     key={p.uuid}
-                    className={`group transition-colors ${
-                      isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50"
+                    className={`group transition-all ${
+                      isSelected
+                        ? "bg-[#8B2020]/10 border-l-4 border-l-[#8B2020] font-medium"
+                        : "hover:bg-muted/50"
                     } ${!p.isActive ? "opacity-60" : ""}`}
                   >
                     <td className="w-10 px-4 py-4">
@@ -1787,7 +1789,7 @@ function ProductsTab() {
                           onClick={(e) => toggleSelectProduct(p.uuid, e)}
                           onChange={() => {}} // handled in onClick for shift-key support
                           aria-label={`Select ${p.name}`}
-                          className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                          className="size-4.5 rounded cursor-pointer accent-[#8B2020]"
                         />
                       </div>
                     </td>

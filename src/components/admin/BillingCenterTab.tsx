@@ -197,10 +197,10 @@ function LabelPrintingSubTab() {
   }, [products, selectedIds]);
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-card">
+    <div className="flex flex-col h-full bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+      <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-card">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-2.5 size-4 text-gray-400" />
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -209,8 +209,21 @@ function LabelPrintingSubTab() {
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-muted-foreground">
-            {selectedIds.size} selected
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground underline cursor-pointer"
+            >
+              Clear selection
+            </button>
+          )}
+          <span className={`text-sm font-bold px-3 py-1 rounded-full border transition-all ${
+            selectedIds.size > 0
+              ? "bg-[#8B2020]/10 text-[#8B2020] border-[#8B2020]/30"
+              : "text-muted-foreground border-transparent"
+          }`}>
+            ✓ {selectedIds.size} of {list.length} selected
           </span>
           <button
             type="button"
@@ -223,7 +236,7 @@ function LabelPrintingSubTab() {
             <span>
               {isPrinting
                 ? "Printing…"
-                : `Print ${selectedIds.size > 1 ? `${selectedIds.size} Labels` : "Label"}`}
+                : `Print ${selectedIds.size > 1 ? `${selectedIds.size} Labels` : "Selected"}`}
             </span>
           </button>
         </div>
@@ -231,16 +244,18 @@ function LabelPrintingSubTab() {
 
       <div className="flex-1 overflow-auto bg-muted/30">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-card text-[11px] font-bold uppercase tracking-wider text-muted-foreground sticky top-0 border-b border-border z-10 shadow-sm">
+          <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground sticky top-0 border-b border-border z-10 shadow-xs">
             <tr>
-              <th className="px-5 py-3 w-10 text-center">
-                <button onClick={toggleAll} className="text-gray-400 hover:text-muted-foreground">
-                  {selectedIds.size === list.length && list.length > 0 ? (
-                    <CheckSquare className="size-4 text-primary" />
-                  ) : (
-                    <Square className="size-4" />
-                  )}
-                </button>
+              <th className="px-4 py-3.5 w-14 text-center">
+                <div className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === list.length && list.length > 0}
+                    onChange={toggleAll}
+                    aria-label="Select all products"
+                    className="size-4.5 rounded cursor-pointer accent-[#8B2020]"
+                  />
+                </div>
               </th>
               <th className="px-5 py-3">Product</th>
               <th className="px-5 py-3">SKU / Barcode</th>
@@ -249,7 +264,7 @@ function LabelPrintingSubTab() {
               <th className="px-5 py-3 text-right">Quick Print</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-card">
+          <tbody className="divide-y divide-border bg-card">
             {isLoading && (
               <tr>
                 <td colSpan={6} className="px-5 py-16 text-center">
@@ -272,16 +287,21 @@ function LabelPrintingSubTab() {
                 <tr
                   key={p.uuid}
                   onClick={() => toggleOne(p.uuid)}
-                  className={`cursor-pointer transition-colors hover:bg-muted ${
-                    isSelected ? "bg-primary/5" : ""
+                  className={`cursor-pointer transition-all ${
+                    isSelected
+                      ? "bg-[#8B2020]/10 border-l-4 border-l-[#8B2020] font-medium"
+                      : "hover:bg-muted/70"
                   }`}
                 >
-                  <td className="px-5 py-3 text-center">
-                    {isSelected ? (
-                      <CheckSquare className="size-4 text-primary mx-auto" />
-                    ) : (
-                      <Square className="size-4 text-gray-300 mx-auto" />
-                    )}
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(p.uuid)}
+                        className="size-5 rounded cursor-pointer accent-[#8B2020]"
+                      />
+                    </div>
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
