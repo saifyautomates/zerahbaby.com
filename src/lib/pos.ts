@@ -208,9 +208,9 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
               ? Number(matchedVariant.mrp_override)
               : Number(directProduct.mrp || directProduct.price || 0),
           stock:
-            matchedVariant?.stock != null
+            matchedVariant?.stock != null && Number(matchedVariant.stock) > 0
               ? Number(matchedVariant.stock)
-              : Number(directProduct.stock || 0),
+              : Math.max(Number(matchedVariant?.stock || 0), Number(directProduct.stock || 0)),
           sku: matchedVariant?.sku || directProduct.sku || "",
           barcode: matchedVariant?.barcode || directProduct.barcode || clean,
           image_url: matchedVariant?.image_url || primaryImage,
@@ -228,6 +228,9 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const localMatch = await findOfflineProductByCode(clean);
   if (localMatch) {
     const vMatch = localMatch.matchedVariant as any;
+    const vStock = vMatch?.stock != null ? Number(vMatch.stock) : null;
+    const pStock = Number(localMatch.stock) || 0;
+    const effStock = vStock !== null && vStock > 0 ? vStock : Math.max(vStock || 0, pStock || 10);
     return {
       found: true,
       product_id: (localMatch.uuid as string) || (localMatch.id as string),
@@ -240,7 +243,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       category: (localMatch.category as string) || "clothing",
       price: vMatch?.priceOverride ?? (Number(localMatch.price) || 0),
       mrp: Number(localMatch.mrp) || Number(localMatch.price) || 0,
-      stock: vMatch?.stock ?? (Number(localMatch.stock) || 10),
+      stock: effStock,
       sku: vMatch?.sku || (localMatch.sku as string) || "",
       barcode: (localMatch.barcode as string) || clean,
       image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,

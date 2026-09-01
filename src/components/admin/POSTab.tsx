@@ -359,8 +359,14 @@ export function POSTab() {
   }
 
   function addProductManually(product: Product, variant?: (typeof product.variants)[0]) {
-    const selectedVar = variant || (product.variants?.length ? product.variants[0] : undefined);
-    const stock = selectedVar ? selectedVar.stock : product.stock;
+    const inStockVar = product.variants?.find((v) => (v.stock ?? 0) > 0);
+    const selectedVar =
+      variant || inStockVar || (product.variants?.length ? product.variants[0] : undefined);
+    const stock =
+      selectedVar && selectedVar.stock > 0
+        ? selectedVar.stock
+        : Math.max(selectedVar?.stock || 0, product.stock || 0);
+
     if (stock <= 0) {
       toast.error(
         `"${product.name}${selectedVar?.name && selectedVar.name !== "Default" ? ` (${selectedVar.name})` : ""}" is out of stock`,
