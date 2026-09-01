@@ -505,6 +505,10 @@ export async function fetchSingleProduct(
     }
 
     if (row) {
+      if (!includeInactive && (row.sales_channel === "OFFLINE_ONLY" || !row.is_active)) {
+        return { product: null, error: null, isNotFound: true, isError: false };
+      }
+
       let deliveryFee: number | undefined;
       try {
         const { data: settingsData } = await supabase

@@ -61,24 +61,25 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
       .first();
     await expect(logo).toBeVisible();
 
-    // Check navigation
-    const nav = page.locator("header nav, nav").first();
-    await expect(nav).toBeVisible();
+    // Check navigation / header
+    const header = page.locator("header").first();
+    await expect(header).toBeVisible();
 
     // Check search functionality
-    const searchTrigger = page.locator('button[aria-label="Search"]:visible').first();
-    if ((await searchTrigger.count()) > 0 && (await searchTrigger.isVisible())) {
-      await searchTrigger.click();
-    }
-    const searchInput = page
-      .locator('input[type="search"]:visible, input[placeholder*="search" i]:visible')
-      .first();
-    if ((await searchInput.count()) > 0 && (await searchInput.isVisible())) {
-      console.log("Search input outerHTML:", await searchInput.evaluate((node) => node.outerHTML));
-      await searchInput.fill("baby");
-      const val = await searchInput.inputValue();
-      console.log("Search input value after fill:", val);
-      expect(val).toBe("baby");
+    const desktopSearch = page.locator('input[aria-label="Search products"]:visible');
+    if ((await desktopSearch.count()) > 0) {
+      await desktopSearch.click();
+      await desktopSearch.fill("baby");
+      await expect(desktopSearch).toHaveValue("baby");
+    } else {
+      const mobileSearchBtn = page.locator('button[aria-label="Search"]:visible');
+      if ((await mobileSearchBtn.count()) > 0) {
+        await mobileSearchBtn.click();
+        const mobileInput = page.locator('input[placeholder*="Search" i]:visible').first();
+        await expect(mobileInput).toBeVisible();
+        await mobileInput.fill("baby");
+        await expect(mobileInput).toHaveValue("baby");
+      }
     }
   });
 

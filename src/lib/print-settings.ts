@@ -218,8 +218,8 @@ export function buildTSPLLabel(params: {
   const safeStore = storeName.replace(/"/g, "").substring(0, 25);
   const safeSku = sku.replace(/"/g, "").substring(0, 20);
   const safeBarcode = barcode.replace(/"/g, "").substring(0, 40);
-  const priceStr = `Rs.${price}`;
-  const mrpStr = mrp && mrp > price ? ` MRP:${mrp}` : "";
+  const mrpVal = typeof mrp === "number" && mrp > 0 ? mrp : price;
+  const mrpStr = `MRP: Rs.${mrpVal}`;
 
   return [
     `SIZE ${widthMm} mm, ${heightMm} mm`,
@@ -232,8 +232,8 @@ export function buildTSPLLabel(params: {
     `TEXT 5,25,"2",0,1,1,"${safeName}"`,
     // SKU
     `TEXT 5,45,"1",0,1,1,"SKU: ${safeSku}"`,
-    // Price
-    `TEXT 5,60,"2",0,1,1,"${priceStr}${mrpStr}"`,
+    // Authoritative MRP on physical sticker
+    `TEXT 5,60,"2",0,1,1,"${mrpStr}"`,
     // Barcode — Code 128, height 40 dots, narrow bar 2 dots
     `BARCODE ${Math.round(w / 2)},80,"128",40,1,0,2,2,"${safeBarcode}"`,
     `PRINT ${copies},1`,

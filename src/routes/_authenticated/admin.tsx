@@ -2231,6 +2231,7 @@ function ProductsTab() {
         >
           <ProductForm
             product={editing}
+            defaultSalesChannel={channelTab}
             saving={save.isPending}
             onCancel={() => {
               setCreating(false);

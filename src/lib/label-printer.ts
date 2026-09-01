@@ -382,8 +382,8 @@ export function buildLabelPrintHtml(params: {
   // ── 2. Render a single label cell's inner HTML content ────────────
   const renderLabelContent = (p: PrintableProduct): string => {
     const barcodeValue = sanitizeBarcode(p.barcode, p.sku) || "SKU-" + (p.sku || "NONE");
-    const hasMrp = typeof p.mrp === "number" && p.mrp > p.price;
-    const discPct = showDiscount && hasMrp ? Math.round(((p.mrp! - p.price) / p.mrp!) * 100) : null;
+    const effectiveMrp = typeof p.mrp === "number" && p.mrp > 0 ? p.mrp : p.price;
+    const mrpFormatted = formatINR(effectiveMrp);
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
@@ -402,19 +402,11 @@ export function buildLabelPrintHtml(params: {
       ].join("");
     }
 
-    // Full label
-    const metaParts: string[] = [`<span class="lbl-price">${formatINR(p.price)}</span>`];
-    if (hasMrp) {
-      metaParts.push(`<span class="lbl-mrp">${formatINR(p.mrp!)}</span>`);
-    }
-    if (discPct !== null && discPct > 0) {
-      metaParts.push(`<span class="lbl-disc">-${discPct}%</span>`);
-    }
-
+    // Full label sticker shows Authoritative MRP
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      `<div class="lbl-meta">${metaParts.join("")}</div>`,
+      `<div class="lbl-meta"><span class="lbl-price">MRP ${mrpFormatted}</span></div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || "—")}</div>`,
     ].join("");

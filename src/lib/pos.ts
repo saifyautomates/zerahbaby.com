@@ -135,7 +135,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const clean = code.trim();
   if (!clean) return { found: false };
 
-  // Try online RPC first if online
+  // 1. Try online RPC first if online
   if (typeof navigator === "undefined" || navigator.onLine) {
     try {
       const { data, error } = await (
@@ -150,11 +150,73 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         return data as BarcodeResult;
       }
     } catch (netErr) {
-      console.warn("[pos] Online lookup failed, falling back to local catalog:", netErr);
+      console.warn("[pos] Online RPC lookup notice:", netErr);
+    }
+
+    // 2. Direct online table fallback query
+    try {
+      const { data: directProduct } = (await (supabase.from("products") as any)
+        .select(
+          "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+        )
+        .or(`barcode.eq.${clean},sku.ilike.${clean},slug.ilike.${clean},id.eq.${clean}`)
+        .maybeSingle()) as { data: any };
+
+      if (directProduct) {
+        const variants = (directProduct.product_variants as any[]) || [];
+        const cleanLower = clean.toLowerCase();
+        const matchedVariant =
+          variants.find(
+            (v: any) =>
+              String(v.barcode || "").toLowerCase() === cleanLower ||
+              String(v.sku || "").toLowerCase() === cleanLower,
+          ) ||
+          variants.find((v: any) => v.name === "Default") ||
+          variants[0] ||
+          null;
+
+        const images = (directProduct.product_images as any[]) || [];
+        const primaryImage =
+          images.find((img: any) => img.is_primary)?.public_url || images[0]?.public_url || null;
+
+        return {
+          found: true,
+          archived: directProduct.is_active === false,
+          product_id: directProduct.id,
+          variant_id: matchedVariant?.id,
+          slug: directProduct.slug,
+          name:
+            directProduct.name +
+            (matchedVariant && matchedVariant.name !== "Default" && matchedVariant.name
+              ? ` - ${matchedVariant.name}`
+              : ""),
+          brand: directProduct.brand || "Zérah Baby & Kids",
+          category: directProduct.category || "clothing",
+          price:
+            matchedVariant?.price_override != null
+              ? Number(matchedVariant.price_override)
+              : Number(directProduct.price || 0),
+          mrp:
+            matchedVariant?.mrp_override != null
+              ? Number(matchedVariant.mrp_override)
+              : Number(directProduct.mrp || directProduct.price || 0),
+          stock:
+            matchedVariant?.stock != null
+              ? Number(matchedVariant.stock)
+              : Number(directProduct.stock || 0),
+          sku: matchedVariant?.sku || directProduct.sku || "",
+          barcode: matchedVariant?.barcode || directProduct.barcode || clean,
+          image_url: matchedVariant?.image_url || primaryImage,
+          age_group: directProduct.age_group || "",
+          description: directProduct.description || "",
+        };
+      }
+    } catch (directErr) {
+      console.warn("[pos] Online direct lookup notice:", directErr);
     }
   }
 
-  // Fallback to local offline catalog
+  // 3. Fallback to local offline catalog
   const localMatch = await findOfflineProductByCode(clean);
   if (localMatch) {
     const vMatch = localMatch.matchedVariant as any;
@@ -165,7 +227,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       slug: (localMatch.slug as string) || (localMatch.id as string),
       name:
         (localMatch.name as string) ||
-        "" + (vMatch && vMatch.name !== "Default" ? ` - ${vMatch.name}` : ""),
+        "" + (vMatch && vMatch.name !== "Default" && vMatch.name ? ` - ${vMatch.name}` : ""),
       brand: (localMatch.brand as string) || "Zérah Baby & Kids",
       category: (localMatch.category as string) || "clothing",
       price: vMatch?.priceOverride ?? (Number(localMatch.price) || 0),
@@ -179,7 +241,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
     };
   }
 
-  return { found: false, error: "Product not found in online or offline database" };
+  return { found: false, error: `Product not found for barcode/SKU: ${clean}` };
 }
 
 /* ------------------------------------------------------------------ */

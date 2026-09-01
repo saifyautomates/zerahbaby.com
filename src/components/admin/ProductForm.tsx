@@ -124,7 +124,11 @@ function generateBarcode(): string {
   return Math.floor(100000000000 + Math.random() * 900000000000).toString();
 }
 
-const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => {
+const toDraft = (
+  p: Product | null,
+  defaultCategory?: string,
+  defaultSalesChannel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+): ProductDraft => {
   const pImages = (p?.product_images || []).map((img, i) => ({
     id: img.id,
     public_url: img.public_url,
@@ -175,7 +179,7 @@ const toDraft = (p: Product | null, defaultCategory?: string): ProductDraft => {
     buyingPrice: p?.buyingPrice ?? 0,
     recommendationMode: p?.recommendationMode ?? "manual",
     relatedProductIds: (p as any)?.relatedProductIds ?? [],
-    salesChannel: p?.salesChannel ?? "ONLINE_AND_OFFLINE",
+    salesChannel: p?.salesChannel ?? defaultSalesChannel ?? "ONLINE_AND_OFFLINE",
     colors: existingColors,
     variants: p?.variants?.length
       ? p.variants.map((v) => ({
@@ -217,14 +221,18 @@ export function ProductForm({
   onSave,
   onCancel,
   defaultCategory,
+  defaultSalesChannel,
 }: {
   product: Product | null;
   saving: boolean;
   onSave: (draft: ProductDraft) => void;
   onCancel: () => void;
   defaultCategory?: string;
+  defaultSalesChannel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 }) {
-  const [draft, setDraft] = useState<ProductDraft>(toDraft(product, defaultCategory));
+  const [draft, setDraft] = useState<ProductDraft>(
+    toDraft(product, defaultCategory, defaultSalesChannel),
+  );
 
   useEffect(() => {
     async function loadRelated() {
@@ -1635,9 +1643,6 @@ export function ProductForm({
                     set("salesChannel", val);
                     if (val === "OFFLINE_ONLY") {
                       set("isFeatured", false);
-                      set("isActive", false);
-                    } else {
-                      set("isActive", true);
                     }
                   }}
                 >

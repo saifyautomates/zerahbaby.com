@@ -137,16 +137,24 @@ export function POSTab() {
     return cashTendered - total;
   }, [cashTendered, total]);
 
-  // Products for manual search (active only)
+  // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [] } = useQuery({
     queryKey: ["pos-products"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, product_images(public_url, is_primary, sort_order)")
+        .select(
+          "*, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+        )
         .eq("is_active", true);
       if (error) throw error;
-      return (data as never[]).map((r) => mapProduct(r as never));
+      const mapped = (data as never[]).map((r) => mapProduct(r as never));
+      import("@/lib/offline-sync-engine")
+        .then((m) => {
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
+        })
+        .catch(() => null);
+      return mapped;
     },
   });
 
