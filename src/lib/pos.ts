@@ -27,6 +27,7 @@ export type POSCartItem = {
   image_url: string | null;
   age_group: string;
   qty: number;
+  sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   isCustom?: boolean;
 };
 
@@ -121,6 +122,7 @@ export type BarcodeResult = {
   image_url?: string | null;
   age_group?: string;
   description?: string;
+  sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 };
 
 import {
@@ -214,6 +216,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           image_url: matchedVariant?.image_url || primaryImage,
           age_group: directProduct.age_group || "",
           description: directProduct.description || "",
+          sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
         };
       }
     } catch (directErr) {
@@ -243,6 +246,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,
       age_group: (localMatch.ageGroup as string) || (localMatch.age_group as string) || "",
       description: (localMatch.description as string) || "",
+      sales_channel: (localMatch.sales_channel || localMatch.salesChannel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
     };
   }
 

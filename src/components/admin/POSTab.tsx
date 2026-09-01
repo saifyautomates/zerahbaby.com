@@ -276,12 +276,14 @@ export function POSTab() {
             image_url: result.image_url ?? null,
             age_group: result.age_group ?? "",
             qty: 1,
+            sales_channel: (result.sales_channel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
           });
 
           if (added) {
             playScanSuccess();
+            const isOfflineOnly = result.sales_channel === "OFFLINE_ONLY";
             toast.success(`Scanned: ${result.name}`, {
-              description: `₹${result.price} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
+              description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
             });
           }
           return;
@@ -386,9 +388,13 @@ export function POSTab() {
       image_url: swatchImg || product.imageUrl || product.image,
       age_group: product.ageGroup,
       qty: 1,
+      sales_channel: (product.salesChannel || "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
     });
     setProductSearch("");
-    toast.success(`Added: ${product.name}${varName}`);
+    const isOfflineOnly = product.salesChannel === "OFFLINE_ONLY";
+    toast.success(`Added: ${product.name}${varName}`, {
+      description: `${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • ₹${selectedVar?.priceOverride || product.price}`,
+    });
     setTimeout(() => scanInputRef.current?.focus(), 50);
   }
 
@@ -649,8 +655,19 @@ export function POSTab() {
                         }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
+                          {p.salesChannel === "OFFLINE_ONLY" ? (
+                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                              🏪 Offline Only
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                              🌐 Online + Store
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
                         </p>
                       </div>
@@ -717,18 +734,29 @@ export function POSTab() {
                                 (e.target as HTMLImageElement).src = clothing;
                               }}
                             />
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors line-clamp-2">
                                 {item.name}
                               </p>
-                              {item.isCustom && (
-                                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
-                                  Custom Price
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                {item.sales_channel === "OFFLINE_ONLY" ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                    <span>🏪</span> Offline Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                    <span>🌐</span> Online + Offline
+                                  </span>
+                                )}
+                                {item.isCustom && (
+                                  <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                    Custom Price
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">
+                                  {item.brand}
                                 </span>
-                              )}
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                {item.brand}
-                              </p>
+                              </div>
                             </div>
                           </button>
                         </td>
@@ -1226,10 +1254,21 @@ export function POSTab() {
                           className="pt-2 first:pt-0 flex items-center justify-between gap-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold truncate text-foreground text-xs">
-                              {item.name}
-                            </p>
-                            <p className="text-muted-foreground text-[10px]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold truncate text-foreground text-xs">
+                                {item.name}
+                              </p>
+                              {item.sales_channel === "OFFLINE_ONLY" ? (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                  🏪 Offline Only
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                  🌐 Online + POS
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-[10px] mt-0.5">
                               {item.qty} × {formatPrice(item.price)}
                               {item.isCustom && (
                                 <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
@@ -1564,6 +1603,36 @@ export function POSTab() {
                     {selectedPOSItem.category}
                     {selectedPOSItem.age_group && ` • ${selectedPOSItem.age_group}`}
                   </p>
+                </div>
+
+                {/* Sales Channel Status Card */}
+                <div className="rounded-2xl border border-border bg-muted/20 p-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-xl shrink-0">
+                      {selectedPOSItem.sales_channel === "OFFLINE_ONLY" ? "🏪" : "🌐"}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {selectedPOSItem.sales_channel === "OFFLINE_ONLY"
+                          ? "Physical Store Exclusive"
+                          : "Omnichannel Product"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {selectedPOSItem.sales_channel === "OFFLINE_ONLY"
+                          ? "Offline counter sale only"
+                          : "Sold on website & POS"}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      selectedPOSItem.sales_channel === "OFFLINE_ONLY"
+                        ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"
+                        : "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                    }`}
+                  >
+                    {selectedPOSItem.sales_channel === "OFFLINE_ONLY" ? "Offline Only" : "Online + Store"}
+                  </span>
                 </div>
 
                 {/* Pricing */}
