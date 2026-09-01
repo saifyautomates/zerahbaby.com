@@ -31,7 +31,9 @@ test.describe("Stock Lifecycle & POS Returns Inventory Engine", () => {
     const testProduct = products![0];
     const initialStock = Number(testProduct.stock || 0);
 
-    console.log(`[Lifecycle Test] Product: ${testProduct.name} (${testProduct.slug}), Initial Stock: ${initialStock}`);
+    console.log(
+      `[Lifecycle Test] Product: ${testProduct.name} (${testProduct.slug}), Initial Stock: ${initialStock}`,
+    );
 
     // 2. Simulate Stock Addition (Inventory Restock)
     const restockUnits = 10;
