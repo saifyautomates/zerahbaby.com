@@ -35,9 +35,12 @@ const ProductForm = safeLazy(() =>
 interface DrillDownOrderItem {
   product_id?: string;
   product_name?: string;
+  name?: string;
   product_slug?: string;
   qty?: number;
+  quantity?: number;
   price?: number;
+  image_url?: string | null;
 }
 
 interface DrillDownOrder {
@@ -151,20 +154,38 @@ function SalesChannelDrillDown({
       total: number;
     }> = [];
     validOrders.forEach((o) => {
-      o.order_items?.forEach((item) => {
-        const p = products.find((prod) => prod.id === item.product_id);
+      if (o.order_items && o.order_items.length > 0) {
+        o.order_items.forEach((item) => {
+          const p = products.find(
+            (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
+          );
+          const itemQty = item.qty || item.quantity || 1;
+          const itemPrice = item.price || 0;
+          items.push({
+            sale_id: o.id,
+            date: o.created_at,
+            product: item.product_name || item.name || "Product",
+            slug: p?.slug || item.product_slug || null,
+            image: getProductImage(p) || item.image_url || null,
+            source: "Online",
+            qty: itemQty,
+            price: itemPrice,
+            total: itemPrice * itemQty || o.total || 0,
+          });
+        });
+      } else {
         items.push({
           sale_id: o.id,
           date: o.created_at,
-          product: item.product_name || "Product",
-          slug: p?.slug || null,
-          image: getProductImage(p),
+          product: `Online Order #${o.id.substring(0, 8).toUpperCase()}`,
+          slug: null,
+          image: null,
           source: "Online",
-          qty: item.qty || 1,
-          price: item.price || 0,
-          total: (item.price || 0) * (item.qty || 1),
+          qty: 1,
+          price: o.total || 0,
+          total: o.total || 0,
         });
-      });
+      }
     });
     return items;
   }, [validOrders, products]);
@@ -193,29 +214,45 @@ function SalesChannelDrillDown({
       total: number;
     }> = [];
     validPosSales.forEach((s) => {
-      s.offline_sale_items?.forEach((item) => {
-        const p = getProduct(item.product_id || "");
+      if (s.offline_sale_items && s.offline_sale_items.length > 0) {
+        s.offline_sale_items.forEach((item) => {
+          const p = getProduct(item.product_id || "");
+          const itemQty = item.qty || item.quantity || 1;
+          const itemPrice = item.price || 0;
+          items.push({
+            sale_id: s.id,
+            date: s.created_at,
+            product: p ? p.name : item.name || item.product_name || "Product",
+            slug: p?.slug || null,
+            image: getProductImage(p),
+            source: "POS",
+            qty: itemQty,
+            price: itemPrice,
+            total: itemPrice * itemQty || s.total || 0,
+          });
+        });
+      } else {
         items.push({
           sale_id: s.id,
           date: s.created_at,
-          product: p ? p.name : item.name || "Product",
-          slug: p?.slug || null,
-          image: getProductImage(p),
+          product: `POS Sale ${s.sale_number || s.id.substring(0, 8)}`,
+          slug: null,
+          image: null,
           source: "POS",
-          qty: item.qty || 1,
-          price: item.price || 0,
-          total: (item.price || 0) * (item.qty || 1),
+          qty: 1,
+          price: s.total || 0,
+          total: s.total || 0,
         });
-      });
+      }
     });
     return items;
   }, [validPosSales, products]);
 
-  const onlineTotalRev = onlineRevenueItems.reduce((acc, i) => acc + i.total, 0);
-  const offlineTotalRev = offlineRevenueItems.reduce((acc, i) => acc + i.total, 0);
-
   const onlineOrdersTotal = onlineOrders.reduce((acc, i) => acc + i.total, 0);
   const offlineOrdersTotal = offlineSales.reduce((acc, i) => acc + i.total, 0);
+
+  const onlineTotalRev = onlineOrdersTotal;
+  const offlineTotalRev = offlineOrdersTotal;
 
   if (type === "orders") {
     let combined: Array<{
@@ -683,8 +720,7 @@ export function DashboardDrillDown({
     const validOrders = orders.filter((o) => {
       if (o.status === "cancelled") return false;
       if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
-      if (o.payment_method?.toLowerCase() === "cod") return true;
-      return o.payment_status === "paid";
+      return true;
     });
 
     const validPosSales = posSales.filter((s) => s.status !== "cancelled");
