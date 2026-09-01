@@ -402,11 +402,20 @@ export function buildLabelPrintHtml(params: {
       ].join("");
     }
 
-    // Full label sticker shows Authoritative MRP
+    const hasDiscount = effectiveMrp > p.price;
+    const discountPct = hasDiscount ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
+    const sellingPriceFormatted = formatINR(p.price);
+
+    const metaHtml =
+      showDiscount && hasDiscount && discountPct > 0
+        ? `<span class="lbl-price">${sellingPriceFormatted}</span><span class="lbl-mrp">MRP ${mrpFormatted}</span><span class="lbl-disc">(${discountPct}% OFF)</span>`
+        : `<span class="lbl-price">MRP ${mrpFormatted}</span>`;
+
+    // Full label sticker
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      `<div class="lbl-meta"><span class="lbl-price">MRP ${mrpFormatted}</span></div>`,
+      `<div class="lbl-meta">${metaHtml}</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || "—")}</div>`,
     ].join("");
