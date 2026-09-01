@@ -579,11 +579,7 @@ function CheckoutPage() {
           >
             {busy ? "Placing order…" : `Place order · ${formatPrice(finalTotal)}`}
           </button>
-          <p className="text-center text-xs text-muted-foreground">
-            An invoice is generated instantly and shared with our team. We call to confirm.
-          </p>
         </form>
-
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
           <h2 className="font-display text-xl font-bold">Your order</h2>
           <ul className="mt-4 space-y-4 text-sm">
