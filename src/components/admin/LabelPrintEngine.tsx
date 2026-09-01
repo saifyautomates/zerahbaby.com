@@ -76,77 +76,56 @@ function SingleStickerPreview({
   showDiscount: boolean;
   layout: LabelLayout;
 }) {
-  const discPct = showDiscount ? safeDiscountPct(product.mrp, product.price) : null;
-  const hasMrp = product.mrp > product.price;
   const cfg = PRINT_FORMAT_CONFIG[layout];
+  const mrpVal = typeof product.mrp === "number" && product.mrp > 0 ? product.mrp : product.price;
 
-  // Screen preview scales ~4px per mm for readability
-  // thermal-108: 100mm → 400px wide, 25mm → 100px tall
-  // thermal-58:  50mm → 200px wide, 25mm → 100px tall
-  // a4 cell:     47mm → 188px wide, 26mm → 104px tall
-  const SCALE = layout === "thermal-58" ? 3.6 : layout === "a4" ? 3.8 : 3.8;
+  // Screen preview scales ~4.2px per mm for clear representation
+  const SCALE = layout === "thermal-58" ? 4.4 : layout === "a4" ? 4.0 : 4.0;
   const previewW = Math.round(cfg.labelWidthMm * SCALE);
   const previewH = Math.round(cfg.labelHeightMm * SCALE);
 
-  const bcHeight = labelType === "barcode-only" ? previewH * 0.5 : previewH * 0.38;
+  const bcHeight = labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.34);
 
   return (
     <div
       className="relative flex flex-col justify-between items-center text-center rounded-lg border border-gray-300 bg-white text-black shadow-sm overflow-hidden select-none shrink-0"
-      style={{ width: previewW, height: previewH, padding: "3px 5px 2px" }}
+      style={{ width: previewW, height: previewH, padding: "4px 8px 3px" }}
     >
-      {/* Brand */}
+      {/* Row 1: Brand Header */}
       <p
-        className="w-full truncate font-black uppercase text-gray-500"
-        style={{ fontSize: Math.round(cfg.brandFontPt * 1.05) + "px", lineHeight: 1.1 }}
+        className="w-full truncate font-extrabold uppercase text-gray-700 tracking-wider text-center"
+        style={{ fontSize: Math.round(cfg.brandFontPt * 1.1) + "px", lineHeight: 1 }}
       >
-        Zérah Baby &amp; Kids
+        ZÉRAH BABY &amp; KIDS
       </p>
 
-      {/* Name */}
-      <p
-        className="w-full font-bold text-black leading-tight line-clamp-2"
-        style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
-      >
-        {product.name}
-      </p>
-
-      {labelType === "full" && (
-        <div className="flex items-baseline justify-center gap-1 flex-wrap w-full overflow-hidden">
-          <span
-            className="font-black text-black whitespace-nowrap"
-            style={{ fontSize: Math.round(cfg.priceFontPt * 1.05) + "px" }}
+      {/* Row 2: Product Name (Left) + MRP (Right) */}
+      {labelType !== "barcode-only" && (
+        <div className="flex items-baseline justify-between w-full gap-2 overflow-hidden">
+          <p
+            className="font-bold text-black text-left leading-tight line-clamp-1 truncate flex-1 min-w-0"
+            style={{ fontSize: Math.round(cfg.nameFontPt * 1.15) + "px" }}
           >
-            {formatPrice(product.price)}
+            {product.name}
+          </p>
+          <span
+            className="font-black text-black whitespace-nowrap text-right shrink-0"
+            style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+          >
+            MRP: {formatPrice(mrpVal)}
           </span>
-          {hasMrp && (
-            <span
-              className="text-gray-400 line-through whitespace-nowrap"
-              style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-            >
-              {formatPrice(product.mrp)}
-            </span>
-          )}
-          {discPct !== null && (
-            <span
-              className="font-black text-black bg-gray-100 border border-gray-300 rounded px-1"
-              style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-            >
-              -{discPct}%
-            </span>
-          )}
         </div>
       )}
 
-      {/* Barcode */}
+      {/* Row 3: Barcode with numbers */}
       <div className="w-full flex justify-center items-center overflow-hidden">
         <Barcode
           value={barcodeVal(product)}
           format="CODE128"
-          width={cfg.barcodeBarWidthPx * 0.65}
+          width={cfg.barcodeBarWidthPx * 0.72}
           height={bcHeight}
-          fontSize={Math.round(cfg.barcodeFontPt * 1.1)}
-          margin={1}
+          fontSize={Math.round(cfg.barcodeFontPt * 1.15)}
+          margin={0}
           marginTop={0}
           marginBottom={0}
           displayValue={true}
@@ -155,14 +134,13 @@ function SingleStickerPreview({
         />
       </div>
 
-      {labelType === "barcode-only" && (
-        <p
-          className="text-gray-500 font-mono w-full truncate"
-          style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-        >
-          SKU: {product.sku || "—"}
-        </p>
-      )}
+      {/* Row 4: SKU */}
+      <p
+        className="text-gray-700 font-bold w-full truncate text-center tracking-wide"
+        style={{ fontSize: Math.round(cfg.skuFontPt * 1.1) + "px", lineHeight: 1 }}
+      >
+        SKU: {product.sku || product.barcode || "—"}
+      </p>
     </div>
   );
 }

@@ -70,44 +70,44 @@ export interface PrintFormatConfig {
 }
 
 export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig> = {
-  /** ─── 1-UP 108mm THERMAL ROLL ─── */
+  /** ─── 1-UP 108mm THERMAL ROLL (100mm × 25mm Horizontal Landscape) ─── */
   "thermal-108": {
     pageWidthMm: 100, // roll width: 100mm printable (108mm physical roll)
     pageHeightMm: 25, // single label height: 25mm
     pageMarginMm: 0,
-    labelWidthMm: 98, // 1mm bleed on each side
-    labelHeightMm: 24, // 0.5mm top+bottom bleed
-    paddingTopMm: 1,
+    labelWidthMm: 96, // 2mm bleed on each side
+    labelHeightMm: 23.5, // 0.75mm top+bottom bleed
+    paddingTopMm: 1.0,
     paddingHorizMm: 2.5,
-    paddingBottomMm: 0.5,
+    paddingBottomMm: 0.6,
     gridColumns: 1,
     barcodeBarWidthPx: 1.4,
-    barcodeHeightMm: 9,
+    barcodeHeightMm: 8.0,
     barcodeFontPt: 6.5,
-    brandFontPt: 6,
-    nameFontPt: 7.5,
-    priceFontPt: 8.5,
-    skuFontPt: 5.5,
+    brandFontPt: 6.5,
+    nameFontPt: 8.0,
+    priceFontPt: 9.0,
+    skuFontPt: 6.0,
     isThermalRoll: true,
   },
-  /** ─── 1-UP 58mm THERMAL ROLL ─── */
+  /** ─── 1-UP 58mm THERMAL ROLL (50mm × 25mm Horizontal Landscape) ─── */
   "thermal-58": {
     pageWidthMm: 50, // roll width: 50mm printable (58mm physical roll)
     pageHeightMm: 25,
     pageMarginMm: 0,
     labelWidthMm: 48,
-    labelHeightMm: 24,
+    labelHeightMm: 23.5,
     paddingTopMm: 0.8,
-    paddingHorizMm: 2,
-    paddingBottomMm: 0.5,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 0.6,
     gridColumns: 1,
-    barcodeBarWidthPx: 0.9,
-    barcodeHeightMm: 8,
-    barcodeFontPt: 6,
+    barcodeBarWidthPx: 1.0,
+    barcodeHeightMm: 7.2,
+    barcodeFontPt: 6.0,
     brandFontPt: 5.5,
     nameFontPt: 6.5,
     priceFontPt: 7.5,
-    skuFontPt: 5,
+    skuFontPt: 5.2,
     isThermalRoll: true,
   },
   /** ─── A4 GRID ─── */
@@ -115,20 +115,19 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageWidthMm: 210,
     pageHeightMm: 297,
     pageMarginMm: 8,
-    // Each cell in 4-column grid: (210 - 2×8 - 3×1.5) / 4 ≈ 47.4mm
     labelWidthMm: 47,
     labelHeightMm: 26,
-    paddingTopMm: 1.5,
+    paddingTopMm: 1.0,
     paddingHorizMm: 1.5,
-    paddingBottomMm: 1,
+    paddingBottomMm: 0.8,
     gridColumns: 4,
     barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 9,
-    barcodeFontPt: 6.5,
+    barcodeHeightMm: 7.5,
+    barcodeFontPt: 6.0,
     brandFontPt: 5.5,
-    nameFontPt: 7,
+    nameFontPt: 6.5,
     priceFontPt: 7.5,
-    skuFontPt: 5.5,
+    skuFontPt: 5.2,
     isThermalRoll: false,
   },
 } as const;
@@ -396,28 +395,20 @@ export function buildLabelPrintHtml(params: {
     if (labelType === "barcode-only") {
       return [
         `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-name">${escapeHtml(p.name)}</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || "—")}</div>`,
+        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
       ].join("");
     }
 
-    const hasDiscount = effectiveMrp > p.price;
-    const discountPct = hasDiscount ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
-    const sellingPriceFormatted = formatINR(p.price);
-
-    const metaHtml =
-      showDiscount && hasDiscount && discountPct > 0
-        ? `<span class="lbl-price">${sellingPriceFormatted}</span><span class="lbl-mrp">MRP ${mrpFormatted}</span><span class="lbl-disc">(${discountPct}% OFF)</span>`
-        : `<span class="lbl-price">MRP ${mrpFormatted}</span>`;
-
-    // Full label sticker
+    // Standard Horizontal Product Label Sticker
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-      `<div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      `<div class="lbl-meta">${metaHtml}</div>`,
+      `<div class="lbl-row-middle">`,
+      `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
+      `  <div class="lbl-mrp">MRP: ${mrpFormatted}</div>`,
+      `</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
-      `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || "—")}</div>`,
+      `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
     ].join("");
   };
 
@@ -444,10 +435,7 @@ export function buildLabelPrintHtml(params: {
   }
 
   // ── 4. Build CSS ──────────────────────────────────────────────────
-  const pageSizeDecl = cfg.isThermalRoll
-    ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`
-    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm portrait`;
-
+  const pageSizeDecl = `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isThermalRoll ? "0mm" : `${cfg.pageMarginMm}mm`;
 
   const css = `
@@ -458,7 +446,7 @@ export function buildLabelPrintHtml(params: {
       padding: 0;
     }
 
-    /* ── Page ── */
+    /* ── Exact Physical Page Dimensions ── */
     @page {
       size: ${pageSizeDecl};
       margin: ${pageMarginDecl};
@@ -511,7 +499,7 @@ export function buildLabelPrintHtml(params: {
       justify-content: center;
     }
 
-    /* ── Inner label content ── */
+    /* ── Inner horizontal label container ── */
     .label-inner {
       width: ${cfg.labelWidthMm}mm;
       height: ${cfg.labelHeightMm}mm;
@@ -521,71 +509,67 @@ export function buildLabelPrintHtml(params: {
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      text-align: center;
       overflow: hidden;
       background: #ffffff;
+      box-sizing: border-box;
     }
 
-    /* ── Typography ── */
+    /* ── Row 1: Brand Header ── */
     .lbl-brand {
       font-size: ${cfg.brandFontPt}pt;
       font-weight: 800;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: #444444;
+      color: #333333;
       line-height: 1;
       width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Row 2: Product Name (Left) + MRP (Right) ── */
+    .lbl-row-middle {
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      width: 100%;
+      gap: 1.5mm;
+      overflow: hidden;
+      flex-shrink: 0;
+      margin-top: 0.2mm;
+      margin-bottom: 0.2mm;
     }
 
     .lbl-name {
       font-size: ${cfg.nameFontPt}pt;
       font-weight: 700;
       color: #000000;
-      line-height: 1.1;
-      width: 100%;
+      line-height: 1.15;
+      text-align: left;
+      flex: 1;
+      min-width: 0;
       overflow: hidden;
-      /* Allow max 2 lines for long product names */
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       text-overflow: ellipsis;
     }
 
-    .lbl-meta {
-      display: flex;
-      flex-direction: row;
-      align-items: baseline;
-      justify-content: center;
-      gap: 1.5mm;
-      width: 100%;
-      flex-wrap: nowrap;
-      overflow: hidden;
-    }
-
-    .lbl-price {
+    .lbl-mrp {
       font-size: ${cfg.priceFontPt}pt;
       font-weight: 900;
       color: #000000;
       white-space: nowrap;
+      text-align: right;
+      flex-shrink: 0;
+      letter-spacing: -0.01em;
     }
 
-    .lbl-mrp {
-      font-size: ${cfg.skuFontPt}pt;
-      text-decoration: line-through;
-      color: #777777;
-      white-space: nowrap;
-    }
-
-    .lbl-disc {
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 800;
-      color: #000000;
-      white-space: nowrap;
-    }
-
+    /* ── Row 3: Barcode & Barcode Number ── */
     .lbl-bc {
       width: 100%;
       display: flex;
@@ -595,20 +579,25 @@ export function buildLabelPrintHtml(params: {
       flex-shrink: 0;
     }
 
-    /* Barcode SVG uses explicit mm width — do NOT override with max-width % */
     .lbl-bc svg {
       display: block;
+      margin: 0 auto;
     }
 
+    /* ── Row 4: SKU ── */
     .lbl-sku {
-      font-family: "Courier New", Courier, monospace;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: ${cfg.skuFontPt}pt;
-      color: #555555;
+      font-weight: 700;
+      color: #444444;
       width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-align: center;
       line-height: 1;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
     }
   `.trim();
 

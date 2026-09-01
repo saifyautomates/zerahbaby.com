@@ -7,7 +7,8 @@ import {
   setSavedShowDiscount,
   getSavedLabelType,
   setSavedLabelType,
-  triggerDirectLabelPrint,
+  PRINT_FORMAT_CONFIG,
+  buildLabelPrintHtml,
 } from "../src/lib/label-printer";
 
 test.describe("One-Click Product Label Printing Suite", () => {
@@ -129,5 +130,53 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(calcDiscount(100, 120)).toBeNull(); // Price higher than MRP
     expect(calcDiscount(0, 100)).toBeNull();
     expect(calcDiscount(-50, 100)).toBeNull();
+  });
+
+  test("5. Physical Horizontal Landscape Label Geometry (Width > Height)", () => {
+    const cfg58 = PRINT_FORMAT_CONFIG["thermal-58"];
+    const cfg108 = PRINT_FORMAT_CONFIG["thermal-108"];
+
+    // Ensure Width > Height for landscape thermal stickers
+    expect(cfg58.pageWidthMm).toBeGreaterThan(cfg58.pageHeightMm);
+    expect(cfg58.pageWidthMm).toBe(50);
+    expect(cfg58.pageHeightMm).toBe(25);
+    expect(cfg58.isThermalRoll).toBe(true);
+
+    expect(cfg108.pageWidthMm).toBeGreaterThan(cfg108.pageHeightMm);
+    expect(cfg108.pageWidthMm).toBe(100);
+    expect(cfg108.pageHeightMm).toBe(25);
+    expect(cfg108.isThermalRoll).toBe(true);
+  });
+
+  test("6. Single Source of Truth HTML & CSS Output Formatting", () => {
+    const sampleProduct = {
+      name: "dangri",
+      barcode: "525724465925",
+      sku: "ZR-CL-825985",
+      price: 299,
+      mrp: 799,
+    };
+
+    const html = buildLabelPrintHtml({
+      products: [sampleProduct],
+      quantities: { "ZR-CL-825985": 1 },
+      layout: "thermal-58",
+      labelType: "full",
+      showDiscount: false,
+    });
+
+    // Validations:
+    // 1. @page has exact 50mm 25mm dimensions
+    expect(html).toContain("size: 50mm 25mm;");
+    // 2. Brand header exists
+    expect(html).toContain("ZÉRAH BABY &amp; KIDS");
+    // 3. Product name exists
+    expect(html).toContain("dangri");
+    // 4. MRP exists clearly
+    expect(html).toContain("MRP: ₹799");
+    // 5. SKU exists
+    expect(html).toContain("SKU: ZR-CL-825985");
+    // 6. Barcode SVG exists
+    expect(html).toContain("lbl-bc");
   });
 });
