@@ -44,6 +44,7 @@ import {
   ShoppingBag,
   CheckCircle2,
   Heart,
+  Search,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -140,6 +141,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   };
 
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [salesChannelFilter, setSalesChannelFilter] = useState<"all" | "online" | "pos">("all");
+  const [salesSearchQuery, setSalesSearchQuery] = useState("");
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -302,12 +305,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   // Authoritative KPI Metrics Calculation
   const stats = useMemo(() => {
-    // 1. Valid paid / non-cancelled online orders (COD or paid online)
+    // 1. Valid non-cancelled online orders (includes Placed, Confirmed, Shipped, Delivered, COD, Paid)
     const validOrders = orders.filter((o: Order) => {
       if (o.status === "cancelled") return false;
       if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
-      if (o.payment_method?.toLowerCase() === "cod") return true;
-      return o.payment_status === "paid";
+      return true;
     });
 
     const validPosSales = posSales.filter((s) => s.status !== "cancelled");
@@ -497,30 +499,69 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     ];
   }, [stats.revenue, stats.cashSales, stats.onlineSales]);
 
-  // Recent Orders List
-  const recentOrders = useMemo(() => {
+  // Omnichannel Sales History Ledger (Combined Online + Offline POS)
+  const allSalesHistory = useMemo(() => {
     const onlineMapped = orders.map((o) => ({
+      key: `online-${o.id}`,
       id: `#${o.id.toString().substring(0, 8).toUpperCase()}`,
-      customer: o.full_name || o.email || "Customer",
+      rawId: o.id,
+      customer: o.full_name || o.email || "Online Buyer",
+      phone: o.phone || "",
       amount: Number(o.total || 0),
+      payment_method: o.payment_method || "Online",
       status: o.status || "placed",
-      source: "Online",
+      source: "Online" as const,
       created_at: o.created_at,
+      itemCount: o.order_items?.length || 1,
+      itemsSummary: o.order_items?.map((i) => i.name).filter(Boolean).join(", ") || "Order items",
     }));
 
     const posMapped = posSales.map((s) => ({
+      key: `pos-${s.id}`,
       id: s.sale_number || `#${s.id.toString().substring(0, 8).toUpperCase()}`,
+      rawId: s.id,
       customer: s.customer_name || "Walk-in Customer",
+      phone: s.customer_phone || "",
       amount: Number(s.total || 0),
-      status: "completed",
-      source: "POS",
+      payment_method: s.payment_method || "Cash",
+      status: s.status || "completed",
+      source: "POS" as const,
       created_at: s.created_at,
+      itemCount: s.offline_sale_items?.length || 1,
+      itemsSummary: s.offline_sale_items?.map((i) => i.name || i.product_slug).filter(Boolean).join(", ") || "POS items",
     }));
 
-    return [...onlineMapped, ...posMapped]
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      .slice(0, 5);
-  }, [orders, posSales]);
+    let combined = [...onlineMapped, ...posMapped].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+    );
+
+    if (salesChannelFilter === "online") {
+      combined = combined.filter((s) => s.source === "Online");
+    } else if (salesChannelFilter === "pos") {
+      combined = combined.filter((s) => s.source === "POS");
+    }
+
+    if (salesSearchQuery.trim()) {
+      const q = salesSearchQuery.toLowerCase().trim();
+      combined = combined.filter(
+        (s) =>
+          s.id.toLowerCase().includes(q) ||
+          s.customer.toLowerCase().includes(q) ||
+          s.phone.includes(q) ||
+          s.payment_method.toLowerCase().includes(q) ||
+          s.status.toLowerCase().includes(q) ||
+          s.itemsSummary.toLowerCase().includes(q) ||
+          s.amount.toString().includes(q),
+      );
+    }
+
+    return combined;
+  }, [orders, posSales, salesChannelFilter, salesSearchQuery]);
+
+  // Recent Orders List (Top 5)
+  const recentOrders = useMemo(() => {
+    return allSalesHistory.slice(0, 5);
+  }, [allSalesHistory]);
 
   // Top Selling / Critical Products
   const topProducts = useMemo(() => {
@@ -1268,74 +1309,172 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </div>
 
-      {/* Middle Section: Recent Orders | Top Products | Recent Activity */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Recent Orders List */}
-        <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-foreground">Recent Orders</h3>
+      {/* Omnichannel Sales & Orders History Ledger */}
+      <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <ShoppingBag className="size-4 text-primary" />
+              <span>Omnichannel Sales & Transactions History</span>
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Unified live transactions across Online Storefront and In-Store POS.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search orders, sales, customer..."
+                value={salesSearchQuery}
+                onChange={(e) => setSalesSearchQuery(e.target.value)}
+                className="h-8 rounded-xl border border-border bg-background pl-8 pr-3 text-xs outline-none focus:border-primary w-48 sm:w-56"
+              />
+            </div>
+
+            {/* Channel filter pills */}
+            <div className="flex bg-muted/60 p-0.5 rounded-xl border border-border text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setSalesChannelFilter("all")}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  salesChannelFilter === "all"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All ({orders.length + posSales.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSalesChannelFilter("online")}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  salesChannelFilter === "online"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Online ({orders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSalesChannelFilter("pos")}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                  salesChannelFilter === "pos"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                POS ({posSales.length})
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => onNavigate?.("orders")}
-              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer ml-1"
             >
-              <span>View All</span>
+              <span>Manage Orders</span>
               <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground font-medium">
-                  <th className="pb-2.5">Order ID</th>
-                  <th className="pb-2.5">Customer</th>
-                  <th className="pb-2.5">Amount</th>
-                  <th className="pb-2.5">Source</th>
-                  <th className="pb-2.5"></th>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground font-semibold">
+                <th className="pb-3 pl-2">Order / Sale #</th>
+                <th className="pb-3">Channel</th>
+                <th className="pb-3">Date & Time</th>
+                <th className="pb-3">Customer</th>
+                <th className="pb-3">Items Summary</th>
+                <th className="pb-3">Payment</th>
+                <th className="pb-3">Status</th>
+                <th className="pb-3 text-right pr-2">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {allSalesHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
+                    <ShoppingBag className="size-8 mx-auto mb-2 opacity-30" />
+                    <p className="font-semibold">No sales recorded matching this filter.</p>
+                    <p className="text-[11px] mt-0.5">Sales made online or via Offline POS will immediately appear here in real-time.</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
-                      No orders recorded yet.
+              ) : (
+                allSalesHistory.slice(0, 15).map((s) => (
+                  <tr
+                    key={s.key}
+                    onClick={() => {
+                      if (s.source === "Online") onNavigate?.("orders");
+                      else onNavigate?.("billing");
+                    }}
+                    className="hover:bg-muted/50 transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3 pl-2 font-bold text-foreground font-mono">
+                      {s.id}
+                    </td>
+                    <td className="py-3">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                          s.source === "Online"
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                        }`}
+                      >
+                        {s.source === "Online" ? "Online Store" : "POS Register"}
+                      </span>
+                    </td>
+                    <td className="py-3 text-muted-foreground whitespace-nowrap">
+                      {format(new Date(s.created_at), "MMM dd, yyyy • hh:mm a")}
+                    </td>
+                    <td className="py-3 font-medium text-foreground">
+                      <div>
+                        <p className="truncate max-w-[140px]">{s.customer}</p>
+                        {s.phone && (
+                          <p className="text-[10px] text-muted-foreground font-mono">{s.phone}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 text-muted-foreground max-w-[180px] truncate" title={s.itemsSummary}>
+                      {s.itemsSummary}
+                    </td>
+                    <td className="py-3 font-semibold uppercase text-[11px] text-muted-foreground">
+                      {s.payment_method}
+                    </td>
+                    <td className="py-3">
+                      <span
+                        className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          s.status === "delivered" || s.status === "completed"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                            : s.status === "shipped"
+                              ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                              : s.status === "cancelled"
+                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right pr-2 font-black text-foreground text-sm">
+                      {formatPrice(s.amount)}
                     </td>
                   </tr>
-                ) : (
-                  recentOrders.map((o) => (
-                    <tr
-                      key={o.id}
-                      onClick={() => onNavigate?.("orders")}
-                      className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    >
-                      <td className="py-2.5 font-bold text-foreground">{o.id}</td>
-                      <td className="py-2.5 text-muted-foreground truncate max-w-[100px]">
-                        {o.customer}
-                      </td>
-                      <td className="py-2.5 font-semibold text-foreground">
-                        {formatPrice(o.amount)}
-                      </td>
-                      <td className="py-2.5">
-                        <span
-                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                            o.source === "Online"
-                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          }`}
-                        >
-                          {o.source}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-right text-muted-foreground">
-                        <MoreVertical className="h-3.5 w-3.5 inline" />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+      </div>
+
+      {/* Middle Section: Low Stock Watchlist & Live Activity */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
         {/* Low Stock Watchlist */}
         <div className="rounded-2xl bg-card p-5 shadow-sm border border-border">
