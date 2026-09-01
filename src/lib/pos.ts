@@ -155,11 +155,16 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
 
     // 2. Direct online table fallback query
     try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+      const orFilter = isUuid
+        ? `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean},id.eq.${clean}`
+        : `barcode.ilike.${clean},sku.ilike.${clean},slug.ilike.${clean}`;
+
       const { data: directProduct } = (await (supabase.from("products") as any)
         .select(
           "*, product_images(public_url, is_primary, sort_order), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
         )
-        .or(`barcode.eq.${clean},sku.ilike.${clean},slug.ilike.${clean},id.eq.${clean}`)
+        .or(orFilter)
         .maybeSingle()) as { data: any };
 
       if (directProduct) {

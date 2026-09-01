@@ -346,7 +346,8 @@ export async function findOfflineProductByCode(
             String(p.barcode || "").toLowerCase() === clean ||
             String(p.sku || "").toLowerCase() === clean ||
             String(p.slug || "").toLowerCase() === clean ||
-            String(p.id || "").toLowerCase() === clean
+            String(p.id || "").toLowerCase() === clean ||
+            String(p.uuid || "").toLowerCase() === clean
           ) {
             matchedProduct = p;
             matchedVariant = Array.isArray(p.variants)
