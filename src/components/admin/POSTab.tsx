@@ -227,66 +227,97 @@ export function POSTab() {
   }, [step]);
 
   // Scan handler
-  const handleScan = useCallback(async (code: string) => {
-    const cleanCode = code.trim();
-    if (!cleanCode) return;
-    setScanValue("");
-    setScanLoading(true);
-    try {
-      const result = await lookupBarcode(cleanCode);
+  const handleScan = useCallback(
+    async (code: string) => {
+      const cleanCode = code.trim();
+      if (!cleanCode) return;
+      setScanValue("");
+      setScanLoading(true);
+      try {
+        const result = await lookupBarcode(cleanCode);
 
-      if (!result || !result.found) {
+        if (result && result.found) {
+          if (result.archived) {
+            playScanError();
+            toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
+            return;
+          }
+
+          if ((result.stock ?? 0) <= 0) {
+            playScanError();
+            toast.error(`"${result.name}" is out of stock!`, {
+              description: "Cannot add out-of-stock items to a new POS sale.",
+            });
+            return;
+          }
+
+          const added = addToCart({
+            product_id: result.product_id!,
+            variant_id: result.variant_id || "",
+            slug: result.slug!,
+            name: result.name!,
+            brand: result.brand ?? "",
+            category: result.category ?? "",
+            price: result.price!,
+            mrp: result.mrp ?? result.price!,
+            stock: result.stock!,
+            sku: result.sku ?? "",
+            barcode: result.barcode ?? "",
+            image_url: result.image_url ?? null,
+            age_group: result.age_group ?? "",
+            qty: 1,
+          });
+
+          if (added) {
+            playScanSuccess();
+            toast.success(`Scanned: ${result.name}`, {
+              description: `₹${result.price} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
+            });
+          }
+          return;
+        }
+
+        // Fallback: search in loaded local products catalog
+        const q = cleanCode.toLowerCase();
+        const localMatches = products.filter((p) => {
+          return (
+            p.sku.toLowerCase() === q ||
+            p.barcode?.toLowerCase() === q ||
+            p.id.toLowerCase() === q ||
+            p.name.toLowerCase().includes(q) ||
+            p.variants?.some((v) => v.sku?.toLowerCase() === q || v.barcode?.toLowerCase() === q)
+          );
+        });
+
+        if (localMatches.length === 1) {
+          const p = localMatches[0];
+          const matchedVar = p.variants?.find(
+            (v) => v.sku?.toLowerCase() === q || v.barcode?.toLowerCase() === q,
+          );
+          addProductManually(p, matchedVar);
+          playScanSuccess();
+          return;
+        }
+
+        if (localMatches.length > 1) {
+          setProductSearch(cleanCode);
+          toast.info(`Found ${localMatches.length} products matching "${cleanCode}"`);
+          return;
+        }
+
         playScanError();
-        toast.error(`Product not found for barcode: ${cleanCode}`, {
+        toast.error(`Product not found for barcode/SKU: ${cleanCode}`, {
           description: "Check if the barcode is assigned or search product catalogue manually.",
         });
-        return;
-      }
-
-      if (result.archived) {
+      } catch (e) {
         playScanError();
-        toast.error(`"${result.name}" is archived and unavailable for sale`, { duration: 5000 });
-        return;
+        toast.error(e instanceof Error ? e.message : "Scan failed");
+      } finally {
+        setScanLoading(false);
       }
-
-      if ((result.stock ?? 0) <= 0) {
-        playScanError();
-        toast.error(`"${result.name}" is out of stock!`, {
-          description: "Cannot add out-of-stock items to a new POS sale.",
-        });
-        return;
-      }
-
-      const added = addToCart({
-        product_id: result.product_id!,
-        variant_id: result.variant_id || "",
-        slug: result.slug!,
-        name: result.name!,
-        brand: result.brand ?? "",
-        category: result.category ?? "",
-        price: result.price!,
-        mrp: result.mrp ?? result.price!,
-        stock: result.stock!,
-        sku: result.sku ?? "",
-        barcode: result.barcode ?? "",
-        image_url: result.image_url ?? null,
-        age_group: result.age_group ?? "",
-        qty: 1,
-      });
-
-      if (added) {
-        playScanSuccess();
-        toast.success(`Scanned: ${result.name}`, {
-          description: `₹${result.price} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
-        });
-      }
-    } catch (e) {
-      playScanError();
-      toast.error(e instanceof Error ? e.message : "Scan failed");
-    } finally {
-      setScanLoading(false);
-    }
-  }, []);
+    },
+    [products],
+  );
 
   // Hook into centralized hardware scanner events (also drains queued scans on mount)
   useGlobalBarcodeScanner(handleScan);
@@ -348,6 +379,7 @@ export function POSTab() {
     });
     setProductSearch("");
     toast.success(`Added: ${product.name}${varName}`);
+    setTimeout(() => scanInputRef.current?.focus(), 50);
   }
 
   function updateQty(productId: string, newQty: number, variantId?: string) {
@@ -513,7 +545,8 @@ export function POSTab() {
 
         {/* Scan Input - Only displayed during Cart scanning */}
         {step === "cart" && (
-          <div className="p-4 border-b border-border/50 bg-card">
+          <div className="p-4 border-b border-border/50 bg-card space-y-3">
+            {/* Top Primary Input: Barcode / SKU Scanner */}
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Scan className="absolute left-4 top-3.5 size-5 text-muted-foreground" />
@@ -530,9 +563,21 @@ export function POSTab() {
                   }}
                   placeholder="Scan barcode or type SKU and press Enter..."
                   aria-label="Scan barcode or SKU"
-                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-4 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all"
+                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-10 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all"
                   autoFocus
                 />
+                {scanValue && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanValue("");
+                      scanInputRef.current?.focus();
+                    }}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
               </div>
               {scanLoading && (
                 <div className="flex items-center px-3">
@@ -541,18 +586,40 @@ export function POSTab() {
               )}
             </div>
 
-            {/* Manual Product Search */}
-            <div className="mt-3 relative">
+            {/* Bottom Secondary Input: Manual Product Search */}
+            <div className="relative">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Search products manually..."
-                  className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && filteredProducts.length > 0) {
+                      e.preventDefault();
+                      addProductManually(filteredProducts[0]);
+                    } else if (e.key === "Escape") {
+                      setProductSearch("");
+                      scanInputRef.current?.focus();
+                    }
+                  }}
+                  placeholder="Search products manually (or press Enter to select first result)…"
+                  className="w-full rounded-xl border border-border bg-background pl-10 pr-9 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
+                {productSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductSearch("");
+                      scanInputRef.current?.focus();
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
+
               {filteredProducts.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
                   {filteredProducts.map((p) => (
