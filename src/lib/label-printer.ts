@@ -254,9 +254,15 @@ export function validatePrintableProduct(product: PrintableProduct): {
     return { valid: false, error: "Product name is required to print label." };
   // Price 0 is valid (free products / POS samples)
   if (product.price === undefined || product.price === null || isNaN(Number(product.price))) {
-    return { valid: false, error: `Product "${product.name}" has an invalid price.` };
+    return { valid: false, error: `Product "${product.name}" has an invalid selling price.` };
   }
-  // Barcode/SKU is needed for CODE128; if absent we still print with placeholder
+  const code = sanitizeBarcode(product.barcode, product.sku);
+  if (!code) {
+    return {
+      valid: false,
+      error: `Product "${product.name}" does not have a barcode or SKU.`,
+    };
+  }
   return { valid: true };
 }
 
