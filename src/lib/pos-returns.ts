@@ -278,6 +278,8 @@ export function useProcessOfflineReturn() {
       qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
     },
   });
 }
