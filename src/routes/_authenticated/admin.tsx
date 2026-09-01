@@ -51,6 +51,7 @@ import {
   Truck,
   FileText,
   Copy,
+  Receipt,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
@@ -106,6 +107,11 @@ const BulkImportTab = safeLazy(() =>
 );
 const PagesPoliciesTab = safeLazy(() =>
   import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
+);
+const CustomerHistoryPanel = safeLazy(() =>
+  import("@/components/admin/CustomerHistoryPanel").then((m) => ({
+    default: m.CustomerHistoryPanel,
+  })),
 );
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
@@ -3277,6 +3283,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 /* ---------------- Customers ---------------- */
 
 function CustomersTab() {
+  const [activeSection, setActiveSection] = useState<"online" | "offline">("online");
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
   const [search, setSearch] = useState("");
@@ -3284,6 +3291,31 @@ function CustomersTab() {
     Database["public"]["Tables"]["profiles"]["Row"] | null
   >(null);
   const [viewPhoto, setViewPhoto] = useState<{ url: string; title: string } | null>(null);
+
+  // Sync Offline Customers & Sales Data
+  const { data: offlineSales = [] } = useQuery({
+    queryKey: ["offline-sales-customers-badge"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offline_sales")
+        .select("id, total, customer_phone, customer_name, status");
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const offlineStats = useMemo(() => {
+    const set = new Set<string>();
+    let totalSpend = 0;
+    for (const s of offlineSales) {
+      if (s.status === "cancelled") continue;
+      const key = s.customer_phone?.trim() || s.customer_name?.trim() || "Walk-in";
+      set.add(key);
+      totalSpend += Number(s.total || 0);
+    }
+    return { count: set.size, totalSpend };
+  }, [offlineSales]);
 
   const stats = useMemo(() => {
     const map = new Map<string, { count: number; spend: number; lastOrderDate: string | null }>();
@@ -3296,6 +3328,13 @@ function CustomersTab() {
       });
     }
     return map;
+  }, [orders]);
+
+  const onlineSpend = useMemo(() => {
+    return (orders ?? []).reduce(
+      (sum, o) => sum + (o.status === "cancelled" ? 0 : Number(o.total || 0)),
+      0,
+    );
   }, [orders]);
 
   const filtered = useMemo(() => {
@@ -3313,192 +3352,268 @@ function CustomersTab() {
   }, [customers, search]);
 
   return (
-    <div className="space-y-4">
-      {/* Header & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="font-display text-lg font-bold">Registered Customers</h3>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-            {filtered.length} {filtered.length === 1 ? "customer" : "customers"}
-          </span>
+    <div className="space-y-6">
+      {/* 2-Section Header & Channel Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-1.5 bg-muted/40 rounded-2xl border border-border">
+        <div className="flex items-center gap-1.5 bg-background p-1 rounded-xl border border-border/80 shadow-2xs overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveSection("online")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeSection === "online"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Users className="size-4" />
+            <span>Online Customers</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeSection === "online"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {customers?.length || 0}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("offline")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
+              activeSection === "offline"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Receipt className="size-4" />
+            <span>Offline POS Customers</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeSection === "offline"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {offlineStats.count}
+            </span>
+          </button>
         </div>
 
-        <div className="relative min-w-[260px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email, city…"
-            className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-          />
+        <div className="flex items-center gap-4 px-3 text-xs text-muted-foreground">
+          <div>
+            <span className="text-[11px] block font-medium">Total Combined Spend:</span>
+            <strong className="text-foreground text-sm font-black">
+              {formatPrice(onlineSpend + offlineStats.totalSpend)}
+            </strong>
+          </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
-              <tr>
-                <th className="px-5 py-3.5">Customer &amp; Profile (DP)</th>
-                <th className="px-5 py-3.5">Contact Details</th>
-                <th className="px-5 py-3.5">Delivery Address</th>
-                <th className="px-5 py-3.5">Joined Date</th>
-                <th className="px-5 py-3.5 text-right">Orders / Spend</th>
-                <th className="px-5 py-3.5 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((c) => {
-                const s = stats.get(c.id) ?? { count: 0, spend: 0, lastOrderDate: null };
-                const initials = c.full_name
-                  ? c.full_name
-                      .split(" ")
-                      .map((n: string) => n[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()
-                  : c.email?.[0]?.toUpperCase() || "C";
+      {/* Render Active Section */}
+      {activeSection === "offline" ? (
+        <Suspense
+          fallback={
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              Loading offline customers hub…
+            </div>
+          }
+        >
+          <CustomerHistoryPanel />
+        </Suspense>
+      ) : (
+        <div className="space-y-4">
+          {/* Header & Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-lg font-bold">Online Storefront Customers</h3>
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                {filtered.length} {filtered.length === 1 ? "customer" : "customers"}
+              </span>
+            </div>
 
-                return (
-                  <tr key={c.id} className="group transition-colors hover:bg-muted/40 align-middle">
-                    {/* DP & Name */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          onClick={() => {
-                            if (c.avatar_url) {
-                              setViewPhoto({
-                                url: c.avatar_url,
-                                title: c.full_name || "Customer DP",
-                              });
-                            } else {
-                              setSelectedCustomer(c);
-                            }
-                          }}
-                          className={`size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs group/dp transition-transform ${
-                            c.avatar_url
-                              ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-primary/40"
-                              : "cursor-pointer"
-                          }`}
-                          title={
-                            c.avatar_url
-                              ? "Click to view full customer photo"
-                              : "Click to view profile info"
-                          }
-                        >
-                          {c.avatar_url ? (
-                            <div className="relative size-full">
-                              <img
-                                loading="lazy"
-                                decoding="async"
-                                src={c.avatar_url}
-                                alt={c.full_name || "Customer avatar"}
-                                className="size-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dp:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                <Eye className="size-4" />
-                              </div>
+            <div className="relative min-w-[260px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, phone, email, city…"
+                className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-5 py-3.5">Customer &amp; Profile (DP)</th>
+                    <th className="px-5 py-3.5">Contact Details</th>
+                    <th className="px-5 py-3.5">Delivery Address</th>
+                    <th className="px-5 py-3.5">Joined Date</th>
+                    <th className="px-5 py-3.5 text-right">Orders / Spend</th>
+                    <th className="px-5 py-3.5 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((c) => {
+                    const s = stats.get(c.id) ?? { count: 0, spend: 0, lastOrderDate: null };
+                    const initials = c.full_name
+                      ? c.full_name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()
+                      : c.email?.[0]?.toUpperCase() || "C";
+
+                    return (
+                      <tr
+                        key={c.id}
+                        className="group transition-colors hover:bg-muted/40 align-middle"
+                      >
+                        {/* DP & Name */}
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              onClick={() => {
+                                if (c.avatar_url) {
+                                  setViewPhoto({
+                                    url: c.avatar_url,
+                                    title: c.full_name || "Customer DP",
+                                  });
+                                } else {
+                                  setSelectedCustomer(c);
+                                }
+                              }}
+                              className={`size-11 rounded-full border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center shadow-2xs group/dp transition-transform ${
+                                c.avatar_url
+                                  ? "cursor-pointer hover:scale-105 hover:ring-2 hover:ring-primary/40"
+                                  : "cursor-pointer"
+                              }`}
+                              title={
+                                c.avatar_url
+                                  ? "Click to view full customer photo"
+                                  : "Click to view profile info"
+                              }
+                            >
+                              {c.avatar_url ? (
+                                <div className="relative size-full">
+                                  <img
+                                    loading="lazy"
+                                    decoding="async"
+                                    src={c.avatar_url}
+                                    alt={c.full_name || "Customer avatar"}
+                                    className="size-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/dp:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                    <Eye className="size-4" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="size-full bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 flex items-center justify-center font-display text-sm font-bold text-primary">
+                                  {initials}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-foreground block truncate">
+                                {c.full_name || "Guest Customer"}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground font-mono truncate block">
+                                ID: {c.id.slice(0, 8)}…
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Contact */}
+                        <td className="px-5 py-4 text-xs">
+                          <span className="font-semibold text-foreground block">
+                            {c.email || "No email"}
+                          </span>
+                          {c.phone ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-muted-foreground font-mono">{c.phone}</span>
+                              <a
+                                href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
+                                className="inline-flex items-center gap-1 rounded bg-[#25D366]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#128C7E] hover:bg-[#25D366]/20 transition-colors"
+                                title="Chat on WhatsApp"
+                              >
+                                WA
+                              </a>
                             </div>
                           ) : (
-                            <div className="size-full bg-gradient-to-tr from-primary/20 via-primary/10 to-amber-100 flex items-center justify-center font-display text-sm font-bold text-primary">
-                              {initials}
-                            </div>
+                            <span className="text-[11px] text-muted-foreground">No phone</span>
                           )}
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-foreground block truncate">
-                            {c.full_name || "Guest Customer"}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground font-mono truncate block">
-                            ID: {c.id.slice(0, 8)}…
-                          </span>
-                        </div>
-                      </div>
-                    </td>
+                        </td>
 
-                    {/* Contact */}
-                    <td className="px-5 py-4 text-xs">
-                      <span className="font-semibold text-foreground block">
-                        {c.email || "No email"}
-                      </span>
-                      {c.phone ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-muted-foreground font-mono">{c.phone}</span>
-                          <a
-                            href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
-                            className="inline-flex items-center gap-1 rounded bg-[#25D366]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#128C7E] hover:bg-[#25D366]/20 transition-colors"
-                            title="Chat on WhatsApp"
+                        {/* Address */}
+                        <td className="px-5 py-4 text-xs max-w-xs">
+                          {c.address || c.city || c.state ? (
+                            <div className="space-y-0.5">
+                              <p className="text-foreground line-clamp-1">{c.address || "—"}</p>
+                              <p className="text-muted-foreground text-[11px]">
+                                {[c.city, c.state, c.pincode].filter(Boolean).join(", ")}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px] italic">
+                              No address provided
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Joined */}
+                        <td className="px-5 py-4 text-xs text-muted-foreground font-medium whitespace-nowrap">
+                          {new Date(c.created_at).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+
+                        {/* Orders / Spend */}
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <span className="font-bold text-foreground block">
+                            {formatPrice(s.spend)}
+                          </span>
+                          <span className="text-[11px] font-semibold text-muted-foreground">
+                            {s.count} {s.count === 1 ? "order" : "orders"}
+                          </span>
+                        </td>
+
+                        {/* Action */}
+                        <td className="px-5 py-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCustomer(c)}
+                            className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
                           >
-                            WA
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">No phone</span>
-                      )}
-                    </td>
-
-                    {/* Address */}
-                    <td className="px-5 py-4 text-xs max-w-xs">
-                      {c.address || c.city || c.state ? (
-                        <div className="space-y-0.5">
-                          <p className="text-foreground line-clamp-1">{c.address || "—"}</p>
-                          <p className="text-muted-foreground text-[11px]">
-                            {[c.city, c.state, c.pincode].filter(Boolean).join(", ")}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-[11px] italic">
-                          No address provided
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Joined */}
-                    <td className="px-5 py-4 text-xs text-muted-foreground font-medium whitespace-nowrap">
-                      {new Date(c.created_at).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-
-                    {/* Orders / Spend */}
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <span className="font-bold text-foreground block">
-                        {formatPrice(s.spend)}
-                      </span>
-                      <span className="text-[11px] font-semibold text-muted-foreground">
-                        {s.count} {s.count === 1 ? "order" : "orders"}
-                      </span>
-                    </td>
-
-                    {/* Action */}
-                    <td className="px-5 py-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCustomer(c)}
-                        className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
+                            View Full Info
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!isLoading && filtered.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
                       >
-                        View Full Info
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!isLoading && filtered.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
-                  >
-                    No customers found matching "{search}".
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        No customers found matching "{search}".
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Customer Profile Details Modal */}
       {selectedCustomer && (
