@@ -12,7 +12,7 @@ import {
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { formatPrice } from "@/lib/store";
-import { useOfflineSaleHistory, type OfflineSale } from "@/lib/pos";
+import type { OfflineSale } from "@/lib/pos";
 import {
   useCreateShiprocketShipment,
   useGenerateShiprocketAWB,
@@ -34,8 +34,7 @@ import {
 export function OnlineSalesTab() {
   const qc = useQueryClient();
   const { data: onlineData, isLoading: onlineLoading } = useAllOrders(true);
-  const { data: offlineData, isLoading: offlineLoading } = useOfflineSaleHistory();
-  const isLoading = onlineLoading || offlineLoading;
+  const isLoading = onlineLoading;
 
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -81,13 +80,11 @@ export function OnlineSalesTab() {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
         toast.error((e as Error).message || "Failed to delete POS sale");
       }
-      // Note: useDeleteCancelledOrder handles its own error toasts for online orders
     }
   }
 
-  // Filter out POS orders (historical)
+  // Filter out POS orders — Online Sales tab shows ONLY online storefront orders
   const onlineOrdersData = (onlineData ?? []).filter((o) => o.notes !== "POS Order");
-  const offlineOrdersData = offlineData ?? [];
 
   // Helper to test if an order was placed within the last 24 hours
   const isWithinLast24Hours = (createdAt: string) => {
@@ -96,9 +93,9 @@ export function OnlineSalesTab() {
     return !isNaN(orderTime) && now - orderTime <= 24 * 60 * 60 * 1000;
   };
 
-  const newOrders24hCount =
-    onlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length +
-    offlineOrdersData.filter((o) => isWithinLast24Hours(o.created_at)).length;
+  const newOrders24hCount = onlineOrdersData.filter((o) =>
+    isWithinLast24Hours(o.created_at),
+  ).length;
 
   type OnlineOrderWithMeta = Order & {
     _type: "online";
@@ -137,17 +134,15 @@ export function OnlineSalesTab() {
 
   type UnifiedTransaction = OnlineOrderWithMeta | OfflineOrderWithMeta;
 
-  const allData: UnifiedTransaction[] = [
-    ...onlineOrdersData.map((o) => ({ ...o, _type: "online" as const })),
-    ...offlineOrdersData.map((o) => ({ ...o, _type: "offline" as const })),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const allData: UnifiedTransaction[] = onlineOrdersData
+    .map((o) => ({ ...o, _type: "online" as const }))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const revenue = allData
     .filter((o) => {
       if (o.status === "cancelled") return false;
-      if (o._type === "offline") return o.status !== "cancelled";
-      if (o.payment_method?.toLowerCase() === "cod") return true;
-      return o.payment_status === "paid";
+      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
+      return true;
     })
     .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
