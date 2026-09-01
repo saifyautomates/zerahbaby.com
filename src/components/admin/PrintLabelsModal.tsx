@@ -168,10 +168,7 @@ export function PrintLabelsModal({
                   if (res.success) {
                     toast.success("Printed to thermal printer directly!", { id: toastId });
                   } else {
-                    toast.error(
-                      "Direct print failed, falling back to system dialog: " + res.error,
-                      { id: toastId },
-                    );
+                    toast.info("Opening system print dialog...", { id: toastId });
                     window.print();
                   }
                 }

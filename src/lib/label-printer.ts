@@ -271,9 +271,7 @@ export async function triggerDirectLabelPrint(
       toast.success("Printed to thermal printer directly!", { id: toastId });
       isDirectPrintingLock = false;
     } else {
-      toast.error("Direct print failed, falling back to system dialog: " + res.error, {
-        id: toastId,
-      });
+      toast.info("Opening system print dialog...", { id: toastId });
 
       // Fallback: Dispatch to host and use window.print()
       listeners.forEach((listener) => listener(payload));
