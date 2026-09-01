@@ -37,6 +37,7 @@ import {
   Check,
   AlertTriangle,
   Printer,
+  Receipt,
   ReceiptText,
   Smartphone,
   Wallet,
@@ -220,6 +221,22 @@ export function POSTab() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isA4InvoiceOpen, setIsA4InvoiceOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
+
+  // Print Format Target: "thermal" (80mm Thermal Slip) or "a4" (A4 Tax Invoice on Laser/Desktop Printer)
+  const [printFormat, setPrintFormatState] = useState<"thermal" | "a4">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("zerah_pos_print_format") as "thermal" | "a4" | null;
+      if (saved && ["thermal", "a4"].includes(saved)) return saved;
+    }
+    return "thermal";
+  });
+
+  const setPrintFormat = (fmt: "thermal" | "a4") => {
+    setPrintFormatState(fmt);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_pos_print_format", fmt);
+    }
+  };
 
   // Product detail drawer
   const [selectedPOSItem, setSelectedPOSItem] = useState<POSCartItem | null>(null);
@@ -603,8 +620,14 @@ export function POSTab() {
         // ignore
       }
 
-      // Open receipt modal (with autoPrint)
-      setIsReceiptModalOpen(true);
+      // Open receipt or invoice modal based on user's printer format selection (with autoPrint)
+      if (printFormat === "a4") {
+        setIsA4InvoiceOpen(true);
+        setIsReceiptModalOpen(false);
+      } else {
+        setIsReceiptModalOpen(true);
+        setIsA4InvoiceOpen(false);
+      }
       setStep("success");
       toast.success(`Sale completed! ${result.sale_number}`);
     } catch (e) {
@@ -1477,6 +1500,42 @@ export function POSTab() {
                       </div>
                     </div>
 
+                    {/* Printer Output Target Selector */}
+                    <div className="space-y-2 pt-2 border-t border-border/80">
+                      <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                        <span>Automatic Printer Target</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">
+                          {printFormat === "a4" ? "📄 A4 Laser / Desktop" : "🧾 80mm Thermal Slip"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPrintFormat("thermal")}
+                          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                            printFormat === "thermal"
+                              ? "bg-primary text-primary-foreground border-primary shadow-2xs ring-2 ring-primary/20"
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          <Receipt className="size-3.5" />
+                          <span>Thermal Slip (80mm)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrintFormat("a4")}
+                          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                            printFormat === "a4"
+                              ? "bg-primary text-primary-foreground border-primary shadow-2xs ring-2 ring-primary/20"
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          <ReceiptText className="size-3.5" />
+                          <span>A4 Tax Invoice</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Action Button */}
                     <button
                       type="button"
@@ -1672,7 +1731,7 @@ export function POSTab() {
                   qty: c.qty,
                 }))
           }
-          autoPrint={false}
+          autoPrint={true}
           onClose={() => {
             setIsA4InvoiceOpen(false);
             resetPOS();
