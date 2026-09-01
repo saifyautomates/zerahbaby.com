@@ -164,6 +164,40 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const queryClient = useQueryClient();
 
+  // Supabase Realtime Omnichannel Live Sync Channel
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-dashboard-realtime-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "offline_sales" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-offline-sales"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "offline_sale_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-products-count"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "website_visitors" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const clearVisitorsMutation = useMutation({
     mutationFn: async () => {
       const { error: rpcErr } = await supabase.rpc("clear_website_visitors" as never);
@@ -184,10 +218,13 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     },
   });
 
-  // Authoritative Queries
+  // Authoritative Queries with Real-time synchronization
   const { data: orders = [], isLoading: ordersLoading } = useAllOrders(true);
   const { data: rawPosSales = [], isLoading: posLoading } = useQuery<OfflineSale[]>({
     queryKey: ["offline-sales"],
+    staleTime: 1000 * 5,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_sales")
@@ -203,6 +240,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const { data: visitors = [], isLoading: visitorsLoading } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
+    staleTime: 1000 * 15,
+    refetchInterval: 30000,
     queryFn: async () => {
       const { data, error } = await supabase.from("website_visitors").select("*");
       if (error) return [];
@@ -213,6 +252,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["admin-products-count"],
+    staleTime: 1000 * 10,
+    refetchInterval: 20000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -700,9 +741,18 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       {/* Date Range Selector and Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 -mt-1 mb-4">
         <div>
-          <h2 className="text-lg font-black tracking-tight text-foreground font-display">
-            Executive Performance Overview
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-lg font-black tracking-tight text-foreground font-display">
+              Executive Performance Overview
+            </h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Synced</span>
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
             Live store statistics synchronized across online e-commerce and offline POS.
           </p>

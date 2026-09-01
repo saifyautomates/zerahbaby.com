@@ -394,10 +394,14 @@ export function usePlaceOfflineSale() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
+      qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["admin-analytics-events"] });
     },
   });
 }

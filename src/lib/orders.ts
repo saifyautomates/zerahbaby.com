@@ -158,7 +158,9 @@ export function useAllOrders(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-orders"],
     enabled,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 5, // 5 seconds
+    refetchInterval: 15000, // 15 seconds polling fallback
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
