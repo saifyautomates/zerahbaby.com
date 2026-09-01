@@ -411,7 +411,7 @@ function Index() {
           </div>
         </div>
 
-        {isLoading && (!products || products.length === 0) ? (
+        {isLoading && list.length === 0 ? (
           <ProductGridSkeleton />
         ) : bestsellers.length === 0 ? (
           <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">

@@ -784,11 +784,16 @@
    PRINT MEDIA SAFETY
    ================================================================ */
 @media print {
-  .no-print {
+  .no-print,
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  .sonner-toast,
+  .toaster {
     display: none !important;
+    visibility: hidden !important;
   }
   body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

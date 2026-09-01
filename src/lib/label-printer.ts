@@ -1,15 +1,17 @@
 /**
- * One-Click Direct Product Label Printer Engine & Profile Store
+ * One-Click Direct Product Label Printer Engine & Standalone Print Bridge
  *
- * Provides:
+ * Supports:
  * - Persistent printer format profile (A4_GRID, THERMAL_108MM, THERMAL_58MM)
- * - Authoritative product & barcode validation (no fake barcodes, accurate prices & quantities)
- * - One-click instant direct printing without intermediate configuration screens
+ * - 100% Isolated iframe-based printing: immune to screen styles, background modals, and toasts
+ * - Strict physical millimeter geometry (50×25mm for 58mm, 100×50mm for 108mm, A4 Grid)
+ * - Code 128 SVG Barcode rendering with quiet zones and human-readable text
+ * - Dynamic MRP / Discount badge calculations
  * - Debounced duplicate-click prevention
- * - Safe fallback to browser print dialog with optional native bridge detection
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
+import JsBarcode from "jsbarcode";
 import type { Product } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { buildTSPLLabel, sendTSPLViaQZTray } from "@/lib/print-settings";
@@ -39,6 +41,8 @@ export type DirectPrintPayload = {
   layout?: LabelPrinterProfile;
   labelType?: LabelType;
   showDiscount?: boolean;
+  widthMm?: number;
+  heightMm?: number;
 };
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +154,464 @@ export function validatePrintableProduct(product: PrintableProduct): {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Barcode SVG Generator (Client-Side)                               */
+/* ------------------------------------------------------------------ */
+
+export function generateBarcodeSvgString(
+  text: string,
+  options?: { width?: number; height?: number; fontSize?: number; displayValue?: boolean },
+): string {
+  if (typeof document === "undefined") return "";
+  const safeText = (text || "").trim() || "000000";
+  try {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    JsBarcode(svg, safeText, {
+      format: "CODE128",
+      width: options?.width ?? 1.1,
+      height: options?.height ?? 24,
+      fontSize: options?.fontSize ?? 8,
+      margin: 1,
+      displayValue: options?.displayValue ?? true,
+      font: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontOptions: "bold",
+      textMargin: 1,
+      background: "transparent",
+      lineColor: "#000000",
+    });
+    return svg.outerHTML;
+  } catch (err) {
+    console.error("Barcode SVG generation failed:", err);
+    return `<div style="font-family:monospace;font-size:9px;font-weight:bold;letter-spacing:1px;text-align:center;">${escapeHtml(safeText)}</div>`;
+  }
+}
+
+function escapeHtml(str: string): string {
+  return (str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* ------------------------------------------------------------------ */
+/*  HTML Print Document Builder with Physical Millimeter Geometry     */
+/* ------------------------------------------------------------------ */
+
+export function buildLabelPrintHtml(params: {
+  products: PrintableProduct[];
+  quantities: Record<string, number>;
+  layout: LabelPrinterProfile;
+  labelType: LabelType;
+  showDiscount: boolean;
+  widthMm?: number;
+  heightMm?: number;
+}): string {
+  const { products, quantities, layout, labelType, showDiscount } = params;
+
+  // Flatten products by quantity
+  const expandedProducts: PrintableProduct[] = [];
+  for (const p of products) {
+    const key = p.uuid || p.id || p.sku || p.name;
+    const qty = Math.max(0, Math.min(500, quantities[key] ?? 1));
+    for (let i = 0; i < qty; i++) {
+      expandedProducts.push(p);
+    }
+  }
+
+  if (expandedProducts.length === 0) {
+    return `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;text-align:center;">No labels to print.</body></html>`;
+  }
+
+  const is58 = layout === "thermal-58";
+  const is108 = layout === "thermal-108";
+  const isA4 = layout === "a4";
+
+  // Exact physical dimensions
+  const labelWidth = params.widthMm || (is58 ? 50 : is108 ? 100 : 48);
+  const labelHeight = params.heightMm || (is58 ? 25 : is108 ? 50 : 26.5);
+
+  let pageStyle = "";
+  let bodyStyle = "";
+
+  if (is58) {
+    pageStyle = `@page { size: ${labelWidth}mm ${labelHeight}mm; margin: 0; }`;
+    bodyStyle = `width: ${labelWidth}mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
+  } else if (is108) {
+    pageStyle = `@page { size: ${labelWidth}mm ${labelHeight}mm; margin: 0; }`;
+    bodyStyle = `width: ${labelWidth}mm; margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
+  } else {
+    pageStyle = `@page { size: A4 portrait; margin: 8mm 6mm; }`;
+    bodyStyle = `margin: 0; padding: 0; background: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;`;
+  }
+
+  const renderSingleLabelContent = (p: PrintableProduct) => {
+    const rawBarcode = p.barcode || p.sku || "NO-BARCODE";
+    const hasMrp = p.mrp && p.mrp > p.price;
+    const discPct =
+      showDiscount && hasMrp ? Math.round(((p.mrp! - p.price) / p.mrp!) * 100) : null;
+
+    if (labelType === "barcode-only") {
+      const bcSvg = generateBarcodeSvgString(rawBarcode, {
+        width: is58 ? 0.95 : is108 ? 1.4 : 1.0,
+        height: is58 ? 18 : is108 ? 32 : 20,
+        fontSize: is58 ? 7.5 : is108 ? 9 : 8,
+        displayValue: true,
+      });
+
+      return `
+        <div class="brand">ZÉRAH BABY &amp; KIDS</div>
+        <div class="prod-name truncate">${escapeHtml(p.name)}</div>
+        <div class="barcode-container">${bcSvg}</div>
+        <div class="sku">SKU: ${escapeHtml(p.sku || "—")}</div>
+      `;
+    }
+
+    // Full label
+    const bcSvg = generateBarcodeSvgString(rawBarcode, {
+      width: is58 ? 0.9 : is108 ? 1.4 : 0.95,
+      height: is58 ? 16 : is108 ? 30 : 18,
+      fontSize: is58 ? 7 : is108 ? 9 : 7.5,
+      displayValue: true,
+    });
+
+    return `
+      <div class="brand">ZÉRAH BABY &amp; KIDS</div>
+      <div class="prod-name clamp-2">${escapeHtml(p.name)}</div>
+      <div class="meta-row">
+        <span class="sku">SKU: ${escapeHtml(p.sku || "—")}</span>
+        <span class="price">₹${p.price.toLocaleString("en-IN")}</span>
+        ${hasMrp ? `<span class="mrp">₹${p.mrp!.toLocaleString("en-IN")}</span>` : ""}
+        ${discPct ? `<span class="disc">-${discPct}%</span>` : ""}
+      </div>
+      <div class="barcode-container">${bcSvg}</div>
+    `;
+  };
+
+  let labelsHtml = "";
+
+  if (isA4) {
+    labelsHtml = `
+      <div class="a4-grid">
+        ${expandedProducts
+          .map(
+            (p) => `
+          <div class="a4-label-cell">
+            ${renderSingleLabelContent(p)}
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    `;
+  } else {
+    labelsHtml = expandedProducts
+      .map(
+        (p) => `
+        <div class="thermal-label-page">
+          ${renderSingleLabelContent(p)}
+        </div>
+      `,
+      )
+      .join("");
+  }
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zerah Product Labels</title>
+  <style>
+    ${pageStyle}
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      ${bodyStyle}
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    /* ─── THERMAL 58MM / 50x25MM ─── */
+    .thermal-label-page {
+      width: ${labelWidth}mm;
+      height: ${labelHeight}mm;
+      max-height: ${labelHeight}mm;
+      min-height: ${labelHeight}mm;
+      padding: ${is58 ? "1.2mm 2mm 0.8mm 2mm" : "2.5mm 3.5mm 1.5mm 3.5mm"};
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .thermal-label-page .brand {
+      font-size: ${is58 ? "6pt" : "8pt"};
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1;
+      color: #333333;
+    }
+
+    .thermal-label-page .prod-name {
+      font-size: ${is58 ? "7pt" : "9.5pt"};
+      font-weight: 700;
+      line-height: 1.1;
+      color: #000000;
+      margin-top: 0.3mm;
+    }
+
+    .thermal-label-page .meta-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: ${is58 ? "1.5mm" : "3mm"};
+      font-size: ${is58 ? "6.5pt" : "8.5pt"};
+      line-height: 1;
+      margin-top: 0.4mm;
+      flex-wrap: nowrap;
+    }
+
+    .thermal-label-page .sku {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: ${is58 ? "5.5pt" : "7pt"};
+      color: #555555;
+    }
+
+    .thermal-label-page .price {
+      font-size: ${is58 ? "7.5pt" : "10.5pt"};
+      font-weight: 900;
+      color: #000000;
+    }
+
+    .thermal-label-page .mrp {
+      font-size: ${is58 ? "5.5pt" : "7pt"};
+      text-decoration: line-through;
+      color: #777777;
+    }
+
+    .thermal-label-page .disc {
+      font-size: ${is58 ? "5.5pt" : "7pt"};
+      font-weight: 800;
+      color: #000000;
+    }
+
+    .thermal-label-page .barcode-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      margin-top: 0.2mm;
+    }
+
+    .thermal-label-page .barcode-container svg {
+      max-width: 100%;
+      display: block;
+    }
+
+    /* ─── A4 GRID (4 COLUMNS) ─── */
+    .a4-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: ${labelHeight}mm;
+      gap: 1.5mm;
+      width: 100%;
+    }
+
+    .a4-label-cell {
+      width: 100%;
+      height: ${labelHeight}mm;
+      max-height: ${labelHeight}mm;
+      min-height: ${labelHeight}mm;
+      padding: 1.2mm 1.5mm;
+      border: 1px dashed #bbbbbb;
+      border-radius: 1.5mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .a4-label-cell .brand {
+      font-size: 5.5pt;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #444444;
+      line-height: 1;
+    }
+
+    .a4-label-cell .prod-name {
+      font-size: 6.5pt;
+      font-weight: 700;
+      line-height: 1.1;
+      color: #000000;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .a4-label-cell .meta-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 1mm;
+      font-size: 6pt;
+      line-height: 1;
+    }
+
+    .a4-label-cell .sku {
+      font-family: ui-monospace, monospace;
+      font-size: 5pt;
+      color: #666666;
+    }
+
+    .a4-label-cell .price {
+      font-size: 7pt;
+      font-weight: 900;
+      color: #000000;
+    }
+
+    .a4-label-cell .mrp {
+      font-size: 5pt;
+      text-decoration: line-through;
+      color: #888888;
+    }
+
+    .a4-label-cell .disc {
+      font-size: 5pt;
+      font-weight: 800;
+    }
+
+    .a4-label-cell .barcode-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .a4-label-cell .barcode-container svg {
+      max-width: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  ${labelsHtml}
+</body>
+</html>
+  `.trim();
+}
+
+/* ------------------------------------------------------------------ */
+/*  100% Isolated Hidden Iframe Print Runner                          */
+/* ------------------------------------------------------------------ */
+
+export function printLabelsViaIframe(params: {
+  products: PrintableProduct[];
+  quantities: Record<string, number>;
+  layout: LabelPrinterProfile;
+  labelType: LabelType;
+  showDiscount: boolean;
+  widthMm?: number;
+  heightMm?: number;
+  onDone?: () => void;
+}): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  try {
+    // Dismiss any active toast notifications so they never get captured in print preview
+    toast.dismiss();
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-10000px";
+    iframe.style.left = "-10000px";
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.border = "0px";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const html = buildLabelPrintHtml(params);
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const triggerPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error("Iframe print invocation error:", err);
+        window.print();
+      } finally {
+        params.onDone?.();
+        setTimeout(() => {
+          try {
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe);
+            }
+          } catch {
+            // ignore
+          }
+        }, 3000);
+      }
+    };
+
+    // Small timeout for browser layout computation
+    setTimeout(triggerPrint, 250);
+  } catch (err) {
+    console.error("Print via iframe failed, falling back to window.print:", err);
+    window.print();
+    params.onDone?.();
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Direct Print Event Emitter (Singleton for Instant 1-Click Print)  */
 /* ------------------------------------------------------------------ */
 
@@ -164,7 +626,7 @@ export function subscribeToDirectPrint(listener: PrintEventListener): () => void
 let isDirectPrintingLock = false;
 
 /**
- * Trigger an instant 1-click product label print job without any configuration modal.
+ * Trigger an instant 1-click product label print job.
  */
 export async function triggerDirectLabelPrint(
   target: Product | PrintableProduct | Array<Product | PrintableProduct>,
@@ -177,7 +639,6 @@ export async function triggerDirectLabelPrint(
   },
 ): Promise<boolean> {
   if (isDirectPrintingLock) {
-    toast.info("A print job is already preparing. Please wait...");
     return false;
   }
 
@@ -218,81 +679,47 @@ export async function triggerDirectLabelPrint(
   const labelType = options?.labelType || getSavedLabelType();
   const showDiscount = options?.showDiscount ?? getSavedShowDiscount();
 
-  const totalLabels = rawProducts.reduce((sum, p) => {
-    const id = p.uuid || p.id || p.sku || p.name;
-    return sum + (quantities[id] ?? 1);
-  }, 0);
-
-  // Lock to prevent duplicate clicks
   isDirectPrintingLock = true;
-  const toastId = toast.loading(
-    `Preparing ${totalLabels} label${totalLabels > 1 ? "s" : ""} (${layout.toUpperCase()})...`,
-  );
 
-  const payload: DirectPrintPayload = {
+  // If QZ Tray is available and connected, attempt direct TSPL
+  if (layout !== "a4") {
+    try {
+      const qzResult = await printThermalLabelsDirectly({
+        products: rawProducts,
+        quantities,
+        layout,
+        labelType,
+        showDiscount,
+      });
+      if (qzResult.success) {
+        toast.success("Printed to thermal printer directly!");
+        isDirectPrintingLock = false;
+        return true;
+      }
+    } catch {
+      // Fall back to clean browser iframe print
+    }
+  }
+
+  // Pure isolated browser print
+  printLabelsViaIframe({
     products: rawProducts,
     quantities,
     layout,
     labelType,
     showDiscount,
-  };
-
-  // If layout is A4, it uses the PrintLabelsModal host or a DOM host.
-  if (layout === "a4") {
-    // Dispatch to the active DirectLabelPrintHost
-    listeners.forEach((listener) => listener(payload));
-
-    // Small delay to allow React-Barcode SVG render in the DOM, then invoke print
-    setTimeout(() => {
-      try {
-        window.print();
-        toast.success("Print job initiated", { id: toastId });
-      } catch (err) {
-        console.error("[label-printer] Print invocation failed:", err);
-        toast.error("Failed to invoke printer dialog", { id: toastId });
-      } finally {
-        setTimeout(() => {
-          listeners.forEach((listener) => listener(null));
-          isDirectPrintingLock = false;
-        }, 1000);
-      }
-    }, 350);
-  } else {
-    // Thermal printing directly via QZ Tray (No DOM rendering)
-    const res = await printThermalLabelsDirectly({
-      products: rawProducts,
-      quantities,
-      layout,
-      labelType,
-      showDiscount,
-    });
-
-    if (res.success) {
-      toast.success("Printed to thermal printer directly!", { id: toastId });
-      isDirectPrintingLock = false;
-    } else {
-      toast.info("Opening system print dialog...", { id: toastId });
-
-      // Fallback: Dispatch to host and use window.print()
-      listeners.forEach((listener) => listener(payload));
+    onDone: () => {
       setTimeout(() => {
-        try {
-          window.print();
-        } finally {
-          setTimeout(() => {
-            listeners.forEach((listener) => listener(null));
-            isDirectPrintingLock = false;
-          }, 1000);
-        }
-      }, 350);
-    }
-  }
+        isDirectPrintingLock = false;
+      }, 1000);
+    },
+  });
 
   return true;
 }
 
 /**
- * Directly print thermal labels without needing the DOM or window.print.
+ * Directly print thermal labels via QZ Tray (TSPL commands for HPRT HT300 / TSC / Zebra).
  */
 export async function printThermalLabelsDirectly(params: {
   products: (Product | PrintableProduct)[];
@@ -311,8 +738,8 @@ export async function printThermalLabelsDirectly(params: {
       data?.find((d) => d.key === "print_thermal_printer_name")?.value || "HPRT HT300";
 
     const is58 = params.layout === "thermal-58";
-    const widthMm = is58 ? 58 : 100;
-    const heightMm = 25;
+    const widthMm = is58 ? 50 : 100;
+    const heightMm = is58 ? 25 : 50;
 
     let allTspl = "";
 

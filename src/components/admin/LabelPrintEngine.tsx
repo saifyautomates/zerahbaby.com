@@ -1,27 +1,18 @@
 /**
- * LabelPrintEngine — Unified direct product label renderer and DirectLabelPrintHost.
+ * LabelPrintEngine — Interactive Label Screen Preview Engine & Direct Host.
  *
- * Supports:
- * - One-Click Direct Printing without intermediate UI modals
- * - Label types: "barcode-only" | "full"
- * - Layouts:     "thermal-108" (HPRT HT300 / 108mm roll) | "thermal-58" (58mm roll) | "a4" (4-column grid)
- * - Automatic Code 128 Barcode generation with quiet zone & human readable text
- * - Dynamic MRP / Discount calculation
- * - Configurable label width/height in mm (read from Admin Print Settings → site_settings)
- * - Print isolation: only the labels print when window.print() is executed
- *
- * PRINT PROFILE: THERMAL_BARCODE_LABEL
+ * Provides:
+ * - Pixel-perfect screen preview matching the exact physical label dimensions:
+ *   - "thermal-58": 50mm × 25mm standard retail barcode sticker
+ *   - "thermal-108": 100mm × 50mm large thermal shipping/product label
+ *   - "a4": 4-column A4 sheet grid
+ * - Barcode-only vs Full product label modes
+ * - Real-time MRP / Discount percentage calculations
  */
-import { useState, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useMemo } from "react";
 import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
-import {
-  type DirectPrintPayload,
-  subscribeToDirectPrint,
-  type LabelPrinterProfile,
-  type LabelType,
-} from "@/lib/label-printer";
+import type { LabelPrinterProfile, LabelType } from "@/lib/label-printer";
 
 export type { LabelType };
 export type LabelLayout = LabelPrinterProfile;
@@ -46,9 +37,7 @@ type Props = {
   labelType: LabelType;
   layout: LabelLayout;
   showDiscount: boolean;
-  /** Label width in mm — from Admin Print Settings. Defaults: thermal=50mm, a4=A4 */
   widthMm?: number;
-  /** Label height in mm — from Admin Print Settings. Defaults: thermal=25mm, a4=A4 */
   heightMm?: number;
 };
 
@@ -71,53 +60,62 @@ function expand(entries: LabelEntry[]): LabelProduct[] {
 }
 
 /** Barcode value: prefer barcode, fall back to SKU */
-const barcodeVal = (p: LabelProduct) => p.barcode || p.sku || "NO-BARCODE";
+const barcodeVal = (p: LabelProduct) => (p.barcode || p.sku || "000000").trim();
 
 /* ─────────────────────────────────────────────
-   Individual Label Cells
+   Individual Label Preview Cards
    ───────────────────────────────────────────── */
 
-function BarcodeOnlyLabel({ product, layout }: { product: LabelProduct; layout: LabelLayout }) {
+function BarcodeOnlyLabelPreview({
+  product,
+  layout,
+}: {
+  product: LabelProduct;
+  layout: LabelLayout;
+}) {
   const is58 = layout === "thermal-58";
   const is108 = layout === "thermal-108";
-  const isThermal = is58 || is108;
 
-  const bw = is58 ? 0.9 : is108 ? 1.2 : 1.1;
-  const bh = is58 ? 24 : is108 ? 32 : 30;
+  const bw = is58 ? 0.95 : is108 ? 1.4 : 1.0;
+  const bh = is58 ? 20 : is108 ? 32 : 22;
 
   return (
     <div
-      className={`label-cell flex flex-col items-center justify-center text-center break-inside-avoid ${
-        isThermal
-          ? "py-2 px-1 border-b border-dashed border-border print:border-solid print:border-border"
-          : "rounded border-2 border-dashed border-border p-2 print:border-solid print:border-border"
+      className={`relative flex flex-col justify-between items-center text-center rounded-xl border border-border bg-white text-black shadow-2xs overflow-hidden transition-all ${
+        is58
+          ? "w-[200px] h-[100px] p-2"
+          : is108
+            ? "w-[320px] h-[160px] p-3.5"
+            : "w-full min-h-[110px] p-2"
       }`}
-      style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
     >
-      <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground truncate w-full">
-        Zérah Baby &amp; Kids
-      </p>
-      <p className="text-[9px] font-semibold text-foreground truncate w-full mt-0.5">
-        {product.name}
-      </p>
-      <div className="mt-1 w-full flex justify-center overflow-hidden">
+      <div className="w-full">
+        <p className="text-[8px] font-extrabold uppercase tracking-wider text-gray-500 truncate">
+          Zérah Baby &amp; Kids
+        </p>
+        <p className="text-[10px] font-bold text-black truncate mt-0.5">{product.name}</p>
+      </div>
+
+      <div className="w-full flex justify-center items-center overflow-hidden my-auto">
         <Barcode
           value={barcodeVal(product)}
           format="CODE128"
           width={bw}
           height={bh}
           fontSize={8}
-          margin={2}
+          margin={1}
           displayValue={true}
           background="transparent"
+          lineColor="#000000"
         />
       </div>
-      <p className="text-[8px] text-muted-foreground mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
+
+      <p className="text-[8px] text-gray-600 font-mono">SKU: {product.sku || "—"}</p>
     </div>
   );
 }
 
-function FullProductLabel({
+function FullProductLabelPreview({
   product,
   layout,
   showDiscount,
@@ -128,67 +126,62 @@ function FullProductLabel({
 }) {
   const is58 = layout === "thermal-58";
   const is108 = layout === "thermal-108";
-  const isThermal = is58 || is108;
 
   const discPct = showDiscount ? safeDiscountPct(product.mrp, product.price) : null;
-  const bw = is58 ? 0.9 : is108 ? 1.2 : 1.1;
-  const bh = is58 ? 26 : is108 ? 34 : 32;
+  const bw = is58 ? 0.9 : is108 ? 1.4 : 0.95;
+  const bh = is58 ? 18 : is108 ? 30 : 20;
   const hasMrp = product.mrp > product.price;
 
   return (
     <div
-      className={`label-cell flex flex-col items-center justify-center text-center break-inside-avoid ${
-        isThermal
-          ? "py-2.5 px-1 border-b border-dashed border-border print:border-solid print:border-border"
-          : "rounded border-2 border-dashed border-border p-2 print:border-solid print:border-border"
+      className={`relative flex flex-col justify-between items-center text-center rounded-xl border border-border bg-white text-black shadow-2xs overflow-hidden transition-all ${
+        is58
+          ? "w-[210px] h-[115px] p-2"
+          : is108
+            ? "w-[340px] h-[175px] p-3.5"
+            : "w-full min-h-[120px] p-2"
       }`}
-      style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
     >
-      {/* Store name */}
-      <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground truncate w-full">
-        Zérah Baby &amp; Kids
-      </p>
+      {/* Header */}
+      <div className="w-full">
+        <p className="text-[8px] font-extrabold uppercase tracking-widest text-gray-500 truncate">
+          Zérah Baby &amp; Kids
+        </p>
+        <p
+          className={`font-bold text-black leading-tight mt-0.5 ${
+            is58 ? "text-[9px] line-clamp-1" : is108 ? "text-[12px] line-clamp-2" : "text-[9px] line-clamp-2"
+          }`}
+        >
+          {product.name}
+        </p>
+      </div>
 
-      {/* Product name */}
-      <p
-        className={`font-bold leading-tight text-foreground w-full mt-0.5 ${
-          is58
-            ? "text-[9px] line-clamp-1"
-            : is108
-              ? "text-[11px] line-clamp-2"
-              : "text-[9px] line-clamp-2"
-        }`}
-      >
-        {product.name}
-      </p>
-
-      {/* SKU */}
-      <p className="text-[8px] text-muted-foreground mt-0.5 font-mono">SKU: {product.sku || "—"}</p>
-
-      {/* Prices */}
-      <div className="mt-1 flex items-center gap-1.5 justify-center flex-wrap">
-        <span className="text-[12px] font-black text-foreground">{formatPrice(product.price)}</span>
+      {/* Meta Row: SKU + Price + MRP */}
+      <div className="flex items-baseline justify-center gap-1.5 flex-wrap my-0.5">
+        <span className="text-[8px] text-gray-600 font-mono">SKU: {product.sku || "—"}</span>
+        <span className="text-[11px] font-black text-black">{formatPrice(product.price)}</span>
         {hasMrp && (
-          <span className="text-[9px] text-gray-400 line-through">{formatPrice(product.mrp)}</span>
+          <span className="text-[8px] text-gray-400 line-through">{formatPrice(product.mrp)}</span>
         )}
         {discPct !== null && (
-          <span className="text-[8px] font-bold text-green-700 bg-green-50 px-1 rounded">
+          <span className="text-[7.5px] font-extrabold text-black bg-gray-100 px-1 py-0.2 rounded border border-gray-300">
             -{discPct}%
           </span>
         )}
       </div>
 
       {/* Barcode */}
-      <div className="mt-1.5 w-full flex justify-center overflow-hidden">
+      <div className="w-full flex justify-center items-center overflow-hidden">
         <Barcode
           value={barcodeVal(product)}
           format="CODE128"
           width={bw}
           height={bh}
-          fontSize={8}
-          margin={2}
+          fontSize={7.5}
+          margin={1}
           displayValue={true}
           background="transparent"
+          lineColor="#000000"
         />
       </div>
     </div>
@@ -196,7 +189,7 @@ function FullProductLabel({
 }
 
 /* ─────────────────────────────────────────────
-   Main Engine
+   Main Screen Preview Component
    ───────────────────────────────────────────── */
 
 export function LabelPrintEngine({
@@ -204,143 +197,43 @@ export function LabelPrintEngine({
   labelType,
   layout,
   showDiscount,
-  widthMm,
-  heightMm,
 }: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
     return (
-      <p className="py-16 text-center text-sm text-gray-400 print:hidden">No labels to print.</p>
+      <p className="py-16 text-center text-sm text-muted-foreground">No labels to preview.</p>
     );
   }
 
-  // Resolve configurable label dimensions with sensible defaults
-  const resolvedWidthMm =
-    widthMm ?? (layout === "thermal-58" ? 54 : layout === "thermal-108" ? 100 : undefined);
-  const resolvedHeightMm = heightMm;
-
-  /* Grid config */
-  const gridClass =
+  const containerClass =
     layout === "a4"
-      ? "grid grid-cols-4 gap-3 print:grid-cols-4 print:gap-2"
-      : layout === "thermal-58"
-        ? "flex flex-col gap-0 w-[54mm] max-w-[54mm] mx-auto"
-        : "flex flex-col gap-0 w-[100mm] max-w-[100mm] mx-auto";
+      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"
+      : "flex flex-wrap items-center justify-center gap-4 py-2";
 
   return (
-    <>
-      {/* ── Print CSS injected via style tag ── */}
-      <style>{`
-        @media print {
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-          }
-
-          /* A4 layout */
-          ${
-            layout === "a4"
-              ? `@page { size: A4 portrait; margin: 8mm; }
-                 .label-cell { page-break-inside: avoid; break-inside: avoid; min-height: 25mm; }`
-              : ""
-          }
-
-          /* Thermal 58mm — uses admin-configured width/height if provided */
-          ${
-            layout === "thermal-58"
-              ? `@page { size: ${resolvedWidthMm ? resolvedWidthMm + "mm" : "58mm"} ${resolvedHeightMm ? resolvedHeightMm + "mm" : "auto"}; margin: 2mm; }
-                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: ${resolvedWidthMm ? resolvedWidthMm - 4 + "mm" : "54mm"} !important; max-width: ${resolvedWidthMm ? resolvedWidthMm - 4 + "mm" : "54mm"} !important; }`
-              : ""
-          }
-
-          /* Thermal 108mm (HPRT HT300) — uses admin-configured width/height if provided */
-          ${
-            layout === "thermal-108"
-              ? `@page { size: ${resolvedWidthMm ? resolvedWidthMm + "mm" : "108mm"} ${resolvedHeightMm ? resolvedHeightMm + "mm" : "auto"}; margin: 3mm; }
-                 .label-cell { page-break-inside: avoid; break-inside: avoid; width: ${resolvedWidthMm ? resolvedWidthMm - 8 + "mm" : "100mm"} !important; max-width: ${resolvedWidthMm ? resolvedWidthMm - 8 + "mm" : "100mm"} !important; }`
-              : ""
-          }
-        }
-      `}</style>
-
-      <div className={gridClass}>
-        {labels.map((product, idx) =>
-          labelType === "barcode-only" ? (
-            <BarcodeOnlyLabel key={`${product.uuid}-${idx}`} product={product} layout={layout} />
-          ) : (
-            <FullProductLabel
-              key={`${product.uuid}-${idx}`}
-              product={product}
-              layout={layout}
-              showDiscount={showDiscount}
-            />
-          ),
-        )}
-      </div>
-    </>
+    <div className={containerClass}>
+      {labels.map((product, idx) =>
+        labelType === "barcode-only" ? (
+          <BarcodeOnlyLabelPreview
+            key={`${product.uuid}-${idx}`}
+            product={product}
+            layout={layout}
+          />
+        ) : (
+          <FullProductLabelPreview
+            key={`${product.uuid}-${idx}`}
+            product={product}
+            layout={layout}
+            showDiscount={showDiscount}
+          />
+        ),
+      )}
+    </div>
   );
 }
 
-/* ─────────────────────────────────────────────
-   Direct Label Print Host Portal Singleton
-   ───────────────────────────────────────────── */
-
+/** Legacy singleton stub for backward-compatibility */
 export function DirectLabelPrintHost() {
-  const [payload, setPayload] = useState<DirectPrintPayload | null>(null);
-
-  useEffect(() => {
-    return subscribeToDirectPrint((newPayload) => {
-      setPayload(newPayload);
-    });
-  }, []);
-
-  if (!payload || payload.products.length === 0) return null;
-
-  const entries: LabelEntry[] = payload.products.map((p) => {
-    const id = p.uuid || p.id || p.sku || p.name;
-    const qty = payload.quantities?.[id] ?? 1;
-    return {
-      product: {
-        uuid: p.uuid || id,
-        name: p.name,
-        sku: p.sku || "",
-        barcode: p.barcode || p.sku || "",
-        price: Number(p.price || 0),
-        mrp: Number(p.mrp || p.price || 0),
-        stock: Number(p.stock || 0),
-      },
-      qty,
-    };
-  });
-
-  return createPortal(
-    <div
-      id="direct-label-print-portal"
-      className="hidden print:block fixed inset-0 z-[9999] bg-card p-0 text-foreground"
-    >
-      <style>{`
-        @media print {
-          /* Hide all application elements and keep only direct print portal */
-          body > *:not(#direct-label-print-portal) {
-            display: none !important;
-          }
-          #direct-label-print-portal {
-            display: block !important;
-            position: static !important;
-            inset: auto !important;
-          }
-        }
-      `}</style>
-      <LabelPrintEngine
-        entries={entries}
-        layout={payload.layout || "thermal-108"}
-        labelType={payload.labelType || "full"}
-        showDiscount={payload.showDiscount ?? false}
-      />
-    </div>,
-    document.body,
-  );
+  return null;
 }

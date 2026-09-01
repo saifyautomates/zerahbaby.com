@@ -27,6 +27,7 @@ import {
   getSavedShowDiscount,
   setSavedShowDiscount,
   printThermalLabelsDirectly,
+  printLabelsViaIframe,
 } from "@/lib/label-printer";
 
 export function PrintLabelsModal({
@@ -154,24 +155,33 @@ export function PrintLabelsModal({
             <button
               type="button"
               onClick={async () => {
-                if (layout === "a4") {
-                  window.print();
-                } else {
-                  const toastId = toast.loading("Sending to thermal printer...");
-                  const res = await printThermalLabelsDirectly({
-                    products: printableProducts,
-                    quantities,
-                    layout,
-                    labelType,
-                    showDiscount,
-                  });
-                  if (res.success) {
-                    toast.success("Printed to thermal printer directly!", { id: toastId });
-                  } else {
-                    toast.info("Opening system print dialog...", { id: toastId });
-                    window.print();
+                // If QZ Tray is used and not A4, try hardware direct first
+                if (layout !== "a4") {
+                  try {
+                    const res = await printThermalLabelsDirectly({
+                      products: printableProducts,
+                      quantities,
+                      layout,
+                      labelType,
+                      showDiscount,
+                    });
+                    if (res.success) {
+                      toast.success("Printed to thermal printer directly!");
+                      return;
+                    }
+                  } catch {
+                    // Fall back to clean browser iframe print
                   }
                 }
+
+                // Isolated iframe print
+                printLabelsViaIframe({
+                  products: printableProducts,
+                  quantities,
+                  layout,
+                  labelType,
+                  showDiscount,
+                });
               }}
               className="inline-flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2 text-sm font-bold text-white shadow-xs hover:bg-[#7a1c1c] cursor-pointer"
             >
