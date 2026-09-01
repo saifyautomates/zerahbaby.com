@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
 import type { LabelPrinterProfile, LabelType } from "@/lib/label-printer";
+import { sanitizeBarcode } from "@/lib/label-printer";
 
 export type { LabelType };
 export type LabelLayout = LabelPrinterProfile;
@@ -56,8 +57,8 @@ function expand(entries: LabelEntry[]): LabelProduct[] {
   return out;
 }
 
-/** Barcode value */
-const barcodeVal = (p: LabelProduct) => (p.barcode || p.sku || "000000").trim();
+/** Barcode value with sanitization */
+const barcodeVal = (p: LabelProduct) => sanitizeBarcode(p.barcode, p.sku);
 
 /* ─────────────────────────────────────────────
    Single Sticker Preview Card (48×24mm)

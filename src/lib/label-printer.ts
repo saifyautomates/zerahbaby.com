@@ -124,8 +124,15 @@ export function setSavedLabelType(type: LabelType): void {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Product & Barcode Validation                                      */
+/*  Product & Barcode Validation & Sanitization                       */
 /* ------------------------------------------------------------------ */
+
+export function sanitizeBarcode(barcode?: string | null, fallbackSku?: string | null): string {
+  const raw = (barcode || fallbackSku || "000000").toString().trim();
+  // Remove non-ASCII printable chars to prevent Code128 encoding errors
+  const clean = raw.replace(/[^\x20-\x7E]/g, "").trim();
+  return clean || "000000";
+}
 
 export function validatePrintableProduct(product: PrintableProduct): {
   valid: boolean;
@@ -137,11 +144,11 @@ export function validatePrintableProduct(product: PrintableProduct): {
   if (!product.name || !product.name.trim()) {
     return { valid: false, error: "Product name is required to print label." };
   }
-  const barcodeValue = (product.barcode || product.sku || "").trim();
-  if (!barcodeValue) {
+  const barcodeValue = sanitizeBarcode(product.barcode, product.sku);
+  if (!barcodeValue || barcodeValue === "000000") {
     return {
       valid: false,
-      error: `Product "${product.name}" does not have a barcode or SKU.`,
+      error: `Product "${product.name}" does not have a valid barcode or SKU.`,
     };
   }
   if (product.price === undefined || product.price === null || isNaN(Number(product.price))) {
@@ -154,7 +161,7 @@ export function validatePrintableProduct(product: PrintableProduct): {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Barcode SVG Generator (Client-Side)                               */
+/*  Barcode SVG Generator (Client-Side Vector Renderer)               */
 /* ------------------------------------------------------------------ */
 
 export function generateBarcodeSvgString(
@@ -162,26 +169,28 @@ export function generateBarcodeSvgString(
   options?: { width?: number; height?: number; fontSize?: number; displayValue?: boolean },
 ): string {
   if (typeof document === "undefined") return "";
-  const safeText = (text || "").trim() || "000000";
+  const safeText = sanitizeBarcode(text);
   try {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     JsBarcode(svg, safeText, {
       format: "CODE128",
-      width: options?.width ?? 0.85,
-      height: options?.height ?? 16,
+      width: options?.width ?? 0.9,
+      height: options?.height ?? 18,
       fontSize: options?.fontSize ?? 7,
       margin: 1,
       displayValue: options?.displayValue ?? true,
-      font: "ui-monospace, monospace, sans-serif",
+      font: "ui-monospace, SFMono-Regular, Consolas, monospace",
       fontOptions: "bold",
       textMargin: 1,
       background: "transparent",
       lineColor: "#000000",
     });
+    // Ensure scalable vector properties
+    svg.setAttribute("style", "max-width: 100%; height: auto; display: block; margin: 0 auto; shape-rendering: crispEdges;");
     return svg.outerHTML;
   } catch (err) {
-    console.error("Barcode SVG generation failed:", err);
-    return `<div style="font-family:monospace;font-size:8px;font-weight:bold;letter-spacing:1px;text-align:center;">${escapeHtml(safeText)}</div>`;
+    console.error("Barcode SVG generation failed for", safeText, err);
+    return `<div style="font-family:ui-monospace,monospace;font-size:7.5pt;font-weight:bold;letter-spacing:1px;text-align:center;padding:2px 0;">${escapeHtml(safeText)}</div>`;
   }
 }
 

@@ -2229,7 +2229,10 @@ function ProductsTab() {
             </div>
           }
         >
-          <PrintLabelsModal products={data ?? []} onClose={() => setPrintingLabels(false)} />
+          <PrintLabelsModal
+            products={selectedIds.size > 0 ? selectedProducts : list.length > 0 ? list : data ?? []}
+            onClose={() => setPrintingLabels(false)}
+          />
         </Suspense>
       )}
     </div>
