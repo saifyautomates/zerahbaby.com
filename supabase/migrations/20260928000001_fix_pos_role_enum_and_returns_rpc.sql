@@ -221,7 +221,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_offline_return TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.process_offline_return(text, text, text, uuid, text, text, text, text, jsonb, text) TO authenticated, service_role;
 
 -- 3. Update place_offline_sale to use canonical 'admin' and 'staff' role checks
 CREATE OR REPLACE FUNCTION public.place_offline_sale(
@@ -335,4 +335,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.place_offline_sale TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.place_offline_sale(text, text, text, uuid, text, text, numeric, text, jsonb, text) TO authenticated, service_role;
