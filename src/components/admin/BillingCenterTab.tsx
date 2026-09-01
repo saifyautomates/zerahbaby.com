@@ -25,6 +25,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
+
 type BillingTab = "pos" | "returns" | "labels" | "sales" | "customers";
 
 export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: BillingTab }) {
@@ -118,27 +120,29 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
           key={activeTab}
           className="flex-1 h-full animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col overflow-hidden"
         >
-          <Suspense
-            fallback={
-              <div className="flex-1 flex items-center justify-center p-8 text-muted-foreground animate-pulse">
-                Loading module...
-              </div>
-            }
-          >
-            {activeTab === "pos" && <POSTab />}
-            {activeTab === "returns" && <POSReturnsTab />}
-            {activeTab === "labels" && <LabelPrintingSubTab />}
-            {activeTab === "sales" && (
-              <div className="overflow-y-auto h-full pr-2 pb-10">
-                <OfflineAnalyticsTab />
-              </div>
-            )}
-            {activeTab === "customers" && (
-              <div className="overflow-y-auto h-full pr-2 pb-10">
-                <CustomerHistoryPanel />
-              </div>
-            )}
-          </Suspense>
+          <ComponentErrorBoundary fallbackTitle="Sub-tab Loading Exception">
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center p-8 text-muted-foreground animate-pulse font-medium text-sm">
+                  Loading module...
+                </div>
+              }
+            >
+              {activeTab === "pos" && <POSTab />}
+              {activeTab === "returns" && <POSReturnsTab />}
+              {activeTab === "labels" && <LabelPrintingSubTab />}
+              {activeTab === "sales" && (
+                <div className="overflow-y-auto h-full pr-2 pb-10">
+                  <OfflineAnalyticsTab />
+                </div>
+              )}
+              {activeTab === "customers" && (
+                <div className="overflow-y-auto h-full pr-2 pb-10">
+                  <CustomerHistoryPanel />
+                </div>
+              )}
+            </Suspense>
+          </ComponentErrorBoundary>
         </div>
       </div>
     </div>

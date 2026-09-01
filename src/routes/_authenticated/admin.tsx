@@ -58,8 +58,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
+import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
@@ -808,30 +808,35 @@ function AdminPage() {
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
-            <Suspense
-              fallback={
-                <div className="p-8 text-center text-muted-foreground animate-pulse">
-                  Loading module...
-                </div>
-              }
+            <ComponentErrorBoundary
+              fallbackTitle="Module Loading Exception"
+              onReset={() => window.location.reload()}
             >
-              {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
-              {tab === "billing" && <BillingCenterTab />}
-              {tab === "products" && <ProductsTab />}
-              {tab === "hero" && <HeroMediaManager />}
-              {tab === "media" && <MediaLibrary />}
-              {tab === "orders" && <OnlineSalesTab />}
-              {tab === "customers" && <CustomersTab />}
-              {tab === "categories" && <CategoriesTab />}
-              {tab === "marketing" && <MarketingTab />}
-              {tab === "pages" && <PagesPoliciesTab />}
-              {tab === "settings" && <SettingsTab />}
-              {tab === "sms" && <SMSLogsTab />}
-              {tab === "queries" && <QueriesTab onOpenOrder={(_ord) => setTab("orders")} />}
-              {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
-              {tab === "coupons" && <CouponsTab />}
-              {tab === "reviews" && <ReviewsTab />}
-            </Suspense>
+              <Suspense
+                fallback={
+                  <div className="p-8 text-center text-muted-foreground animate-pulse font-medium text-sm">
+                    Loading module...
+                  </div>
+                }
+              >
+                {tab === "dashboard" && <DashboardTab onNavigate={setTab as (tab: string) => void} />}
+                {tab === "billing" && <BillingCenterTab />}
+                {tab === "products" && <ProductsTab />}
+                {tab === "hero" && <HeroMediaManager />}
+                {tab === "media" && <MediaLibrary />}
+                {tab === "orders" && <OnlineSalesTab />}
+                {tab === "customers" && <CustomersTab />}
+                {tab === "categories" && <CategoriesTab />}
+                {tab === "marketing" && <MarketingTab />}
+                {tab === "pages" && <PagesPoliciesTab />}
+                {tab === "settings" && <SettingsTab />}
+                {tab === "sms" && <SMSLogsTab />}
+                {tab === "queries" && <QueriesTab onOpenOrder={(_ord) => setTab("orders")} />}
+                {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
+                {tab === "coupons" && <CouponsTab />}
+                {tab === "reviews" && <ReviewsTab />}
+              </Suspense>
+            </ComponentErrorBoundary>
           </div>
         </div>
       </div>

@@ -27,6 +27,8 @@ const OfflineSyncHost = lazy(() =>
   import("@/lib/offline-sync-engine").then((m) => ({ default: m.OfflineSyncHost })),
 );
 
+import { AlertTriangle, RefreshCw } from "lucide-react";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
@@ -39,7 +41,7 @@ function NotFoundComponent() {
         <div className="mt-6">
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 shadow-premium-sm"
           >
             Go home
           </Link>
@@ -50,31 +52,53 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
-  const router = useRouter();
+  console.error("[RootError] Unhandled route error:", error);
+
+  useEffect(() => {
+    const msg = error?.message || "";
+    if (
+      msg.includes("Failed to fetch dynamically imported module") ||
+      msg.includes("Importing a module script failed") ||
+      msg.includes("error loading dynamically imported module") ||
+      msg.includes("Loading chunk")
+    ) {
+      const key = "zerah_chunk_error_reload";
+      const lastReload = parseInt(sessionStorage.getItem(key) || "0", 10);
+      const now = Date.now();
+      if (now - lastReload > 8000) {
+        sessionStorage.setItem(key, now.toString());
+        window.location.reload();
+      }
+    }
+  }, [error]);
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+      <div className="max-w-md text-center p-8 rounded-3xl border border-border bg-card shadow-premium-md animate-in fade-in zoom-in-95 duration-300">
+        <div className="size-16 mx-auto mb-4 grid place-items-center rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+          <AlertTriangle className="size-8" />
+        </div>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
+          Page load issue detected
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          A temporary network or page loading update occurred. Click below to refresh smoothly.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
+            type="button"
             onClick={() => {
-              router.invalidate();
-              reset();
+              sessionStorage.removeItem("zerah_chunk_error_reload");
+              window.location.reload();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-premium-sm transition-all hover:bg-primary/90 cursor-pointer"
           >
-            Try again
+            <RefreshCw className="size-4" />
+            Reload page
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-full border border-border bg-background px-6 py-2.5 text-sm font-bold text-foreground transition-all hover:bg-muted cursor-pointer"
           >
             Go home
           </a>
@@ -275,6 +299,38 @@ function RootComponent() {
     });
     return unbindScanner;
   }, [location.pathname, router]);
+
+  useEffect(() => {
+    // Global handler for stale dynamic module imports / chunk load failures
+    const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const errorMsg =
+        event instanceof ErrorEvent
+          ? event.message || event.error?.message || ""
+          : (event.reason as Error)?.message || String(event.reason || "");
+
+      if (
+        errorMsg.includes("Failed to fetch dynamically imported module") ||
+        errorMsg.includes("Importing a module script failed") ||
+        errorMsg.includes("error loading dynamically imported module") ||
+        errorMsg.includes("Loading chunk")
+      ) {
+        const key = "zerah_auto_reload_chunk";
+        const lastReload = parseInt(sessionStorage.getItem(key) || "0", 10);
+        const now = Date.now();
+        if (now - lastReload > 8000) {
+          sessionStorage.setItem(key, now.toString());
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener("error", handleChunkError);
+    window.addEventListener("unhandledrejection", handleChunkError);
+    return () => {
+      window.removeEventListener("error", handleChunkError);
+      window.removeEventListener("unhandledrejection", handleChunkError);
+    };
+  }, []);
 
   useEffect(() => {
     // Force light mode on all non-admin routes
