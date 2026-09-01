@@ -915,6 +915,51 @@ export function ProductForm({
                 </div>
               </div>
 
+              {/* Product Availability / Sales Channel */}
+              <div className="rounded-2xl border border-border p-4 bg-muted/20 space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Product Availability Mode *</span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">Authoritative Channel</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => set("salesChannel", "ONLINE_AND_OFFLINE")}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition cursor-pointer ${
+                      draft.salesChannel === "ONLINE_AND_OFFLINE"
+                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 text-blue-950 dark:text-blue-200 shadow-xs"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <div className="size-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-sm shrink-0">
+                      🌐
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">ONLINE & OFFLINE STORE</p>
+                      <p className="text-[11px] text-muted-foreground">Storefront, Search, Cart, POS & Inventory</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => set("salesChannel", "OFFLINE_ONLY")}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition cursor-pointer ${
+                      draft.salesChannel === "OFFLINE_ONLY"
+                        ? "border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 text-purple-950 dark:text-purple-200 shadow-xs"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <div className="size-8 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-sm shrink-0">
+                      🏪
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">ONLY OFFLINE (POS)</p>
+                      <p className="text-[11px] text-muted-foreground">In-Store POS, Barcode, Returns & Inventory Only</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Section 2: Pricing (Simple & Automatic Discounts) */}
               <div className="rounded-2xl border border-border p-4 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">

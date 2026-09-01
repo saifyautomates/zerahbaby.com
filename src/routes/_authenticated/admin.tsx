@@ -889,8 +889,8 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
-  const [channelTab, setChannelTab] = useState<"ONLINE_AND_OFFLINE" | "OFFLINE_ONLY">(
-    "ONLINE_AND_OFFLINE",
+  const [channelTab, setChannelTab] = useState<"all" | "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY">(
+    "all",
   );
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -1436,9 +1436,11 @@ function ProductsTab() {
 
       const pChannel = p.salesChannel ?? "ONLINE_AND_OFFLINE";
       const matchesChannel =
-        channelTab === "OFFLINE_ONLY"
-          ? pChannel === "OFFLINE_ONLY"
-          : pChannel !== "OFFLINE_ONLY";
+        channelTab === "all"
+          ? true
+          : channelTab === "OFFLINE_ONLY"
+            ? pChannel === "OFFLINE_ONLY"
+            : pChannel !== "OFFLINE_ONLY";
 
       return matchesSearch && matchesCat && matchesStatus && matchesChannel;
     });
@@ -1552,25 +1554,36 @@ function ProductsTab() {
       {/* Channel Segmented Control */}
       <div className="flex p-1 bg-muted/30 rounded-2xl border border-border w-fit max-w-full overflow-x-auto mx-auto sm:mx-0">
         <button
+          onClick={() => setChannelTab("all")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            channelTab === "all"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          }`}
+        >
+          <Layers className="size-3.5" />
+          <span>All Products ({totalProducts})</span>
+        </button>
+        <button
           onClick={() => setChannelTab("ONLINE_AND_OFFLINE")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             channelTab === "ONLINE_AND_OFFLINE"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           }`}
         >
-          <Package className="size-4" />
+          <Package className="size-3.5" />
           <span>Online & Offline Store ({onlineAndOfflineCount})</span>
         </button>
         <button
           onClick={() => setChannelTab("OFFLINE_ONLY")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             channelTab === "OFFLINE_ONLY"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           }`}
         >
-          <Store className="size-4" />
+          <Store className="size-3.5" />
           <span>Only Offline (POS) ({offlineOnlyCount})</span>
         </button>
       </div>
@@ -1873,16 +1886,21 @@ function ProductsTab() {
                             <span>{p.brand}</span>
                             <span className="opacity-50">•</span>
                             <span>{p.id}</span>
-                            {p.salesChannel === "OFFLINE_ONLY" && (
-                              <>
-                                <span className="opacity-50">•</span>
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[9px] uppercase font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shadow-2xs"
-                                  title="This product is only available in the offline POS system"
-                                >
-                                  <Store className="size-2.5" /> POS Only
-                                </span>
-                              </>
+                            <span className="opacity-50">•</span>
+                            {p.salesChannel === "OFFLINE_ONLY" ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] uppercase font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded shadow-2xs"
+                                title="This product is only available in the offline POS system"
+                              >
+                                <Store className="size-2.5" /> Only Offline (POS)
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] uppercase font-extrabold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded shadow-2xs"
+                                title="Available online and in-store POS"
+                              >
+                                <Package className="size-2.5" /> Online & Offline
+                              </span>
                             )}
                           </p>
                         </div>
@@ -2280,7 +2298,7 @@ function ProductsTab() {
         >
           <ProductForm
             product={editing}
-            defaultSalesChannel={channelTab}
+            defaultSalesChannel={channelTab === "all" ? undefined : channelTab}
             saving={save.isPending}
             onCancel={() => {
               setCreating(false);
