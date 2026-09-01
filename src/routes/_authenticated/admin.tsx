@@ -991,7 +991,7 @@ function ProductsTab() {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
           .from("products")
-          .select("*, product_images(public_url, is_primary, sort_order)")
+          .select("id, uuid, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(public_url, is_primary, sort_order)")
           .order("sort_order"),
         supabase.from("product_costs").select("product_id, buying_price"),
         supabase

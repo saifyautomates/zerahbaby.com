@@ -165,7 +165,8 @@ export function useAllOrders(enabled: boolean) {
       const { data, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       return (data ?? []) as unknown as Order[];
     },
@@ -181,7 +182,8 @@ export function useCustomers(enabled: boolean) {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       return data ?? [];
     },

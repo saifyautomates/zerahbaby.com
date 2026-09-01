@@ -272,7 +272,7 @@ export function POSTab() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "*, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+          "id, uuid, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
         )
         .eq("is_active", true);
       if (error) throw error;

@@ -488,14 +488,19 @@ export function useOfflineSaleHistory() {
               order: (
                 col: string,
                 opts: { ascending: boolean },
-              ) => Promise<{ data: OfflineSale[] | null; error: unknown }>;
+              ) => {
+                limit: (
+                  n: number,
+                ) => Promise<{ data: OfflineSale[] | null; error: unknown }>;
+              };
             };
           };
         }
       )
         .from("offline_sales")
         .select("*, offline_sale_items(*)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       return (data ?? []) as OfflineSale[];
     },

@@ -141,7 +141,8 @@ export function OfflineAnalyticsTab() {
 
   // Fetch all products for dynamic image & slug resolution
   const { data: products = [] } = useQuery({
-    queryKey: ["admin-products"],
+    queryKey: ["admin-products-lookup"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")

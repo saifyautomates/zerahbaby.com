@@ -304,17 +304,20 @@ export function useOfflineReturnsList() {
               order: (
                 col: string,
                 opts: { ascending: boolean },
-              ) => Promise<{
-                data: OfflineReturn[] | null;
-                error: { message: string } | null;
-              }>;
+              ) => {
+                limit: (n: number) => Promise<{
+                  data: OfflineReturn[] | null;
+                  error: { message: string } | null;
+                }>;
+              };
             };
           };
         }
       )
         .from("offline_returns")
         .select("*, offline_return_items(*)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1000);
 
       if (error) throw error;
       return (data ?? []) as unknown as OfflineReturn[];
