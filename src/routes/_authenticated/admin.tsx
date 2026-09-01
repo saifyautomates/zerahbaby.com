@@ -965,9 +965,9 @@ function ProductsTab() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
-  const [channelTab, setChannelTab] = useState<"all" | "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY">(
-    "all",
-  );
+  const [channelTab, setChannelTab] = useState<
+    "all" | "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY" | "archived"
+  >("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<
@@ -1469,18 +1469,23 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const totalProducts = data?.length ?? 0;
-  const totalStockUnits = (data ?? []).reduce((sum, p) => sum + (p.stock || 0), 0);
-  const totalStockValue = (data ?? []).reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
-  const inStockCount = (data ?? []).filter((p) => (p.stock || 0) > 0).length;
-  const lowStockCount = (data ?? []).filter(
+  const activeProducts = useMemo(() => (data ?? []).filter((p) => p.isActive), [data]);
+  const archivedProducts = useMemo(() => (data ?? []).filter((p) => !p.isActive), [data]);
+
+  const activeCount = activeProducts.length;
+  const archivedCount = archivedProducts.length;
+  const totalStockUnits = activeProducts.reduce((sum, p) => sum + (p.stock || 0), 0);
+  const totalStockValue = activeProducts.reduce(
+    (sum, p) => sum + (p.price || 0) * (p.stock || 0),
+    0,
+  );
+  const inStockCount = activeProducts.filter((p) => (p.stock || 0) > 0).length;
+  const lowStockCount = activeProducts.filter(
     (p) => (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5),
   ).length;
-  const outOfStockCount = (data ?? []).filter((p) => (p.stock || 0) === 0).length;
-  const activeCount = (data ?? []).filter((p) => p.isActive).length;
-  const archivedCount = (data ?? []).filter((p) => !p.isActive).length;
-  const offlineOnlyCount = (data ?? []).filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
-  const onlineAndOfflineCount = (data ?? []).filter(
+  const outOfStockCount = activeProducts.filter((p) => (p.stock || 0) === 0).length;
+  const offlineOnlyCount = activeProducts.filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
+  const onlineAndOfflineCount = activeProducts.filter(
     (p) => p.salesChannel !== "OFFLINE_ONLY",
   ).length;
 
@@ -1493,13 +1498,18 @@ function ProductsTab() {
         .toLowerCase();
 
       const matchesSearch = !q || searchBlob.includes(q);
-
       const matchesCat = categoryFilter === "all" || p.category === categoryFilter;
 
+      // When in "archived" tab, show ONLY archived products
+      if (channelTab === "archived") {
+        return matchesSearch && matchesCat && !p.isActive;
+      }
+
+      // In all other tabs ("all", "ONLINE_AND_OFFLINE", "OFFLINE_ONLY"), NEVER show archived products
+      if (!p.isActive) return false;
+
       let matchesStatus = true;
-      if (statusFilter === "active") matchesStatus = Boolean(p.isActive);
-      else if (statusFilter === "archived") matchesStatus = !p.isActive;
-      else if (statusFilter === "in_stock") matchesStatus = (p.stock || 0) > 0;
+      if (statusFilter === "in_stock") matchesStatus = (p.stock || 0) > 0;
       else if (statusFilter === "low_stock")
         matchesStatus = (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5);
       else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) === 0;
@@ -1597,8 +1607,8 @@ function ProductsTab() {
       {/* KPI Overview Summary (Unified Products & Inventory) */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
-          <p className="text-[11px] font-bold uppercase text-muted-foreground">Total Catalog</p>
-          <p className="mt-1 text-lg font-extrabold text-foreground">{totalProducts} items</p>
+          <p className="text-[11px] font-bold uppercase text-muted-foreground">Active Catalog</p>
+          <p className="mt-1 text-lg font-extrabold text-foreground">{activeCount} items</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
           <p className="text-[11px] font-bold uppercase text-muted-foreground">
@@ -1622,7 +1632,7 @@ function ProductsTab() {
         </div>
       </div>
       {/* Channel Segmented Control */}
-      <div className="flex p-1 bg-muted/30 rounded-2xl border border-border w-fit max-w-full overflow-x-auto mx-auto sm:mx-0">
+      <div className="flex p-1 bg-muted/30 rounded-2xl border border-border w-fit max-w-full overflow-x-auto mx-auto sm:mx-0 gap-1">
         <button
           onClick={() => setChannelTab("all")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -1632,7 +1642,7 @@ function ProductsTab() {
           }`}
         >
           <Layers className="size-3.5" />
-          <span>All Products ({totalProducts})</span>
+          <span>All Products ({activeCount})</span>
         </button>
         <button
           onClick={() => setChannelTab("ONLINE_AND_OFFLINE")}
@@ -1643,7 +1653,7 @@ function ProductsTab() {
           }`}
         >
           <Package className="size-3.5" />
-          <span>Online & Offline Store ({onlineAndOfflineCount})</span>
+          <span>Online &amp; Offline Store ({onlineAndOfflineCount})</span>
         </button>
         <button
           onClick={() => setChannelTab("OFFLINE_ONLY")}
@@ -1656,7 +1666,36 @@ function ProductsTab() {
           <Store className="size-3.5" />
           <span>Only Offline (POS) ({offlineOnlyCount})</span>
         </button>
+        <button
+          onClick={() => setChannelTab("archived")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            channelTab === "archived"
+              ? "bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          }`}
+        >
+          <Archive className="size-3.5" />
+          <span>Archived Products ({archivedCount})</span>
+        </button>
       </div>
+
+      {/* Archive Notice Banner */}
+      {channelTab === "archived" && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Archive className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <span className="font-extrabold text-foreground">
+                Archived Products Section ({archivedCount} items)
+              </span>
+              <p className="text-muted-foreground mt-0.5">
+                These products have historical sales or transactions and are hidden from your active
+                store and POS catalog. You can restore them anytime using the Restore button.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top action & search bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1693,17 +1732,22 @@ function ProductsTab() {
             onChange={(e) =>
               setStatusFilter(
                 e.target.value as
-                  "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived",
+                  | "all"
+                  | "active"
+                  | "in_stock"
+                  | "low_stock"
+                  | "out_of_stock"
+                  | "archived",
               )
             }
             className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
           >
-            <option value="all">All Products ({totalProducts})</option>
-            <option value="active">Live Store ({activeCount})</option>
+            <option value="all">
+              {channelTab === "archived" ? `All Archived (${archivedCount})` : `All Status (${activeCount})`}
+            </option>
             <option value="in_stock">In Stock ({inStockCount})</option>
             <option value="low_stock">Low Stock (≤ alert) ({lowStockCount})</option>
             <option value="out_of_stock">Out of Stock ({outOfStockCount})</option>
-            <option value="archived">Archived Only ({archivedCount})</option>
           </select>
         </div>
 
@@ -2198,11 +2242,13 @@ function ProductsTab() {
                           <button
                             type="button"
                             onClick={() => restore.mutate(p.uuid)}
+                            disabled={restore.isPending}
                             aria-label={`Restore ${p.name}`}
-                            title="Restore product to store"
-                            className="rounded-lg border border-emerald-200/80 bg-emerald-50/70 p-2 text-emerald-700 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 cursor-pointer"
+                            title="Restore product to active store catalog"
+                            className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 cursor-pointer disabled:opacity-40"
                           >
-                            <Package className="size-4" />
+                            <RotateCcw className="size-3.5" />
+                            <span>Restore</span>
                           </button>
                         ) : (
                           <button
