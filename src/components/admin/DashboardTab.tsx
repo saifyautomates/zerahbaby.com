@@ -45,6 +45,7 @@ import {
   CheckCircle2,
   Heart,
   Search,
+  X,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -727,6 +728,112 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       };
     });
   }, [rawEvents]);
+
+  // Recent Activity Modal state & query
+  const [isRecentActivityModalOpen, setIsRecentActivityModalOpen] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<string>("all");
+  const [activitySearch, setActivitySearch] = useState<string>("");
+
+  const { data: fullRawEvents = [], isLoading: isFullEventsLoading } = useQuery({
+    queryKey: ["admin-recent-activity-full-modal"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("analytics_events")
+        .select(
+          "id, event_name, created_at, products(name, slug, price, image_url), profiles(full_name)",
+        )
+        .order("created_at", { ascending: false })
+        .limit(150);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 10_000,
+    enabled: isRecentActivityModalOpen,
+  });
+
+  const fullRecentActivity = useMemo(() => {
+    return fullRawEvents.map((ev) => {
+      let icon = Activity;
+      let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
+      let title = ev.event_name;
+      let typeKey = "other";
+
+      const profile = (ev as { profiles?: { full_name?: string } | null }).profiles;
+      const product = ev.products as {
+        name?: string;
+        slug?: string;
+        price?: number;
+        image_url?: string;
+      } | null;
+
+      if (ev.event_name === "view_product" || ev.event_name === "product_view") {
+        title = `${profile?.full_name || "A visitor"} viewed ${product?.name ? `"${product.name}"` : "a product"}`;
+        icon = Eye;
+        color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
+        typeKey = "view";
+      } else if (ev.event_name === "add_to_cart") {
+        title = `${profile?.full_name || "A visitor"} added ${product?.name ? `"${product.name}"` : "an item"} to bag`;
+        icon = ShoppingCart;
+        color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
+        typeKey = "cart";
+      } else if (ev.event_name === "buy_now") {
+        title = `${profile?.full_name || "A visitor"} initiated Quick Buy for ${product?.name ? `"${product.name}"` : "an item"}`;
+        icon = ShoppingBag;
+        color = "text-rose-500 bg-rose-50 dark:bg-rose-950/50";
+        typeKey = "checkout";
+      } else if (ev.event_name === "checkout_started") {
+        title = `${profile?.full_name || "A visitor"} started checkout`;
+        icon = ShoppingBag;
+        color = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50";
+        typeKey = "checkout";
+      } else if (ev.event_name === "order_created") {
+        title = `${profile?.full_name || "A customer"} placed an order`;
+        icon = CheckCircle2;
+        color = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50";
+        typeKey = "order";
+      } else if (ev.event_name === "wishlist_add") {
+        title = `${profile?.full_name || "A visitor"} saved ${product?.name ? `"${product.name}"` : "an item"} to wishlist`;
+        icon = Heart;
+        color = "text-pink-500 bg-pink-50 dark:bg-pink-950/50";
+        typeKey = "wishlist";
+      } else if (ev.event_name === "wishlist_remove") {
+        title = `${profile?.full_name || "A visitor"} removed ${product?.name ? `"${product.name}"` : "an item"} from wishlist`;
+        icon = Heart;
+        color = "text-gray-500 bg-gray-50 dark:bg-gray-950/50";
+        typeKey = "wishlist";
+      } else {
+        const readable = ev.event_name.replace(/_/g, " ");
+        title = `${profile?.full_name || "A visitor"} ${readable}`;
+      }
+
+      return {
+        id: ev.id,
+        title,
+        eventName: ev.event_name,
+        typeKey,
+        time: format(new Date(ev.created_at), "MMM dd, hh:mm a"),
+        fullTime: format(new Date(ev.created_at), "MMMM dd, yyyy 'at' hh:mm:ss a"),
+        icon,
+        color,
+        product,
+      };
+    });
+  }, [fullRawEvents]);
+
+  const filteredActivities = useMemo(() => {
+    return fullRecentActivity.filter((act) => {
+      if (activityFilter !== "all" && act.typeKey !== activityFilter) return false;
+      if (activitySearch.trim()) {
+        const q = activitySearch.toLowerCase();
+        return (
+          act.title.toLowerCase().includes(q) ||
+          act.eventName.toLowerCase().includes(q) ||
+          (act.product?.name && act.product.name.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [fullRecentActivity, activityFilter, activitySearch]);
 
   // CSV Report Generator
   const handleDownloadReport = () => {
@@ -1673,7 +1780,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             <h3 className="text-sm font-bold text-foreground">Recent Activity</h3>
             <button
               type="button"
-              onClick={() => onNavigate?.("orders")}
+              onClick={() => setIsRecentActivityModalOpen(true)}
               className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
               <span>View All</span>
@@ -1778,6 +1885,143 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </table>
         </div>
       </div>
+
+      {/* Full Recent Activity Modal */}
+      {isRecentActivityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl max-h-[85vh] flex flex-col rounded-3xl bg-card border border-border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Activity className="size-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-foreground">Recent Activity</h3>
+                    <span className="rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 text-xs font-bold text-primary">
+                      {filteredActivities.length} logs
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Live real-time feed of visitor browsing, cart additions, checkouts, and orders
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRecentActivityModalOpen(false)}
+                className="flex size-8 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Controls: Search & Filters */}
+            <div className="p-4 border-b border-border bg-background flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by product, visitor, or event..."
+                  value={activitySearch}
+                  onChange={(e) => setActivitySearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted/40 border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "cart", label: "🛒 Cart" },
+                  { id: "checkout", label: "🛍️ Checkout" },
+                  { id: "order", label: "📦 Orders" },
+                  { id: "view", label: "👁️ Product Views" },
+                  { id: "wishlist", label: "❤️ Wishlist" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setActivityFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
+                      activityFilter === f.id
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Activity List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              {isFullEventsLoading ? (
+                <div className="py-12 text-center text-xs text-muted-foreground">
+                  Loading recent activities...
+                </div>
+              ) : filteredActivities.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Activity className="mx-auto size-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm font-bold text-foreground">No activities found</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Try adjusting your search query or filter settings.
+                  </p>
+                </div>
+              ) : (
+                filteredActivities.map((act) => {
+                  const Icon = act.icon;
+                  return (
+                    <div
+                      key={act.id}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-muted/20 border border-border/60 hover:bg-muted/40 transition gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${act.color}`}
+                        >
+                          <Icon className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {act.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{act.fullTime}</p>
+                        </div>
+                      </div>
+                      {act.product?.slug && (
+                        <Link
+                          to="/product/$id"
+                          params={{ id: act.product.slug }}
+                          target="_blank"
+                          className="shrink-0 text-xs font-medium text-primary hover:underline"
+                        >
+                          View Product →
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-border px-6 py-3 bg-muted/20">
+              <span className="text-xs text-muted-foreground">
+                Showing {filteredActivities.length} of {fullRecentActivity.length} recent activity
+                logs
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsRecentActivityModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-xs font-bold text-foreground transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
