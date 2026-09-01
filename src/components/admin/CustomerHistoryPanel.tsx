@@ -28,6 +28,7 @@ import {
   Clock,
   Sparkles,
 } from "lucide-react";
+import { AdminCustomerHubSkeleton } from "@/components/ui/Skeletons";
 
 type SaleItem = {
   id: string;
@@ -215,6 +216,10 @@ export function CustomerHistoryPanel() {
     const avgSpend = totalCustomersCount > 0 ? totalRevenue / totalCustomersCount : 0;
     return { totalCustomersCount, totalRevenue, withPhoneCount, avgSpend };
   }, [allCustomers]);
+
+  if (salesLoading && allCustomers.length === 0) {
+    return <AdminCustomerHubSkeleton />;
+  }
 
   return (
     <div className="flex flex-col gap-6 p-1">

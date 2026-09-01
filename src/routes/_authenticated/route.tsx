@@ -56,8 +56,19 @@ function AuthenticatedLayout() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-7xl px-4 py-10 space-y-6 animate-pulse">
+        <div className="flex items-center justify-between border-b border-border/60 pb-6">
+          <div className="space-y-2">
+            <div className="h-7 w-40 rounded-xl bg-muted/60" />
+            <div className="h-4 w-60 rounded-lg bg-muted/40" />
+          </div>
+          <div className="size-12 rounded-full bg-muted/60" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="h-36 rounded-3xl bg-muted/40 border border-border/40" />
+          <div className="h-36 rounded-3xl bg-muted/40 border border-border/40" />
+          <div className="h-36 rounded-3xl bg-muted/40 border border-border/40" />
+        </div>
       </div>
     );
   }

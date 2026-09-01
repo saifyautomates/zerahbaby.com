@@ -39,6 +39,7 @@ import {
   ShoppingBag,
   Tag,
   Receipt,
+  Phone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, formatPrice, imageFor, type Product } from "@/lib/store";
@@ -159,10 +160,12 @@ export function POSReturnsTab() {
   const processReturnMutation = useProcessOfflineReturn();
   const { data: returnsList = [], isLoading: isHistoryLoading } = useOfflineReturnsList();
 
-  // Filter past sales based on search query (name, phone, receipt number, SKU)
+  // Filter past sales based on search query (name, phone, receipt number, SKU) or show recent sales by default
   const matchedPastSales = useMemo(() => {
     const q = pastOrderSearch.trim().toLowerCase();
-    if (!q) return [];
+    if (!q) {
+      return pastSales.filter((s) => s.status !== "cancelled").slice(0, 5);
+    }
     return pastSales
       .filter((s) => {
         if (s.status === "cancelled") return false;
@@ -177,7 +180,7 @@ export function POSReturnsTab() {
         );
         return nameMatch || phoneMatch || saleNumMatch || tokenMatch || itemMatch;
       })
-      .slice(0, 10);
+      .slice(0, 15);
   }, [pastSales, pastOrderSearch]);
 
   // Handle Adding Item by Barcode or Lookup
@@ -545,52 +548,55 @@ export function POSReturnsTab() {
                 )}
               </div>
 
-              {/* Matched Past Sales List */}
-              {pastOrderSearch.trim() && (
-                <div className="space-y-2 mt-2 max-h-72 overflow-y-auto pr-1">
-                  {matchedPastSales.length === 0 ? (
-                    <div className="p-4 text-center rounded-xl bg-muted/30 border border-border text-xs text-muted-foreground">
-                      No matching past sales found for "{pastOrderSearch}". You can also scan
-                      product barcode directly below.
-                    </div>
-                  ) : (
-                    matchedPastSales.map((sale) => {
-                      const isExpanded =
-                        expandedSaleId === sale.id || matchedPastSales.length === 1;
-                      return (
+              {/* Matched Past Sales List (Always visible: recent or filtered by search) */}
+              <div className="space-y-2.5 mt-2 max-h-80 overflow-y-auto pr-1">
+                {matchedPastSales.length === 0 ? (
+                  <div className="p-4 text-center rounded-xl bg-muted/30 border border-border text-xs text-muted-foreground">
+                    No past sales found for "{pastOrderSearch}". You can also scan product barcode directly below.
+                  </div>
+                ) : (
+                  matchedPastSales.map((sale) => {
+                    const isExpanded =
+                      expandedSaleId === sale.id || !!pastOrderSearch.trim() || matchedPastSales.length === 1;
+                    return (
+                      <div
+                        key={sale.id}
+                        className="rounded-2xl border-2 border-border/80 bg-muted/20 overflow-hidden text-xs transition shadow-2xs"
+                      >
+                        {/* Receipt Summary Header with Prominent Customer Info */}
                         <div
-                          key={sale.id}
-                          className="rounded-xl border border-border/80 bg-muted/20 overflow-hidden text-xs transition"
+                          onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                          className="p-3.5 flex flex-wrap items-center justify-between gap-2 bg-card hover:bg-muted/40 cursor-pointer border-b border-border/60"
                         >
-                          {/* Receipt Summary Header */}
-                          <div
-                            onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
-                            className="p-3 flex items-center justify-between gap-2 hover:bg-muted/40 cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              {isExpanded ? (
-                                <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-                              ) : (
-                                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                              )}
-                              <span className="font-mono font-bold text-foreground truncate">
-                                {sale.sale_number}
-                              </span>
-                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-                                {sale.customer_name || "Walk-in"}
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {isExpanded ? (
+                              <ChevronDown className="size-4 text-primary shrink-0" />
+                            ) : (
+                              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 font-black text-xs">
+                                <User className="size-3" />
+                                {sale.customer_name || "Walk-in Customer"}
                               </span>
                               {sale.customer_phone && (
-                                <span className="text-[10px] text-muted-foreground font-mono">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-bold text-foreground">
+                                  <Phone className="size-2.5 text-muted-foreground" />
                                   {sale.customer_phone}
                                 </span>
                               )}
+                              <span className="font-mono text-[11px] font-semibold text-muted-foreground">
+                                #{sale.sale_number}
+                              </span>
                             </div>
+                          </div>
 
-                            <div className="text-right shrink-0">
-                              <span className="font-bold text-primary block">
+                          <div className="text-right shrink-0 flex items-center gap-3">
+                            <div>
+                              <span className="font-extrabold text-foreground text-sm block">
                                 {formatPrice(sale.total)}
                               </span>
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="text-[10px] text-muted-foreground block">
                                 {new Date(sale.created_at).toLocaleDateString("en-IN", {
                                   day: "numeric",
                                   month: "short",
@@ -600,49 +606,63 @@ export function POSReturnsTab() {
                               </span>
                             </div>
                           </div>
-
-                          {/* Items in this past sale */}
-                          {isExpanded && (
-                            <div className="p-3 border-t border-border/60 bg-background/80 space-y-2">
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                Items in this Sale ({sale.offline_sale_items?.length || 0}) — Click
-                                "+ Select for Return"
-                              </p>
-                              <div className="divide-y divide-border/60">
-                                {(sale.offline_sale_items ?? []).map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="py-2 flex items-center justify-between gap-3"
-                                  >
-                                    <div className="min-w-0 flex-1">
-                                      <p className="font-bold text-foreground text-xs truncate">
-                                        {item.name}
-                                      </p>
-                                      <p className="text-[10px] text-muted-foreground font-mono">
-                                        SKU: {item.sku || "—"} | Bought Qty: {item.qty} | Paid:{" "}
-                                        {formatPrice(item.price)}
-                                      </p>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddPastSaleItemToReturnCart(sale, item)}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-xs transition cursor-pointer shadow-2xs shrink-0"
-                                    >
-                                      <Plus className="size-3.5" />
-                                      Select for Return
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
+
+                        {/* Items in this past sale with Exact Purchased Prices */}
+                        {isExpanded && (
+                          <div className="p-3.5 bg-background space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-black text-foreground uppercase tracking-wider">
+                                Purchased Items ({sale.offline_sale_items?.length || 0})
+                              </p>
+                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                Exact original prices loaded from invoice
+                              </span>
+                            </div>
+
+                            <div className="divide-y divide-border/60">
+                              {(sale.offline_sale_items ?? []).map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="py-2.5 flex items-center justify-between gap-3"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-foreground text-xs truncate">
+                                      {item.name}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
+                                        Purchased Price: {formatPrice(item.price)}
+                                      </span>
+                                      <span className="text-[11px] text-muted-foreground font-medium">
+                                        Qty bought: {item.qty}
+                                      </span>
+                                      {item.sku && (
+                                        <span className="text-[10px] text-muted-foreground font-mono">
+                                          SKU: {item.sku}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddPastSaleItemToReturnCart(sale, item)}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs transition cursor-pointer shadow-xs shrink-0"
+                                  >
+                                    <Plus className="size-3.5" />
+                                    <span>Select for Return ({formatPrice(item.price)})</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* 2. Barcode Scanner Input Box */}
@@ -754,14 +774,27 @@ export function POSReturnsTab() {
                 )}
               </div>
 
+              {/* Customer Banner if active */}
+              {customerName && (
+                <div className="bg-primary/10 border-b border-primary/20 px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <User className="size-3.5 text-primary" />
+                    <span className="font-extrabold text-foreground">Customer: {customerName}</span>
+                    {customerPhone && <span className="font-mono text-muted-foreground">({customerPhone})</span>}
+                  </div>
+                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                    Exact Purchase Price Linked
+                  </span>
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto divide-y divide-border min-h-[160px]">
                 {returnCart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                     <ShoppingBag className="h-10 w-10 text-muted-foreground/30 mb-2" />
                     <p className="text-xs font-bold text-foreground">Return Cart is Empty</p>
                     <p className="text-[11px] max-w-xs mt-1">
-                      Search customer past purchase above or scan barcodes with the gun to add
-                      items.
+                      Search customer past purchase above or scan barcodes with the gun to add items.
                     </p>
                   </div>
                 ) : (
@@ -790,15 +823,13 @@ export function POSReturnsTab() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-xs text-foreground truncate">{item.name}</p>
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                            {item.sku && <span>SKU: {item.sku}</span>}
-                            {item.variant_info && <span>({item.variant_info})</span>}
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                              Purchased Price: {formatPrice(item.refund_price)}
+                            </span>
+                            {item.sku && <span className="text-[10px] text-muted-foreground font-mono">SKU: {item.sku}</span>}
+                            {item.variant_info && <span className="text-[10px] text-muted-foreground">({item.variant_info})</span>}
                           </div>
-                          {item.recent_sold_price != null && (
-                            <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                              Historical purchase price: {formatPrice(item.recent_sold_price)}
-                            </p>
-                          )}
                         </div>
                       </div>
 
@@ -841,8 +872,8 @@ export function POSReturnsTab() {
                               title="Unit Return Value"
                             />
                           </div>
-                          <span className="text-[10px] text-muted-foreground mt-0.5">
-                            Total: {formatPrice(item.refund_price * item.qty)}
+                          <span className="text-[10px] font-bold text-primary mt-0.5">
+                            Credit: {formatPrice(item.refund_price * item.qty)}
                           </span>
                         </div>
 
@@ -1074,8 +1105,20 @@ export function POSReturnsTab() {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-muted-foreground">
+                  <span>Customer</span>
+                  <span className="font-bold text-foreground truncate max-w-[200px]">
+                    {customerName || "Walk-in Customer"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
                   <span>Total Items to Restock</span>
                   <span className="font-bold text-foreground">+{totalReturnUnits} units</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Original Paid Price</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatPrice(totalRefundAmount)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-border">
                   <span className="text-foreground">

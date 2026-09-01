@@ -30,6 +30,7 @@ import {
   PackageCheck,
   Send,
 } from "lucide-react";
+import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
@@ -357,9 +358,7 @@ export function OnlineSalesTab() {
         </p>
       </div>
 
-      {isLoading && (
-        <div className="py-12 text-center text-sm text-gray-400">Loading transactions…</div>
-      )}
+      {isLoading && <AdminTableSkeleton rows={5} />}
 
       {!isLoading && orders.length === 0 && (
         <div className="rounded-3xl border border-dashed border-border p-12 text-center">

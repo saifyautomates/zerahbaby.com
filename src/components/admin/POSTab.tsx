@@ -65,6 +65,7 @@ import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
 import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
+import { POSTerminalSkeleton } from "@/components/ui/Skeletons";
 
 type POSStep = "cart" | "checkout" | "success";
 
@@ -247,8 +248,9 @@ export function POSTab() {
   }, [cashTendered, total]);
 
   // Products for manual search (active only, including offline-only items and all variants)
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products"],
+    staleTime: 1000 * 60 * 5, // 5 minutes caching
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -637,6 +639,10 @@ export function POSTab() {
       searchCustomers.reset();
     }
   }, [customerSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (productsLoading && products.length === 0) {
+    return <POSTerminalSkeleton />;
+  }
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-background overflow-hidden relative">

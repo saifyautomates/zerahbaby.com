@@ -48,6 +48,7 @@ type CartContextValue = {
   isFreeDelivery: boolean;
   freeDeliveryMessage: string | null;
   amountToFreeDelivery: number;
+  isLoading: boolean;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -142,7 +143,7 @@ import { useQuery } from "@tanstack/react-query";
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [lines, setLines] = useState<CartLine[]>([]);
-  const { data: products } = useProducts();
+  const { data: products, isLoading: productsLoading } = useProducts();
   const prevUserIdRef = useState<{ id?: string }>({ id: undefined })[0];
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
 
@@ -493,8 +494,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
       },
       removeCoupon: () => setCoupon(null),
+      isLoading: Boolean(productsLoading && lines.length > 0),
     };
-  }, [lines, products, coupon, user, settingsData]);
+  }, [lines, products, productsLoading, coupon, user, settingsData]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

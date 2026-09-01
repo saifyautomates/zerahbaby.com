@@ -168,9 +168,17 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         style={{ paddingLeft: `${paddingLeft}px`, paddingRight: `${paddingLeft}px` }}
       >
         <div className="flex w-max gap-4 sm:gap-6">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
+          {categories.length === 0 ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-[72vw] sm:w-[300px] md:w-[340px] lg:w-[360px] aspect-[4/5] rounded-[2rem] bg-muted/50 animate-pulse border border-border/40 shrink-0"
+              />
+            ))
+          ) : (
+            categories.map((c) => (
+              <Link
+                key={c.slug}
               data-card
               to="/shop"
               search={{ category: c.slug }}
@@ -214,7 +222,7 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
                 </div>
               </div>
             </Link>
-          ))}
+          )))}
         </div>
       </div>
 

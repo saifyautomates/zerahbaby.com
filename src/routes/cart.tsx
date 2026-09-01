@@ -20,6 +20,7 @@ import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { CartPageSkeleton } from "@/components/ui/Skeletons";
 
 import { productsQueryOptions } from "@/lib/store";
 
@@ -67,6 +68,7 @@ function CartPage() {
     isFreeDelivery,
     freeDeliveryMessage,
     amountToFreeDelivery,
+    isLoading,
   } = useCart();
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
@@ -74,6 +76,10 @@ function CartPage() {
 
   // Guard against duplicate checkout navigations from rapid clicking
   const isNavigatingRef = useRef(false);
+
+  if (isLoading) {
+    return <CartPageSkeleton />;
+  }
 
   if (items.length === 0) {
     return (

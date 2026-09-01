@@ -67,6 +67,11 @@ import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { safeLazy } from "@/lib/safe-lazy";
+import {
+  AdminDashboardSkeleton,
+  POSTerminalSkeleton,
+  AdminTableSkeleton,
+} from "@/components/ui/Skeletons";
 
 const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
@@ -396,9 +401,36 @@ function AdminPage() {
 
   if (sessionLoading || (user && isAdmin === undefined && (roleLoading || rolePending))) {
     return (
-      <div className="flex h-[100dvh] w-full flex-col items-center justify-center bg-background p-4 text-center">
-        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-3" />
-        <p className="font-bold text-sm text-foreground">Verifying admin session…</p>
+      <div className="flex h-screen bg-background overflow-hidden animate-pulse">
+        {/* Sidebar skeleton */}
+        <div className="hidden lg:flex w-64 flex-col border-r border-border/60 bg-card p-4 space-y-4 shrink-0">
+          <div className="flex items-center gap-3 border-b border-border/60 pb-4">
+            <div className="size-10 rounded-2xl bg-muted/70" />
+            <div className="space-y-1.5 flex-1">
+              <div className="h-4 w-28 rounded-md bg-muted/70" />
+              <div className="h-3 w-16 rounded-md bg-muted/50" />
+            </div>
+          </div>
+          <div className="space-y-2 pt-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-9 w-full rounded-xl bg-muted/40" />
+            ))}
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-16 border-b border-border/60 bg-card px-6 flex items-center justify-between shrink-0">
+            <div className="h-5 w-36 rounded-lg bg-muted/60" />
+            <div className="flex gap-2">
+              <div className="size-8 rounded-full bg-muted/60" />
+              <div className="size-8 rounded-full bg-muted/60" />
+            </div>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto">
+            <AdminDashboardSkeleton />
+          </div>
+        </div>
       </div>
     );
   }
@@ -889,9 +921,13 @@ function AdminPage() {
             >
               <Suspense
                 fallback={
-                  <div className="p-8 text-center text-muted-foreground animate-pulse font-medium text-sm">
-                    Loading module...
-                  </div>
+                  tab === "dashboard" ? (
+                    <AdminDashboardSkeleton />
+                  ) : tab === "billing" ? (
+                    <POSTerminalSkeleton />
+                  ) : (
+                    <AdminTableSkeleton />
+                  )
                 }
               >
                 {tab === "dashboard" && (
@@ -1829,9 +1865,7 @@ function ProductsTab() {
       )}
 
       {isLoading ? (
-        <div className="mt-8 flex justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#8B2020] border-t-transparent"></div>
-        </div>
+        <AdminTableSkeleton rows={8} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
           <table className="w-full text-left text-sm whitespace-nowrap">

@@ -9,6 +9,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile } from "@/lib/orders";
 import { uploadMedia } from "@/lib/uploads";
+import { ProfileSkeleton } from "@/components/ui/Skeletons";
 
 type UserAddress = Database["public"]["Tables"]["user_addresses"]["Row"];
 
@@ -92,11 +93,7 @@ function ProfilePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   const initials = form.full_name

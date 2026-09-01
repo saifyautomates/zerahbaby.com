@@ -53,6 +53,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
 import { DashboardDrillDown } from "./DashboardDrillDown";
+import { AdminDashboardSkeleton } from "@/components/ui/Skeletons";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -872,6 +873,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         products={products}
       />
     );
+  }
+
+  if (ordersLoading && posLoading && orders.length === 0 && posSales.length === 0) {
+    return <AdminDashboardSkeleton />;
   }
 
   return (

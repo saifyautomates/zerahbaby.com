@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { Sparkles, TicketPercent, Truck } from "lucide-react";
+import { CartPageSkeleton } from "@/components/ui/Skeletons";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -31,8 +32,18 @@ export const Route = createFileRoute("/_authenticated/checkout")({
 function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useSession();
-  const { items, subtotal, savings, total, coupon, clear, applyCoupon, removeCoupon, shipping } =
-    useCart();
+  const {
+    items,
+    subtotal,
+    savings,
+    total,
+    coupon,
+    clear,
+    applyCoupon,
+    removeCoupon,
+    shipping,
+    isLoading: cartLoading,
+  } = useCart();
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
   const placeOrder = usePlaceOrder();
@@ -421,6 +432,10 @@ function CheckoutPage() {
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-base sm:text-sm outline-none transition-all duration-300 focus:border-primary focus:bg-background focus:ring-4 focus:ring-primary/10 hover:border-border/80";
   const busy = placeOrder.isPending || saveProfile.isPending || submitting;
+
+  if (cartLoading) {
+    return <CartPageSkeleton />;
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10">

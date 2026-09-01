@@ -3,15 +3,27 @@ import { Link } from "@tanstack/react-router";
 import { Heart, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
-import { discountPct, formatPrice, imageFor, useSettings, type Product } from "@/lib/store";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  discountPct,
+  formatPrice,
+  imageFor,
+  useSettings,
+  singleProductQueryOptions,
+  type Product,
+} from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
 import { trackEvent } from "@/lib/analytics";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { LazyImage } from "@/components/ui/LazyImage";
+import { ProductCardSkeleton, ProductGridSkeleton } from "@/components/ui/Skeletons";
+
+export { ProductCardSkeleton, ProductGridSkeleton };
 
 export function ProductCard({ product }: { product: Product }) {
+  const qc = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const { add } = useCart();
   const { user } = useSession();
@@ -22,8 +34,17 @@ export function ProductCard({ product }: { product: Product }) {
   const featHoverSwap = settings?.["feature_hover_swap"] !== "false";
   const featPromoBadges = settings?.["feature_promo_badges"] !== "false";
 
+  // Prefetch product details on hover for instantaneous navigation
+  const handlePrefetch = () => {
+    qc.prefetchQuery(singleProductQueryOptions(product.id, false));
+  };
+
   return (
-    <article className="lift group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/30 hover:shadow-premium-hover">
+    <article
+      onMouseEnter={handlePrefetch}
+      onFocus={handlePrefetch}
+      className="lift group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/30 hover:shadow-premium-hover"
+    >
       <AdminProductControls product={product} />
       <Link
         to="/product/$id"
@@ -145,15 +166,5 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
       </div>
     </article>
-  );
-}
-
-export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
-  return (
-    <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-80 animate-pulse rounded-2xl border border-border bg-muted/50" />
-      ))}
-    </div>
   );
 }

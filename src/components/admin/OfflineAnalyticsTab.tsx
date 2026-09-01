@@ -944,15 +944,38 @@ export function OfflineAnalyticsTab() {
                   </td>
                 </tr>
               )}
-              {isLoading && (
-                <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center">
-                    <div className="flex justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                    </div>
-                  </td>
-                </tr>
-              )}
+              {isLoading &&
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-24 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-12 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-32 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-16 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-20 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-20 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-20 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-4 w-16 rounded bg-muted/60" />
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <div className="h-8 w-20 rounded-xl bg-muted/60 mx-auto" />
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

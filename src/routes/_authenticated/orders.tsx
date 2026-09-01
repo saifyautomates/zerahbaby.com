@@ -11,6 +11,7 @@ import { InvoiceBox } from "@/components/site/Invoice";
 import { ReviewModal } from "@/components/site/ReviewModal";
 import { Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { OrdersSkeleton } from "@/components/ui/Skeletons";
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
@@ -56,6 +57,10 @@ function OrdersPage() {
     orderId: string;
   } | null>(null);
 
+  if (isLoading) {
+    return <OrdersSkeleton />;
+  }
+
   return (
     <div className="container mx-auto max-w-4xl px-4 py-10">
       <div className="flex items-center justify-between">
@@ -67,9 +72,7 @@ function OrdersPage() {
         )}
       </div>
 
-      {isLoading && <p className="mt-8 text-sm text-muted-foreground">Loading…</p>}
-
-      {!isLoading && (orders ?? []).length === 0 && (
+      {(orders ?? []).length === 0 && (
         <div className="mt-10 rounded-2xl border border-border p-10 text-center">
           <p className="text-sm text-muted-foreground">You haven't placed an order yet.</p>
           <Link

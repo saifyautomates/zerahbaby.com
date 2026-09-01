@@ -60,6 +60,7 @@ import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { RelatedProducts } from "@/components/site/RelatedProducts";
 import { RecentlyViewed } from "@/components/site/RecentlyViewed";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { ProductDetailSkeleton } from "@/components/ui/Skeletons";
 
 import { productsQueryOptions, singleProductQueryOptions } from "@/lib/store";
 
@@ -506,16 +507,7 @@ function ProductPage() {
   }, [product]);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 md:grid-cols-2">
-        <div className="aspect-square animate-pulse rounded-3xl bg-muted" />
-        <div className="space-y-4">
-          <div className="h-8 w-3/4 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-          <div className="h-24 w-full animate-pulse rounded bg-muted" />
-        </div>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (isNetworkError) {

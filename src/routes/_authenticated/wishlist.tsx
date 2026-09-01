@@ -6,6 +6,7 @@ import { useSession } from "@/lib/auth";
 import { useWishlist } from "@/lib/wishlist";
 import { useProducts, formatPrice, discountPct } from "@/lib/store";
 import { useCart } from "@/lib/cart";
+import { WishlistSkeleton } from "@/components/ui/Skeletons";
 
 export const Route = createFileRoute("/_authenticated/wishlist")({
   head: () => ({
@@ -21,10 +22,14 @@ export const Route = createFileRoute("/_authenticated/wishlist")({
 function WishlistPage() {
   const { user } = useSession();
   const { productIds, remove } = useWishlist();
-  const { data: products } = useProducts();
+  const { data: products, isLoading: productsLoading } = useProducts();
   const { add } = useCart();
 
   const wishlistedProducts = (products ?? []).filter((p) => productIds.includes(p.uuid));
+
+  if (productsLoading && productIds.length > 0) {
+    return <WishlistSkeleton />;
+  }
 
   if (wishlistedProducts.length === 0) {
     return (
