@@ -759,6 +759,9 @@ function AdminPage() {
                               type="button"
                               onClick={() => {
                                 markAsRead(notif.id);
+                                if (notif.tab === "billing" && notif.filter) {
+                                  localStorage.setItem("zerah_admin_active_subtab", notif.filter);
+                                }
                                 setTab(notif.tab as Tab);
                                 setIsNotifOpen(false);
                               }}

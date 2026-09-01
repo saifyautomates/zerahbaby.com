@@ -8,7 +8,8 @@ export type AdminNotificationType =
   | "order_failed"
   | "inventory_low"
   | "email_failed"
-  | "contact_message";
+  | "contact_message"
+  | "pos_sale";
 
 export interface AdminNotification {
   id: string;
@@ -88,7 +89,7 @@ export function useAdminNotifications() {
       if (error) return [];
       return data ?? [];
     },
-    staleTime: 30_000,
+    staleTime: 15_000,
   });
 
   // 2. Fetch low-stock products (stock <= 5)
@@ -139,6 +140,58 @@ export function useAdminNotifications() {
     staleTime: 15_000,
   });
 
+  // 5. Fetch recent offline POS sales
+  const { data: rawOfflineSales = [] } = useQuery({
+    queryKey: ["admin-notif-offline-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("offline_sales")
+        .select("id, sale_number, customer_name, total, payment_method, pos_token_number, created_at, status")
+        .order("created_at", { ascending: false })
+        .limit(15);
+      if (error) return [];
+      return (data ?? []) as {
+        id: string;
+        sale_number: string;
+        customer_name: string | null;
+        total: number;
+        payment_method: string;
+        pos_token_number: number | null;
+        created_at: string;
+        status?: string;
+      }[];
+    },
+    staleTime: 10_000,
+  });
+
+  // Realtime subscription to invalidate notifications immediately on new sales/orders
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-notifications-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "offline_sales" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
+          qc.invalidateQueries({ queryKey: ["offline-sales"] });
+          qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
+          qc.invalidateQueries({ queryKey: ["admin-orders"] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
   // Combine and sort notifications
   const notifications = useMemo<AdminNotification[]>(() => {
     const list: AdminNotification[] = [];
@@ -185,6 +238,23 @@ export function useAdminNotifications() {
           priority: "high",
         });
       }
+    }
+
+    // Process Offline POS Sales
+    for (const sale of rawOfflineSales) {
+      if (sale.status === "cancelled") continue;
+      const tokenStr = sale.pos_token_number != null ? ` (Token #${sale.pos_token_number})` : "";
+      list.push({
+        id: `pos-sale-${sale.id}`,
+        type: "pos_sale",
+        title: `POS Offline Sale #${sale.sale_number}${tokenStr}`,
+        message: `${sale.customer_name || "Walk-in Customer"} • ₹${Number(sale.total).toLocaleString("en-IN")} via ${sale.payment_method?.toUpperCase() || "CASH"}`,
+        timestamp: sale.created_at,
+        tab: "billing",
+        filter: "sales",
+        read: readIds.has(`pos-sale-${sale.id}`),
+        priority: "high",
+      });
     }
 
     // Process Low Stock
@@ -236,7 +306,7 @@ export function useAdminNotifications() {
         if (a.read !== b.read) return a.read ? 1 : -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-  }, [rawOrders, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
+  }, [rawOrders, rawOfflineSales, rawLowStock, rawFailedLogs, rawQueries, readIds, dismissedIds]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -309,9 +379,11 @@ export function useAdminNotifications() {
 
   const refresh = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
+    qc.invalidateQueries({ queryKey: ["admin-notif-offline-sales"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-low-stock"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-failed-emails"] });
     qc.invalidateQueries({ queryKey: ["admin-notif-contact-messages"] });
+    qc.invalidateQueries({ queryKey: ["offline-sales"] });
   }, [qc]);
 
   return {
