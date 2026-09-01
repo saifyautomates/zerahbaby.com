@@ -1616,9 +1616,16 @@ export function ProductForm({
                 <select
                   className={input}
                   value={draft.salesChannel}
-                  onChange={(e) =>
-                    set("salesChannel", e.target.value as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY")
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+                    set("salesChannel", val);
+                    if (val === "OFFLINE_ONLY") {
+                      set("isFeatured", false);
+                      set("isActive", false);
+                    } else {
+                      set("isActive", true);
+                    }
+                  }}
                 >
                   <option value="ONLINE_AND_OFFLINE">Online Website + Offline POS</option>
                   <option value="OFFLINE_ONLY">Only Offline POS (Hidden from Website)</option>
@@ -1630,30 +1637,34 @@ export function ProductForm({
               </label>
             </div>
 
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={draft.isFeatured}
-                onChange={(e) => set("isFeatured", e.target.checked)}
-                className="size-4 accent-[var(--primary)]"
-              />
-              Featured{" "}
-              <span className="text-muted-foreground font-normal ml-1">
-                (Website ke homepage par special section me dikhega)
-              </span>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={draft.isActive}
-                onChange={(e) => set("isActive", e.target.checked)}
-                className="size-4 accent-[var(--primary)]"
-              />
-              Visible in store{" "}
-              <span className="text-muted-foreground font-normal ml-1">
-                (Customer ko website par dikhega aur wo khareed payenge)
-              </span>
-            </label>
+            {draft.salesChannel !== "OFFLINE_ONLY" && (
+              <>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={draft.isFeatured}
+                    onChange={(e) => set("isFeatured", e.target.checked)}
+                    className="size-4 accent-[var(--primary)]"
+                  />
+                  Featured{" "}
+                  <span className="text-muted-foreground font-normal ml-1">
+                    (Website ke homepage par special section me dikhega)
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={draft.isActive}
+                    onChange={(e) => set("isActive", e.target.checked)}
+                    className="size-4 accent-[var(--primary)]"
+                  />
+                  Visible in store{" "}
+                  <span className="text-muted-foreground font-normal ml-1">
+                    (Customer ko website par dikhega aur wo khareed payenge)
+                  </span>
+                </label>
+              </>
+            )}
           </div>
         </div>
 
