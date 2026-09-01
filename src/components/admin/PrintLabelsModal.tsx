@@ -40,14 +40,9 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid || p.id, 1])),
   );
-  const [layout, setLayout] = useState<LabelLayout>(() => getSavedLabelProfile());
+  const layout: LabelLayout = "thermal-58";
   const [labelType, setLabelType] = useState<LabelType>(() => getSavedLabelType());
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
-
-  const handleLayoutChange = (newLayout: LabelLayout) => {
-    setLayout(newLayout);
-    setSavedLabelProfile(newLayout);
-  };
 
   const handleLabelTypeChange = (newType: LabelType) => {
     setLabelType(newType);
@@ -109,42 +104,6 @@ export function PrintLabelsModal({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Layout Toggle with persistent default saving */}
-            <div className="flex rounded-xl border border-border overflow-hidden bg-background">
-              <button
-                type="button"
-                onClick={() => handleLayoutChange("a4")}
-                className={`px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
-                  layout === "a4"
-                    ? "bg-[#8B2020] text-white"
-                    : "bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                A4 (Grid)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLayoutChange("thermal-108")}
-                className={`px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
-                  layout === "thermal-108"
-                    ? "bg-[#8B2020] text-white"
-                    : "bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                108mm Thermal
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLayoutChange("thermal-58")}
-                className={`px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
-                  layout === "thermal-58"
-                    ? "bg-[#8B2020] text-white"
-                    : "bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                58mm Thermal
-              </button>
-            </div>
             <button
               type="button"
               onClick={onClose}
@@ -155,30 +114,27 @@ export function PrintLabelsModal({
             <button
               type="button"
               onClick={async () => {
-                // If QZ Tray is used and not A4, try hardware direct first
-                if (layout !== "a4") {
-                  try {
-                    const res = await printThermalLabelsDirectly({
-                      products: printableProducts,
-                      quantities,
-                      layout,
-                      labelType,
-                      showDiscount,
-                    });
-                    if (res.success) {
-                      toast.success("Printed to thermal printer directly!");
-                      return;
-                    }
-                  } catch {
-                    // Fall back to clean browser iframe print
+                try {
+                  const res = await printThermalLabelsDirectly({
+                    products: printableProducts,
+                    quantities,
+                    layout: "thermal-58",
+                    labelType,
+                    showDiscount,
+                  });
+                  if (res.success) {
+                    toast.success("Printed to thermal printer directly!");
+                    return;
                   }
+                } catch {
+                  // Fall back to clean browser iframe print
                 }
 
                 // Isolated iframe print
                 printLabelsViaIframe({
                   products: printableProducts,
                   quantities,
-                  layout,
+                  layout: "thermal-58",
                   labelType,
                   showDiscount,
                 });
@@ -194,9 +150,9 @@ export function PrintLabelsModal({
         <div className="shrink-0 border-b border-border/50 px-6 py-3 bg-muted/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
             <Settings2 className="size-3.5" />
-            <span>Format: {layout.toUpperCase()}</span>
+            <span>Format: 50×25mm Thermal</span>
             <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-              <CheckCircle2 className="size-3" /> Auto-saved as 1-Click Default
+              <CheckCircle2 className="size-3" /> Auto 58mm Thermal Roll
             </span>
           </div>
           <div className="flex items-center gap-6">

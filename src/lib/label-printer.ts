@@ -141,7 +141,7 @@ export const DEFAULT_LABEL_PROFILE_KEY = "zerah_default_label_printer_profile";
 export const LABEL_DISCOUNT_KEY = "zerah_label_show_discount";
 export const LABEL_TYPE_KEY = "zerah_label_type";
 
-let memoryProfile: LabelPrinterProfile = "thermal-108";
+let memoryProfile: LabelPrinterProfile = "thermal-58";
 let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 
@@ -149,7 +149,7 @@ export function getSavedLabelProfile(): LabelPrinterProfile {
   if (typeof window !== "undefined") {
     try {
       const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY);
-      if (saved === "a4" || saved === "thermal-58" || saved === "thermal-108") return saved;
+      if (saved === "thermal-58" || saved === "thermal-108" || saved === "a4") return saved;
     } catch {
       /* ignore */
     }
