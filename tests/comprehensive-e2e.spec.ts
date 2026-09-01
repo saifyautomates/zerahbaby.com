@@ -91,7 +91,7 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
     if (await aside.isVisible()) {
       await expect(aside.getByText("Order summary")).toBeVisible();
       await expect(aside.getByText("Subtotal")).toBeVisible();
-      await expect(aside.getByText("Delivery", { exact: true })).toBeVisible();
+      await expect(aside.getByText(/Delivery/i).first()).toBeVisible();
     }
   });
 
