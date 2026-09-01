@@ -69,10 +69,20 @@ export function OnlineSalesTab() {
     if (!orderToDelete) return;
     try {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
-        const { error } = await supabase.from("offline_sales").delete().eq("id", orderToDelete.id);
-        if (error) throw error;
-        toast.success("POS sale deleted permanently.");
+        const { error } = await supabase.rpc("admin_delete_offline_sale" as never, {
+          _sale_id: orderToDelete.id,
+        } as never);
+        if (error) {
+          const { error: delErr } = await supabase.from("offline_sales").delete().eq("id", orderToDelete.id);
+          if (delErr) throw new Error(error.message || delErr.message);
+        }
+        toast.success("POS sale deleted and stock restored.");
         qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
+        qc.invalidateQueries({ queryKey: ["offline-sales"] });
+        qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+        qc.invalidateQueries({ queryKey: ["admin-products"] });
+        qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+        qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
       } else {
         await deleteOrder.mutateAsync(orderToDelete.id);
       }

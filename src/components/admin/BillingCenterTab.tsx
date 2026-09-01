@@ -34,10 +34,14 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
   const [activeTab, setActiveTabState] = useState<BillingTab>(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      const sub = urlParams.get("subtab") as BillingTab | null;
-      if (sub && ["pos", "returns", "labels", "sales", "customers"].includes(sub)) return sub;
-      const saved = localStorage.getItem("zerah_admin_active_subtab") as BillingTab | null;
-      if (saved && ["pos", "returns", "labels", "sales", "customers"].includes(saved)) return saved;
+      let sub = urlParams.get("subtab") as string | null;
+      if (sub === "terminal") sub = "pos";
+      if (sub === "analytics" || sub === "history") sub = "sales";
+      if (sub && ["pos", "returns", "labels", "sales", "customers"].includes(sub)) return sub as BillingTab;
+      let saved = localStorage.getItem("zerah_admin_active_subtab") as string | null;
+      if (saved === "terminal") saved = "pos";
+      if (saved === "analytics" || saved === "history") saved = "sales";
+      if (saved && ["pos", "returns", "labels", "sales", "customers"].includes(saved)) return saved as BillingTab;
     }
     return initialSubTab;
   });
