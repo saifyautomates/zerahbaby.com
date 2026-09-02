@@ -1118,11 +1118,11 @@ export function OfflineAnalyticsTab() {
                               className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
                               title={
                                 sale.void_reason
-                                  ? `Void reason: ${sale.void_reason}`
-                                  : "Voided transaction"
+                                  ? `Cancellation reason: ${sale.void_reason}`
+                                  : "Cancelled transaction"
                               }
                             >
-                              🚫 Voided
+                              🚫 Cancelled
                             </span>
                           )}
                           {sale.status === "cancelled" && !sale.is_voided && (
@@ -1442,10 +1442,10 @@ export function OfflineAnalyticsTab() {
                                     }}
                                     disabled={voidSaleMutation.isPending}
                                     className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2 text-sm font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50 cursor-pointer"
-                                    title="Administrative void / reversal of completed sale"
+                                    title="Cancel completed sale and optionally restore stock"
                                   >
                                     <RotateCcw className="size-4" />
-                                    Void Sale
+                                    Cancel Sale
                                   </button>
                                 )}
                               {(sale.status === "cancelled" ||
@@ -1454,11 +1454,11 @@ export function OfflineAnalyticsTab() {
                                 <div className="flex flex-col items-end gap-1">
                                   <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
                                     <RotateCcw className="size-3.5" />
-                                    Voided
+                                    Cancelled
                                   </div>
                                   {sale.void_reason && (
                                     <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
-                                      Audit: {sale.void_reason}
+                                      Reason: {sale.void_reason}
                                     </p>
                                   )}
                                 </div>
@@ -1602,10 +1602,10 @@ export function OfflineAnalyticsTab() {
                 </div>
                 <div>
                   <h3 className="font-black text-base text-foreground">
-                    Void POS Sale #{saleToVoid.sale_number}
+                    Cancel POS Sale #{saleToVoid.sale_number}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Administrative reversal & audit preservation
+                    Cancel this bill and optionally restore stock
                   </p>
                 </div>
               </div>
@@ -1621,21 +1621,19 @@ export function OfflineAnalyticsTab() {
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
               <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="size-4 shrink-0" />
-                Historical Record Preservation
+                Receipt Cancellation Note
               </p>
-              A completed POS sale is a permanent financial record. Voiding this transaction will
-              cancel the invoice and exclude it from revenue reporting while preserving the
-              historical audit trail. <strong>The sale will not be erased.</strong>
+              Cancelling this sale will mark the bill as cancelled and remove it from sales totals while preserving a record in history for auditing.
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-1.5">
-                  Audit Reason <span className="text-rose-500">*</span>
+                  Cancellation Reason <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Cashier ring-up mistake / Accidental duplicate / Customer cancelled"
+                  placeholder="e.g. Cashier mistake / Duplicate bill / Customer changed mind"
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
                   className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
@@ -1644,10 +1642,10 @@ export function OfflineAnalyticsTab() {
                 {/* Quick chip suggestions */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {[
-                    "Accidental duplicate punch",
-                    "Cashier item ring-up error",
+                    "Accidental duplicate bill",
+                    "Cashier ring-up mistake",
                     "Customer cancelled at counter",
-                    "POS payment failed / voided",
+                    "Payment failed / cancelled",
                   ].map((chip) => (
                     <button
                       key={chip}
@@ -1671,11 +1669,10 @@ export function OfflineAnalyticsTab() {
                   />
                   <div>
                     <span className="text-xs font-bold text-foreground">
-                      Compensating Inventory Restock
+                      Add items back to stock
                     </span>
                     <p className="text-[11px] text-muted-foreground">
-                      Return physical items back to product inventory. (Uncheck if goods were
-                      damaged, discarded, or retained by customer).
+                      Return items back to inventory (uncheck if goods were damaged or already taken).
                     </p>
                   </div>
                 </label>
@@ -1689,13 +1686,13 @@ export function OfflineAnalyticsTab() {
                 disabled={voidSaleMutation.isPending}
                 className="px-4 py-2 rounded-xl text-xs font-bold border border-border bg-background text-foreground hover:bg-muted transition cursor-pointer"
               >
-                Keep Active Sale
+                Keep Sale
               </button>
               <button
                 type="button"
                 onClick={async () => {
                   if (!voidReason.trim()) {
-                    toast.error("Please provide an audit reason for voiding this sale");
+                    toast.error("Please provide a reason for cancelling this sale");
                     return;
                   }
                   await voidSaleMutation.mutateAsync({
@@ -1711,7 +1708,7 @@ export function OfflineAnalyticsTab() {
                 {voidSaleMutation.isPending && (
                   <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 )}
-                <span>Confirm Void & Reversal</span>
+                <span>Confirm Cancellation</span>
               </button>
             </div>
           </div>
