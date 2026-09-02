@@ -492,48 +492,26 @@ export function buildLabelPrintParts(params: {
         ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
         : "";
 
-    // When Separate Price Line is enabled (Dedicated Price Row)
-    if (separatePriceLine && (showMrp || showSellPrice)) {
-      const priceItems: string[] = [];
-      if (showMrp) {
-        priceItems.push(`<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`);
-      }
-      if (showSellPrice) {
-        priceItems.push(`<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`);
-      }
-      if (discBadge) {
-        priceItems.push(discBadge);
-      }
-
+    // Approved Specification: Retail garment stickers must show Brand, Product Name, MRP, Barcode, and SKU.
+    // Selling price is NOT printed on garment stickers.
+    if (showSellPrice) {
+      // If sell price is explicitly forced
       return [
         `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-name-standalone">${escapeHtml(p.name)}</div>`,
-        `<div class="lbl-price-row">${priceItems.join("&nbsp; ")}</div>`,
+        `<div class="lbl-row-middle">`,
+        `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
+        `  <div class="lbl-mrp-bold">MRP: ${mrpFormatted}</div>`,
+        `</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
         `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
       ].join("");
-    }
-
-    // Default inline / stacked prices beside product name
-    let priceSection = "";
-    if (showMrp && showSellPrice) {
-      priceSection = [
-        `<div class="lbl-prices-stacked">`,
-        `  <div class="lbl-mrp-strike">MRP: ${mrpFormatted}</div>`,
-        `  <div class="lbl-sell-bold">Price: ${priceFormatted} ${discBadge}</div>`,
-        `</div>`,
-      ].join("");
-    } else if (showSellPrice) {
-      priceSection = `<div class="lbl-sell-bold">Price: ${priceFormatted}</div>`;
-    } else if (showMrp) {
-      priceSection = `<div class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</div>`;
     }
 
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-row-middle">`,
       `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      priceSection ? `  ${priceSection}` : "",
+      `  <div class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</div>`,
       `</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
@@ -823,19 +801,47 @@ export function buildLabelPrintHtml(params: {
 /*     with auto-trigger print dialog.                                 */
 /* ================================================================== */
 
+/* ================================================================== */
+/*  Canonical Print Engine — Production-Hardened                       */
+/* ================================================================== */
+
 export function openLabelPrintInNewTab(params: {
-  products: PrintableProduct[];
-  quantities: Record<string, number>;
-  layout: LabelPrinterProfile;
-  labelType: LabelType;
-  showDiscount: boolean;
+  products: (Product | PrintableProduct)[];
+  quantities?: Record<string, number>;
+  layout?: LabelPrinterProfile;
+  labelType?: LabelType;
+  showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   try {
-    const html = buildLabelPrintHtml(params);
+    const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
+    if (rawProducts.length === 0) {
+      toast.error("Please select at least 1 product to print labels.");
+      return false;
+    }
+
+    const quantities: Record<string, number> = { ...(params.quantities ?? {}) };
+    for (const p of rawProducts) {
+      const key = getProductKey(p);
+      if (quantities[key] === undefined || quantities[key] <= 0) {
+        quantities[key] = 1;
+      }
+    }
+
+    const html = buildLabelPrintHtml({
+      products: rawProducts,
+      quantities,
+      layout: params.layout || "thermal-58",
+      labelType: params.labelType || "full",
+      showDiscount: params.showDiscount ?? false,
+      showMrp: params.showMrp ?? true,
+      showSellPrice: false, // strictly enforce no selling price
+      separatePriceLine: false,
+    });
+
     const win = window.open("", "_blank");
     if (win) {
       win.document.open();
@@ -845,11 +851,11 @@ export function openLabelPrintInNewTab(params: {
       try {
         win.print();
       } catch {
-        /* print fallback handled inside tab */
+        /* User can print manually from opened tab */
       }
       return true;
     } else {
-      toast.error("Popup window was blocked by browser. Please allow popups.");
+      toast.error("Popup window was blocked by browser. Please allow popups for printing.");
       return false;
     }
   } catch (err) {
@@ -859,102 +865,171 @@ export function openLabelPrintInNewTab(params: {
   }
 }
 
-export function printLabelsViaIframe(params: {
-  products: PrintableProduct[];
-  quantities: Record<string, number>;
-  layout: LabelPrinterProfile;
-  labelType: LabelType;
-  showDiscount: boolean;
+/**
+ * Single Canonical Print Pipeline for Zérah Baby & Kids.
+ * Used by "Print Selected", "Print Labels" modal, and 1-click row buttons.
+ */
+export function printProductLabels(params: {
+  products: (Product | PrintableProduct)[];
+  quantities?: Record<string, number>;
+  layout?: LabelPrinterProfile;
+  labelType?: LabelType;
+  showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
   onDone?: () => void;
-}): void {
+}): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") {
     params.onDone?.();
-    return;
+    return false;
   }
 
-  // Dismiss active toasts
+  // Dismiss active toasts to ensure clean screen state
   toast.dismiss();
 
-  let isCleaned = false;
-  const cleanup = () => {
-    if (isCleaned) return;
-    isCleaned = true;
-    const container = document.getElementById("zerah-print-container");
-    const style = document.getElementById("zerah-print-style");
-    if (container) container.innerHTML = "";
-    if (style) style.textContent = "";
+  const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
+  if (rawProducts.length === 0) {
+    toast.error("Please select at least 1 product to print labels.");
     params.onDone?.();
-  };
+    return false;
+  }
+
+  // Validate all items
+  for (const p of rawProducts) {
+    const check = validatePrintableProduct(p);
+    if (!check.valid) {
+      toast.error(check.error || "Cannot print label: invalid product data");
+      params.onDone?.();
+      return false;
+    }
+  }
+
+  // Build exact quantities
+  const quantities: Record<string, number> = { ...(params.quantities ?? {}) };
+  for (const p of rawProducts) {
+    const key = getProductKey(p);
+    if (quantities[key] === undefined || quantities[key] <= 0) {
+      quantities[key] = 1;
+    }
+  }
+
+  const layout = params.layout || "thermal-58";
+  const labelType = params.labelType || "full";
+  const showDiscount = params.showDiscount ?? false;
+  const showMrp = params.showMrp ?? true;
+  const showSellPrice = false; // strictly enforce no selling price per approved retail specification
+  const separatePriceLine = false;
+
+  const { fullHtml } = buildLabelPrintParts({
+    products: rawProducts,
+    quantities,
+    layout,
+    labelType,
+    showDiscount,
+    showMrp,
+    showSellPrice,
+    separatePriceLine,
+  });
 
   try {
-    const { pagesHtml, css } = buildLabelPrintParts(params);
-
-    // 1. Inject or update the dedicated in-page print container
-    let container = document.getElementById("zerah-print-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "zerah-print-container";
-      document.body.appendChild(container);
-    }
-    container.innerHTML = pagesHtml;
-
-    // 2. Inject or update the dedicated print style
-    let style = document.getElementById("zerah-print-style") as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement("style");
-      style.id = "zerah-print-style";
-      document.head.appendChild(style);
+    // 1. Remove previous print iframe if existing
+    const existing = document.getElementById("zerah-canonical-print-frame");
+    if (existing && existing.parentNode) {
+      try {
+        existing.parentNode.removeChild(existing);
+      } catch {}
     }
 
-    style.textContent = `
-      @media screen {
-        #zerah-print-container {
-          display: none !important;
-        }
+    // 2. Create dedicated print iframe with real physical layout bounds
+    // (Chromium skips styles & SVG if frame is 0x0 or display:none)
+    const iframe = document.createElement("iframe");
+    iframe.id = "zerah-canonical-print-frame";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.setAttribute("tabindex", "-1");
+    iframe.setAttribute("title", "Zerah Product Label Print Engine");
+    Object.assign(iframe.style, {
+      position: "fixed",
+      top: "0px",
+      left: "-9999px",
+      width: "800px",
+      height: "600px",
+      border: "none",
+      zIndex: "-1",
+      visibility: "visible",
+      pointerEvents: "none",
+    });
+    document.body.appendChild(iframe);
+
+    const cw = iframe.contentWindow;
+    if (!cw) {
+      throw new Error("Unable to access print frame context");
+    }
+
+    // 3. Write self-contained HTML document
+    const doc = cw.document;
+    doc.open();
+    doc.write(fullHtml);
+    doc.close();
+
+    // 4. Trigger print synchronously when content is ready
+    const handlePrint = () => {
+      try {
+        cw.focus();
+        cw.print();
+      } catch (printErr) {
+        console.warn("[ZerahPrint] iframe print blocked, opening in tab fallback:", printErr);
+        openLabelPrintInNewTab({
+          products: rawProducts,
+          quantities,
+          layout,
+          labelType,
+          showDiscount,
+          showMrp,
+          showSellPrice,
+          separatePriceLine,
+        });
+      } finally {
+        params.onDone?.();
       }
-      @media print {
-        body > *:not(#zerah-print-container) {
-          display: none !important;
-        }
-        #zerah-print-container {
-          display: block !important;
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #ffffff !important;
-          z-index: 999999 !important;
-        }
-        ${css}
-      }
-    `;
+    };
 
-    window.addEventListener("afterprint", cleanup, { once: true });
+    // Clean up iframe safely after the print job concludes (afterprint)
+    cw.addEventListener(
+      "afterprint",
+      () => {
+        setTimeout(() => {
+          try {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          } catch {}
+        }, 1000);
+      },
+      { once: true },
+    );
 
-    // 3. Directly call window.print() synchronously inside the user click stack
-    try {
-      window.print();
-    } catch (printErr) {
-      console.warn("[ZerahPrint] window.print() failed, attempting open in tab:", printErr);
-      openLabelPrintInNewTab(params);
-    } finally {
-      // Safety release cleanup after print dialog dismiss
-      setTimeout(cleanup, 500);
+    // Call handlePrint
+    if (doc.readyState === "complete") {
+      setTimeout(handlePrint, 50);
+    } else {
+      cw.onload = () => setTimeout(handlePrint, 50);
     }
+
+    return true;
   } catch (err) {
-    console.error("[ZerahPrint] printLabels failed:", err);
-    toast.error("Failed to prepare label print sheet.");
-    cleanup();
+    console.error("[ZerahPrint] printProductLabels error:", err);
+    toast.error(
+      "Failed to open print dialog: " + (err instanceof Error ? err.message : String(err)),
+    );
+    params.onDone?.();
+    return false;
   }
 }
 
+/** Legacy alias pointing directly to canonical engine */
+export const printLabelsViaIframe = printProductLabels;
+
 /* ================================================================== */
-/*  Direct Print Event Bus (for 1-Click row-level printing)           */
+/*  Direct Print Event Bus & Hook                                      */
 /* ================================================================== */
 
 type PrintEventListener = (payload: DirectPrintPayload | null) => void;
@@ -965,11 +1040,8 @@ export function subscribeToDirectPrint(listener: PrintEventListener): () => void
   return () => _listeners.delete(listener);
 }
 
-let _printingLock = false;
-
 /**
- * Main entry-point for all 1-click direct label print requests.
- * Tries QZ Tray → falls back to iframe browser print.
+ * Direct entry-point for 1-click printing without asynchronous delays
  */
 export async function triggerDirectLabelPrint(
   target: Product | PrintableProduct | Array<Product | PrintableProduct>,
@@ -984,27 +1056,7 @@ export async function triggerDirectLabelPrint(
     separatePriceLine?: boolean;
   },
 ): Promise<boolean> {
-  if (_printingLock) {
-    toast.info("Print job already in progress…");
-    return false;
-  }
-
   const rawProducts = Array.isArray(target) ? target : [target];
-  if (rawProducts.length === 0) {
-    toast.error("No products selected to print.");
-    return false;
-  }
-
-  // Validate — do not silently skip invalid products
-  for (const p of rawProducts) {
-    const check = validatePrintableProduct(p);
-    if (!check.valid) {
-      toast.error(check.error || "Cannot print label: invalid product data");
-      return false;
-    }
-  }
-
-  // Build quantities map
   const quantities: Record<string, number> = { ...(options?.quantities ?? {}) };
   for (const p of rawProducts) {
     const key = getProductKey(p);
@@ -1013,121 +1065,22 @@ export async function triggerDirectLabelPrint(
     }
   }
 
-  const layout = options?.layout || getSavedLabelProfile();
-  const labelType = options?.labelType || getSavedLabelType();
-  const showDiscount = options?.showDiscount ?? getSavedShowDiscount();
-  const showMrp = options?.showMrp ?? getSavedShowMrp();
-  const showSellPrice = options?.showSellPrice ?? getSavedShowSellPrice();
-  const separatePriceLine = options?.separatePriceLine ?? getSavedSeparatePrice();
-
-  _printingLock = true;
-  setTimeout(() => {
-    _printingLock = false;
-  }, 3000);
-
-  // Try QZ Tray for thermal formats
-  if (layout !== "a4") {
-    try {
-      const qzResult = await printThermalLabelsDirectly({
-        products: rawProducts,
-        quantities,
-        layout,
-        labelType,
-        showDiscount,
-        showMrp,
-        showSellPrice,
-        separatePriceLine,
-      });
-      if (qzResult.success) {
-        toast.success("Printed directly to thermal printer!");
-        _printingLock = false;
-        return true;
-      }
-    } catch {
-      // QZ Tray not available — fall through to iframe
-    }
-  }
-
-  // Browser iframe print
-  printLabelsViaIframe({
+  return printProductLabels({
     products: rawProducts,
     quantities,
-    layout,
-    labelType,
-    showDiscount,
-    showMrp,
-    showSellPrice,
-    separatePriceLine,
-    onDone: () => {
-      setTimeout(() => {
-        _printingLock = false;
-      }, 1500);
-    },
+    layout: options?.layout,
+    labelType: options?.labelType,
+    showDiscount: options?.showDiscount,
+    showMrp: options?.showMrp,
+    showSellPrice: options?.showSellPrice,
+    separatePriceLine: options?.separatePriceLine,
   });
-
-  return true;
 }
 
 /**
- * Directly print thermal labels via QZ Tray raw TSPL commands.
+ * Standard React Hook for 1-click printing across all components.
+ * 100% synchronous invocation guarantees preservation of browser user gesture.
  */
-export async function printThermalLabelsDirectly(params: {
-  products: (Product | PrintableProduct)[];
-  quantities: Record<string, number>;
-  layout: LabelPrinterProfile;
-  labelType: LabelType;
-  showDiscount: boolean;
-  showMrp?: boolean;
-  showSellPrice?: boolean;
-  separatePriceLine?: boolean;
-}): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data } = await supabase
-      .from("site_settings")
-      .select("key, value")
-      .in("key", ["print_thermal_printer_name"]);
-
-    const printerName =
-      data?.find((d) => d.key === "print_thermal_printer_name")?.value || "HPRT HT300";
-
-    const cfg = PRINT_FORMAT_CONFIG[params.layout];
-    let allTspl = "";
-
-    for (const product of params.products) {
-      const key = getProductKey(product);
-      const copies = params.quantities[key] || 1;
-      if (copies <= 0) continue;
-
-      const tspl = buildTSPLLabel({
-        productName: product.name,
-        sku: product.sku || "",
-        barcode: sanitizeBarcode(product.barcode, product.sku) || "NO-BARCODE",
-        price: product.price,
-        mrp: product.mrp,
-        widthMm: cfg.pageWidthMm,
-        heightMm: cfg.pageHeightMm,
-        copies,
-        showDiscount: params.showDiscount,
-        showMrp: params.showMrp,
-        showSellPrice: params.showSellPrice,
-        separatePriceLine: params.separatePriceLine,
-      });
-      allTspl += tspl + "\n";
-    }
-
-    if (!allTspl) return { success: true };
-
-    const result = await sendTSPLViaQZTray(printerName, allTspl);
-    return result.success ? { success: true } : { success: false, error: result.error };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/* ================================================================== */
-/*  React Hook                                                         */
-/* ================================================================== */
-
 export function useDirectLabelPrint() {
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -1140,13 +1093,38 @@ export function useDirectLabelPrint() {
         layout?: LabelPrinterProfile;
         labelType?: LabelType;
         showDiscount?: boolean;
+        showMrp?: boolean;
+        showSellPrice?: boolean;
+        separatePriceLine?: boolean;
       },
     ) => {
+      const rawProducts = Array.isArray(target) ? target : [target];
+      if (rawProducts.length === 0) {
+        toast.error("Please select at least 1 product to print labels.");
+        return false;
+      }
+
       setIsPrinting(true);
-      triggerDirectLabelPrint(target, options).finally(() => {
-        setTimeout(() => setIsPrinting(false), 1500);
+
+      const quantities: Record<string, number> = { ...(options?.quantities ?? {}) };
+      for (const p of rawProducts) {
+        const key = getProductKey(p);
+        if (quantities[key] === undefined) {
+          quantities[key] = options?.quantity && options.quantity > 0 ? options.quantity : 1;
+        }
+      }
+
+      return printProductLabels({
+        products: rawProducts,
+        quantities,
+        layout: options?.layout,
+        labelType: options?.labelType,
+        showDiscount: options?.showDiscount,
+        showMrp: options?.showMrp,
+        showSellPrice: options?.showSellPrice,
+        separatePriceLine: options?.separatePriceLine,
+        onDone: () => setIsPrinting(false),
       });
-      return true;
     },
     [],
   );

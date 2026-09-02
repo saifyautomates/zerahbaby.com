@@ -27,8 +27,7 @@ import {
   setSavedShowSellPrice,
   getSavedSeparatePrice,
   setSavedSeparatePrice,
-  printThermalLabelsDirectly,
-  printLabelsViaIframe,
+  printProductLabels,
   openLabelPrintInNewTab,
 } from "@/lib/label-printer";
 
@@ -122,7 +121,7 @@ export function PrintLabelsModal({
     setIsPrinting(true);
 
     try {
-      printLabelsViaIframe({
+      printProductLabels({
         products: printableProducts,
         quantities,
         layout,

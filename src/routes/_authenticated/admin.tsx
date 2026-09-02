@@ -1639,7 +1639,15 @@ function ProductsTab() {
           {/* Print Labels Dropdown */}
           <div className="inline-flex rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
             <button
-              onClick={() => printLabel(selectedIds.size > 0 ? selectedProducts : list)}
+              type="button"
+              onClick={() => {
+                const targetProducts = selectedIds.size > 0 ? selectedProducts : list;
+                if (targetProducts.length === 0) {
+                  toast.error("Please select at least 1 product to print labels.");
+                  return;
+                }
+                printLabel(targetProducts);
+              }}
               disabled={
                 isPrinting ||
                 (selectedIds.size > 0 ? selectedProducts.length === 0 : list.length === 0)
@@ -1657,6 +1665,7 @@ function ProductsTab() {
               </span>
             </button>
             <button
+              type="button"
               onClick={() => setPrintingLabels(true)}
               title="Advanced Print (Custom quantities, layout, discounts)"
               className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
