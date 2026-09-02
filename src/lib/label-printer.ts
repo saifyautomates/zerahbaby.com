@@ -469,7 +469,7 @@ export function buildLabelPrintParts(params: {
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
-      heightMm: cfg.barcodeHeightMm,
+      heightMm: labelType === "barcode-only" ? cfg.barcodeHeightMm * 1.3 : cfg.barcodeHeightMm,
       fontPt: cfg.barcodeFontPt,
       displayValue: true,
       maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
@@ -483,7 +483,7 @@ export function buildLabelPrintParts(params: {
       ].join("");
     }
 
-    const hasDiscount = typeof p.mrp === "number" && p.mrp > p.price;
+    const hasDiscount = typeof p.mrp === "number" && p.mrp > p.price && p.price > 0;
     const discountPct = hasDiscount
       ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100)
       : 0;
@@ -492,26 +492,41 @@ export function buildLabelPrintParts(params: {
         ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
         : "";
 
-    // Approved Specification: Retail garment stickers must show Brand, Product Name, MRP, Barcode, and SKU.
-    // Selling price is NOT printed on garment stickers.
-    if (showSellPrice) {
-      // If sell price is explicitly forced
+    if (separatePriceLine && (showMrp || showSellPrice)) {
+      // Dedicated separate price row centered below product name
+      let priceRowInner = "";
+      if (showMrp && showSellPrice) {
+        priceRowInner = `<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span> <span class="lbl-sell-bold">Price: ${priceFormatted}</span> ${discBadge}`;
+      } else if (showSellPrice) {
+        priceRowInner = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
+      } else if (showMrp) {
+        priceRowInner = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted}</span> ${discBadge}`;
+      }
+
       return [
         `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-row-middle">`,
-        `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-        `  <div class="lbl-mrp-bold">MRP: ${mrpFormatted}</div>`,
-        `</div>`,
+        `<div class="lbl-name" style="text-align:center;width:100%;margin:0.2mm 0;">${escapeHtml(p.name)}</div>`,
+        `<div class="lbl-price-row">${priceRowInner}</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
         `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
       ].join("");
+    }
+
+    // Inline row: Name on left, prices on right
+    let priceCell = "";
+    if (showMrp && showSellPrice) {
+      priceCell = `<div class="lbl-prices-stacked"><span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span><span class="lbl-sell-bold">Price: ${priceFormatted} ${discBadge}</span></div>`;
+    } else if (showSellPrice) {
+      priceCell = `<div class="lbl-sell-bold">Price: ${priceFormatted}</div>`;
+    } else if (showMrp) {
+      priceCell = `<div class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</div>`;
     }
 
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-row-middle">`,
       `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      `  <div class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</div>`,
+      priceCell ? `  ${priceCell}` : "",
       `</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
@@ -876,8 +891,8 @@ export function openLabelPrintInNewTab(params: {
       labelType: params.labelType || "full",
       showDiscount: params.showDiscount ?? false,
       showMrp: params.showMrp ?? true,
-      showSellPrice: false, // strictly enforce no selling price
-      separatePriceLine: false,
+      showSellPrice: params.showSellPrice ?? false,
+      separatePriceLine: params.separatePriceLine ?? false,
     });
 
     const win = window.open("", "_blank");

@@ -114,25 +114,125 @@ function SingleStickerPreview({
         ZÉRAH BABY &amp; KIDS
       </p>
 
-      {/* Row 2: Product Name & MRP (Approved Retail Sticker Specification) */}
+      {/* Row 2: Product Name & Prices (Full Toggle Support) */}
       {labelType !== "barcode-only" && (
-        <div className="flex items-center justify-between w-full gap-1.5 overflow-hidden">
-          <p
-            className="font-bold text-black text-left leading-tight line-clamp-2 truncate flex-1 min-w-0"
-            style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
-            title={product.name}
-          >
-            {product.name}
-          </p>
-          <div className="flex items-center shrink-0 leading-tight text-right">
-            <span
-              className="font-black text-black whitespace-nowrap"
-              style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+        separatePriceLine && (showMrp || showSellPrice) ? (
+          <>
+            {/* Standalone Product Name */}
+            <p
+              className="font-bold text-black text-center leading-tight line-clamp-1 truncate w-full"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
+              title={product.name}
             >
-              MRP: {formatPrice(mrpVal)}
-            </span>
+              {product.name}
+            </p>
+
+            {/* Dedicated Separate Price Row */}
+            <div className="flex items-center justify-center gap-1.5 w-full leading-none overflow-hidden my-0.5">
+              {showMrp && showSellPrice ? (
+                <>
+                  <span
+                    className="text-gray-500 line-through whitespace-nowrap"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                  >
+                    MRP: {formatPrice(mrpVal)}
+                  </span>
+                  <span
+                    className="font-black text-black whitespace-nowrap"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                  >
+                    Price: {formatPrice(product.price)}
+                  </span>
+                  {showDiscount && hasDiscount && discountPct > 0 && (
+                    <span
+                      className="font-extrabold text-emerald-800 whitespace-nowrap"
+                      style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                    >
+                      (-{discountPct}%)
+                    </span>
+                  )}
+                </>
+              ) : showSellPrice ? (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  Price: {formatPrice(product.price)}
+                </span>
+              ) : showMrp ? (
+                <>
+                  <span
+                    className="font-black text-black whitespace-nowrap"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                  >
+                    MRP: {formatPrice(mrpVal)}
+                  </span>
+                  {showDiscount && hasDiscount && discountPct > 0 && (
+                    <span
+                      className="font-extrabold text-emerald-800 whitespace-nowrap"
+                      style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                    >
+                      (-{discountPct}%)
+                    </span>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          /* Inline Beside Product Name */
+          <div className="flex items-center justify-between w-full gap-1.5 overflow-hidden">
+            <p
+              className="font-bold text-black text-left leading-tight line-clamp-2 truncate flex-1 min-w-0"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
+              title={product.name}
+            >
+              {product.name}
+            </p>
+            <div className="flex flex-col items-end shrink-0 leading-tight text-right">
+              {showMrp && showSellPrice ? (
+                <>
+                  <span
+                    className="text-gray-500 line-through text-[9px] whitespace-nowrap leading-none"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.85) + "px" }}
+                  >
+                    MRP: {formatPrice(mrpVal)}
+                  </span>
+                  <span
+                    className="font-black text-black whitespace-nowrap leading-none mt-0.5"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.1) + "px" }}
+                  >
+                    Price: {formatPrice(product.price)}{" "}
+                    {showDiscount && hasDiscount && discountPct > 0 && (
+                      <span className="font-extrabold text-emerald-800 text-[9px]">
+                        (-{discountPct}%)
+                      </span>
+                    )}
+                  </span>
+                </>
+              ) : showSellPrice ? (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  Price: {formatPrice(product.price)}
+                </span>
+              ) : showMrp ? (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  MRP: {formatPrice(mrpVal)}{" "}
+                  {showDiscount && hasDiscount && discountPct > 0 && (
+                    <span className="font-extrabold text-emerald-800">
+                      (-{discountPct}%)
+                    </span>
+                  )}
+                </span>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Row 3: Barcode with numbers */}

@@ -176,7 +176,11 @@ export function PrintLabelsModal({
                   Print Product Labels
                 </h2>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  Thermal 50×25mm
+                  {layout === "thermal-58"
+                    ? "Thermal 50×25mm"
+                    : layout === "thermal-108"
+                    ? "Thermal 100×25mm"
+                    : "A4 Grid (4-Col)"}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -414,7 +418,13 @@ export function PrintLabelsModal({
         <div className="shrink-0 border-t border-border/60 p-4 bg-muted/20 flex items-center justify-between text-xs text-muted-foreground print:hidden">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="size-3.5 text-emerald-600" />
-            <span>Exact physical preview (Horizontal 50×25mm sticker)</span>
+            <span>
+              {layout === "thermal-58"
+                ? "Exact physical preview (Horizontal 50×25mm sticker)"
+                : layout === "thermal-108"
+                ? "Exact physical preview (Horizontal 100×25mm sticker)"
+                : "Exact physical preview (A4 4-Column Grid Sheet)"}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
