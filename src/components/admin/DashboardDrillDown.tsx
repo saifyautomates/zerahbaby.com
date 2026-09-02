@@ -18,7 +18,7 @@ import {
   Tag,
   RotateCcw,
 } from "lucide-react";
-import { useState, useMemo, Suspense, lazy } from "react";
+import { useState, useMemo, useCallback, Suspense, lazy } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +29,14 @@ import { useSaveProduct } from "@/lib/admin-products";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
 import { safeLazy } from "@/lib/safe-lazy";
-import { calculateFinancialMetrics } from "@/lib/financial-reporting";
+import {
+  calculateFinancialMetrics,
+  calculateStockValuation,
+  type StockValuationItem,
+  isValidPOSSale,
+  isValidOnlineOrder,
+  isValidReturn,
+} from "@/lib/financial-reporting";
 import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import {
   useTableSelection,
@@ -72,14 +79,14 @@ export interface DrillDownOrder {
 export interface DrillDownPOSItem {
   id?: string;
   product_id?: string | null;
-  product_slug?: string;
-  product_name?: string;
-  name?: string;
+  product_slug?: string | null;
+  product_name?: string | null;
+  name?: string | null;
   quantity?: number;
   qty?: number;
   price?: number;
   subtotal?: number;
-  buying_price?: number;
+  buying_price?: number | null;
 }
 
 export interface DrillDownPOSSale {
@@ -136,6 +143,270 @@ export interface DrillDownProduct {
   is_active?: boolean;
 }
 
+function OrdersChannelSubView({
+  onlineOrders,
+  offlineSales,
+  products,
+  onlineOrdersTotal,
+  offlineOrdersTotal,
+  activeChannel,
+  setActiveChannel,
+  search,
+  setSearch,
+}: {
+  onlineOrders: Array<{
+    sale_id: string;
+    date: string;
+    id: string;
+    customer: string;
+    source: "Online";
+    total: number;
+  }>;
+  offlineSales: Array<{
+    sale_id: string;
+    date: string;
+    id: string;
+    customer: string;
+    source: "POS";
+    total: number;
+  }>;
+  products: DrillDownProduct[];
+  onlineOrdersTotal: number;
+  offlineOrdersTotal: number;
+  activeChannel: "all" | "online" | "offline" | "returns";
+  setActiveChannel: (c: "all" | "online" | "offline" | "returns") => void;
+  search: string;
+  setSearch: (s: string) => void;
+}) {
+  let combined: Array<{
+    sale_id: string;
+    date: string;
+    id: string;
+    customer: string;
+    source: "Online" | "POS";
+    total: number;
+  }> = [];
+  if (activeChannel === "online") combined = onlineOrders;
+  else if (activeChannel === "offline") combined = offlineSales;
+  else combined = [...onlineOrders, ...offlineSales];
+
+  combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    combined = combined.filter(
+      (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q),
+    );
+  }
+
+  const orderSelection = useTableSelection({ items: combined, getId: (i) => i.id || i.sale_id });
+  const orderMetrics = useMemo(
+    () =>
+      getRevenueSelectionMetrics(orderSelection.selectedItems, products as unknown as Product[]),
+    [orderSelection.selectedItems, products],
+  );
+  const visibleCombined = combined.slice(0, 50);
+
+  return (
+    <div className="space-y-5">
+      {/* 2 Main Sections: 1. Online Sales & 2. Offline Sales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          type="button"
+          onClick={() => setActiveChannel(activeChannel === "online" ? "all" : "online")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeChannel === "online"
+              ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+              : "border-border bg-card hover:border-primary/50 hover:bg-muted/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-xl">
+                🌐
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">1. Online Sales (Website)</h4>
+                <p className="text-xs text-muted-foreground">{onlineOrders.length} Orders</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black text-primary">{formatPrice(onlineOrdersTotal)}</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Website Revenue
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveChannel(activeChannel === "offline" ? "all" : "offline")}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeChannel === "offline"
+              ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30 shadow-md"
+              : "border-border bg-card hover:border-emerald-500/50 hover:bg-muted/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xl">
+                🏪
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">2. Offline Sales (POS Store)</h4>
+                <p className="text-xs text-muted-foreground">{offlineSales.length} Store Sales</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black text-emerald-600">
+                {formatPrice(offlineOrdersTotal)}
+              </p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Store Revenue
+              </span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Segmented Channel Control Tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+        <div className="inline-flex rounded-xl bg-muted p-1 gap-1 border border-border/50">
+          <button
+            type="button"
+            onClick={() => setActiveChannel("all")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "all"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Sales ({onlineOrders.length + offlineSales.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveChannel("online")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "online"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🌐 1. Online Sales ({onlineOrders.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveChannel("offline")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeChannel === "offline"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🏪 2. Offline POS Sales ({offlineSales.length})
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by order ID or customer..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+
+      {/* Sticky Smart Selection Summary */}
+      <SmartSelectionSummary
+        selectedCount={orderSelection.selectedCount}
+        selectedLabel="Selected Transactions"
+        metrics={orderMetrics}
+        onClear={orderSelection.clearSelection}
+      />
+
+      {/* Orders Table */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+        <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
+          <thead className="bg-muted text-xs uppercase text-foreground">
+            <tr>
+              <th className="w-10 px-4 py-3.5">
+                <input
+                  type="checkbox"
+                  checked={orderSelection.isAllVisibleSelected(visibleCombined)}
+                  ref={(el) => {
+                    if (el) el.indeterminate = orderSelection.isIndeterminate(visibleCombined);
+                  }}
+                  onChange={() => orderSelection.toggleAllVisible(visibleCombined)}
+                  aria-label="Select all transactions"
+                  className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                />
+              </th>
+              <th className="px-6 py-3.5">Date</th>
+              <th className="px-6 py-3.5">Order / Sale ID</th>
+              <th className="px-6 py-3.5">Customer</th>
+              <th className="px-6 py-3.5">Sales Section</th>
+              <th className="px-6 py-3.5 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {visibleCombined.map((item, i) => {
+              const isSelected = orderSelection.isSelected(item.id || item.sale_id);
+              return (
+                <tr
+                  key={i}
+                  className={`transition-colors ${
+                    isSelected ? "bg-primary/5 font-medium" : "bg-background hover:bg-muted/40"
+                  }`}
+                >
+                  <td className="w-10 px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => orderSelection.toggle(item.id || item.sale_id)}
+                      aria-label={`Select transaction ${item.id}`}
+                      className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {format(new Date(item.date), "MMM d, h:mm a")}
+                  </td>
+                  <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
+                  <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        item.source === "Online"
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                      }`}
+                    >
+                      {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right font-black text-foreground">
+                    {formatPrice(item.total)}
+                  </td>
+                </tr>
+              );
+            })}
+            {combined.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                  No orders in this section for the selected period.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function SalesChannelDrillDown({
   type,
   validOrders,
@@ -154,11 +425,12 @@ function SalesChannelDrillDown({
   );
   const [search, setSearch] = useState("");
 
-  const getProduct = (slugOrId: string) => {
-    return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
-  };
+  const getProduct = useCallback(
+    (slugOrId: string) => products.find((p) => p.slug === slugOrId || p.id === slugOrId),
+    [products],
+  );
 
-  const getProductImage = (p: DrillDownProduct | undefined) => {
+  const getProductImage = useCallback((p: DrillDownProduct | undefined) => {
     if (!p) return null;
     let url: string | null = null;
     if (p.image) url = p.image;
@@ -171,7 +443,7 @@ function SalesChannelDrillDown({
       url = primary?.public_url || null;
     }
     return imageFor(p.category || "clothing", url);
-  };
+  }, []);
 
   const onlineOrders = useMemo(() => {
     return validOrders.map((o) => ({
@@ -231,7 +503,7 @@ function SalesChannelDrillDown({
       }
     });
     return items;
-  }, [validOrders, products]);
+  }, [validOrders, products, getProductImage]);
 
   const offlineSales = useMemo(() => {
     return validPosSales.map((s) => ({
@@ -289,7 +561,7 @@ function SalesChannelDrillDown({
       }
     });
     return items;
-  }, [validPosSales, products]);
+  }, [validPosSales, getProduct, getProductImage]);
 
   const returnRevenueItems = useMemo(() => {
     const items: Array<{
@@ -341,7 +613,7 @@ function SalesChannelDrillDown({
       }
     });
     return items;
-  }, [validReturns, products]);
+  }, [validReturns, getProduct, getProductImage]);
 
   const onlineOrdersTotal = onlineOrders.reduce((acc, i) => acc + i.total, 0);
   const offlineOrdersTotal = offlineSales.reduce((acc, i) => acc + i.total, 0);
@@ -353,233 +625,18 @@ function SalesChannelDrillDown({
   const offlineTotalRev = offlineOrdersTotal;
 
   if (type === "orders") {
-    let combined: Array<{
-      sale_id: string;
-      date: string;
-      id: string;
-      customer: string;
-      source: "Online" | "POS";
-      total: number;
-    }> = [];
-    if (activeChannel === "online") combined = onlineOrders;
-    else if (activeChannel === "offline") combined = offlineSales;
-    else combined = [...onlineOrders, ...offlineSales];
-
-    combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      combined = combined.filter(
-        (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q),
-      );
-    }
-
-    const orderSelection = useTableSelection({ items: combined, getId: (i) => i.id || i.sale_id });
-    const orderMetrics = useMemo(
-      () =>
-        getRevenueSelectionMetrics(orderSelection.selectedItems, products as unknown as Product[]),
-      [orderSelection.selectedItems, products],
-    );
-    const visibleCombined = combined.slice(0, 50);
-
     return (
-      <div className="space-y-5">
-        {/* 2 Main Sections: 1. Online Sales & 2. Offline Sales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setActiveChannel(activeChannel === "online" ? "all" : "online")}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-              activeChannel === "online"
-                ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
-                : "border-border bg-card hover:border-primary/50 hover:bg-muted/40"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-xl">
-                  🌐
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">1. Online Sales (Website)</h4>
-                  <p className="text-xs text-muted-foreground">{onlineOrders.length} Orders</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-black text-primary">{formatPrice(onlineOrdersTotal)}</p>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Website Revenue
-                </span>
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveChannel(activeChannel === "offline" ? "all" : "offline")}
-            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-              activeChannel === "offline"
-                ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30 shadow-md"
-                : "border-border bg-card hover:border-emerald-500/50 hover:bg-muted/40"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xl">
-                  🏪
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">
-                    2. Offline Sales (POS Store)
-                  </h4>
-                  <p className="text-xs text-muted-foreground">{offlineSales.length} Store Sales</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-black text-emerald-600">
-                  {formatPrice(offlineOrdersTotal)}
-                </p>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Store Revenue
-                </span>
-              </div>
-            </div>
-          </button>
-        </div>
-
-        {/* Segmented Channel Control Tabs & Search */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-          <div className="inline-flex rounded-xl bg-muted p-1 gap-1 border border-border/50">
-            <button
-              type="button"
-              onClick={() => setActiveChannel("all")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeChannel === "all"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              All Sales ({onlineOrders.length + offlineSales.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveChannel("online")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeChannel === "online"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              🌐 1. Online Sales ({onlineOrders.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveChannel("offline")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeChannel === "offline"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              🏪 2. Offline POS Sales ({offlineSales.length})
-            </button>
-          </div>
-
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by order ID or customer..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
-            />
-          </div>
-        </div>
-
-        {/* Sticky Smart Selection Summary */}
-        <SmartSelectionSummary
-          selectedCount={orderSelection.selectedCount}
-          metrics={orderMetrics}
-          onClear={orderSelection.clearSelection}
-        />
-
-        {/* Orders Table */}
-        <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
-          <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
-            <thead className="bg-muted text-xs uppercase text-foreground">
-              <tr>
-                <th className="w-10 px-4 py-3.5">
-                  <input
-                    type="checkbox"
-                    checked={orderSelection.isAllVisibleSelected(visibleCombined)}
-                    ref={(el) => {
-                      if (el) el.indeterminate = orderSelection.isIndeterminate(visibleCombined);
-                    }}
-                    onChange={() => orderSelection.toggleAllVisible(visibleCombined)}
-                    aria-label="Select all transactions"
-                    className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
-                  />
-                </th>
-                <th className="px-6 py-3.5">Date</th>
-                <th className="px-6 py-3.5">Order / Sale ID</th>
-                <th className="px-6 py-3.5">Customer</th>
-                <th className="px-6 py-3.5">Sales Section</th>
-                <th className="px-6 py-3.5 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {visibleCombined.map((item, i) => {
-                const isSelected = orderSelection.isSelected(item.id || item.sale_id);
-                return (
-                  <tr
-                    key={i}
-                    className={`transition-colors ${
-                      isSelected ? "bg-primary/5 font-medium" : "bg-background hover:bg-muted/40"
-                    }`}
-                  >
-                    <td className="w-10 px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => orderSelection.toggle(item.id || item.sale_id)}
-                        aria-label={`Select transaction ${item.id}`}
-                        className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {format(new Date(item.date), "MMM d, h:mm a")}
-                    </td>
-                    <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
-                    <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                          item.source === "Online"
-                            ? "bg-primary/10 text-primary border border-primary/20"
-                            : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
-                        }`}
-                      >
-                        {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-black text-foreground">
-                      {formatPrice(item.total)}
-                    </td>
-                  </tr>
-                );
-              })}
-              {combined.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    No orders in this section for the selected period.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <OrdersChannelSubView
+        onlineOrders={onlineOrders}
+        offlineSales={offlineSales}
+        products={products}
+        onlineOrdersTotal={onlineOrdersTotal}
+        offlineOrdersTotal={offlineOrdersTotal}
+        activeChannel={activeChannel}
+        setActiveChannel={setActiveChannel}
+        search={search}
+        setSearch={setSearch}
+      />
     );
   }
 
@@ -898,16 +955,9 @@ export function DashboardDrillDown({
       return imageFor(p.category || "clothing", url);
     };
 
-    const validOrders = orders.filter((o) => {
-      if (o.status === "cancelled") return false;
-      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
-      return true;
-    });
-
-    const validPosSales = posSales.filter((s) => s.status !== "cancelled");
-    const validReturns = offlineReturns.filter(
-      (r) => r.status !== "cancelled" && r.refund_status !== "cancelled",
-    );
+    const validOrders = orders.filter((o) => isValidOnlineOrder(o as any));
+    const validPosSales = posSales.filter((s) => isValidPOSSale(s as any));
+    const validReturns = offlineReturns.filter((r) => isValidReturn(r as any));
 
     if (type === "revenue") {
       return {
@@ -1148,7 +1198,7 @@ export function DashboardDrillDown({
           allItems.push({
             date: s.created_at,
             product: p ? p.name : item.name || "Product",
-            slug: p?.slug || item.product_slug,
+            slug: p?.slug || item.product_slug || undefined,
             image: getProductImage(p),
             qty: itemQty,
             rev,
@@ -1512,12 +1562,12 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     },
   };
 
-  const totalValue = products.reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
-  const totalUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
-  const lowCount = products.filter(
-    (p) => (p.stock || 0) > 0 && (p.stock || 0) <= (p.low_stock_at || 5),
-  ).length;
-  const outCount = products.filter((p) => (p.stock || 0) === 0).length;
+  const valuation = calculateStockValuation(products as unknown as StockValuationItem[]);
+  const totalValue = valuation.retailValue;
+  const totalCost = valuation.costValue;
+  const totalUnits = valuation.totalUnits;
+  const lowCount = valuation.lowStockCount;
+  const outCount = valuation.outOfStockCount;
 
   const filtered = products.filter((p) => {
     const stock = p.stock || 0;
@@ -1577,11 +1627,22 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     <div className="space-y-4 p-4">
       {/* Top Overview Cards */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-border bg-background p-3.5 shadow-2xs">
-          <p className="text-[11px] font-semibold uppercase text-muted-foreground">
-            Total Stock Value
-          </p>
+        <div
+          className="rounded-xl border border-border bg-background p-3.5 shadow-2xs"
+          title={`Potential Retail Sales Value: ${formatPrice(totalValue)} (Store Buying Cost: ${formatPrice(totalCost)})`}
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground truncate">
+              Total Stock Value
+            </p>
+            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 shrink-0">
+              Retail
+            </span>
+          </div>
           <p className="mt-1 text-xl font-extrabold text-emerald-600">{formatPrice(totalValue)}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Store Cost: {formatPrice(totalCost)}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-background p-3.5 shadow-2xs">
           <p className="text-[11px] font-semibold uppercase text-muted-foreground">
@@ -1648,6 +1709,7 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
       {/* Sticky Smart Selection Summary */}
       <SmartSelectionSummary
         selectedCount={invSelection.selectedCount}
+        selectedLabel="Selected Products"
         metrics={invMetrics}
         onClear={invSelection.clearSelection}
       />

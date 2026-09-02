@@ -56,7 +56,6 @@ import { playScanSuccess, playScanError } from "@/lib/audio";
 import { useGlobalBarcodeScanner, clearPendingScans } from "@/lib/barcode-scanner";
 import { generateIdempotencyKey } from "@/lib/pos";
 import { useTableSelection, getReturnsSelectionMetrics } from "@/lib/table-selection";
-import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import {
   type ReturnCartItem,
   type OfflineReturn,
@@ -128,7 +127,8 @@ export function POSReturnsTab() {
   const [historySearch, setHistorySearch] = useState("");
 
   // Queries
-  const { data: pastSalesWithMetrics = [], isLoading: isSalesLoading } = useOfflineSalesForReturnsLookup();
+  const { data: pastSalesWithMetrics = [], isLoading: isSalesLoading } =
+    useOfflineSalesForReturnsLookup();
   const { data: returnsList = [], isLoading: isHistoryLoading } = useOfflineReturnsList();
   const processReturnMutation = useProcessOfflineReturn();
 
@@ -142,23 +142,29 @@ export function POSReturnsTab() {
   /* ------------------------------------------------------------------ */
   const groupedCustomerPurchases = useMemo(() => {
     const q = customerSearchQuery.trim().toLowerCase();
-    
+
     // Group all past sales by customer identity (phone or name)
-    const customerMap = new Map<string, {
-      key: string;
-      customer_id: string | null;
-      customer_name: string;
-      customer_phone: string;
-      customer_email: string;
-      total_spent: number;
-      total_orders: number;
-      sales: OfflineSaleWithReturnMetrics[];
-      has_returnable_items: boolean;
-    }>();
+    const customerMap = new Map<
+      string,
+      {
+        key: string;
+        customer_id: string | null;
+        customer_name: string;
+        customer_phone: string;
+        customer_email: string;
+        total_spent: number;
+        total_orders: number;
+        sales: OfflineSaleWithReturnMetrics[];
+        has_returnable_items: boolean;
+      }
+    >();
 
     pastSalesWithMetrics.forEach((sale) => {
-      const key = sale.customer_phone || (sale.customer_name !== "Walk-in Customer" ? sale.customer_name : null) || `walkin-${sale.id}`;
-      
+      const key =
+        sale.customer_phone ||
+        (sale.customer_name !== "Walk-in Customer" ? sale.customer_name : null) ||
+        `walkin-${sale.id}`;
+
       if (!customerMap.has(key)) {
         customerMap.set(key, {
           key,
@@ -188,9 +194,15 @@ export function POSReturnsTab() {
       groups = groups.filter((g) => {
         const nameMatch = g.customer_name.toLowerCase().includes(q);
         const phoneMatch = g.customer_phone.toLowerCase().includes(q);
-        const saleMatch = g.sales.some((s) => 
-          s.sale_number.toLowerCase().includes(q) ||
-          s.offline_sale_items.some((it) => it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || it.barcode.toLowerCase().includes(q))
+        const saleMatch = g.sales.some(
+          (s) =>
+            s.sale_number.toLowerCase().includes(q) ||
+            s.offline_sale_items.some(
+              (it) =>
+                it.name.toLowerCase().includes(q) ||
+                it.sku.toLowerCase().includes(q) ||
+                it.barcode.toLowerCase().includes(q),
+            ),
         );
         return nameMatch || phoneMatch || saleMatch;
       });
@@ -225,9 +237,13 @@ export function POSReturnsTab() {
 
           if (dateFilter.trim()) {
             const saleDateStr = new Date(sale.created_at).toISOString().slice(0, 10);
-            const humanDateStr = new Date(sale.created_at).toLocaleDateString("en-IN", {
-              day: "numeric", month: "short", year: "numeric",
-            }).toLowerCase();
+            const humanDateStr = new Date(sale.created_at)
+              .toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+              .toLowerCase();
             const filterLower = dateFilter.trim().toLowerCase();
             if (!saleDateStr.includes(filterLower) && !humanDateStr.includes(filterLower)) {
               return;
@@ -252,8 +268,17 @@ export function POSReturnsTab() {
     });
 
     // Sort by sale timestamp: newest first
-    return matches.sort((a, b) => new Date(b.sale.created_at).getTime() - new Date(a.sale.created_at).getTime());
-  }, [pastSalesWithMetrics, productScanQuery, dateFilter, candidateCustomerFilter, candidateInvoiceFilter, onlyReturnableFilter]);
+    return matches.sort(
+      (a, b) => new Date(b.sale.created_at).getTime() - new Date(a.sale.created_at).getTime(),
+    );
+  }, [
+    pastSalesWithMetrics,
+    productScanQuery,
+    dateFilter,
+    candidateCustomerFilter,
+    candidateInvoiceFilter,
+    onlyReturnableFilter,
+  ]);
 
   /* ------------------------------------------------------------------ */
   /*  DISCOVERY MODE 3: Invoice / Receipt QR Direct Match               */
@@ -262,91 +287,99 @@ export function POSReturnsTab() {
     const q = invoiceScanQuery.trim().toUpperCase();
     if (!q) return null;
 
-    return pastSalesWithMetrics.find((s) => 
-      s.sale_number.toUpperCase() === q ||
-      s.sale_number.toUpperCase().includes(q) ||
-      (s.notes && s.notes.toUpperCase().includes(q))
-    ) || null;
+    return (
+      pastSalesWithMetrics.find(
+        (s) =>
+          s.sale_number.toUpperCase() === q ||
+          s.sale_number.toUpperCase().includes(q) ||
+          (s.notes && s.notes.toUpperCase().includes(q)),
+      ) || null
+    );
   }, [pastSalesWithMetrics, invoiceScanQuery]);
-
-
 
   /* ------------------------------------------------------------------ */
   /*  Select Item for Return (From Historical Sale Record)               */
   /* ------------------------------------------------------------------ */
-  const handleSelectHistoricalItemForReturn = useCallback((
-    sale: OfflineSaleWithReturnMetrics,
-    item: OfflineSaleItemWithReturnStatus,
-  ) => {
-    if (item.returnable_qty <= 0) {
-      playScanError();
-      toast.error(`'${item.name}' has already been fully returned (#${sale.sale_number}).`);
-      return;
-    }
-
-    playScanSuccess();
-
-    // Check if already in cart
-    setReturnCart((prev) => {
-      const existingIdx = prev.findIndex((i) => i.original_sale_item_id === item.id);
-
-      if (existingIdx >= 0) {
-        const currentQty = prev[existingIdx].qty;
-        if (currentQty >= item.returnable_qty) {
-          toast.warning(`Maximum returnable limit reached for this item (${item.returnable_qty} units).`);
-          return prev;
-        }
-
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          qty: currentQty + 1,
-        };
-        toast.success(`Incremented '${item.name}' (Qty: ${currentQty + 1} of max ${item.returnable_qty})`);
-        return updated;
+  const handleSelectHistoricalItemForReturn = useCallback(
+    (sale: OfflineSaleWithReturnMetrics, item: OfflineSaleItemWithReturnStatus) => {
+      if (item.returnable_qty <= 0) {
+        playScanError();
+        toast.error(`'${item.name}' has already been fully returned (#${sale.sale_number}).`);
+        return;
       }
 
-      // Add new verified historical item
-      const newItem: ReturnCartItem = {
-        product_id: item.product_id,
-        product_slug: item.product_slug || item.product_id || "",
-        name: item.name,
-        sku: item.sku,
-        barcode: item.barcode,
-        image_url: imageFor("clothing", undefined),
-        current_price: item.price,
-        recent_sold_price: item.price,
-        refund_price: item.price, // STRICT HISTORICAL PRICE AUTHORITY
-        mrp: item.mrp || item.price,
-        current_stock: 0,
-        variant_info: item.variant_info || (item.color ? `${item.color} / ${item.size}` : "Standard"),
-        qty: 1,
-        original_sale_id: sale.id,
-        original_sale_item_id: item.id,
-        original_sale_number: sale.sale_number,
-        original_qty: item.qty,
-        already_returned_qty: item.already_returned_qty,
-        max_returnable_qty: item.returnable_qty,
-      };
+      playScanSuccess();
 
-      toast.success(`Selected '${item.name}' for Return (Historical Price: ${formatPrice(item.price)})`);
-      return [newItem, ...prev];
-    });
+      // Check if already in cart
+      setReturnCart((prev) => {
+        const existingIdx = prev.findIndex((i) => i.original_sale_item_id === item.id);
 
-    // Auto-link customer association & original sale ID
-    setOriginalSaleId(sale.id);
-    if (sale.customer_name && sale.customer_name !== "Walk-in Customer") {
-      setCustomerMode("existing");
-      setCustomerName(sale.customer_name);
-      setCustomerPhone(sale.customer_phone || "");
-      setCustomerEmail(sale.customer_email || "");
-      setCustomerId(sale.customer_id || null);
-    } else if (sale.customer_phone) {
-      setCustomerMode("existing");
-      setCustomerName(`Customer (${sale.customer_phone})`);
-      setCustomerPhone(sale.customer_phone);
-    }
-  }, []);
+        if (existingIdx >= 0) {
+          const currentQty = prev[existingIdx].qty;
+          if (currentQty >= item.returnable_qty) {
+            toast.warning(
+              `Maximum returnable limit reached for this item (${item.returnable_qty} units).`,
+            );
+            return prev;
+          }
+
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            qty: currentQty + 1,
+          };
+          toast.success(
+            `Incremented '${item.name}' (Qty: ${currentQty + 1} of max ${item.returnable_qty})`,
+          );
+          return updated;
+        }
+
+        // Add new verified historical item
+        const newItem: ReturnCartItem = {
+          product_id: item.product_id,
+          product_slug: item.product_slug || item.product_id || "",
+          name: item.name,
+          sku: item.sku,
+          barcode: item.barcode,
+          image_url: imageFor("clothing", undefined),
+          current_price: item.price,
+          recent_sold_price: item.price,
+          refund_price: item.price, // STRICT HISTORICAL PRICE AUTHORITY
+          mrp: item.mrp || item.price,
+          current_stock: 0,
+          variant_info:
+            item.variant_info || (item.color ? `${item.color} / ${item.size}` : "Standard"),
+          qty: 1,
+          original_sale_id: sale.id,
+          original_sale_item_id: item.id,
+          original_sale_number: sale.sale_number,
+          original_qty: item.qty,
+          already_returned_qty: item.already_returned_qty,
+          max_returnable_qty: item.returnable_qty,
+        };
+
+        toast.success(
+          `Selected '${item.name}' for Return (Historical Price: ${formatPrice(item.price)})`,
+        );
+        return [newItem, ...prev];
+      });
+
+      // Auto-link customer association & original sale ID
+      setOriginalSaleId(sale.id);
+      if (sale.customer_name && sale.customer_name !== "Walk-in Customer") {
+        setCustomerMode("existing");
+        setCustomerName(sale.customer_name);
+        setCustomerPhone(sale.customer_phone || "");
+        setCustomerEmail(sale.customer_email || "");
+        setCustomerId(sale.customer_id || null);
+      } else if (sale.customer_phone) {
+        setCustomerMode("existing");
+        setCustomerName(`Customer (${sale.customer_phone})`);
+        setCustomerPhone(sale.customer_phone);
+      }
+    },
+    [],
+  );
 
   /* ------------------------------------------------------------------ */
   /*  Direct Unlinked Walk-in Product Return (Fallback)                 */
@@ -367,7 +400,9 @@ export function POSReturnsTab() {
       playScanSuccess();
 
       setReturnCart((prev) => {
-        const existingIdx = prev.findIndex((i) => i.product_id === result.product_id && !i.original_sale_item_id);
+        const existingIdx = prev.findIndex(
+          (i) => i.product_id === result.product_id && !i.original_sale_item_id,
+        );
         if (existingIdx >= 0) {
           const updated = [...prev];
           updated[existingIdx] = { ...updated[existingIdx], qty: updated[existingIdx].qty + 1 };
@@ -390,7 +425,9 @@ export function POSReturnsTab() {
           qty: 1,
         };
 
-        toast.success(`Added '${result.name}' (Direct Return: ${formatPrice(newItem.refund_price)})`);
+        toast.success(
+          `Added '${result.name}' (Direct Return: ${formatPrice(newItem.refund_price)})`,
+        );
         return [newItem, ...prev];
       });
 
@@ -455,13 +492,15 @@ export function POSReturnsTab() {
             s.customer_phone &&
             s.customer_phone.replace(/\D/g, "") === custClean &&
             s.offline_sale_items.some(
-              (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+              (it) =>
+                (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
             ),
         );
 
         if (matchingSale) {
           const item = matchingSale.offline_sale_items.find(
-            (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+            (it) =>
+              (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
           );
           if (item) {
             handleSelectHistoricalItemForReturn(matchingSale, item);
@@ -512,9 +551,9 @@ export function POSReturnsTab() {
       const updated = [...prev];
       const item = updated[idx];
       const newQty = item.qty + delta;
-      
+
       if (newQty <= 0) return prev;
-      
+
       if (item.max_returnable_qty && newQty > item.max_returnable_qty) {
         toast.warning(`Cannot exceed max returnable quantity of ${item.max_returnable_qty} units.`);
         return prev;
@@ -615,7 +654,9 @@ export function POSReturnsTab() {
       setReturnNotes("");
       setOriginalSaleId(null);
       setIdempotencyKey(generateIdempotencyKey());
-      toast.success(`Store Credit Voucher #${result.return_number} issued! (${formatPrice(result.refund_amount)})`);
+      toast.success(
+        `Store Credit Voucher #${result.return_number} issued! (${formatPrice(result.refund_amount)})`,
+      );
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to process offline return");
     }
@@ -637,7 +678,10 @@ export function POSReturnsTab() {
 
   const historySelection = useTableSelection<OfflineReturn>({ items: filteredHistory });
   const historyMetrics = useMemo(
-    () => getReturnsSelectionMetrics(historySelection.selectedItems as unknown as Array<{ id: string; refund_amount?: number }>),
+    () =>
+      getReturnsSelectionMetrics(
+        historySelection.selectedItems as unknown as Array<{ id: string; refund_amount?: number }>,
+      ),
     [historySelection.selectedItems],
   );
 
@@ -657,7 +701,8 @@ export function POSReturnsTab() {
               </span>
             </h2>
             <p className="text-xs text-muted-foreground">
-              Search by Customer Profile, Scan Product Barcode, or Scan Receipt QR Code for exact historical returns.
+              Search by Customer Profile, Scan Product Barcode, or Scan Receipt QR Code for exact
+              historical returns.
             </p>
           </div>
         </div>
@@ -789,7 +834,8 @@ export function POSReturnsTab() {
                       </div>
                     ) : (
                       groupedCustomerPurchases.slice(0, 30).map((group) => {
-                        const isExpanded = expandedCustomerId === group.key || groupedCustomerPurchases.length === 1;
+                        const isExpanded =
+                          expandedCustomerId === group.key || groupedCustomerPurchases.length === 1;
                         return (
                           <div
                             key={group.key}
@@ -831,7 +877,8 @@ export function POSReturnsTab() {
 
                               <div className="text-right shrink-0 flex items-center gap-3">
                                 <span className="font-extrabold text-foreground text-xs block">
-                                  {group.sales.length} Transaction{group.sales.length !== 1 ? "s" : ""}
+                                  {group.sales.length} Transaction
+                                  {group.sales.length !== 1 ? "s" : ""}
                                 </span>
                               </div>
                             </div>
@@ -840,7 +887,10 @@ export function POSReturnsTab() {
                             {isExpanded && (
                               <div className="p-3.5 bg-background space-y-3.5">
                                 {group.sales.map((sale) => (
-                                  <div key={sale.id} className="rounded-xl border border-border/70 overflow-hidden bg-card shadow-2xs">
+                                  <div
+                                    key={sale.id}
+                                    className="rounded-xl border border-border/70 overflow-hidden bg-card shadow-2xs"
+                                  >
                                     {/* Transaction Header */}
                                     <div className="px-3 py-2 bg-muted/40 flex flex-wrap justify-between items-center gap-2 border-b border-border/60">
                                       <div className="flex items-center gap-2">
@@ -850,7 +900,11 @@ export function POSReturnsTab() {
                                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                           <Clock className="size-2.5" />
                                           {new Date(sale.created_at).toLocaleDateString("en-IN", {
-                                            day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                                            day: "numeric",
+                                            month: "short",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
                                           })}
                                         </span>
                                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted uppercase font-mono font-bold text-muted-foreground">
@@ -867,9 +921,14 @@ export function POSReturnsTab() {
                                     {/* Purchased Items List */}
                                     <div className="divide-y divide-border/40">
                                       {sale.offline_sale_items.map((item) => (
-                                        <div key={item.id} className="p-3 flex items-center justify-between gap-3">
+                                        <div
+                                          key={item.id}
+                                          className="p-3 flex items-center justify-between gap-3"
+                                        >
                                           <div className="min-w-0 flex-1">
-                                            <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
+                                            <p className="font-bold text-foreground text-xs truncate">
+                                              {item.name}
+                                            </p>
                                             <div className="flex flex-wrap items-center gap-2 mt-1">
                                               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300">
                                                 Purchased: {formatPrice(item.price)}
@@ -882,11 +941,13 @@ export function POSReturnsTab() {
                                                   Returned: {item.already_returned_qty}
                                                 </span>
                                               )}
-                                              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                                                item.returnable_qty > 0
-                                                  ? "bg-primary/10 text-primary border border-primary/20"
-                                                  : "bg-muted text-muted-foreground"
-                                              }`}>
+                                              <span
+                                                className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                                                  item.returnable_qty > 0
+                                                    ? "bg-primary/10 text-primary border border-primary/20"
+                                                    : "bg-muted text-muted-foreground"
+                                                }`}
+                                              >
                                                 {item.returnable_qty > 0
                                                   ? `Returnable: ${item.returnable_qty} of ${item.qty}`
                                                   : "Already Fully Returned"}
@@ -896,7 +957,9 @@ export function POSReturnsTab() {
 
                                           <button
                                             type="button"
-                                            onClick={() => handleSelectHistoricalItemForReturn(sale, item)}
+                                            onClick={() =>
+                                              handleSelectHistoricalItemForReturn(sale, item)
+                                            }
                                             disabled={item.returnable_qty <= 0}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0"
                                           >
@@ -979,7 +1042,8 @@ export function POSReturnsTab() {
                     <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-2.5">
                       <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
                         <span className="flex items-center gap-1 text-foreground">
-                          <Filter className="size-3 text-primary" /> Filter Candidate Transactions ({productBarcodeMatches.length} Matches)
+                          <Filter className="size-3 text-primary" /> Filter Candidate Transactions (
+                          {productBarcodeMatches.length} Matches)
                         </span>
                         <label className="flex items-center gap-1.5 cursor-pointer">
                           <input
@@ -1069,21 +1133,30 @@ export function POSReturnsTab() {
                               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                 <Clock className="size-2.5" />
                                 {new Date(sale.created_at).toLocaleDateString("en-IN", {
-                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
                                 })}
                               </span>
                             </div>
 
-                            <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
+                            <p className="font-bold text-foreground text-xs truncate">
+                              {item.name}
+                            </p>
 
                             <div className="flex flex-wrap items-center gap-2 text-[11px]">
                               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 font-extrabold text-emerald-700 dark:text-emerald-300">
                                 Sold at: {formatPrice(item.price)}
                               </span>
                               <span className="text-muted-foreground">Qty Bought: {item.qty}</span>
-                              <span className={`font-bold px-1.5 py-0.2 rounded ${
-                                item.returnable_qty > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                              }`}>
+                              <span
+                                className={`font-bold px-1.5 py-0.2 rounded ${
+                                  item.returnable_qty > 0
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
                                 Returnable: {item.returnable_qty}
                               </span>
                             </div>
@@ -1132,7 +1205,8 @@ export function POSReturnsTab() {
 
                   {invoiceScanQuery.trim().length === 0 ? (
                     <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
-                      Scan invoice barcode/QR on the customer's receipt to immediately open that exact transaction.
+                      Scan invoice barcode/QR on the customer's receipt to immediately open that
+                      exact transaction.
                     </div>
                   ) : !invoiceQrMatch ? (
                     <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
@@ -1147,7 +1221,11 @@ export function POSReturnsTab() {
                           </span>
                           <span className="text-[11px] text-muted-foreground ml-2">
                             {new Date(invoiceQrMatch.created_at).toLocaleDateString("en-IN", {
-                              day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
                             })}
                           </span>
                         </div>
@@ -1158,7 +1236,10 @@ export function POSReturnsTab() {
 
                       <div className="p-3 divide-y divide-border/60">
                         {invoiceQrMatch.offline_sale_items.map((item) => (
-                          <div key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+                          <div
+                            key={item.id}
+                            className="py-2.5 flex items-center justify-between gap-3"
+                          >
                             <div className="min-w-0 flex-1">
                               <p className="font-bold text-foreground text-xs">{item.name}</p>
                               <div className="flex items-center gap-2 mt-0.5 text-[11px]">
@@ -1166,9 +1247,13 @@ export function POSReturnsTab() {
                                   Paid: {formatPrice(item.price)}
                                 </span>
                                 <span className="text-muted-foreground">Bought: {item.qty}</span>
-                                <span className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
-                                  item.returnable_qty > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                                }`}>
+                                <span
+                                  className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
+                                    item.returnable_qty > 0
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
                                   Returnable: {item.returnable_qty}
                                 </span>
                               </div>
@@ -1176,7 +1261,9 @@ export function POSReturnsTab() {
 
                             <button
                               type="button"
-                              onClick={() => handleSelectHistoricalItemForReturn(invoiceQrMatch, item)}
+                              onClick={() =>
+                                handleSelectHistoricalItemForReturn(invoiceQrMatch, item)
+                              }
                               disabled={item.returnable_qty <= 0}
                               className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1"
                             >
@@ -1215,12 +1302,18 @@ export function POSReturnsTab() {
               {returnCart.length === 0 ? (
                 <div className="p-8 text-center rounded-xl bg-muted/20 border border-dashed border-border text-xs text-muted-foreground space-y-1">
                   <p className="font-bold text-foreground">Return cart is empty</p>
-                  <p>Search customer, scan barcode gun, or scan invoice QR above to select items for return.</p>
+                  <p>
+                    Search customer, scan barcode gun, or scan invoice QR above to select items for
+                    return.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-border/60">
                   {returnCart.map((item, idx) => (
-                    <div key={`${item.product_id}-${idx}`} className="py-3 flex items-center justify-between gap-3">
+                    <div
+                      key={`${item.product_id}-${idx}`}
+                      className="py-3 flex items-center justify-between gap-3"
+                    >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
@@ -1261,7 +1354,9 @@ export function POSReturnsTab() {
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(idx, 1)}
-                            disabled={item.max_returnable_qty != null && item.qty >= item.max_returnable_qty}
+                            disabled={
+                              item.max_returnable_qty != null && item.qty >= item.max_returnable_qty
+                            }
                             className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                           >
                             <Plus className="size-3" />
@@ -1300,7 +1395,9 @@ export function POSReturnsTab() {
                       setCustomerId(null);
                     }}
                     className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
-                      customerMode === "walkin" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"
+                      customerMode === "walkin"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Walk-in
@@ -1309,7 +1406,9 @@ export function POSReturnsTab() {
                     type="button"
                     onClick={() => setCustomerMode("existing")}
                     className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
-                      customerMode === "existing" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"
+                      customerMode === "existing"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Identified Customer
@@ -1319,7 +1418,8 @@ export function POSReturnsTab() {
 
               {customerMode === "walkin" ? (
                 <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-2.5">
-                  Walk-in Customer selected. Store credit voucher will be generated with a unique redeemable token.
+                  Walk-in Customer selected. Store credit voucher will be generated with a unique
+                  redeemable token.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1370,7 +1470,9 @@ export function POSReturnsTab() {
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Customer:</span>
-                  <span className="font-bold text-foreground">{customerMode === "walkin" ? "Walk-in Customer" : customerName || "Customer"}</span>
+                  <span className="font-bold text-foreground">
+                    {customerMode === "walkin" ? "Walk-in Customer" : customerName || "Customer"}
+                  </span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Total Items to Restock:</span>
@@ -1378,11 +1480,15 @@ export function POSReturnsTab() {
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Settlement Method:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">100% Exchange Voucher</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    100% Exchange Voucher
+                  </span>
                 </div>
                 <div className="pt-2 border-t border-border flex justify-between items-center text-sm">
                   <span className="font-bold text-foreground">Exchange Credit Value:</span>
-                  <span className="text-lg font-black text-primary">{formatPrice(totalRefundAmount)}</span>
+                  <span className="text-lg font-black text-primary">
+                    {formatPrice(totalRefundAmount)}
+                  </span>
                 </div>
               </div>
 
@@ -1424,82 +1530,186 @@ export function POSReturnsTab() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border text-muted-foreground font-bold">
                   <tr>
-                    <th className="p-3">Return #</th>
-                    <th className="p-3">Customer</th>
-                    <th className="p-3">Credit Token</th>
-                    <th className="p-3">Refund Amount</th>
-                    <th className="p-3">Reason</th>
-                    <th className="p-3">Date &amp; Time</th>
-                    <th className="p-3 text-right">Action</th>
+                    <th className="p-3 whitespace-nowrap">Return ID</th>
+                    <th className="p-3 whitespace-nowrap">Original Sale</th>
+                    <th className="p-3 whitespace-nowrap">Customer</th>
+                    <th className="p-3">Returned Items &amp; Qty</th>
+                    <th className="p-3 whitespace-nowrap">Credit Token</th>
+                    <th className="p-3 whitespace-nowrap">Credit Issued</th>
+                    <th className="p-3 whitespace-nowrap">Credit Used</th>
+                    <th className="p-3 whitespace-nowrap">Remaining</th>
+                    <th className="p-3 whitespace-nowrap">Status</th>
+                    <th className="p-3 whitespace-nowrap">Linked Sale</th>
+                    <th className="p-3 whitespace-nowrap">Date &amp; Time</th>
+                    <th className="p-3 text-right whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {isHistoryLoading ? (
                     <tr>
-                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={12} className="p-6 text-center text-muted-foreground">
                         Loading return records...
                       </td>
                     </tr>
                   ) : filteredHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={12} className="p-6 text-center text-muted-foreground">
                         No return records found.
                       </td>
                     </tr>
                   ) : (
-                    filteredHistory.map((ret) => (
-                      <tr key={ret.id} className="hover:bg-muted/20">
-                        <td className="p-3 font-mono font-bold text-primary">{ret.return_number}</td>
-                        <td className="p-3">
-                          <p className="font-semibold text-foreground">{ret.customer_name}</p>
-                          {ret.customer_phone && (
-                            <p className="text-[10px] text-muted-foreground font-mono">{ret.customer_phone}</p>
-                          )}
-                        </td>
-                        <td className="p-3 font-mono font-bold text-foreground">
-                          {ret.credit_token || "—"}
-                        </td>
-                        <td className="p-3 font-black text-foreground">{formatPrice(ret.refund_amount)}</td>
-                        <td className="p-3 text-muted-foreground">{ret.return_reason}</td>
-                        <td className="p-3 text-muted-foreground">
-                          {new Date(ret.created_at).toLocaleDateString("en-IN", {
-                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const receiptData: ReturnReceiptData = {
-                                return_number: ret.return_number,
-                                credit_token: ret.credit_token || "",
-                                customer_name: ret.customer_name,
-                                customer_phone: ret.customer_phone,
-                                items: (ret.offline_return_items || []).map((i) => ({
-                                  name: i.name,
-                                  sku: i.sku,
-                                  barcode: i.barcode,
-                                  variant_info: i.variant_info,
-                                  qty: i.qty,
-                                  refund_price: i.refund_price,
-                                  subtotal: i.subtotal || i.refund_price * i.qty,
-                                })),
-                                refund_amount: ret.refund_amount,
-                                refund_method: "exchange_credit",
-                                return_reason: ret.return_reason,
-                                notes: ret.notes,
-                                created_at: ret.created_at,
-                              };
-                              setActiveReceipt(receiptData);
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
-                          >
-                            <Printer className="size-3" />
-                            <span>Voucher</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    filteredHistory.map((ret) => {
+                      const issued = Number(ret.refund_amount || 0);
+                      const used = Number(ret.credit_used || 0);
+                      const remaining = Number(
+                        ret.credit_balance !== undefined && ret.credit_balance !== null
+                          ? ret.credit_balance
+                          : Math.max(0, issued - used),
+                      );
+                      const isFullyRedeemed = used >= issued && issued > 0;
+                      const isPartiallyUsed = used > 0 && !isFullyRedeemed;
+
+                      return (
+                        <tr key={ret.id} className="hover:bg-muted/20">
+                          <td className="p-3 font-mono font-bold text-primary whitespace-nowrap">
+                            {ret.return_number}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-foreground whitespace-nowrap">
+                            {ret.original_sale_number ? (
+                              <span className="font-bold text-foreground">
+                                {ret.original_sale_number}
+                              </span>
+                            ) : ret.original_sale_id ? (
+                              <span className="text-muted-foreground">
+                                #{ret.original_sale_id.substring(0, 8).toUpperCase()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Walk-in</span>
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <p className="font-semibold text-foreground">{ret.customer_name}</p>
+                            {ret.customer_phone && (
+                              <p className="text-[10px] text-muted-foreground font-mono">
+                                {ret.customer_phone}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-3 max-w-xs">
+                            <div className="space-y-0.5">
+                              {(ret.offline_return_items ?? []).length > 0 ? (
+                                ret.offline_return_items!.map((it, idx) => (
+                                  <p
+                                    key={idx}
+                                    className="text-[11px] text-foreground font-medium truncate"
+                                    title={`${it.name} (${it.qty}x)`}
+                                  >
+                                    {it.name}{" "}
+                                    <span className="text-muted-foreground font-bold font-mono">
+                                      ×{it.qty}
+                                    </span>
+                                  </p>
+                                ))
+                              ) : (
+                                <span className="text-muted-foreground italic text-[11px]">
+                                  Items restocked
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono font-bold text-foreground whitespace-nowrap">
+                            {ret.credit_token ? (
+                              <span className="px-1.5 py-0.5 rounded bg-muted font-mono font-black text-foreground border border-border/80">
+                                {ret.credit_token}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="p-3 font-black text-foreground whitespace-nowrap">
+                            {formatPrice(issued)}
+                          </td>
+                          <td className="p-3 font-bold text-muted-foreground whitespace-nowrap">
+                            {formatPrice(used)}
+                          </td>
+                          <td className="p-3 font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            {formatPrice(remaining)}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {isFullyRedeemed ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                                Fully Redeemed
+                              </span>
+                            ) : isPartiallyUsed ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                                Partially Used
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                Credit Issued
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] whitespace-nowrap">
+                            {ret.linked_sale_id ? (
+                              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold border border-primary/20">
+                                #{ret.linked_sale_id.substring(0, 8).toUpperCase()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-muted-foreground whitespace-nowrap text-[11px]">
+                            {new Date(ret.created_at).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const receiptData: ReturnReceiptData = {
+                                  return_number: ret.return_number,
+                                  credit_token: ret.credit_token || "",
+                                  customer_name: ret.customer_name,
+                                  customer_phone: ret.customer_phone,
+                                  items: (ret.offline_return_items || []).map((i) => ({
+                                    name: i.name,
+                                    sku: i.sku,
+                                    barcode: i.barcode,
+                                    variant_info: i.variant_info,
+                                    qty: i.qty,
+                                    refund_price: i.refund_price,
+                                    subtotal: i.subtotal || i.refund_price * i.qty,
+                                  })),
+                                  refund_amount: ret.refund_amount,
+                                  credit_used: ret.credit_used ?? 0,
+                                  credit_balance:
+                                    ret.credit_balance ??
+                                    Math.max(0, ret.refund_amount - (ret.credit_used ?? 0)),
+                                  original_sale_number: ret.original_sale_number,
+                                  original_sale_id: ret.original_sale_id,
+                                  linked_sale_id: ret.linked_sale_id,
+                                  refund_method: "exchange_credit",
+                                  return_reason: ret.return_reason,
+                                  notes: ret.notes,
+                                  created_at: ret.created_at,
+                                };
+                                setActiveReceipt(receiptData);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
+                            >
+                              <Printer className="size-3" />
+                              <span>Voucher</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1517,15 +1727,23 @@ export function POSReturnsTab() {
                 <Sparkles className="size-5" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground text-sm sm:text-base">Confirm Return &amp; Exchange</h3>
-                <p className="text-xs text-muted-foreground">Generate Exchange Credit Voucher and restock inventory</p>
+                <h3 className="font-bold text-foreground text-sm sm:text-base">
+                  Confirm Return &amp; Exchange
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Generate Exchange Credit Voucher and restock inventory
+                </p>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-muted/30 border border-border/80 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer:</span>
-                <span className="font-bold text-foreground">{customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer"}</span>
+                <span className="font-bold text-foreground">
+                  {customerMode === "walkin"
+                    ? "Walk-in Customer"
+                    : customerName || "Walk-in Customer"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Units to Restock:</span>
@@ -1533,11 +1751,15 @@ export function POSReturnsTab() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Settlement:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">Exchange Credit Voucher</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                  Exchange Credit Voucher
+                </span>
               </div>
               <div className="pt-2 border-t border-border/60 flex justify-between items-center text-sm">
                 <span className="font-bold text-foreground">Total Credit Value:</span>
-                <span className="text-base font-black text-primary">{formatPrice(totalRefundAmount)}</span>
+                <span className="text-base font-black text-primary">
+                  {formatPrice(totalRefundAmount)}
+                </span>
               </div>
             </div>
 
@@ -1556,7 +1778,9 @@ export function POSReturnsTab() {
                 className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs hover:bg-primary/90 disabled:opacity-50 transition cursor-pointer shadow-sm flex items-center gap-1.5"
               >
                 <Check className="size-4" />
-                <span>{processReturnMutation.isPending ? "Issuing..." : "Confirm & Print Voucher"}</span>
+                <span>
+                  {processReturnMutation.isPending ? "Issuing..." : "Confirm & Print Voucher"}
+                </span>
               </button>
             </div>
           </div>
@@ -1565,10 +1789,7 @@ export function POSReturnsTab() {
 
       {/* ── PRINT RECEIPT MODAL ── */}
       {activeReceipt && (
-        <POSReturnReceipt
-          returnData={activeReceipt}
-          onClose={() => setActiveReceipt(null)}
-        />
+        <POSReturnReceipt returnData={activeReceipt} onClose={() => setActiveReceipt(null)} />
       )}
     </div>
   );

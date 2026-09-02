@@ -11,6 +11,11 @@ import {
   generateProductFallbackSvg,
   CATEGORY_FALLBACK_IMAGES as fallbackImages,
 } from "@/lib/product-media";
+import {
+  validateAndNormalizeInstagram,
+  validateAndNormalizeFacebook,
+  validateAndNormalizeWhatsApp,
+} from "@/lib/marketing-links";
 
 export { fallbackImages };
 
@@ -708,25 +713,39 @@ export function useCategories() {
 export function useSettings() {
   const q = useQuery(settingsQueryOptions());
   const s = q.data ?? {};
+
+  const rawIg = s["instagram_url"] ?? "https://www.instagram.com/zerah_kids/";
+  const rawFb = s["facebook_url"] ?? "";
+  const rawWa = s["whatsapp_url"] ?? "";
+  const rawPhone = s["contact_phone"] ?? "9057074777, 9667571712";
+
+  const igNorm = validateAndNormalizeInstagram(rawIg);
+  const fbNorm = validateAndNormalizeFacebook(rawFb);
+  const waNorm = validateAndNormalizeWhatsApp(rawWa || rawPhone);
+
   return {
     ...q,
     settings: s,
     brandName: s["brand_name"] ?? "Zérah Baby & Kids",
     announcement: s["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
+    announcementEnabled: s["announcement_enabled"] !== "false",
+    announcementBg: s["announcement_bg"] || "#8B2020",
+    announcementTextColor: s["announcement_text_color"] || "#FFFFFF",
+    announcementLink: s["announcement_link"] || "",
     heroTitle: s["hero_title"] ?? "Everything little ones need, in one happy place",
     heroSubtitle:
       s["hero_subtitle"] ??
       "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
     contactEmail: s["contact_email"] ?? "hello@zerahkids.com",
-    contactPhone: s["contact_phone"] ?? "9057074777, 9667571712",
+    contactPhone: rawPhone,
     storeAddress:
       s["store_address"] ??
       "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
     storeHours: s["store_hours"] ?? "Open daily · 10:30 AM – 10:00 PM",
     mapsUrl: s["maps_url"] ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
-    instagramUrl: s["instagram_url"] ?? "https://www.instagram.com/zerah_kids/",
-    facebookUrl: s["facebook_url"] ?? "",
-    whatsappUrl: s["whatsapp_url"] ?? "",
+    instagramUrl: igNorm.isValid && igNorm.normalizedUrl ? igNorm.normalizedUrl : "https://www.instagram.com/zerah_kids/",
+    facebookUrl: fbNorm.isValid && fbNorm.normalizedUrl ? fbNorm.normalizedUrl : "",
+    whatsappUrl: waNorm.isValid && waNorm.normalizedUrl ? waNorm.normalizedUrl : "",
   };
 }
 

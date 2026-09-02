@@ -36,6 +36,8 @@ export type ThermalReceiptSale = {
   total: number;
   store_credit_used?: number;
   credit_token_used?: string | null;
+  coupon_code?: string | null;
+  coupon_discount?: number;
   payment_method: string;
   /**
    * Daily sequential walk-in token number (1, 2, 3...).
@@ -117,6 +119,14 @@ function buildThermalHTML(
     })
     .join("");
 
+  const couponRow =
+    sale.coupon_discount && sale.coupon_discount > 0
+      ? `<div style="display:flex;justify-content:space-between;color:#15803d;">
+          <span>Coupon (${escHtml(sale.coupon_code || "PROMO")})</span>
+          <span style="font-weight:600;">−₹${sale.coupon_discount.toLocaleString("en-IN")}</span>
+         </div>`
+      : "";
+
   const discountRow =
     sale.discount > 0
       ? `<div style="display:flex;justify-content:space-between;color:#15803d;">
@@ -178,6 +188,7 @@ function buildThermalHTML(
   <div class="divider"></div>
   <div style="font-size:11px;margin-bottom:4px;">
     <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Subtotal</span><span>₹${sale.subtotal.toLocaleString("en-IN")}</span></div>
+    ${couponRow}
     ${discountRow}
     <div style="display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:4px;margin-top:4px;">
       <span style="font-size:13px;font-weight:900;">TOTAL</span>
@@ -185,11 +196,17 @@ function buildThermalHTML(
     </div>
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;margin-top:2px;">
-            <span>Store Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-weight:900;margin-top:2px;">
-            <span>Net Paid (${escHtml(sale.payment_method)})</span><span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
+        ? `<div style="border-top:1px dashed #000;padding-top:3px;margin-top:3px;">
+            <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:2px;">PAYMENT BREAKDOWN</div>
+            <div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;">
+              <span>Exchange Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:1px;">
+              <span>Additional Paid (${escHtml(sale.payment_method)})</span><span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-weight:900;margin-top:2px;border-top:1px solid #eee;padding-top:1px;">
+              <span>Total Settled</span><span>₹${sale.total.toLocaleString("en-IN")}</span>
+            </div>
           </div>`
         : `<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
             <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method)}</span>
@@ -455,6 +472,12 @@ export function ThermalReceipt({
               <span className="text-muted-foreground">Subtotal</span>
               <span className="text-foreground">{formatPrice(sale.subtotal)}</span>
             </div>
+            {sale.coupon_discount && sale.coupon_discount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Coupon ({sale.coupon_code || "PROMO"})</span>
+                <span className="font-semibold">−{formatPrice(sale.coupon_discount)}</span>
+              </div>
+            )}
             {sale.discount > 0 && (
               <div className="flex justify-between text-green-700">
                 <span>
@@ -472,10 +495,23 @@ export function ThermalReceipt({
               <span className="font-black text-foreground text-sm">TOTAL</span>
               <span className="font-black text-foreground text-sm">{formatPrice(sale.total)}</span>
             </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
-              <span>Payment</span>
-              <span className="font-bold uppercase">{sale.payment_method}</span>
-            </div>
+            {sale.store_credit_used && sale.store_credit_used > 0 ? (
+              <div className="pt-1 text-[10px] space-y-0.5 border-t border-dashed border-gray-300">
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>Store Credit {sale.credit_token_used ? `[${sale.credit_token_used}]` : ""}</span>
+                  <span>−{formatPrice(sale.store_credit_used)}</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Paid ({sale.payment_method})</span>
+                  <span>{formatPrice(Math.max(0, sale.total - sale.store_credit_used))}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
+                <span>Payment</span>
+                <span className="font-bold uppercase">{sale.payment_method}</span>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-dashed border-gray-400 my-3" />

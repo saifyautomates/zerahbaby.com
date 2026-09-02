@@ -12,12 +12,24 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type QueueStatus = "PENDING_SYNC" | "PENDING" | "SYNCING" | "SYNCED" | "FAILED" | "RETRY_REQUIRED";
+export type TransactionStatus = "COMPLETED" | "PENDING_CONFIRMATION" | "FAILED" | "CANCELLED";
+export type SyncStatus =
+  | "PENDING_SYNC"
+  | "PENDING"
+  | "SYNCING"
+  | "SYNCED"
+  | "FAILED"
+  | "FAILED_REQUIRES_ACTION"
+  | "RETRY_REQUIRED";
+export type QueueStatus = SyncStatus;
 
 export type OfflineQueueItem = {
   id: string;
   operation_id: string;
   idempotency_key: string;
+  server_sale_id?: string;
+  server_sale_number?: string;
+  transaction_status?: TransactionStatus;
   customer_name: string;
   customer_phone: string;
   customer_email: string;
@@ -43,10 +55,12 @@ export type OfflineQueueItem = {
   token_date: string;
   sale_number: string;
   created_at: string;
-  status: QueueStatus;
+  status: SyncStatus;
   retry_count: number;
   last_error?: string;
   synced_at?: string;
+  next_retry_at?: number;
+  is_permanent_error?: boolean;
 };
 
 const DB_NAME = "zerah_pos_offline_db";
@@ -132,11 +146,15 @@ export async function getNextOfflineToken(): Promise<{ number: number; date: str
 /* ------------------------------------------------------------------ */
 
 export async function queueOfflineSale(
-  item: Omit<OfflineQueueItem, "status" | "retry_count">,
+  item: Omit<OfflineQueueItem, "status" | "retry_count"> & {
+    status?: SyncStatus;
+    transaction_status?: TransactionStatus;
+  },
 ): Promise<OfflineQueueItem> {
   const record: OfflineQueueItem = {
     ...item,
-    status: "PENDING",
+    status: item.status || "PENDING_SYNC",
+    transaction_status: item.transaction_status || "PENDING_CONFIRMATION",
     retry_count: 0,
   };
 
@@ -187,6 +205,13 @@ export async function updateQueuedSaleStatus(
   operation_id: string,
   status: QueueStatus,
   errorMsg?: string,
+  meta?: {
+    server_sale_id?: string;
+    server_sale_number?: string;
+    transaction_status?: TransactionStatus;
+    next_retry_at?: number;
+    is_permanent_error?: boolean;
+  },
 ): Promise<void> {
   try {
     const db = await openDB();
@@ -199,9 +224,26 @@ export async function updateQueuedSaleStatus(
           const updated: OfflineQueueItem = {
             ...req.result,
             status,
-            last_error: errorMsg || req.result.last_error,
-            retry_count: req.result.retry_count + (status === "FAILED" ? 1 : 0),
+            last_error: errorMsg !== undefined ? errorMsg : req.result.last_error,
+            retry_count:
+              req.result.retry_count +
+              (status === "FAILED" || status === "FAILED_REQUIRES_ACTION" ? 1 : 0),
             synced_at: status === "SYNCED" ? new Date().toISOString() : req.result.synced_at,
+            next_retry_at:
+              meta?.next_retry_at !== undefined ? meta.next_retry_at : req.result.next_retry_at,
+            is_permanent_error:
+              meta?.is_permanent_error !== undefined
+                ? meta.is_permanent_error
+                : status === "FAILED_REQUIRES_ACTION"
+                  ? true
+                  : req.result.is_permanent_error,
+            server_sale_id: meta?.server_sale_id || req.result.server_sale_id,
+            server_sale_number: meta?.server_sale_number || req.result.server_sale_number,
+            transaction_status:
+              meta?.transaction_status ||
+              (status === "SYNCED"
+                ? "COMPLETED"
+                : req.result.transaction_status || "PENDING_CONFIRMATION"),
           };
           store.put(updated);
         }
@@ -214,13 +256,154 @@ export async function updateQueuedSaleStatus(
     const idx = items.findIndex((i) => i.operation_id === operation_id);
     if (idx !== -1) {
       items[idx].status = status;
-      if (errorMsg) items[idx].last_error = errorMsg;
-      if (status === "FAILED") items[idx].retry_count++;
+      if (errorMsg !== undefined) items[idx].last_error = errorMsg;
+      if (status === "FAILED" || status === "FAILED_REQUIRES_ACTION") items[idx].retry_count++;
       if (status === "SYNCED") items[idx].synced_at = new Date().toISOString();
+      if (meta?.next_retry_at !== undefined) items[idx].next_retry_at = meta.next_retry_at;
+      if (meta?.is_permanent_error !== undefined)
+        items[idx].is_permanent_error = meta.is_permanent_error;
+      else if (status === "FAILED_REQUIRES_ACTION") items[idx].is_permanent_error = true;
+      if (meta?.server_sale_id) items[idx].server_sale_id = meta.server_sale_id;
+      if (meta?.server_sale_number) items[idx].server_sale_number = meta.server_sale_number;
+      items[idx].transaction_status =
+        meta?.transaction_status ||
+        (status === "SYNCED"
+          ? "COMPLETED"
+          : items[idx].transaction_status || "PENDING_CONFIRMATION");
       localStorage.setItem("zerah_offline_sales_queue", JSON.stringify(items));
     }
   }
   notifySyncStatusChange();
+}
+
+/**
+ * Reconciles local queued offline sales against canonical database records.
+ * If a queued sale's idempotency_key, server_sale_id, or sale_number is found in cloudSales,
+ * marks the local record as SYNCED with transaction_status COMPLETED,
+ * preventing any duplicate display or erroneous SYNC_FAILED state.
+ */
+export async function reconcileLocalQueueWithCloudSales(
+  cloudSales: Array<{ id: string; sale_number: string; idempotency_key?: string | null }>,
+): Promise<number> {
+  if (!cloudSales || cloudSales.length === 0) return 0;
+
+  const cloudByIdem = new Map<string, { id: string; sale_number: string }>();
+  const cloudById = new Map<string, { id: string; sale_number: string }>();
+  const cloudByNumber = new Map<string, { id: string; sale_number: string }>();
+
+  for (const s of cloudSales) {
+    if (s.idempotency_key)
+      cloudByIdem.set(s.idempotency_key, { id: s.id, sale_number: s.sale_number });
+    if (s.id) cloudById.set(s.id, { id: s.id, sale_number: s.sale_number });
+    if (s.sale_number) cloudByNumber.set(s.sale_number, { id: s.id, sale_number: s.sale_number });
+  }
+
+  const queued = await getAllQueuedSales();
+  let reconciled = 0;
+
+  for (const item of queued) {
+    if (item.status === "SYNCED") continue;
+
+    const match =
+      (item.idempotency_key ? cloudByIdem.get(item.idempotency_key) : undefined) ||
+      (item.server_sale_id ? cloudById.get(item.server_sale_id) : undefined) ||
+      (item.server_sale_number ? cloudByNumber.get(item.server_sale_number) : undefined) ||
+      (item.sale_number && !item.sale_number.startsWith("POS-OFF-")
+        ? cloudByNumber.get(item.sale_number)
+        : undefined);
+
+    if (match) {
+      await updateQueuedSaleStatus(item.operation_id, "SYNCED", undefined, {
+        server_sale_id: match.id,
+        server_sale_number: match.sale_number,
+        transaction_status: "COMPLETED",
+      });
+      reconciled++;
+    }
+  }
+
+  return reconciled;
+}
+
+/**
+ * Remove a single offline queued sale by operation_id
+ */
+export async function deleteQueuedSale(operationId: string): Promise<boolean> {
+  let removed = false;
+  // 1. Remove from IndexedDB
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(SALES_STORE, "readwrite");
+      const store = tx.objectStore(SALES_STORE);
+      const req = store.delete(operationId);
+      req.onsuccess = () => {
+        removed = true;
+        resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  } catch {
+    // ignore
+  }
+
+  // 2. Remove from LocalStorage
+  try {
+    const items = fallbackGetFromLS();
+    const filtered = items.filter((i) => i.operation_id !== operationId);
+    if (filtered.length !== items.length) {
+      localStorage.setItem("zerah_offline_sales_queue", JSON.stringify(filtered));
+      removed = true;
+    }
+  } catch {
+    // ignore
+  }
+
+  notifySyncStatusChange();
+  return removed;
+}
+
+/**
+ * Clear all local offline queued sales and tokens
+ */
+export async function clearAllQueuedSales(): Promise<void> {
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction([SALES_STORE, TOKENS_STORE], "readwrite");
+      tx.objectStore(SALES_STORE).clear();
+      tx.objectStore(TOKENS_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // ignore
+  }
+
+  try {
+    localStorage.removeItem("zerah_offline_sales_queue");
+    localStorage.removeItem("zerah_pos_cart");
+    localStorage.removeItem("zerah_offline_tokens");
+  } catch {
+    // ignore
+  }
+
+  notifySyncStatusChange();
+}
+
+/**
+ * Prune locally stored sales that have already synced successfully
+ */
+export async function clearAllSyncedSales(): Promise<number> {
+  const all = await getAllQueuedSales();
+  let count = 0;
+  for (const item of all) {
+    if (item.status === "SYNCED") {
+      await deleteQueuedSale(item.operation_id);
+      count++;
+    }
+  }
+  return count;
 }
 
 /* ------------------------------------------------------------------ */
@@ -378,11 +561,38 @@ let isSyncInProgress = false;
 
 export async function processOfflineSyncQueue(options?: {
   silent?: boolean;
+  forceRetry?: boolean;
 }): Promise<{ synced: number; failed: number }> {
   if (isSyncInProgress || (typeof navigator !== "undefined" && !navigator.onLine)) {
     return { synced: 0, failed: 0 };
   }
 
+  // Use Web Locks API if available to prevent multiple browser tabs concurrently syncing
+  if (typeof navigator !== "undefined" && (navigator as any).locks?.request) {
+    try {
+      return await (navigator as any).locks.request(
+        "zerah_pos_offline_sync_lock",
+        { ifAvailable: true },
+        async (lock: any) => {
+          if (!lock) {
+            // Another browser tab is currently syncing the queue
+            return { synced: 0, failed: 0 };
+          }
+          return executeSyncLoop(options);
+        },
+      );
+    } catch {
+      return executeSyncLoop(options);
+    }
+  }
+
+  return executeSyncLoop(options);
+}
+
+async function executeSyncLoop(options?: {
+  silent?: boolean;
+  forceRetry?: boolean;
+}): Promise<{ synced: number; failed: number }> {
   isSyncInProgress = true;
   notifySyncStatusChange();
 
@@ -391,20 +601,61 @@ export async function processOfflineSyncQueue(options?: {
 
   try {
     const all = await getAllQueuedSales();
-    const pending = all.filter(
-      (i) => i.status === "PENDING_SYNC" || i.status === "PENDING" || i.status === "RETRY_REQUIRED",
-    );
+    const now = Date.now();
+    const pending = all.filter((i) => {
+      // 1. Synced items never sync again
+      if (i.status === "SYNCED") return false;
+
+      // 2. User explicitly triggered "Retry Sync"
+      if (options?.forceRetry) return true;
+
+      // 3. Permanent validation failures: STOP infinite retry loops!
+      if (i.status === "FAILED_REQUIRES_ACTION" || i.is_permanent_error) return false;
+
+      // 4. Exponential backoff active for temporary network failure: wait
+      if (i.next_retry_at && i.next_retry_at > now) return false;
+
+      // 5. Queued items ready for sync
+      return (
+        i.status === "PENDING_SYNC" ||
+        i.status === "PENDING" ||
+        i.status === "RETRY_REQUIRED" ||
+        (i.status === "FAILED" && !i.is_permanent_error && i.retry_count < 5)
+      );
+    });
 
     for (const item of pending) {
       await updateQueuedSaleStatus(item.operation_id, "SYNCING");
 
       try {
-        let rpcRes = await (
+        // 1. Idempotency Pre-Check: Was this sale already committed in Supabase?
+        // This covers cases where prior network dropped AFTER PostgreSQL committed!
+        if (item.idempotency_key) {
+          const { data: existingSale } = await (supabase.from("offline_sales") as any)
+            .select("id, sale_number, total, created_at")
+            .eq("idempotency_key", item.idempotency_key)
+            .maybeSingle();
+
+          if (existingSale?.id) {
+            await updateQueuedSaleStatus(item.operation_id, "SYNCED", undefined, {
+              server_sale_id: existingSale.id,
+              server_sale_number: existingSale.sale_number,
+              transaction_status: "COMPLETED",
+              next_retry_at: undefined,
+              is_permanent_error: false,
+            });
+            syncedCount++;
+            continue;
+          }
+        }
+
+        // 2. Invoke Canonical place_offline_sale RPC with identical idempotency key
+        const rpcRes = await (
           supabase.rpc as unknown as (
             fn: string,
             args: Record<string, unknown>,
           ) => Promise<{
-            data: { sale_id: string; sale_number: string; duplicate?: boolean };
+            data: { sale_id: string; sale_number: string; duplicate?: boolean } | null;
             error: { message: string } | null;
           }>
         )("place_offline_sale", {
@@ -428,10 +679,16 @@ export async function processOfflineSyncQueue(options?: {
 
         const data = rpcRes.data;
 
-        await updateQueuedSaleStatus(item.operation_id, "SYNCED");
+        await updateQueuedSaleStatus(item.operation_id, "SYNCED", undefined, {
+          server_sale_id: data?.sale_id,
+          server_sale_number: data?.sale_number,
+          transaction_status: "COMPLETED",
+          next_retry_at: undefined,
+          is_permanent_error: false,
+        });
         syncedCount++;
 
-        // Trigger transactional SMS for synced sale (non-blocking)
+        // 3. Trigger transactional SMS (non-blocking, failure NEVER compromises sale status)
         if (data?.sale_id && !data.duplicate) {
           supabase.functions
             .invoke("msg91-transactional", {
@@ -446,7 +703,9 @@ export async function processOfflineSyncQueue(options?: {
                 notify_owner: true,
               },
             })
-            .catch(() => {});
+            .catch((notifyErr) => {
+              console.warn("[OfflineSync] Non-blocking notification delivery failed:", notifyErr);
+            });
         }
       } catch (err: unknown) {
         const msg = (err as Error).message || "Sync error";
@@ -457,14 +716,26 @@ export async function processOfflineSyncQueue(options?: {
           msg.includes("Failed to fetch") ||
           msg.includes("NetworkError") ||
           msg.includes("network disconnected") ||
-          msg.includes("connection refused");
+          msg.includes("connection refused") ||
+          msg.includes("AbortError") ||
+          msg.includes("timeout") ||
+          msg.includes("Failed to execute 'fetch'");
 
         if (isNetDrop) {
-          // Keep as PENDING_SYNC for next reconnection cycle
-          await updateQueuedSaleStatus(item.operation_id, "PENDING_SYNC", msg);
+          // Temporary connectivity failure: schedule exponential backoff (5s, 10s, 20s, 40s... max 5 min)
+          const backoffDelay = Math.min(300000, 5000 * Math.pow(2, Math.min(item.retry_count, 5)));
+          await updateQueuedSaleStatus(item.operation_id, "PENDING_SYNC", msg, {
+            transaction_status: "PENDING_CONFIRMATION",
+            next_retry_at: Date.now() + backoffDelay,
+            is_permanent_error: false,
+          });
         } else {
-          // Permanent validation / business rejection on server
-          await updateQueuedSaleStatus(item.operation_id, "FAILED", msg);
+          // Permanent business validation or server rejection: stop infinite retry!
+          await updateQueuedSaleStatus(item.operation_id, "FAILED_REQUIRES_ACTION", msg, {
+            transaction_status: "FAILED",
+            next_retry_at: undefined,
+            is_permanent_error: true,
+          });
           failedCount++;
         }
       }
@@ -474,6 +745,9 @@ export async function processOfflineSyncQueue(options?: {
       toast.success(
         `Synced ${syncedCount} offline POS sale${syncedCount > 1 ? "s" : ""} to cloud!`,
       );
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("zerah:pos-sale-updated"));
+      }
     }
 
     if (failedCount > 0 && !options?.silent) {

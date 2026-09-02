@@ -20,6 +20,11 @@ export type ReturnReceiptData = {
   customer_name: string;
   customer_phone?: string;
   refund_amount: number;
+  credit_used?: number;
+  credit_balance?: number;
+  original_sale_number?: string | null;
+  original_sale_id?: string | null;
+  linked_sale_id?: string | null;
   refund_method: string;
   return_reason: string;
   notes?: string;
@@ -155,6 +160,7 @@ function buildThermalReturnHTML(
 
   <div style="font-size: 10px; line-height: 1.4;">
     <div class="row"><span>Voucher / Return #:</span><span class="bold">${escHtml(returnData.return_number)}</span></div>
+    ${returnData.original_sale_number || returnData.original_sale_id ? `<div class="row"><span>Original Invoice #:</span><span class="bold">${escHtml(returnData.original_sale_number || String(returnData.original_sale_id).substring(0, 8).toUpperCase())}</span></div>` : ""}
     ${returnData.credit_token ? `<div class="row" style="font-size: 11px; font-weight: 900; color: #000;"><span>Store Credit Code:</span><span style="font-family: monospace; letter-spacing: 1px;">${escHtml(returnData.credit_token)}</span></div>` : ""}
     <div class="row"><span>Date:</span><span>${dateStr}</span></div>
     <div class="row"><span>Time:</span><span>${timeStr}</span></div>
@@ -174,6 +180,15 @@ function buildThermalReturnHTML(
       <span>TOTAL CREDIT ISSUED:</span>
       <span>₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</span>
     </div>
+    <div class="row" style="font-size: 10px; margin-top: 1px;">
+      <span>Credit Used:</span>
+      <span>₹${Number(returnData.credit_used ?? 0).toLocaleString("en-IN")}</span>
+    </div>
+    <div class="row" style="font-size: 11px; font-weight: 800; color: #000; margin-top: 1px;">
+      <span>REMAINING BALANCE:</span>
+      <span>₹${Number(returnData.credit_balance ?? Math.max(0, returnData.refund_amount - (returnData.credit_used ?? 0))).toLocaleString("en-IN")}</span>
+    </div>
+    ${returnData.linked_sale_id ? `<div class="row" style="font-size: 10px; margin-top: 1px;"><span>Linked Sale:</span><span class="bold">#${escHtml(String(returnData.linked_sale_id).substring(0, 8).toUpperCase())}</span></div>` : ""}
     <div class="row" style="font-size: 10px; margin-top: 2px;">
       <span>Settlement Mode:</span>
       <span class="bold">${escHtml(isExchangeCredit ? "Store Credit Voucher" : returnData.refund_method || "Return")}</span>

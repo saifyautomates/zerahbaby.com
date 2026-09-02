@@ -53,6 +53,10 @@ export interface CartFinancialsBreakdown {
 
 export interface POSFinancialsBreakdown {
   subtotal: number;
+  mrpTotal: number;
+  productSavings: number;
+  couponDiscount: number;
+  couponCode: string | null;
   discount: number;
   discountType: "percentage" | "fixed" | "none";
   discountValue: number;
@@ -225,38 +229,61 @@ export function calculateCartFinancials({
 
 /**
  * Master POS Financial Calculator
+ * Authoritatively computes items subtotal, MRP savings, coupon discounts,
+ * manual cashier discounts, and final net payable total.
  */
 export function calculatePOSFinancials({
   items = [],
   discountType = "none",
   discountValue = 0,
+  coupon = null,
 }: {
   items: PricingLineItem[];
   discountType?: "percentage" | "fixed" | "none";
   discountValue?: number;
+  coupon?: CouponRule | null;
 }): POSFinancialsBreakdown {
   let subtotal = 0;
+  let mrpTotal = 0;
+
   for (const item of items) {
     const qty = Math.max(0, Math.floor(item.qty || 0));
     const price = Math.max(0, item.price || 0);
-    subtotal += calculateLineSubtotal(price, qty);
-  }
-  subtotal = roundMoney(subtotal);
+    const mrp = Math.max(price, item.mrp || price);
 
+    subtotal += calculateLineSubtotal(price, qty);
+    mrpTotal += calculateLineSubtotal(mrp, qty);
+  }
+
+  subtotal = roundMoney(subtotal);
+  mrpTotal = roundMoney(mrpTotal);
+  const productSavings = Math.max(0, roundMoney(mrpTotal - subtotal));
+
+  // 1. Authoritative Coupon Discount
+  const couponDiscount = coupon ? calculateCouponDiscount(subtotal, coupon) : 0;
+  const couponCode = couponDiscount > 0 && coupon?.code ? coupon.code.toUpperCase() : null;
+
+  // 2. Manual Cashier Discount (applied on subtotal after coupon to prevent double-discounting)
+  const remainingSubtotal = Math.max(0, roundMoney(subtotal - couponDiscount));
   let discount = 0;
   const dVal = Math.max(0, discountValue || 0);
+
   if (discountType === "percentage") {
     const cappedPct = Math.min(100, dVal);
-    discount = roundMoney((subtotal * cappedPct) / 100);
+    discount = roundMoney((remainingSubtotal * cappedPct) / 100);
   } else if (discountType === "fixed") {
-    discount = Math.min(subtotal, dVal);
+    discount = Math.min(remainingSubtotal, dVal);
   }
 
-  discount = Math.max(0, Math.min(subtotal, roundCurrencyInt(discount)));
-  const finalTotal = Math.max(0, roundMoney(subtotal - discount));
+  discount = Math.max(0, Math.min(remainingSubtotal, roundCurrencyInt(discount)));
+  const finalTotal = Math.max(0, roundMoney(subtotal - couponDiscount - discount));
 
   return {
     subtotal,
+    mrpTotal,
+    productSavings,
+    couponDiscount,
+    couponCode,
     discount,
     discountType,
     discountValue: dVal,

@@ -51,10 +51,15 @@ import {
   Tag,
   Loader2,
   CloudUpload,
+  PauseCircle,
+  PlayCircle,
+  History,
+  Percent,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice, imageFor, getColorSwatchImage } from "@/lib/store";
-import { calculatePOSFinancials } from "@/lib/pricing-engine";
+import { calculatePOSFinancials, type CouponRule } from "@/lib/pricing-engine";
+import { invalidateCanonicalReportingQueries, notifyPOSSaleChanged } from "@/lib/canonical-reporting";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
@@ -66,6 +71,7 @@ import {
   useCreatePOSCustomer,
   calculateDiscount,
   generateIdempotencyKey,
+  validatePOSCoupon,
 } from "@/lib/pos";
 import { useCustomerStoreCredit } from "@/lib/pos-returns";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
@@ -78,18 +84,59 @@ import { POSTerminalSkeleton } from "@/components/ui/Skeletons";
 type POSStep = "cart" | "checkout" | "success";
 
 const POS_DRAFT_KEY = "zerah_pos_terminal_draft_v1";
+const POS_HELD_ORDERS_KEY = "zerah_pos_held_orders_v1";
+
+export type HeldPOSOrder = {
+  id: string;
+  timestamp: number;
+  label: string;
+  cart: POSCartItem[];
+  discountType: "none" | "percentage" | "fixed";
+  discountValue: number;
+  appliedCoupon: CouponRule | null;
+  customerMode: "walkin" | "existing" | "new";
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerId: string | null;
+  storeCreditApplied: number;
+  creditTokenInput: string;
+  totalAmount: number;
+};
+
+export function loadHeldOrders(): HeldPOSOrder[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(POS_HELD_ORDERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveHeldOrders(orders: HeldPOSOrder[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(POS_HELD_ORDERS_KEY, JSON.stringify(orders));
+  } catch {
+    // ignore
+  }
+}
 
 type POSDraftState = {
   cart: POSCartItem[];
   step: POSStep;
   discountType: "none" | "percentage" | "fixed";
   discountValue: number;
+  appliedCoupon?: CouponRule | null;
   customerMode: "walkin" | "existing" | "new";
   customerName: string;
   customerPhone: string;
   customerEmail: string;
   customerId: string | null;
   paymentMethod: string;
+  storeCreditApplied?: number;
+  creditTokenInput?: string;
 };
 
 function loadPOSDraft(): POSDraftState | null {
@@ -167,6 +214,28 @@ export function POSTab() {
   });
   const [cashTendered, setCashTendered] = useState<number | "">("");
 
+  // Held Orders State (Local Storage Resilient)
+  const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
+  const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
+
+  // Coupon Engine State
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponRule | null>(() => {
+    const draft = loadPOSDraft();
+    return draft?.appliedCoupon || null;
+  });
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+
+  // Store Credit / Exchange Tender State
+  const [storeCreditApplied, setStoreCreditApplied] = useState<number>(() => {
+    const draft = loadPOSDraft();
+    return draft?.storeCreditApplied || 0;
+  });
+  const [creditTokenInput, setCreditTokenInput] = useState<string>(() => {
+    const draft = loadPOSDraft();
+    return draft?.creditTokenInput || "";
+  });
+
   // Auto-save active POS cart and cashier state to localStorage
   useEffect(() => {
     if (cart.length > 0 && step !== "success") {
@@ -175,12 +244,15 @@ export function POSTab() {
         step,
         discountType,
         discountValue,
+        appliedCoupon,
         customerMode,
         customerName,
         customerPhone,
         customerEmail,
         customerId,
         paymentMethod,
+        storeCreditApplied,
+        creditTokenInput,
       };
       try {
         localStorage.setItem(POS_DRAFT_KEY, JSON.stringify(draft));
@@ -199,12 +271,15 @@ export function POSTab() {
     step,
     discountType,
     discountValue,
+    appliedCoupon,
     customerMode,
     customerName,
     customerPhone,
     customerEmail,
     customerId,
     paymentMethod,
+    storeCreditApplied,
+    creditTokenInput,
   ]);
 
   // Prevent accidental page unload / refresh when items are in POS cart
@@ -249,22 +324,22 @@ export function POSTab() {
   // Product detail drawer
   const [selectedPOSItem, setSelectedPOSItem] = useState<POSCartItem | null>(null);
 
-  // Store Credit / Exchange Tender State
-  const [storeCreditApplied, setStoreCreditApplied] = useState<number>(0);
-  const [creditTokenInput, setCreditTokenInput] = useState<string>("");
-
   // Calculations via Master Pricing Engine
   const posFinancials = useMemo(
     () =>
       calculatePOSFinancials({
-        items: cart.map((i) => ({ price: i.price, qty: i.qty })),
+        items: cart.map((i) => ({ price: i.price, mrp: i.mrp, qty: i.qty })),
         discountType,
         discountValue,
+        coupon: appliedCoupon,
       }),
-    [cart, discountType, discountValue],
+    [cart, discountType, discountValue, appliedCoupon],
   );
 
   const subtotal = posFinancials.subtotal;
+  const mrpTotal = posFinancials.mrpTotal;
+  const productSavings = posFinancials.productSavings;
+  const couponDiscount = posFinancials.couponDiscount;
   const discountAmount = posFinancials.discount;
   const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
@@ -274,6 +349,39 @@ export function POSTab() {
     customerId,
     phone: customerPhone,
     token: creditTokenInput,
+  });
+
+  // Real-time Customer Intelligence Profile (History, Total Spend, Recent Orders)
+  const { data: customerIntel } = useQuery({
+    queryKey: ["pos-customer-intel", customerId],
+    enabled: Boolean(customerId),
+    queryFn: async () => {
+      if (!customerId) return null;
+      const { data: cust } = await supabase
+        .from("pos_customers")
+        .select("id, name, phone, email, total_purchases, total_spend, store_credit_balance")
+        .eq("id", customerId)
+        .maybeSingle();
+
+      const { data: recentSales } = await (supabase
+        .from("offline_sales") as any)
+        .select("id, sale_number, total, payment_method, return_status, created_at")
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      return {
+        ...cust,
+        recentSales: (recentSales as unknown as Array<{
+          id: string;
+          sale_number: string;
+          total: number;
+          payment_method: string;
+          return_status?: string;
+          created_at: string;
+        }>) || [],
+      };
+    },
   });
 
   const availableCredit = customerCreditData?.available_credit ?? 0;
@@ -354,6 +462,102 @@ export function POSTab() {
     setQuickOrderPrice("");
     toast.success("Custom item added to cart");
     return true;
+  };
+
+  // Hold / Resume Cart handlers
+  const handleHoldCurrentOrder = () => {
+    if (cart.length === 0) {
+      toast.error("Cannot hold an empty cart");
+      return;
+    }
+    const orderId = `hold_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const custLabel = customerMode === "walkin" ? "Walk-in" : customerName || "Customer";
+    const newHold: HeldPOSOrder = {
+      id: orderId,
+      timestamp: Date.now(),
+      label: `${custLabel} • ${totalItems} item${totalItems > 1 ? "s" : ""} • ${formatPrice(total)}`,
+      cart: [...cart],
+      discountType,
+      discountValue,
+      appliedCoupon,
+      customerMode,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerId,
+      storeCreditApplied,
+      creditTokenInput,
+      totalAmount: total,
+    };
+    const updated = [newHold, ...heldOrders];
+    setHeldOrders(updated);
+    saveHeldOrders(updated);
+    resetPOS();
+    toast.success(`Cart placed on Hold (#${updated.length})`, {
+      description: `${newHold.label} saved. Ready for next transaction.`,
+    });
+  };
+
+  const handleResumeOrder = (held: HeldPOSOrder) => {
+    if (cart.length > 0) {
+      if (!window.confirm("Active cart has items. Replace active cart with held order?")) {
+        return;
+      }
+    }
+    setCart(held.cart);
+    setDiscountType(held.discountType);
+    setDiscountValue(held.discountValue);
+    setAppliedCoupon(held.appliedCoupon);
+    setCustomerMode(held.customerMode);
+    setCustomerName(held.customerName);
+    setCustomerPhone(held.customerPhone);
+    setCustomerEmail(held.customerEmail);
+    setCustomerId(held.customerId);
+    setStoreCreditApplied(held.storeCreditApplied);
+    setCreditTokenInput(held.creditTokenInput);
+    setStep("cart");
+
+    // Remove from held orders
+    const updated = heldOrders.filter((o) => o.id !== held.id);
+    setHeldOrders(updated);
+    saveHeldOrders(updated);
+    setIsHeldOrdersOpen(false);
+    toast.success(`Resumed order (${held.cart.length} item${held.cart.length > 1 ? "s" : ""})`);
+  };
+
+  const handleDeleteHeldOrder = (id: string) => {
+    const updated = heldOrders.filter((o) => o.id !== id);
+    setHeldOrders(updated);
+    saveHeldOrders(updated);
+    toast.info("Held order discarded");
+  };
+
+  // Coupon handlers
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const res = await validatePOSCoupon(couponCodeInput, subtotal);
+      if (!res.valid || !res.coupon) {
+        toast.error(res.error || "Invalid coupon code");
+        return;
+      }
+      setAppliedCoupon(res.coupon);
+      setCouponCodeInput("");
+      toast.success(`Coupon "${res.coupon.code}" applied!`);
+    } catch {
+      toast.error("Failed to validate coupon");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    toast.info("Coupon removed");
   };
 
   const handleQuickCheckout = () => {
@@ -591,16 +795,37 @@ export function POSTab() {
       return;
     }
 
-    const rpcItems = cart.map((item) => ({
-      product_id: item.isCustom ? undefined : item.product_id,
-      variant_id: item.variant_id || "",
-      product_slug: item.isCustom ? `custom-${Date.now()}` : item.slug,
-      name: item.name,
-      sku: item.sku,
-      qty: item.qty,
-      custom_price: item.isCustom ? item.price : undefined,
-      price: item.price,
-    }));
+    const rpcItems = cart.map((item) => {
+      const isUuid =
+        Boolean(item.product_id) &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          item.product_id || "",
+        );
+      const isVariantUuid =
+        Boolean(item.variant_id) &&
+        item.variant_id !== "00000000-0000-0000-0000-000000000000" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          item.variant_id || "",
+        );
+
+      return {
+        product_id: item.isCustom || !isUuid ? undefined : item.product_id,
+        variant_id: isVariantUuid ? item.variant_id : undefined,
+        product_slug: item.isCustom ? `custom-${Date.now()}` : item.slug,
+        name: item.name,
+        sku: item.sku || "",
+        qty: item.qty,
+        custom_price: item.isCustom ? item.price : undefined,
+        price: item.price,
+      };
+    });
+
+    if (payableAfterCredit > 0 && paymentMethod === "cash") {
+      if (typeof cashTendered === "number" && cashTendered < payableAfterCredit) {
+        toast.error(`Cash tendered (₹${cashTendered}) is less than payable amount (₹${payableAfterCredit})`);
+        return;
+      }
+    }
 
     try {
       setTxState("PROCESSING");
@@ -618,7 +843,12 @@ export function POSTab() {
         idempotency_key: idempotencyKey,
         store_credit_used: effectiveCreditUsed,
         credit_token: creditTokenInput.trim() || undefined,
+        coupon_code: appliedCoupon?.code || undefined,
       });
+
+      // Synchronously invalidate and broadcast canonical reporting updates
+      invalidateCanonicalReportingQueries(qc);
+      notifyPOSSaleChanged();
 
       if (result.duplicate) {
         toast.warning("This sale was already processed on server (duplicate prevented)");
@@ -632,6 +862,8 @@ export function POSTab() {
         ...result,
         store_credit_used: effectiveCreditUsed,
         credit_token_used: creditTokenInput.trim() || undefined,
+        coupon_code: appliedCoupon?.code || undefined,
+        coupon_discount: couponDiscount,
       });
 
       // Open receipt or invoice modal based on user's printer format selection (with autoPrint)
@@ -662,6 +894,8 @@ export function POSTab() {
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
+    setAppliedCoupon(null);
+    setCouponCodeInput("");
     setCustomerMode("walkin");
     setCustomerName("");
     setCustomerPhone("");
@@ -746,9 +980,22 @@ export function POSTab() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <Scan className="size-4 text-primary animate-pulse" />
-            Scanner Active
+          <div className="flex items-center gap-3">
+            {heldOrders.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsHeldOrdersOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/20 transition cursor-pointer"
+                title="View active held orders"
+              >
+                <PauseCircle className="size-4 text-amber-600 dark:text-amber-400" />
+                <span>Held Carts ({heldOrders.length})</span>
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Scan className="size-4 text-primary animate-pulse" />
+              Scanner Active
+            </div>
           </div>
         </div>
 
@@ -1044,6 +1291,16 @@ export function POSTab() {
                 </button>
 
                 <button
+                  type="button"
+                  onClick={handleHoldCurrentOrder}
+                  className="rounded-xl border border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 px-4 py-3 text-xs font-bold text-amber-800 dark:text-amber-200 hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Put current active cart on hold and serve next customer"
+                >
+                  <PauseCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Hold Cart</span>
+                </button>
+
+                <button
                   onClick={() => setStep("checkout")}
                   className="focus-ring press rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 hover:shadow-premium-md hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
@@ -1210,6 +1467,75 @@ export function POSTab() {
                         </div>
                       </div>
                     )}
+
+                    {/* Store Coupon Code Section */}
+                    <div className="pt-3.5 mt-3.5 border-t border-border/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Tag className="size-3.5 text-primary" />
+                          <span className="text-xs font-bold text-foreground">
+                            Store Coupon Code
+                          </span>
+                        </div>
+                        {appliedCoupon && (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            −{formatPrice(couponDiscount)}
+                          </span>
+                        )}
+                      </div>
+
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
+                          <div className="flex items-center gap-2">
+                            <Check className="size-4 text-emerald-600 shrink-0" />
+                            <div>
+                              <p className="font-bold text-emerald-950 dark:text-emerald-100">
+                                Coupon: <span className="font-mono text-emerald-700 dark:text-emerald-300">{appliedCoupon.code}</span>
+                              </p>
+                              <p className="text-[10px] text-emerald-700 dark:text-emerald-300">
+                                {appliedCoupon.discountType === "percentage"
+                                  ? `${appliedCoupon.discountValue}% OFF`
+                                  : `₹${appliedCoupon.discountValue} Flat OFF`}
+                                {appliedCoupon.minimumOrderValue ? ` • Min Cart: ₹${appliedCoupon.minimumOrderValue}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="text-destructive text-xs font-bold hover:underline cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              type="text"
+                              value={couponCodeInput}
+                              onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleApplyCoupon();
+                                }
+                              }}
+                              placeholder="Enter coupon code (e.g. WELCOME10)..."
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponLoading || !couponCodeInput.trim()}
+                            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer disabled:opacity-50 shrink-0"
+                          >
+                            {couponLoading ? "Checking…" : "Apply"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* 2. Customer Section */}
@@ -1317,25 +1643,70 @@ export function POSTab() {
                             </div>
                           )}
                         {customerId && (
-                          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs border border-emerald-200">
-                            <Check className="size-4 text-emerald-700 shrink-0" />
-                            <div className="flex-1">
-                              <p className="font-bold text-emerald-900">{customerName}</p>
-                              <p className="text-[11px] text-emerald-700 font-mono">
-                                {customerPhone}
-                              </p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs border border-emerald-200 dark:border-emerald-800">
+                              <Check className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                              <div className="flex-1">
+                                <p className="font-bold text-emerald-900 dark:text-emerald-100">{customerName}</p>
+                                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono">
+                                  {customerPhone}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomerId(null);
+                                  setCustomerName("");
+                                  setCustomerPhone("");
+                                  setCustomerEmail("");
+                                }}
+                                className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-bold text-xs p-1 cursor-pointer"
+                              >
+                                <X className="size-3.5" />
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCustomerId(null);
-                                setCustomerName("");
-                                setCustomerPhone("");
-                              }}
-                              className="text-emerald-700 hover:text-emerald-900 font-bold text-xs p-1 cursor-pointer"
-                            >
-                              <X className="size-3.5" />
-                            </button>
+
+                            {customerIntel && (
+                              <div className="p-3 rounded-xl bg-muted/40 border border-border/80 space-y-2 text-xs">
+                                <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+                                  <span className="font-bold text-foreground flex items-center gap-1.5 text-[11px]">
+                                    <Sparkles className="size-3 text-primary" />
+                                    Customer Intelligence
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground font-mono">
+                                    ID: {customerIntel.id?.substring(0, 8)}…
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5 text-center">
+                                  <div className="p-1.5 rounded-lg bg-background border border-border/50">
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Orders</p>
+                                    <p className="text-xs font-black text-foreground">{customerIntel.total_purchases || 0}</p>
+                                  </div>
+                                  <div className="p-1.5 rounded-lg bg-background border border-border/50">
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Spend</p>
+                                    <p className="text-xs font-black text-primary">{formatPrice(customerIntel.total_spend || 0)}</p>
+                                  </div>
+                                  <div className="p-1.5 rounded-lg bg-background border border-border/50">
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Credit</p>
+                                    <p className="text-xs font-black text-emerald-600">{formatPrice(customerIntel.store_credit_balance || 0)}</p>
+                                  </div>
+                                </div>
+                                {customerIntel.recentSales && customerIntel.recentSales.length > 0 && (
+                                  <div className="pt-1">
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Recent Invoices</p>
+                                    <div className="space-y-1">
+                                      {customerIntel.recentSales.map((s) => (
+                                        <div key={s.id} className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40">
+                                          <span className="font-mono font-bold text-foreground">#{s.sale_number}</span>
+                                          <span className="text-muted-foreground">{new Date(s.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</span>
+                                          <span className="font-black text-primary">{formatPrice(s.total)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1610,6 +1981,20 @@ export function POSTab() {
                           {formatPrice(subtotal)}
                         </span>
                       </div>
+                      {productSavings > 0 && (
+                        <div className="flex justify-between text-muted-foreground text-[11px]">
+                          <span>MRP Savings</span>
+                          <span className="text-emerald-600 font-bold">−{formatPrice(productSavings)}</span>
+                        </div>
+                      )}
+                      {couponDiscount > 0 && (
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>
+                            Coupon ({appliedCoupon?.code})
+                          </span>
+                          <span>−{formatPrice(couponDiscount)}</span>
+                        </div>
+                      )}
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-emerald-700 font-bold">
                           <span>
@@ -2167,6 +2552,94 @@ export function POSTab() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Held Orders Drawer / Modal */}
+      {isHeldOrdersOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border p-4 bg-muted/40 shrink-0">
+                <div className="flex items-center gap-2">
+                  <PauseCircle className="size-5 text-amber-600 dark:text-amber-400" />
+                  <h3 className="font-bold text-base text-foreground">Held POS Carts</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                    {heldOrders.length}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsHeldOrdersOpen(false)}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {heldOrders.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <PauseCircle className="size-10 mx-auto opacity-30 mb-2" />
+                    <p className="font-semibold text-sm">No Held Carts</p>
+                    <p className="text-xs mt-1">When customers step away, click &ldquo;Hold Cart&rdquo; to save their cart here.</p>
+                  </div>
+                ) : (
+                  heldOrders.map((order) => {
+                    const timeAgo = Math.round((Date.now() - order.timestamp) / 60000);
+                    return (
+                      <div
+                        key={order.id}
+                        className="p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-foreground">
+                              {order.customerMode === "walkin" ? "Walk-in Customer" : order.customerName || "Customer"}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-mono">
+                              {timeAgo <= 0 ? "Just now" : `${timeAgo}m ago`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {order.cart.length} unique line{order.cart.length > 1 ? "s" : ""} • Total:{" "}
+                            <span className="font-bold text-primary">{formatPrice(order.totalAmount)}</span>
+                          </p>
+                          {order.appliedCoupon && (
+                            <p className="text-[10px] text-emerald-600 font-medium">
+                              Coupon: {order.appliedCoupon.code}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleResumeOrder(order)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-2xs cursor-pointer"
+                          >
+                            <PlayCircle className="size-3.5" />
+                            Resume
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHeldOrder(order.id)}
+                            className="p-1.5 rounded-xl text-destructive hover:bg-destructive/10 transition cursor-pointer"
+                            title="Discard held order"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>,

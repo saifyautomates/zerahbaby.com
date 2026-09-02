@@ -73,7 +73,7 @@ function SingleStickerPreview({
   labelType,
   showDiscount,
   showMrp = true,
-  showSellPrice = true,
+  showSellPrice = false,
   separatePriceLine = false,
   layout,
 }: {
@@ -273,7 +273,7 @@ export function LabelPrintEngine({
   layout,
   showDiscount,
   showMrp = true,
-  showSellPrice = true,
+  showSellPrice = false,
   separatePriceLine = false,
 }: Props) {
   const labels = useMemo(() => expand(entries), [entries]);

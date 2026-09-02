@@ -3,7 +3,7 @@
  * per-sale receipt printing, sale details expansion, and top products view.
  * Includes Customer Footfall analytics powered by the POS token system.
  */
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice, imageFor, getProductUrl } from "@/lib/store";
@@ -15,9 +15,17 @@ import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary"
 import { useTableSelection, getPOSSelectionMetrics } from "@/lib/table-selection";
 import {
   getAllQueuedSales,
+  deleteQueuedSale,
+  clearAllQueuedSales,
   processOfflineSyncQueue,
+  reconcileLocalQueueWithCloudSales,
   type OfflineQueueItem,
 } from "@/lib/offline-sync-engine";
+import {
+  useCanonicalPOSSales,
+  invalidateCanonicalReportingQueries,
+} from "@/lib/canonical-reporting";
+import { isValidPOSSale, useReportingDateRange, type DatePreset } from "@/lib/financial-reporting";
 import {
   BarChart3,
   Receipt,
@@ -37,6 +45,9 @@ import {
   X,
   RotateCcw,
   RefreshCw,
+  AlertTriangle,
+  Calendar,
+  Check,
 } from "lucide-react";
 import {
   BarChart,
@@ -65,6 +76,7 @@ type SaleItem = {
 type Sale = {
   id: string;
   sale_number: string;
+  idempotency_key?: string | null;
   customer_name: string;
   customer_phone: string;
   customer_email?: string | null;
@@ -75,12 +87,19 @@ type Sale = {
   total: number;
   payment_method: string;
   created_at: string;
-  /** Void/cancelled status for POS sales */
+  /** Business transaction status ("completed", "cancelled", etc.) */
   status?: string | null;
+  /** Transport sync status ("PENDING_SYNC", "SYNC_FAILED", "SYNCED", etc.) */
+  sync_status?: string | null;
+  transaction_status?: string | null;
+  last_error?: string | null;
   /** Daily sequential walk-in token (1, 2, 3...). Resets each IST calendar day. */
   pos_token_number: number | null;
   /** IST calendar date string (YYYY-MM-DD) for this token. */
   pos_token_date: string | null;
+  is_voided?: boolean | null;
+  void_reason?: string | null;
+  voided_at?: string | null;
   offline_sale_items?: SaleItem[];
 };
 
@@ -108,47 +127,96 @@ function todayIST(): string {
   return utcToISTDate(new Date().toISOString());
 }
 
+const DATE_RANGE_OPTIONS: { key: DatePreset; label: string; subLabel: string }[] = [
+  { key: "today", label: "Today", subLabel: "Today's activity" },
+  { key: "yesterday", label: "Yesterday", subLabel: "Yesterday's activity" },
+  { key: "7d", label: "Last 7 Days", subLabel: "Past 7 days" },
+  { key: "30d", label: "Last 30 Days", subLabel: "Past 30 days" },
+  { key: "this_month", label: "This Month", subLabel: "Month to date" },
+  { key: "all", label: "All Time", subLabel: "Entire history" },
+  { key: "custom", label: "Custom Range", subLabel: "Specific start & end" },
+];
+
 export function OfflineAnalyticsTab() {
   const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
-  const [saleToDelete, setSaleToDelete] = useState<{ id: string; sale_number: string } | null>(
-    null,
-  );
+  const [saleToVoid, setSaleToVoid] = useState<{
+    id: string;
+    sale_number: string;
+    isDraft?: boolean;
+  } | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [restoreStock, setRestoreStock] = useState(true);
 
-  const deleteSaleMutation = useMutation({
-    mutationFn: async (saleId: string) => {
+  const {
+    preset: datePreset,
+    startDate: customStart,
+    endDate: customEnd,
+    bounds: reportingBounds,
+    setDateRange,
+  } = useReportingDateRange();
+
+  const { dateRangeText, inCurrentPeriod } = reportingBounds;
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [customStartInput, setCustomStartInput] = useState(customStart || "");
+  const [customEndInput, setCustomEndInput] = useState(customEnd || "");
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target as Node)) {
+        setIsDateDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const voidSaleMutation = useMutation({
+    mutationFn: async ({
+      saleId,
+      reason,
+      restoreStock: shouldRestore,
+    }: {
+      saleId: string;
+      reason: string;
+      restoreStock: boolean;
+    }) => {
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saleId);
+
+      // Handle locally queued offline sales (IDs like "off_1788364533124_nme6c")
+      if (!isUuid || saleId.startsWith("off_")) {
+        await deleteQueuedSale(saleId);
+        return { success: true, message: "Queued offline draft discarded." };
+      }
+
       const { data, error } = await (
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
         ) => Promise<{
-          data: { success?: boolean; message?: string } | null;
+          data: { success?: boolean; message?: string; sale_number?: string } | null;
           error: { message: string } | null;
         }>
-      )("admin_delete_offline_sale", {
+      )("admin_void_offline_sale", {
         _sale_id: saleId,
+        _reason: reason.trim() || "Administrative void",
+        _restore_stock: shouldRestore,
       });
 
       if (error) {
-        // Fallback: direct delete from offline_sales
-        const { error: delError } = await supabase.from("offline_sales").delete().eq("id", saleId);
-        if (delError) throw new Error(error.message || delError.message);
+        throw new Error(error.message || "Failed to void POS sale");
       }
 
       return data;
     },
-    onSuccess: () => {
-      toast.success("Sale deleted and stock restored successfully!");
-      qc.invalidateQueries({ queryKey: ["offline-sales"] });
-      qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-      qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
-      qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
-      qc.invalidateQueries({ queryKey: ["offline-sales-for-returns-history-lookup"] });
+    onSuccess: (res) => {
+      toast.success(res?.message || "Sale voided successfully. Audit trail preserved.");
+      invalidateCanonicalReportingQueries(qc);
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to delete sale");
+      toast.error(err.message || "Failed to void sale");
     },
   });
 
@@ -198,72 +266,7 @@ export function OfflineAnalyticsTab() {
     return null;
   };
 
-  const { data: sales, isLoading, refetch: refetchSales } = useQuery({
-    queryKey: ["offline-sales"],
-    queryFn: async () => {
-      // 1. Fetch remote cloud sales
-      const { data: dbSales, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (q: string) => {
-              order: (
-                col: string,
-                opts: { ascending: boolean },
-              ) => Promise<{ data: Sale[] | null; error: unknown }>;
-            };
-          };
-        }
-      )
-        .from("offline_sales")
-        .select("*, offline_sale_items(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-
-      // 2. Fetch locally queued/offline sales that haven't synced yet
-      let queued: OfflineQueueItem[] = [];
-      try {
-        queued = await getAllQueuedSales();
-      } catch {
-        // ignore
-      }
-
-      const existingNumbers = new Set((dbSales || []).map((s) => s.sale_number));
-      const pendingLocal: Sale[] = queued
-        .filter((q) => q.status !== "SYNCED" && !existingNumbers.has(q.sale_number))
-        .map((q) => ({
-          id: q.operation_id,
-          sale_number: q.sale_number,
-          customer_name: q.customer_name || "Walk-in Customer",
-          customer_phone: q.customer_phone || "",
-          customer_email: q.customer_email || null,
-          subtotal: q.subtotal || q.total,
-          discount: q.discount || 0,
-          discount_type: q.discount_type || "none",
-          discount_value: q.discount_value || 0,
-          total: q.total,
-          payment_method: q.payment_method || "cash",
-          created_at: q.created_at || new Date().toISOString(),
-          status: q.status === "FAILED" ? "sync_failed" : "sync_pending",
-          pos_token_number: q.token_number || null,
-          pos_token_date: q.token_date || null,
-          offline_sale_items: (q.items || []).map((it: any, idx: number) => ({
-            id: it.id || `queued-item-${q.operation_id}-${idx}`,
-            name: it.name,
-            sku: it.sku,
-            price: it.custom_price || it.price || 0,
-            qty: it.qty || 1,
-            subtotal: (it.custom_price || it.price || 0) * (it.qty || 1),
-            product_id: it.product_id,
-            product_slug: it.product_slug,
-          })),
-        }));
-
-      return [...pendingLocal, ...(dbSales ?? [])] as Sale[];
-    },
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 15000,
-  });
+  const { data: sales, isLoading, refetch: refetchSales } = useCanonicalPOSSales();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card">("all");
@@ -275,14 +278,24 @@ export function OfflineAnalyticsTab() {
     setCurrentPage(1);
   }, [searchQuery, paymentFilter]);
 
+  // Authoritative business accounting: strictly completed transactions only!
   const activeSales = useMemo(
-    () => (sales ?? []).filter((s) => (s as { status?: string }).status !== "cancelled"),
+    () => (sales ?? []).filter(isValidPOSSale) as unknown as Sale[],
+    [sales],
+  );
+
+  // Local transactions pending or failed cloud synchronization
+  const uncommittedSales = useMemo(
+    () => (sales ?? []).filter((s) => s.status === "sync_pending" || s.status === "sync_failed"),
     [sales],
   );
 
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     let list = sales;
+
+    // Strict date range filter based on canonical reporting bounds
+    list = list.filter((s) => inCurrentPeriod(s.created_at));
 
     if (paymentFilter !== "all") {
       list = list.filter((s) => s.payment_method === paymentFilter);
@@ -311,7 +324,7 @@ export function OfflineAnalyticsTab() {
         matchesItem
       );
     });
-  }, [sales, searchQuery, paymentFilter]);
+  }, [sales, searchQuery, paymentFilter, inCurrentPeriod]);
 
   const salesSelection = useTableSelection({ items: filteredSales });
   const salesMetrics = useMemo(
@@ -319,7 +332,8 @@ export function OfflineAnalyticsTab() {
     [salesSelection.selectedItems],
   );
 
-  const totalPages = pageSize === "all" ? 1 : Math.ceil(filteredSales.length / (pageSize as number)) || 1;
+  const totalPages =
+    pageSize === "all" ? 1 : Math.ceil(filteredSales.length / (pageSize as number)) || 1;
   const visibleSales = useMemo(() => {
     if (pageSize === "all") return filteredSales;
     const size = pageSize as number;
@@ -379,26 +393,36 @@ export function OfflineAnalyticsTab() {
     [returnsList, today],
   );
 
-  // Stats
-  const totalSalesRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  // Canonical Period POS Sales (synchronized with active reporting date range)
+  const periodActiveSales = useMemo(
+    () => activeSales.filter((s) => inCurrentPeriod(s.created_at)),
+    [activeSales, inCurrentPeriod],
+  );
+
+  const totalSalesRevenue = periodActiveSales.reduce((sum, sale) => sum + Number(sale.total), 0);
   const grossRevenue = totalSalesRevenue;
-  const totalSalesCount = activeSales.length;
-  const cashSales = activeSales.filter((s) => s.payment_method === "cash");
-  const upiSales = activeSales.filter((s) => s.payment_method === "upi");
-  const cardSales = activeSales.filter((s) => s.payment_method === "card");
-  const otherSales = activeSales.filter((s) => !["cash", "upi", "card"].includes(s.payment_method));
+  const totalSalesCount = periodActiveSales.length;
+  const cashSales = periodActiveSales.filter((s) => s.payment_method === "cash");
+  const upiSales = periodActiveSales.filter((s) => s.payment_method === "upi");
+  const cardSales = periodActiveSales.filter((s) => s.payment_method === "card");
+  const otherSales = periodActiveSales.filter(
+    (s) => !["cash", "upi", "card"].includes(s.payment_method),
+  );
 
   const cashTotal = cashSales.reduce((s, o) => s + Number(o.total), 0);
   const upiTotal = upiSales.reduce((s, o) => s + Number(o.total), 0);
   const cardTotal = cardSales.reduce((s, o) => s + Number(o.total), 0);
   const otherTotal = otherSales.reduce((s, o) => s + Number(o.total), 0);
-  const totalDiscount = activeSales.reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
+  const totalDiscount = periodActiveSales.reduce(
+    (sum, sale) => sum + Number(sale.discount ?? 0),
+    0,
+  );
 
   // Today's revenue
   const todaySalesRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
   const todayRevenue = todaySalesRevenue;
 
-  // Top products with rich metadata
+  // Top products with rich metadata (period synchronized)
   const topProducts = useMemo(() => {
     const map = new Map<
       string,
@@ -411,7 +435,7 @@ export function OfflineAnalyticsTab() {
         revenue: number;
       }
     >();
-    for (const sale of sales ?? []) {
+    for (const sale of (sales ?? []).filter((s) => inCurrentPeriod(s.created_at))) {
       for (const item of sale.offline_sale_items ?? []) {
         const key = item.sku || item.name;
         const cur = map.get(key) ?? {
@@ -426,7 +450,7 @@ export function OfflineAnalyticsTab() {
           name: item.name,
           sku: item.sku || cur.sku,
           product_id: item.product_id || cur.product_id,
-          product_slug: item.product_slug || cur.product_slug,
+          product_slug: item.product_slug || cur.product_slug || undefined,
           qty: cur.qty + item.qty,
           revenue: cur.revenue + Number(item.subtotal),
         });
@@ -435,10 +459,14 @@ export function OfflineAnalyticsTab() {
     return Array.from(map.values())
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  }, [sales]);
+  }, [sales, inCurrentPeriod]);
 
   const handleClearDummyData = async () => {
-    if (!window.confirm("Are you sure you want to completely WIPE all offline sales history? This action cannot be undone."))
+    if (
+      !window.confirm(
+        "Are you sure you want to completely WIPE all offline sales history? This action cannot be undone.",
+      )
+    )
       return;
     try {
       // 1. Clear local offline queue, cart, and IndexedDB stores
@@ -466,9 +494,18 @@ export function OfflineAnalyticsTab() {
       const { error: rpcErr } = await (supabase.rpc as any)("admin_nuke_all_sales");
       if (rpcErr) {
         // Fallback to direct DELETE
-        await supabase.from("offline_sale_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-        await supabase.from("offline_sales").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-        await supabase.from("pos_customers").update({ total_purchases: 0, total_spend: 0 }).neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase
+          .from("offline_sale_items")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase
+          .from("offline_sales")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase
+          .from("pos_customers")
+          .update({ total_purchases: 0, total_spend: 0 })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
       }
 
       toast.success("Successfully wiped all sales history.");
@@ -480,13 +517,140 @@ export function OfflineAnalyticsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <button
-          onClick={handleClearDummyData}
-          className="px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md text-sm font-semibold transition-colors"
-        >
-          Nuke Dummy Sales History
-        </button>
+      {/* Synchronized Reporting Date Range Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 -mt-1 mb-1">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-lg font-black tracking-tight text-foreground font-display">
+              POS Store Register & Sales Ledger
+            </h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>IST Synchronized</span>
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Authoritative physical walk-in sales ledger synchronized with active reporting period (
+            {dateRangeText}).
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {/* Synchronized Date Range Dropdown */}
+          <div className="relative" ref={dateDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDateDropdownOpen((prev) => !prev)}
+              aria-expanded={isDateDropdownOpen}
+              aria-label={`Selected reporting period: ${dateRangeText}`}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
+            >
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-none">{dateRangeText}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+                  isDateDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isDateDropdownOpen && (
+              <div className="absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl animate-in zoom-in-95 duration-100">
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border mb-1">
+                  Reporting Period
+                </div>
+                {DATE_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      if (opt.key === "custom") {
+                        setDateRange("custom", customStartInput, customEndInput);
+                      } else {
+                        setDateRange(opt.key);
+                        setIsDateDropdownOpen(false);
+                      }
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition text-left ${
+                      datePreset === opt.key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <div>
+                      <p>{opt.label}</p>
+                      <p
+                        className={`text-[10px] ${
+                          datePreset === opt.key
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {opt.subLabel}
+                      </p>
+                    </div>
+                    {datePreset === opt.key && <Check className="h-3.5 w-3.5 shrink-0 ml-2" />}
+                  </button>
+                ))}
+
+                {datePreset === "custom" && (
+                  <div className="p-2.5 border-t border-border mt-1.5 space-y-2 bg-muted/30 rounded-xl">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Custom IST Window
+                    </p>
+                    <div className="space-y-1.5">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground block font-medium">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customStartInput}
+                          onChange={(e) => setCustomStartInput(e.target.value)}
+                          className="w-full text-xs px-2 py-1 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground block font-medium">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customEndInput}
+                          onChange={(e) => setCustomEndInput(e.target.value)}
+                          className="w-full text-xs px-2 py-1 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customStartInput && customEndInput) {
+                            setDateRange("custom", customStartInput, customEndInput);
+                            setIsDateDropdownOpen(false);
+                          }
+                        }}
+                        disabled={!customStartInput || !customEndInput}
+                        className="w-full mt-1 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-xs"
+                      >
+                        Apply Range
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleClearDummyData}
+            className="px-3 py-2 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/25 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+          >
+            Clear Test Sales
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════
@@ -816,9 +980,42 @@ export function OfflineAnalyticsTab() {
           </div>
         </div>
 
+        {/* Uncommitted Local Sales Banner */}
+        {uncommittedSales.length > 0 && (
+          <div className="mx-6 mt-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-semibold text-sm">
+                  {uncommittedSales.length} Offline Sale{uncommittedSales.length > 1 ? "s" : ""}{" "}
+                  Pending Cloud Sync
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Local offline sales (
+                  {formatPrice(uncommittedSales.reduce((s, x) => s + x.total, 0))}) are segregated
+                  from official accounting totals until committed to the cloud.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                toast.info("Retrying all offline sales sync...");
+                await processOfflineSyncQueue({ forceRetry: true });
+                refetchSales();
+              }}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition cursor-pointer shadow-xs whitespace-nowrap"
+            >
+              <RefreshCw className="size-3.5" />
+              Sync All Now
+            </button>
+          </div>
+        )}
+
         {/* Sticky Smart Selection Summary */}
         <SmartSelectionSummary
           selectedCount={salesSelection.selectedCount}
+          selectedLabel="Selected Sales"
           metrics={salesMetrics}
           onClear={salesSelection.clearSelection}
         />
@@ -860,8 +1057,10 @@ export function OfflineAnalyticsTab() {
                       className={`group cursor-pointer transition-colors ${
                         isSelected
                           ? "bg-primary/5 font-medium"
-                          : sale.status === "cancelled"
-                            ? "opacity-50 grayscale bg-muted/20 hover:bg-muted/30"
+                          : sale.status === "cancelled" ||
+                              sale.status === "voided" ||
+                              sale.is_voided
+                            ? "opacity-60 bg-muted/20 hover:bg-muted/30"
                             : "hover:bg-muted/40"
                       }`}
                       onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
@@ -895,26 +1094,80 @@ export function OfflineAnalyticsTab() {
                       <td className="px-5 py-4 font-bold text-foreground font-mono">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span>{sale.sale_number}</span>
+                          {sale.return_status === "returned" && (
+                            <span
+                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+                              title="Original sale has been 100% returned"
+                            >
+                              Returned
+                            </span>
+                          )}
+                          {sale.return_status === "partially_returned" && (
+                            <span
+                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                              title="Items in this sale have been partially returned"
+                            >
+                              Partially Returned
+                            </span>
+                          )}
+                          {(sale.status === "voided" || sale.is_voided) && (
+                            <span
+                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                              title={
+                                sale.void_reason
+                                  ? `Void reason: ${sale.void_reason}`
+                                  : "Voided transaction"
+                              }
+                            >
+                              🚫 Voided
+                            </span>
+                          )}
+                          {sale.status === "cancelled" && !sale.is_voided && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-muted text-muted-foreground border border-border">
+                              Cancelled
+                            </span>
+                          )}
                           {sale.status === "sync_pending" && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse">
                               ⚡ Offline Queued
                             </span>
                           )}
                           {sale.status === "sync_failed" && (
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                toast.info("Retrying offline sync to cloud...");
-                                await processOfflineSyncQueue();
-                                refetchSales();
-                              }}
-                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 hover:bg-red-500/25 transition cursor-pointer flex items-center gap-1"
-                              title="Click to retry cloud upload"
-                            >
-                              <RefreshCw className="size-2.5" />
-                              Retry Sync
-                            </button>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  toast.info("Retrying offline sync to cloud...");
+                                  await processOfflineSyncQueue({ forceRetry: true });
+                                  refetchSales();
+                                }}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 hover:bg-red-500/25 transition cursor-pointer flex items-center gap-1"
+                                title={
+                                  sale.last_error
+                                    ? `Validation Error: ${sale.last_error}. Click to retry cloud sync.`
+                                    : "Click to retry cloud upload"
+                                }
+                              >
+                                <RefreshCw className="size-2.5" />
+                                Retry Sync
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (confirm("Discard this unsynced draft permanently?")) {
+                                    await deleteQueuedSale(sale.id);
+                                    toast.success("Local draft discarded");
+                                    refetchSales();
+                                  }
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[10px] text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition cursor-pointer"
+                                title="Discard invalid local draft"
+                              >
+                                Discard
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -978,10 +1231,34 @@ export function OfflineAnalyticsTab() {
                           <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
                             {sale.payment_method}
                           </span>
-                          {Number((sale as Record<string, unknown>).store_credit_used || 0) > 0 && (
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
-                              Credit: {formatPrice(Number((sale as Record<string, unknown>).store_credit_used))}
-                            </span>
+                          {Number(
+                            (sale as unknown as Record<string, unknown>).store_credit_used || 0,
+                          ) > 0 && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
+                                Credit:{" "}
+                                {formatPrice(
+                                  Number(
+                                    (sale as unknown as Record<string, unknown>).store_credit_used,
+                                  ),
+                                )}
+                              </span>
+                              {Number(sale.total) >
+                                Number(
+                                  (sale as unknown as Record<string, unknown>).store_credit_used,
+                                ) && (
+                                <span className="text-[9px] font-semibold text-muted-foreground">
+                                  Paid:{" "}
+                                  {formatPrice(
+                                    Number(sale.total) -
+                                      Number(
+                                        (sale as unknown as Record<string, unknown>)
+                                          .store_credit_used,
+                                      ),
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1080,7 +1357,7 @@ export function OfflineAnalyticsTab() {
                             </table>
 
                             <div className="mt-3 flex items-center justify-between">
-                              <div className="text-xs text-muted-foreground space-y-0.5">
+                              <div className="text-xs text-muted-foreground space-y-1">
                                 <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
                                 {Number(sale.discount) > 0 && (
                                   <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1094,31 +1371,91 @@ export function OfflineAnalyticsTab() {
                                   </p>
                                 )}
                                 <p className="font-bold text-foreground text-sm">
-                                  Total: {formatPrice(Number(sale.total))}
+                                  Sale Total: {formatPrice(Number(sale.total))}
                                 </p>
+                                {Number(
+                                  (sale as unknown as Record<string, unknown>).store_credit_used ||
+                                    0,
+                                ) > 0 && (
+                                  <div className="pt-1.5 border-t border-border/60 text-xs space-y-0.5">
+                                    <p className="text-emerald-700 dark:text-emerald-300 font-bold">
+                                      Exchange Credit Applied:{" "}
+                                      {formatPrice(
+                                        Number(
+                                          (sale as unknown as Record<string, unknown>)
+                                            .store_credit_used,
+                                        ),
+                                      )}
+                                    </p>
+                                    <p className="text-foreground font-semibold">
+                                      Additional Payment Due/Settled ({sale.payment_method}):{" "}
+                                      {formatPrice(
+                                        Math.max(
+                                          0,
+                                          Number(sale.total) -
+                                            Number(
+                                              (sale as unknown as Record<string, unknown>)
+                                                .store_credit_used,
+                                            ),
+                                        ),
+                                      )}
+                                    </p>
+                                    <p className="text-muted-foreground text-[11px]">
+                                      Total Settled: {formatPrice(Number(sale.total))}
+                                    </p>
+                                  </div>
+                                )}
+                                {sale.return_status && sale.return_status !== "none" && (
+                                  <div className="pt-1.5 border-t border-purple-200 dark:border-purple-800/40 text-xs text-purple-700 dark:text-purple-300 font-bold">
+                                    Return Status:{" "}
+                                    {sale.return_status === "returned"
+                                      ? "100% Returned"
+                                      : "Partially Returned"}{" "}
+                                    ({sale.returned_units || 0} units,{" "}
+                                    {formatPrice(Number(sale.returned_amount || 0))})
+                                  </div>
+                                )}
                               </div>
 
-                              {sale.status !== "cancelled" && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSaleToDelete({
-                                      id: sale.id,
-                                      sale_number: sale.sale_number,
-                                    });
-                                  }}
-                                  disabled={deleteSaleMutation.isPending}
-                                  className="flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 cursor-pointer"
-                                >
-                                  <Trash2 className="size-4" />
-                                  Delete
-                                </button>
-                              )}
-                              {sale.status === "cancelled" && (
-                                <div className="flex items-center gap-1.5 text-sm font-bold text-destructive px-4 py-2 bg-destructive/5 rounded-xl border border-destructive/20">
-                                  <Trash2 className="size-4" />
-                                  Deleted
+                              {sale.status !== "cancelled" &&
+                                sale.status !== "voided" &&
+                                !sale.is_voided && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSaleToVoid({
+                                        id: sale.id,
+                                        sale_number: sale.sale_number,
+                                        isDraft:
+                                          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                                            sale.id,
+                                          ) || sale.id.startsWith("off_"),
+                                      });
+                                      setVoidReason("");
+                                      setRestoreStock(true);
+                                    }}
+                                    disabled={voidSaleMutation.isPending}
+                                    className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2 text-sm font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50 cursor-pointer"
+                                    title="Administrative void / reversal of completed sale"
+                                  >
+                                    <RotateCcw className="size-4" />
+                                    Void Sale
+                                  </button>
+                                )}
+                              {(sale.status === "cancelled" ||
+                                sale.status === "voided" ||
+                                sale.is_voided) && (
+                                <div className="flex flex-col items-end gap-1">
+                                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
+                                    <RotateCcw className="size-3.5" />
+                                    Voided
+                                  </div>
+                                  {sale.void_reason && (
+                                    <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
+                                      Audit: {sale.void_reason}
+                                    </p>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1192,7 +1529,8 @@ export function OfflineAnalyticsTab() {
                     ? filteredSales.length
                     : Math.min(currentPage * (pageSize as number), filteredSales.length)}
                 </strong>{" "}
-                of <strong className="text-foreground">{filteredSales.length}</strong> total POS sales
+                of <strong className="text-foreground">{filteredSales.length}</strong> total POS
+                sales
               </span>
               <div className="flex items-center gap-1.5 ml-2">
                 <span>Per page:</span>
@@ -1243,24 +1581,136 @@ export function OfflineAnalyticsTab() {
         )}
       </div>
 
-      {saleToDelete && (
-        <ConfirmDialog
-          title={`Delete POS Sale #${saleToDelete.sale_number}?`}
-          message="Are you sure you want to delete this POS sale? This will permanently delete the transaction and automatically restore inventory stock for all products."
-          confirmLabel="Delete & Restore Stock"
-          cancelLabel="Keep Sale"
-          destructive
-          busy={deleteSaleMutation.isPending}
-          onConfirm={async () => {
-            try {
-              await deleteSaleMutation.mutateAsync(saleToDelete.id);
-              setSaleToDelete(null);
-            } catch {
-              // error handled by mutation onError
-            }
-          }}
-          onCancel={() => setSaleToDelete(null)}
-        />
+      {saleToVoid && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setSaleToVoid(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="size-10 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <RotateCcw className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-foreground">
+                    Void POS Sale #{saleToVoid.sale_number}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Administrative reversal & audit preservation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaleToVoid(null)}
+                className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+              <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="size-4 shrink-0" />
+                Historical Record Preservation
+              </p>
+              A completed POS sale is a permanent financial record. Voiding this transaction will
+              cancel the invoice and exclude it from revenue reporting while preserving the
+              historical audit trail. <strong>The sale will not be erased.</strong>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-1.5">
+                  Audit Reason <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cashier ring-up mistake / Accidental duplicate / Customer cancelled"
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+                  autoFocus
+                />
+                {/* Quick chip suggestions */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {[
+                    "Accidental duplicate punch",
+                    "Cashier item ring-up error",
+                    "Customer cancelled at counter",
+                    "POS payment failed / voided",
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setVoidReason(chip)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-border bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border/70">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={restoreStock}
+                    onChange={(e) => setRestoreStock(e.target.checked)}
+                    className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-foreground">
+                      Compensating Inventory Restock
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Return physical items back to product inventory. (Uncheck if goods were
+                      damaged, discarded, or retained by customer).
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setSaleToVoid(null)}
+                disabled={voidSaleMutation.isPending}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-border bg-background text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                Keep Active Sale
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!voidReason.trim()) {
+                    toast.error("Please provide an audit reason for voiding this sale");
+                    return;
+                  }
+                  await voidSaleMutation.mutateAsync({
+                    saleId: saleToVoid.id,
+                    reason: voidReason.trim(),
+                    restoreStock,
+                  });
+                  setSaleToVoid(null);
+                }}
+                disabled={voidSaleMutation.isPending || !voidReason.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {voidSaleMutation.isPending && (
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                )}
+                <span>Confirm Void & Reversal</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

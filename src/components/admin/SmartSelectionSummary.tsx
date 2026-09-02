@@ -8,6 +8,7 @@ import type { SummaryMetric } from "@/lib/table-selection";
 
 export interface SmartSelectionSummaryProps {
   selectedCount: number;
+  selectedLabel?: string;
   metrics: SummaryMetric[];
   onClear: () => void;
   actions?: React.ReactNode;
@@ -16,12 +17,19 @@ export interface SmartSelectionSummaryProps {
 
 export function SmartSelectionSummary({
   selectedCount,
+  selectedLabel = "Selected",
   metrics,
   onClear,
   actions,
   className = "",
 }: SmartSelectionSummaryProps) {
   if (selectedCount <= 0) return null;
+
+  // Ensure no duplicate "Selected" chip is rendered if passed in metrics array
+  const cleanMetrics = (metrics || []).filter((m) => {
+    const lbl = m.label?.trim().toLowerCase() || "";
+    return !lbl.startsWith("selected");
+  });
 
   return (
     <div
@@ -35,11 +43,11 @@ export function SmartSelectionSummary({
           <div className="flex items-center gap-1.5 rounded-xl bg-primary/10 px-2.5 py-1 text-primary border border-primary/20">
             <Sparkles className="size-3.5 animate-pulse text-primary shrink-0" />
             <span className="text-[11px] font-black uppercase tracking-wider">
-              Selected: {selectedCount}
+              {selectedLabel}: {selectedCount}
             </span>
           </div>
 
-          {metrics.map((m, i) => {
+          {cleanMetrics.map((m, i) => {
             let badgeBg = "bg-muted/70 text-foreground border-border/80";
             let valColor = "text-foreground font-black";
 
@@ -47,7 +55,8 @@ export function SmartSelectionSummary({
               badgeBg = "bg-[#8B2020]/10 text-[#8B2020] border-[#8B2020]/20";
               valColor = "text-[#8B2020] font-black";
             } else if (m.highlight === "success") {
-              badgeBg = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+              badgeBg =
+                "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
               valColor = "text-emerald-700 dark:text-emerald-400 font-black";
             } else if (m.highlight === "warning") {
               badgeBg = "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";

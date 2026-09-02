@@ -9,6 +9,7 @@ import {
   setSavedLabelType,
   PRINT_FORMAT_CONFIG,
   buildLabelPrintHtml,
+  buildLabelPrintParts,
 } from "../src/lib/label-printer";
 
 test.describe("One-Click Product Label Printing Suite", () => {
@@ -172,11 +173,111 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(html).toContain("ZÉRAH BABY &amp; KIDS");
     // 3. Product name exists
     expect(html).toContain("dangri");
-    // 4. MRP exists clearly
+    // 4. MRP exists clearly (bold, not struck through by default)
+    expect(html).toContain('class="lbl-mrp-bold"');
     expect(html).toContain("MRP: ₹799");
+    expect(html).not.toContain('class="lbl-mrp-strike"');
     // 5. SKU exists
     expect(html).toContain("SKU: ZR-CL-825985");
     // 6. Barcode SVG exists
     expect(html).toContain("lbl-bc");
+  });
+
+  test("7. Exact 2-Label Output on 50×25mm Thermal Roll", () => {
+    const p1 = {
+      uuid: "prod-1",
+      name: "Cotton Romper",
+      barcode: "8901234567890",
+      sku: "ZR-CR-001",
+      price: 399,
+      mrp: 799,
+    };
+
+    // Case A: 1 product with qty = 2
+    const parts2Qty = buildLabelPrintParts({
+      products: [p1],
+      quantities: { "prod-1": 2 },
+      layout: "thermal-58",
+      labelType: "full",
+      showDiscount: false,
+      isStandaloneTab: false,
+    });
+    expect(parts2Qty.labelCount).toBe(2);
+
+    // Count occurrences of label-page
+    const labelPageMatches = (parts2Qty.pagesHtml.match(/class="label-page"/g) || []).length;
+    expect(labelPageMatches).toBe(2);
+
+    // Verify dimensions: 50mm x 25mm in CSS
+    expect(parts2Qty.css).toContain("size: 50mm 25mm;");
+    expect(parts2Qty.css).toContain("width: 50mm;");
+    expect(parts2Qty.css).toContain("height: 25mm;");
+
+    // Case B: Standalone tab preview wrapper
+    const tabParts = buildLabelPrintParts({
+      products: [p1],
+      quantities: { "prod-1": 2 },
+      layout: "thermal-58",
+      labelType: "full",
+      isStandaloneTab: true,
+    });
+    expect(tabParts.labelCount).toBe(2);
+    expect(tabParts.fullHtml).toContain("standalone-toolbar no-print");
+    expect(tabParts.fullHtml).toContain("Print Labels (2)");
+    // Toolbar is hidden under print
+    expect(tabParts.css).toContain(".standalone-toolbar,");
+    expect(tabParts.css).toContain("display: none !important;");
+  });
+
+  test("8. Retail Specification: Bold MRP Only, Selling Price Off by Default", () => {
+    const prod = {
+      uuid: "prod-spec",
+      name: "Floral Baby Frock",
+      barcode: "555123456789",
+      sku: "ZR-FBF-01",
+      price: 499,
+      mrp: 999,
+    };
+
+    // Default: showMrp=true, showSellPrice=false
+    const htmlDefault = buildLabelPrintHtml({
+      products: [prod],
+      quantities: { "prod-spec": 1 },
+      layout: "thermal-58",
+      labelType: "full",
+      showMrp: true,
+      showSellPrice: false,
+    });
+    expect(htmlDefault).toContain('class="lbl-mrp-bold"');
+    expect(htmlDefault).toContain("MRP: ₹999");
+    expect(htmlDefault).not.toContain('class="lbl-mrp-strike"');
+    expect(htmlDefault).not.toContain("Price: ₹499");
+
+    // When selling price is enabled alongside MRP: MRP is struck through, selling price is bold
+    const htmlBoth = buildLabelPrintHtml({
+      products: [prod],
+      quantities: { "prod-spec": 1 },
+      layout: "thermal-58",
+      labelType: "full",
+      showMrp: true,
+      showSellPrice: true,
+    });
+    expect(htmlBoth).toContain("lbl-mrp-strike");
+    expect(htmlBoth).toContain("lbl-sell-bold");
+    expect(htmlBoth).toContain("Price: ₹499");
+  });
+
+  test("9. Trailing Page Break Suppression to Prevent Blank Labels", () => {
+    const parts = buildLabelPrintParts({
+      products: [
+        { uuid: "p1", name: "Item", barcode: "111", sku: "SKU1", price: 100, mrp: 200 },
+      ],
+      quantities: { p1: 2 },
+      layout: "thermal-58",
+    });
+
+    // Verify :last-child break suppression is declared in CSS
+    expect(parts.css).toContain(".print-mode-50x25 .label-page:last-child");
+    expect(parts.css).toContain("break-after: auto !important;");
   });
 });

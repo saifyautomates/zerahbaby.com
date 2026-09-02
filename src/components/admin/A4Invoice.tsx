@@ -41,6 +41,8 @@ export type A4InvoiceSale = {
   total: number;
   store_credit_used?: number;
   credit_token_used?: string | null;
+  coupon_code?: string | null;
+  coupon_discount?: number;
   payment_method: string;
   notes?: string;
   sale_date?: Date;
@@ -432,6 +434,14 @@ ${
       <span>₹${sale.subtotal.toLocaleString("en-IN")}</span>
     </div>
     ${
+      sale.coupon_discount && sale.coupon_discount > 0
+        ? `<div class="totals-row alt discount">
+        <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
+        <span>−₹${sale.coupon_discount.toLocaleString("en-IN")}</span>
+      </div>`
+        : ""
+    }
+    ${
       sale.discount > 0
         ? `<div class="totals-row alt discount">
         <span>${escapeHtml(discountLabel)}</span>
@@ -439,19 +449,27 @@ ${
       </div>`
         : ""
     }
+    <div class="totals-row grand-total">
+      <span>TOTAL</span>
+      <span>₹${sale.total.toLocaleString("en-IN")}</span>
+    </div>
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div class="totals-row alt" style="color:#047857; font-weight:700;">
-            <span>Store Credit ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
-            <span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+        ? `<div class="totals-row alt" style="color:#047857; font-weight:700; margin-top:4px; border-top:1px dashed #ccc; padding-top:4px;">
+            <span>Exchange Credit Tender ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
+            <span>₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
           </div>
-          <div class="totals-row grand-total">
-            <span>NET PAID (${escapeHtml(paymentDisplay)})</span>
+          <div class="totals-row alt" style="font-weight:700;">
+            <span>Additional Paid (${escapeHtml(paymentDisplay)})</span>
             <span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
-          </div>`
-        : `<div class="totals-row grand-total">
-            <span>TOTAL</span>
+          </div>
+          <div class="totals-row" style="font-size:10px; color:#555;">
+            <span>Total Settled</span>
             <span>₹${sale.total.toLocaleString("en-IN")}</span>
+          </div>`
+        : `<div class="totals-row alt" style="font-size:11px; color:#555; margin-top:2px;">
+            <span>Payment Method</span>
+            <span>${escapeHtml(paymentDisplay)}</span>
           </div>`
     }
   </div>
@@ -695,10 +713,28 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
               <span className="text-muted-foreground">Items</span>
               <span>{items.reduce((s, i) => s + i.qty, 0)}</span>
             </div>
+            {sale.coupon_discount && sale.coupon_discount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Coupon ({sale.coupon_code || "PROMO"})</span>
+                <span className="font-semibold">−{formatPrice(sale.coupon_discount)}</span>
+              </div>
+            )}
+            {sale.discount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Discount</span>
+                <span className="font-semibold">−{formatPrice(sale.discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-border pt-1.5 mt-1">
               <span className="font-black text-foreground">Total</span>
               <span className="font-black text-[#8B2020] text-base">{formatPrice(sale.total)}</span>
             </div>
+            {sale.store_credit_used && sale.store_credit_used > 0 && (
+              <div className="flex justify-between text-emerald-700 text-xs">
+                <span>Exchange Credit Tender</span>
+                <span>−{formatPrice(sale.store_credit_used)}</span>
+              </div>
+            )}
           </div>
         </div>
 

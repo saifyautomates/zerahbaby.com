@@ -4,7 +4,12 @@
  */
 import { useState, useMemo, useCallback } from "react";
 import { roundMoney, roundCurrencyInt } from "./pricing-engine";
-import { getProductBuyingPrice, type ReportProduct } from "./financial-reporting";
+import {
+  getProductBuyingPrice,
+  calculateStockValuation,
+  type ReportProduct,
+  type StockValuationItem,
+} from "./financial-reporting";
 import type { Product } from "./store";
 import type { Order } from "./orders";
 import type { OfflineSale } from "./pos";
@@ -50,7 +55,8 @@ export interface TableSelectionResult<T> {
  */
 export function useTableSelection<T = any>({
   items,
-  getId = (item: T) => String((item as Record<string, unknown>).id || (item as Record<string, unknown>).uuid || ""),
+  getId = (item: T) =>
+    String((item as Record<string, unknown>).id || (item as Record<string, unknown>).uuid || ""),
 }: UseTableSelectionOptions<T>): TableSelectionResult<T> {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -62,20 +68,17 @@ export function useTableSelection<T = any>({
 
   const isSelected = useCallback((id: string) => selectedIds.has(id), [selectedIds]);
 
-  const toggle = useCallback(
-    (id: string) => {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const toggle = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const selectMany = useCallback((ids: string[]) => {
     setSelectedIds((prev) => {
@@ -146,7 +149,7 @@ export function useTableSelection<T = any>({
 
   return {
     selectedIds,
-    selectedCount: selectedIds.size,
+    selectedCount: selectedItems.length,
     selectedItems,
     isSelected,
     toggle,
@@ -192,12 +195,18 @@ export function getOrdersSelectionMetrics(
 
     // 2. Quantity & COGS from order items
     o.order_items?.forEach((item) => {
-      const raw = item as { qty?: number; quantity?: number; product_slug?: string; product_id?: string };
+      const raw = item as {
+        qty?: number;
+        quantity?: number;
+        product_slug?: string;
+        product_id?: string;
+      };
       const qty = Number(raw.qty || raw.quantity || 1);
       totalQty += qty;
 
       const p = allProducts.find(
-        (prod) => prod.id === raw.product_slug || prod.uuid === (raw.product_id || raw.product_slug),
+        (prod) =>
+          prod.id === raw.product_slug || prod.uuid === (raw.product_id || raw.product_slug),
       );
       const buyingPrice = getProductBuyingPrice(p as unknown as ReportProduct);
       totalCogs += buyingPrice * qty;
@@ -208,9 +217,13 @@ export function getOrdersSelectionMetrics(
   const netProfit = Math.max(0, netRevenue - totalCogs);
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedOrders.length, highlight: "default" },
-    { label: "Items / Qty", value: totalQty, highlight: "default" },
-    { label: "Gross Total", value: formatPrice(roundCurrencyInt(grossTotal)), highlight: "brand", isCurrency: true },
+    { label: "Items Ordered", value: totalQty, highlight: "default" },
+    {
+      label: "Gross Total",
+      value: formatPrice(roundCurrencyInt(grossTotal)),
+      highlight: "brand",
+      isCurrency: true,
+    },
   ];
 
   if (totalDiscount > 0) {
@@ -254,8 +267,18 @@ export function getRevenueSelectionMetrics(
     source?: string;
     items_count?: number;
     status?: string;
-    order_items?: Array<{ qty?: number; quantity?: number; product_id?: string; product_slug?: string }>;
-    offline_sale_items?: Array<{ qty?: number; quantity?: number; product_id?: string; product_slug?: string }>;
+    order_items?: Array<{
+      qty?: number;
+      quantity?: number;
+      product_id?: string;
+      product_slug?: string;
+    }>;
+    offline_sale_items?: Array<{
+      qty?: number;
+      quantity?: number;
+      product_id?: string;
+      product_slug?: string;
+    }>;
   }>,
   allProducts: Product[] = [],
 ): SummaryMetric[] {
@@ -295,9 +318,13 @@ export function getRevenueSelectionMetrics(
   const netProfit = Math.max(0, netRevenue - totalCogs);
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedRows.length, highlight: "default" },
-    { label: "Units Sold", value: totalQty, highlight: "default" },
-    { label: "Gross Revenue", value: formatPrice(roundCurrencyInt(grossRevenue)), highlight: "brand", isCurrency: true },
+    { label: "Items Sold", value: totalQty, highlight: "default" },
+    {
+      label: "Gross Revenue",
+      value: formatPrice(roundCurrencyInt(grossRevenue)),
+      highlight: "brand",
+      isCurrency: true,
+    },
   ];
 
   if (totalDiscount > 0) {
@@ -364,9 +391,13 @@ export function getPOSSelectionMetrics(
   const profit = Math.max(0, total - totalCogs);
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedSales.length, highlight: "default" },
     { label: "Items Sold", value: totalQty, highlight: "default" },
-    { label: "Subtotal", value: formatPrice(roundCurrencyInt(subtotal)), highlight: "default", isCurrency: true },
+    {
+      label: "Subtotal",
+      value: formatPrice(roundCurrencyInt(subtotal)),
+      highlight: "default",
+      isCurrency: true,
+    },
   ];
 
   if (discount > 0) {
@@ -404,7 +435,13 @@ export function getReturnsSelectionMetrics(
   selectedReturns: Array<{
     id: string;
     refund_amount?: number;
-    offline_return_items?: Array<{ qty?: number; quantity?: number; refund_price?: number; product_id?: string; product_slug?: string }>;
+    offline_return_items?: Array<{
+      qty?: number;
+      quantity?: number;
+      refund_price?: number;
+      product_id?: string;
+      product_slug?: string;
+    }>;
   }>,
   allProducts: Product[] = [],
 ): SummaryMetric[] {
@@ -430,9 +467,13 @@ export function getReturnsSelectionMetrics(
   });
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedReturns.length, highlight: "default" },
     { label: "Returned Units", value: returnedUnits, highlight: "default" },
-    { label: "Total Refund", value: formatPrice(roundCurrencyInt(totalRefund)), highlight: "danger", isCurrency: true },
+    {
+      label: "Total Refund",
+      value: formatPrice(roundCurrencyInt(totalRefund)),
+      highlight: "danger",
+      isCurrency: true,
+    },
   ];
 
   if (totalCostRestocked > 0) {
@@ -454,50 +495,55 @@ export function getReturnsSelectionMetrics(
 export function getProductsSelectionMetrics(selectedProducts: Product[]): SummaryMetric[] {
   if (!selectedProducts || selectedProducts.length === 0) return [];
 
-  let totalStock = 0;
-  let inventoryValue = 0;
-  let potentialRevenue = 0;
-  let totalCost = 0;
-  let lowStockCount = 0;
-
-  selectedProducts.forEach((p) => {
-    const stock = Number(p.stock || 0);
-    const price = Number(p.price || 0);
-    const buyingPrice = getProductBuyingPrice(p as unknown as ReportProduct);
-
-    totalStock += stock;
-    inventoryValue += roundMoney(stock * price);
-    potentialRevenue += roundMoney(stock * price);
-    totalCost += roundMoney(stock * buyingPrice);
-
-    if (stock <= 5 && stock > 0) {
-      lowStockCount++;
-    }
-  });
-
-  const potentialProfit = Math.max(0, potentialRevenue - totalCost);
+  const valuation = calculateStockValuation(selectedProducts as unknown as StockValuationItem[]);
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedProducts.length, highlight: "default" },
-    { label: "Total Stock", value: totalStock, highlight: "default" },
-    { label: "Stock Value", value: formatPrice(roundCurrencyInt(inventoryValue)), highlight: "brand", isCurrency: true },
+    {
+      label: "Total Stock Units",
+      value: valuation.totalUnits,
+      highlight: "default",
+      tooltip: "Total physical in-stock units across selected products",
+    },
+    {
+      label: "Stock Value",
+      value: formatPrice(roundCurrencyInt(valuation.retailValue)),
+      highlight: "brand",
+      isCurrency: true,
+      tooltip: "Potential retail sales value at listed price",
+    },
   ];
 
-  if (totalCost > 0) {
+  if (valuation.costValue > 0) {
     metrics.push({
-      label: "Potential Profit",
-      value: formatPrice(roundCurrencyInt(potentialProfit)),
-      highlight: "success",
+      label: "Store Cost",
+      value: formatPrice(roundCurrencyInt(valuation.costValue)),
+      highlight: "default",
       isCurrency: true,
-      tooltip: "Potential profit if all current stock sells at listed price",
+      tooltip: "Total inventory buying cost of currently selected stock",
+    });
+    metrics.push({
+      label: "Potential Margin",
+      value: `${formatPrice(roundCurrencyInt(valuation.potentialProfit))} (${valuation.potentialMarginPct}%)`,
+      highlight: "success",
+      tooltip: "Estimated profit if all stock sells at current price",
     });
   }
 
-  if (lowStockCount > 0) {
+  if (valuation.lowStockCount > 0) {
     metrics.push({
-      label: "Low Stock (≤5)",
-      value: lowStockCount,
+      label: "Low Stock Products",
+      value: valuation.lowStockCount,
       highlight: "warning",
+      tooltip: "Number of selected products at or below their low stock threshold",
+    });
+  }
+
+  if (valuation.outOfStockCount > 0) {
+    metrics.push({
+      label: "Out of Stock",
+      value: valuation.outOfStockCount,
+      highlight: "danger",
+      tooltip: "Number of selected products with zero stock",
     });
   }
 
@@ -513,41 +559,57 @@ export function getInventorySelectionMetrics(
     stock: number;
     price?: number;
     selling_price?: number;
+    buying_price?: number;
+    buyingPrice?: number;
+    product_costs?:
+      { buying_price?: number | null } | Array<{ buying_price?: number | null }> | null;
     name?: string;
   }>,
 ): SummaryMetric[] {
   if (!selectedItems || selectedItems.length === 0) return [];
 
-  let totalStock = 0;
-  let stockValue = 0;
-  let lowStockCount = 0;
-  let outOfStockCount = 0;
-
-  selectedItems.forEach((item) => {
-    const stock = Number(item.stock || 0);
-    const price = Number(item.price || item.selling_price || 0);
-    totalStock += stock;
-    stockValue += roundMoney(stock * price);
-
-    if (stock === 0) {
-      outOfStockCount++;
-    } else if (stock <= 5) {
-      lowStockCount++;
-    }
-  });
+  const valuation = calculateStockValuation(selectedItems as unknown as StockValuationItem[]);
 
   const metrics: SummaryMetric[] = [
-    { label: "Selected", value: selectedItems.length, highlight: "default" },
-    { label: "Stock Units", value: totalStock, highlight: "default" },
-    { label: "Stock Value", value: formatPrice(roundCurrencyInt(stockValue)), highlight: "brand", isCurrency: true },
+    {
+      label: "Total Stock Units",
+      value: valuation.totalUnits,
+      highlight: "default",
+      tooltip: "Total physical stock units across selected items",
+    },
+    {
+      label: "Stock Value",
+      value: formatPrice(roundCurrencyInt(valuation.retailValue)),
+      highlight: "brand",
+      isCurrency: true,
+      tooltip: "Potential retail sales value at listed price",
+    },
   ];
 
-  if (lowStockCount > 0) {
-    metrics.push({ label: "Low Stock Items", value: lowStockCount, highlight: "warning" });
+  if (valuation.costValue > 0) {
+    metrics.push({
+      label: "Store Cost",
+      value: formatPrice(roundCurrencyInt(valuation.costValue)),
+      highlight: "default",
+      isCurrency: true,
+      tooltip: "Inventory asset buying cost invested in this stock",
+    });
   }
 
-  if (outOfStockCount > 0) {
-    metrics.push({ label: "Out of Stock", value: outOfStockCount, highlight: "danger" });
+  if (valuation.lowStockCount > 0) {
+    metrics.push({
+      label: "Low Stock Products",
+      value: valuation.lowStockCount,
+      highlight: "warning",
+    });
+  }
+
+  if (valuation.outOfStockCount > 0) {
+    metrics.push({
+      label: "Out of Stock",
+      value: valuation.outOfStockCount,
+      highlight: "danger",
+    });
   }
 
   return metrics;
@@ -576,9 +638,13 @@ export function getCustomersSelectionMetrics(
   });
 
   return [
-    { label: "Selected", value: selectedCustomers.length, highlight: "default" },
     { label: "Total Orders", value: totalOrders, highlight: "default" },
-    { label: "Combined Spend", value: formatPrice(roundCurrencyInt(totalSpend)), highlight: "brand", isCurrency: true },
+    {
+      label: "Combined Spend",
+      value: formatPrice(roundCurrencyInt(totalSpend)),
+      highlight: "brand",
+      isCurrency: true,
+    },
   ];
 }
 
@@ -599,9 +665,13 @@ export function getCouponsSelectionMetrics(selectedCoupons: Coupon[]): SummaryMe
   });
 
   return [
-    { label: "Selected", value: selectedCoupons.length, highlight: "default" },
     { label: "Active", value: activeCount, highlight: "success" },
     { label: "Total Uses", value: totalUsage, highlight: "default" },
-    { label: "Min Order Sum", value: formatPrice(roundCurrencyInt(totalMinOrder)), highlight: "default", isCurrency: true },
+    {
+      label: "Min Order Sum",
+      value: formatPrice(roundCurrencyInt(totalMinOrder)),
+      highlight: "default",
+      isCurrency: true,
+    },
   ];
 }

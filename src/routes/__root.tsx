@@ -326,6 +326,19 @@ function RootComponent() {
     return unbindScanner;
   }, [location.pathname, router]);
 
+  // Live real-time page browsing tracking for non-admin storefront visits
+  useEffect(() => {
+    if (!isAdminRoute && typeof window !== "undefined") {
+      trackEvent("page_view", {
+        metadata: {
+          path: location.pathname,
+          search: location.searchStr || "",
+          title: typeof document !== "undefined" ? document.title : "",
+        },
+      });
+    }
+  }, [location.pathname, isAdminRoute]);
+
   useEffect(() => {
     // Global handler for stale dynamic module imports / chunk load failures
     const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {

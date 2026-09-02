@@ -15,6 +15,8 @@ import { formatPrice, useProducts } from "@/lib/store";
 import { useTableSelection, getOrdersSelectionMetrics } from "@/lib/table-selection";
 import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import type { OfflineSale } from "@/lib/pos";
+import { deleteQueuedSale } from "@/lib/offline-sync-engine";
+import { invalidateCanonicalReportingQueries } from "@/lib/canonical-reporting";
 import {
   useCreateShiprocketShipment,
   useGenerateShiprocketAWB,
@@ -72,32 +74,25 @@ export function OnlineSalesTab() {
     try {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
         const { error } = await supabase.rpc(
-          "admin_delete_offline_sale" as never,
+          "admin_void_offline_sale" as never,
           {
             _sale_id: orderToDelete.id,
+            _reason: "Voided via Online Sales Tab",
+            _restore_stock: true,
           } as never,
         );
         if (error) {
-          const { error: delErr } = await supabase
-            .from("offline_sales")
-            .delete()
-            .eq("id", orderToDelete.id);
-          if (delErr) throw new Error(error.message || delErr.message);
+          throw new Error(error.message || "Failed to void POS sale");
         }
-        toast.success("POS sale deleted and stock restored.");
-        qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
-        qc.invalidateQueries({ queryKey: ["offline-sales"] });
-        qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
-        qc.invalidateQueries({ queryKey: ["admin-products"] });
-        qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
-        qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
+        toast.success("POS sale voided and stock restored. Audit trail preserved.");
+        invalidateCanonicalReportingQueries(qc);
       } else {
         await deleteOrder.mutateAsync(orderToDelete.id);
       }
       setOrderToDelete(null);
     } catch (e) {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
-        toast.error((e as Error).message || "Failed to delete POS sale");
+        toast.error((e as Error).message || "Failed to void POS sale");
       }
     }
   }
@@ -396,8 +391,8 @@ export function OnlineSalesTab() {
           )}
 
           <p className="text-xs font-medium text-muted-foreground">
-            Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
-            of {orders.length} transactions
+            Showing {(page - 1) * ITEMS_PER_PAGE + 1}-
+            {Math.min(page * ITEMS_PER_PAGE, orders.length)} of {orders.length} transactions
             {filter === "new_orders" && " (placed in last 24 hours)"}
             {filter === "unpaid" && " (unpaid / abandoned payments)"}
           </p>
@@ -407,6 +402,7 @@ export function OnlineSalesTab() {
       {/* Sticky Smart Selection Summary */}
       <SmartSelectionSummary
         selectedCount={selection.selectedCount}
+        selectedLabel="Selected Orders"
         metrics={selectionMetrics}
         onClear={selection.clearSelection}
       />
@@ -429,7 +425,9 @@ export function OnlineSalesTab() {
             <li
               key={order.id}
               className={`overflow-hidden rounded-3xl border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border ${
-                isSelected ? "border-[#8B2020] ring-2 ring-[#8B2020]/20 bg-[#8B2020]/5" : "border-gray-100"
+                isSelected
+                  ? "border-[#8B2020] ring-2 ring-[#8B2020]/20 bg-[#8B2020]/5"
+                  : "border-gray-100"
               }`}
             >
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -447,215 +445,221 @@ export function OnlineSalesTab() {
                         ? order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`
                         : `#${order.id.slice(0, 8).toUpperCase()}`}
                     </span>
-                  <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
-                    {order.status}
-                  </span>
-                  {order._type === "offline" && (
-                    <span className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 text-xs font-semibold uppercase">
-                      POS / Walk-in
+                    <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
+                      {order.status}
                     </span>
-                  )}
-                  {order._type === "online" && order.payment_status && (
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                        order.payment_status === "paid"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                          : order.payment_status === "failed"
-                            ? "bg-rose-50 text-rose-700 border border-rose-100"
-                            : "bg-amber-50 text-amber-700 border border-amber-100"
-                      }`}
-                    >
-                      Payment: {order.payment_status}
-                    </span>
-                  )}
-                  {/* Owner Alert Status */}
-                  {order.owner_notification_status === "sent" ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                      <MailCheck className="size-3" /> Owner Notified
-                    </span>
-                  ) : order.owner_notification_status === "failed" ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-700">
-                      <MailWarning className="size-3" /> Email Alert Failed
-                      <button
-                        type="button"
-                        onClick={() =>
-                          retryNotification.mutate({
-                            orderId: order.id,
-                            type: order._type === "online" ? "online_order" : "offline_sale",
-                          })
-                        }
-                        disabled={retryNotification.isPending}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 underline hover:text-rose-950 disabled:opacity-50"
-                      >
-                        <RotateCcw className="size-2.5" /> Retry
-                      </button>
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  {new Date(order.created_at).toLocaleString("en-IN")}
-                </p>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm font-bold text-foreground">
-                      {order._type === "online"
-                        ? order.full_name
-                        : order.customer_name || "Walk-in Customer"}
-                    </p>
-                    <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                      {order._type === "online" ? order.email : order.customer_email || "No email"}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {order._type === "online" ? order.phone : order.customer_phone || "No phone"}{" "}
-                      {order._type === "online" && order.alt_phone && (
-                        <span className="text-xs">/ {order.alt_phone}</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="max-w-xs text-sm text-muted-foreground leading-relaxed">
-                      {order._type === "online" ? (
-                        <>
-                          {order.address}
-                          {order.address_line2 ? `, ${order.address_line2}` : ""}
-                          {order.landmark ? `, near ${order.landmark}` : ""}
-                          <br />
-                          {[order.city, order.state, order.pincode].filter(Boolean).length
-                            ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
-                            : ""}
-                        </>
-                      ) : (
-                        "In-store purchase"
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {order.status === "cancelled" && (
-                  <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-800">
-                    <p className="font-bold text-red-900">
-                      Order Cancelled
-                      {order.cancelled_at &&
-                        ` on ${new Date(order.cancelled_at || "").toLocaleString("en-IN")}`}
-                    </p>
-                    {order.cancellation_reason && (
-                      <p className="mt-0.5">Reason: “{order.cancellation_reason}”</p>
+                    {order._type === "offline" && (
+                      <span className="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 text-xs font-semibold uppercase">
+                        POS / Walk-in
+                      </span>
                     )}
-                  </div>
-                )}
-
-                {order.notes && (
-                  <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 p-3.5 text-sm text-amber-700">
-                    <strong>Note:</strong> “{order.notes}”
-                  </div>
-                )}
-                <div className="mt-5 border-t border-gray-100 pt-5">
-                  <InvoiceBox order={order as unknown as Order} />
-                </div>
-              </div>
-
-              <div className="text-right sm:w-48">
-                <p className="text-xl font-extrabold text-foreground">
-                  {formatPrice(Number(order.total))}
-                </p>
-                <select
-                  value={order.status}
-                  onChange={(e) =>
-                    update.mutate({
-                      id: order.id,
-                      status: e.target.value,
-                    })
-                  }
-                  disabled={update.isPending}
-                  aria-label={`Status for order ${order.id}`}
-                  className="mt-3 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm text-foreground disabled:opacity-50"
-                >
-                  {orderStatuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Shiprocket Actions */}
-                {order.payment_status === "paid" && order.status !== "cancelled" && (
-                  <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
-                    {!order.shiprocket_order_id ? (
-                      <button
-                        type="button"
-                        onClick={() => createShipment.mutate(order.id)}
-                        disabled={createShipment.isPending || order.status === "cancelled"}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-sm disabled:opacity-50"
+                    {order._type === "online" && order.payment_status && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
+                          order.payment_status === "paid"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                            : order.payment_status === "failed"
+                              ? "bg-rose-50 text-rose-700 border border-rose-100"
+                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                        }`}
                       >
-                        {createShipment.isPending ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <PackageCheck className="size-3.5" />
-                        )}
-                        Push to Shiprocket
-                      </button>
-                    ) : !order.awb_code ? (
-                      <button
-                        type="button"
-                        onClick={() => generateAwb.mutate(order.id)}
-                        disabled={generateAwb.isPending}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
-                      >
-                        {generateAwb.isPending ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Send className="size-3.5" />
-                        )}
-                        Generate AWB
-                      </button>
-                    ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
-                      order.shiprocket_status !== "SHIPPED" &&
-                      order.shiprocket_status !== "DELIVERED" ? (
-                      <button
-                        type="button"
-                        onClick={() => requestPickup.mutate(order.id)}
-                        disabled={requestPickup.isPending}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
-                      >
-                        {requestPickup.isPending ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Truck className="size-3.5" />
-                        )}
-                        Request Pickup
-                      </button>
-                    ) : (
-                      <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                          Shiprocket AWB
-                        </p>
-                        <p className="text-xs font-bold text-foreground mt-0.5">{order.awb_code}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {order.courier_name}
-                        </p>
-                        <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
-                          {order.shiprocket_status}
-                        </p>
-                      </div>
+                        Payment: {order.payment_status}
+                      </span>
                     )}
+                    {/* Owner Alert Status */}
+                    {order.owner_notification_status === "sent" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                        <MailCheck className="size-3" /> Owner Notified
+                      </span>
+                    ) : order.owner_notification_status === "failed" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-700">
+                        <MailWarning className="size-3" /> Email Alert Failed
+                        <button
+                          type="button"
+                          onClick={() =>
+                            retryNotification.mutate({
+                              orderId: order.id,
+                              type: order._type === "online" ? "online_order" : "offline_sale",
+                            })
+                          }
+                          disabled={retryNotification.isPending}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 underline hover:text-rose-950 disabled:opacity-50"
+                        >
+                          <RotateCcw className="size-2.5" /> Retry
+                        </button>
+                      </span>
+                    ) : null}
                   </div>
-                )}
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    {new Date(order.created_at).toLocaleString("en-IN")}
+                  </p>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">
+                        {order._type === "online"
+                          ? order.full_name
+                          : order.customer_name || "Walk-in Customer"}
+                      </p>
+                      <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                        {order._type === "online"
+                          ? order.email
+                          : order.customer_email || "No email"}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {order._type === "online"
+                          ? order.phone
+                          : order.customer_phone || "No phone"}{" "}
+                        {order._type === "online" && order.alt_phone && (
+                          <span className="text-xs">/ {order.alt_phone}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="max-w-xs text-sm text-muted-foreground leading-relaxed">
+                        {order._type === "online" ? (
+                          <>
+                            {order.address}
+                            {order.address_line2 ? `, ${order.address_line2}` : ""}
+                            {order.landmark ? `, near ${order.landmark}` : ""}
+                            <br />
+                            {[order.city, order.state, order.pincode].filter(Boolean).length
+                              ? `${[order.city, order.state, order.pincode].filter(Boolean).join(", ")}`
+                              : ""}
+                          </>
+                        ) : (
+                          "In-store purchase"
+                        )}
+                      </p>
+                    </div>
+                  </div>
 
-                {/* Secure Admin Delete Action for Cancelled Orders Only */}
-                {order.status === "cancelled" && (
-                  <button
-                    type="button"
-                    onClick={() => setOrderToDelete(order as unknown as Order)}
-                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm"
+                  {order.status === "cancelled" && (
+                    <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3.5 text-xs text-red-800">
+                      <p className="font-bold text-red-900">
+                        Order Cancelled
+                        {order.cancelled_at &&
+                          ` on ${new Date(order.cancelled_at || "").toLocaleString("en-IN")}`}
+                      </p>
+                      {order.cancellation_reason && (
+                        <p className="mt-0.5">Reason: “{order.cancellation_reason}”</p>
+                      )}
+                    </div>
+                  )}
+
+                  {order.notes && (
+                    <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 p-3.5 text-sm text-amber-700">
+                      <strong>Note:</strong> “{order.notes}”
+                    </div>
+                  )}
+                  <div className="mt-5 border-t border-gray-100 pt-5">
+                    <InvoiceBox order={order as unknown as Order} />
+                  </div>
+                </div>
+
+                <div className="text-right sm:w-48">
+                  <p className="text-xl font-extrabold text-foreground">
+                    {formatPrice(Number(order.total))}
+                  </p>
+                  <select
+                    value={order.status}
+                    onChange={(e) =>
+                      update.mutate({
+                        id: order.id,
+                        status: e.target.value,
+                      })
+                    }
+                    disabled={update.isPending}
+                    aria-label={`Status for order ${order.id}`}
+                    className="mt-3 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm text-foreground disabled:opacity-50"
                   >
-                    <Trash2 className="size-3.5" />
-                    Delete Permanently
-                  </button>
-                )}
+                    {orderStatuses.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Shiprocket Actions */}
+                  {order.payment_status === "paid" && order.status !== "cancelled" && (
+                    <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
+                      {!order.shiprocket_order_id ? (
+                        <button
+                          type="button"
+                          onClick={() => createShipment.mutate(order.id)}
+                          disabled={createShipment.isPending || order.status === "cancelled"}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-sm disabled:opacity-50"
+                        >
+                          {createShipment.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <PackageCheck className="size-3.5" />
+                          )}
+                          Push to Shiprocket
+                        </button>
+                      ) : !order.awb_code ? (
+                        <button
+                          type="button"
+                          onClick={() => generateAwb.mutate(order.id)}
+                          disabled={generateAwb.isPending}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                        >
+                          {generateAwb.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Send className="size-3.5" />
+                          )}
+                          Generate AWB
+                        </button>
+                      ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
+                        order.shiprocket_status !== "SHIPPED" &&
+                        order.shiprocket_status !== "DELIVERED" ? (
+                        <button
+                          type="button"
+                          onClick={() => requestPickup.mutate(order.id)}
+                          disabled={requestPickup.isPending}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                        >
+                          {requestPickup.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Truck className="size-3.5" />
+                          )}
+                          Request Pickup
+                        </button>
+                      ) : (
+                        <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                            Shiprocket AWB
+                          </p>
+                          <p className="text-xs font-bold text-foreground mt-0.5">
+                            {order.awb_code}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {order.courier_name}
+                          </p>
+                          <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
+                            {order.shiprocket_status}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Secure Admin Delete Action for Cancelled Orders Only */}
+                  {order.status === "cancelled" && (
+                    <button
+                      type="button"
+                      onClick={() => setOrderToDelete(order as unknown as Order)}
+                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete Permanently
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </li>
-        );
+            </li>
+          );
         })}
       </ul>
 

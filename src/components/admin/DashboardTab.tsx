@@ -48,6 +48,7 @@ import {
   Search,
   X,
   RotateCcw,
+  RefreshCw,
   Tag,
   Sparkles,
 } from "lucide-react";
@@ -58,7 +59,16 @@ import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
 import { DashboardDrillDown } from "./DashboardDrillDown";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeletons";
-import { calculateFinancialMetrics } from "@/lib/financial-reporting";
+import {
+  calculateFinancialMetrics,
+  getISTPeriodBounds,
+  isValidPOSSale,
+  isValidOnlineOrder,
+  isValidReturn,
+  useReportingDateRange,
+  type DatePreset,
+} from "@/lib/financial-reporting";
+import { useCanonicalPOSSales } from "@/lib/canonical-reporting";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -68,7 +78,7 @@ type WebsiteVisitor = {
   customer_name?: string | null;
 };
 
-type DateRangePreset = "today" | "yesterday" | "7d" | "30d" | "this_month" | "all";
+type DateRangePreset = DatePreset;
 
 const DATE_RANGE_OPTIONS: { key: DateRangePreset; label: string; subLabel: string }[] = [
   { key: "today", label: "Today", subLabel: "Today's activity" },
@@ -77,6 +87,7 @@ const DATE_RANGE_OPTIONS: { key: DateRangePreset; label: string; subLabel: strin
   { key: "30d", label: "Last 30 Days", subLabel: "Past 30 days" },
   { key: "this_month", label: "This Month", subLabel: "Month to date" },
   { key: "all", label: "All Time", subLabel: "Entire history" },
+  { key: "custom", label: "Custom Range", subLabel: "Specific start & end" },
 ];
 
 function calculateDelta(current: number, prev: number, periodLabel: string) {
@@ -122,28 +133,26 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     }
   };
 
-  const [datePreset, setDatePresetState] = useState<DateRangePreset>(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const preset = urlParams.get("datePreset") as DateRangePreset | null;
-      if (preset && ["today", "yesterday", "7d", "30d", "this_month", "all"].includes(preset)) {
-        return preset;
-      }
-      const saved = localStorage.getItem("zerah_admin_date_preset") as DateRangePreset | null;
-      if (saved && ["today", "yesterday", "7d", "30d", "this_month", "all"].includes(saved)) {
-        return saved;
-      }
-    }
-    return "7d";
-  });
+  const {
+    preset: datePreset,
+    startDate: customStart,
+    endDate: customEnd,
+    bounds: reportingBounds,
+    setDateRange,
+  } = useReportingDateRange();
+
+  const { dateRangeText, compareLabel, inCurrentPeriod, inPrevPeriod } = reportingBounds;
+  const [customStartInput, setCustomStartInput] = useState(customStart || "");
+  const [customEndInput, setCustomEndInput] = useState(customEnd || "");
 
   const setDatePreset = (val: DateRangePreset) => {
-    setDatePresetState(val);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("zerah_admin_date_preset", val);
-      const url = new URL(window.location.href);
-      url.searchParams.set("datePreset", val);
-      window.history.replaceState({}, "", url.toString());
+    if (val === "custom") {
+      const today = new Date();
+      const istToday = new Date(today.getTime() + 330 * 60 * 1000);
+      const todayStr = istToday.toISOString().split("T")[0];
+      setDateRange("custom", customStartInput || todayStr, customEndInput || todayStr);
+    } else {
+      setDateRange(val);
     }
   };
 
@@ -177,23 +186,27 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       .channel("admin-dashboard-realtime-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_sales" }, () => {
         queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
         queryClient.invalidateQueries({ queryKey: ["admin-offline-sales"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_returns" }, () => {
         queryClient.invalidateQueries({ queryKey: ["offline-returns"] });
         queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-analytics-events"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_sale_items" }, () => {
         queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "analytics_events" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-products-count"] });
@@ -205,12 +218,19 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         { event: "INSERT", schema: "public", table: "website_visitors" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
         },
       )
       .subscribe();
 
+    const handleLocalEvent = () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
+    };
+    window.addEventListener("zerah-activity-event", handleLocalEvent);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener("zerah-activity-event", handleLocalEvent);
     };
   }, [queryClient]);
 
@@ -247,22 +267,14 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     isLoading: posLoading,
     isError: posError,
     refetch: refetchPos,
-  } = useQuery<OfflineSale[]>({
-    queryKey: ["offline-sales"],
-    staleTime: 1000 * 60 * 3,
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("offline_sales")
-        .select("*, offline_sale_items(*)")
-        .order("created_at", { ascending: false })
-        .limit(1500);
-      if (error) throw error;
-      return (data ?? []) as unknown as OfflineSale[];
-    },
-  });
+  } = useCanonicalPOSSales();
 
-  const { data: offlineReturns = [] } = useQuery<
+  const {
+    data: offlineReturns = [],
+    isLoading: returnsLoading,
+    isError: returnsError,
+    refetch: refetchReturns,
+  } = useQuery<
     Array<{
       id: string;
       refund_amount: number;
@@ -279,19 +291,24 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .select("id, refund_amount, created_at, status, refund_status")
         .order("created_at", { ascending: false })
         .limit(1500);
-      if (error) return [];
+      if (error) {
+        console.error("[dashboard] offline_returns query error:", error);
+        throw error;
+      }
       return (data ?? []) as never[];
     },
   });
 
+  // Authoritative business accounting: strictly valid completed transactions only!
   const posSales = useMemo(() => {
-    return rawPosSales.filter((s) => s.status !== "cancelled");
+    return rawPosSales.filter(isValidPOSSale);
   }, [rawPosSales]);
 
   const {
     data: visitors = [],
     isLoading: visitorsLoading,
     isError: visitorsError,
+    refetch: refetchVisitors,
   } = useQuery<WebsiteVisitor[]>({
     queryKey: ["admin-visitor-analytics"],
     staleTime: 1000 * 60 * 5,
@@ -302,7 +319,10 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .gte("created_at", subDays(new Date(), 60).toISOString())
         .order("created_at", { ascending: false })
         .limit(2000);
-      if (error) return [];
+      if (error) {
+        console.error("[dashboard] website_visitors query error:", error);
+        throw error;
+      }
       return (data ?? []) as unknown as WebsiteVisitor[];
     },
   });
@@ -311,6 +331,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     data: products = [],
     isLoading: productsLoading,
     isError: productsError,
+    refetch: refetchProducts,
   } = useQuery({
     queryKey: ["admin-products-count"],
     staleTime: 1000 * 60 * 5,
@@ -320,90 +341,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         .select(
           "id, price, stock, name, is_active, slug, category, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
         );
-      if (error) return [];
+      if (error) {
+        console.error("[dashboard] products query error:", error);
+        throw error;
+      }
       return data ?? [];
     },
   });
 
-  const isAnyLoading = ordersLoading || posLoading || visitorsLoading || productsLoading;
-  const isAnyError = ordersError || posError || visitorsError || productsError;
-
-  // Date Range Bounds & Comparison Windows
-  const { dateRangeText, compareLabel, inCurrentPeriod, inPrevPeriod } = useMemo(() => {
-    const now = new Date();
-    let start: Date;
-    let end: Date = endOfDay(now);
-    let prevStart: Date;
-    let prevEnd: Date;
-    let text = "";
-    let comp = "last period";
-
-    switch (datePreset) {
-      case "today":
-        start = startOfDay(now);
-        prevStart = startOfDay(subDays(now, 1));
-        prevEnd = endOfDay(subDays(now, 1));
-        text = `Today, ${format(now, "MMM dd, yyyy")}`;
-        comp = "yesterday";
-        break;
-      case "yesterday":
-        start = startOfDay(subDays(now, 1));
-        end = endOfDay(subDays(now, 1));
-        prevStart = startOfDay(subDays(now, 2));
-        prevEnd = endOfDay(subDays(now, 2));
-        text = `Yesterday, ${format(subDays(now, 1), "MMM dd, yyyy")}`;
-        comp = "prev day";
-        break;
-      case "7d":
-        start = startOfDay(subDays(now, 6));
-        prevStart = startOfDay(subDays(now, 13));
-        prevEnd = endOfDay(subDays(now, 7));
-        text = `${format(subDays(now, 6), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
-        comp = "last 7 days";
-        break;
-      case "30d":
-        start = startOfDay(subDays(now, 29));
-        prevStart = startOfDay(subDays(now, 59));
-        prevEnd = endOfDay(subDays(now, 30));
-        text = `${format(subDays(now, 29), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
-        comp = "last 30 days";
-        break;
-      case "this_month":
-        start = startOfMonth(now);
-        prevStart = startOfMonth(subMonths(now, 1));
-        prevEnd = endOfMonth(subMonths(now, 1));
-        text = `${format(startOfMonth(now), "MMM dd")} – ${format(now, "MMM dd, yyyy")}`;
-        comp = "last month";
-        break;
-      case "all":
-      default:
-        start = new Date(0);
-        prevStart = new Date(0);
-        prevEnd = new Date(0);
-        text = `All Time (Since Launch)`;
-        comp = "all time";
-        break;
-    }
-
-    const inCurr = (dateStr: string | null | undefined) => {
-      if (!dateStr) return false;
-      const t = new Date(dateStr).getTime();
-      return t >= start.getTime() && t <= end.getTime();
-    };
-
-    const inPrev = (dateStr: string | null | undefined) => {
-      if (!dateStr || datePreset === "all") return false;
-      const t = new Date(dateStr).getTime();
-      return t >= prevStart.getTime() && t <= prevEnd.getTime();
-    };
-
-    return {
-      dateRangeText: text,
-      compareLabel: comp,
-      inCurrentPeriod: inCurr,
-      inPrevPeriod: inPrev,
-    };
-  }, [datePreset]);
+  const isAnyLoading =
+    ordersLoading || posLoading || visitorsLoading || productsLoading || returnsLoading;
+  const isAnyError = ordersError || posError || visitorsError || productsError || returnsError;
 
   // Authoritative KPI Metrics Calculation via Centralized Financial Reporting Engine
   const stats = useMemo(() => {
@@ -503,6 +451,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       onlineSales: currMetrics.onlineGrossRevenue,
       cashSales: currMetrics.offlineGrossRevenue,
       totalCatalogValue: currMetrics.totalCatalogValue,
+      totalCatalogCost: currMetrics.totalCatalogCost,
       avgOrderValue: currMetrics.avgOrderValue,
       totalSales: currMetrics.totalSales,
       myCost: currMetrics.myCost,
@@ -632,189 +581,133 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       });
   }, [products]);
 
-  const { data: rawEvents = [] } = useQuery({
-    queryKey: ["admin-analytics-events"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("analytics_events")
-        .select("event_name, created_at, products(name)")
-        .order("created_at", { ascending: false })
-        .limit(10);
-      if (error) return [];
-      return data ?? [];
-    },
-  });
-
-  // Recent Activity Feed
-  const recentActivity = useMemo(() => {
-    if (rawEvents.length === 0) {
-      return [
-        {
-          title: "Store operational",
-          time: "Live",
-          icon: Check,
-          color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
-        },
-      ];
-    }
-    return rawEvents.map((ev) => {
-      let icon = Activity;
-      let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
-      let title = ev.event_name;
-
-      const profile = (ev as { profiles?: { full_name?: string } | null }).profiles;
-      const product = ev.products as { name?: string } | null;
-
-      if (ev.event_name === "view_product" || ev.event_name === "product_view") {
-        title = `${profile?.full_name || "A visitor"} viewed ${product?.name ? `"${product.name}"` : "a product"}`;
-        icon = Eye;
-        color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
-      } else if (ev.event_name === "add_to_cart") {
-        title = `${profile?.full_name || "A visitor"} added ${product?.name ? `"${product.name}"` : "an item"} to bag`;
-        icon = ShoppingCart;
-        color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
-      } else if (ev.event_name === "buy_now") {
-        title = `${profile?.full_name || "A visitor"} initiated Quick Buy for ${product?.name ? `"${product.name}"` : "an item"}`;
-        icon = ShoppingBag;
-        color = "text-rose-500 bg-rose-50 dark:bg-rose-950/50";
-      } else if (ev.event_name === "checkout_started") {
-        title = `${profile?.full_name || "A visitor"} started checkout`;
-        icon = ShoppingBag;
-        color = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50";
-      } else if (ev.event_name === "order_created") {
-        title = `${profile?.full_name || "A customer"} placed an order`;
-        icon = CheckCircle2;
-        color = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50";
-      } else if (ev.event_name === "wishlist_add") {
-        title = `${profile?.full_name || "A visitor"} saved ${product?.name ? `"${product.name}"` : "an item"} to wishlist`;
-        icon = Heart;
-        color = "text-pink-500 bg-pink-50 dark:bg-pink-950/50";
-      } else if (ev.event_name === "wishlist_remove") {
-        title = `${profile?.full_name || "A visitor"} removed ${product?.name ? `"${product.name}"` : "an item"} from wishlist`;
-        icon = Heart;
-        color = "text-gray-500 bg-gray-50 dark:bg-gray-950/50";
-      } else {
-        const readable = ev.event_name.replace(/_/g, " ");
-        title = `${profile?.full_name || "A visitor"} ${readable}`;
-      }
-
-      return {
-        title,
-        time: format(new Date(ev.created_at), "MMM dd, hh:mm a"),
-        icon,
-        color,
-      };
-    });
-  }, [rawEvents]);
-
-  // Recent Activity Modal state & query
+  // Authoritative Unified Store Activity Feed (Online Orders, Store POS, Returns, Cart, Browsing)
   const [isRecentActivityModalOpen, setIsRecentActivityModalOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState<string>("all");
   const [activitySearch, setActivitySearch] = useState<string>("");
 
-  const { data: fullRawEvents = [], isLoading: isFullEventsLoading } = useQuery({
-    queryKey: ["admin-recent-activity-full-modal"],
+  const {
+    data: unifiedActivities = [],
+    isLoading: isActivitiesLoading,
+    isRefetching: isActivitiesRefetching,
+    refetch: refetchActivities,
+  } = useQuery({
+    queryKey: ["admin-unified-store-activities"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("analytics_events")
-        .select(
-          "id, event_name, created_at, products(name, slug, price, image_url), profiles(full_name)",
-        )
-        .order("created_at", { ascending: false })
-        .limit(150);
-      if (error) return [];
-      return data ?? [];
+      const { data, error } = await (supabase.rpc as any)("get_unified_store_activities", {
+        _limit: 200,
+      });
+      if (error) {
+        console.warn("[DashboardTab] get_unified_store_activities:", error);
+        return [];
+      }
+      return (data || []) as Array<{
+        id: string;
+        source: string;
+        event_type: string;
+        title: string;
+        subtitle: string;
+        product_name: string | null;
+        product_slug: string | null;
+        product_image: string | null;
+        customer_name: string | null;
+        amount: number;
+        created_at: string;
+        metadata: Record<string, any> | null;
+      }>;
     },
-    staleTime: 10_000,
-    enabled: isRecentActivityModalOpen,
+    staleTime: 5_000,
+    refetchInterval: 10_000,
   });
 
-  const fullRecentActivity = useMemo(() => {
-    return fullRawEvents.map((ev) => {
+  const parsedActivities = useMemo(() => {
+    return unifiedActivities.map((act) => {
       let icon = Activity;
       let color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
-      let title = ev.event_name;
-      let typeKey = "other";
+      let channelTag = "";
 
-      const profile = (ev as { profiles?: { full_name?: string } | null }).profiles;
-      const product = ev.products as {
-        name?: string;
-        slug?: string;
-        price?: number;
-        image_url?: string;
-      } | null;
-
-      if (ev.event_name === "view_product" || ev.event_name === "product_view") {
-        title = `${profile?.full_name || "A visitor"} viewed ${product?.name ? `"${product.name}"` : "a product"}`;
+      if (act.event_type === "view") {
         icon = Eye;
         color = "text-purple-500 bg-purple-50 dark:bg-purple-950/50";
-        typeKey = "view";
-      } else if (ev.event_name === "add_to_cart") {
-        title = `${profile?.full_name || "A visitor"} added ${product?.name ? `"${product.name}"` : "an item"} to bag`;
+        channelTag = "View";
+      } else if (act.event_type === "cart") {
         icon = ShoppingCart;
         color = "text-amber-500 bg-amber-50 dark:bg-amber-950/50";
-        typeKey = "cart";
-      } else if (ev.event_name === "buy_now") {
-        title = `${profile?.full_name || "A visitor"} initiated Quick Buy for ${product?.name ? `"${product.name}"` : "an item"}`;
-        icon = ShoppingBag;
-        color = "text-rose-500 bg-rose-50 dark:bg-rose-950/50";
-        typeKey = "checkout";
-      } else if (ev.event_name === "checkout_started") {
-        title = `${profile?.full_name || "A visitor"} started checkout`;
+        channelTag = "Cart";
+      } else if (act.event_type === "checkout") {
         icon = ShoppingBag;
         color = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50";
-        typeKey = "checkout";
-      } else if (ev.event_name === "order_created") {
-        title = `${profile?.full_name || "A customer"} placed an order`;
+        channelTag = "Checkout";
+      } else if (act.event_type === "order") {
         icon = CheckCircle2;
         color = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50";
-        typeKey = "order";
-      } else if (ev.event_name === "wishlist_add") {
-        title = `${profile?.full_name || "A visitor"} saved ${product?.name ? `"${product.name}"` : "an item"} to wishlist`;
+        channelTag = act.source === "pos_sale" ? "Store POS" : "Online Order";
+      } else if (act.event_type === "wishlist") {
         icon = Heart;
         color = "text-pink-500 bg-pink-50 dark:bg-pink-950/50";
-        typeKey = "wishlist";
-      } else if (ev.event_name === "wishlist_remove") {
-        title = `${profile?.full_name || "A visitor"} removed ${product?.name ? `"${product.name}"` : "an item"} from wishlist`;
-        icon = Heart;
-        color = "text-gray-500 bg-gray-50 dark:bg-gray-950/50";
-        typeKey = "wishlist";
-      } else {
-        const readable = ev.event_name.replace(/_/g, " ");
-        title = `${profile?.full_name || "A visitor"} ${readable}`;
+        channelTag = "Wishlist";
+      } else if (act.event_type === "return") {
+        icon = RotateCcw;
+        color = "text-blue-500 bg-blue-50 dark:bg-blue-950/50";
+        channelTag = "Store Exchange";
       }
 
       return {
-        id: ev.id,
-        title,
-        eventName: ev.event_name,
-        typeKey,
-        time: format(new Date(ev.created_at), "MMM dd, hh:mm a"),
-        fullTime: format(new Date(ev.created_at), "MMMM dd, yyyy 'at' hh:mm:ss a"),
+        id: act.id,
+        source: act.source,
+        typeKey: act.event_type,
+        title: act.title,
+        subtitle: act.subtitle,
+        amount: Number(act.amount || 0),
+        productName: act.product_name,
+        productSlug: act.product_slug,
+        productImage: act.product_image,
+        customerName: act.customer_name,
+        channelTag,
+        time: format(new Date(act.created_at), "MMM dd, hh:mm a"),
+        fullTime: format(new Date(act.created_at), "MMMM dd, yyyy 'at' hh:mm:ss a"),
         icon,
         color,
-        product,
       };
     });
-  }, [fullRawEvents]);
+  }, [unifiedActivities]);
 
+  // Widget preview on Dashboard (top 8 activities)
+  const recentActivity = useMemo(() => {
+    if (parsedActivities.length === 0) {
+      return [
+        {
+          id: "operational",
+          title: "Store operational",
+          subtitle: "Waiting for store events",
+          time: "Live",
+          icon: Check,
+          color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
+          channelTag: "",
+        },
+      ];
+    }
+    return parsedActivities.slice(0, 8);
+  }, [parsedActivities]);
+
+  // Modal filtered activities
   const filteredActivities = useMemo(() => {
-    return fullRecentActivity.filter((act) => {
+    return parsedActivities.filter((act) => {
       if (activityFilter !== "all" && act.typeKey !== activityFilter) return false;
       if (activitySearch.trim()) {
         const q = activitySearch.toLowerCase();
         return (
           act.title.toLowerCase().includes(q) ||
-          act.eventName.toLowerCase().includes(q) ||
-          (act.product?.name && act.product.name.toLowerCase().includes(q))
+          act.subtitle.toLowerCase().includes(q) ||
+          (act.productName && act.productName.toLowerCase().includes(q)) ||
+          (act.customerName && act.customerName.toLowerCase().includes(q))
         );
       }
       return true;
     });
-  }, [fullRecentActivity, activityFilter, activitySearch]);
+  }, [parsedActivities, activityFilter, activitySearch]);
 
-  // CSV Report Generator
-  // CSV Report Generator with full reconciliation (Sales & Returns)
+  // CSV Report Generator with full reconciliation (Sales & Returns) filtered by canonical date range
   const handleDownloadReport = () => {
     const allRecords: Array<{
       id: string;
@@ -826,47 +719,55 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       total: number;
     }> = [];
 
-    orders.forEach((o) => {
-      allRecords.push({
-        id: `#${o.id.substring(0, 8).toUpperCase()}`,
-        date: format(new Date(o.created_at), "yyyy-MM-dd HH:mm"),
-        type: "Sale",
-        source: "Online Store",
-        status: o.status || "placed",
-        customer: o.full_name || o.email || "Guest",
-        total: o.total || 0,
+    orders
+      .filter((o) => isValidOnlineOrder(o) && inCurrentPeriod(o.created_at))
+      .forEach((o) => {
+        allRecords.push({
+          id: `#${o.id.substring(0, 8).toUpperCase()}`,
+          date: format(new Date(o.created_at), "yyyy-MM-dd HH:mm"),
+          type: "Sale",
+          source: "Online Store",
+          status: o.status || "placed",
+          customer: o.full_name || o.email || "Guest",
+          total: o.total || 0,
+        });
       });
-    });
 
-    posSales.forEach((s) => {
-      allRecords.push({
-        id: s.sale_number || s.id.substring(0, 8),
-        date: format(new Date(s.created_at), "yyyy-MM-dd HH:mm"),
-        type: "Sale",
-        source: "POS Store",
-        status: s.status || "completed",
-        customer: s.customer_name || "Walk-in Customer",
-        total: s.total || 0,
+    posSales
+      .filter((s) => isValidPOSSale(s) && inCurrentPeriod(s.created_at))
+      .forEach((s) => {
+        allRecords.push({
+          id: s.sale_number || s.id.substring(0, 8),
+          date: format(new Date(s.created_at), "yyyy-MM-dd HH:mm"),
+          type: "Sale",
+          source: "POS Store",
+          status: s.status || "completed",
+          customer: s.customer_name || "Walk-in Customer",
+          total: s.total || 0,
+        });
       });
-    });
 
-    offlineReturns.forEach((r) => {
-      const returnNumber = (r as { return_number?: string }).return_number || r.id.substring(0, 8);
-      const customerName = (r as { customer_name?: string }).customer_name || "Customer Return";
-      allRecords.push({
-        id: returnNumber,
-        date: format(new Date(r.created_at), "yyyy-MM-dd HH:mm"),
-        type: "Return / Refund",
-        source: "POS Return",
-        status: r.refund_status || "refunded",
-        customer: customerName,
-        total: -Number(r.refund_amount || 0),
+    offlineReturns
+      .filter((r) => isValidReturn(r) && inCurrentPeriod(r.created_at))
+      .forEach((r) => {
+        const returnNumber =
+          (r as { return_number?: string }).return_number || r.id.substring(0, 8);
+        const customerName = (r as { customer_name?: string }).customer_name || "Customer Return";
+        allRecords.push({
+          id: returnNumber,
+          date: format(new Date(r.created_at), "yyyy-MM-dd HH:mm"),
+          type: "Return / Refund",
+          source: "POS Return",
+          status: r.refund_status || "refunded",
+          customer: customerName,
+          total: -Number(r.refund_amount || 0),
+        });
       });
-    });
 
     allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    let csv = "Transaction ID,Date,Record Type,Sales Channel,Status,Customer,Net Amount (INR)\n";
+    let csv = `Report: ZERAH BABY AND KIDS Financial Report\nPeriod: ${dateRangeText}\nGenerated: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}\n\n`;
+    csv += "Transaction ID,Date,Record Type,Sales Channel,Status,Customer,Net Amount (INR)\n";
     allRecords.forEach((rec) => {
       csv += `"${rec.id}","${rec.date}","${rec.type}","${rec.source}","${rec.status}","${rec.customer}",${rec.total}\n`;
     });
@@ -875,7 +776,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `zerah-financial-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = `zerah-financial-report-${datePreset}-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -945,8 +846,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     key={opt.key}
                     type="button"
                     onClick={() => {
-                      setDatePreset(opt.key);
-                      setIsDateDropdownOpen(false);
+                      if (opt.key === "custom") {
+                        setDatePreset("custom");
+                      } else {
+                        setDatePreset(opt.key);
+                        setIsDateDropdownOpen(false);
+                      }
                     }}
                     className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition text-left ${
                       datePreset === opt.key
@@ -969,6 +874,51 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     {datePreset === opt.key && <Check className="h-3.5 w-3.5 shrink-0 ml-2" />}
                   </button>
                 ))}
+
+                {datePreset === "custom" && (
+                  <div className="p-2.5 border-t border-border mt-1.5 space-y-2 bg-muted/30 rounded-xl">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Custom IST Window
+                    </p>
+                    <div className="space-y-1.5">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground block font-medium">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customStartInput}
+                          onChange={(e) => setCustomStartInput(e.target.value)}
+                          className="w-full text-xs px-2 py-1 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground block font-medium">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={customEndInput}
+                          onChange={(e) => setCustomEndInput(e.target.value)}
+                          className="w-full text-xs px-2 py-1 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customStartInput && customEndInput) {
+                            setDateRange("custom", customStartInput, customEndInput);
+                            setIsDateDropdownOpen(false);
+                          }
+                        }}
+                        disabled={!customStartInput || !customEndInput}
+                        className="w-full mt-1 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer shadow-xs"
+                      >
+                        Apply Range
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1004,6 +954,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             onClick={() => {
               refetchOrders();
               refetchPos();
+              refetchReturns();
+              refetchProducts();
+              refetchVisitors();
             }}
             className="px-3 py-1.5 rounded-xl bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 transition cursor-pointer shrink-0 shadow-xs"
           >
@@ -1244,14 +1197,18 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         <div
           className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
           onClick={() => setActiveDrillDown("stock")}
+          title={`Total Potential Retail Sales: ${formatPrice(stats.totalCatalogValue)} (Store Buying Cost: ${formatPrice(stats.totalCatalogCost)})`}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <Package className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">
-              Total Stock Value
-            </p>
+            <div className="flex items-center gap-1">
+              <p className="text-[11px] font-medium text-muted-foreground truncate">Stock Value</p>
+              <span className="text-[9px] font-bold px-1 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200">
+                Retail
+              </span>
+            </div>
             <h4 className="text-sm font-bold text-foreground truncate">
               {formatPrice(stats.totalCatalogValue)}
             </h4>
@@ -1850,18 +1807,30 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             {recentActivity.map((act, i) => {
               const Icon = act.icon;
               return (
-                <div key={i} className="flex items-center justify-between text-xs">
+                <div key={act.id || i} className="flex items-center justify-between text-xs gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${act.color}`}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </div>
-                    <span className="font-medium text-foreground truncate">{act.title}</span>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{act.title}</p>
+                      {act.subtitle && act.subtitle !== "Visitor" && (
+                        <p className="text-[10px] text-muted-foreground truncate">{act.subtitle}</p>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
-                    {act.time}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {act.channelTag && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground border border-border/50">
+                        {act.channelTag}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-muted-foreground">
+                      {act.time}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -1963,17 +1932,29 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Live real-time feed of visitor browsing, cart additions, checkouts, and orders
+                    Live real-time feed of visitor browsing, cart additions, checkouts, orders, and in-store sales
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsRecentActivityModalOpen(false)}
-                className="flex size-8 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
-              >
-                <X className="size-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => refetchActivities()}
+                  className="flex size-8 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                  title="Refresh Live Feed"
+                >
+                  <RefreshCw
+                    className={`size-4 ${isActivitiesRefetching ? "animate-spin text-primary" : ""}`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRecentActivityModalOpen(false)}
+                  className="flex size-8 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
             </div>
 
             {/* Controls: Search & Filters */}
@@ -1982,7 +1963,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search by product, visitor, or event..."
+                  placeholder="Search by product, customer, or event..."
                   value={activitySearch}
                   onChange={(e) => setActivitySearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted/40 border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
@@ -1991,11 +1972,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
                 {[
                   { id: "all", label: "All" },
+                  { id: "view", label: "👁️ Product Views" },
                   { id: "cart", label: "🛒 Cart" },
                   { id: "checkout", label: "🛍️ Checkout" },
-                  { id: "order", label: "📦 Orders" },
-                  { id: "view", label: "👁️ Product Views" },
+                  { id: "order", label: "📦 Orders & Sales" },
                   { id: "wishlist", label: "❤️ Wishlist" },
+                  { id: "return", label: "🔄 Returns" },
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -2015,7 +1997,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
             {/* Activity List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-              {isFullEventsLoading ? (
+              {isActivitiesLoading ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
                   Loading recent activities...
                 </div>
@@ -2041,23 +2023,52 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                         >
                           <Icon className="size-4" />
                         </div>
+                        {act.productImage && (
+                          <img
+                            src={act.productImage}
+                            alt=""
+                            className="size-9 rounded-lg object-cover border border-border shrink-0"
+                          />
+                        )}
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-foreground truncate">
                             {act.title}
                           </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{act.fullTime}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {act.subtitle && (
+                              <span className="text-[10px] text-muted-foreground truncate">
+                                {act.subtitle}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/60">•</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {act.fullTime}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      {act.product?.slug && (
-                        <Link
-                          to="/product/$id"
-                          params={{ id: act.product.slug }}
-                          target="_blank"
-                          className="shrink-0 text-xs font-medium text-primary hover:underline"
-                        >
-                          View Product →
-                        </Link>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {act.channelTag && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                            {act.channelTag}
+                          </span>
+                        )}
+                        {act.amount > 0 && (
+                          <span className="text-xs font-bold text-foreground bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
+                            ₹{Math.round(act.amount).toLocaleString("en-IN")}
+                          </span>
+                        )}
+                        {act.productSlug && (
+                          <Link
+                            to="/product/$id"
+                            params={{ id: act.productSlug }}
+                            target="_blank"
+                            className="text-xs font-medium text-primary hover:underline ml-1"
+                          >
+                            View Product →
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -2067,8 +2078,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-3 bg-muted/20">
               <span className="text-xs text-muted-foreground">
-                Showing {filteredActivities.length} of {fullRecentActivity.length} recent activity
-                logs
+                Showing {filteredActivities.length} of {parsedActivities.length} recent activity logs
               </span>
               <button
                 type="button"

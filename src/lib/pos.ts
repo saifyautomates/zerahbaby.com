@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/store";
+import { invalidateCanonicalReportingQueries, notifyPOSSaleChanged } from "@/lib/canonical-reporting";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -63,6 +64,15 @@ export type OfflineSale = {
   owner_notified_at?: string | null;
   pos_token_number: number | null;
   pos_token_date: string | null;
+  store_credit_used?: number;
+  credit_token_used?: string | null;
+  return_status?: "none" | "partially_returned" | "returned";
+  returned_amount?: number;
+  returned_units?: number;
+  is_voided?: boolean;
+  void_reason?: string | null;
+  voided_at?: string | null;
+  voided_by?: string | null;
   created_at: string;
   updated_at: string;
   offline_sale_items?: OfflineSaleItem[];
@@ -84,13 +94,7 @@ export type OfflineSaleItem = {
 };
 
 export type POSTransactionState =
-  | "DRAFT"
-  | "PROCESSING"
-  | "COMPLETED"
-  | "PENDING_SYNC"
-  | "SYNCING"
-  | "SYNCED"
-  | "FAILED";
+  "DRAFT" | "PROCESSING" | "COMPLETED" | "PENDING_SYNC" | "SYNCING" | "SYNCED" | "FAILED";
 
 export type SaleResult = {
   sale_id: string;
@@ -111,6 +115,8 @@ export type SaleResult = {
   pos_token_number: number | null;
   pos_token_date: string | null;
   credit_token_used?: string | null;
+  coupon_code?: string | null;
+  coupon_discount?: number;
   status: "completed" | "pending_sync" | "failed";
   is_offline_queued: boolean;
 };
@@ -289,9 +295,10 @@ export type PlaceSaleInput = {
   customer_id: string | null;
   store_credit_used?: number;
   credit_token?: string;
+  coupon_code?: string;
   items: Array<{
     product_id?: string;
-    variant_id: string;
+    variant_id?: string;
     product_slug?: string;
     name?: string;
     sku?: string;
@@ -329,6 +336,7 @@ export function usePlaceOfflineSale() {
             _idempotency_key: input.idempotency_key || null,
             _store_credit_used: input.store_credit_used || 0,
             _credit_token: input.credit_token || null,
+            _coupon_code: input.coupon_code?.trim() || null,
           });
         } catch (fetchErr: unknown) {
           const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
@@ -360,7 +368,8 @@ export function usePlaceOfflineSale() {
             const result: SaleResult = {
               ...(rpcResponse.data as SaleResult),
               customer_phone: input.customer_phone || "",
-              credit_token_used: input.credit_token || (rpcResponse.data as SaleResult).credit_token_used,
+              credit_token_used:
+                input.credit_token || (rpcResponse.data as SaleResult).credit_token_used,
               status: "completed",
               is_offline_queued: false,
             };
@@ -421,6 +430,8 @@ export function usePlaceOfflineSale() {
         token_date: token.date,
         sale_number: saleNumber,
         created_at: new Date().toISOString(),
+        status: "PENDING_SYNC",
+        transaction_status: "PENDING_CONFIRMATION",
       });
 
       return {
@@ -443,11 +454,8 @@ export function usePlaceOfflineSale() {
       };
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["offline-sales"] });
-      qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
+      invalidateCanonicalReportingQueries(qc);
+      notifyPOSSaleChanged();
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-customers-hub"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-with-return-metrics"] });
@@ -558,7 +566,10 @@ export function useOfflineSaleHistory() {
 
 /** Generate a unique idempotency key for double-submit prevention */
 export function generateIdempotencyKey(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `pos_${Date.now()}_${crypto.randomUUID()}`;
+  }
+  return `pos_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
 /** Calculate discount amount from type and value */
@@ -574,4 +585,79 @@ export function calculateDiscount(
     return Math.min(subtotal, Math.max(0, discountValue));
   }
   return 0;
+}
+
+/**
+ * Validates a coupon code in real-time for POS checkout.
+ * Enforces active state, date window, minimum cart value, and usage limits.
+ */
+export async function validatePOSCoupon(
+  code: string,
+  subtotal: number,
+): Promise<{
+  valid: boolean;
+  coupon?: {
+    code: string;
+    discountType: "percentage" | "fixed";
+    discountValue: number;
+    minimumOrderValue?: number;
+    maximumDiscount?: number;
+  };
+  error?: string;
+}> {
+  const clean = code.trim().toUpperCase();
+  if (!clean) return { valid: false, error: "Coupon code cannot be empty" };
+
+  try {
+    const { data, error } = await supabase
+      .from("coupons")
+      .select("*")
+      .eq("code", clean)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { valid: false, error: `Coupon "${clean}" not found` };
+    }
+
+    if (!data.active) {
+      return { valid: false, error: `Coupon "${clean}" is inactive` };
+    }
+
+    const now = new Date();
+    if (data.starts_at && new Date(data.starts_at) > now) {
+      return { valid: false, error: `Coupon "${clean}" is not yet active` };
+    }
+
+    if (data.expires_at && new Date(data.expires_at) < now) {
+      return { valid: false, error: `Coupon "${clean}" has expired` };
+    }
+
+    if (data.usage_limit && data.usage_count >= data.usage_limit) {
+      return { valid: false, error: `Coupon "${clean}" usage limit reached` };
+    }
+
+    const minCart = Number(data.minimum_order_value || 0);
+    if (minCart > 0 && subtotal < minCart) {
+      return {
+        valid: false,
+        error: `Coupon "${clean}" requires minimum cart value of ₹${minCart}`,
+      };
+    }
+
+    return {
+      valid: true,
+      coupon: {
+        code: data.code,
+        discountType: data.discount_type as "percentage" | "fixed",
+        discountValue: Number(data.discount_value || 0),
+        minimumOrderValue: minCart,
+        maximumDiscount: Number(data.maximum_discount || 0),
+      },
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      error: err instanceof Error ? err.message : "Failed to validate coupon",
+    };
+  }
 }

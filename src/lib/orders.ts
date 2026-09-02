@@ -168,8 +168,8 @@ export function useAllOrders(enabled: boolean) {
         .order("created_at", { ascending: false })
         .limit(1000);
       if (error) {
-        console.warn("[orders] useAllOrders query notice:", error.message);
-        return [] as Order[];
+        console.error("[orders] useAllOrders query error:", error.message);
+        throw error;
       }
       return (data ?? []) as unknown as Order[];
     },

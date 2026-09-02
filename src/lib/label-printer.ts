@@ -144,10 +144,10 @@ export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
 
 let memoryProfile: LabelPrinterProfile = "thermal-58";
-let memoryShowDiscount = true;
+let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
-let memoryShowSellPrice = true;
+let memoryShowSellPrice = false;
 let memorySeparatePrice = false;
 
 export function getSavedLabelProfile(): LabelPrinterProfile {
@@ -418,49 +418,109 @@ function formatINR(n: number): string {
 }
 
 /* ================================================================== */
-/*  HTML Print Document Builder                                        */
-/*  Single source of truth — preview and print use same config.       */
+/*  Preflight Print Validation                                         */
 /* ================================================================== */
 
-export function buildLabelPrintParts(params: {
-  products: PrintableProduct[];
-  quantities: Record<string, number>;
-  layout: LabelPrinterProfile;
-  labelType: LabelType;
-  showDiscount: boolean;
+export function validatePrintPreflight(params: {
+  products: (Product | PrintableProduct)[];
+  quantities?: Record<string, number>;
+}): { valid: boolean; error?: string; totalLabels: number } {
+  const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
+  if (rawProducts.length === 0) {
+    return { valid: false, error: "Please select at least 1 product to print labels.", totalLabels: 0 };
+  }
+
+  let totalLabels = 0;
+  for (const p of rawProducts) {
+    const check = validatePrintableProduct(p);
+    if (!check.valid) {
+      return { valid: false, error: check.error || `Invalid data for product: ${p.name || "Unknown"}`, totalLabels: 0 };
+    }
+    const key = getProductKey(p);
+    const qty = params.quantities?.[key] !== undefined ? params.quantities[key] : 1;
+    if (qty > 0) {
+      totalLabels += qty;
+    }
+  }
+
+  if (totalLabels === 0) {
+    return { valid: false, error: "Total label quantity to print must be at least 1.", totalLabels: 0 };
+  }
+
+  return { valid: true, totalLabels };
+}
+
+/* ================================================================== */
+/*  HTML Print Document Builder — Single Canonical Generator           */
+/* ================================================================== */
+
+export type BuildLabelPrintOptions = {
+  products: (Product | PrintableProduct)[];
+  quantities?: Record<string, number>;
+  layout?: LabelPrinterProfile;
+  labelType?: LabelType;
+  showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
-}): { pagesHtml: string; css: string; fullHtml: string } {
+  isStandaloneTab?: boolean;
+};
+
+export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
+  pagesHtml: string;
+  css: string;
+  fullHtml: string;
+  labelCount: number;
+} {
   const {
     products,
-    quantities,
-    layout,
-    labelType,
-    showDiscount,
+    quantities = {},
+    layout = "thermal-58",
+    labelType = "full",
+    showDiscount = false,
     showMrp = true,
-    showSellPrice = true,
+    showSellPrice = false,
     separatePriceLine = false,
+    isStandaloneTab = false,
   } = params;
-  const cfg = PRINT_FORMAT_CONFIG[layout];
+
+  const cfg = PRINT_FORMAT_CONFIG[layout] || PRINT_FORMAT_CONFIG["thermal-58"];
+  const rawProducts = Array.isArray(products) ? products : [products];
+
+  // Map layout profile to isolated print mode class
+  const modeClass =
+    layout === "thermal-108"
+      ? "print-mode-108mm"
+      : layout === "a4"
+        ? "print-mode-a4"
+        : "print-mode-50x25";
 
   // ── 1. Flatten products × quantities into ordered label list ──────
   const labels: PrintableProduct[] = [];
-  for (const p of products) {
+  for (const p of rawProducts) {
     const key = getProductKey(p);
     const qty = Math.max(0, Math.min(500, quantities[key] ?? 1));
-    for (let i = 0; i < qty; i++) labels.push(p);
+    for (let i = 0; i < qty; i++) {
+      labels.push(p);
+    }
   }
 
   if (labels.length === 0) {
-    const emptyHtml =
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>` +
-      `<body style="font-family:sans-serif;padding:20px;text-align:center;">` +
-      `<p>No labels to print.</p></body></html>`;
-    return { pagesHtml: "<p>No labels to print.</p>", css: "", fullHtml: emptyHtml };
+    const emptyHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>No Labels</title>
+</head>
+<body style="font-family:sans-serif;padding:40px;text-align:center;color:#64748b;">
+  <h2>No labels to print</h2>
+  <p>Please select at least one product with quantity greater than zero.</p>
+</body>
+</html>`;
+    return { pagesHtml: "<p>No labels to print.</p>", css: "", fullHtml: emptyHtml, labelCount: 0 };
   }
 
-  // ── 2. Render a single label cell's inner HTML content ────────────
+  // ── 2. Render individual label inner content ──────────────────────
   const renderLabelContent = (p: PrintableProduct): string => {
     const barcodeValue = sanitizeBarcode(p.barcode, p.sku) || "SKU-" + (p.sku || "NONE");
     const effectiveMrp = typeof p.mrp === "number" && p.mrp > 0 ? p.mrp : p.price;
@@ -492,72 +552,84 @@ export function buildLabelPrintParts(params: {
         ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
         : "";
 
-    if (separatePriceLine && (showMrp || showSellPrice)) {
-      // Dedicated separate price row centered below product name
-      let priceRowInner = "";
-      if (showMrp && showSellPrice) {
-        priceRowInner = `<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span> <span class="lbl-sell-bold">Price: ${priceFormatted}</span> ${discBadge}`;
-      } else if (showSellPrice) {
-        priceRowInner = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
-      } else if (showMrp) {
-        priceRowInner = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted}</span> ${discBadge}`;
-      }
+    // Price rendering according to retail specification
+    let priceSnippet = "";
+    if (showMrp && showSellPrice) {
+      // Both enabled: show MRP struck through and bold selling price
+      priceSnippet = `<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span> <span class="lbl-sell-bold">Price: ${priceFormatted}</span>${discBadge}`;
+    } else if (showSellPrice) {
+      // Selling price only
+      priceSnippet = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
+    } else if (showMrp) {
+      // MRP only (Standard Retail Specification Default - Bold, NOT struck through)
+      priceSnippet = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted}</span>${discBadge}`;
+    }
 
+    if (separatePriceLine && priceSnippet) {
       return [
         `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-name" style="text-align:center;width:100%;margin:0.2mm 0;">${escapeHtml(p.name)}</div>`,
-        `<div class="lbl-price-row">${priceRowInner}</div>`,
+        `<div class="lbl-name-standalone">${escapeHtml(p.name)}</div>`,
+        `<div class="lbl-price-row">${priceSnippet}</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
         `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
       ].join("");
     }
 
-    // Inline row: Name on left, prices on right
-    let priceCell = "";
-    if (showMrp && showSellPrice) {
-      priceCell = `<div class="lbl-prices-stacked"><span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span><span class="lbl-sell-bold">Price: ${priceFormatted} ${discBadge}</span></div>`;
-    } else if (showSellPrice) {
-      priceCell = `<div class="lbl-sell-bold">Price: ${priceFormatted}</div>`;
-    } else if (showMrp) {
-      priceCell = `<div class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</div>`;
-    }
-
+    // Default compact horizontal middle row: Name (left) + Price (right)
     return [
       `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
       `<div class="lbl-row-middle">`,
       `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      priceCell ? `  ${priceCell}` : "",
+      priceSnippet ? `  <div class="lbl-price-cell">${priceSnippet}</div>` : "",
       `</div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
     ].join("");
   };
 
-  // ── 3. Build page HTML ────────────────────────────────────────────
+  // ── 3. Build HTML Structure ───────────────────────────────────────
   let pagesHtml = "";
 
   if (cfg.isThermalRoll) {
-    // Each label = one @page on the thermal roll
-    pagesHtml = labels
-      .map(
-        (p) =>
-          `<div class="label-page"><div class="label-inner">${renderLabelContent(p)}</div></div>`,
-      )
-      .join("\n");
+    if (isStandaloneTab) {
+      pagesHtml = labels
+        .map(
+          (p, idx) => `
+        <div class="sticker-preview-wrapper" data-label-index="${idx + 1}">
+          <div class="sticker-dim-badge no-print">${cfg.pageWidthMm}mm × ${cfg.pageHeightMm}mm Label #${idx + 1}</div>
+          <div class="label-page sticker-card">
+            <div class="label-inner">${renderLabelContent(p)}</div>
+          </div>
+        </div>`,
+        )
+        .join("\n");
+    } else {
+      pagesHtml = labels
+        .map(
+          (p, idx) => `
+        <div class="label-page" data-label-index="${idx + 1}">
+          <div class="label-inner">${renderLabelContent(p)}</div>
+        </div>`,
+        )
+        .join("\n");
+    }
   } else {
-    // A4 grid — all cells flow inside one page
+    // A4 grid layout
     const cells = labels
       .map(
-        (p) =>
-          `<div class="label-cell"><div class="label-inner">${renderLabelContent(p)}</div></div>`,
+        (p, idx) => `
+      <div class="label-cell" data-label-index="${idx + 1}">
+        <div class="label-inner">${renderLabelContent(p)}</div>
+      </div>`,
       )
       .join("\n");
+
     pagesHtml = `<div class="label-grid">${cells}</div>`;
   }
 
-  // ── 4. Build CSS ──────────────────────────────────────────────────
+  // ── 4. Build Exact Physical CSS ───────────────────────────────────
   const pageSizeDecl = `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
-  const pageMarginDecl = cfg.isThermalRoll ? "0mm" : `${cfg.pageMarginMm}mm`;
+  const pageMarginDecl = cfg.isThermalRoll ? "0" : `${cfg.pageMarginMm}mm`;
 
   const css = `
     /* ── Reset ── */
@@ -567,64 +639,17 @@ export function buildLabelPrintParts(params: {
       padding: 0;
     }
 
-    /* ── Exact Physical Page Dimensions ── */
+    /* ── Exact Physical Page Dimensions (Strictly isolated per format) ── */
     @page {
       size: ${pageSizeDecl};
       margin: ${pageMarginDecl};
     }
 
-    html, body {
-      width: ${cfg.pageWidthMm}mm;
-      margin: 0;
-      padding: 0;
-      background: #ffffff;
-      color: #000000;
-      font-family: Arial, Helvetica, sans-serif;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* ── Thermal roll: one label per @page ── */
-    .label-page {
-      width: ${cfg.pageWidthMm}mm;
-      height: ${cfg.pageHeightMm}mm;
-      max-height: ${cfg.pageHeightMm}mm;
-      overflow: hidden;
-      page-break-after: always;
-      break-after: page;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #ffffff;
-    }
-
-    /* ── A4 grid ── */
-    .label-grid {
-      display: grid;
-      grid-template-columns: repeat(${cfg.gridColumns}, 1fr);
-      gap: 1.5mm;
-      width: 100%;
-    }
-
-    .label-cell {
-      height: ${cfg.labelHeightMm}mm;
-      max-height: ${cfg.labelHeightMm}mm;
-      overflow: hidden;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      border: 0.3mm dashed #cccccc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* ── Inner horizontal label container ── */
+    /* ── Label Typography & Layout Tokens ── */
     .label-inner {
-      width: ${cfg.labelWidthMm}mm;
-      height: ${cfg.labelHeightMm}mm;
-      max-height: ${cfg.labelHeightMm}mm;
+      width: 100%;
+      height: 100%;
+      max-height: 100%;
       padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
       display: flex;
       flex-direction: column;
@@ -635,7 +660,6 @@ export function buildLabelPrintParts(params: {
       box-sizing: border-box;
     }
 
-    /* ── Row 1: Brand Header ── */
     .lbl-brand {
       font-size: ${cfg.brandFontPt}pt;
       font-weight: 800;
@@ -651,18 +675,16 @@ export function buildLabelPrintParts(params: {
       flex-shrink: 0;
     }
 
-    /* ── Row 2: Product Name (Left) + Prices (Right) ── */
     .lbl-row-middle {
       display: flex;
       flex-direction: row;
       align-items: baseline;
       justify-content: space-between;
       width: 100%;
-      gap: 1.5mm;
+      gap: 1.2mm;
       overflow: hidden;
       flex-shrink: 0;
-      margin-top: 0.2mm;
-      margin-bottom: 0.2mm;
+      margin: 0.2mm 0;
     }
 
     .lbl-name {
@@ -691,6 +713,16 @@ export function buildLabelPrintParts(params: {
       overflow: hidden;
       text-overflow: ellipsis;
       flex-shrink: 0;
+      margin: 0.2mm 0;
+    }
+
+    .lbl-price-cell {
+      display: flex;
+      align-items: baseline;
+      gap: 1mm;
+      flex-shrink: 0;
+      text-align: right;
+      line-height: 1;
     }
 
     .lbl-price-row {
@@ -705,31 +737,15 @@ export function buildLabelPrintParts(params: {
       margin: 0.2mm 0;
     }
 
-    .lbl-prices-stacked {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      text-align: right;
-      line-height: 1.1;
-      flex-shrink: 0;
-    }
-
     .lbl-mrp-strike {
       font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
       font-weight: 600;
-      color: #555555;
+      color: #666666;
       text-decoration: line-through;
       white-space: nowrap;
     }
 
-    .lbl-sell-bold {
-      font-size: ${cfg.priceFontPt}pt;
-      font-weight: 900;
-      color: #000000;
-      white-space: nowrap;
-      letter-spacing: -0.01em;
-    }
-
+    .lbl-sell-bold,
     .lbl-mrp-bold {
       font-size: ${cfg.priceFontPt}pt;
       font-weight: 900;
@@ -745,7 +761,6 @@ export function buildLabelPrintParts(params: {
       margin-left: 0.5mm;
     }
 
-    /* ── Row 3: Barcode & Barcode Number ── */
     .lbl-bc {
       width: 100%;
       display: flex;
@@ -760,7 +775,6 @@ export function buildLabelPrintParts(params: {
       margin: 0 auto;
     }
 
-    /* ── Row 4: SKU ── */
     .lbl-sku {
       font-family: Arial, Helvetica, sans-serif;
       font-size: ${cfg.skuFontPt}pt;
@@ -776,88 +790,341 @@ export function buildLabelPrintParts(params: {
       letter-spacing: 0.02em;
     }
 
-    @media print {
-      .no-print {
-        display: none !important;
-      }
+    /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */
+    .print-mode-50x25 .label-page {
+      width: 50mm;
+      height: 25mm;
+      max-width: 50mm;
+      max-height: 25mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      overflow: hidden;
     }
+
+    .print-mode-108mm .label-page {
+      width: 100mm;
+      height: 25mm;
+      max-width: 100mm;
+      max-height: 25mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .print-mode-a4 .label-grid {
+      display: grid;
+      grid-template-columns: repeat(${cfg.gridColumns}, 1fr);
+      gap: 1.5mm;
+      width: 194mm;
+      box-sizing: border-box;
+    }
+
+    .print-mode-a4 .label-cell {
+      height: ${cfg.labelHeightMm}mm;
+      max-height: ${cfg.labelHeightMm}mm;
+      overflow: hidden;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      border: 0.3mm dashed #cccccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      background: #ffffff;
+    }
+
+    /* ── Screen Presentation Styling (@media screen) ── */
     @media screen {
-      .screen-print-bar {
-        position: fixed;
-        top: 12px;
-        right: 16px;
-        z-index: 99999;
+      html, body {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        background-color: #0f172a;
+        color: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .standalone-toolbar {
+        position: sticky;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 1000;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+        color: #ffffff;
+        padding: 12px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      }
+
+      .toolbar-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .toolbar-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      .toolbar-badge {
         background: #8B2020;
         color: #ffffff;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-family: Arial, sans-serif;
-        font-size: 12px;
-        font-weight: bold;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-        cursor: pointer;
-        user-select: none;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 2px 8px;
+        border-radius: 6px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
       }
-      .screen-print-bar:hover {
-        background: #7a1c1c;
+
+      .toolbar-hint {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn-print-primary {
+        background: #8B2020;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease-in-out;
+        box-shadow: 0 2px 8px rgba(139, 32, 32, 0.4);
+      }
+      .btn-print-primary:hover {
+        background: #a32828;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(139, 32, 32, 0.5);
+      }
+      .btn-print-primary:active {
+        transform: translateY(0);
+      }
+
+      .btn-secondary {
+        background: #334155;
+        color: #e2e8f0;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-secondary:hover {
+        background: #475569;
+      }
+
+      .screen-canvas {
+        flex: 1;
+        width: 100%;
+        padding: 32px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .sticker-preview-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .sticker-dim-badge {
+        font-size: 10px;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .sticker-card {
+        border-radius: 3px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
+        position: relative;
+      }
+    }
+
+    /* ── Strict Physical Print Styling (@media print) ── */
+    @media print {
+      .no-print,
+      .standalone-toolbar,
+      .sticker-dim-badge {
+        display: none !important;
+      }
+
+      html, body {
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        display: block !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .screen-canvas {
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        background: transparent !important;
+        width: auto !important;
+      }
+
+      .sticker-preview-wrapper {
+        display: contents !important;
+      }
+
+      .sticker-card {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+
+      /* ── Thermal Roll Page Breaks & Physical Sizing ── */
+      .print-mode-50x25 .label-page,
+      .print-mode-108mm .label-page {
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Suppress trailing page break on final label to prevent extra blank stickers */
+      .print-mode-50x25 .label-page:last-child,
+      .print-mode-108mm .label-page:last-child,
+      .sticker-preview-wrapper:last-child .label-page {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+
+      .print-mode-a4 .label-cell {
+        border: none !important;
       }
     }
   `.trim();
 
+  // ── 5. Full HTML Document Composition ─────────────────────────────
+  let bodyContent = "";
+  if (isStandaloneTab) {
+    bodyContent = `
+  <header class="standalone-toolbar no-print">
+    <div class="toolbar-info">
+      <div class="toolbar-title">
+        <span>ZÉRAH BABY &amp; KIDS</span>
+        <span class="toolbar-badge">${cfg.labelWidthMm}×${cfg.labelHeightMm}mm ${cfg.isThermalRoll ? "Thermal Sticker" : "A4 Sheet"}</span>
+      </div>
+      <div class="toolbar-hint">
+        ${labels.length} label${labels.length !== 1 ? "s" : ""} ready • In print dialog: Set Paper Size to ${cfg.labelWidthMm}×${cfg.labelHeightMm}mm (or 2"×1"), Margins: None
+      </div>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn-print-primary" onclick="window.print()">
+        🖨️ Print Labels (${labels.length})
+      </button>
+      <button class="btn-secondary" onclick="window.close()">
+        Close Preview
+      </button>
+    </div>
+  </header>
+  <main class="screen-canvas">
+    ${pagesHtml}
+  </main>
+  <script>
+    (function() {
+      function triggerAutoPrint() {
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function() {
+            requestAnimationFrame(function() {
+              setTimeout(function() {
+                try { window.print(); } catch(e) { console.error(e); }
+              }, 50);
+            });
+          });
+        } else {
+          setTimeout(function() {
+            try { window.print(); } catch(e) { console.error(e); }
+          }, 150);
+        }
+      }
+      if (document.readyState === 'complete') {
+        triggerAutoPrint();
+      } else {
+        window.addEventListener('load', triggerAutoPrint);
+      }
+    })();
+  </script>`;
+  } else {
+    bodyContent = `
+  <div class="screen-canvas">
+    ${pagesHtml}
+  </div>`;
+  }
+
   const fullHtml = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="${modeClass}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Zerah Labels – ${layout}</title>
+  <title>Zerah Labels – ${cfg.labelWidthMm}×${cfg.labelHeightMm}mm (${labels.length})</title>
   <style>${css}</style>
 </head>
-<body>
-  <div class="screen-print-bar no-print" onclick="window.print()">
-    🖨️ Print Labels (${labels.length})
-  </div>
-  ${pagesHtml}
-  <script>
-    window.addEventListener('load', function() {
-      try { window.print(); } catch(e) {}
-    });
-  </script>
+<body class="${modeClass}">
+  ${bodyContent}
 </body>
 </html>`;
 
-  return { pagesHtml, css, fullHtml };
+  return { pagesHtml, css, fullHtml, labelCount: labels.length };
 }
 
-export function buildLabelPrintHtml(params: {
-  products: PrintableProduct[];
-  quantities: Record<string, number>;
-  layout: LabelPrinterProfile;
-  labelType: LabelType;
-  showDiscount: boolean;
-  showMrp?: boolean;
-  showSellPrice?: boolean;
-  separatePriceLine?: boolean;
-}): string {
+export function buildLabelPrintHtml(params: BuildLabelPrintOptions): string {
   return buildLabelPrintParts(params).fullHtml;
 }
 
 /* ================================================================== */
-/*  Reliable Print Engine — Production-Hardened                       */
-/*                                                                     */
-/*  Permanent Architecture:                                            */
-/*  1. Direct in-page print via @media print and window.print()        */
-/*     (100% immune to Chromium iframe isolation & popup blockers).   */
-/*  2. Standalone New-Tab preview & print via standard window.open()   */
-/*     with auto-trigger print dialog.                                 */
+/*  Canonical Print Execution Pipeline                                 */
 /* ================================================================== */
 
-/* ================================================================== */
-/*  Canonical Print Engine — Production-Hardened                       */
-/* ================================================================== */
-
+/**
+ * Opens a dedicated standalone browser tab with the responsive sticker preview
+ * and automatic print dialog trigger.
+ */
 export function openLabelPrintInNewTab(params: {
   products: (Product | PrintableProduct)[];
   quantities?: Record<string, number>;
@@ -871,8 +1138,9 @@ export function openLabelPrintInNewTab(params: {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   try {
     const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
-    if (rawProducts.length === 0) {
-      toast.error("Please select at least 1 product to print labels.");
+    const preflight = validatePrintPreflight({ products: rawProducts, quantities: params.quantities });
+    if (!preflight.valid) {
+      toast.error(preflight.error || "Cannot print labels: invalid data");
       return false;
     }
 
@@ -893,6 +1161,7 @@ export function openLabelPrintInNewTab(params: {
       showMrp: params.showMrp ?? true,
       showSellPrice: params.showSellPrice ?? false,
       separatePriceLine: params.separatePriceLine ?? false,
+      isStandaloneTab: true,
     });
 
     const win = window.open("", "_blank");
@@ -901,11 +1170,6 @@ export function openLabelPrintInNewTab(params: {
       win.document.write(html);
       win.document.close();
       win.focus();
-      try {
-        win.print();
-      } catch {
-        /* User can print manually from opened tab */
-      }
       return true;
     } else {
       toast.error("Popup window was blocked by browser. Please allow popups for printing.");
@@ -919,8 +1183,9 @@ export function openLabelPrintInNewTab(params: {
 }
 
 /**
- * Single Canonical Print Pipeline for Zérah Baby & Kids.
- * Used by "Print Selected", "Print Labels" modal, and 1-click row buttons.
+ * Direct Canonical Print Pipeline for Zérah Baby & Kids.
+ * Uses an isolated hidden iframe with preflight checks and font-settling.
+ * Falls back seamlessly to standalone new-tab if iframe is restricted.
  */
 export function printProductLabels(params: {
   products: (Product | PrintableProduct)[];
@@ -938,40 +1203,116 @@ export function printProductLabels(params: {
     return false;
   }
 
-  // Dismiss active toasts to ensure clean screen state
+  // Dismiss active toasts to ensure clean print state
   toast.dismiss();
 
   const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
-  if (rawProducts.length === 0) {
-    toast.error("Please select at least 1 product to print labels.");
+  const preflight = validatePrintPreflight({ products: rawProducts, quantities: params.quantities });
+  if (!preflight.valid) {
+    toast.error(preflight.error || "Cannot print labels: invalid data");
     params.onDone?.();
     return false;
   }
 
-  // Validate all items
+  const quantities: Record<string, number> = { ...(params.quantities ?? {}) };
   for (const p of rawProducts) {
-    const check = validatePrintableProduct(p);
-    if (!check.valid) {
-      toast.error(check.error || "Cannot print label: invalid product data");
-      params.onDone?.();
-      return false;
+    const key = getProductKey(p);
+    if (quantities[key] === undefined || quantities[key] <= 0) {
+      quantities[key] = 1;
     }
   }
 
-  try {
-    const success = openLabelPrintInNewTab({
-      products: rawProducts,
-      quantities: params.quantities,
-      layout: params.layout,
-      labelType: params.labelType,
-      showDiscount: params.showDiscount,
-      showMrp: params.showMrp,
-      showSellPrice: params.showSellPrice,
-      separatePriceLine: params.separatePriceLine,
-    });
-    return success;
-  } finally {
+  const html = buildLabelPrintHtml({
+    products: rawProducts,
+    quantities,
+    layout: params.layout || "thermal-58",
+    labelType: params.labelType || "full",
+    showDiscount: params.showDiscount ?? false,
+    showMrp: params.showMrp ?? true,
+    showSellPrice: params.showSellPrice ?? false,
+    separatePriceLine: params.separatePriceLine ?? false,
+    isStandaloneTab: false,
+  });
+
+  const iframeId = "zerah-canonical-label-print-frame";
+  let iframe = document.getElementById(iframeId) as HTMLIFrameElement | null;
+  if (iframe) {
+    try {
+      iframe.remove();
+    } catch {}
+  }
+
+  iframe = document.createElement("iframe");
+  iframe.id = iframeId;
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.position = "fixed";
+  iframe.style.top = "-9999px";
+  iframe.style.left = "-9999px";
+  iframe.style.width = "400px";
+  iframe.style.height = "300px";
+  iframe.style.border = "none";
+  iframe.style.visibility = "hidden";
+  document.body.appendChild(iframe);
+
+  const cleanup = () => {
+    try {
+      const existing = document.getElementById(iframeId);
+      if (existing) existing.remove();
+    } catch {}
     params.onDone?.();
+  };
+
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      cleanup();
+      return openLabelPrintInNewTab(params);
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const win = iframe.contentWindow;
+    if (!win) {
+      cleanup();
+      return openLabelPrintInNewTab(params);
+    }
+
+    const triggerPrint = () => {
+      try {
+        const labelsInDoc = doc.querySelectorAll(".label-page, .label-cell");
+        if (!labelsInDoc || labelsInDoc.length === 0) {
+          console.warn("[ZerahPrint] No label elements detected in print iframe, falling back to new tab");
+          cleanup();
+          return openLabelPrintInNewTab(params);
+        }
+
+        win.focus();
+        win.addEventListener("afterprint", cleanup, { once: true });
+        // Generous safety timeout so iframe isn't destroyed while print dialog is open
+        setTimeout(cleanup, 60000);
+        win.print();
+        return true;
+      } catch (err) {
+        console.error("[ZerahPrint] iframe print failed:", err);
+        cleanup();
+        return openLabelPrintInNewTab(params);
+      }
+    };
+
+    if (doc.fonts && doc.fonts.ready) {
+      doc.fonts.ready.then(() => {
+        requestAnimationFrame(() => requestAnimationFrame(triggerPrint));
+      });
+    } else {
+      setTimeout(triggerPrint, 150);
+    }
+    return true;
+  } catch (err) {
+    console.error("[ZerahPrint] printProductLabels iframe error:", err);
+    cleanup();
+    return openLabelPrintInNewTab(params);
   }
 }
 

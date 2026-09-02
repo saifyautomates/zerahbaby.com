@@ -59,6 +59,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
+import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import { useSaveProduct } from "@/lib/admin-products";
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
@@ -80,6 +81,12 @@ import {
   POSTerminalSkeleton,
   AdminTableSkeleton,
 } from "@/components/ui/Skeletons";
+import {
+  validateAndNormalizeInstagram,
+  validateAndNormalizeFacebook,
+  validateAndNormalizeWhatsApp,
+  validateAndNormalizeAnnouncementLink,
+} from "@/lib/marketing-links";
 
 const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
@@ -236,6 +243,18 @@ function AdminPage() {
       }
     }
   }, [tab]);
+
+  // Global hardware barcode scanner routing across the entire admin dashboard:
+  // If a hardware barcode is scanned while on ANY admin view (dashboard, orders, products, etc.),
+  // safely navigate to the "billing" tab (which routes to POS Terminal) and automatically add the scanned product.
+  useEffect(() => {
+    const unbind = initGlobalBarcodeScanner((_code) => {
+      if (tab !== "billing") {
+        setTab("billing");
+      }
+    });
+    return unbind;
+  }, [tab, setTab]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1012,10 +1031,9 @@ function ProductsTab() {
       if (productsRes.error) throw productsRes.error;
 
       const costMap = new Map<string, number>(
-        ((costsRes as { data?: { product_id: string; buying_price: number }[] | null })?.data || []).map((c) => [
-          c.product_id,
-          Number(c.buying_price || 0),
-        ]),
+        (
+          (costsRes as { data?: { product_id: string; buying_price: number }[] | null })?.data || []
+        ).map((c) => [c.product_id, Number(c.buying_price || 0)]),
       );
       let deliveryFees: Record<string, number> = {};
       if (settingsRes.data?.value) {
@@ -1052,11 +1070,18 @@ function ProductsTab() {
 
   const updateStock = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
-      const { error } = await supabase
+      const cleanStock = Math.max(0, stock);
+      const { error: prodErr } = await supabase
         .from("products")
-        .update({ stock: Math.max(0, stock) })
+        .update({ stock: cleanStock })
         .eq("id", id);
-      if (error) throw error;
+      if (prodErr) throw prodErr;
+
+      // Also atomically sync variant stock to prevent drift
+      await (supabase as any)
+        .from("product_variants")
+        .update({ stock: cleanStock })
+        .eq("product_id", id);
     },
     onSuccess: () => {
       toast.success("Stock updated successfully");
@@ -1345,16 +1370,18 @@ function ProductsTab() {
 
   const activeCount = activeProducts.length;
   const archivedCount = archivedProducts.length;
-  const totalStockUnits = activeProducts.reduce((sum, p) => sum + (p.stock || 0), 0);
-  const totalStockValue = activeProducts.reduce(
-    (sum, p) => sum + (p.price || 0) * (p.stock || 0),
-    0,
-  );
-  const inStockCount = activeProducts.filter((p) => (p.stock || 0) > 0).length;
-  const lowStockCount = activeProducts.filter(
-    (p) => (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5),
-  ).length;
-  const outOfStockCount = activeProducts.filter((p) => (p.stock || 0) === 0).length;
+
+  // Authoritative shared stock valuation
+  const valuation = useMemo(() => {
+    return calculateStockValuation(activeProducts);
+  }, [activeProducts]);
+
+  const totalStockUnits = valuation.totalUnits;
+  const totalStockValue = valuation.retailValue;
+  const totalStockCost = valuation.costValue;
+  const inStockCount = valuation.inStockCount;
+  const lowStockCount = valuation.lowStockCount;
+  const outOfStockCount = valuation.outOfStockCount;
   const offlineOnlyCount = activeProducts.filter((p) => p.salesChannel === "OFFLINE_ONLY").length;
   const onlineAndOfflineCount = activeProducts.filter(
     (p) => p.salesChannel !== "OFFLINE_ONLY",
@@ -1455,8 +1482,8 @@ function ProductsTab() {
   };
 
   const selectedProducts = useMemo(
-    () => (data ?? []).filter((p) => selectedIds.has(p.uuid)),
-    [data, selectedIds],
+    () => list.filter((p) => selectedIds.has(p.uuid)),
+    [list, selectedIds],
   );
 
   const productSelectionMetrics = useMemo(
@@ -1492,10 +1519,23 @@ function ProductsTab() {
           </p>
           <p className="mt-1 text-lg font-extrabold text-blue-600">{totalStockUnits} units</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
-          <p className="text-[11px] font-bold uppercase text-muted-foreground">Total Stock Value</p>
+        <div
+          className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs"
+          title={`Total Potential Retail Sales: ${formatPrice(totalStockValue)} (Store Buying Cost: ${formatPrice(totalStockCost)})`}
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-[11px] font-bold uppercase text-muted-foreground truncate">
+              Total Stock Value
+            </p>
+            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 shrink-0">
+              Retail
+            </span>
+          </div>
           <p className="mt-1 text-lg font-extrabold text-emerald-600">
             {formatPrice(totalStockValue)}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Store Cost: {formatPrice(totalStockCost)}
           </p>
         </div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-2xs">
@@ -1693,7 +1733,8 @@ function ProductsTab() {
 
       {/* Smart Selection Summary & Bulk Action Toolbar */}
       <SmartSelectionSummary
-        selectedCount={selectedIds.size}
+        selectedCount={selectedProducts.length}
+        selectedLabel="Selected Products"
         metrics={productSelectionMetrics}
         onClear={() => setSelectedIds(new Set())}
         actions={
@@ -3384,6 +3425,7 @@ function CustomersTab() {
           {/* Sticky Smart Selection Summary */}
           <SmartSelectionSummary
             selectedCount={customerSelection.selectedCount}
+            selectedLabel="Selected Customers"
             metrics={customerMetrics}
             onClear={customerSelection.clearSelection}
           />
@@ -3987,6 +4029,7 @@ function CouponsTab() {
       {/* Sticky Smart Selection Summary */}
       <SmartSelectionSummary
         selectedCount={couponSelection.selectedCount}
+        selectedLabel="Selected Coupons"
         metrics={couponMetrics}
         onClear={couponSelection.clearSelection}
       />
@@ -4036,75 +4079,75 @@ function CouponsTab() {
                     />
                   </td>
                   <td className="px-5 py-4">
-                  <span className="font-mono font-bold text-foreground text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
-                    {c.code}
-                  </span>
-                </td>
-                <td className="px-5 py-4 font-bold text-emerald-600 dark:text-emerald-400">
-                  {c.discount_type === "percentage"
-                    ? `${c.discount_value}% OFF`
-                    : formatPrice(c.discount_value)}
-                </td>
-                <td className="px-5 py-4 font-medium text-foreground">
-                  {c.minimum_order_value > 0 ? (
-                    formatPrice(c.minimum_order_value)
-                  ) : (
-                    <span className="text-muted-foreground font-normal">No Min Order</span>
-                  )}
-                </td>
-                <td className="px-5 py-4">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedUsageCoupon(c.code)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
-                    title="Click to view who used this coupon"
-                  >
-                    <Users className="size-3.5" />
-                    <span>{c.usage_count} customer(s)</span>
-                    <Eye className="size-3 ml-0.5" />
-                  </button>
-                </td>
-                <td className="px-5 py-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                      c.active
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                        : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
-                    }`}
-                  >
-                    {c.active ? "Active" : "Inactive"}
-                  </button>
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                    <span className="font-mono font-bold text-foreground text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
+                      {c.code}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 font-bold text-emerald-600 dark:text-emerald-400">
+                    {c.discount_type === "percentage"
+                      ? `${c.discount_value}% OFF`
+                      : formatPrice(c.discount_value)}
+                  </td>
+                  <td className="px-5 py-4 font-medium text-foreground">
+                    {c.minimum_order_value > 0 ? (
+                      formatPrice(c.minimum_order_value)
+                    ) : (
+                      <span className="text-muted-foreground font-normal">No Min Order</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
                     <button
                       type="button"
                       onClick={() => setSelectedUsageCoupon(c.code)}
-                      className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-primary/40 hover:text-primary hover:bg-primary/5 cursor-pointer"
-                      title="View customers who redeemed this coupon"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
+                      title="Click to view who used this coupon"
                     >
-                      <Eye className="size-4" />
+                      <Users className="size-3.5" />
+                      <span>{c.usage_count} customer(s)</span>
+                      <Eye className="size-3 ml-0.5" />
                     </button>
+                  </td>
+                  <td className="px-5 py-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(`Delete coupon ${c.code}?`)) {
-                          deleteCoupon.mutate(c.id);
-                        }
-                      }}
-                      className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
-                      title="Delete coupon"
+                      onClick={() => toggleCoupon.mutate({ id: c.id, active: !c.active })}
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                        c.active
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                          : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
+                      }`}
                     >
-                      <Trash2 className="size-4" />
+                      {c.active ? "Active" : "Inactive"}
                     </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-          {!isLoading && (coupons ?? []).length === 0 && (
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUsageCoupon(c.code)}
+                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-primary/40 hover:text-primary hover:bg-primary/5 cursor-pointer"
+                        title="View customers who redeemed this coupon"
+                      >
+                        <Eye className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Delete coupon ${c.code}?`)) {
+                            deleteCoupon.mutate(c.id);
+                          }
+                        }}
+                        className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                        title="Delete coupon"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {!isLoading && (coupons ?? []).length === 0 && (
               <tr>
                 <td
                   colSpan={6}
@@ -4519,6 +4562,8 @@ function MarketingTab() {
     whatsapp_url: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   const { data: settings = {}, isLoading } = useQuery({
@@ -4547,8 +4592,50 @@ function MarketingTab() {
     }
   }, [settings, isLoading, hasLoaded]);
 
+  // Real-time validations and canonical normalizations
+  const igValidation = useMemo(
+    () => validateAndNormalizeInstagram(form.instagram_url),
+    [form.instagram_url],
+  );
+  const fbValidation = useMemo(
+    () => validateAndNormalizeFacebook(form.facebook_url),
+    [form.facebook_url],
+  );
+  const waValidation = useMemo(
+    () => validateAndNormalizeWhatsApp(form.whatsapp_url),
+    [form.whatsapp_url],
+  );
+  const targetLinkValidation = useMemo(
+    () => validateAndNormalizeAnnouncementLink(form.announcement_link),
+    [form.announcement_link],
+  );
+
   const save = useMutation({
     mutationFn: async () => {
+      const newErrors: Record<string, string> = {};
+
+      if (form.instagram_url.trim() && !igValidation.isValid) {
+        newErrors.instagram_url = igValidation.error || "Invalid Instagram URL or handle";
+      }
+      if (form.facebook_url.trim() && !fbValidation.isValid) {
+        newErrors.facebook_url = fbValidation.error || "Invalid Facebook Page URL or handle";
+      }
+      if (form.whatsapp_url.trim() && !waValidation.isValid) {
+        newErrors.whatsapp_url =
+          waValidation.error || "Invalid WhatsApp direct link or mobile number";
+      }
+      if (form.announcement_link.trim() && !targetLinkValidation.isValid) {
+        newErrors.announcement_link = targetLinkValidation.error || "Invalid target link format";
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        const firstErr = Object.values(newErrors)[0];
+        throw new Error(`Validation Error: ${firstErr}`);
+      }
+
+      setErrors({});
+
       const isAnnounceEmpty = !form.announcement.trim();
       const rows = [
         { key: "announcement", value: form.announcement.trim() },
@@ -4558,35 +4645,38 @@ function MarketingTab() {
         },
         { key: "announcement_bg", value: form.announcement_bg },
         { key: "announcement_text_color", value: form.announcement_text_color },
-        { key: "announcement_link", value: form.announcement_link.trim() },
-        { key: "instagram_url", value: form.instagram_url.trim() },
-        { key: "facebook_url", value: form.facebook_url.trim() },
-        { key: "whatsapp_url", value: form.whatsapp_url.trim() },
+        { key: "announcement_link", value: targetLinkValidation.normalizedUrl },
+        { key: "instagram_url", value: igValidation.normalizedUrl },
+        { key: "facebook_url", value: fbValidation.normalizedUrl },
+        { key: "whatsapp_url", value: waValidation.normalizedUrl },
       ];
 
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
+
+      return {
+        instagram_url: igValidation.normalizedUrl,
+        facebook_url: fbValidation.normalizedUrl,
+        whatsapp_url: waValidation.normalizedUrl,
+        announcement_link: targetLinkValidation.normalizedUrl,
+      };
     },
-    onSuccess: () => {
-      toast.success("Marketing, Announcement & Social settings saved successfully!");
+    onSuccess: (normalized) => {
+      setForm((prev) => ({
+        ...prev,
+        ...normalized,
+      }));
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 5000);
+      toast.success("Marketing, Announcement & Social settings saved & published to live store!");
       qc.invalidateQueries({ queryKey: ["site_settings"] });
       qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      qc.refetchQueries({ queryKey: ["site_settings"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
+    onError: (e: Error) => {
+      toast.error(e.message || "Failed to save settings. Please resolve validation errors.");
+    },
   });
-
-  const normalizeUrl = (url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed) return "";
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
-    if (trimmed.startsWith("wa.me/")) return `https://${trimmed}`;
-    if (/^\+?[0-9]{10,14}$/.test(trimmed.replace(/[\s-]/g, ""))) {
-      const cleanNum = trimmed.replace(/[^0-9]/g, "");
-      const fullNum = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
-      return `https://wa.me/${fullNum}`;
-    }
-    return `https://${trimmed}`;
-  };
 
   const handleApplyPreset = (preset: (typeof ANNOUNCEMENT_PRESETS)[0]) => {
     setForm((prev) => ({
@@ -4617,8 +4707,8 @@ function MarketingTab() {
           save.mutate();
         }}
       >
-        {/* Header Title */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
+        {/* Header Title & Top Quick Action */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
           <div>
             <h2 className="flex items-center gap-2.5 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               <Megaphone className="size-7 text-primary" />
@@ -4626,27 +4716,52 @@ function MarketingTab() {
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Manage your top announcement bar, live color styling, and social media channels in one
-              place.
+              authoritative place.
             </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={save.isPending}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer self-start sm:self-auto"
-          >
-            {save.isPending ? (
-              <>
-                <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Check className="size-4" /> Save &amp; Publish All
-              </>
+          <div className="flex items-center gap-3">
+            {saveSuccess && (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <Check className="size-3.5" /> Published to Store
+              </span>
             )}
-          </button>
+
+            <button
+              type="submit"
+              disabled={save.isPending || isLoading}
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+            >
+              {save.isPending ? (
+                <>
+                  <div className="size-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  Saving &amp; Publishing...
+                </>
+              ) : (
+                <>
+                  <Check className="size-4" /> Save &amp; Publish All
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Validation Errors Summary Alert */}
+        {Object.keys(errors).length > 0 && (
+          <div className="rounded-2xl border border-rose-300 bg-rose-50 dark:bg-rose-950/40 p-4 text-rose-800 dark:text-rose-200">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              <AlertCircle className="size-4 text-rose-600 dark:text-rose-400" />
+              Please fix the following validation errors before publishing:
+            </div>
+            <ul className="mt-2 list-disc list-inside space-y-1 text-xs">
+              {Object.entries(errors).map(([key, msg]) => (
+                <li key={key} className="font-medium">
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ─── SECTION 1: TOP ANNOUNCEMENT BANNER ─────────────────── */}
         <div className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
@@ -4734,7 +4849,12 @@ function MarketingTab() {
               id="mkt-announcement-text"
               rows={2}
               value={form.announcement}
-              onChange={(e) => setForm({ ...form, announcement: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, announcement: e.target.value });
+                if (errors.announcement) {
+                  setErrors((prev) => ({ ...prev, announcement: "" }));
+                }
+              }}
               placeholder="e.g. Free delivery on orders above ₹999 · Easy 7-day returns"
               className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs placeholder:text-muted-foreground/60"
             />
@@ -4747,20 +4867,46 @@ function MarketingTab() {
 
           {/* Optional Target Link */}
           <div className="space-y-2">
-            <label
-              htmlFor="mkt-announcement-link"
-              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"
-            >
-              <ExternalLink className="size-3.5" /> Target Page Link (Optional Clickable Action)
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="mkt-announcement-link"
+                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"
+              >
+                <ExternalLink className="size-3.5" /> Target Page Link (Optional Clickable Action)
+              </label>
+              {targetLinkValidation.isValid && targetLinkValidation.normalizedUrl && (
+                <a
+                  href={targetLinkValidation.normalizedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                >
+                  Test Link <ExternalLink className="size-3" />
+                </a>
+              )}
+            </div>
             <input
               id="mkt-announcement-link"
               type="text"
               value={form.announcement_link}
-              onChange={(e) => setForm({ ...form, announcement_link: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, announcement_link: e.target.value });
+                if (errors.announcement_link) {
+                  setErrors((prev) => ({ ...prev, announcement_link: "" }));
+                }
+              }}
               placeholder="e.g. /shop or /product/123 or https://..."
-              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+              className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium outline-none transition focus:ring-2 shadow-2xs ${
+                form.announcement_link.trim() && !targetLinkValidation.isValid
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30"
+                  : "border-border bg-background focus:border-primary focus:ring-primary/20"
+              }`}
             />
+            {form.announcement_link.trim() && !targetLinkValidation.isValid && (
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                {targetLinkValidation.error}
+              </p>
+            )}
           </div>
 
           {/* Color Palettes & Pickers */}
@@ -4913,12 +5059,13 @@ function MarketingTab() {
                   htmlFor="mkt-instagram"
                   className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                 >
-                  Instagram Profile URL
+                  Instagram Profile URL or Handle
                 </label>
-                {form.instagram_url && (
+                {igValidation.isValid && igValidation.normalizedUrl && (
                   <a
-                    href={normalizeUrl(form.instagram_url)}
-                    rel="noreferrer"
+                    href={igValidation.normalizedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                   >
                     Test Link <ExternalLink className="size-3" />
@@ -4926,17 +5073,40 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur
-                Contact page par Instagram icon ka destination link.
+                <span className="font-semibold text-foreground">Destination:</span> Footer aur
+                Contact page par Instagram button ka link. Accepts username (e.g.{" "}
+                <code>@zerah_kids</code>) ya direct link (e.g.{" "}
+                <code>https://www.instagram.com/zerah_kids/</code>).
               </p>
               <input
                 id="mkt-instagram"
                 type="text"
                 value={form.instagram_url}
-                onChange={(e) => setForm({ ...form, instagram_url: e.target.value })}
-                placeholder="https://www.instagram.com/zerah_kids/"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+                onChange={(e) => {
+                  setForm({ ...form, instagram_url: e.target.value });
+                  if (errors.instagram_url) {
+                    setErrors((prev) => ({ ...prev, instagram_url: "" }));
+                  }
+                }}
+                placeholder="https://www.instagram.com/zerah_kids/ or @zerah_kids"
+                className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium outline-none transition focus:ring-2 shadow-2xs ${
+                  form.instagram_url.trim() && !igValidation.isValid
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30"
+                    : "border-border bg-background focus:border-primary focus:ring-primary/20"
+                }`}
               />
+              {form.instagram_url.trim() && !igValidation.isValid ? (
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  {igValidation.error}
+                </p>
+              ) : igValidation.normalizedUrl ? (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="font-semibold text-foreground">Normalized Target:</span>
+                  <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md font-mono">
+                    {igValidation.normalizedUrl}
+                  </code>
+                </p>
+              ) : null}
             </div>
 
             {/* Facebook */}
@@ -4946,12 +5116,13 @@ function MarketingTab() {
                   htmlFor="mkt-facebook"
                   className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                 >
-                  Facebook Page URL
+                  Facebook Page URL or Username
                 </label>
-                {form.facebook_url && (
+                {fbValidation.isValid && fbValidation.normalizedUrl && (
                   <a
-                    href={normalizeUrl(form.facebook_url)}
-                    rel="noreferrer"
+                    href={fbValidation.normalizedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                   >
                     Test Link <ExternalLink className="size-3" />
@@ -4959,17 +5130,40 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer aur
-                Contact page par Facebook icon ka destination link.
+                <span className="font-semibold text-foreground">Destination:</span> Footer aur
+                Contact page par Facebook button ka link. Accepts page username (e.g.{" "}
+                <code>zerahbaby</code>) ya direct link (e.g.{" "}
+                <code>https://facebook.com/zerahbaby</code>).
               </p>
               <input
                 id="mkt-facebook"
                 type="text"
                 value={form.facebook_url}
-                onChange={(e) => setForm({ ...form, facebook_url: e.target.value })}
-                placeholder="https://facebook.com/zerahbaby"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+                onChange={(e) => {
+                  setForm({ ...form, facebook_url: e.target.value });
+                  if (errors.facebook_url) {
+                    setErrors((prev) => ({ ...prev, facebook_url: "" }));
+                  }
+                }}
+                placeholder="https://facebook.com/zerahbaby or zerahbaby"
+                className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium outline-none transition focus:ring-2 shadow-2xs ${
+                  form.facebook_url.trim() && !fbValidation.isValid
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30"
+                    : "border-border bg-background focus:border-primary focus:ring-primary/20"
+                }`}
               />
+              {form.facebook_url.trim() && !fbValidation.isValid ? (
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  {fbValidation.error}
+                </p>
+              ) : fbValidation.normalizedUrl ? (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="font-semibold text-foreground">Normalized Target:</span>
+                  <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md font-mono">
+                    {fbValidation.normalizedUrl}
+                  </code>
+                </p>
+              ) : null}
             </div>
 
             {/* WhatsApp */}
@@ -4979,12 +5173,13 @@ function MarketingTab() {
                   htmlFor="mkt-whatsapp"
                   className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                 >
-                  WhatsApp Direct Chat Link or Phone
+                  WhatsApp Direct Chat Link or Phone Number
                 </label>
-                {form.whatsapp_url && (
+                {waValidation.isValid && waValidation.normalizedUrl && (
                   <a
-                    href={normalizeUrl(form.whatsapp_url)}
-                    rel="noreferrer"
+                    href={waValidation.normalizedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                   >
                     Test Chat Link <ExternalLink className="size-3" />
@@ -4992,28 +5187,62 @@ function MarketingTab() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Kya change hoga:</span> Footer me
-                WhatsApp icon aur floating chat button ka link (e.g. `https://wa.me/919057074777` ya
-                direct phone number `9057074777`).
+                <span className="font-semibold text-foreground">Destination:</span> Customer
+                WhatsApp direct chat trigger. Accepts 10-digit mobile number (e.g.{" "}
+                <code>9057074777</code>) ya official WhatsApp link (e.g.{" "}
+                <code>https://wa.me/919057074777</code>).
               </p>
               <input
                 id="mkt-whatsapp"
                 type="text"
                 value={form.whatsapp_url}
-                onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
-                placeholder="https://wa.me/919057074777 or 9057074777"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+                onChange={(e) => {
+                  setForm({ ...form, whatsapp_url: e.target.value });
+                  if (errors.whatsapp_url) {
+                    setErrors((prev) => ({ ...prev, whatsapp_url: "" }));
+                  }
+                }}
+                placeholder="9057074777 or https://wa.me/919057074777"
+                className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium outline-none transition focus:ring-2 shadow-2xs ${
+                  form.whatsapp_url.trim() && !waValidation.isValid
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30"
+                    : "border-border bg-background focus:border-primary focus:ring-primary/20"
+                }`}
               />
+              {form.whatsapp_url.trim() && !waValidation.isValid ? (
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  {waValidation.error}
+                </p>
+              ) : waValidation.normalizedUrl ? (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="font-semibold text-foreground">Normalized Target:</span>
+                  <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md font-mono text-emerald-700 dark:text-emerald-400">
+                    {waValidation.normalizedUrl}
+                  </code>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
 
         {/* Unified Bottom Submit Button */}
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div>
+            {saveSuccess ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 px-4 py-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <Check className="size-4" /> Published to live storefront
+              </span>
+            ) : Object.keys(errors).length > 0 ? (
+              <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <AlertCircle className="size-4" /> Please fix validation errors before saving
+              </span>
+            ) : null}
+          </div>
+
           <button
             type="submit"
-            disabled={save.isPending}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-base font-bold text-primary-foreground shadow-lg transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
+            disabled={save.isPending || isLoading}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-base font-bold text-primary-foreground shadow-lg transition hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {save.isPending ? (
               <>

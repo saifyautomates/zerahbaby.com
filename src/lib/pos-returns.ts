@@ -68,7 +68,11 @@ export type OfflineReturn = {
   owner_notification_status?: string | null;
   owner_notified_at?: string | null;
   credit_token?: string | null;
+  credit_balance?: number;
+  credit_used?: number;
   original_sale_id?: string | null;
+  original_sale_number?: string | null;
+  linked_sale_id?: string | null;
   created_at: string;
   updated_at: string;
   offline_return_items?: OfflineReturnItem[];
@@ -81,8 +85,12 @@ export type ReturnResult = {
   refund_method?: string;
   credit_token: string;
   customer_name: string;
+  available_credit?: number;
   customer_credit_balance?: number;
-  items_restocked: number;
+  items_count?: number;
+  items_restocked?: number;
+  original_sale_id?: string | null;
+  original_sale_number?: string | null;
   duplicate?: boolean;
 };
 

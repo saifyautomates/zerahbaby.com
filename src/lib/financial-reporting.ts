@@ -54,29 +54,36 @@ export interface ReportOrder {
 export interface ReportPOSItem {
   id?: string;
   product_id?: string | null;
-  product_slug?: string;
-  name?: string;
-  sku?: string;
+  product_slug?: string | null;
+  name?: string | null;
+  sku?: string | null;
   qty?: number;
   quantity?: number;
   price?: number;
   subtotal?: number;
-  buying_price?: number;
+  buying_price?: number | null;
 }
 
 export interface ReportPOSSale {
   id: string;
   sale_number?: string;
   created_at: string;
-  status?: string;
-  payment_method?: string;
+  status?: string | null;
+  payment_method?: string | null;
   total?: number;
   subtotal?: number;
   discount?: number;
   offline_sale_items?: ReportPOSItem[];
-  customer_name?: string;
-  customer_phone?: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
   store_credit_used?: number | null;
+  idempotency_key?: string | null;
+  sync_status?: string | null;
+  transaction_status?: string | null;
+  last_error?: string | null;
+  is_voided?: boolean | null;
+  void_reason?: string | null;
+  voided_at?: string | null;
 }
 
 export interface ReportReturnItem {
@@ -147,6 +154,8 @@ export interface FinancialMetrics {
   cashOutstanding: number;
   pendingCodCount: number;
   totalCatalogValue: number;
+  totalCatalogCost: number;
+  stockValuation: StockValuationResult;
 
   // Canonical Store Credit & Exchange Business Metrics
   totalSales: number;
@@ -169,10 +178,64 @@ export function isValidOnlineOrder(o: ReportOrder): boolean {
 }
 
 /**
- * Filter predicate to identify valid POS sales (excludes cancelled/voided sales)
+ * Filter predicate to identify valid POS sales (excludes cancelled/voided sales and uncommitted failures)
  */
 export function isValidPOSSale(s: ReportPOSSale): boolean {
-  return s.status !== "cancelled" && s.status !== "voided";
+  if (!s) return false;
+  if (s.status === "cancelled" || s.status === "voided" || s.is_voided === true) return false;
+  if (s.status === "sync_failed" || s.status === "FAILED_REQUIRES_ACTION" || s.status === "failed")
+    return false;
+  const isCompleted =
+    s.status === "completed" ||
+    (s as any).transaction_status === "COMPLETED" ||
+    (s as any).sync_status === "SYNCED";
+  return Boolean(isCompleted);
+}
+
+export {
+  useReportingDateRange,
+  calculateCanonicalISTBounds,
+  istToUtcMs,
+  parseDateParts,
+  formatToISTDate,
+  type CanonicalDateBounds,
+} from "./reporting-date-range";
+
+export type DatePreset = "today" | "yesterday" | "7d" | "30d" | "this_month" | "all" | "custom";
+
+export interface ISTPeriodBounds {
+  dateRangeText: string;
+  compareLabel: string;
+  startMs: number;
+  endMs: number;
+  endMsExclusive: number;
+  prevStartMs: number;
+  prevEndMs: number;
+  prevEndMsExclusive: number;
+  inCurrentPeriod: (dateStr: string | null | undefined) => boolean;
+  inPrevPeriod: (dateStr: string | null | undefined) => boolean;
+}
+
+export const IST_OFFSET_MS = 330 * 60 * 1000; // 5 hours 30 minutes in ms
+
+import { calculateCanonicalISTBounds } from "./reporting-date-range";
+
+/**
+ * Returns canonical IST boundaries (startMs and endMs in UTC timestamp milliseconds)
+ * with strict inclusive start (00:00:00.000 IST) and exclusive end (00:00:00.000 IST next day).
+ */
+export function getISTPeriodBounds(
+  datePreset: DatePreset = "7d",
+  now: Date = new Date(),
+  startDate?: string,
+  endDate?: string,
+): ISTPeriodBounds {
+  return calculateCanonicalISTBounds({
+    preset: datePreset,
+    startDate,
+    endDate,
+    referenceNow: now,
+  });
 }
 
 /**
@@ -308,11 +371,12 @@ export function calculateFinancialMetrics({
   );
   const cashOutstanding = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
 
-  // 9. Total catalog value
-  const totalCatalogValue = products.reduce(
-    (sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0),
-    0,
-  );
+  // 9. Total catalog valuation (Authoritative Shared Valuation Engine)
+  const stockValuation = calculateStockValuation(products as unknown as StockValuationItem[], {
+    onlyActive: true,
+  });
+  const totalCatalogValue = stockValuation.retailValue;
+  const totalCatalogCost = stockValuation.costValue;
 
   // 10. Canonical Store Credit & Exchange Metrics
   // Note: Normal POS returns issue 100% exchange store credit vouchers.
@@ -357,6 +421,8 @@ export function calculateFinancialMetrics({
     cashOutstanding,
     pendingCodCount: pendingCodOrders.length,
     totalCatalogValue,
+    totalCatalogCost,
+    stockValuation,
     totalSales,
     grossSales,
     netSales,
@@ -365,5 +431,120 @@ export function calculateFinancialMetrics({
     storeCreditIssued,
     storeCreditUsedInSales,
     storeCreditOutstanding,
+  };
+}
+
+export interface StockValuationItem {
+  id?: string;
+  uuid?: string;
+  name?: string;
+  sku?: string | null;
+  stock?: number | null;
+  price?: number | null;
+  selling_price?: number | null;
+  mrp?: number | null;
+  buyingPrice?: number | null;
+  buying_price?: number | null;
+  product_costs?: { buying_price?: number | null } | Array<{ buying_price?: number | null }> | null;
+  is_active?: boolean | null;
+  isActive?: boolean | null;
+  low_stock_at?: number | null;
+  lowStockAt?: number | null;
+}
+
+export interface StockValuationResult {
+  totalUnits: number;
+  retailValue: number; // Stock Quantity × Selling Price (Potential Sales Value)
+  costValue: number; // Stock Quantity × Buying Cost (Store Investment / Asset Cost)
+  mrpValue: number; // Stock Quantity × MRP
+  potentialProfit: number; // Math.max(0, retailValue - costValue)
+  potentialMarginPct: number; // ((retailValue - costValue) / retailValue) * 100
+  lowStockCount: number;
+  outOfStockCount: number;
+  inStockCount: number;
+  totalProductsCount: number;
+  activeCatalogCount: number;
+}
+
+const roundMoney = (val: number): number => Math.round((val + Number.EPSILON) * 100) / 100;
+
+/**
+ * Authoritative Canonical Stock Valuation Engine.
+ * Shared across Products Page, Inventory Page, Dashboard, and Reports.
+ * Explicitly separates:
+ * 1. Retail Value: stock × selling_price (potential retail revenue)
+ * 2. Store Cost: stock × buying_price (inventory store investment / asset)
+ * 3. MRP Value: stock × mrp
+ */
+export function calculateStockValuation(
+  items: StockValuationItem[],
+  options?: { lowStockThreshold?: number; onlyActive?: boolean },
+): StockValuationResult {
+  let totalUnits = 0;
+  let retailValue = 0;
+  let costValue = 0;
+  let mrpValue = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+  let inStockCount = 0;
+  let activeCatalogCount = 0;
+
+  const defaultLowThreshold = options?.lowStockThreshold ?? 5;
+
+  (items || []).forEach((item) => {
+    const isActive = item.isActive ?? item.is_active ?? true;
+    if (options?.onlyActive && !isActive) return;
+
+    activeCatalogCount++;
+    const stock = Math.max(0, Number(item.stock || 0));
+    const price = Math.max(0, Number(item.price ?? item.selling_price ?? 0));
+    const mrp = Math.max(0, Number(item.mrp ?? price));
+
+    // Resolve buying price from item.buyingPrice, item.buying_price, or item.product_costs
+    let buyingPrice = 0;
+    if (item.buyingPrice !== undefined && item.buyingPrice !== null) {
+      buyingPrice = Number(item.buyingPrice);
+    } else if (item.buying_price !== undefined && item.buying_price !== null) {
+      buyingPrice = Number(item.buying_price);
+    } else if (item.product_costs) {
+      if (Array.isArray(item.product_costs) && item.product_costs.length > 0) {
+        buyingPrice = Number(item.product_costs[0]?.buying_price || 0);
+      } else if (typeof item.product_costs === "object" && "buying_price" in item.product_costs) {
+        buyingPrice = Number(item.product_costs.buying_price || 0);
+      }
+    }
+
+    const lowAt = item.lowStockAt ?? item.low_stock_at ?? defaultLowThreshold;
+
+    totalUnits += stock;
+    retailValue += roundMoney(stock * price);
+    costValue += roundMoney(stock * buyingPrice);
+    mrpValue += roundMoney(stock * mrp);
+
+    if (stock === 0) {
+      outOfStockCount++;
+    } else {
+      inStockCount++;
+      if (stock <= lowAt) {
+        lowStockCount++;
+      }
+    }
+  });
+
+  const potentialProfit = Math.max(0, retailValue - costValue);
+  const potentialMarginPct = retailValue > 0 ? (potentialProfit / retailValue) * 100 : 0;
+
+  return {
+    totalUnits,
+    retailValue: roundMoney(retailValue),
+    costValue: roundMoney(costValue),
+    mrpValue: roundMoney(mrpValue),
+    potentialProfit: roundMoney(potentialProfit),
+    potentialMarginPct: Number(potentialMarginPct.toFixed(1)),
+    lowStockCount,
+    outOfStockCount,
+    inStockCount,
+    totalProductsCount: items?.length || 0,
+    activeCatalogCount,
   };
 }

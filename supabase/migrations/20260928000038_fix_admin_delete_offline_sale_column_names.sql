@@ -97,7 +97,7 @@ BEGIN
   FOR rec IN SELECT id FROM public.offline_sales LOOP
     PERFORM public.admin_delete_offline_sale(rec.id);
     deleted_count := deleted_count + 1;
-  END FOR;
+  END LOOP;
 
   RETURN jsonb_build_object(
     'success', true,
