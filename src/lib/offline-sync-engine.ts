@@ -406,6 +406,35 @@ export async function clearAllSyncedSales(): Promise<number> {
   return count;
 }
 
+/**
+ * Automatically prune obsolete test drafts or permanent validation failures
+ * to ensure dirty local IndexedDB queues are cleanly purged.
+ */
+export async function pruneObsoleteTestDrafts(): Promise<number> {
+  const all = await getAllQueuedSales();
+  let count = 0;
+  for (const item of all) {
+    const isTestItem = (item.items || []).some(
+      (i) =>
+        i.name === "saifyyy" ||
+        i.name === "dhch fgj" ||
+        i.name === "necker set" ||
+        (i.name && i.name.toLowerCase().includes("test")),
+    );
+    if (
+      item.is_permanent_error ||
+      item.status === "FAILED_REQUIRES_ACTION" ||
+      item.status === "FAILED" ||
+      item.status === "SYNCED" ||
+      isTestItem
+    ) {
+      await deleteQueuedSale(item.operation_id);
+      count++;
+    }
+  }
+  return count;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Catalog Caching for Instant Offline Barcode Lookups              */
 /* ------------------------------------------------------------------ */

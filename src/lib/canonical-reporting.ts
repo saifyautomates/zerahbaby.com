@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   getAllQueuedSales,
   reconcileLocalQueueWithCloudSales,
+  pruneObsoleteTestDrafts,
   type OfflineQueueItem,
 } from "@/lib/offline-sync-engine";
 
@@ -78,8 +79,9 @@ export async function fetchCanonicalPOSSales(): Promise<CanonicalPOSSale[]> {
     throw error;
   }
 
-  // 2. Reconcile locally queued items with cloud records
+  // 2. Auto-prune obsolete test drafts and reconcile locally queued items with cloud records
   try {
+    await pruneObsoleteTestDrafts();
     await reconcileLocalQueueWithCloudSales(
       (dbSales ?? []) as unknown as Parameters<typeof reconcileLocalQueueWithCloudSales>[0],
     );
