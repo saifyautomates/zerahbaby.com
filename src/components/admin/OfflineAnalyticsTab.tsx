@@ -438,20 +438,43 @@ export function OfflineAnalyticsTab() {
   }, [sales]);
 
   const handleClearDummyData = async () => {
-    if (!window.confirm("Are you sure you want to completely WIPE all offline sales history?"))
+    if (!window.confirm("Are you sure you want to completely WIPE all offline sales history? This action cannot be undone."))
       return;
     try {
-      // 1. Delete all offline sales (automatically cascades to offline_sale_items)
-      await supabase
-        .from("offline_sales")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      // Clean up orphaned products (archived)
-      await supabase.from("products").delete().eq("is_active", false);
-      alert("Successfully wiped dummy sales.");
-      window.location.reload();
+      // 1. Clear local offline queue, cart, and IndexedDB stores
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("zerah_offline_sales_queue");
+        localStorage.removeItem("zerah_pos_cart");
+        localStorage.removeItem("zerah_offline_tokens");
+        try {
+          if (window.indexedDB) {
+            const req = window.indexedDB.open("zerah_pos_offline_db", 1);
+            req.onsuccess = (e) => {
+              const db = (e.target as IDBOpenDBRequest).result;
+              if (db.objectStoreNames.contains("offline_sales")) {
+                const tx = db.transaction(["offline_sales"], "readwrite");
+                tx.objectStore("offline_sales").clear();
+              }
+            };
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // 2. Try RPC first
+      const { error: rpcErr } = await (supabase.rpc as any)("admin_nuke_all_sales");
+      if (rpcErr) {
+        // Fallback to direct DELETE
+        await supabase.from("offline_sale_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("offline_sales").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("pos_customers").update({ total_purchases: 0, total_spend: 0 }).neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      toast.success("Successfully wiped all sales history.");
+      setTimeout(() => window.location.reload(), 500);
     } catch (e) {
-      alert("Error: " + (e as Error).message);
+      toast.error("Error: " + (e as Error).message);
     }
   };
 
