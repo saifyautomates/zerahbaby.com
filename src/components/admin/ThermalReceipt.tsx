@@ -265,11 +265,7 @@ export function ThermalReceipt({
         return;
       }
 
-      doc.open();
-      doc.write(buildThermalHTML(sale, items, date, storeSettings));
-      doc.close();
-
-      iframe.onload = () => {
+      const triggerPrint = () => {
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
@@ -288,6 +284,16 @@ export function ThermalReceipt({
           }, 2000);
         }
       };
+
+      iframe.onload = triggerPrint;
+
+      doc.open();
+      doc.write(buildThermalHTML(sale, items, date, storeSettings));
+      doc.close();
+
+      if (doc.readyState === "complete") {
+        setTimeout(triggerPrint, 60);
+      }
     } catch (err) {
       setPrintStatus("failed");
       onPrintFail?.(err instanceof Error ? err.message : "Unknown print error");

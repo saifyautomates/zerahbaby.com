@@ -157,6 +157,11 @@ function CheckoutPage() {
         });
       }
 
+      const generatedIdempotencyKey =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
       const orderPayload =
         addressMode === "saved" && profile
           ? {
@@ -177,6 +182,7 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
+              idempotency_key: generatedIdempotencyKey,
               items: items.map(({ product, qty, variantId, price, image }) => ({
                 variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
@@ -204,10 +210,7 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
-              idempotency_key:
-                typeof crypto !== "undefined" && crypto.randomUUID
-                  ? crypto.randomUUID()
-                  : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+              idempotency_key: generatedIdempotencyKey,
               items: items.map(({ product, qty, variantId, price, image }) => ({
                 variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,
@@ -408,13 +411,16 @@ function CheckoutPage() {
       });
 
       // Trigger transactional SMS for finalized COD order (non-blocking)
+      const customerContactPhone = (orderPayload.phone || form.phone || "").trim();
+      const customerContactName = (orderPayload.full_name || form.full_name || "Customer").trim();
+
       supabase.functions
         .invoke("msg91-transactional", {
           body: {
             order_id: orderId,
             event_type: "online_sale",
-            phone: form.phone.trim(),
-            name: form.full_name.trim(),
+            phone: customerContactPhone || undefined,
+            name: customerContactName,
             total: finalTotal,
             payment_method: "COD",
             notify_owner: true,

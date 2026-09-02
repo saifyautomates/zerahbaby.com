@@ -55,6 +55,9 @@ export type OfflineQueueItem = {
   token_date: string;
   sale_number: string;
   created_at: string;
+  coupon_code?: string | null;
+  store_credit_used?: number;
+  credit_token?: string | null;
   status: SyncStatus;
   retry_count: number;
   last_error?: string;
@@ -700,6 +703,7 @@ async function executeSyncLoop(options?: {
           _idempotency_key: item.idempotency_key,
           _store_credit_used: (item as any).store_credit_used || 0,
           _credit_token: (item as any).credit_token || null,
+          _coupon_code: (item as any).coupon_code?.trim() || null,
         });
 
         if (rpcRes.error) {

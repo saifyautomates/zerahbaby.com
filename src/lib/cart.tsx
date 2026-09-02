@@ -230,7 +230,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setLines((prev) => {
         const merged = [...(dbLines ?? [])];
         for (const localLine of prev) {
-          if (!merged.find((l) => l.id === localLine.id)) {
+          if (
+            !merged.find(
+              (l) =>
+                l.id === localLine.id &&
+                (l.variantId || "") === (localLine.variantId || ""),
+            )
+          ) {
             merged.push(localLine);
           }
         }
@@ -376,11 +382,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const variant = product.variants?.find((v) => v.id === vId);
           const stock = variant ? variant.stock : product.stock;
 
+          if (stock <= 0) return prev;
+
           const existing = prev.find(
             (l) => l.id === id && (l.variantId || defaultVariantId) === vId,
           );
           const requestedQty = (existing?.qty || 0) + qty;
-          const finalQty = Math.min(requestedQty, stock);
+          const finalQty = Math.max(1, Math.min(requestedQty, stock));
 
           if (existing) {
             return prev.map((l) =>

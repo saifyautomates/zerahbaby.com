@@ -789,7 +789,7 @@ export function POSTab() {
   }
 
   // Complete sale
-  async function completeSale() {
+  async function completeSale(overrideCustomerId?: string | null) {
     if (cart.length === 0) {
       toast.error("Cart is empty");
       return;
@@ -827,6 +827,9 @@ export function POSTab() {
       }
     }
 
+    const resolvedCustomerId =
+      overrideCustomerId !== undefined ? overrideCustomerId : customerId;
+
     try {
       setTxState("PROCESSING");
       const result = await placeSale.mutateAsync({
@@ -838,7 +841,7 @@ export function POSTab() {
         notes: "",
         discount_type: discountType,
         discount_value: discountValue,
-        customer_id: customerId,
+        customer_id: resolvedCustomerId,
         items: rpcItems,
         idempotency_key: idempotencyKey,
         store_credit_used: effectiveCreditUsed,
@@ -885,6 +888,7 @@ export function POSTab() {
       }
     } catch (e) {
       setTxState("FAILED");
+      setIdempotencyKey(generateIdempotencyKey());
       toast.error(e instanceof Error ? e.message : "Sale failed to process");
     }
   }
@@ -2075,7 +2079,7 @@ export function POSTab() {
                             {
                               onSuccess: (newCustomer) => {
                                 setCustomerId(newCustomer.id);
-                                setTimeout(() => completeSale(), 100);
+                                completeSale(newCustomer.id);
                               },
                               onError: () => {
                                 completeSale();

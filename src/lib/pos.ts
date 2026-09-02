@@ -422,6 +422,9 @@ export function usePlaceOfflineSale() {
         discount_type: input.discount_type || "none",
         discount_value: input.discount_value || 0,
         customer_id: input.customer_id,
+        coupon_code: input.coupon_code || null,
+        store_credit_used: input.store_credit_used || 0,
+        credit_token: input.credit_token || null,
         items: input.items,
         total,
         subtotal,
@@ -497,6 +500,10 @@ export function useCreatePOSCustomer() {
       phone: string;
       email?: string;
     }): Promise<POSCustomer> => {
+      const cleanPhone = customer.phone.trim();
+      const cleanName = customer.name.trim();
+      const cleanEmail = customer.email?.trim() || "";
+
       const { data, error } = await (
         supabase as unknown as {
           from: (t: string) => {
@@ -513,13 +520,41 @@ export function useCreatePOSCustomer() {
       )
         .from("pos_customers")
         .insert({
-          name: customer.name.trim(),
-          phone: customer.phone.trim(),
-          email: customer.email?.trim() || "",
+          name: cleanName,
+          phone: cleanPhone,
+          email: cleanEmail,
         })
         .select()
         .single();
-      if (error) throw new Error(error.message);
+
+      if (error) {
+        // If customer with phone already exists, look up and return the existing record
+        const { data: existingCust, error: fetchErr } = await (
+          supabase as unknown as {
+            from: (t: string) => {
+              select: (q: string) => {
+                eq: (col: string, val: string) => {
+                  maybeSingle: () => Promise<{
+                    data: POSCustomer | null;
+                    error: { message: string } | null;
+                  }>;
+                };
+              };
+            };
+          }
+        )
+          .from("pos_customers")
+          .select("*")
+          .eq("phone", cleanPhone)
+          .maybeSingle();
+
+        if (existingCust && !fetchErr) {
+          return existingCust as POSCustomer;
+        }
+
+        throw new Error(error.message);
+      }
+
       return data as POSCustomer;
     },
     onSuccess: () => {

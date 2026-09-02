@@ -1003,7 +1003,7 @@ function ProductPage() {
                   </button>
                   <span className="w-6 text-center text-sm font-bold">{qty}</span>
                   <button
-                    onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
+                    onClick={() => setQty((q) => Math.min(activeStock || 1, q + 1))}
                     aria-label="Increase quantity"
                     className="hover:text-primary transition-colors cursor-pointer"
                   >
@@ -1151,7 +1151,7 @@ function ProductPage() {
                 </button>
                 <span className="w-6 text-center text-sm font-bold">{qty}</span>
                 <button
-                  onClick={() => setQty((q) => Math.min(product?.stock || 1, q + 1))}
+                  onClick={() => setQty((q) => Math.min(activeStock || 1, q + 1))}
                   className="hover:text-primary transition-colors"
                 >
                   <Plus className="size-4" />
@@ -1785,12 +1785,6 @@ function BuyNowModal({
     if (!/^[\d\s+-]{10,15}$/.test(form.phone.trim())) {
       toast.error("Enter a valid 10-digit phone number");
       setEditAddress(true);
-      return;
-    }
-
-    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-    if (!razorpayKey) {
-      toast.error("Razorpay Key ID is not configured in client environment");
       return;
     }
 

@@ -576,11 +576,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         return;
       }
 
-      doc.open();
-      doc.write(buildA4HTML(sale, items, storeSettings));
-      doc.close();
-
-      iframe.onload = () => {
+      const triggerPrint = () => {
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
@@ -601,6 +597,16 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
           }, 2000);
         }
       };
+
+      iframe.onload = triggerPrint;
+
+      doc.open();
+      doc.write(buildA4HTML(sale, items, storeSettings));
+      doc.close();
+
+      if (doc.readyState === "complete") {
+        setTimeout(triggerPrint, 60);
+      }
     } catch (err) {
       setPrintStatus("failed");
       const msg = err instanceof Error ? err.message : "Unknown print error";

@@ -600,18 +600,25 @@ export function POSReturnsTab() {
         return_reason: returnReason,
         notes: returnNotes.trim(),
         original_sale_id: originalSaleId,
-        items: returnCart.map((i) => ({
-          product_id: i.product_id,
-          product_slug: i.product_slug,
-          name: i.name,
-          sku: i.sku,
-          barcode: i.barcode,
-          variant_info: i.variant_info,
-          refund_price: i.refund_price,
-          qty: i.qty,
-          mrp: i.mrp,
-          original_sale_item_id: i.original_sale_item_id || null,
-        })),
+        items: returnCart.map((i) => {
+          const isUuid =
+            Boolean(i.product_id) &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              i.product_id || "",
+            );
+          return {
+            product_id: isUuid ? i.product_id : null,
+            product_slug: i.product_slug,
+            name: i.name,
+            sku: i.sku,
+            barcode: i.barcode,
+            variant_info: i.variant_info,
+            refund_price: i.refund_price,
+            qty: i.qty,
+            mrp: i.mrp,
+            original_sale_item_id: i.original_sale_item_id || null,
+          };
+        }),
         idempotency_key: idempotencyKey,
       };
 
