@@ -91,18 +91,33 @@ function AuthPage() {
 
   // ─── Redirect when session arrives ────────────────────────────────────────────
   useEffect(() => {
-    if (user) {
+    if (!loading && user) {
       const searchParams =
         typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const redirectTarget = searchParams?.get("redirect");
 
-      if (redirectTarget && redirectTarget.startsWith("/") && !redirectTarget.startsWith("//")) {
-        window.location.href = redirectTarget;
+      if (
+        redirectTarget &&
+        redirectTarget.startsWith("/") &&
+        !redirectTarget.startsWith("//") &&
+        !redirectTarget.startsWith("/auth")
+      ) {
+        try {
+          const parsed = new URL(redirectTarget, window.location.origin);
+          const searchEntries = Object.fromEntries(parsed.searchParams.entries());
+          navigate({
+            to: parsed.pathname,
+            search: Object.keys(searchEntries).length > 0 ? searchEntries : undefined,
+            replace: true,
+          });
+        } catch {
+          navigate({ to: redirectTarget, replace: true });
+        }
       } else {
         navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
       }
     }
-  }, [user, items.length, navigate]);
+  }, [user, loading, items.length, navigate]);
 
   // ─── SEND OTP (first time) ────────────────────────────────────────────────────
   async function onSendOtp(e: React.FormEvent) {

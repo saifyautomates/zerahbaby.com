@@ -1,8 +1,6 @@
-//
 import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useSession } from "@/lib/auth";
+import { ensureAuthSession, useSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
@@ -10,28 +8,9 @@ export const Route = createFileRoute("/_authenticated")({
     if (typeof window === "undefined") {
       return {};
     }
-    // Test mode bypass for local E2E in-browser audits
-    if (
-      import.meta.env.DEV &&
-      localStorage.getItem("zerah_test_admin") === "true"
-    ) {
-      return {
-        user: {
-          id: "00000000-0000-0000-0000-000000000001",
-          email: "sameer@zerahkids.com",
-          role: "authenticated",
-          aud: "authenticated",
-          app_metadata: {},
-          user_metadata: { full_name: "Sameer" },
-          created_at: new Date().toISOString(),
-        } as any,
-      };
-    }
-    let session = (await supabase.auth.getSession()).data.session;
-    if (!session?.user) {
-      const refreshed = await supabase.auth.refreshSession();
-      session = refreshed.data.session;
-    }
+
+    const session = await ensureAuthSession();
+
     if (!session?.user) {
       const searchStr =
         location.searchStr ||
@@ -43,11 +22,15 @@ export const Route = createFileRoute("/_authenticated")({
       const targetUrl =
         location.pathname +
         (searchStr ? (searchStr.startsWith("?") ? searchStr : `?${searchStr}`) : "");
+
       throw redirect({
         to: "/auth",
-        search: targetUrl && targetUrl !== "/" ? { redirect: targetUrl } : undefined,
+        search: targetUrl && targetUrl !== "/" && !targetUrl.startsWith("/auth")
+          ? { redirect: targetUrl }
+          : undefined,
       });
     }
+
     return { user: session.user };
   },
   component: AuthenticatedLayout,

@@ -1,11 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/admin/$")({
-  beforeLoad: ({ params, search }) => {
+  beforeLoad: ({ params, search, location }) => {
     const splat = params._splat || "";
     const parts = splat.split("/").filter(Boolean);
     const sub = parts[0]?.toLowerCase();
+
     if (parts.length === 0 || !sub) {
+      if (location.pathname === "/admin") {
+        return;
+      }
       const searchParams = (search || {}) as Record<string, unknown>;
       throw redirect({
         to: "/admin",
