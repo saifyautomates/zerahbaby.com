@@ -34,6 +34,8 @@ export type ThermalReceiptSale = {
   discount_type: string;
   discount_value: number;
   total: number;
+  store_credit_used?: number;
+  credit_token_used?: string | null;
   payment_method: string;
   /**
    * Daily sequential walk-in token number (1, 2, 3...).
@@ -42,6 +44,9 @@ export type ThermalReceiptSale = {
   pos_token_number?: number | null;
   /** Whether this was a duplicate-prevented sale — if true, autoPrint must NOT fire */
   duplicate?: boolean;
+  /** Explicit transaction state */
+  status?: "completed" | "pending_sync" | "failed";
+  is_offline_queued?: boolean;
 };
 
 export type ThermalReceiptItem = {
@@ -145,6 +150,15 @@ function buildThermalHTML(
     <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone)}</div>
   </div>
 
+  ${
+    sale.status === "pending_sync" || sale.is_offline_queued
+      ? `<div style="text-align:center;border:1px dashed #000;padding:4px 6px;margin-bottom:8px;font-weight:900;font-size:10px;">
+          *** OFFLINE SALE — PENDING SYNC ***
+          <div style="font-size:8px;font-weight:normal;margin-top:2px;">Saved locally. Will sync to cloud when connected.</div>
+        </div>`
+      : `<div style="text-align:center;font-size:10px;font-weight:bold;margin-bottom:6px;letter-spacing:1px;">TAX INVOICE / CASH MEMO</div>`
+  }
+
   <div style="font-size:11px;margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Invoice</span><span style="font-weight:700;">${escHtml(sale.sale_number)}</span></div>
     <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Date</span><span>${date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}</span></div>
@@ -169,9 +183,18 @@ function buildThermalHTML(
       <span style="font-size:13px;font-weight:900;">TOTAL</span>
       <span style="font-size:13px;font-weight:900;">₹${sale.total.toLocaleString("en-IN")}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
-      <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method)}</span>
-    </div>
+    ${
+      sale.store_credit_used && sale.store_credit_used > 0
+        ? `<div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;margin-top:2px;">
+            <span>Store Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-weight:900;margin-top:2px;">
+            <span>Net Paid (${escHtml(sale.payment_method)})</span><span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
+          </div>`
+        : `<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
+            <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method)}</span>
+          </div>`
+    }
   </div>
 
   <div class="divider"></div>
@@ -347,6 +370,20 @@ export function ThermalReceipt({
             <p className="text-[10px] text-muted-foreground">Gordhanpura, Kota, Rajasthan 324001</p>
             <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
           </div>
+
+          {/* Status banner */}
+          {sale.status === "pending_sync" || sale.is_offline_queued ? (
+            <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 p-2 text-center text-xs mb-3 text-amber-700 dark:text-amber-300">
+              <p className="font-extrabold text-[11px]">⚡ OFFLINE VOUCHER — PENDING SYNC</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Saved locally. Will synchronize to cloud database automatically.
+              </p>
+            </div>
+          ) : (
+            <div className="text-center text-[11px] font-bold text-muted-foreground mb-3 tracking-wider">
+              TAX INVOICE / CASH MEMO
+            </div>
+          )}
 
           {/* Invoice details */}
           <div className="text-[11px] space-y-0.5 mb-3">

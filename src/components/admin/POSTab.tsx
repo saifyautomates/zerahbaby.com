@@ -47,13 +47,19 @@ import {
   Phone,
   Send,
   Star,
+  Sparkles,
+  Tag,
+  Loader2,
+  CloudUpload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice, imageFor, getColorSwatchImage } from "@/lib/store";
+import { calculatePOSFinancials } from "@/lib/pricing-engine";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
   type SaleResult,
+  type POSTransactionState,
   lookupBarcode,
   usePlaceOfflineSale,
   useSearchPOSCustomers,
@@ -61,6 +67,7 @@ import {
   calculateDiscount,
   generateIdempotencyKey,
 } from "@/lib/pos";
+import { useCustomerStoreCredit } from "@/lib/pos-returns";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
@@ -105,6 +112,7 @@ export function POSTab() {
     const draft = loadPOSDraft();
     return draft?.step === "checkout" && (draft.cart?.length || 0) > 0 ? "checkout" : "cart";
   });
+  const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
 
   // Persistent Cart state
   const [cart, setCart] = useState<POSCartItem[]>(() => {
@@ -241,28 +249,47 @@ export function POSTab() {
   // Product detail drawer
   const [selectedPOSItem, setSelectedPOSItem] = useState<POSCartItem | null>(null);
 
-  // Calculations
-  const subtotal = useMemo(
-    () => cart.reduce((acc, item) => acc + item.price * item.qty, 0),
-    [cart],
+  // Store Credit / Exchange Tender State
+  const [storeCreditApplied, setStoreCreditApplied] = useState<number>(0);
+  const [creditTokenInput, setCreditTokenInput] = useState<string>("");
+
+  // Calculations via Master Pricing Engine
+  const posFinancials = useMemo(
+    () =>
+      calculatePOSFinancials({
+        items: cart.map((i) => ({ price: i.price, qty: i.qty })),
+        discountType,
+        discountValue,
+      }),
+    [cart, discountType, discountValue],
   );
 
+  const subtotal = posFinancials.subtotal;
+  const discountAmount = posFinancials.discount;
+  const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
 
-  const discountAmount = useMemo(() => {
-    if (discountType === "none" || !discountValue || discountValue <= 0) return 0;
-    if (discountType === "percentage") {
-      return Math.round((subtotal * Math.min(100, discountValue)) / 100);
-    }
-    return Math.min(subtotal, discountValue);
-  }, [subtotal, discountType, discountValue]);
+  // Authoritative Customer Store Credit Query
+  const { data: customerCreditData } = useCustomerStoreCredit({
+    customerId,
+    phone: customerPhone,
+    token: creditTokenInput,
+  });
 
-  const total = useMemo(() => Math.max(0, subtotal - discountAmount), [subtotal, discountAmount]);
+  const availableCredit = customerCreditData?.available_credit ?? 0;
+
+  // Auto-clamp applied credit to available credit and final total
+  const effectiveCreditUsed = useMemo(() => {
+    return Math.min(storeCreditApplied, availableCredit, total);
+  }, [storeCreditApplied, availableCredit, total]);
+
+  const payableAfterCredit = Math.max(0, total - effectiveCreditUsed);
+  const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
 
   const changeDue = useMemo(() => {
-    if (typeof cashTendered !== "number" || cashTendered < total) return 0;
-    return cashTendered - total;
-  }, [cashTendered, total]);
+    if (typeof cashTendered !== "number" || cashTendered < payableAfterCredit) return 0;
+    return Math.max(0, cashTendered - payableAfterCredit);
+  }, [cashTendered, payableAfterCredit]);
 
   // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -576,49 +603,36 @@ export function POSTab() {
     }));
 
     try {
+      setTxState("PROCESSING");
       const result = await placeSale.mutateAsync({
         customer_name:
           customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
         customer_phone: customerPhone,
         customer_email: customerEmail,
-        payment_method: paymentMethod,
+        payment_method: payableAfterCredit === 0 ? "store_credit" : paymentMethod,
         notes: "",
         discount_type: discountType,
         discount_value: discountValue,
         customer_id: customerId,
         items: rpcItems,
         idempotency_key: idempotencyKey,
+        store_credit_used: effectiveCreditUsed,
+        credit_token: creditTokenInput.trim() || undefined,
       });
 
       if (result.duplicate) {
-        toast.warning("This sale was already processed (duplicate prevented)");
+        toast.warning("This sale was already processed on server (duplicate prevented)");
       }
 
       // Snapshot cart items NOW before any reset for printing
       setSaleItems(
         cart.map((c) => ({ name: c.name, sku: c.sku, price: c.price, mrp: c.mrp, qty: c.qty })),
       );
-      setSaleResult(result);
-
-      // Instantly clear cart, draft storage & customer states so everything is 100% fresh
-      setCart([]);
-      setDiscountType("none");
-      setDiscountValue(0);
-      setCustomerMode("walkin");
-      setCustomerName("");
-      setCustomerPhone("");
-      setCustomerEmail("");
-      setCustomerId(null);
-      setCustomerSearchQuery("");
-      setProductSearch("");
-      setScanValue("");
-      setCashTendered("");
-      setIdempotencyKey(generateIdempotencyKey());
-      try {
-        localStorage.removeItem(POS_DRAFT_KEY);
-      } catch {
-        // ignore
-      }
+      setSaleResult({
+        ...result,
+        store_credit_used: effectiveCreditUsed,
+        credit_token_used: creditTokenInput.trim() || undefined,
+      });
 
       // Open receipt or invoice modal based on user's printer format selection (with autoPrint)
       if (printFormat === "a4") {
@@ -629,9 +643,17 @@ export function POSTab() {
         setIsA4InvoiceOpen(false);
       }
       setStep("success");
-      toast.success(`Sale completed! ${result.sale_number}`);
+
+      if (result.status === "pending_sync" || result.is_offline_queued) {
+        setTxState("PENDING_SYNC");
+        toast.info(`Offline sale saved locally — Pending synchronization (#${result.sale_number})`);
+      } else {
+        setTxState("COMPLETED");
+        toast.success(`Sale completed successfully! #${result.sale_number}`);
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Sale failed");
+      setTxState("FAILED");
+      toast.error(e instanceof Error ? e.message : "Sale failed to process");
     }
   }
 
@@ -645,15 +667,16 @@ export function POSTab() {
     setCustomerPhone("");
     setCustomerEmail("");
     setCustomerId(null);
-    setPaymentMethod("cash");
-    setCashTendered("");
-    setSaleResult(null);
-    setSaleItems([]);
-    setStep("cart");
-    setIdempotencyKey(generateIdempotencyKey());
+    setCustomerSearchQuery("");
     setProductSearch("");
     setScanValue("");
-    setCustomerSearchQuery("");
+    setCashTendered("");
+    setStoreCreditApplied(0);
+    setCreditTokenInput("");
+    setStep("cart");
+    setSaleResult(null);
+    setSaleItems([]);
+    setIdempotencyKey(generateIdempotencyKey());
     try {
       localStorage.removeItem(POS_DRAFT_KEY);
     } catch {
@@ -685,10 +708,6 @@ export function POSTab() {
       searchCustomers.reset();
     }
   }, [customerSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (productsLoading && products.length === 0) {
-    return <POSTerminalSkeleton />;
-  }
 
   return (
     <div className="flex min-h-full flex-col rounded-2xl border border-border/50 bg-background relative">
@@ -796,6 +815,12 @@ export function POSTab() {
                   placeholder="Search products manually (or press Enter to select first result)…"
                   className="w-full rounded-xl border border-border bg-background pl-10 pr-9 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
+                {productsLoading && !productSearch && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                    <span className="text-[11px] hidden sm:inline">Loading catalog…</span>
+                  </div>
+                )}
                 {productSearch && (
                   <button
                     type="button"
@@ -1334,97 +1359,198 @@ export function POSTab() {
                     )}
                   </div>
 
-                  {/* 3. Payment Method & Cash Tender Calculator */}
-                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border space-y-4">
-                    <h3 className="text-sm font-bold text-foreground">3. Payment Tender</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      {(
-                        [
-                          ["cash", "Cash", Banknote],
-                          ["upi", "UPI / QR", Smartphone],
-                          ["card", "Card / POS", CreditCard],
-                          ["other", "Other Tender", Wallet],
-                        ] as const
-                      ).map(([method, label, Icon]) => (
-                        <button
-                          key={method}
-                          type="button"
-                          onClick={() => {
-                            setPaymentMethod(method);
-                            if (method === "cash") {
-                              setCashTendered(total);
-                            }
-                          }}
-                          className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
-                            paymentMethod === method
-                              ? "bg-primary text-primary-foreground shadow-2xs ring-2 ring-primary/30"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                          }`}
-                        >
-                          <Icon className="size-5" />
-                          <span>{label}</span>
-                        </button>
-                      ))}
+                  {/* 3. Store Credit / Exchange Voucher Tender Section */}
+                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <h3 className="text-sm font-bold text-foreground">
+                          3. Store Credit / Exchange Voucher
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                        Zero Expiry
+                      </span>
                     </div>
 
-                    {/* Cash Tender & Change Due Calculator */}
-                    {paymentMethod === "cash" && (
-                      <div className="rounded-xl bg-muted/40 p-3.5 border border-border/80 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-foreground">Cash Received:</span>
-                          {/* Quick tender chips */}
-                          <div className="flex items-center gap-1">
+                    {/* Walk-in Voucher Code Search Input */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={creditTokenInput}
+                          onChange={(e) => setCreditTokenInput(e.target.value.toUpperCase())}
+                          placeholder="Enter or scan Store Credit (e.g. A123, P258)..."
+                          className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
+                        />
+                      </div>
+                      {availableCredit > 0 && storeCreditApplied === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setStoreCreditApplied(Math.min(availableCredit, total))}
+                          className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
+                        >
+                          Apply ₹{Math.min(availableCredit, total)}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Available Credit Banner */}
+                    {availableCredit > 0 ? (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+                        <div>
+                          <p className="font-bold text-emerald-950 dark:text-emerald-100">
+                            Available Credit: <span className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatPrice(availableCredit)}</span>
+                          </p>
+                          <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300/80">
+                            {creditTokenInput
+                              ? `Token Code: ${creditTokenInput}`
+                              : customerName
+                                ? `Account: ${customerName}`
+                                : "Walk-in Credit Token"}
+                          </p>
+                        </div>
+
+                        {storeCreditApplied > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs">
+                              Applied −{formatPrice(effectiveCreditUsed)}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => setCashTendered(total)}
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
+                              onClick={() => setStoreCreditApplied(0)}
+                              className="text-muted-foreground hover:text-destructive text-xs font-bold underline cursor-pointer"
                             >
-                              Exact ({formatPrice(total)})
+                              Remove
                             </button>
-                            {[500, 1000, 2000, 5000]
-                              .filter((amt) => amt >= total)
-                              .slice(0, 3)
-                              .map((amt) => (
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setStoreCreditApplied(Math.min(availableCredit, total))}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer"
+                          >
+                            Apply Store Credit
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        Select an existing customer or enter a Return Credit Token to redeem store credit towards this purchase.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 4. Payment Tender (for Remaining Balance) */}
+                  <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-foreground">
+                        4. Payment Tender {effectiveCreditUsed > 0 && `(Payable: ${formatPrice(payableAfterCredit)})`}
+                      </h3>
+                      {payableAfterCredit === 0 && effectiveCreditUsed > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                          100% Settled with Store Credit
+                        </span>
+                      )}
+                    </div>
+
+                    {payableAfterCredit > 0 ? (
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          {(
+                            [
+                              ["cash", "Cash", Banknote],
+                              ["upi", "UPI / QR", Smartphone],
+                              ["card", "Card / POS", CreditCard],
+                              ["other", "Other Tender", Wallet],
+                            ] as const
+                          ).map(([method, label, Icon]) => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => {
+                                setPaymentMethod(method);
+                                if (method === "cash") {
+                                  setCashTendered(payableAfterCredit);
+                                }
+                              }}
+                              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-xs font-bold transition-all cursor-pointer ${
+                                paymentMethod === method
+                                  ? "bg-primary text-primary-foreground shadow-2xs ring-2 ring-primary/30"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                              }`}
+                            >
+                              <Icon className="size-5" />
+                              <span>{label}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Cash Tender & Change Due Calculator */}
+                        {paymentMethod === "cash" && (
+                          <div className="rounded-xl bg-muted/40 p-3.5 border border-border/80 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-foreground">Cash Received:</span>
+                              {/* Quick tender chips */}
+                              <div className="flex items-center gap-1">
                                 <button
-                                  key={amt}
                                   type="button"
-                                  onClick={() => setCashTendered(amt)}
+                                  onClick={() => setCashTendered(payableAfterCredit)}
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
                                 >
-                                  ₹{amt}
+                                  Exact ({formatPrice(payableAfterCredit)})
                                 </button>
-                              ))}
-                          </div>
-                        </div>
+                                {[500, 1000, 2000, 5000]
+                                  .filter((amt) => amt >= payableAfterCredit)
+                                  .slice(0, 3)
+                                  .map((amt) => (
+                                    <button
+                                      key={amt}
+                                      type="button"
+                                      onClick={() => setCashTendered(amt)}
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-background border border-border hover:bg-muted text-foreground cursor-pointer"
+                                    >
+                                      ₹{amt}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-2.5 font-bold text-muted-foreground text-sm">
-                              ₹
-                            </span>
-                            <input
-                              type="number"
-                              value={cashTendered}
-                              onChange={(e) =>
-                                setCashTendered(e.target.value === "" ? "" : Number(e.target.value))
-                              }
-                              placeholder={`Enter cash amount (min ${total})`}
-                              min={0}
-                              className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
-                            />
-                          </div>
-                        </div>
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-2.5 font-bold text-muted-foreground text-sm">
+                                  ₹
+                                </span>
+                                <input
+                                  type="number"
+                                  value={cashTendered}
+                                  onChange={(e) =>
+                                    setCashTendered(e.target.value === "" ? "" : Number(e.target.value))
+                                  }
+                                  placeholder={`Enter cash amount (min ${payableAfterCredit})`}
+                                  min={0}
+                                  className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
+                                />
+                              </div>
+                            </div>
 
-                        {typeof cashTendered === "number" && cashTendered > 0 && (
-                          <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <span className="text-xs font-bold text-emerald-900">
-                              Change Due to Customer:
-                            </span>
-                            <span className="text-base font-black text-emerald-700">
-                              {formatPrice(changeDue)}
-                            </span>
+                            {typeof cashTendered === "number" && cashTendered > 0 && (
+                              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                                <span className="text-xs font-bold text-emerald-900">
+                                  Change Due to Customer:
+                                </span>
+                                <span className="text-base font-black text-emerald-700">
+                                  {formatPrice(changeDue)}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
+                      </>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                        ✓ Full purchase covered by Store Credit ({formatPrice(effectiveCreditUsed)}). No cash/UPI collection needed.
                       </div>
                     )}
                   </div>
@@ -1492,12 +1618,30 @@ export function POSTab() {
                           <span>−{formatPrice(discountAmount)}</span>
                         </div>
                       )}
+                      <div className="flex justify-between font-bold text-foreground">
+                        <span>Sale Total</span>
+                        <span>{formatPrice(total)}</span>
+                      </div>
+                      {effectiveCreditUsed > 0 && (
+                        <div className="flex justify-between text-emerald-700 font-bold bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
+                          <span>Store Credit Applied</span>
+                          <span>−{formatPrice(effectiveCreditUsed)}</span>
+                        </div>
+                      )}
                       <div className="flex items-baseline justify-between border-t border-border pt-3 text-base">
-                        <span className="font-bold text-foreground">Total Payable</span>
+                        <span className="font-bold text-foreground">Customer Payable</span>
                         <span className="font-black text-2xl text-primary">
-                          {formatPrice(total)}
+                          {formatPrice(payableAfterCredit)}
                         </span>
                       </div>
+                      {customerRemainingCredit > 0 && (
+                        <div className="flex justify-between text-[11px] text-muted-foreground pt-1">
+                          <span>Remaining Account Credit:</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatPrice(customerRemainingCredit)}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Printer Output Target Selector */}
@@ -1582,15 +1726,37 @@ export function POSTab() {
         )}
 
         {step === "success" && saleResult && (
-          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-emerald-50/50 to-white p-6 flex flex-col items-center justify-center">
+          <div className={`flex-1 overflow-y-auto ${saleResult.status === "pending_sync" || saleResult.is_offline_queued ? "bg-gradient-to-b from-amber-50/60 to-white" : "bg-gradient-to-b from-emerald-50/50 to-white"} p-6 flex flex-col items-center justify-center`}>
             <div className="max-w-md w-full space-y-6">
-              {/* Success Header */}
+              {/* Success / Offline Pending Header */}
               <div className="text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
-                  <Check className="size-8 text-emerald-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-emerald-800">Sale Complete!</h2>
-                <p className="text-lg font-bold text-foreground mt-1">{saleResult.sale_number}</p>
+                {saleResult.status === "pending_sync" || saleResult.is_offline_queued ? (
+                  <>
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 mb-3 border border-amber-300">
+                      <CloudUpload className="size-8 text-amber-600 animate-pulse" />
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold border border-amber-300 mb-2">
+                      <span className="size-2 rounded-full bg-amber-500 animate-ping" />
+                      Pending Cloud Synchronization
+                    </div>
+                    <h2 className="text-2xl font-bold text-amber-950">Offline Sale Saved Locally</h2>
+                    <p className="text-xs text-amber-800 mt-1 max-w-xs mx-auto">
+                      Stored in local POS queue. Will synchronize to the cloud automatically once internet connection is active.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-3 border border-emerald-300">
+                      <Check className="size-8 text-emerald-600" />
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300 mb-2">
+                      <span className="size-2 rounded-full bg-emerald-500" />
+                      Authoritative Database Commit
+                    </div>
+                    <h2 className="text-2xl font-bold text-emerald-800">Sale Completed!</h2>
+                  </>
+                )}
+                <p className="text-lg font-bold text-foreground mt-2">{saleResult.sale_number}</p>
               </div>
 
               {/* Sale Details */}
@@ -1684,6 +1850,8 @@ export function POSTab() {
             total: saleResult.total,
             payment_method: saleResult.payment_method,
             pos_token_number: saleResult.pos_token_number,
+            store_credit_used: saleResult.store_credit_used,
+            credit_token_used: saleResult.credit_token_used,
             // Pass duplicate flag so autoPrint is correctly guarded
             duplicate: saleResult.duplicate,
           }}
@@ -1719,6 +1887,8 @@ export function POSTab() {
             discount_value: saleResult.discount_value,
             total: saleResult.total,
             payment_method: saleResult.payment_method,
+            store_credit_used: saleResult.store_credit_used,
+            credit_token_used: saleResult.credit_token_used,
           }}
           items={
             saleItems.length > 0

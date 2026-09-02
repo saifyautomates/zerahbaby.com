@@ -16,6 +16,7 @@ import {
   X,
   Truck,
   Tag,
+  RotateCcw,
 } from "lucide-react";
 import { useState, useMemo, Suspense, lazy } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,15 +25,23 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
+import { useSaveProduct } from "@/lib/admin-products";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
 import { safeLazy } from "@/lib/safe-lazy";
+import { calculateFinancialMetrics } from "@/lib/financial-reporting";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
+import {
+  useTableSelection,
+  getRevenueSelectionMetrics,
+  getInventorySelectionMetrics,
+} from "@/lib/table-selection";
 
 const ProductForm = safeLazy(() =>
   import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
 );
 
-interface DrillDownOrderItem {
+export interface DrillDownOrderItem {
   product_id?: string;
   product_name?: string;
   name?: string;
@@ -41,9 +50,10 @@ interface DrillDownOrderItem {
   quantity?: number;
   price?: number;
   image_url?: string | null;
+  buying_price?: number;
 }
 
-interface DrillDownOrder {
+export interface DrillDownOrder {
   id: string;
   created_at: string;
   status?: string;
@@ -59,17 +69,20 @@ interface DrillDownOrder {
   payment_method?: string;
 }
 
-interface DrillDownPOSItem {
+export interface DrillDownPOSItem {
   id?: string;
   product_id?: string | null;
+  product_slug?: string;
   product_name?: string;
   name?: string;
   quantity?: number;
   qty?: number;
   price?: number;
+  subtotal?: number;
+  buying_price?: number;
 }
 
-interface DrillDownPOSSale {
+export interface DrillDownPOSSale {
   id: string;
   sale_number?: string;
   created_at: string;
@@ -80,7 +93,33 @@ interface DrillDownPOSSale {
   offline_sale_items?: DrillDownPOSItem[];
 }
 
-interface DrillDownProduct {
+export interface DrillDownReturnItem {
+  id?: string;
+  product_id?: string | null;
+  product_slug?: string;
+  name?: string;
+  sku?: string;
+  qty?: number;
+  refund_price?: number;
+  subtotal?: number;
+  refund_subtotal?: number;
+}
+
+export interface DrillDownReturn {
+  id: string;
+  return_number?: string;
+  sale_id?: string | null;
+  created_at: string;
+  refund_amount?: number;
+  status?: string;
+  refund_status?: string;
+  refund_method?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  offline_return_items?: DrillDownReturnItem[];
+}
+
+export interface DrillDownProduct {
   id: string;
   slug: string;
   name: string;
@@ -101,14 +140,18 @@ function SalesChannelDrillDown({
   type,
   validOrders,
   validPosSales,
+  validReturns = [],
   products,
 }: {
   type: "orders" | "revenue";
   validOrders: DrillDownOrder[];
   validPosSales: DrillDownPOSSale[];
+  validReturns?: DrillDownReturn[];
   products: DrillDownProduct[];
 }) {
-  const [activeChannel, setActiveChannel] = useState<"all" | "online" | "offline">("all");
+  const [activeChannel, setActiveChannel] = useState<"all" | "online" | "offline" | "returns">(
+    "all",
+  );
   const [search, setSearch] = useState("");
 
   const getProduct = (slugOrId: string) => {
@@ -248,8 +291,63 @@ function SalesChannelDrillDown({
     return items;
   }, [validPosSales, products]);
 
+  const returnRevenueItems = useMemo(() => {
+    const items: Array<{
+      sale_id: string;
+      date: string;
+      product: string;
+      slug: string | null;
+      image: string | null;
+      source: "Return";
+      qty: number;
+      price: number;
+      total: number;
+      return_number?: string;
+    }> = [];
+    validReturns.forEach((r) => {
+      if (r.offline_return_items && r.offline_return_items.length > 0) {
+        r.offline_return_items.forEach((item) => {
+          const p = getProduct(item.product_id || item.product_slug || "");
+          const itemQty = item.qty || 1;
+          const refundPrice = item.refund_price || 0;
+          const refundSubtotal =
+            item.refund_subtotal || item.subtotal || refundPrice * itemQty || r.refund_amount || 0;
+          items.push({
+            sale_id: r.id,
+            date: r.created_at,
+            product: `${p ? p.name : item.name || "Customer Return"} (${r.return_number || "Return"})`,
+            slug: p?.slug || item.product_slug || null,
+            image: getProductImage(p),
+            source: "Return",
+            qty: itemQty,
+            price: refundPrice,
+            total: -Number(refundSubtotal),
+            return_number: r.return_number,
+          });
+        });
+      } else {
+        items.push({
+          sale_id: r.id,
+          date: r.created_at,
+          product: `Customer Return (${r.return_number || r.id.substring(0, 8)})`,
+          slug: null,
+          image: null,
+          source: "Return",
+          qty: 1,
+          price: Number(r.refund_amount || 0),
+          total: -Number(r.refund_amount || 0),
+          return_number: r.return_number,
+        });
+      }
+    });
+    return items;
+  }, [validReturns, products]);
+
   const onlineOrdersTotal = onlineOrders.reduce((acc, i) => acc + i.total, 0);
   const offlineOrdersTotal = offlineSales.reduce((acc, i) => acc + i.total, 0);
+  const grossTotalRev = onlineOrdersTotal + offlineOrdersTotal;
+  const returnsTotal = validReturns.reduce((acc, r) => acc + Number(r.refund_amount || 0), 0);
+  const netTotalRev = Math.max(0, grossTotalRev - returnsTotal);
 
   const onlineTotalRev = onlineOrdersTotal;
   const offlineTotalRev = offlineOrdersTotal;
@@ -275,6 +373,14 @@ function SalesChannelDrillDown({
         (i) => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q),
       );
     }
+
+    const orderSelection = useTableSelection({ items: combined, getId: (i) => i.id || i.sale_id });
+    const orderMetrics = useMemo(
+      () =>
+        getRevenueSelectionMetrics(orderSelection.selectedItems, products as unknown as Product[]),
+      [orderSelection.selectedItems, products],
+    );
+    const visibleCombined = combined.slice(0, 50);
 
     return (
       <div className="space-y-5">
@@ -391,11 +497,30 @@ function SalesChannelDrillDown({
           </div>
         </div>
 
+        {/* Sticky Smart Selection Summary */}
+        <SmartSelectionSummary
+          selectedCount={orderSelection.selectedCount}
+          metrics={orderMetrics}
+          onClear={orderSelection.clearSelection}
+        />
+
         {/* Orders Table */}
         <div className="w-full overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
           <table className="w-full min-w-[600px] text-left text-sm text-muted-foreground">
             <thead className="bg-muted text-xs uppercase text-foreground">
               <tr>
+                <th className="w-10 px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={orderSelection.isAllVisibleSelected(visibleCombined)}
+                    ref={(el) => {
+                      if (el) el.indeterminate = orderSelection.isIndeterminate(visibleCombined);
+                    }}
+                    onChange={() => orderSelection.toggleAllVisible(visibleCombined)}
+                    aria-label="Select all transactions"
+                    className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-3.5">Date</th>
                 <th className="px-6 py-3.5">Order / Sale ID</th>
                 <th className="px-6 py-3.5">Customer</th>
@@ -404,32 +529,49 @@ function SalesChannelDrillDown({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {combined.slice(0, 50).map((item, i) => (
-                <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {format(new Date(item.date), "MMM d, h:mm a")}
-                  </td>
-                  <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
-                  <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        item.source === "Online"
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
-                      }`}
-                    >
-                      {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-black text-foreground">
-                    {formatPrice(item.total)}
-                  </td>
-                </tr>
-              ))}
+              {visibleCombined.map((item, i) => {
+                const isSelected = orderSelection.isSelected(item.id || item.sale_id);
+                return (
+                  <tr
+                    key={i}
+                    className={`transition-colors ${
+                      isSelected ? "bg-primary/5 font-medium" : "bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <td className="w-10 px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => orderSelection.toggle(item.id || item.sale_id)}
+                        aria-label={`Select transaction ${item.id}`}
+                        className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {format(new Date(item.date), "MMM d, h:mm a")}
+                    </td>
+                    <td className="px-6 py-4 font-mono font-bold text-foreground">{item.id}</td>
+                    <td className="px-6 py-4 font-medium text-foreground">{item.customer}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          item.source === "Online"
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                        }`}
+                      >
+                        {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-black text-foreground">
+                      {formatPrice(item.total)}
+                    </td>
+                  </tr>
+                );
+              })}
               {combined.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     No orders in this section for the selected period.
                   </td>
                 </tr>
@@ -466,7 +608,7 @@ function SalesChannelDrillDown({
 
   return (
     <div className="space-y-5">
-      {/* 2 Main Sections: 1. Online Sales & 2. Offline Sales */}
+      {/* 2 Main Channels: 1. Online Sales, 2. Offline POS Sales */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           type="button"
@@ -483,7 +625,7 @@ function SalesChannelDrillDown({
                 🌐
               </div>
               <div>
-                <h4 className="text-sm font-bold text-foreground">1. Online Sales Revenue</h4>
+                <h4 className="text-sm font-bold text-foreground">1. Online Sales</h4>
                 <p className="text-xs text-muted-foreground">
                   {onlineRevenueItems.length} Sold Items
                 </p>
@@ -492,7 +634,7 @@ function SalesChannelDrillDown({
             <div className="text-right">
               <p className="text-lg font-black text-primary">{formatPrice(onlineTotalRev)}</p>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Website Revenue
+                Website Sales
               </span>
             </div>
           </div>
@@ -513,7 +655,7 @@ function SalesChannelDrillDown({
                 🏪
               </div>
               <div>
-                <h4 className="text-sm font-bold text-foreground">2. Offline Sales Revenue</h4>
+                <h4 className="text-sm font-bold text-foreground">2. Offline POS Sales</h4>
                 <p className="text-xs text-muted-foreground">
                   {offlineRevenueItems.length} Store Items
                 </p>
@@ -522,11 +664,38 @@ function SalesChannelDrillDown({
             <div className="text-right">
               <p className="text-lg font-black text-emerald-600">{formatPrice(offlineTotalRev)}</p>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Store Revenue
+                Store POS Sales
               </span>
             </div>
           </div>
         </button>
+      </div>
+
+      {/* Simple Total Sales Summary Banner */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="size-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <TrendingUp className="size-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Total Sales Summary
+            </h4>
+            <p className="text-sm font-bold text-foreground mt-0.5">
+              Online Sales ({formatPrice(onlineTotalRev)}) + Offline POS Sales (
+              {formatPrice(offlineTotalRev)}) ={" "}
+              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-base">
+                Total Sales {formatPrice(grossTotalRev)}
+              </span>
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-xs font-bold text-muted-foreground">All Channels Total: </span>
+          <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+            {formatPrice(grossTotalRev)}
+          </span>
+        </div>
       </div>
 
       {/* Segmented Channel Control Tabs & Search */}
@@ -535,35 +704,35 @@ function SalesChannelDrillDown({
           <button
             type="button"
             onClick={() => setActiveChannel("all")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeChannel === "all"
-                ? "bg-background text-foreground shadow-xs"
+                ? "bg-card text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            All Revenue ({onlineRevenueItems.length + offlineRevenueItems.length})
+            All Sales ({onlineRevenueItems.length + offlineRevenueItems.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveChannel("online")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeChannel === "online"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            🌐 1. Online Sales ({onlineRevenueItems.length})
+            Online Sales ({onlineRevenueItems.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveChannel("offline")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeChannel === "offline"
                 ? "bg-emerald-600 text-white shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            🏪 2. Offline POS ({offlineRevenueItems.length})
+            Offline POS ({offlineRevenueItems.length})
           </button>
         </div>
 
@@ -588,12 +757,12 @@ function SalesChannelDrillDown({
               <th className="px-6 py-3.5">Product</th>
               <th className="px-6 py-3.5">Sales Section</th>
               <th className="px-6 py-3.5 text-right">Quantity</th>
-              <th className="px-6 py-3.5 text-right">Total Revenue</th>
+              <th className="px-6 py-3.5 text-right">Sale Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {combinedRev.slice(0, 50).map((item, i) => (
-              <tr key={i} className="bg-background hover:bg-muted/40 transition-colors">
+            {combinedRev.slice(0, 100).map((item, i) => (
+              <tr key={i} className="bg-background transition-colors hover:bg-muted/40">
                 <td className="px-6 py-4 whitespace-nowrap">
                   {format(new Date(item.date), "MMM d, h:mm a")}
                 </td>
@@ -645,15 +814,25 @@ function SalesChannelDrillDown({
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                       item.source === "Online"
                         ? "bg-primary/10 text-primary border border-primary/20"
-                        : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                        : item.source === "POS"
+                          ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 border border-emerald-200"
+                          : "bg-amber-50 dark:bg-amber-950 text-amber-600 border border-amber-200"
                     }`}
                   >
-                    {item.source === "Online" ? "🌐 1. Online Sales" : "🏪 2. Offline POS"}
+                    {item.source === "Online"
+                      ? "🌐 1. Online Sales"
+                      : item.source === "POS"
+                        ? "🏪 2. Offline POS"
+                        : "🔄 3. Exchange Return"}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right font-bold text-foreground">{item.qty}</td>
-                <td className="px-6 py-4 text-right font-black text-foreground">
-                  {formatPrice(item.total)}
+                <td
+                  className={`px-6 py-4 text-right font-black ${item.total < 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
+                >
+                  {item.total < 0
+                    ? `${formatPrice(Math.abs(item.total))} (Credit)`
+                    : formatPrice(item.total)}
                 </td>
               </tr>
             ))}
@@ -677,6 +856,7 @@ export function DashboardDrillDown({
   dateRangeText,
   orders,
   posSales,
+  offlineReturns = [],
   products,
 }: {
   type: string;
@@ -684,6 +864,7 @@ export function DashboardDrillDown({
   dateRangeText: string;
   orders: DrillDownOrder[];
   posSales: DrillDownPOSSale[];
+  offlineReturns?: DrillDownReturn[];
   products: DrillDownProduct[];
 }) {
   const {
@@ -724,10 +905,13 @@ export function DashboardDrillDown({
     });
 
     const validPosSales = posSales.filter((s) => s.status !== "cancelled");
+    const validReturns = offlineReturns.filter(
+      (r) => r.status !== "cancelled" && r.refund_status !== "cancelled",
+    );
 
     if (type === "revenue") {
       return {
-        title: "Total Revenue Details (Confirmed & Paid)",
+        title: "Total Sales Details",
         icon: TrendingUp,
         colorClass: "text-emerald-600 bg-emerald-50",
         renderContent: () => (
@@ -735,6 +919,7 @@ export function DashboardDrillDown({
             type="revenue"
             validOrders={validOrders}
             validPosSales={validPosSales}
+            validReturns={validReturns}
             products={products}
           />
         ),
@@ -751,6 +936,7 @@ export function DashboardDrillDown({
             type="orders"
             validOrders={validOrders}
             validPosSales={validPosSales}
+            validReturns={validReturns}
             products={products}
           />
         ),
@@ -893,6 +1079,13 @@ export function DashboardDrillDown({
     }
 
     if (type === "profit") {
+      const metrics = calculateFinancialMetrics({
+        orders: validOrders,
+        posSales: validPosSales,
+        returns: validReturns,
+        products,
+      });
+
       const allItems: Array<{
         date: string;
         product: string;
@@ -903,26 +1096,31 @@ export function DashboardDrillDown({
         cogs: number;
         profit: number;
       }> = [];
-      let totalProfit = 0;
-      let totalRev = 0;
-      let totalCogs = 0;
 
       validOrders.forEach((o) => {
-        o.order_items?.forEach((item) => {
-          const p = getProduct(item.product_slug || "");
-          const bp = getBuyingPrice(p);
-          const rev = (item.price || 0) * (item.qty || 1);
-          const cogs = bp * (item.qty || 1);
+        const orderItems = o.order_items || [];
+        const orderSubtotal = orderItems.reduce(
+          (sum, it) => sum + (it.price || 0) * (it.qty || it.quantity || 1),
+          0,
+        );
+        orderItems.forEach((item) => {
+          const p = getProduct(item.product_slug || item.product_id || "");
+          const historicalBp = Number(item.buying_price || 0);
+          const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
+          const itemQty = item.qty || item.quantity || 1;
+          const rawItemTotal = (item.price || 0) * itemQty;
+          const rev =
+            orderSubtotal > 0
+              ? (rawItemTotal / orderSubtotal) * Number(o.total || 0)
+              : rawItemTotal;
+          const cogs = bp * itemQty;
           const profit = rev - cogs;
-          totalRev += rev;
-          totalCogs += cogs;
-          totalProfit += profit;
           allItems.push({
             date: o.created_at,
-            product: item.product_name || "Product",
-            slug: item.product_slug,
+            product: item.product_name || p?.name || "Product",
+            slug: item.product_slug || p?.slug,
             image: getProductImage(p),
-            qty: item.qty || 1,
+            qty: itemQty,
             rev,
             cogs,
             profit,
@@ -930,19 +1128,29 @@ export function DashboardDrillDown({
         });
       });
       validPosSales.forEach((s) => {
-        s.offline_sale_items?.forEach((item) => {
-          const p = getProduct(item.product_id || "");
-          const bp = getBuyingPrice(p);
-          const rev = (item.price || 0) * (item.qty || 1);
-          const cogs = bp * (item.qty || 1);
+        const saleItems = s.offline_sale_items || [];
+        const saleSubtotal = saleItems.reduce(
+          (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
+          0,
+        );
+        saleItems.forEach((item) => {
+          const p = getProduct(item.product_id || item.product_slug || "");
+          const historicalBp = Number(item.buying_price || 0);
+          const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
+          const itemQty = item.qty || item.quantity || 1;
+          const rawItemTotal = (item.price || 0) * itemQty;
+          const rev =
+            saleSubtotal > 0
+              ? (rawItemTotal / saleSubtotal) * Number(s.total || 0)
+              : Number(item.subtotal || item.price || s.total || 0);
+          const cogs = bp * itemQty;
           const profit = rev - cogs;
-          totalRev += rev;
-          totalCogs += cogs;
-          totalProfit += profit;
           allItems.push({
             date: s.created_at,
-            product: p ? p.name : "Unknown",
-            qty: item.qty || 1,
+            product: p ? p.name : item.name || "Product",
+            slug: p?.slug || item.product_slug,
+            image: getProductImage(p),
+            qty: itemQty,
             rev,
             cogs,
             profit,
@@ -952,29 +1160,40 @@ export function DashboardDrillDown({
       allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       return {
-        title: "Net Profit Analysis",
+        title: "Total Profit Analysis",
         icon: TrendingUp,
         colorClass: "text-amber-600 bg-amber-50",
         renderContent: () => (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-card border border-border shadow-xs">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Total Revenue
+                  Total Sales
                 </p>
-                <p className="text-2xl font-bold mt-1 text-emerald-600">{formatPrice(totalRev)}</p>
+                <p className="text-xl font-bold mt-1 text-foreground">
+                  {formatPrice(metrics.totalSales)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Total customer sales</p>
               </div>
-              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
+              <div className="p-4 rounded-xl bg-card border border-border shadow-xs">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Total Cost Price
+                  My Cost
                 </p>
-                <p className="text-2xl font-bold mt-1 text-rose-600">{formatPrice(totalCogs)}</p>
+                <p className="text-xl font-bold mt-1 text-slate-700 dark:text-slate-300">
+                  {formatPrice(metrics.myCost)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Cost of sold items</p>
               </div>
-              <div className="p-4 rounded-xl bg-card border border-border shadow-sm">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Net Profit
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 shadow-xs">
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 uppercase tracking-wider font-bold">
+                  Total Profit
                 </p>
-                <p className="text-2xl font-bold mt-1 text-amber-600">{formatPrice(totalProfit)}</p>
+                <p className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
+                  {formatPrice(metrics.totalProfit)}
+                </p>
+                <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
+                  Sales − My Cost
+                </p>
               </div>
             </div>
             <div className="w-full overflow-x-auto">
@@ -983,8 +1202,8 @@ export function DashboardDrillDown({
                   <tr>
                     <th className="px-6 py-3">Product</th>
                     <th className="px-6 py-3 text-right">Qty</th>
-                    <th className="px-6 py-3 text-right">Revenue</th>
-                    <th className="px-6 py-3 text-right">Cost Price</th>
+                    <th className="px-6 py-3 text-right">Sale Amount</th>
+                    <th className="px-6 py-3 text-right">My Cost</th>
                     <th className="px-6 py-3 text-right">Profit</th>
                   </tr>
                 </thead>
@@ -1205,7 +1424,7 @@ export function DashboardDrillDown({
         <div className="p-8 text-center text-muted-foreground">Unknown view type</div>
       ),
     };
-  }, [type, orders, posSales, products]);
+  }, [type, orders, posSales, offlineReturns, products]);
 
   return (
     <div className="animate-in slide-in-from-right-4 duration-300">
@@ -1276,127 +1495,22 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const saveProduct = useMutation({
-    mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
-      const row: Record<string, unknown> = {
-        slug: draft.slug.trim(),
-        name: draft.name.trim(),
-        brand: draft.brand.trim(),
-        category: draft.category,
-        price: Number(draft.price),
-        mrp: Number(draft.mrp),
-        age_group: draft.ageGroup,
-        low_stock_at: Number(draft.lowStockAt),
-        sku: draft.sku.trim(),
-        barcode: draft.barcode.trim(),
-        description: draft.description,
-        highlights: draft.highlights
-          .split("\n")
-          .map((h) => h.trim())
-          .filter(Boolean),
-        is_featured: draft.isFeatured,
-        is_active: draft.isActive,
-        sort_order: Number(draft.sortOrder),
-        recommendation_mode: draft.recommendationMode,
-        stock: Number(draft.stock),
-      };
-
-      let productId = uuid;
-      if (uuid) {
-        const { error } = await supabase
-          .from("products")
-          .update(row as Database["public"]["Tables"]["products"]["Update"])
-          .eq("id", uuid);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from("products")
-          .insert(row as Database["public"]["Tables"]["products"]["Insert"])
-          .select("id")
-          .single();
-        if (error) throw error;
-        productId = data.id;
-      }
-
-      if (draft.buyingPrice !== undefined && productId) {
-        await supabase
-          .from("product_costs")
-          .upsert({ product_id: productId, buying_price: Number(draft.buyingPrice) });
-      }
-
-      if (draft.deliveryFee !== undefined && productId) {
-        const { data: currentSetting } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "product_delivery_fees")
-          .maybeSingle();
-
-        let currentFees: Record<string, number> = {};
-        if (currentSetting?.value) {
-          try {
-            currentFees = JSON.parse(currentSetting.value);
-          } catch {
-            currentFees = {};
-          }
-        }
-        currentFees[productId] = draft.deliveryFee;
-        currentFees[draft.slug] = draft.deliveryFee;
-        await supabase.from("site_settings").upsert({
-          key: "product_delivery_fees",
-          value: JSON.stringify(currentFees),
-        });
-      }
-
-      if (productId) {
-        const allUrls = new Set<string>();
-        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
-        draft.images.forEach((img) => {
-          if (img.trim()) allUrls.add(img.trim());
-        });
-
-        const urlsArray = Array.from(allUrls);
-        const { data: existing } = await supabase
-          .from("product_images")
-          .select("*")
-          .eq("product_id", productId);
-
-        const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
-        for (const del of toDelete) {
-          await supabase.from("product_images").delete().eq("id", del.id);
-        }
-
-        for (let i = 0; i < urlsArray.length; i++) {
-          const url = urlsArray[i];
-          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
-          const existingRow = (existing || []).find((e) => e.public_url === url);
-
-          if (existingRow) {
-            await supabase
-              .from("product_images")
-              .update({ is_primary: isPrimary, sort_order: i })
-              .eq("id", existingRow.id);
-          } else {
-            await supabase.from("product_images").insert({
-              product_id: productId,
-              public_url: url,
-              is_primary: isPrimary,
-              sort_order: i,
-            });
-          }
-        }
-      }
+  const saveProductMutation = useSaveProduct();
+  const saveProduct = {
+    isPending: saveProductMutation.isPending,
+    mutate: (payload: { draft: ProductDraft; uuid?: string }) => {
+      saveProductMutation.mutate(payload, {
+        onSuccess: () => {
+          setEditingProduct(null);
+          setIsCreating(false);
+          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+          qc.invalidateQueries({ queryKey: ["inventory-products"] });
+          qc.invalidateQueries({ queryKey: ["products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+        },
+      });
     },
-    onSuccess: () => {
-      toast.success(isCreating ? "Product added" : "Product updated");
-      setEditingProduct(null);
-      setIsCreating(false);
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  };
 
   const totalValue = products.reduce((sum, p) => sum + (p.price || 0) * (p.stock || 0), 0);
   const totalUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
@@ -1442,6 +1556,22 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     const costs = p.product_costs;
     return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
   };
+
+  const invSelection = useTableSelection<DrillDownProduct>({
+    items: filtered,
+    getId: (p: DrillDownProduct) => p.id || "",
+  });
+  const invMetrics = useMemo(
+    () =>
+      getInventorySelectionMetrics(
+        invSelection.selectedItems as unknown as Array<{
+          id: string;
+          stock: number;
+          price?: number;
+        }>,
+      ),
+    [invSelection.selectedItems],
+  );
 
   return (
     <div className="space-y-4 p-4">
@@ -1515,11 +1645,30 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
         </div>
       </div>
 
+      {/* Sticky Smart Selection Summary */}
+      <SmartSelectionSummary
+        selectedCount={invSelection.selectedCount}
+        metrics={invMetrics}
+        onClear={invSelection.clearSelection}
+      />
+
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
+              <th className="w-10 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={invSelection.isAllVisibleSelected(filtered)}
+                  ref={(el) => {
+                    if (el) el.indeterminate = invSelection.isIndeterminate(filtered);
+                  }}
+                  onChange={() => invSelection.toggleAllVisible(filtered)}
+                  aria-label="Select all inventory items"
+                  className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                />
+              </th>
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Selling Price</th>
@@ -1538,6 +1687,7 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
           </thead>
           <tbody className="divide-y divide-border/60">
             {filtered.map((p) => {
+              const isSelected = invSelection.isSelected(p.id);
               const stock = p.stock || 0;
               const lowAt = p.low_stock_at || 5;
               const isOut = stock === 0;
@@ -1547,7 +1697,21 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
               const isEditingThisStock = editingStockId === p.id;
 
               return (
-                <tr key={p.id} className="hover:bg-muted/40 transition-colors">
+                <tr
+                  key={p.id}
+                  className={`transition-colors ${
+                    isSelected ? "bg-primary/5 font-medium" : "hover:bg-muted/40"
+                  }`}
+                >
+                  <td className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => invSelection.toggle(p.id)}
+                      aria-label={`Select product ${p.name}`}
+                      className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                    />
+                  </td>
                   {/* Product */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">

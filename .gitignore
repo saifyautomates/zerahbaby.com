@@ -48,3 +48,4 @@ tests/e2e-debug.spec.ts
 # Agent / IDE config
 .agent/
 .agents/
+scratch/

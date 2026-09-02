@@ -53,6 +53,7 @@ import {
 import { ReviewModal } from "@/components/site/ReviewModal";
 import { SizeGuideDrawer } from "@/components/site/SizeGuideDrawer";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
+import { calculateCartFinancials } from "@/lib/pricing-engine";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -1751,9 +1752,13 @@ function BuyNowModal({
   );
 
   const price = variant?.priceOverride || product.price;
-  const subtotal = price * qty;
-  const shipping = subtotal >= 999 ? 0 : (product.deliveryFee ?? 79);
-  const finalTotal = subtotal + shipping;
+  const buyNowFinancials = calculateCartFinancials({
+    items: [{ price, mrp: product.mrp, qty }],
+    customShippingCharge: product.deliveryFee ?? undefined,
+  });
+  const subtotal = buyNowFinancials.subtotal;
+  const shipping = buyNowFinancials.shipping;
+  const finalTotal = buyNowFinancials.finalTotal;
   const swatchImg = color ? getColorSwatchImage(product, color) : product.imageUrl || product.image;
 
   async function handleBuyNowPayment(e: React.FormEvent) {
@@ -1816,6 +1821,10 @@ function BuyNowModal({
         subtotal,
         shipping,
         discount: 0,
+        idempotency_key:
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         items: [
           {
             variant_id: variant?.id || (product.variants?.length ? product.variants[0].id : ""),

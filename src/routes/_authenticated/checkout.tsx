@@ -204,6 +204,10 @@ function CheckoutPage() {
               shipping,
               discount: couponDiscount,
               coupon_code: couponApplied ? couponCode : undefined,
+              idempotency_key:
+                typeof crypto !== "undefined" && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
               items: items.map(({ product, qty, variantId, price, image }) => ({
                 variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
                 product_slug: product.id,

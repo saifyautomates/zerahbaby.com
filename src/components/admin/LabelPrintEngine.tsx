@@ -39,6 +39,9 @@ type Props = {
   labelType: LabelType;
   layout: LabelLayout;
   showDiscount: boolean;
+  showMrp?: boolean;
+  showSellPrice?: boolean;
+  separatePriceLine?: boolean;
   widthMm?: number;
   heightMm?: number;
 };
@@ -69,11 +72,17 @@ function SingleStickerPreview({
   product,
   labelType,
   showDiscount,
+  showMrp = true,
+  showSellPrice = true,
+  separatePriceLine = false,
   layout,
 }: {
   product: LabelProduct;
   labelType: LabelType;
   showDiscount: boolean;
+  showMrp?: boolean;
+  showSellPrice?: boolean;
+  separatePriceLine?: boolean;
   layout: LabelLayout;
 }) {
   const cfg = PRINT_FORMAT_CONFIG[layout];
@@ -86,6 +95,11 @@ function SingleStickerPreview({
 
   const bcHeight =
     labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.34);
+
+  const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price;
+  const discountPct = hasDiscount
+    ? Math.round(((mrpVal - product.price) / mrpVal) * 100)
+    : 0;
 
   return (
     <div
@@ -100,31 +114,101 @@ function SingleStickerPreview({
         ZÉRAH BABY &amp; KIDS
       </p>
 
-      {/* Row 2: Product Name (Left) + MRP (Right) */}
+      {/* Row 2: Product Name & Prices */}
       {labelType !== "barcode-only" && (
-        <div className="flex items-baseline justify-between w-full gap-2 overflow-hidden">
-          <p
-            className="font-bold text-black text-left leading-tight line-clamp-1 truncate flex-1 min-w-0"
-            style={{ fontSize: Math.round(cfg.nameFontPt * 1.15) + "px" }}
-          >
-            {product.name}
-          </p>
-          <span
-            className="font-black text-black whitespace-nowrap text-right shrink-0"
-            style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
-          >
-            {showDiscount && typeof product.mrp === "number" && product.mrp > product.price ? (
-              <>
-                MRP: {formatPrice(mrpVal)}{" "}
-                <span className="font-extrabold text-emerald-800">
-                  (-{Math.round(((product.mrp - product.price) / product.mrp) * 100)}%)
+        separatePriceLine && (showMrp || showSellPrice) ? (
+          <>
+            {/* Standalone Product Name */}
+            <p
+              className="font-bold text-black text-center leading-tight line-clamp-1 truncate w-full"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
+              title={product.name}
+            >
+              {product.name}
+            </p>
+
+            {/* Dedicated Separate Price Row */}
+            <div className="flex items-center justify-center gap-1.5 w-full leading-none overflow-hidden my-0.5">
+              {showMrp && (
+                <span
+                  className="text-gray-500 line-through whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                >
+                  MRP: {formatPrice(mrpVal)}
                 </span>
-              </>
-            ) : (
-              `MRP: ${formatPrice(mrpVal)}`
-            )}
-          </span>
-        </div>
+              )}
+              {showSellPrice && (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  Price: {formatPrice(product.price)}
+                </span>
+              )}
+              {showDiscount && hasDiscount && discountPct > 0 && (
+                <span
+                  className="font-extrabold text-emerald-800 whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                >
+                  (-{discountPct}%)
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Inline / Stacked Beside Product Name */
+          <div className="flex items-center justify-between w-full gap-1.5 overflow-hidden">
+            <p
+              className="font-bold text-black text-left leading-tight line-clamp-2 truncate flex-1 min-w-0"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
+              title={product.name}
+            >
+              {product.name}
+            </p>
+            <div className="flex flex-col items-end shrink-0 leading-tight text-right">
+              {showMrp && showSellPrice ? (
+                <>
+                  <span
+                    className="text-gray-500 line-through text-[10px] whitespace-nowrap leading-none"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.88) + "px" }}
+                  >
+                    MRP: {formatPrice(mrpVal)}
+                  </span>
+                  <span
+                    className="font-black text-black whitespace-nowrap leading-none mt-0.5"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.1) + "px" }}
+                  >
+                    Price: {formatPrice(product.price)}{" "}
+                    {showDiscount && hasDiscount && discountPct > 0 && (
+                      <span className="font-extrabold text-emerald-800 text-[9px]">
+                        (-{discountPct}%)
+                      </span>
+                    )}
+                  </span>
+                </>
+              ) : showSellPrice ? (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  Price: {formatPrice(product.price)}
+                </span>
+              ) : showMrp ? (
+                <span
+                  className="font-black text-black whitespace-nowrap"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
+                >
+                  MRP: {formatPrice(mrpVal)}{" "}
+                  {showDiscount && hasDiscount && discountPct > 0 && (
+                    <span className="font-extrabold text-emerald-800">
+                      (-{discountPct}%)
+                    </span>
+                  )}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        )
       )}
 
       {/* Row 3: Barcode with numbers */}
@@ -159,7 +243,15 @@ function SingleStickerPreview({
    Main Preview Component
    ───────────────────────────────────────────── */
 
-export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: Props) {
+export function LabelPrintEngine({
+  entries,
+  labelType,
+  layout,
+  showDiscount,
+  showMrp = true,
+  showSellPrice = true,
+  separatePriceLine = false,
+}: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
@@ -192,6 +284,9 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
                 product={product}
                 labelType={labelType}
                 showDiscount={showDiscount}
+                showMrp={showMrp}
+                showSellPrice={showSellPrice}
+                separatePriceLine={separatePriceLine}
                 layout={layout}
               />
             </div>
@@ -205,6 +300,9 @@ export function LabelPrintEngine({ entries, labelType, layout, showDiscount }: P
               product={product}
               labelType={labelType}
               showDiscount={showDiscount}
+              showMrp={showMrp}
+              showSellPrice={showSellPrice}
+              separatePriceLine={separatePriceLine}
               layout={layout}
             />
           ))}

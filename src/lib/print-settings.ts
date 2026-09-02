@@ -196,6 +196,9 @@ export function buildTSPLLabel(params: {
   copies?: number;
   storeName?: string;
   showDiscount?: boolean;
+  showMrp?: boolean;
+  showSellPrice?: boolean;
+  separatePriceLine?: boolean;
 }): string {
   const {
     productName,
@@ -207,6 +210,10 @@ export function buildTSPLLabel(params: {
     heightMm,
     copies = 1,
     storeName = "ZÉRAH BABY & KIDS",
+    showDiscount = true,
+    showMrp = true,
+    showSellPrice = true,
+    separatePriceLine = false,
   } = params;
 
   // TSPL unit = dots. 203 DPI → 1mm ≈ 8 dots
@@ -219,27 +226,52 @@ export function buildTSPLLabel(params: {
   const safeSku = sku.replace(/"/g, "").substring(0, 22);
   const safeBarcode = (barcode || sku).replace(/"/g, "").substring(0, 30);
   const mrpVal = typeof mrp === "number" && mrp > 0 ? mrp : price;
+  const hasDiscount = mrpVal > price;
+  const discPct = hasDiscount ? Math.round(((mrpVal - price) / mrpVal) * 100) : 0;
+  const discStr = showDiscount && discPct > 0 ? ` (-${discPct}%)` : "";
 
-  const mrpText = `MRP: Rs.${mrpVal}`;
-
-  return [
+  const lines: string[] = [
     `SIZE ${widthMm} mm, ${heightMm} mm`,
     `GAP 2 mm, 0 mm`,
     `DIRECTION 1`,
     `CLS`,
     // Row 1: Store name — top centered
     `TEXT ${Math.round(w / 2)},8,"3",0,1,1,2,"${safeStore}"`,
-    // Row 2 Left: Product Name
-    `TEXT 12,38,"2",0,1,1,"${safeName}"`,
-    // Row 2 Right: Authoritative MRP
-    `TEXT ${w - 12},38,"2",0,1,1,3,"${mrpText}"`,
-    // Row 3: Barcode centered (Code 128, height 48 dots, readable number below)
-    `BARCODE ${Math.round(w / 2)},68,"128",48,1,0,2,2,"${safeBarcode}"`,
-    // Row 4: SKU centered
-    `TEXT ${Math.round(w / 2)},158,"1",0,1,1,2,"SKU: ${safeSku}"`,
-    `PRINT ${copies},1`,
-    `END`,
-  ].join("\n");
+  ];
+
+  if (separatePriceLine && (showMrp || showSellPrice)) {
+    // Dedicated line for product name, dedicated line for price
+    lines.push(`TEXT ${Math.round(w / 2)},28,"2",0,1,1,2,"${safeName}"`);
+    let priceLine = "";
+    if (showMrp && showSellPrice) {
+      priceLine = `MRP: Rs.${mrpVal}  Price: Rs.${price}${discStr}`;
+    } else if (showSellPrice) {
+      priceLine = `Price: Rs.${price}`;
+    } else if (showMrp) {
+      priceLine = `MRP: Rs.${mrpVal}${discStr}`;
+    }
+    lines.push(`TEXT ${Math.round(w / 2)},48,"2",0,1,1,2,"${priceLine}"`);
+  } else {
+    // Standard inline: Product Name on left, price on right
+    lines.push(`TEXT 12,38,"2",0,1,1,"${safeName}"`);
+    if (showMrp && showSellPrice) {
+      lines.push(`TEXT ${w - 12},28,"1",0,1,1,3,"MRP: Rs.${mrpVal}"`);
+      lines.push(`TEXT ${w - 12},46,"2",0,1,1,3,"Price: Rs.${price}${discStr}"`);
+    } else if (showSellPrice) {
+      lines.push(`TEXT ${w - 12},38,"2",0,1,1,3,"Price: Rs.${price}"`);
+    } else if (showMrp) {
+      lines.push(`TEXT ${w - 12},38,"2",0,1,1,3,"MRP: Rs.${mrpVal}${discStr}"`);
+    }
+  }
+
+  // Row 3: Barcode centered (Code 128, height 48 dots, readable number below)
+  lines.push(`BARCODE ${Math.round(w / 2)},68,"128",48,1,0,2,2,"${safeBarcode}"`);
+  // Row 4: SKU centered
+  lines.push(`TEXT ${Math.round(w / 2)},158,"1",0,1,1,2,"SKU: ${safeSku}"`);
+  lines.push(`PRINT ${copies},1`);
+  lines.push(`END`);
+
+  return lines.join("\n");
 }
 
 /**

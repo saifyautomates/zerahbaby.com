@@ -293,6 +293,38 @@ export function useDeleteProduct() {
   });
 }
 
+/** Manual stock adjustment via canonical RPC with audit ledger. */
+export function useAdjustInventory() {
+  const invalidate = useInvalidateCatalogue();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      productId: string;
+      variantId?: string;
+      newStock?: number;
+      delta?: number;
+      reason?: string;
+    }) => {
+      const { data, error } = await (supabase.rpc as any)("admin_adjust_inventory", {
+        _product_id: input.productId,
+        _variant_id: input.variantId || undefined,
+        _new_stock: input.newStock !== undefined ? input.newStock : undefined,
+        _adjustment_delta: input.delta !== undefined ? input.delta : undefined,
+        _reason: input.reason || "Manual adjustment",
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Inventory adjusted successfully");
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 /** Inline edit of any site_settings value (hero text, announcement, contact info…). */
 export function useSaveSetting() {
   const qc = useQueryClient();

@@ -30,11 +30,13 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
       let sub = urlParams.get("subtab") as string | null;
       if (sub === "terminal") sub = "pos";
       if (sub === "analytics" || sub === "history") sub = "sales";
-      if (sub && ["pos", "returns", "labels", "sales", "customers"].includes(sub)) return sub as BillingTab;
+      if (sub && ["pos", "returns", "labels", "sales", "customers"].includes(sub))
+        return sub as BillingTab;
       let saved = localStorage.getItem("zerah_admin_active_subtab") as string | null;
       if (saved === "terminal") saved = "pos";
       if (saved === "analytics" || saved === "history") saved = "sales";
-      if (saved && ["pos", "returns", "labels", "sales", "customers"].includes(saved)) return saved as BillingTab;
+      if (saved && ["pos", "returns", "labels", "sales", "customers"].includes(saved))
+        return saved as BillingTab;
     }
     return initialSubTab;
   });
@@ -49,8 +51,13 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
     }
   };
 
-  // Global hardware barcode scanner logic: instantly switches to POS from any sub-tab (Returns, Labels, Analytics, etc.)
+  // Global hardware barcode scanner logic:
+  // When in Returns tab, DO NOT switch to POS! Returns has its own dedicated return scanner!
   useEffect(() => {
+    if (activeTab === "returns") {
+      return;
+    }
+
     if (hasPendingScans() && activeTab !== "pos") {
       setActiveTab("pos");
     }

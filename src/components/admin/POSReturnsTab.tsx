@@ -1,18 +1,21 @@
 /**
- * POSReturnsTab — Production-grade Offline POS Returns & Exchange System.
+ * POSReturnsTab — High-Precision Offline POS Returns & Exchange System.
+ *
+ * 3 Discovery Paths:
+ * 1. 👤 Customer Search (Name / Phone / Customer ID) -> Complete Purchase Timeline
+ * 2. 📦 Product Barcode / SKU Scan (Walk-in Candidate Matching with Date/Invoice Filters)
+ * 3. 🧾 Invoice / Transaction QR Scan -> Instant Exact Sale Resolution
  *
  * Capabilities:
- * - Search past orders / customer purchases by Customer Name, Phone, or Receipt #
- * - 1-Click item selection for return directly from past purchase histories
- * - Global hardware barcode scanner integration with audio tones
- * - Return Cart with unit return value & line total calculations
- * - Exchange-First Policy: Default settlement as "Exchange Credit Voucher" (Store Credit)
- * - Restocks inventory atomically (+stock)
- * - Generates and prints 80mm thermal Exchange Credit Vouchers & A4 slips
- * - Return History view with search, inspection, and re-printing
+ * - Immutable Historical Price Authority (returns strictly calculate from original invoice price)
+ * - Exact Partial Return Tracking (already returned qty vs returnable qty enforcement)
+ * - Zero guessing on multiple purchases (lists candidate sales with interactive filters)
+ * - 100% Store Credit / Exchange Credit Voucher generation
+ * - Atomic inventory restock (+stock) and store credit ledger logging
+ * - Thermal 80mm & A4 print vouchers
  */
-import React, { useState, useRef, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   RotateCcw,
@@ -40,151 +43,315 @@ import {
   Tag,
   Receipt,
   Phone,
+  QrCode,
+  Layers,
+  Clock,
+  Filter,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { mapProduct, formatPrice, imageFor, type Product } from "@/lib/store";
+import { formatPrice, imageFor } from "@/lib/store";
 import { playScanSuccess, playScanError } from "@/lib/audio";
-import { useGlobalBarcodeScanner } from "@/lib/barcode-scanner";
-import { generateIdempotencyKey, useSearchPOSCustomers, useCreatePOSCustomer } from "@/lib/pos";
+import { useGlobalBarcodeScanner, clearPendingScans } from "@/lib/barcode-scanner";
+import { generateIdempotencyKey } from "@/lib/pos";
+import { useTableSelection, getReturnsSelectionMetrics } from "@/lib/table-selection";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import {
   type ReturnCartItem,
   type OfflineReturn,
   type ProcessReturnInput,
+  type OfflineSaleWithReturnMetrics,
+  type OfflineSaleItemWithReturnStatus,
   RETURN_REASONS,
   lookupProductForReturn,
   useProcessOfflineReturn,
   useOfflineReturnsList,
+  useOfflineSalesForReturnsLookup,
+  parseReturnScanCode,
 } from "@/lib/pos-returns";
 import { POSReturnReceipt, type ReturnReceiptData } from "@/components/admin/POSReturnReceipt";
-import clothing from "@/assets/cat-clothing.jpg";
 
 type ReturnView = "process" | "history";
-
-type SaleItemRecord = {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  qty: number;
-  subtotal: number;
-  product_id?: string | null;
-  product_slug?: string;
-  variant_info?: string;
-  mrp_snapshot?: number;
-  barcode_snapshot?: string;
-};
-
-type OfflineSaleLookupRecord = {
-  id: string;
-  sale_number: string;
-  customer_name: string | null;
-  customer_phone: string | null;
-  customer_email: string | null;
-  customer_id: string | null;
-  payment_method: string;
-  total: number;
-  subtotal: number;
-  created_at: string;
-  status: string;
-  pos_token_number?: number | null;
-  offline_sale_items?: SaleItemRecord[];
-};
+type DiscoveryMode = "customer" | "barcode" | "invoice_qr";
 
 export function POSReturnsTab() {
   const qc = useQueryClient();
   const [view, setView] = useState<ReturnView>("process");
 
-  // Cart & Scan State
-  const [returnCart, setReturnCart] = useState<ReturnCartItem[]>([]);
-  const [scanInput, setScanInput] = useState("");
-  const [isScanning, setIsScanning] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
-  const scanInputRef = useRef<HTMLInputElement>(null);
+  // Discovery Mode: 'customer' | 'barcode' | 'invoice_qr'
+  const [discoveryMode, setDiscoveryMode] = useState<DiscoveryMode>("customer");
 
-  // Customer & Past Order Search Query
-  const [pastOrderSearch, setPastOrderSearch] = useState("");
+  // Search Inputs
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [productScanQuery, setProductScanQuery] = useState("");
+  const [invoiceScanQuery, setInvoiceScanQuery] = useState("");
+
+  // Filters for Walk-in Barcode Matching Candidates
+  const [dateFilter, setDateFilter] = useState("");
+  const [candidateCustomerFilter, setCandidateCustomerFilter] = useState("");
+  const [candidateInvoiceFilter, setCandidateInvoiceFilter] = useState("");
+  const [onlyReturnableFilter, setOnlyReturnableFilter] = useState(true);
+
+  // Expanded UI States
+  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
 
-  // Return Details State (Default to Exchange Credit Voucher per store policy)
+  // Cart & Scan State
+  const [returnCart, setReturnCart] = useState<ReturnCartItem[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
+  // Return Details State
   const [returnReason, setReturnReason] = useState<string>(RETURN_REASONS[0]);
   const [returnNotes, setReturnNotes] = useState("");
   const [refundMethod, setRefundMethod] = useState<string>("exchange_credit");
+  const [originalSaleId, setOriginalSaleId] = useState<string | null>(null);
+
+  // Hardware Scanner 1200ms Debounce Lock to ensure 1 scan = 1 quantity exactly
+  const lastReturnScanLockRef = useRef<{ code: string; time: number }>({ code: "", time: 0 });
 
   // Customer State
-  const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">("walkin");
+  const [customerMode, setCustomerMode] = useState<"walkin" | "existing">("walkin");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
 
   // Confirmation & Receipt State
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(generateIdempotencyKey());
   const [activeReceipt, setActiveReceipt] = useState<ReturnReceiptData | null>(null);
-  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   // History Detail Modal
   const [selectedHistoryReturn, setSelectedHistoryReturn] = useState<OfflineReturn | null>(null);
   const [historySearch, setHistorySearch] = useState("");
 
   // Queries
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ["admin-products"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, product_images(public_url, is_primary, sort_order)")
-        .eq("is_active", true);
-      if (error) throw error;
-      return (data as never[]).map((r) => mapProduct(r as never));
-    },
-  });
-
-  // Query past offline sales for customer lookup
-  const { data: pastSales = [] } = useQuery({
-    queryKey: ["offline-sales-for-returns-history-lookup"],
-    queryFn: async (): Promise<OfflineSaleLookupRecord[]> => {
-      const { data, error } = await supabase
-        .from("offline_sales")
-        .select("*, offline_sale_items(*)")
-        .order("created_at", { ascending: false });
-      if (error) return [];
-      return (data ?? []) as unknown as OfflineSaleLookupRecord[];
-    },
-    staleTime: 10_000,
-  });
-
-  const searchCustomers = useSearchPOSCustomers();
-  const createCustomer = useCreatePOSCustomer();
-  const processReturnMutation = useProcessOfflineReturn();
+  const { data: pastSalesWithMetrics = [], isLoading: isSalesLoading } = useOfflineSalesForReturnsLookup();
   const { data: returnsList = [], isLoading: isHistoryLoading } = useOfflineReturnsList();
+  const processReturnMutation = useProcessOfflineReturn();
 
-  // Filter past sales based on search query (name, phone, receipt number, SKU) or show recent sales by default
-  const matchedPastSales = useMemo(() => {
-    const q = pastOrderSearch.trim().toLowerCase();
-    if (!q) {
-      return pastSales.filter((s) => s.status !== "cancelled").slice(0, 5);
-    }
-    return pastSales
-      .filter((s) => {
-        if (s.status === "cancelled") return false;
-        const nameMatch = (s.customer_name || "").toLowerCase().includes(q);
-        const phoneMatch = (s.customer_phone || "").toLowerCase().includes(q);
-        const saleNumMatch = (s.sale_number || "").toLowerCase().includes(q);
-        const tokenMatch = s.pos_token_number != null && String(s.pos_token_number).includes(q);
-        const itemMatch = (s.offline_sale_items ?? []).some(
-          (item) =>
-            (item.name || "").toLowerCase().includes(q) ||
-            (item.sku || "").toLowerCase().includes(q),
+  // Clear any residual scans when entering Returns tab so POS Terminal is clean
+  useEffect(() => {
+    clearPendingScans();
+  }, []);
+
+  /* ------------------------------------------------------------------ */
+  /*  DISCOVERY MODE 1: Customer Grouped Sales History                   */
+  /* ------------------------------------------------------------------ */
+  const groupedCustomerPurchases = useMemo(() => {
+    const q = customerSearchQuery.trim().toLowerCase();
+    
+    // Group all past sales by customer identity (phone or name)
+    const customerMap = new Map<string, {
+      key: string;
+      customer_id: string | null;
+      customer_name: string;
+      customer_phone: string;
+      customer_email: string;
+      total_spent: number;
+      total_orders: number;
+      sales: OfflineSaleWithReturnMetrics[];
+      has_returnable_items: boolean;
+    }>();
+
+    pastSalesWithMetrics.forEach((sale) => {
+      const key = sale.customer_phone || (sale.customer_name !== "Walk-in Customer" ? sale.customer_name : null) || `walkin-${sale.id}`;
+      
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          key,
+          customer_id: sale.customer_id,
+          customer_name: sale.customer_name || "Walk-in Customer",
+          customer_phone: sale.customer_phone || "",
+          customer_email: sale.customer_email || "",
+          total_spent: 0,
+          total_orders: 0,
+          sales: [],
+          has_returnable_items: false,
+        });
+      }
+
+      const group = customerMap.get(key)!;
+      group.sales.push(sale);
+      group.total_spent += sale.total;
+      group.total_orders += 1;
+      if (sale.has_returnable_items) {
+        group.has_returnable_items = true;
+      }
+    });
+
+    let groups = Array.from(customerMap.values());
+
+    if (q) {
+      groups = groups.filter((g) => {
+        const nameMatch = g.customer_name.toLowerCase().includes(q);
+        const phoneMatch = g.customer_phone.toLowerCase().includes(q);
+        const saleMatch = g.sales.some((s) => 
+          s.sale_number.toLowerCase().includes(q) ||
+          s.offline_sale_items.some((it) => it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || it.barcode.toLowerCase().includes(q))
         );
-        return nameMatch || phoneMatch || saleNumMatch || tokenMatch || itemMatch;
-      })
-      .slice(0, 15);
-  }, [pastSales, pastOrderSearch]);
+        return nameMatch || phoneMatch || saleMatch;
+      });
+    }
 
-  // Handle Adding Item by Barcode or Lookup
-  const handleBarcodeLookupAndAdd = useCallback(async (code: string) => {
+    return groups;
+  }, [pastSalesWithMetrics, customerSearchQuery]);
+
+  /* ------------------------------------------------------------------ */
+  /*  DISCOVERY MODE 2: Product Barcode Historical Sales Candidates     */
+  /* ------------------------------------------------------------------ */
+  const productBarcodeMatches = useMemo(() => {
+    const q = productScanQuery.trim().toLowerCase();
+    if (!q) return [];
+
+    const matches: Array<{
+      sale: OfflineSaleWithReturnMetrics;
+      item: OfflineSaleItemWithReturnStatus;
+    }> = [];
+
+    pastSalesWithMetrics.forEach((sale) => {
+      sale.offline_sale_items.forEach((item) => {
+        const barcodeMatch = item.barcode && item.barcode.toLowerCase() === q;
+        const skuMatch = item.sku && item.sku.toLowerCase() === q;
+        const nameMatch = item.name && item.name.toLowerCase().includes(q);
+
+        if (barcodeMatch || skuMatch || nameMatch) {
+          // Apply Candidate Filters
+          if (onlyReturnableFilter && item.returnable_qty <= 0) {
+            return;
+          }
+
+          if (dateFilter.trim()) {
+            const saleDateStr = new Date(sale.created_at).toISOString().slice(0, 10);
+            const humanDateStr = new Date(sale.created_at).toLocaleDateString("en-IN", {
+              day: "numeric", month: "short", year: "numeric",
+            }).toLowerCase();
+            const filterLower = dateFilter.trim().toLowerCase();
+            if (!saleDateStr.includes(filterLower) && !humanDateStr.includes(filterLower)) {
+              return;
+            }
+          }
+
+          if (candidateCustomerFilter.trim()) {
+            const custLower = candidateCustomerFilter.trim().toLowerCase();
+            const matchName = sale.customer_name.toLowerCase().includes(custLower);
+            const matchPhone = sale.customer_phone.toLowerCase().includes(custLower);
+            if (!matchName && !matchPhone) return;
+          }
+
+          if (candidateInvoiceFilter.trim()) {
+            const invLower = candidateInvoiceFilter.trim().toLowerCase();
+            if (!sale.sale_number.toLowerCase().includes(invLower)) return;
+          }
+
+          matches.push({ sale, item });
+        }
+      });
+    });
+
+    // Sort by sale timestamp: newest first
+    return matches.sort((a, b) => new Date(b.sale.created_at).getTime() - new Date(a.sale.created_at).getTime());
+  }, [pastSalesWithMetrics, productScanQuery, dateFilter, candidateCustomerFilter, candidateInvoiceFilter, onlyReturnableFilter]);
+
+  /* ------------------------------------------------------------------ */
+  /*  DISCOVERY MODE 3: Invoice / Receipt QR Direct Match               */
+  /* ------------------------------------------------------------------ */
+  const invoiceQrMatch = useMemo(() => {
+    const q = invoiceScanQuery.trim().toUpperCase();
+    if (!q) return null;
+
+    return pastSalesWithMetrics.find((s) => 
+      s.sale_number.toUpperCase() === q ||
+      s.sale_number.toUpperCase().includes(q) ||
+      (s.notes && s.notes.toUpperCase().includes(q))
+    ) || null;
+  }, [pastSalesWithMetrics, invoiceScanQuery]);
+
+
+
+  /* ------------------------------------------------------------------ */
+  /*  Select Item for Return (From Historical Sale Record)               */
+  /* ------------------------------------------------------------------ */
+  const handleSelectHistoricalItemForReturn = useCallback((
+    sale: OfflineSaleWithReturnMetrics,
+    item: OfflineSaleItemWithReturnStatus,
+  ) => {
+    if (item.returnable_qty <= 0) {
+      playScanError();
+      toast.error(`'${item.name}' has already been fully returned (#${sale.sale_number}).`);
+      return;
+    }
+
+    playScanSuccess();
+
+    // Check if already in cart
+    setReturnCart((prev) => {
+      const existingIdx = prev.findIndex((i) => i.original_sale_item_id === item.id);
+
+      if (existingIdx >= 0) {
+        const currentQty = prev[existingIdx].qty;
+        if (currentQty >= item.returnable_qty) {
+          toast.warning(`Maximum returnable limit reached for this item (${item.returnable_qty} units).`);
+          return prev;
+        }
+
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          qty: currentQty + 1,
+        };
+        toast.success(`Incremented '${item.name}' (Qty: ${currentQty + 1} of max ${item.returnable_qty})`);
+        return updated;
+      }
+
+      // Add new verified historical item
+      const newItem: ReturnCartItem = {
+        product_id: item.product_id,
+        product_slug: item.product_slug || item.product_id || "",
+        name: item.name,
+        sku: item.sku,
+        barcode: item.barcode,
+        image_url: imageFor("clothing", undefined),
+        current_price: item.price,
+        recent_sold_price: item.price,
+        refund_price: item.price, // STRICT HISTORICAL PRICE AUTHORITY
+        mrp: item.mrp || item.price,
+        current_stock: 0,
+        variant_info: item.variant_info || (item.color ? `${item.color} / ${item.size}` : "Standard"),
+        qty: 1,
+        original_sale_id: sale.id,
+        original_sale_item_id: item.id,
+        original_sale_number: sale.sale_number,
+        original_qty: item.qty,
+        already_returned_qty: item.already_returned_qty,
+        max_returnable_qty: item.returnable_qty,
+      };
+
+      toast.success(`Selected '${item.name}' for Return (Historical Price: ${formatPrice(item.price)})`);
+      return [newItem, ...prev];
+    });
+
+    // Auto-link customer association & original sale ID
+    setOriginalSaleId(sale.id);
+    if (sale.customer_name && sale.customer_name !== "Walk-in Customer") {
+      setCustomerMode("existing");
+      setCustomerName(sale.customer_name);
+      setCustomerPhone(sale.customer_phone || "");
+      setCustomerEmail(sale.customer_email || "");
+      setCustomerId(sale.customer_id || null);
+    } else if (sale.customer_phone) {
+      setCustomerMode("existing");
+      setCustomerName(`Customer (${sale.customer_phone})`);
+      setCustomerPhone(sale.customer_phone);
+    }
+  }, []);
+
+  /* ------------------------------------------------------------------ */
+  /*  Direct Unlinked Walk-in Product Return (Fallback)                 */
+  /* ------------------------------------------------------------------ */
+  const handleDirectCatalogProductReturn = useCallback(async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
 
@@ -199,23 +366,14 @@ export function POSReturnsTab() {
 
       playScanSuccess();
 
-      // Increment if existing in cart
       setReturnCart((prev) => {
-        const existingIdx = prev.findIndex(
-          (i) => i.product_id === result.product_id || (i.barcode && i.barcode === result.barcode),
-        );
-
+        const existingIdx = prev.findIndex((i) => i.product_id === result.product_id && !i.original_sale_item_id);
         if (existingIdx >= 0) {
           const updated = [...prev];
-          updated[existingIdx] = {
-            ...updated[existingIdx],
-            qty: updated[existingIdx].qty + 1,
-          };
-          toast.success(`Incremented '${result.name}' (Qty: ${updated[existingIdx].qty})`);
+          updated[existingIdx] = { ...updated[existingIdx], qty: updated[existingIdx].qty + 1 };
           return updated;
         }
 
-        // Add new row to return cart
         const newItem: ReturnCartItem = {
           product_id: result.product_id ?? null,
           product_slug: result.product_slug || "",
@@ -232,128 +390,148 @@ export function POSReturnsTab() {
           qty: 1,
         };
 
-        toast.success(`Added '${result.name}' to Return Cart`);
+        toast.success(`Added '${result.name}' (Direct Return: ${formatPrice(newItem.refund_price)})`);
         return [newItem, ...prev];
       });
 
-      setScanInput("");
+      setProductScanQuery("");
     } catch (err: unknown) {
       playScanError();
-      toast.error((err as Error).message || "Error resolving barcode for return");
+      toast.error((err as Error).message || "Error resolving barcode");
     } finally {
       setIsScanning(false);
     }
   }, []);
 
-  // Hook up Hardware Global Barcode Scanner
-  useGlobalBarcodeScanner((scannedCode) => {
-    if (view === "process" && !isConfirmModalOpen && !isReceiptOpen) {
-      handleBarcodeLookupAndAdd(scannedCode);
-    }
-  });
+  /* ------------------------------------------------------------------ */
+  /*  Global Hardware Barcode Scanner Router                            */
+  /* ------------------------------------------------------------------ */
+  const handleUniversalBarcodeScan = useCallback(
+    async (scannedRaw: string) => {
+      const trimmed = (scannedRaw || "").trim();
+      if (!trimmed) return;
 
-  // Handle adding an item directly from past sale history
-  const handleAddPastSaleItemToReturnCart = (
-    sale: OfflineSaleLookupRecord,
-    item: SaleItemRecord,
-  ) => {
-    playScanSuccess();
+      const now = Date.now();
+      if (
+        lastReturnScanLockRef.current.code === trimmed &&
+        now - lastReturnScanLockRef.current.time < 1200
+      ) {
+        // Debounce duplicate trigger from physical barcode scanner
+        return;
+      }
+      lastReturnScanLockRef.current = { code: trimmed, time: now };
 
-    const matchedProd = allProducts.find(
-      (p) =>
-        p.id === item.product_id ||
-        (p.sku && p.sku.toLowerCase() === item.sku?.toLowerCase()) ||
-        p.name.toLowerCase() === item.name?.toLowerCase(),
-    );
+      // 1. Immediately clear the global pending queue so POS Terminal NEVER receives this scan!
+      clearPendingScans();
 
-    const resolvedImage =
-      matchedProd?.imageUrl ||
-      matchedProd?.image ||
-      imageFor(matchedProd?.category || "clothing", undefined);
+      const parsed = parseReturnScanCode(trimmed);
 
-    setReturnCart((prev) => {
-      const existingIdx = prev.findIndex(
-        (i) =>
-          (item.product_id && i.product_id === item.product_id) ||
-          (item.sku && i.sku.toLowerCase() === item.sku.toLowerCase()),
-      );
-
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        const newQty = updated[existingIdx].qty + 1;
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          qty: newQty,
-        };
-        toast.success(`Incremented '${item.name}' (Qty: ${newQty})`);
-        return updated;
+      if (parsed.type === "invoice_qr") {
+        setDiscoveryMode("invoice_qr");
+        setInvoiceScanQuery(parsed.value);
+        playScanSuccess();
+        toast.success(`Scanned Invoice QR: ${parsed.value}`);
+        return;
       }
 
-      const newItem: ReturnCartItem = {
-        product_id: item.product_id || matchedProd?.id || null,
-        product_slug: item.product_slug || matchedProd?.id || "",
-        name: item.name,
-        sku: item.sku || matchedProd?.sku || "",
-        barcode: item.barcode_snapshot || matchedProd?.barcode || item.sku || "",
-        image_url: resolvedImage,
-        current_price: matchedProd?.price || item.price,
-        recent_sold_price: item.price,
-        refund_price: item.price,
-        mrp: item.mrp_snapshot || matchedProd?.mrp || item.price,
-        current_stock: matchedProd?.stock || 0,
-        variant_info: item.variant_info || "",
-        qty: 1,
-      };
+      if (parsed.type === "credit_token") {
+        setDiscoveryMode("invoice_qr");
+        setInvoiceScanQuery(parsed.value);
+        playScanSuccess();
+        toast.success(`Scanned Voucher Token: ${parsed.value}`);
+        return;
+      }
 
-      toast.success(`Selected '${item.name}' for Return (₹${item.price})`);
-      return [newItem, ...prev];
-    });
+      // 2. Product Barcode / SKU Scan:
+      // Directly add to Return Terminal Cart!
+      setDiscoveryMode("barcode");
+      setProductScanQuery(parsed.value);
 
-    // Auto-fill customer association
-    if (sale.customer_name && sale.customer_name !== "Walk-in Customer") {
-      setCustomerMode("existing");
-      setCustomerName(sale.customer_name);
-      setCustomerPhone(sale.customer_phone || "");
-      setCustomerEmail(sale.customer_email || "");
-      setCustomerId(sale.customer_id || null);
-    } else if (sale.customer_phone) {
-      setCustomerMode("existing");
-      setCustomerName(`Customer (${sale.customer_phone})`);
-      setCustomerPhone(sale.customer_phone);
-    }
-  };
+      // If customer is selected and has bought this item with returnable quantity, select from history
+      if (customerMode === "existing" && customerPhone) {
+        const custClean = customerPhone.replace(/\D/g, "");
+        const matchingSale = pastSalesWithMetrics.find(
+          (s) =>
+            s.customer_phone &&
+            s.customer_phone.replace(/\D/g, "") === custClean &&
+            s.offline_sale_items.some(
+              (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+            ),
+        );
 
-  // Quantity modification
+        if (matchingSale) {
+          const item = matchingSale.offline_sale_items.find(
+            (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+          );
+          if (item) {
+            handleSelectHistoricalItemForReturn(matchingSale, item);
+            return;
+          }
+        }
+      }
+
+      // Check if there is an exact single matching historical sale in the store for this barcode
+      const singleMatch = pastSalesWithMetrics.filter((s) =>
+        s.offline_sale_items.some(
+          (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+        ),
+      );
+
+      if (singleMatch.length === 1) {
+        const item = singleMatch[0].offline_sale_items.find(
+          (it) => (it.barcode === parsed.value || it.sku === parsed.value) && it.returnable_qty > 0,
+        );
+        if (item) {
+          handleSelectHistoricalItemForReturn(singleMatch[0], item);
+          return;
+        }
+      }
+
+      // Otherwise, immediately resolve catalog product and add directly into Return Terminal Cart!
+      await handleDirectCatalogProductReturn(parsed.value);
+    },
+    [
+      customerMode,
+      customerPhone,
+      pastSalesWithMetrics,
+      handleSelectHistoricalItemForReturn,
+      handleDirectCatalogProductReturn,
+    ],
+  );
+
+  useGlobalBarcodeScanner(
+    (scannedCode) => {
+      void handleUniversalBarcodeScan(scannedCode);
+    },
+    view === "process" && !isConfirmModalOpen && !activeReceipt,
+  );
+
+  // Update Item Quantity in Return Cart
   const handleUpdateQty = (idx: number, delta: number) => {
     setReturnCart((prev) => {
       const updated = [...prev];
-      const newQty = updated[idx].qty + delta;
+      const item = updated[idx];
+      const newQty = item.qty + delta;
+      
       if (newQty <= 0) return prev;
-      updated[idx] = { ...updated[idx], qty: newQty };
+      
+      if (item.max_returnable_qty && newQty > item.max_returnable_qty) {
+        toast.warning(`Cannot exceed max returnable quantity of ${item.max_returnable_qty} units.`);
+        return prev;
+      }
+
+      updated[idx] = { ...item, qty: newQty };
       return updated;
     });
   };
 
-  const handleUpdateRefundPrice = (idx: number, price: number) => {
-    setReturnCart((prev) => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], refund_price: Math.max(0, price) };
-      return updated;
-    });
-  };
-
-  const handleRemoveItem = (idx: number) => {
+  const handleRemoveCartItem = (idx: number) => {
     setReturnCart((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleClearCart = () => {
-    setReturnCart([]);
-    setIdempotencyKey(generateIdempotencyKey());
-  };
-
-  // Cart Calculations
+  // Financial Calculations (100% STORE CREDIT)
   const totalReturnUnits = useMemo(
-    () => returnCart.reduce((sum, item) => sum + (item.qty || 1), 0),
+    () => returnCart.reduce((sum, item) => sum + item.qty, 0),
     [returnCart],
   );
 
@@ -362,24 +540,10 @@ export function POSReturnsTab() {
     [returnCart],
   );
 
-  // Filter products for manual search
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return [];
-    const q = productSearch.toLowerCase();
-    return allProducts
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.toLowerCase().includes(q)),
-      )
-      .slice(0, 8);
-  }, [allProducts, productSearch]);
-
   // Submit Return Execution
-  const handleConfirmReturn = async () => {
+  const handleProcessReturn = async () => {
     if (returnCart.length === 0) {
-      toast.error("Return cart is empty");
+      toast.error("Return cart is empty. Please select or scan items to return.");
       return;
     }
 
@@ -392,68 +556,66 @@ export function POSReturnsTab() {
         customer_phone: customerPhone.trim(),
         customer_email: customerEmail.trim(),
         customer_id: customerId,
-        refund_method: refundMethod,
+        refund_method: "exchange_credit",
         refund_status: "completed",
         return_reason: returnReason,
         notes: returnNotes.trim(),
-        items: returnCart.map((item) => ({
-          product_id: item.product_id,
-          product_slug: item.product_slug,
-          name: item.name,
-          sku: item.sku,
-          barcode: item.barcode,
-          variant_info: item.variant_info,
-          refund_price: item.refund_price,
-          qty: item.qty,
-          mrp: item.mrp,
+        original_sale_id: originalSaleId,
+        items: returnCart.map((i) => ({
+          product_id: i.product_id,
+          product_slug: i.product_slug,
+          name: i.name,
+          sku: i.sku,
+          barcode: i.barcode,
+          variant_info: i.variant_info,
+          refund_price: i.refund_price,
+          qty: i.qty,
+          mrp: i.mrp,
+          original_sale_item_id: i.original_sale_item_id || null,
         })),
-        idempotency_key: "",
+        idempotency_key: idempotencyKey,
       };
 
       const result = await processReturnMutation.mutateAsync(payload);
 
-      // Create Receipt Data
       const receiptData: ReturnReceiptData = {
         return_number: result.return_number,
+        credit_token: result.credit_token,
         customer_name: resolvedCustomerName,
         customer_phone: customerPhone.trim(),
-        refund_amount: result.refund_amount,
-        refund_method: refundMethod,
-        return_reason: returnReason,
-        notes: returnNotes.trim(),
-        created_at: new Date().toISOString(),
         items: returnCart.map((item) => ({
           name: item.name,
           sku: item.sku,
           barcode: item.barcode,
           variant_info: item.variant_info,
-          refund_price: item.refund_price,
           qty: item.qty,
+          refund_price: item.refund_price,
           subtotal: item.refund_price * item.qty,
         })),
+        refund_amount: result.refund_amount,
+        refund_method: "exchange_credit",
+        return_reason: returnReason,
+        notes: returnNotes.trim(),
+        created_at: new Date().toISOString(),
       };
 
       setActiveReceipt(receiptData);
-      setIsReceiptOpen(true);
       setIsConfirmModalOpen(false);
-      handleClearCart();
+
+      // Reset state for next return
+      setReturnCart([]);
       setCustomerName("");
       setCustomerPhone("");
       setCustomerEmail("");
       setCustomerId(null);
       setCustomerMode("walkin");
       setCustomerSearchQuery("");
-      setPastOrderSearch("");
-      setScanInput("");
-      setProductSearch("");
+      setProductScanQuery("");
+      setInvoiceScanQuery("");
       setReturnNotes("");
-      setExpandedSaleId(null);
+      setOriginalSaleId(null);
       setIdempotencyKey(generateIdempotencyKey());
-      toast.success(
-        refundMethod === "exchange_credit"
-          ? `Exchange Credit Voucher #${result.return_number} issued!`
-          : `Return #${result.return_number} processed! Inventory restocked.`,
-      );
+      toast.success(`Store Credit Voucher #${result.return_number} issued! (${formatPrice(result.refund_amount)})`);
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to process offline return");
     }
@@ -468,26 +630,34 @@ export function POSReturnsTab() {
         r.return_number.toLowerCase().includes(q) ||
         r.customer_name.toLowerCase().includes(q) ||
         r.customer_phone.includes(q) ||
-        r.refund_method.toLowerCase().includes(q) ||
+        (r.credit_token && r.credit_token.toLowerCase().includes(q)) ||
         r.return_reason.toLowerCase().includes(q),
     );
   }, [returnsList, historySearch]);
 
+  const historySelection = useTableSelection<OfflineReturn>({ items: filteredHistory });
+  const historyMetrics = useMemo(
+    () => getReturnsSelectionMetrics(historySelection.selectedItems as unknown as Array<{ id: string; refund_amount?: number }>),
+    [historySelection.selectedItems],
+  );
+
   return (
     <div className="flex flex-col space-y-5">
-      {/* ── Sub-Header & Navigation Tabs ── */}
+      {/* ── Sub-Header & Main Views ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <RotateCcw className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">
-              Offline POS Returns &amp; Exchange
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              POS Offline Returns &amp; Exchange
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                100% Store Credit
+              </span>
             </h2>
             <p className="text-xs text-muted-foreground">
-              Search past customer purchases, select items for return, restock inventory, and issue
-              Exchange Vouchers.
+              Search by Customer Profile, Scan Product Barcode, or Scan Receipt QR Code for exact historical returns.
             </p>
           </div>
         </div>
@@ -524,389 +694,596 @@ export function POSReturnsTab() {
       {/* ── VIEW 1: PROCESS RETURN ── */}
       {view === "process" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-          {/* LEFT 7-COL: Past Order Lookup, Barcode Scanner, Cart & Items */}
+          {/* LEFT 7-COL: 3-Mode Discovery & Selection */}
           <div className="lg:col-span-7 flex flex-col space-y-4">
-            {/* 1. Find Customer / Past Purchase Lookup Box */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
+            {/* 3-Mode Return Discovery Switcher */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-primary" />
-                  <h3 className="text-xs font-bold text-foreground">
-                    Look Up Past Purchase / Customer History
+                  <Search className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Return Discovery Method
                   </h3>
                 </div>
                 <span className="text-[11px] text-muted-foreground">
-                  Search by Customer Name, Phone, or Receipt #
+                  Scanner gun auto-routes barcode &amp; QR
                 </span>
               </div>
 
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={pastOrderSearch}
-                  onChange={(e) => setPastOrderSearch(e.target.value)}
-                  placeholder="e.g. Jack Sparrow, 9876543210, or POS-2609-00009..."
-                  className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                />
-                {pastOrderSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setPastOrderSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Matched Past Sales List (Always visible: recent or filtered by search) */}
-              <div className="space-y-2.5 mt-2 max-h-80 overflow-y-auto pr-1">
-                {matchedPastSales.length === 0 ? (
-                  <div className="p-4 text-center rounded-xl bg-muted/30 border border-border text-xs text-muted-foreground">
-                    No past sales found for "{pastOrderSearch}". You can also scan product barcode directly below.
-                  </div>
-                ) : (
-                  matchedPastSales.slice(0, 50).map((sale) => {
-                    const isExpanded =
-                      expandedSaleId === sale.id || !!pastOrderSearch.trim() || matchedPastSales.length === 1;
-                    return (
-                      <div
-                        key={sale.id}
-                        className="rounded-2xl border-2 border-border/80 bg-muted/20 overflow-hidden text-xs transition shadow-2xs"
-                      >
-                        {/* Receipt Summary Header with Prominent Customer Info */}
-                        <div
-                          onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
-                          className="p-3.5 flex flex-wrap items-center justify-between gap-2 bg-card hover:bg-muted/40 cursor-pointer border-b border-border/60"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {isExpanded ? (
-                              <ChevronDown className="size-4 text-primary shrink-0" />
-                            ) : (
-                              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                            )}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 font-black text-xs">
-                                <User className="size-3" />
-                                {sale.customer_name || "Walk-in Customer"}
-                              </span>
-                              {sale.customer_phone && (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-bold text-foreground">
-                                  <Phone className="size-2.5 text-muted-foreground" />
-                                  {sale.customer_phone}
-                                </span>
-                              )}
-                              <span className="font-mono text-[11px] font-semibold text-muted-foreground">
-                                #{sale.sale_number}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0 flex items-center gap-3">
-                            <div>
-                              <span className="font-extrabold text-foreground text-sm block">
-                                {formatPrice(sale.total)}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground block">
-                                {new Date(sale.created_at).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Items in this past sale with Exact Purchased Prices */}
-                        {isExpanded && (
-                          <div className="p-3.5 bg-background space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] font-black text-foreground uppercase tracking-wider">
-                                Purchased Items ({sale.offline_sale_items?.length || 0})
-                              </p>
-                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                Exact original prices loaded from invoice
-                              </span>
-                            </div>
-
-                            <div className="divide-y divide-border/60">
-                              {(sale.offline_sale_items ?? []).map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="py-2.5 flex items-center justify-between gap-3"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <p className="font-bold text-foreground text-xs truncate">
-                                      {item.name}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
-                                        Purchased Price: {formatPrice(item.price)}
-                                      </span>
-                                      <span className="text-[11px] text-muted-foreground font-medium">
-                                        Qty bought: {item.qty}
-                                      </span>
-                                      {item.sku && (
-                                        <span className="text-[10px] text-muted-foreground font-mono">
-                                          SKU: {item.sku}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddPastSaleItemToReturnCart(sale, item)}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs transition cursor-pointer shadow-xs shrink-0"
-                                  >
-                                    <Plus className="size-3.5" />
-                                    <span>Select for Return ({formatPrice(item.price)})</span>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* 2. Barcode Scanner Input Box */}
-            <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-card p-4 shadow-xs">
-              <div className="flex flex-col sm:flex-row items-center gap-3">
-                <div className="relative flex-1 w-full">
-                  <Scan className="absolute left-3 top-3 h-4 w-4 text-primary animate-pulse" />
-                  <input
-                    ref={scanInputRef}
-                    type="text"
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleBarcodeLookupAndAdd(scanInput);
-                      }
-                    }}
-                    placeholder="Scan barcode gun or enter SKU / Barcode..."
-                    className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition"
-                  />
-                </div>
+              {/* Mode Toggle Buttons */}
+              <div className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-muted/40 border border-border text-xs">
+                <button
+                  type="button"
+                  onClick={() => setDiscoveryMode("customer")}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition cursor-pointer ${
+                    discoveryMode === "customer"
+                      ? "bg-card text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <User className="size-3.5 text-primary" />
+                  <span>1. Customer Search</span>
+                </button>
 
                 <button
                   type="button"
-                  onClick={() => handleBarcodeLookupAndAdd(scanInput)}
-                  disabled={isScanning || !scanInput.trim()}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  onClick={() => setDiscoveryMode("barcode")}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition cursor-pointer ${
+                    discoveryMode === "barcode"
+                      ? "bg-card text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Product</span>
+                  <Scan className="size-3.5 text-primary" />
+                  <span>2. Product Barcode</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDiscoveryMode("invoice_qr")}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition cursor-pointer ${
+                    discoveryMode === "invoice_qr"
+                      ? "bg-card text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <QrCode className="size-3.5 text-primary" />
+                  <span>3. Invoice / QR</span>
                 </button>
               </div>
 
-              {/* Manual Product Search Fallback */}
-              <div className="mt-3 pt-3 border-t border-border/60">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Search product catalog manually..."
-                    className="w-full rounded-lg border border-border bg-muted/30 pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:bg-background outline-none transition"
-                  />
-                </div>
-
-                {filteredProducts.length > 0 && (
-                  <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-border bg-popover divide-y divide-border shadow-lg">
-                    {filteredProducts.map((p) => (
-                      <div
-                        key={p.uuid || p.id}
-                        onClick={() => {
-                          handleBarcodeLookupAndAdd(p.barcode || p.sku || p.id);
-                          setProductSearch("");
-                        }}
-                        className="flex items-center justify-between p-2 hover:bg-muted cursor-pointer transition text-xs"
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* MODE 1: CUSTOMER SEARCH & TIMELINE                           */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {discoveryMode === "customer" && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={customerSearchQuery}
+                      onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                      placeholder="Search by Customer Name, Phone Number, or ID..."
+                      className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                    {customerSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomerSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {p.imageUrl || p.image ? (
-                            <img
-                              src={p.imageUrl || p.image}
-                              alt={p.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="h-8 w-8 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                              <Package className="h-4 w-4" />
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Customer Purchase Timeline List */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {isSalesLoading ? (
+                      <div className="p-6 text-center text-xs text-muted-foreground animate-pulse">
+                        Loading customer purchase ledger...
+                      </div>
+                    ) : groupedCustomerPurchases.length === 0 ? (
+                      <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
+                        No customer purchase history found for "{customerSearchQuery}".
+                      </div>
+                    ) : (
+                      groupedCustomerPurchases.slice(0, 30).map((group) => {
+                        const isExpanded = expandedCustomerId === group.key || groupedCustomerPurchases.length === 1;
+                        return (
+                          <div
+                            key={group.key}
+                            className="rounded-2xl border-2 border-border/80 bg-muted/20 overflow-hidden text-xs transition shadow-2xs"
+                          >
+                            {/* Customer Profile Header */}
+                            <div
+                              onClick={() => setExpandedCustomerId(isExpanded ? null : group.key)}
+                              className="p-3.5 flex flex-wrap items-center justify-between gap-2 bg-card hover:bg-muted/40 cursor-pointer border-b border-border/60"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {isExpanded ? (
+                                  <ChevronDown className="size-4 text-primary shrink-0" />
+                                ) : (
+                                  <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                                )}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 font-black text-xs">
+                                    <User className="size-3" />
+                                    {group.customer_name}
+                                  </span>
+                                  {group.customer_phone && (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-bold text-foreground">
+                                      <Phone className="size-2.5 text-muted-foreground" />
+                                      {group.customer_phone}
+                                    </span>
+                                  )}
+                                  {group.has_returnable_items ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-bold">
+                                      Eligible for Return
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-bold">
+                                      Fully Returned
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0 flex items-center gap-3">
+                                <span className="font-extrabold text-foreground text-xs block">
+                                  {group.sales.length} Transaction{group.sales.length !== 1 ? "s" : ""}
+                                </span>
+                              </div>
                             </div>
-                          )}
-                          <div className="truncate">
-                            <p className="font-semibold text-foreground truncate">{p.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              SKU: {p.sku} | Barcode: {p.barcode || "N/A"}
-                            </p>
+
+                            {/* Customer Purchase Timeline */}
+                            {isExpanded && (
+                              <div className="p-3.5 bg-background space-y-3.5">
+                                {group.sales.map((sale) => (
+                                  <div key={sale.id} className="rounded-xl border border-border/70 overflow-hidden bg-card shadow-2xs">
+                                    {/* Transaction Header */}
+                                    <div className="px-3 py-2 bg-muted/40 flex flex-wrap justify-between items-center gap-2 border-b border-border/60">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-[11px] font-bold text-primary">
+                                          #{sale.sale_number}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                          <Clock className="size-2.5" />
+                                          {new Date(sale.created_at).toLocaleDateString("en-IN", {
+                                            day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                                          })}
+                                        </span>
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted uppercase font-mono font-bold text-muted-foreground">
+                                          {sale.payment_method}
+                                        </span>
+                                      </div>
+                                      <div className="text-right">
+                                        <span className="font-extrabold text-foreground text-xs">
+                                          Total: {formatPrice(sale.total)}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Purchased Items List */}
+                                    <div className="divide-y divide-border/40">
+                                      {sale.offline_sale_items.map((item) => (
+                                        <div key={item.id} className="p-3 flex items-center justify-between gap-3">
+                                          <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
+                                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300">
+                                                Purchased: {formatPrice(item.price)}
+                                              </span>
+                                              <span className="text-[10.5px] text-muted-foreground font-medium">
+                                                Bought: {item.qty}
+                                              </span>
+                                              {item.already_returned_qty > 0 && (
+                                                <span className="text-[10.5px] text-amber-600 dark:text-amber-400 font-bold">
+                                                  Returned: {item.already_returned_qty}
+                                                </span>
+                                              )}
+                                              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                                                item.returnable_qty > 0
+                                                  ? "bg-primary/10 text-primary border border-primary/20"
+                                                  : "bg-muted text-muted-foreground"
+                                              }`}>
+                                                {item.returnable_qty > 0
+                                                  ? `Returnable: ${item.returnable_qty} of ${item.qty}`
+                                                  : "Already Fully Returned"}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSelectHistoricalItemForReturn(sale, item)}
+                                            disabled={item.returnable_qty <= 0}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0"
+                                          >
+                                            <Plus className="size-3.5" />
+                                            <span>Select for Return</span>
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* MODE 2: WALK-IN PRODUCT BARCODE MATCHING CANDIDATES          */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {discoveryMode === "barcode" && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Scan className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary animate-pulse" />
+                      <input
+                        ref={scanInputRef}
+                        type="text"
+                        value={productScanQuery}
+                        onChange={(e) => setProductScanQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const code = productScanQuery.trim();
+                            if (!code) return;
+                            const now = Date.now();
+                            if (
+                              lastReturnScanLockRef.current.code === code &&
+                              now - lastReturnScanLockRef.current.time < 1200
+                            ) {
+                              return;
+                            }
+                            lastReturnScanLockRef.current = { code, time: now };
+                            if (productBarcodeMatches.length === 0) {
+                              handleDirectCatalogProductReturn(code);
+                            }
+                          }
+                        }}
+                        placeholder="Scan barcode gun or enter Product Barcode / SKU..."
+                        className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                      {productScanQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setProductScanQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDirectCatalogProductReturn(productScanQuery)}
+                      disabled={isScanning || !productScanQuery.trim()}
+                      className="px-3.5 py-2.5 rounded-xl bg-muted border border-border hover:bg-muted/80 text-foreground font-bold text-xs transition cursor-pointer shrink-0"
+                      title="Add as Direct Return if no historical invoice exists"
+                    >
+                      Direct Return
+                    </button>
+                  </div>
+
+                  {/* Interactive Filters for Ambiguity Resolution */}
+                  {productScanQuery.trim().length > 0 && (
+                    <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-2.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                        <span className="flex items-center gap-1 text-foreground">
+                          <Filter className="size-3 text-primary" /> Filter Candidate Transactions ({productBarcodeMatches.length} Matches)
+                        </span>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={onlyReturnableFilter}
+                            onChange={(e) => setOnlyReturnableFilter(e.target.checked)}
+                            className="rounded text-primary focus:ring-primary size-3.5"
+                          />
+                          <span>Returnable Only</span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="relative">
+                          <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            placeholder="Date (e.g. 15 Jan, 2026-09-02)"
+                            className="w-full rounded-lg border border-border bg-background pl-7 pr-2 py-1.5 text-[11px] text-foreground outline-none"
+                          />
                         </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <p className="font-bold text-foreground">{formatPrice(p.price)}</p>
-                          <p className="text-[10px] text-muted-foreground">Stock: {p.stock}</p>
+
+                        <div className="relative">
+                          <User className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={candidateCustomerFilter}
+                            onChange={(e) => setCandidateCustomerFilter(e.target.value)}
+                            placeholder="Customer / Phone"
+                            className="w-full rounded-lg border border-border bg-background pl-7 pr-2 py-1.5 text-[11px] text-foreground outline-none"
+                          />
+                        </div>
+
+                        <div className="relative">
+                          <Receipt className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={candidateInvoiceFilter}
+                            onChange={(e) => setCandidateInvoiceFilter(e.target.value)}
+                            placeholder="Invoice # (e.g. 00012)"
+                            className="w-full rounded-lg border border-border bg-background pl-7 pr-2 py-1.5 text-[11px] text-foreground outline-none"
+                          />
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  {/* Matching Historical Candidates List */}
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {productScanQuery.trim().length === 0 ? (
+                      <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
+                        Scan product barcode or enter SKU to view all matching historical sales.
+                      </div>
+                    ) : productBarcodeMatches.length === 0 ? (
+                      <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground space-y-2">
+                        <p>No historical POS sales found matching "{productScanQuery}".</p>
+                        <button
+                          type="button"
+                          onClick={() => handleDirectCatalogProductReturn(productScanQuery)}
+                          className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Plus className="size-3" />
+                          <span>Process as Walk-in Direct Return ({productScanQuery})</span>
+                        </button>
+                      </div>
+                    ) : (
+                      productBarcodeMatches.map(({ sale, item }, idx) => (
+                        <div
+                          key={`${sale.id}-${item.id}-${idx}`}
+                          className="p-3.5 rounded-xl border border-border bg-card hover:bg-muted/30 transition flex items-center justify-between gap-3 text-xs shadow-2xs"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono font-bold text-primary">
+                                #{sale.sale_number}
+                              </span>
+                              <span className="font-semibold text-foreground">
+                                {sale.customer_name || "Walk-in Customer"}
+                              </span>
+                              {sale.customer_phone && (
+                                <span className="font-mono text-[10.5px] text-muted-foreground">
+                                  ({sale.customer_phone})
+                                </span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Clock className="size-2.5" />
+                                {new Date(sale.created_at).toLocaleDateString("en-IN", {
+                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+
+                            <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
+
+                            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 font-extrabold text-emerald-700 dark:text-emerald-300">
+                                Sold at: {formatPrice(item.price)}
+                              </span>
+                              <span className="text-muted-foreground">Qty Bought: {item.qty}</span>
+                              <span className={`font-bold px-1.5 py-0.2 rounded ${
+                                item.returnable_qty > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                              }`}>
+                                Returnable: {item.returnable_qty}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSelectHistoricalItemForReturn(sale, item)}
+                            disabled={item.returnable_qty <= 0}
+                            className="px-3 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1"
+                          >
+                            <Plus className="size-3.5" />
+                            <span>Select ({formatPrice(item.price)})</span>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* MODE 3: INVOICE / RECEIPT QR SCAN & DIRECT RESOLUTION         */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {discoveryMode === "invoice_qr" && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                    <input
+                      type="text"
+                      value={invoiceScanQuery}
+                      onChange={(e) => setInvoiceScanQuery(e.target.value)}
+                      placeholder="Scan Invoice QR Code or type Invoice Number (e.g. POS-2609-00012)..."
+                      className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                    />
+                    {invoiceScanQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceScanQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {invoiceScanQuery.trim().length === 0 ? (
+                    <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
+                      Scan invoice barcode/QR on the customer's receipt to immediately open that exact transaction.
+                    </div>
+                  ) : !invoiceQrMatch ? (
+                    <div className="p-6 text-center rounded-xl bg-muted/20 border border-border text-xs text-muted-foreground">
+                      No matching invoice found for "{invoiceScanQuery}".
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border-2 border-primary/40 bg-card overflow-hidden text-xs shadow-xs space-y-3">
+                      <div className="p-3.5 bg-primary/10 border-b border-primary/20 flex items-center justify-between">
+                        <div>
+                          <span className="font-mono font-black text-sm text-primary">
+                            #{invoiceQrMatch.sale_number}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground ml-2">
+                            {new Date(invoiceQrMatch.created_at).toLocaleDateString("en-IN", {
+                              day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <span className="font-extrabold text-foreground text-sm">
+                          {formatPrice(invoiceQrMatch.total)}
+                        </span>
+                      </div>
+
+                      <div className="p-3 divide-y divide-border/60">
+                        {invoiceQrMatch.offline_sale_items.map((item) => (
+                          <div key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-foreground text-xs">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+                                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  Paid: {formatPrice(item.price)}
+                                </span>
+                                <span className="text-muted-foreground">Bought: {item.qty}</span>
+                                <span className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
+                                  item.returnable_qty > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                                }`}>
+                                  Returnable: {item.returnable_qty}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSelectHistoricalItemForReturn(invoiceQrMatch, item)}
+                              disabled={item.returnable_qty <= 0}
+                              className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1"
+                            >
+                              <Plus className="size-3.5" />
+                              <span>Select</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* 3. Return Cart Table */}
-            <div className="flex-1 rounded-2xl border border-border bg-card shadow-xs flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-muted/20">
+            {/* Return Cart Table / Items to Return */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold text-foreground">Return Cart Items</h3>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {totalReturnUnits} units
-                  </span>
+                  <ShoppingBag className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Items Selected for Return ({returnCart.length})
+                  </h3>
                 </div>
-
                 {returnCart.length > 0 && (
                   <button
                     type="button"
-                    onClick={handleClearCart}
-                    className="text-[11px] font-semibold text-destructive hover:underline cursor-pointer"
+                    onClick={() => setReturnCart([])}
+                    className="text-[11px] text-destructive hover:underline font-semibold cursor-pointer"
                   >
                     Clear All
                   </button>
                 )}
               </div>
 
-              {/* Customer Banner if active */}
-              {customerName && (
-                <div className="bg-primary/10 border-b border-primary/20 px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <User className="size-3.5 text-primary" />
-                    <span className="font-extrabold text-foreground">Customer: {customerName}</span>
-                    {customerPhone && <span className="font-mono text-muted-foreground">({customerPhone})</span>}
-                  </div>
-                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
-                    Exact Purchase Price Linked
-                  </span>
+              {returnCart.length === 0 ? (
+                <div className="p-8 text-center rounded-xl bg-muted/20 border border-dashed border-border text-xs text-muted-foreground space-y-1">
+                  <p className="font-bold text-foreground">Return cart is empty</p>
+                  <p>Search customer, scan barcode gun, or scan invoice QR above to select items for return.</p>
                 </div>
-              )}
-
-              <div className="flex-1 overflow-y-auto divide-y divide-border min-h-[160px]">
-                {returnCart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                    <ShoppingBag className="h-10 w-10 text-muted-foreground/30 mb-2" />
-                    <p className="text-xs font-bold text-foreground">Return Cart is Empty</p>
-                    <p className="text-[11px] max-w-xs mt-1">
-                      Search customer past purchase above or scan barcodes with the gun to add items.
-                    </p>
-                  </div>
-                ) : (
-                  returnCart.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-muted/30 transition"
-                    >
-                      {/* Product details */}
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-10 w-10 rounded-xl object-cover shrink-0 border border-border"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = clothing;
-                            }}
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground shrink-0">
-                            <Package className="h-5 w-5" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-xs text-foreground truncate">{item.name}</p>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
-                              Purchased Price: {formatPrice(item.refund_price)}
+              ) : (
+                <div className="divide-y divide-border/60">
+                  {returnCart.map((item, idx) => (
+                    <div key={`${item.product_id}-${idx}`} className="py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-foreground text-xs truncate">{item.name}</p>
+                          {item.original_sale_number && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 font-bold">
+                              #{item.original_sale_number}
                             </span>
-                            {item.sku && <span className="text-[10px] text-muted-foreground font-mono">SKU: {item.sku}</span>}
-                            {item.variant_info && <span className="text-[10px] text-muted-foreground">({item.variant_info})</span>}
-                          </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px]">
+                          <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                            Unit Return: {formatPrice(item.refund_price)}
+                          </span>
+                          {item.max_returnable_qty && (
+                            <span className="text-muted-foreground text-[10.5px]">
+                              (Max Returnable: {item.max_returnable_qty})
+                            </span>
+                          )}
+                          <span className="font-bold text-foreground">
+                            Line Total: {formatPrice(item.refund_price * item.qty)}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Quantity & Unit Refund Controls */}
-                      <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0">
-                        {/* Qty +- */}
-                        <div className="flex items-center rounded-xl border border-border bg-background p-0.5">
+                      {/* Qty Controls & Remove */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center rounded-lg border border-border bg-background">
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(idx, -1)}
-                            disabled={item.qty <= 1}
-                            className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30 cursor-pointer"
+                            className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                           >
-                            <Minus className="h-3 w-3" />
+                            <Minus className="size-3" />
                           </button>
-                          <span className="w-8 text-center text-xs font-bold text-foreground">
+                          <span className="px-2.5 text-xs font-bold font-mono text-foreground">
                             {item.qty}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(idx, 1)}
-                            className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground cursor-pointer"
+                            disabled={item.max_returnable_qty != null && item.qty >= item.max_returnable_qty}
+                            className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                           >
-                            <Plus className="h-3 w-3" />
+                            <Plus className="size-3" />
                           </button>
                         </div>
 
-                        {/* Unit Return Price input */}
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">₹</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.refund_price}
-                              onChange={(e) =>
-                                handleUpdateRefundPrice(idx, parseFloat(e.target.value) || 0)
-                              }
-                              className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-right text-xs font-bold text-foreground focus:ring-1 focus:ring-primary outline-none"
-                              title="Unit Return Value"
-                            />
-                          </div>
-                          <span className="text-[10px] font-bold text-primary mt-0.5">
-                            Credit: {formatPrice(item.refund_price * item.qty)}
-                          </span>
-                        </div>
-
-                        {/* Remove */}
                         <button
                           type="button"
-                          onClick={() => handleRemoveItem(idx)}
-                          className="flex h-8 w-8 items-center justify-center rounded-xl text-destructive hover:bg-destructive/10 transition cursor-pointer"
-                          title="Remove item"
+                          onClick={() => handleRemoveCartItem(idx)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive cursor-pointer transition"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4" />
                         </button>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* RIGHT 5-COL: Customer, Resolution / Exchange Method, Notes & Actions */}
+          {/* RIGHT 5-COL: Customer Link, Resolution & Execution */}
           <div className="lg:col-span-5 flex flex-col space-y-4 lg:sticky lg:top-4">
             {/* Customer Association */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
@@ -922,10 +1299,8 @@ export function POSReturnsTab() {
                       setCustomerMode("walkin");
                       setCustomerId(null);
                     }}
-                    className={`rounded-lg px-2 py-1 font-bold transition cursor-pointer ${
-                      customerMode === "walkin"
-                        ? "bg-card text-foreground shadow-xs"
-                        : "text-muted-foreground"
+                    className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
+                      customerMode === "walkin" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"
                     }`}
                   >
                     Walk-in
@@ -933,214 +1308,81 @@ export function POSReturnsTab() {
                   <button
                     type="button"
                     onClick={() => setCustomerMode("existing")}
-                    className={`rounded-lg px-2 py-1 font-bold transition cursor-pointer ${
-                      customerMode === "existing"
-                        ? "bg-card text-foreground shadow-xs"
-                        : "text-muted-foreground"
+                    className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
+                      customerMode === "existing" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"
                     }`}
                   >
-                    Lookup
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomerMode("new")}
-                    className={`rounded-lg px-2 py-1 font-bold transition cursor-pointer ${
-                      customerMode === "new"
-                        ? "bg-card text-foreground shadow-xs"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    New
+                    Identified Customer
                   </button>
                 </div>
               </div>
 
-              {customerMode === "walkin" && (
+              {customerMode === "walkin" ? (
                 <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-xl p-2.5">
-                  Walk-in Customer selected. No profile required.
+                  Walk-in Customer selected. Store credit voucher will be generated with a unique redeemable token.
                 </p>
-              )}
-
-              {customerMode === "existing" && (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={customerSearchQuery}
-                    onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                    placeholder="Search POS customer profile by name or phone..."
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none"
-                  />
-                  {customerName && (
-                    <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-2.5 text-xs text-primary">
-                      <div>
-                        <p className="font-bold">{customerName}</p>
-                        {customerPhone && <p className="text-[10px] font-mono">{customerPhone}</p>}
-                      </div>
-                      <Check className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {customerMode === "new" && (
+              ) : (
                 <div className="space-y-2">
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Customer Name"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
                   />
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Customer Phone"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none"
+                    placeholder="Customer Mobile Number"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
                   />
                 </div>
               )}
             </div>
 
-            {/* Return Settlement Method — EXCHANGE FIRST POLICY */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-foreground">Settlement / Return Method</h3>
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  Exchange Only Policy
-                </span>
-              </div>
-
-              {/* Primary Exchange Option */}
-              <button
-                type="button"
-                onClick={() => setRefundMethod("exchange_credit")}
-                className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
-                  refundMethod === "exchange_credit"
-                    ? "border-emerald-600 bg-emerald-500/10 shadow-xs"
-                    : "border-border bg-card hover:bg-muted/40"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`p-2 rounded-xl shrink-0 ${
-                      refundMethod === "exchange_credit"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    <Sparkles className="size-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-foreground">Exchange Credit Voucher</p>
-                      <span className="rounded-md bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
-                        Recommended
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Issues a store credit slip allowing customer to buy or exchange any item in
-                      store.
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Alternative payout methods (if explicitly required) */}
-              <div className="pt-1">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Alternative Refund (Direct Payout)
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: "cash", label: "Cash", icon: Banknote },
-                    { key: "upi", label: "UPI", icon: Smartphone },
-                    { key: "card", label: "Card", icon: CreditCard },
-                  ].map((m) => {
-                    const Icon = m.icon;
-                    const active = refundMethod === m.key;
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        onClick={() => setRefundMethod(m.key)}
-                        className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-2.5 border font-semibold text-xs transition cursor-pointer ${
-                          active
-                            ? "border-primary bg-primary/10 text-primary shadow-xs"
-                            : "border-border bg-card text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{m.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
             {/* Return Reason & Notes */}
             <div className="rounded-2xl border border-border bg-card p-4 shadow-xs space-y-3">
               <h3 className="text-xs font-bold text-foreground">Return Reason &amp; Notes</h3>
-              <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                  Reason for Return / Exchange
-                </label>
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  {RETURN_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
+              >
+                {RETURN_REASONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
 
-              <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                  Cashier Notes (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={returnNotes}
-                  onChange={(e) => setReturnNotes(e.target.value)}
-                  placeholder="Notes about product condition or exchange request..."
-                  className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none"
-                />
-              </div>
+              <textarea
+                value={returnNotes}
+                onChange={(e) => setReturnNotes(e.target.value)}
+                placeholder="Optional notes or item condition comments..."
+                rows={2}
+                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
+              />
             </div>
 
-            {/* Summary & Action Button */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4">
-              <div className="space-y-1.5 text-xs">
+            {/* Summary & Confirm Button */}
+            <div className="rounded-2xl border-2 border-primary/30 bg-card p-4 shadow-xs space-y-4">
+              <div className="space-y-2 text-xs">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Customer</span>
-                  <span className="font-bold text-foreground truncate max-w-[200px]">
-                    {customerName || "Walk-in Customer"}
-                  </span>
+                  <span>Customer:</span>
+                  <span className="font-bold text-foreground">{customerMode === "walkin" ? "Walk-in Customer" : customerName || "Customer"}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Total Items to Restock</span>
+                  <span>Total Items to Restock:</span>
                   <span className="font-bold text-foreground">+{totalReturnUnits} units</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Original Paid Price</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatPrice(totalRefundAmount)}
-                  </span>
+                  <span>Settlement Method:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">100% Exchange Voucher</span>
                 </div>
-                <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-border">
-                  <span className="text-foreground">
-                    {refundMethod === "exchange_credit"
-                      ? "Exchange Credit Value"
-                      : "Total Refund Amount"}
-                  </span>
-                  <span className="text-xl font-black text-primary">
-                    {formatPrice(totalRefundAmount)}
-                  </span>
+                <div className="pt-2 border-t border-border flex justify-between items-center text-sm">
+                  <span className="font-bold text-foreground">Exchange Credit Value:</span>
+                  <span className="text-lg font-black text-primary">{formatPrice(totalRefundAmount)}</span>
                 </div>
               </div>
 
@@ -1148,14 +1390,10 @@ export function POSReturnsTab() {
                 type="button"
                 onClick={() => setIsConfirmModalOpen(true)}
                 disabled={returnCart.length === 0 || processReturnMutation.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-black text-xs sm:text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md cursor-pointer flex items-center justify-center gap-2"
               >
-                <Sparkles className="h-4 w-4" />
-                <span>
-                  {refundMethod === "exchange_credit"
-                    ? `Issue Exchange Voucher (${formatPrice(totalRefundAmount)})`
-                    : `Process Return (${formatPrice(totalRefundAmount)})`}
-                </span>
+                <Check className="size-4" />
+                <span>Confirm &amp; Issue Exchange Voucher</span>
               </button>
             </div>
           </div>
@@ -1164,139 +1402,130 @@ export function POSReturnsTab() {
 
       {/* ── VIEW 2: RETURN HISTORY ── */}
       {view === "history" && (
-        <div className="flex-1 flex flex-col rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-          {/* History Search Header */}
-          <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search returns by voucher #, customer, or phone..."
-                className="w-full rounded-xl border border-border bg-background pl-9 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                placeholder="Search returns by voucher #, customer, phone, token..."
+                className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs text-foreground outline-none focus:border-primary"
               />
             </div>
-            <span className="text-xs text-muted-foreground">
-              Showing {filteredHistory.length} return / exchange records
+            <span className="text-xs text-muted-foreground font-bold">
+              Total Returns: {returnsList.length}
             </span>
           </div>
 
-          {/* History Table */}
-          <div className="flex-1 overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="px-5 py-3.5">Voucher / Return #</th>
-                  <th className="px-5 py-3.5">Customer</th>
-                  <th className="px-5 py-3.5">Date (IST)</th>
-                  <th className="px-5 py-3.5">Settlement Mode</th>
-                  <th className="px-5 py-3.5">Reason</th>
-                  <th className="px-5 py-3.5 text-right">Value</th>
-                  <th className="px-5 py-3.5 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {isHistoryLoading ? (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/50 border-b border-border text-muted-foreground font-bold">
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
-                      Loading return history…
-                    </td>
+                    <th className="p-3">Return #</th>
+                    <th className="p-3">Customer</th>
+                    <th className="p-3">Credit Token</th>
+                    <th className="p-3">Refund Amount</th>
+                    <th className="p-3">Reason</th>
+                    <th className="p-3">Date &amp; Time</th>
+                    <th className="p-3 text-right">Action</th>
                   </tr>
-                ) : filteredHistory.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
-                      No returns found matching search criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredHistory.slice(0, 50).map((ret) => (
-                    <tr
-                      key={ret.id}
-                      className="hover:bg-muted/40 transition cursor-pointer"
-                      onClick={() => setSelectedHistoryReturn(ret)}
-                    >
-                      <td className="px-5 py-3.5 font-mono font-bold text-foreground text-xs">
-                        {ret.return_number}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <p className="font-bold text-foreground text-xs">{ret.customer_name}</p>
-                        {ret.customer_phone && (
-                          <p className="text-[10px] text-muted-foreground font-mono">
-                            {ret.customer_phone}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                        {new Date(ret.created_at).toLocaleString("en-IN")}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                          {ret.refund_method === "exchange_credit"
-                            ? "Exchange Voucher"
-                            : ret.refund_method}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-muted-foreground truncate max-w-xs">
-                        {ret.return_reason}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-bold text-primary text-sm">
-                        {formatPrice(ret.refund_amount)}
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedHistoryReturn(ret);
-                          }}
-                          className="flex items-center gap-1 mx-auto px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold text-foreground transition cursor-pointer shadow-2xs"
-                        >
-                          <Printer className="size-3 text-primary" />
-                          Reprint Slip
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {isHistoryLoading ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                        Loading return records...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : filteredHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                        No return records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredHistory.map((ret) => (
+                      <tr key={ret.id} className="hover:bg-muted/20">
+                        <td className="p-3 font-mono font-bold text-primary">{ret.return_number}</td>
+                        <td className="p-3">
+                          <p className="font-semibold text-foreground">{ret.customer_name}</p>
+                          {ret.customer_phone && (
+                            <p className="text-[10px] text-muted-foreground font-mono">{ret.customer_phone}</p>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono font-bold text-foreground">
+                          {ret.credit_token || "—"}
+                        </td>
+                        <td className="p-3 font-black text-foreground">{formatPrice(ret.refund_amount)}</td>
+                        <td className="p-3 text-muted-foreground">{ret.return_reason}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {new Date(ret.created_at).toLocaleDateString("en-IN", {
+                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const receiptData: ReturnReceiptData = {
+                                return_number: ret.return_number,
+                                credit_token: ret.credit_token || "",
+                                customer_name: ret.customer_name,
+                                customer_phone: ret.customer_phone,
+                                items: (ret.offline_return_items || []).map((i) => ({
+                                  name: i.name,
+                                  sku: i.sku,
+                                  barcode: i.barcode,
+                                  variant_info: i.variant_info,
+                                  qty: i.qty,
+                                  refund_price: i.refund_price,
+                                  subtotal: i.subtotal || i.refund_price * i.qty,
+                                })),
+                                refund_amount: ret.refund_amount,
+                                refund_method: "exchange_credit",
+                                return_reason: ret.return_reason,
+                                notes: ret.notes,
+                                created_at: ret.created_at,
+                              };
+                              setActiveReceipt(receiptData);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Printer className="size-3" />
+                            <span>Voucher</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* ── CONFIRMATION MODAL ── */}
       {isConfirmModalOpen && (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-          onClick={() => setIsConfirmModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Sparkles className="size-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Confirm Return &amp; Exchange
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {refundMethod === "exchange_credit"
-                    ? "Generate Exchange Credit Voucher and restock inventory"
-                    : "Process return payout and restock inventory"}
-                </p>
+                <h3 className="font-bold text-foreground text-sm sm:text-base">Confirm Return &amp; Exchange</h3>
+                <p className="text-xs text-muted-foreground">Generate Exchange Credit Voucher and restock inventory</p>
               </div>
             </div>
 
-            <div className="rounded-2xl bg-muted/40 border border-border p-4 space-y-2 text-xs">
+            <div className="p-4 rounded-2xl bg-muted/30 border border-border/80 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer:</span>
-                <span className="font-bold text-foreground">
-                  {customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in"}
-                </span>
+                <span className="font-bold text-foreground">{customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Units to Restock:</span>
@@ -1304,81 +1533,41 @@ export function POSReturnsTab() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Settlement:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                  {refundMethod === "exchange_credit" ? "Exchange Credit Voucher" : refundMethod}
-                </span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">Exchange Credit Voucher</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-border text-sm font-bold">
-                <span className="text-foreground">Total Credit Value:</span>
-                <span className="text-primary font-black text-base">
-                  {formatPrice(totalRefundAmount)}
-                </span>
+              <div className="pt-2 border-t border-border/60 flex justify-between items-center text-sm">
+                <span className="font-bold text-foreground">Total Credit Value:</span>
+                <span className="text-base font-black text-primary">{formatPrice(totalRefundAmount)}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setIsConfirmModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-border bg-background text-xs font-bold text-muted-foreground hover:bg-muted transition cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleConfirmReturn}
+                onClick={handleProcessReturn}
                 disabled={processReturnMutation.isPending}
-                className="px-5 py-2 rounded-xl bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs hover:bg-primary/90 disabled:opacity-50 transition cursor-pointer shadow-sm flex items-center gap-1.5"
               >
-                {processReturnMutation.isPending ? (
-                  "Processing…"
-                ) : (
-                  <>
-                    <Check className="size-4" />
-                    Confirm &amp; Print Voucher
-                  </>
-                )}
+                <Check className="size-4" />
+                <span>{processReturnMutation.isPending ? "Issuing..." : "Confirm & Print Voucher"}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Return & Exchange Voucher Receipt Modal */}
-      {isReceiptOpen && activeReceipt && (
+      {/* ── PRINT RECEIPT MODAL ── */}
+      {activeReceipt && (
         <POSReturnReceipt
           returnData={activeReceipt}
-          onClose={() => {
-            setIsReceiptOpen(false);
-            setActiveReceipt(null);
-          }}
-          autoPrint={true}
-        />
-      )}
-
-      {/* History Reprint Receipt Modal */}
-      {selectedHistoryReturn && (
-        <POSReturnReceipt
-          returnData={{
-            return_number: selectedHistoryReturn.return_number,
-            customer_name: selectedHistoryReturn.customer_name,
-            customer_phone: selectedHistoryReturn.customer_phone,
-            refund_amount: selectedHistoryReturn.refund_amount,
-            refund_method: selectedHistoryReturn.refund_method,
-            return_reason: selectedHistoryReturn.return_reason,
-            notes: selectedHistoryReturn.notes,
-            created_at: selectedHistoryReturn.created_at,
-            items: (selectedHistoryReturn.offline_return_items ?? []).map((i) => ({
-              name: i.name,
-              sku: i.sku,
-              barcode: i.barcode,
-              variant_info: i.variant_info,
-              refund_price: i.refund_price,
-              qty: i.qty,
-              subtotal: i.subtotal,
-            })),
-          }}
-          onClose={() => setSelectedHistoryReturn(null)}
+          onClose={() => setActiveReceipt(null)}
         />
       )}
     </div>

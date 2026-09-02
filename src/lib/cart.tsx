@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useProducts, getColorSwatchImage, type Product, type ProductVariant } from "@/lib/store";
 import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateCartFinancials } from "@/lib/pricing-engine";
 
 export type CartLine = { id: string; qty: number; variantId?: string };
 
@@ -320,77 +321,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .filter((x): x is CartItem => x !== null && x.qty > 0);
 
-    const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-
-    // Dynamically recalculate coupon discount based on current subtotal
-    let activeCoupon: CartCoupon | null = null;
-    if (coupon) {
-      const minOrder = Number(coupon.minimumOrderValue || 0);
-      const discountType = coupon.discountType || "percentage";
-      const discountVal = Number(coupon.discountValue || 0);
-      const maxDiscount = Number(coupon.maximumDiscount || 0);
-
-      if (subtotal >= minOrder) {
-        let calculatedDiscount = 0;
-        if (discountType === "percentage" && discountVal > 0) {
-          calculatedDiscount = (subtotal * discountVal) / 100;
-          if (maxDiscount > 0 && calculatedDiscount > maxDiscount) {
-            calculatedDiscount = maxDiscount;
+    const financials = calculateCartFinancials({
+      items: items.map((i) => ({
+        price: i.price,
+        mrp: i.product.mrp,
+        qty: i.qty,
+      })),
+      coupon: coupon
+        ? {
+            code: coupon.code,
+            id: coupon.id,
+            discountType: coupon.discountType,
+            discountValue: coupon.discountValue,
+            minimumOrderValue: coupon.minimumOrderValue,
+            maximumDiscount: coupon.maximumDiscount,
           }
-        } else if (discountVal > 0) {
-          calculatedDiscount = Math.min(subtotal, discountVal);
-        } else {
-          // Fallback if legacy object didn't have discountValue explicitly set
-          calculatedDiscount = coupon.discount || 0;
-        }
+        : null,
+      shippingConfig: {
+        freeDeliveryEnabled: settingsData?.free_delivery_enabled !== "false",
+        freeDeliveryThreshold: Number(settingsData?.free_delivery_threshold || 999),
+        standardShippingCharge: Number(settingsData?.standard_shipping_charge || 79),
+        freeDeliveryMessage: settingsData?.free_delivery_message,
+      },
+    });
 
-        calculatedDiscount = Math.round(calculatedDiscount);
-        if (calculatedDiscount > 0) {
-          activeCoupon = {
+    const activeCoupon: CartCoupon | null =
+      coupon && financials.couponDiscount > 0
+        ? {
             ...coupon,
-            discount: calculatedDiscount,
-          };
-        }
-      }
-    }
-
-    const couponDiscount = activeCoupon?.discount || 0;
-    const eligibleSubtotal = Math.max(0, subtotal - couponDiscount);
-
-    // Default to true and 999 if settings are not loaded yet
-    const freeDeliveryEnabled = settingsData?.free_delivery_enabled !== "false";
-    const threshold = Number(settingsData?.free_delivery_threshold || 999);
-    const standardCharge = Number(settingsData?.standard_shipping_charge || 79);
-
-    const isFreeDelivery = freeDeliveryEnabled && eligibleSubtotal > threshold;
-    const shipping = isFreeDelivery ? 0 : standardCharge;
-    const amountToFreeDelivery = Math.max(0, threshold + 1 - eligibleSubtotal);
-
-    let freeDeliveryMessage: string | null = null;
-    if (freeDeliveryEnabled) {
-      if (isFreeDelivery) {
-        freeDeliveryMessage = "🎉 FREE DELIVERY UNLOCKED";
-      } else {
-        freeDeliveryMessage = (
-          settingsData?.free_delivery_message || "Add ₹{amount} more for FREE DELIVERY 🎉"
-        ).replace("{amount}", amountToFreeDelivery.toString());
-      }
-    }
-
-    const total = Math.max(0, eligibleSubtotal + shipping);
+            discount: financials.couponDiscount,
+          }
+        : null;
 
     return {
       lines,
       items,
       count: items.reduce((sum, i) => sum + i.qty, 0),
-      subtotal,
-      savings: items.reduce((sum, i) => sum + Math.max(0, i.product.mrp - i.price) * i.qty, 0),
-      total,
-      shipping,
-      eligibleSubtotal,
-      isFreeDelivery,
-      freeDeliveryMessage,
-      amountToFreeDelivery,
+      subtotal: financials.subtotal,
+      savings: financials.baseProductSavings,
+      total: financials.finalTotal,
+      shipping: financials.shipping,
+      eligibleSubtotal: financials.netSubtotal,
+      isFreeDelivery: financials.isFreeDelivery,
+      freeDeliveryMessage: financials.freeDeliveryMessage,
+      amountToFreeDelivery: financials.amountToFreeDelivery,
       coupon: activeCoupon,
       add: (id, qty = 1, variantId) =>
         setLines((prev) => {
@@ -466,7 +440,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase.rpc("validate_coupon", {
           _code: code,
           _user_id: user.id,
-          _order_total: subtotal,
+          _order_total: financials.subtotal,
         });
         if (error) throw error;
         const result = data as {

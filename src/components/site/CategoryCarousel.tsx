@@ -168,61 +168,60 @@ export function CategoryCarousel({ categories }: { categories: Category[] }) {
         style={{ paddingLeft: `${paddingLeft}px`, paddingRight: `${paddingLeft}px` }}
       >
         <div className="flex w-max gap-4 sm:gap-6">
-          {categories.length === 0 ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-[72vw] sm:w-[300px] md:w-[340px] lg:w-[360px] aspect-[4/5] rounded-[2rem] bg-muted/50 animate-pulse border border-border/40 shrink-0"
-              />
-            ))
-          ) : (
-            categories.map((c) => (
-              <Link
-                key={c.slug}
-              data-card
-              to="/shop"
-              search={{ category: c.slug }}
-              onDragStart={(e) => e.preventDefault()}
-              onClick={(e) => {
-                if (hasDragged.current) {
-                  e.preventDefault();
-                }
-              }}
-              className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
-            >
-              <LazyImage
-                src={c.image}
-                alt={c.name}
-                placeholderSrc={c.image}
-                width={800}
-                height={1000}
-                className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
-              <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">
-                <h3 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                  {c.name}
-                </h3>
-                <p className="mt-2 line-clamp-2 text-sm font-medium text-white/85 sm:text-base">
-                  {c.tagline}
-                </p>
-                <div className="mt-5 overflow-hidden">
-                  <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
-                    Shop now
-                    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-4">
-                      <path
-                        d="M6.75 3.5l4.5 4.5-4.5 4.5"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        stroke="currentColor"
-                      />
-                    </svg>
-                  </span>
-                </div>
-              </div>
-            </Link>
-          )))}
+          {categories.length === 0
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-[72vw] sm:w-[300px] md:w-[340px] lg:w-[360px] aspect-[4/5] rounded-[2rem] bg-muted/50 animate-pulse border border-border/40 shrink-0"
+                />
+              ))
+            : categories.map((c) => (
+                <Link
+                  key={c.slug}
+                  data-card
+                  to="/shop"
+                  search={{ category: c.slug }}
+                  onDragStart={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    if (hasDragged.current) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="group relative w-[72vw] shrink-0 overflow-hidden rounded-[2rem] border-0 bg-muted shadow-sm transition-all duration-300 hover:shadow-2xl sm:w-[300px] md:w-[340px] lg:w-[360px] xl:w-[380px]"
+                >
+                  <LazyImage
+                    src={c.image}
+                    alt={c.name}
+                    placeholderSrc={c.image}
+                    width={800}
+                    height={1000}
+                    className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-110"
+                  />
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
+                  <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-6 text-white sm:p-8">
+                    <h3 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                      {c.name}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm font-medium text-white/85 sm:text-base">
+                      {c.tagline}
+                    </p>
+                    <div className="mt-5 overflow-hidden">
+                      <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-white transition-transform duration-300 group-hover:translate-x-2">
+                        Shop now
+                        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-4">
+                          <path
+                            d="M6.75 3.5l4.5 4.5-4.5 4.5"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            stroke="currentColor"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
         </div>
       </div>
 

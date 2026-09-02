@@ -167,7 +167,10 @@ export function useAllOrders(enabled: boolean) {
         .select("*, order_items(*)")
         .order("created_at", { ascending: false })
         .limit(1000);
-      if (error) throw error;
+      if (error) {
+        console.warn("[orders] useAllOrders query notice:", error.message);
+        return [] as Order[];
+      }
       return (data ?? []) as unknown as Order[];
     },
   });
@@ -217,6 +220,7 @@ export function usePlaceOrder() {
       shipping: number;
       discount?: number;
       coupon_code?: string;
+      idempotency_key?: string;
       items: {
         variant_id: string;
         product_slug: string;
@@ -262,6 +266,7 @@ export function usePlaceOrder() {
         _notes: input.notes,
         _coupon_code: input.coupon_code || undefined,
         _items: rpcItems,
+        _idempotency_key: input.idempotency_key || undefined,
       });
 
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);

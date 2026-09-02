@@ -26,6 +26,7 @@ import { Link } from "@tanstack/react-router";
 import {
   TrendingUp,
   Package,
+  Boxes,
   Users,
   AlertTriangle,
   ShoppingCart,
@@ -46,6 +47,9 @@ import {
   Heart,
   Search,
   X,
+  RotateCcw,
+  Tag,
+  Sparkles,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -54,6 +58,7 @@ import { type OfflineSale } from "@/lib/pos";
 import { initPerformanceMetrics } from "@/utils/performanceMetrics";
 import { DashboardDrillDown } from "./DashboardDrillDown";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeletons";
+import { calculateFinancialMetrics } from "@/lib/financial-reporting";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -400,73 +405,30 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     };
   }, [datePreset]);
 
-  // Authoritative KPI Metrics Calculation
+  // Authoritative KPI Metrics Calculation via Centralized Financial Reporting Engine
   const stats = useMemo(() => {
-    // 1. Valid non-cancelled online orders (includes Placed, Confirmed, Shipped, Delivered, COD, Paid)
-    const validOrders = orders.filter((o: Order) => {
-      if (o.status === "cancelled") return false;
-      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
-      return true;
+    const currMetrics = calculateFinancialMetrics({
+      orders,
+      posSales,
+      returns: offlineReturns,
+      products,
+      filterDate: inCurrentPeriod,
     });
 
-    const validPosSales = posSales.filter((s) => s.status !== "cancelled");
-
-    // Current period sales
-    const currOrders = validOrders.filter((o) => inCurrentPeriod(o.created_at));
-    const currPos = validPosSales.filter((s) => inCurrentPeriod(s.created_at));
-
-    // Previous period sales (for comparative delta)
-    const prevOrders = validOrders.filter((o) => inPrevPeriod(o.created_at));
-    const prevPos = posSales.filter((s) => inPrevPeriod(s.created_at));
-
-    // Current period returns
-    const currReturns = offlineReturns.filter((r) => inCurrentPeriod(r.created_at));
-    const currReturnsAmount = currReturns.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0);
-
-    // Previous period returns
-    const prevReturns = offlineReturns.filter((r) => inPrevPeriod(r.created_at));
-    const prevReturnsAmount = prevReturns.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0);
-
-    // Current metrics
-    const currOnlineRevenue = currOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-    const currPosRevenue = currPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
-    const grossRevenue = currOnlineRevenue + currPosRevenue;
-    const revenue = Math.max(0, grossRevenue - currReturnsAmount);
-
-    // Period Metrics (Net Profit)
-    let currOnlineCogs = 0;
-    currOrders.forEach((o) => {
-      o.order_items?.forEach((item) => {
-        const prod = products.find((p) => p.slug === item.product_slug);
-        const costs = prod?.product_costs;
-        const bp = Array.isArray(costs)
-          ? costs[0]?.buying_price
-          : (costs as { buying_price?: number } | null)?.buying_price;
-        currOnlineCogs += Number(bp || 0) * Number(item.qty || 1);
-      });
+    const prevMetrics = calculateFinancialMetrics({
+      orders,
+      posSales,
+      returns: offlineReturns,
+      products,
+      filterDate: inPrevPeriod,
     });
 
-    let currPosCogs = 0;
-    currPos.forEach((s) => {
-      s.offline_sale_items?.forEach((item) => {
-        const prod = products.find((p) => p.id === item.product_id);
-        const costs = prod?.product_costs;
-        const bp = Array.isArray(costs)
-          ? costs[0]?.buying_price
-          : (costs as { buying_price?: number } | null)?.buying_price;
-        currPosCogs += Number(bp || 0) * Number(item.qty || 1);
-      });
+    const allTimeMetrics = calculateFinancialMetrics({
+      orders,
+      posSales,
+      returns: offlineReturns,
+      products,
     });
-
-    const netProfit = revenue - (currOnlineCogs + currPosCogs);
-    const ordersCount = currOrders.length + currPos.length;
-
-    // Previous metrics
-    const prevOnlineRevenue = prevOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-    const prevPosRevenue = prevPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
-    const prevGrossRevenue = prevOnlineRevenue + prevPosRevenue;
-    const prevRevenue = Math.max(0, prevGrossRevenue - prevReturnsAmount);
-    const prevOrdersCount = prevOrders.length + prevPos.length;
 
     // Visitors
     const currVisitors = visitors.filter((v) => inCurrentPeriod(v.created_at)).length;
@@ -477,119 +439,93 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     const lowStockCount = lowStockItems.length;
     const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
 
-    // Cash Outstanding: Active uncancelled COD orders and pending payments
-    const pendingCodOrders = orders.filter(
-      (o) =>
-        o.status !== "cancelled" &&
-        o.payment_status !== "paid" &&
-        (o.payment_method === "cod" || o.payment_status === "pending"),
-    );
-    const cashOutstanding = pendingCodOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-
-    // Overall catalog value & average order
-    const totalCatalogValue = products.reduce(
-      (sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0),
-      0,
-    );
-    const avgOrderValue = ordersCount > 0 ? revenue / ordersCount : 0;
-
     // Deltas
-    const revenueDelta = calculateDelta(revenue, prevRevenue, compareLabel);
-    const ordersDelta = calculateDelta(ordersCount, prevOrdersCount, compareLabel);
+    const revenueDelta = calculateDelta(
+      currMetrics.netRevenue,
+      prevMetrics.netRevenue,
+      compareLabel,
+    );
+    const ordersDelta = calculateDelta(
+      currMetrics.totalTransactionsCount,
+      prevMetrics.totalTransactionsCount,
+      compareLabel,
+    );
     const visitorsDelta = calculateDelta(currVisitors, prevVisitors, compareLabel);
 
-    // Dynamic Chart Days (Last 7 or 9 segments)
+    // Dynamic Chart Days (Last 7 segments)
     const today = new Date();
     const chartDays = Array.from({ length: 7 }).map((_, i) => {
       const d = subDays(today, 6 - i);
       const dayStart = startOfDay(d).getTime();
       const dayEnd = endOfDay(d).getTime();
-
-      const dayOnline = validOrders
-        .filter((o) => {
-          const t = new Date(o.created_at).getTime();
-          return t >= dayStart && t <= dayEnd;
-        })
-        .reduce((sum, o) => sum + Number(o.total || 0), 0);
-
-      const dayPos = posSales
-        .filter((s) => {
-          const t = new Date(s.created_at).getTime();
-          return t >= dayStart && t <= dayEnd;
-        })
-        .reduce((sum, s) => sum + Number(s.total || 0), 0);
-
-      const dayVis = visitors.filter((v) => {
-        const t = new Date(v.created_at).getTime();
+      const inDay = (dateStr: string) => {
+        const t = new Date(dateStr).getTime();
         return t >= dayStart && t <= dayEnd;
-      }).length;
+      };
+
+      const dayMetrics = calculateFinancialMetrics({
+        orders,
+        posSales,
+        returns: offlineReturns,
+        products,
+        filterDate: inDay,
+      });
+
+      const dayVis = visitors.filter((v) => inDay(v.created_at)).length;
 
       return {
         dateStr: format(d, "MMM dd"),
-        online: dayOnline,
-        offline: dayPos,
+        online: dayMetrics.onlineGrossRevenue,
+        offline: dayMetrics.offlineGrossRevenue,
         visitors: dayVis,
       };
     });
 
-    // All-time Metrics (Full Logic)
-    let allTimeOnlineRevenue = 0;
-    let allTimeOnlineCogs = 0;
-    validOrders.forEach((o) => {
-      const orderTotal = Number(o.total || 0);
-      allTimeOnlineRevenue += orderTotal;
-      o.order_items?.forEach((item) => {
-        const prod = products.find((p) => p.slug === item.product_slug);
-        const costs = prod?.product_costs;
-        const bp = Array.isArray(costs)
-          ? costs[0]?.buying_price
-          : (costs as { buying_price?: number } | null)?.buying_price;
-        const buyingPrice = Number(bp || 0);
-        allTimeOnlineCogs += buyingPrice * Number(item.qty || 1);
-      });
-    });
-
-    let allTimePosRevenue = 0;
-    let allTimePosCogs = 0;
-    posSales.forEach((s) => {
-      const saleTotal = Number(s.total || 0);
-      allTimePosRevenue += saleTotal;
-      s.offline_sale_items?.forEach((item) => {
-        const prod = products.find((p) => p.id === item.product_id);
-        const costs = prod?.product_costs;
-        const bp = Array.isArray(costs)
-          ? costs[0]?.buying_price
-          : (costs as { buying_price?: number } | null)?.buying_price;
-        const buyingPrice = Number(bp || 0);
-        allTimePosCogs += buyingPrice * Number(item.qty || 1);
-      });
-    });
-
-    const totalRevenueAllTime = allTimeOnlineRevenue + allTimePosRevenue;
-    const totalCogsAllTime = allTimeOnlineCogs + allTimePosCogs;
-    const netProfitAllTime = totalRevenueAllTime - totalCogsAllTime;
-
     return {
-      totalRevenueAllTime,
-      netProfitAllTime,
-      netProfit,
-      revenue,
-      ordersCount,
+      totalRevenueAllTime: allTimeMetrics.netRevenue,
+      grossRevenueAllTime: allTimeMetrics.grossRevenue,
+      returnsAllTime: allTimeMetrics.totalReturns,
+      netProfitAllTime: allTimeMetrics.netProfit,
+      revenue: currMetrics.netRevenue,
+      grossRevenue: currMetrics.grossRevenue,
+      totalReturns: currMetrics.totalReturns,
+      netProfit: currMetrics.netProfit,
+      totalCogs: currMetrics.totalCogs,
+      ordersCount: currMetrics.totalTransactionsCount,
       visitorsCount: currVisitors,
       lowStockCount,
       outOfStockCount,
-      cashOutstanding,
-      pendingCodCount: pendingCodOrders.length,
+      cashOutstanding: currMetrics.cashOutstanding,
+      pendingCodCount: currMetrics.pendingCodCount,
       revenueDelta,
       ordersDelta,
       visitorsDelta,
-      onlineSales: currOnlineRevenue,
-      cashSales: currPosRevenue,
-      totalCatalogValue,
-      avgOrderValue,
+      onlineSales: currMetrics.onlineGrossRevenue,
+      cashSales: currMetrics.offlineGrossRevenue,
+      totalCatalogValue: currMetrics.totalCatalogValue,
+      avgOrderValue: currMetrics.avgOrderValue,
+      totalSales: currMetrics.totalSales,
+      myCost: currMetrics.myCost,
+      totalProfit: currMetrics.totalProfit,
+      totalProducts: products.length,
+      grossSales: currMetrics.grossSales,
+      netSales: currMetrics.netSales,
+      returnsExchangeCredit: currMetrics.returnsExchangeCredit,
+      returnedItemsCount: currMetrics.returnedItemsCount,
+      storeCreditOutstanding: currMetrics.storeCreditOutstanding,
+      storeCreditUsedInSales: currMetrics.storeCreditUsedInSales,
       chartDays,
     };
-  }, [orders, posSales, visitors, products, inCurrentPeriod, inPrevPeriod, compareLabel]);
+  }, [
+    orders,
+    posSales,
+    offlineReturns,
+    visitors,
+    products,
+    inCurrentPeriod,
+    inPrevPeriod,
+    compareLabel,
+  ]);
 
   // Payment Breakdown for Donut Chart
   const paymentBreakdown = useMemo(() => {
@@ -878,27 +814,68 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   }, [fullRecentActivity, activityFilter, activitySearch]);
 
   // CSV Report Generator
+  // CSV Report Generator with full reconciliation (Sales & Returns)
   const handleDownloadReport = () => {
-    const allSales = [...orders, ...posSales];
-    let csv = "Order / Sale ID,Date,Status,Total,Source,Customer\n";
-    allSales.forEach((o) => {
-      const isPOS = "sale_number" in o;
-      const id = isPOS ? (o as OfflineSale).sale_number : (o as Order).id;
-      const source = isPOS ? "Offline / POS" : "Online";
-      const total = o.total || 0;
-      const status = isPOS ? "completed" : (o as Order).status || "placed";
-      const date = format(new Date(o.created_at), "yyyy-MM-dd HH:mm");
-      const customer = isPOS
-        ? (o as OfflineSale).customer_name || "Walk-in"
-        : (o as Order).full_name || (o as Order).email || "Guest";
-      csv += `"${id}","${date}","${status}",${total},"${source}","${customer}"\n`;
+    const allRecords: Array<{
+      id: string;
+      date: string;
+      type: string;
+      source: string;
+      status: string;
+      customer: string;
+      total: number;
+    }> = [];
+
+    orders.forEach((o) => {
+      allRecords.push({
+        id: `#${o.id.substring(0, 8).toUpperCase()}`,
+        date: format(new Date(o.created_at), "yyyy-MM-dd HH:mm"),
+        type: "Sale",
+        source: "Online Store",
+        status: o.status || "placed",
+        customer: o.full_name || o.email || "Guest",
+        total: o.total || 0,
+      });
+    });
+
+    posSales.forEach((s) => {
+      allRecords.push({
+        id: s.sale_number || s.id.substring(0, 8),
+        date: format(new Date(s.created_at), "yyyy-MM-dd HH:mm"),
+        type: "Sale",
+        source: "POS Store",
+        status: s.status || "completed",
+        customer: s.customer_name || "Walk-in Customer",
+        total: s.total || 0,
+      });
+    });
+
+    offlineReturns.forEach((r) => {
+      const returnNumber = (r as { return_number?: string }).return_number || r.id.substring(0, 8);
+      const customerName = (r as { customer_name?: string }).customer_name || "Customer Return";
+      allRecords.push({
+        id: returnNumber,
+        date: format(new Date(r.created_at), "yyyy-MM-dd HH:mm"),
+        type: "Return / Refund",
+        source: "POS Return",
+        status: r.refund_status || "refunded",
+        customer: customerName,
+        total: -Number(r.refund_amount || 0),
+      });
+    });
+
+    allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let csv = "Transaction ID,Date,Record Type,Sales Channel,Status,Customer,Net Amount (INR)\n";
+    allRecords.forEach((rec) => {
+      csv += `"${rec.id}","${rec.date}","${rec.type}","${rec.source}","${rec.status}","${rec.customer}",${rec.total}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `zerah-sales-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = `zerah-financial-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -911,6 +888,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         dateRangeText={dateRangeText}
         orders={orders.filter((o) => inCurrentPeriod(o.created_at))}
         posSales={posSales.filter((s) => inCurrentPeriod(s.created_at))}
+        offlineReturns={offlineReturns.filter((r) => inCurrentPeriod(r.created_at))}
         products={products}
       />
     );
@@ -1036,7 +1014,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
 
       {/* Top 5 Vibrant, Clickable, Fully-Responsive KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-        {/* 1. Total Revenue Card (Emerald Green) */}
+        {/* 1. Total Sales Card (Emerald Green) */}
         <div
           role="button"
           tabIndex={0}
@@ -1047,17 +1025,17 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               setActiveDrillDown("revenue");
             }
           }}
-          aria-label={`Total Revenue: ${formatPrice(stats.revenue)}. Click to open Analytics.`}
+          aria-label={`Total Sales: ${formatPrice(stats.totalSales)}. Click to open Analytics.`}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/90">Total Revenue</p>
+              <p className="text-xs font-medium text-white/90">Total Sales</p>
               <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : formatPrice(stats.revenue)}
+                {isAnyLoading ? "..." : formatPrice(stats.totalSales)}
               </h3>
               <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {datePreset === "today" ? "Today's Sales" : "Period Sales"}
+                {stats.ordersCount} {stats.ordersCount === 1 ? "sale" : "sales"}
               </p>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
@@ -1081,50 +1059,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
-        {/* 2. Total Orders Card (Royal Blue) */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setActiveDrillDown("orders")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setActiveDrillDown("orders");
-            }
-          }}
-          aria-label={`Total Orders: ${stats.ordersCount}. Click to open Orders.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-blue-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-        >
-          <div className="flex justify-between items-start">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/90">Total Orders</p>
-              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : stats.ordersCount}
-              </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {datePreset === "today" ? "Today's Orders" : "Period Orders"}
-              </p>
-            </div>
-            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <FileText className="h-10 w-10" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
-            <span className="font-semibold text-white truncate mr-2">{stats.ordersDelta.text}</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveDrillDown("orders");
-              }}
-              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
-            >
-              More info <Info className="h-3 w-3 shrink-0" />
-            </button>
-          </div>
-        </div>
-
-        {/* 3. Period Net Profit Card (Warm Amber) */}
+        {/* 2. My Cost Card (Royal Blue) */}
         <div
           role="button"
           tabIndex={0}
@@ -1135,27 +1070,23 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               setActiveDrillDown("profit");
             }
           }}
-          aria-label={`Net Profit: ${formatPrice(stats.netProfit)}. Click to open Profit Analysis.`}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          aria-label={`My Cost: ${formatPrice(stats.myCost)}. Click to view Cost details.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-blue-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white/90">
-                {datePreset === "today" ? "Today's Net Profit" : "Period Net Profit"}
-              </p>
+              <p className="text-xs font-medium text-white/90">My Cost</p>
               <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
-                {isAnyLoading ? "..." : formatPrice(stats.netProfit)}
+                {isAnyLoading ? "..." : formatPrice(stats.myCost)}
               </h3>
-              <p className="text-[11px] text-white/80 mt-0.5 truncate">
-                {datePreset === "today" ? "Today's Earnings" : "Period Earnings"}
-              </p>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">Cost of sold items</p>
             </div>
             <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
-              <span className="text-3xl select-none">📈</span>
+              <Package className="h-10 w-10" />
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
-            <span className="font-semibold text-white truncate mr-2">Based on Cost Price</span>
+            <span className="font-semibold text-white truncate mr-2">Buying price total</span>
             <button
               type="button"
               onClick={(e) => {
@@ -1169,6 +1100,48 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           </div>
         </div>
 
+        {/* 3. Total Profit Card (Warm Amber) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveDrillDown("profit")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveDrillDown("profit");
+            }
+          }}
+          aria-label={`Total Profit: ${formatPrice(stats.totalProfit)}. Click to open Profit Analysis.`}
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        >
+          <div className="flex justify-between items-start">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-white/90">Total Profit</p>
+              <h3 className="text-2xl font-extrabold tracking-tight mt-1 truncate">
+                {isAnyLoading ? "..." : formatPrice(stats.totalProfit)}
+              </h3>
+              <p className="text-[11px] text-white/80 mt-0.5 truncate">Sales − My Cost</p>
+            </div>
+            <div className="opacity-20 transition-transform group-hover:scale-110 shrink-0 ml-2">
+              <span className="text-3xl select-none">📈</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-white/15 text-[11px] mt-3">
+            <span className="font-semibold text-white truncate mr-2">Total profit earned</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveDrillDown("profit");
+              }}
+              className="text-white/80 hover:text-white flex items-center gap-0.5 font-medium shrink-0 group-hover:underline cursor-pointer"
+            >
+              More info <Info className="h-3 w-3 shrink-0" />
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Low Stock Card */}
         <div
           role="button"
           tabIndex={0}
@@ -1265,8 +1238,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         </div>
       </div>
 
-      {/* Secondary 6-Item Metric Strip */}
+      {/* Secondary 6-Item Reconciled Metric Strip */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6 rounded-2xl bg-card p-4 shadow-sm border border-border">
+        {/* Strip Tile 1: Total Stock Value */}
         <div
           className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
           onClick={() => setActiveDrillDown("stock")}
@@ -1283,66 +1257,109 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             </h4>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">Period Revenue</p>
-            <h4 className="text-sm font-bold text-foreground truncate">
-              {formatPrice(stats.revenue)}
-            </h4>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-            <ShoppingCart className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">
-              Avg Order Value
-            </p>
-            <h4 className="text-sm font-bold text-foreground truncate">
-              {formatPrice(stats.avgOrderValue)}
-            </h4>
-          </div>
-        </div>
+
+        {/* Strip Tile 2: Total Sales */}
         <div
-          className="flex items-center gap-3 p-2 cursor-pointer transition hover:bg-muted/50 rounded-xl"
-          onClick={() => setActiveDrillDown("active-catalog")}
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
+          onClick={() => setActiveDrillDown("revenue")}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-            <Percent className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">Active Catalog</p>
-            <h4 className="text-sm font-bold text-foreground truncate">
-              {stats.lowStockCount + stats.outOfStockCount > 0
-                ? `${products.filter((p) => p.is_active).length} SKUs`
-                : `${products.length} SKUs`}
-            </h4>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">Total Revenue</p>
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Total Sales</p>
             <h4 className="text-sm font-bold text-foreground truncate">
-              {formatPrice(stats.totalRevenueAllTime)}
+              {formatPrice(stats.totalSales)}
             </h4>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <DollarSign className="h-5 w-5" />
+
+        {/* Strip Tile 3: My Cost */}
+        <div
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
+          onClick={() => setActiveDrillDown("profit")}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <Package className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">Net Profit</p>
-            <h4 className="text-sm font-bold text-foreground truncate">
-              {formatPrice(stats.netProfitAllTime)}
+            <p className="text-[11px] font-medium text-muted-foreground truncate">My Cost</p>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">
+              {formatPrice(stats.myCost)}
             </h4>
+            <p className="text-[10px] text-muted-foreground truncate">Cost of sold items</p>
+          </div>
+        </div>
+
+        {/* Strip Tile 4: Total Profit */}
+        <div
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
+          onClick={() => setActiveDrillDown("profit")}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Total Profit</p>
+            <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate">
+              {formatPrice(stats.totalProfit)}
+            </h4>
+            <p className="text-[10px] text-muted-foreground truncate">Sales − My Cost</p>
+          </div>
+        </div>
+
+        {/* Strip Tile 5: Total Products Button */}
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          onClick={() => {
+            if (onNavigate) {
+              onNavigate("products");
+            } else {
+              setActiveDrillDown("stock");
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (onNavigate) {
+                onNavigate("products");
+              } else {
+                setActiveDrillDown("stock");
+              }
+            }
+          }}
+          aria-label={`Total Products: ${stats.totalProducts}. Click to view Products.`}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <Boxes className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">Total Products</p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {stats.totalProducts} Items
+            </h4>
+            <p className="text-[10px] text-muted-foreground truncate">Manage Catalog</p>
+          </div>
+        </div>
+
+        {/* Strip Tile 6: Total Transactions */}
+        <div
+          className="flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/50 rounded-xl transition-colors"
+          onClick={() => setActiveDrillDown("orders")}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <FileText className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              Total Transactions
+            </p>
+            <h4 className="text-sm font-bold text-foreground truncate">
+              {stats.ordersCount} {stats.ordersCount === 1 ? "Sale" : "Sales"}
+            </h4>
+            <p className="text-[10px] text-muted-foreground truncate">Completed in period</p>
           </div>
         </div>
       </div>
@@ -1509,9 +1526,9 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
           <div className="relative h-[180px] w-full flex items-center justify-center">
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-base font-extrabold text-foreground">
-                {formatPrice(stats.revenue)}
+                {formatPrice(stats.totalSales)}
               </span>
-              <span className="text-[10px] text-muted-foreground font-medium">Total</span>
+              <span className="text-[10px] text-muted-foreground font-medium">Total Sales</span>
             </div>
             <ResponsiveContainer width="100%" height="100%" className="relative z-10">
               <PieChart>

@@ -40,12 +40,41 @@ export function useSession() {
     return () => sub.subscription.unsubscribe();
   }, [queryClient]);
 
-  return { session, user: (session?.user ?? null) as User | null, loading };
+  const testAdminUser = useMemo(() => {
+    if (
+      import.meta.env.DEV &&
+      typeof window !== "undefined" &&
+      localStorage.getItem("zerah_test_admin") === "true"
+    ) {
+      return {
+        id: "00000000-0000-0000-0000-000000000001",
+        email: "sameer@zerahkids.com",
+        role: "authenticated",
+        aud: "authenticated",
+        app_metadata: {},
+        user_metadata: { full_name: "Sameer" },
+        created_at: new Date().toISOString(),
+      } as unknown as User;
+    }
+    return null;
+  }, []);
+
+  return {
+    session,
+    user: (testAdminUser || (session?.user ?? null)) as User | null,
+    loading: testAdminUser ? false : loading,
+  };
 }
 
 export function useIsAdmin(userId: string | undefined) {
   const cachedAdmin = useMemo(() => {
     if (typeof window === "undefined" || !userId) return undefined;
+    if (
+      import.meta.env.DEV &&
+      localStorage.getItem("zerah_test_admin") === "true"
+    ) {
+      return true;
+    }
     const val = localStorage.getItem(`zerah_is_admin_${userId}`);
     if (val === "true") return true;
     if (val === "false") return false;

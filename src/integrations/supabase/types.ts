@@ -495,6 +495,7 @@ export type Database = {
           return_id: string;
           sku: string;
           subtotal: number;
+          variant_id: string | null;
           variant_info: string;
         };
         Insert: {
@@ -510,6 +511,7 @@ export type Database = {
           return_id: string;
           sku?: string;
           subtotal?: number;
+          variant_id?: string | null;
           variant_info?: string;
         };
         Update: {
@@ -525,6 +527,7 @@ export type Database = {
           return_id?: string;
           sku?: string;
           subtotal?: number;
+          variant_id?: string | null;
           variant_info?: string;
         };
         Relationships: [
@@ -553,6 +556,7 @@ export type Database = {
           customer_name: string;
           customer_phone: string;
           id: string;
+          idempotency_key: string | null;
           notes: string;
           owner_notification_status: string | null;
           owner_notified_at: string | null;
@@ -572,6 +576,7 @@ export type Database = {
           customer_name?: string;
           customer_phone?: string;
           id?: string;
+          idempotency_key?: string | null;
           notes?: string;
           owner_notification_status?: string | null;
           owner_notified_at?: string | null;
@@ -591,6 +596,7 @@ export type Database = {
           customer_name?: string;
           customer_phone?: string;
           id?: string;
+          idempotency_key?: string | null;
           notes?: string;
           owner_notification_status?: string | null;
           owner_notified_at?: string | null;
@@ -615,6 +621,7 @@ export type Database = {
       offline_sale_items: {
         Row: {
           barcode_snapshot: string;
+          buying_price: number;
           created_at: string;
           id: string;
           mrp_snapshot: number;
@@ -630,6 +637,7 @@ export type Database = {
         };
         Insert: {
           barcode_snapshot?: string;
+          buying_price?: number;
           created_at?: string;
           id?: string;
           mrp_snapshot?: number;
@@ -645,6 +653,7 @@ export type Database = {
         };
         Update: {
           barcode_snapshot?: string;
+          buying_price?: number;
           created_at?: string;
           id?: string;
           mrp_snapshot?: number;
@@ -757,6 +766,7 @@ export type Database = {
       };
       order_items: {
         Row: {
+          buying_price: number;
           created_at: string;
           id: string;
           image_url: string | null;
@@ -768,12 +778,12 @@ export type Database = {
           product_name_snapshot: string;
           product_slug: string;
           qty: number;
-
           sku_snapshot: string;
           subtotal: number;
           variant_id: string | null;
         };
         Insert: {
+          buying_price?: number;
           created_at?: string;
           id?: string;
           image_url?: string | null;
@@ -785,12 +795,12 @@ export type Database = {
           product_name_snapshot?: string;
           product_slug?: string;
           qty?: number;
-
           sku_snapshot?: string;
           subtotal?: number;
           variant_id?: string | null;
         };
         Update: {
+          buying_price?: number;
           created_at?: string;
           id?: string;
           image_url?: string | null;
@@ -802,7 +812,6 @@ export type Database = {
           product_name_snapshot?: string;
           product_slug?: string;
           qty?: number;
-
           sku_snapshot?: string;
           subtotal?: number;
           variant_id?: string | null;
@@ -1124,8 +1133,11 @@ export type Database = {
           name: string;
           notes: string;
           phone: string;
+          store_credit_balance: number;
           total_purchases: number;
           total_spend: number;
+          total_spent: number;
+          total_visits: number;
           updated_at: string;
         };
         Insert: {
@@ -1135,8 +1147,11 @@ export type Database = {
           name?: string;
           notes?: string;
           phone?: string;
+          store_credit_balance?: number;
           total_purchases?: number;
           total_spend?: number;
+          total_spent?: number;
+          total_visits?: number;
           updated_at?: string;
         };
         Update: {
@@ -1146,8 +1161,11 @@ export type Database = {
           name?: string;
           notes?: string;
           phone?: string;
+          store_credit_balance?: number;
           total_purchases?: number;
           total_spend?: number;
+          total_spent?: number;
+          total_visits?: number;
           updated_at?: string;
         };
         Relationships: [];

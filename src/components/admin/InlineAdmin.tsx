@@ -84,7 +84,10 @@ export function AdminProductControls({ product }: { product: Product }) {
             remove.mutate(product.uuid, {
               onSuccess: () => {
                 setConfirmDelete(false);
-                if (typeof window !== "undefined" && window.location.pathname.startsWith("/product/")) {
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname.startsWith("/product/")
+                ) {
                   window.location.href = "/shop";
                 }
               },

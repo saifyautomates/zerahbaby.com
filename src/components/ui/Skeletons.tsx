@@ -371,7 +371,10 @@ export function AdminDashboardSkeleton() {
         <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-2xs space-y-3">
           <Skeleton className="h-5 w-36 mb-4" />
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-border/40">
+            <div
+              key={i}
+              className="flex items-center justify-between py-2 border-b border-border/40"
+            >
               <div className="flex items-center gap-3">
                 <Skeleton className="size-9 rounded-xl" />
                 <div className="space-y-1">
@@ -387,7 +390,10 @@ export function AdminDashboardSkeleton() {
         <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-2xs space-y-3">
           <Skeleton className="h-5 w-36 mb-4" />
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-border/40">
+            <div
+              key={i}
+              className="flex items-center justify-between py-2 border-b border-border/40"
+            >
               <div className="flex items-center gap-3">
                 <Skeleton className="size-9 rounded-xl" />
                 <div className="space-y-1">
@@ -522,7 +528,10 @@ export function AdminCustomerHubSkeleton() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-3xl border border-border/60 bg-card p-4 shadow-2xs space-y-2">
+          <div
+            key={i}
+            className="rounded-3xl border border-border/60 bg-card p-4 shadow-2xs space-y-2"
+          >
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-6 w-32" />
           </div>

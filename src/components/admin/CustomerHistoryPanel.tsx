@@ -73,6 +73,7 @@ export interface AggregatedCustomer {
   email: string;
   total_purchases: number;
   total_spend: number;
+  store_credit_balance: number;
   last_visit: string;
   last_sale_number: string;
   sales: OfflineSaleRecord[];
@@ -80,7 +81,7 @@ export interface AggregatedCustomer {
 
 export function CustomerHistoryPanel() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<"all" | "phone" | "walk_in" | "vip">("all");
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "repeat" | "vip">("all");
   const [selectedCustomer, setSelectedCustomer] = useState<AggregatedCustomer | null>(null);
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
   const [thermalReceiptSale, setThermalReceiptSale] = useState<OfflineSaleRecord | null>(null);
@@ -99,6 +100,19 @@ export function CustomerHistoryPanel() {
     },
     staleTime: 10_000,
     refetchInterval: 20_000,
+  });
+
+  /* ── 1b. Fetch POS Customers for Store Credit Balance ── */
+  const { data: posCustomers = [] } = useQuery({
+    queryKey: ["pos-customers-ledger-hub"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pos_customers")
+        .select("id, phone, store_credit_balance, name");
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 10_000,
   });
 
   /* ── 2. Fetch Products for Image Thumbnails ── */
@@ -141,6 +155,13 @@ export function CustomerHistoryPanel() {
   const allCustomers = useMemo<AggregatedCustomer[]>(() => {
     const map = new Map<string, AggregatedCustomer>();
 
+    // Build fast lookup for pos_customers credit balance
+    const creditMap = new Map<string, number>();
+    for (const pc of posCustomers) {
+      if (pc.id) creditMap.set(`id:${pc.id}`, Number(pc.store_credit_balance || 0));
+      if (pc.phone) creditMap.set(`phone:${pc.phone}`, Number(pc.store_credit_balance || 0));
+    }
+
     for (const sale of rawSales) {
       if (sale.status === "cancelled") continue;
 
@@ -152,6 +173,11 @@ export function CustomerHistoryPanel() {
       // Key by phone if present, otherwise group walk-ins by name
       const key = phone ? `phone:${phone}` : `name:${name}`;
 
+      const creditBal =
+        (sale.customer_id ? creditMap.get(`id:${sale.customer_id}`) : undefined) ??
+        (phone ? creditMap.get(`phone:${phone}`) : undefined) ??
+        0;
+
       const existing = map.get(key);
       if (existing) {
         existing.total_purchases += 1;
@@ -160,6 +186,9 @@ export function CustomerHistoryPanel() {
         if (!existing.email && email) existing.email = email;
         if (existing.name === "Walk-in Customer" && name !== "Walk-in Customer") {
           existing.name = name;
+        }
+        if (creditBal > existing.store_credit_balance) {
+          existing.store_credit_balance = creditBal;
         }
         if (new Date(sale.created_at) > new Date(existing.last_visit)) {
           existing.last_visit = sale.created_at;
@@ -174,6 +203,7 @@ export function CustomerHistoryPanel() {
           email,
           total_purchases: 1,
           total_spend: Number(sale.total || 0),
+          store_credit_balance: creditBal,
           last_visit: sale.created_at,
           last_sale_number: sale.sale_number,
           sales: [sale],
@@ -185,14 +215,13 @@ export function CustomerHistoryPanel() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.last_visit).getTime() - new Date(a.last_visit).getTime(),
     );
-  }, [rawSales]);
+  }, [rawSales, posCustomers]);
 
   /* ── 4. Filter Customers ── */
   const filteredCustomers = useMemo(() => {
     return allCustomers.filter((c) => {
       // Category filter
-      if (selectedFilter === "phone" && !c.phone) return false;
-      if (selectedFilter === "walk_in" && (c.phone || c.name !== "Walk-in Customer")) return false;
+      if (selectedFilter === "repeat" && c.total_purchases <= 1) return false;
       if (selectedFilter === "vip" && c.total_spend < 1000) return false;
 
       // Search query filter
@@ -212,10 +241,10 @@ export function CustomerHistoryPanel() {
   const stats = useMemo(() => {
     const totalCustomersCount = allCustomers.length;
     const totalRevenue = allCustomers.reduce((sum, c) => sum + c.total_spend, 0);
-    const withPhoneCount = allCustomers.filter((c) => !!c.phone).length;
+    const totalOrdersCount = rawSales.filter((s) => s.status !== "cancelled").length;
     const avgSpend = totalCustomersCount > 0 ? totalRevenue / totalCustomersCount : 0;
-    return { totalCustomersCount, totalRevenue, withPhoneCount, avgSpend };
-  }, [allCustomers]);
+    return { totalCustomersCount, totalRevenue, totalOrdersCount, avgSpend };
+  }, [allCustomers, rawSales]);
 
   if (salesLoading && allCustomers.length === 0) {
     return <AdminCustomerHubSkeleton />;
@@ -283,20 +312,20 @@ export function CustomerHistoryPanel() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold">Total Offline Customers</span>
+            <span className="text-xs font-semibold">Total Customers</span>
             <Users className="size-4 text-primary" />
           </div>
           <p className="text-2xl font-black text-foreground mt-2">{stats.totalCustomersCount}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Across all offline POS sales</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Offline store customers</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold">With Mobile / Profile</span>
-            <Phone className="size-4 text-emerald-600" />
+            <span className="text-xs font-semibold">Total Offline Orders</span>
+            <ShoppingBag className="size-4 text-emerald-600" />
           </div>
-          <p className="text-2xl font-black text-emerald-600 mt-2">{stats.withPhoneCount}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">SMS & marketing eligible</p>
+          <p className="text-2xl font-black text-emerald-600 mt-2">{stats.totalOrdersCount}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Completed transactions</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
@@ -307,7 +336,7 @@ export function CustomerHistoryPanel() {
           <p className="text-2xl font-black text-foreground mt-2">
             {formatPrice(stats.totalRevenue)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Cumulative walk-in revenue</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Cumulative store revenue</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
@@ -341,17 +370,19 @@ export function CustomerHistoryPanel() {
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {[
                 { id: "all", label: `All (${allCustomers.length})` },
-                { id: "phone", label: `📱 With Phone (${stats.withPhoneCount})` },
                 {
-                  id: "walk_in",
-                  label: `🚶 Walk-in (${allCustomers.length - stats.withPhoneCount})`,
+                  id: "repeat",
+                  label: `Repeat (${allCustomers.filter((c) => c.total_purchases > 1).length})`,
                 },
-                { id: "vip", label: `⭐ High Spend (> ₹1k)` },
+                {
+                  id: "vip",
+                  label: `Top Spenders (${allCustomers.filter((c) => c.total_spend >= 1000).length})`,
+                },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setSelectedFilter(tab.id as "all" | "phone" | "walk_in" | "vip")}
+                  onClick={() => setSelectedFilter(tab.id as "all" | "repeat" | "vip")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
                     selectedFilter === tab.id
                       ? "bg-primary text-primary-foreground shadow-xs"
@@ -373,6 +404,7 @@ export function CustomerHistoryPanel() {
                   <th className="px-5 py-3.5">Phone Number</th>
                   <th className="px-5 py-3.5 text-center">Visits / Orders</th>
                   <th className="px-5 py-3.5 text-right">Total Spent</th>
+                  <th className="px-5 py-3.5 text-right">Store Credit</th>
                   <th className="px-5 py-3.5">Last Visit</th>
                   <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
@@ -380,13 +412,13 @@ export function CustomerHistoryPanel() {
               <tbody className="divide-y divide-border/60">
                 {salesLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-xs text-muted-foreground">
+                    <td colSpan={7} className="py-12 text-center text-xs text-muted-foreground">
                       Loading offline billing customers…
                     </td>
                   </tr>
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center">
+                    <td colSpan={7} className="py-12 text-center">
                       <Users className="mx-auto size-8 text-muted-foreground/40 mb-2" />
                       <p className="text-sm font-bold text-foreground">No customers found</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -455,6 +487,17 @@ export function CustomerHistoryPanel() {
 
                         <td className="px-5 py-3.5 text-right font-bold text-primary text-sm">
                           {formatPrice(cust.total_spend)}
+                        </td>
+
+                        <td className="px-5 py-3.5 text-right">
+                          {cust.store_credit_balance > 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              <Sparkles className="size-3" />
+                              {formatPrice(cust.store_credit_balance)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground font-mono">₹0</span>
+                          )}
                         </td>
 
                         <td className="px-5 py-3.5 text-xs text-muted-foreground">
@@ -526,6 +569,14 @@ export function CustomerHistoryPanel() {
               </div>
 
               <div className="flex items-center gap-6">
+                <div className="text-center sm:text-right">
+                  <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">
+                    Available Store Credit
+                  </p>
+                  <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                    {formatPrice(selectedCustomer.store_credit_balance)}
+                  </p>
+                </div>
                 <div className="text-center sm:text-right">
                   <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">
                     Total Purchases

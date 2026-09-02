@@ -11,6 +11,13 @@ import { toast } from "sonner";
 import clothing from "@/assets/cat-clothing.jpg";
 import { useOfflineReturnsList } from "@/lib/pos-returns";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
+import { useTableSelection, getPOSSelectionMetrics } from "@/lib/table-selection";
+import {
+  getAllQueuedSales,
+  processOfflineSyncQueue,
+  type OfflineQueueItem,
+} from "@/lib/offline-sync-engine";
 import {
   BarChart3,
   Receipt,
@@ -29,6 +36,7 @@ import {
   Search,
   X,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import {
   BarChart,
@@ -103,7 +111,9 @@ function todayIST(): string {
 export function OfflineAnalyticsTab() {
   const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
-  const [saleToDelete, setSaleToDelete] = useState<{ id: string; sale_number: string } | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<{ id: string; sale_number: string } | null>(
+    null,
+  );
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
@@ -111,7 +121,10 @@ export function OfflineAnalyticsTab() {
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: { success?: boolean; message?: string } | null; error: { message: string } | null }>
+        ) => Promise<{
+          data: { success?: boolean; message?: string } | null;
+          error: { message: string } | null;
+        }>
       )("admin_delete_offline_sale", {
         _sale_id: saleId,
       });
@@ -185,10 +198,11 @@ export function OfflineAnalyticsTab() {
     return null;
   };
 
-  const { data: sales, isLoading } = useQuery({
+  const { data: sales, isLoading, refetch: refetchSales } = useQuery({
     queryKey: ["offline-sales"],
     queryFn: async () => {
-      const { data, error } = await (
+      // 1. Fetch remote cloud sales
+      const { data: dbSales, error } = await (
         supabase as unknown as {
           from: (t: string) => {
             select: (q: string) => {
@@ -204,12 +218,62 @@ export function OfflineAnalyticsTab() {
         .select("*, offline_sale_items(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Sale[];
+
+      // 2. Fetch locally queued/offline sales that haven't synced yet
+      let queued: OfflineQueueItem[] = [];
+      try {
+        queued = await getAllQueuedSales();
+      } catch {
+        // ignore
+      }
+
+      const existingNumbers = new Set((dbSales || []).map((s) => s.sale_number));
+      const pendingLocal: Sale[] = queued
+        .filter((q) => q.status !== "SYNCED" && !existingNumbers.has(q.sale_number))
+        .map((q) => ({
+          id: q.operation_id,
+          sale_number: q.sale_number,
+          customer_name: q.customer_name || "Walk-in Customer",
+          customer_phone: q.customer_phone || "",
+          customer_email: q.customer_email || null,
+          subtotal: q.subtotal || q.total,
+          discount: q.discount || 0,
+          discount_type: q.discount_type || "none",
+          discount_value: q.discount_value || 0,
+          total: q.total,
+          payment_method: q.payment_method || "cash",
+          created_at: q.created_at || new Date().toISOString(),
+          status: q.status === "FAILED" ? "sync_failed" : "sync_pending",
+          pos_token_number: q.token_number || null,
+          pos_token_date: q.token_date || null,
+          offline_sale_items: (q.items || []).map((it: any, idx: number) => ({
+            id: it.id || `queued-item-${q.operation_id}-${idx}`,
+            name: it.name,
+            sku: it.sku,
+            price: it.custom_price || it.price || 0,
+            qty: it.qty || 1,
+            subtotal: (it.custom_price || it.price || 0) * (it.qty || 1),
+            product_id: it.product_id,
+            product_slug: it.product_slug,
+          })),
+        }));
+
+      return [...pendingLocal, ...(dbSales ?? [])] as Sale[];
     },
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15000,
   });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | "all">(50);
+
+  // Auto-reset page when filtering or searching
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, paymentFilter]);
 
   const activeSales = useMemo(
     () => (sales ?? []).filter((s) => (s as { status?: string }).status !== "cancelled"),
@@ -249,7 +313,19 @@ export function OfflineAnalyticsTab() {
     });
   }, [sales, searchQuery, paymentFilter]);
 
-  // ──────────── Customer Footfall Analytics ────────────
+  const salesSelection = useTableSelection({ items: filteredSales });
+  const salesMetrics = useMemo(
+    () => getPOSSelectionMetrics(salesSelection.selectedItems as any),
+    [salesSelection.selectedItems],
+  );
+
+  const totalPages = pageSize === "all" ? 1 : Math.ceil(filteredSales.length / (pageSize as number)) || 1;
+  const visibleSales = useMemo(() => {
+    if (pageSize === "all") return filteredSales;
+    const size = pageSize as number;
+    const start = (currentPage - 1) * size;
+    return filteredSales.slice(start, start + size);
+  }, [filteredSales, currentPage, pageSize]);
   const today = todayIST();
 
   /** Sales for today (IST) */
@@ -304,8 +380,8 @@ export function OfflineAnalyticsTab() {
   );
 
   // Stats
-  const grossRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
-  const totalRevenue = Math.max(0, grossRevenue - totalReturnsAmount);
+  const totalSalesRevenue = activeSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const grossRevenue = totalSalesRevenue;
   const totalSalesCount = activeSales.length;
   const cashSales = activeSales.filter((s) => s.payment_method === "cash");
   const upiSales = activeSales.filter((s) => s.payment_method === "upi");
@@ -319,8 +395,8 @@ export function OfflineAnalyticsTab() {
   const totalDiscount = activeSales.reduce((sum, sale) => sum + Number(sale.discount ?? 0), 0);
 
   // Today's revenue
-  const rawTodayRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
-  const todayRevenue = Math.max(0, rawTodayRevenue - todayReturnsAmount);
+  const todaySalesRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
+  const todayRevenue = todaySalesRevenue;
 
   // Top products with rich metadata
   const topProducts = useMemo(() => {
@@ -518,20 +594,17 @@ export function OfflineAnalyticsTab() {
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <BarChart3 className="size-4 text-emerald-600" /> Net Revenue
+            <BarChart3 className="size-4 text-emerald-600" /> Total Sales Value
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-primary">
-            {formatPrice(totalRevenue)}
+            {formatPrice(totalSalesRevenue)}
           </p>
           <div className="mt-1 space-y-0.5 text-xs">
-            <p className="text-muted-foreground">
-              Gross: {formatPrice(grossRevenue)}
-              {totalReturnsAmount > 0 && (
-                <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1.5">
-                  (Returns: −{formatPrice(totalReturnsAmount)})
-                </span>
-              )}
-            </p>
+            {totalReturnsAmount > 0 && (
+              <p className="text-amber-600 dark:text-amber-400 font-semibold">
+                Returns Issued: {formatPrice(totalReturnsAmount)}
+              </p>
+            )}
             {totalDiscount > 0 && (
               <p className="text-emerald-600 dark:text-emerald-400 font-medium">
                 Discounts given: {formatPrice(totalDiscount)}
@@ -720,10 +793,29 @@ export function OfflineAnalyticsTab() {
           </div>
         </div>
 
+        {/* Sticky Smart Selection Summary */}
+        <SmartSelectionSummary
+          selectedCount={salesSelection.selectedCount}
+          metrics={salesMetrics}
+          onClear={salesSelection.clearSelection}
+        />
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
+                <th className="w-10 px-4 py-4">
+                  <input
+                    type="checkbox"
+                    checked={salesSelection.isAllVisibleSelected(visibleSales)}
+                    ref={(el) => {
+                      if (el) el.indeterminate = salesSelection.isIndeterminate(visibleSales);
+                    }}
+                    onChange={() => salesSelection.toggleAllVisible(visibleSales)}
+                    aria-label="Select all sales"
+                    className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                  />
+                </th>
                 <th className="px-5 py-4 w-8"></th>
                 <th className="px-5 py-4">Token</th>
                 <th className="px-5 py-4">Receipt No</th>
@@ -732,18 +824,34 @@ export function OfflineAnalyticsTab() {
                 <th className="px-5 py-4">Customer</th>
                 <th className="px-5 py-4">Payment</th>
                 <th className="px-5 py-4">Discount</th>
-              <th className="px-5 py-4 text-right">Total</th>
+                <th className="px-5 py-4 text-right">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {filteredSales.slice(0, 50).map((sale) => {
+              {visibleSales.map((sale) => {
+                const isSelected = salesSelection.isSelected(sale.id);
                 const isExpanded = expandedSale === sale.id;
                 return (
                   <React.Fragment key={sale.id}>
                     <tr
-                      className={`group cursor-pointer transition-colors hover:bg-muted/40 ${sale.status === "cancelled" ? "opacity-50 grayscale bg-muted/20" : ""}`}
+                      className={`group cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-primary/5 font-medium"
+                          : sale.status === "cancelled"
+                            ? "opacity-50 grayscale bg-muted/20 hover:bg-muted/30"
+                            : "hover:bg-muted/40"
+                      }`}
                       onClick={() => setExpandedSale(isExpanded ? null : sale.id)}
                     >
+                      <td className="w-10 px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => salesSelection.toggle(sale.id)}
+                          aria-label={`Select sale ${sale.sale_number}`}
+                          className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                        />
+                      </td>
                       <td className="px-5 py-4 w-8">
                         {isExpanded ? (
                           <ChevronDown className="size-4 text-muted-foreground" />
@@ -762,7 +870,30 @@ export function OfflineAnalyticsTab() {
                         )}
                       </td>
                       <td className="px-5 py-4 font-bold text-foreground font-mono">
-                        {sale.sale_number}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{sale.sale_number}</span>
+                          {sale.status === "sync_pending" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse">
+                              ⚡ Offline Queued
+                            </span>
+                          )}
+                          {sale.status === "sync_failed" && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                toast.info("Retrying offline sync to cloud...");
+                                await processOfflineSyncQueue();
+                                refetchSales();
+                              }}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 hover:bg-red-500/25 transition cursor-pointer flex items-center gap-1"
+                              title="Click to retry cloud upload"
+                            >
+                              <RefreshCw className="size-2.5" />
+                              Retry Sync
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-muted-foreground font-medium text-xs">
                         {new Date(sale.created_at).toLocaleString("en-IN")}
@@ -820,9 +951,16 @@ export function OfflineAnalyticsTab() {
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
-                          {sale.payment_method}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
+                            {sale.payment_method}
+                          </span>
+                          {Number((sale as Record<string, unknown>).store_credit_used || 0) > 0 && (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
+                              Credit: {formatPrice(Number((sale as Record<string, unknown>).store_credit_used))}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-sm">
                         {Number(sale.discount) > 0 ? (
@@ -840,7 +978,7 @@ export function OfflineAnalyticsTab() {
                     {/* Expanded Details */}
                     {isExpanded && (
                       <tr className="bg-muted/10">
-                        <td colSpan={9} className="p-0">
+                        <td colSpan={10} className="p-0">
                           <div className="border-t border-border px-8 py-4">
                             <table className="w-full text-xs">
                               <thead>
@@ -1015,6 +1153,71 @@ export function OfflineAnalyticsTab() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination & Counter Toolbar */}
+        {!isLoading && filteredSales.length > 0 && (
+          <div className="p-4 border-t border-border bg-muted/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+              <span>
+                Showing{" "}
+                <strong className="text-foreground">
+                  {pageSize === "all" ? 1 : (currentPage - 1) * (pageSize as number) + 1}
+                </strong>{" "}
+                to{" "}
+                <strong className="text-foreground">
+                  {pageSize === "all"
+                    ? filteredSales.length
+                    : Math.min(currentPage * (pageSize as number), filteredSales.length)}
+                </strong>{" "}
+                of <strong className="text-foreground">{filteredSales.length}</strong> total POS sales
+              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                <span>Per page:</span>
+                {[50, 100, 200, "all"].map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => {
+                      setPageSize(sz as number | "all");
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2 py-1 rounded text-xs font-bold transition cursor-pointer ${
+                      pageSize === sz
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {sz === "all" ? "All" : sz}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {pageSize !== "all" && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-medium transition cursor-pointer"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 font-bold text-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-medium transition cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {saleToDelete && (

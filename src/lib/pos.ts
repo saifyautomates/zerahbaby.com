@@ -83,6 +83,15 @@ export type OfflineSaleItem = {
   barcode_snapshot: string;
 };
 
+export type POSTransactionState =
+  | "DRAFT"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "PENDING_SYNC"
+  | "SYNCING"
+  | "SYNCED"
+  | "FAILED";
+
 export type SaleResult = {
   sale_id: string;
   sale_number: string;
@@ -96,8 +105,14 @@ export type SaleResult = {
   customer_phone?: string;
   items_count: number;
   duplicate: boolean;
+  store_credit_used?: number;
+  cash_payable?: number;
+  remaining_credit?: number;
   pos_token_number: number | null;
   pos_token_date: string | null;
+  credit_token_used?: string | null;
+  status: "completed" | "pending_sync" | "failed";
+  is_offline_queued: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -272,6 +287,8 @@ export type PlaceSaleInput = {
   discount_type: "none" | "percentage" | "fixed";
   discount_value: number;
   customer_id: string | null;
+  store_credit_used?: number;
+  credit_token?: string;
   items: Array<{
     product_id?: string;
     variant_id: string;
@@ -292,8 +309,9 @@ export function usePlaceOfflineSale() {
       const isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
 
       if (isOnline) {
+        let rpcResponse: { data: SaleResult; error: { message: string } | null } | null = null;
         try {
-          const { data, error } = await (
+          rpcResponse = await (
             supabase.rpc as unknown as (
               fn: string,
               args: Record<string, unknown>,
@@ -304,21 +322,50 @@ export function usePlaceOfflineSale() {
             _customer_email: input.customer_email || "",
             _payment_method: input.payment_method || "cash",
             _notes: input.notes || "",
-            _discount: 0, // legacy param
             _discount_type: input.discount_type || "none",
             _discount_value: input.discount_value || 0,
             _customer_id: input.customer_id || null,
             _items: input.items,
             _idempotency_key: input.idempotency_key || null,
+            _store_credit_used: input.store_credit_used || 0,
+            _credit_token: input.credit_token || null,
           });
+        } catch (fetchErr: unknown) {
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          const isNetDrop =
+            !navigator.onLine ||
+            errMsg.includes("Failed to fetch") ||
+            errMsg.includes("NetworkError") ||
+            errMsg.includes("network disconnected") ||
+            errMsg.includes("The user aborted a request") ||
+            errMsg.includes("Load failed") ||
+            errMsg.includes("connection refused");
 
-          if (!error && data) {
-            const result = {
-              ...(data as SaleResult),
+          if (!isNetDrop) {
+            // A non-network exception occurred — fail fast, do not swallow into offline queue!
+            throw fetchErr;
+          }
+          // True network drop: fall through to offline resilience fallback below
+          rpcResponse = null;
+        }
+
+        if (rpcResponse) {
+          if (rpcResponse.error) {
+            // Authoritative server rejection: stock validation, schema error, or business rule failure.
+            // DO NOT route to offline queue. Fail explicitly so cashier can take action.
+            throw new Error(rpcResponse.error.message || "Failed to process sale on server");
+          }
+
+          if (rpcResponse.data) {
+            const result: SaleResult = {
+              ...(rpcResponse.data as SaleResult),
               customer_phone: input.customer_phone || "",
+              credit_token_used: input.credit_token || (rpcResponse.data as SaleResult).credit_token_used,
+              status: "completed",
+              is_offline_queued: false,
             };
 
-            // Asynchronously trigger transactional SMS
+            // Asynchronously trigger transactional SMS (non-blocking)
             if (result.sale_id && !result.duplicate) {
               supabase.functions
                 .invoke("msg91-transactional", {
@@ -340,12 +387,10 @@ export function usePlaceOfflineSale() {
 
             return result;
           }
-        } catch (onlineErr) {
-          console.warn("[pos] Online sale placement error, routing to offline queue:", onlineErr);
         }
       }
 
-      // Offline resilience fallback
+      // Offline-first fallback: executed ONLY when genuinely offline or network disconnected
       const token = await getNextOfflineToken();
       const operationId = `off_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const saleNumber = `POS-OFF-${Date.now().toString().slice(-6)}`;
@@ -378,13 +423,6 @@ export function usePlaceOfflineSale() {
         created_at: new Date().toISOString(),
       });
 
-      toast.info("Offline sale recorded locally. Will sync automatically when online.");
-
-      // Background try to sync
-      if (typeof navigator !== "undefined" && navigator.onLine) {
-        processOfflineSyncQueue().catch(() => null);
-      }
-
       return {
         sale_id: operationId,
         sale_number: saleNumber,
@@ -400,6 +438,8 @@ export function usePlaceOfflineSale() {
         duplicate: false,
         pos_token_number: token.number,
         pos_token_date: token.date,
+        status: "pending_sync",
+        is_offline_queued: true,
       };
     },
     onSuccess: () => {
@@ -409,7 +449,14 @@ export function usePlaceOfflineSale() {
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["admin-offline-sales"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-customers-hub"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-with-return-metrics"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-for-returns-history-lookup"] });
+      qc.invalidateQueries({ queryKey: ["offline-analytics"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
+      qc.invalidateQueries({ queryKey: ["pos-customers-ledger-hub"] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-analytics-events"] });
     },
@@ -489,9 +536,7 @@ export function useOfflineSaleHistory() {
                 col: string,
                 opts: { ascending: boolean },
               ) => {
-                limit: (
-                  n: number,
-                ) => Promise<{ data: OfflineSale[] | null; error: unknown }>;
+                limit: (n: number) => Promise<{ data: OfflineSale[] | null; error: unknown }>;
               };
             };
           };

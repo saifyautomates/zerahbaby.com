@@ -7,7 +7,7 @@
  */
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles } from "lucide-react";
+import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/store";
 import {
@@ -21,8 +21,15 @@ import {
   setSavedLabelType,
   getSavedShowDiscount,
   setSavedShowDiscount,
+  getSavedShowMrp,
+  setSavedShowMrp,
+  getSavedShowSellPrice,
+  setSavedShowSellPrice,
+  getSavedSeparatePrice,
+  setSavedSeparatePrice,
   printThermalLabelsDirectly,
   printLabelsViaIframe,
+  openLabelPrintInNewTab,
 } from "@/lib/label-printer";
 
 export function PrintLabelsModal({
@@ -38,6 +45,9 @@ export function PrintLabelsModal({
   const [layout, setLayout] = useState<LabelLayout>("thermal-58");
   const [labelType, setLabelType] = useState<LabelType>(() => getSavedLabelType());
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
+  const [showMrp, setShowMrp] = useState<boolean>(() => getSavedShowMrp());
+  const [showSellPrice, setShowSellPrice] = useState<boolean>(() => getSavedShowSellPrice());
+  const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() => getSavedSeparatePrice());
   const [isPrinting, setIsPrinting] = useState(false);
 
   const handleLabelTypeChange = (newType: LabelType) => {
@@ -57,6 +67,29 @@ export function PrintLabelsModal({
       setLabelType("full");
       setSavedLabelType("full");
     }
+  };
+
+  const handleSellPriceToggle = (checked: boolean) => {
+    setShowSellPrice(checked);
+    setSavedShowSellPrice(checked);
+    if (checked && labelType === "barcode-only") {
+      setLabelType("full");
+      setSavedLabelType("full");
+    }
+  };
+
+  const handleMrpToggle = (checked: boolean) => {
+    setShowMrp(checked);
+    setSavedShowMrp(checked);
+    if (checked && labelType === "barcode-only") {
+      setLabelType("full");
+      setSavedLabelType("full");
+    }
+  };
+
+  const handleSeparatePriceToggle = (checked: boolean) => {
+    setSeparatePriceLine(checked);
+    setSavedSeparatePrice(checked);
   };
 
   const setQty = (uuid: string, qty: number) => {
@@ -84,33 +117,40 @@ export function PrintLabelsModal({
     }));
   }, [printableProducts, quantities]);
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
+    if (printableProducts.length === 0 || isPrinting) return;
     setIsPrinting(true);
+
     try {
-      // Try hardware direct TSPL via QZ Tray first
-      const res = await printThermalLabelsDirectly({
+      printLabelsViaIframe({
         products: printableProducts,
         quantities,
         layout,
         labelType,
         showDiscount,
+        showMrp,
+        showSellPrice,
+        separatePriceLine,
+        onDone: () => setIsPrinting(false),
       });
-      if (res.success) {
-        toast.success("Printed to thermal printer directly!");
-        setIsPrinting(false);
-        return;
-      }
-    } catch {
-      // Fallback to iframe browser print
+    } catch (err) {
+      console.error("[PrintLabelsModal] Print invocation error:", err);
+      setIsPrinting(false);
+      toast.error("Failed to open print dialog");
     }
+  };
 
-    printLabelsViaIframe({
+  const handlePrintNewTab = () => {
+    if (printableProducts.length === 0) return;
+    openLabelPrintInNewTab({
       products: printableProducts,
       quantities,
       layout,
       labelType,
       showDiscount,
-      onDone: () => setIsPrinting(false),
+      showMrp,
+      showSellPrice,
+      separatePriceLine,
     });
   };
 
@@ -150,11 +190,12 @@ export function PrintLabelsModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
-              aria-label="Close dialog"
+              onClick={handlePrintNewTab}
+              title="Open labels in new browser tab for direct preview or print"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
             >
-              <X className="size-4" />
+              <ExternalLink className="size-3.5" />
+              <span>Open in Tab</span>
             </button>
             <button
               type="button"
@@ -163,7 +204,15 @@ export function PrintLabelsModal({
               className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-bold text-white shadow-premium-sm hover:bg-[#7a1c1c] active:scale-95 transition cursor-pointer disabled:opacity-50"
             >
               <Printer className="size-4" />
-              <span>{isPrinting ? "Printing…" : "Print Labels"}</span>
+              <span>{isPrinting ? "Opening Print…" : "Print Labels"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              aria-label="Close dialog"
+            >
+              <X className="size-4" />
             </button>
           </div>
         </div>
@@ -211,8 +260,9 @@ export function PrintLabelsModal({
           </div>
 
           {/* Fully Clickable Option Toggles */}
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-foreground select-none">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Barcode Only toggle */}
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-foreground select-none">
               <input
                 type="checkbox"
                 checked={labelType === "barcode-only"}
@@ -222,17 +272,78 @@ export function PrintLabelsModal({
               <span>Barcode Only</span>
             </label>
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-foreground select-none">
+            <div className="h-4 w-px bg-border/60" />
+
+            {/* Sell Price toggle */}
+            <label
+              className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
+                labelType === "barcode-only" ? "opacity-40 pointer-events-none" : "text-foreground"
+              }`}
+            >
               <input
                 type="checkbox"
+                disabled={labelType === "barcode-only"}
+                checked={showSellPrice}
+                onChange={(e) => handleSellPriceToggle(e.target.checked)}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>Sell Price</span>
+            </label>
+
+            {/* MRP toggle */}
+            <label
+              className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
+                labelType === "barcode-only" ? "opacity-40 pointer-events-none" : "text-foreground"
+              }`}
+            >
+              <input
+                type="checkbox"
+                disabled={labelType === "barcode-only"}
+                checked={showMrp}
+                onChange={(e) => handleMrpToggle(e.target.checked)}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>MRP</span>
+            </label>
+
+            {/* Show Discount % toggle */}
+            <label
+              className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
+                labelType === "barcode-only" ? "opacity-40 pointer-events-none" : "text-foreground"
+              }`}
+            >
+              <input
+                type="checkbox"
+                disabled={labelType === "barcode-only"}
                 checked={showDiscount}
                 onChange={(e) => handleDiscountToggle(e.target.checked)}
                 className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
               />
               <span className="flex items-center gap-1">
                 <Sparkles className="size-3 text-amber-500" />
-                <span>Show Discount %</span>
+                <span>Discount %</span>
               </span>
+            </label>
+
+            <div className="h-4 w-px bg-border/60" />
+
+            {/* Separate Price Row toggle */}
+            <label
+              className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
+                labelType === "barcode-only" || (!showMrp && !showSellPrice)
+                  ? "opacity-40 pointer-events-none"
+                  : "text-foreground"
+              }`}
+              title="Print price on a separate dedicated line instead of inline with product name"
+            >
+              <input
+                type="checkbox"
+                disabled={labelType === "barcode-only" || (!showMrp && !showSellPrice)}
+                checked={separatePriceLine}
+                onChange={(e) => handleSeparatePriceToggle(e.target.checked)}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>Separate Price Row</span>
             </label>
           </div>
         </div>
@@ -293,6 +404,9 @@ export function PrintLabelsModal({
               labelType={labelType}
               layout={layout}
               showDiscount={showDiscount}
+              showMrp={showMrp}
+              showSellPrice={showSellPrice}
+              separatePriceLine={separatePriceLine}
             />
           </div>
         </div>
@@ -304,17 +418,29 @@ export function PrintLabelsModal({
             <span>Exact physical preview (Horizontal 50×25mm sticker)</span>
           </div>
 
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={isPrinting || printableProducts.length === 0}
-            className="flex items-center gap-1.5 font-bold text-[#8B2020] hover:underline cursor-pointer disabled:opacity-50"
-          >
-            <Printer className="size-3.5" />
-            <span>
-              Ready to Print {totalLabels} Label{totalLabels !== 1 ? "s" : ""}
-            </span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handlePrintNewTab}
+              className="flex items-center gap-1 font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition"
+            >
+              <ExternalLink className="size-3.5" />
+              <span>Open in Tab</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={isPrinting || printableProducts.length === 0}
+              className="flex items-center gap-1.5 font-bold text-[#8B2020] hover:underline cursor-pointer disabled:opacity-50 transition"
+            >
+              <Printer className="size-3.5" />
+              <span>
+                {isPrinting
+                  ? "Opening Print Dialog…"
+                  : `Ready to Print ${totalLabels} Label${totalLabels !== 1 ? "s" : ""}`}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>,

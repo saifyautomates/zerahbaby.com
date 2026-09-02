@@ -12,7 +12,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type QueueStatus = "PENDING" | "SYNCING" | "SYNCED" | "FAILED" | "RETRY_REQUIRED";
+export type QueueStatus = "PENDING_SYNC" | "PENDING" | "SYNCING" | "SYNCED" | "FAILED" | "RETRY_REQUIRED";
 
 export type OfflineQueueItem = {
   id: string;
@@ -376,8 +376,10 @@ export async function findOfflineProductByCode(
 
 let isSyncInProgress = false;
 
-export async function processOfflineSyncQueue(): Promise<{ synced: number; failed: number }> {
-  if (isSyncInProgress || !navigator.onLine) {
+export async function processOfflineSyncQueue(options?: {
+  silent?: boolean;
+}): Promise<{ synced: number; failed: number }> {
+  if (isSyncInProgress || (typeof navigator !== "undefined" && !navigator.onLine)) {
     return { synced: 0, failed: 0 };
   }
 
@@ -389,18 +391,20 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
 
   try {
     const all = await getAllQueuedSales();
-    const pending = all.filter((i) => i.status === "PENDING" || i.status === "RETRY_REQUIRED");
+    const pending = all.filter(
+      (i) => i.status === "PENDING_SYNC" || i.status === "PENDING" || i.status === "RETRY_REQUIRED",
+    );
 
     for (const item of pending) {
       await updateQueuedSaleStatus(item.operation_id, "SYNCING");
 
       try {
-        const { data, error } = await (
+        let rpcRes = await (
           supabase.rpc as unknown as (
             fn: string,
             args: Record<string, unknown>,
           ) => Promise<{
-            data: { sale_id: string; sale_number: string };
+            data: { sale_id: string; sale_number: string; duplicate?: boolean };
             error: { message: string } | null;
           }>
         )("place_offline_sale", {
@@ -409,23 +413,26 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
           _customer_email: item.customer_email || "",
           _payment_method: item.payment_method || "cash",
           _notes: item.notes || "",
-          _discount: 0,
           _discount_type: item.discount_type || "none",
           _discount_value: item.discount_value || 0,
           _customer_id: item.customer_id || null,
           _items: item.items,
           _idempotency_key: item.idempotency_key,
+          _store_credit_used: (item as any).store_credit_used || 0,
+          _credit_token: (item as any).credit_token || null,
         });
 
-        if (error) {
-          throw new Error(error.message);
+        if (rpcRes.error) {
+          throw new Error(rpcRes.error.message);
         }
+
+        const data = rpcRes.data;
 
         await updateQueuedSaleStatus(item.operation_id, "SYNCED");
         syncedCount++;
 
         // Trigger transactional SMS for synced sale (non-blocking)
-        if (data?.sale_id) {
+        if (data?.sale_id && !data.duplicate) {
           supabase.functions
             .invoke("msg91-transactional", {
               body: {
@@ -443,9 +450,23 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
         }
       } catch (err: unknown) {
         const msg = (err as Error).message || "Sync error";
-        console.error(`[OfflineSync] Failed to sync sale ${item.operation_id}:`, msg);
-        await updateQueuedSaleStatus(item.operation_id, "FAILED", msg);
-        failedCount++;
+        console.warn(`[OfflineSync] Sync paused/failed for sale ${item.operation_id}:`, msg);
+
+        const isNetDrop =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("network disconnected") ||
+          msg.includes("connection refused");
+
+        if (isNetDrop) {
+          // Keep as PENDING_SYNC for next reconnection cycle
+          await updateQueuedSaleStatus(item.operation_id, "PENDING_SYNC", msg);
+        } else {
+          // Permanent validation / business rejection on server
+          await updateQueuedSaleStatus(item.operation_id, "FAILED", msg);
+          failedCount++;
+        }
       }
     }
 
@@ -455,9 +476,9 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
       );
     }
 
-    if (failedCount > 0) {
+    if (failedCount > 0 && !options?.silent) {
       toast.error(
-        `Failed to sync ${failedCount} offline POS sale${failedCount > 1 ? "s" : ""}. Please check your connection and retry.`,
+        `${failedCount} offline POS sale${failedCount > 1 ? "s" : ""} could not be synchronized due to validation errors. Please check Sales History.`,
       );
     }
   } finally {
@@ -488,7 +509,11 @@ export function subscribeToSyncStatus(fn: StatusListener): () => void {
 export async function notifySyncStatusChange() {
   const all = await getAllQueuedSales();
   const pendingCount = all.filter(
-    (i) => i.status === "PENDING" || i.status === "RETRY_REQUIRED" || i.status === "SYNCING",
+    (i) =>
+      i.status === "PENDING_SYNC" ||
+      i.status === "PENDING" ||
+      i.status === "RETRY_REQUIRED" ||
+      i.status === "SYNCING",
   ).length;
   const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 

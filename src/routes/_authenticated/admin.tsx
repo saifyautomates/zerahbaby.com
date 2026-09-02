@@ -60,12 +60,20 @@ import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
+import { useSaveProduct } from "@/lib/admin-products";
 import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { useDirectLabelPrint } from "@/lib/label-printer";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
+import {
+  useTableSelection,
+  getProductsSelectionMetrics,
+  getCustomersSelectionMetrics,
+  getCouponsSelectionMetrics,
+} from "@/lib/table-selection";
 import { safeLazy } from "@/lib/safe-lazy";
 import {
   AdminDashboardSkeleton,
@@ -987,9 +995,13 @@ function ProductsTab() {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
           .from("products")
-          .select("id, uuid, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(public_url, is_primary, sort_order)")
+          .select(
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(public_url, is_primary, sort_order)",
+          )
           .order("sort_order"),
-        supabase.from("product_costs").select("product_id, buying_price"),
+        Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
+          () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
+        ),
         supabase
           .from("site_settings")
           .select("value")
@@ -999,7 +1011,12 @@ function ProductsTab() {
 
       if (productsRes.error) throw productsRes.error;
 
-      const costMap = new Map((costsRes.data || []).map((c) => [c.product_id, c.buying_price]));
+      const costMap = new Map<string, number>(
+        ((costsRes as { data?: { product_id: string; buying_price: number }[] | null })?.data || []).map((c) => [
+          c.product_id,
+          Number(c.buying_price || 0),
+        ]),
+      );
       let deliveryFees: Record<string, number> = {};
       if (settingsRes.data?.value) {
         try {
@@ -1011,7 +1028,7 @@ function ProductsTab() {
 
       return (productsRes.data || []).map((r) => {
         const prod = mapProduct(r as never);
-        prod.buyingPrice = costMap.get(prod.uuid) || 0;
+        prod.buyingPrice = Number(costMap.get(prod.uuid) ?? 0);
         if (deliveryFees[prod.uuid] !== undefined) {
           prod.deliveryFee = deliveryFees[prod.uuid];
         } else if (deliveryFees[prod.id] !== undefined) {
@@ -1122,159 +1139,19 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const save = useMutation({
-    mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
-      const row: Record<string, unknown> = {
-        slug: draft.slug.trim(),
-        name: draft.name.trim(),
-        brand: draft.brand.trim(),
-        category: draft.category,
-        price: Number(draft.price),
-        mrp: Number(draft.mrp),
-        age_group: draft.ageGroup,
-        low_stock_at: Number(draft.lowStockAt),
-        sku: draft.sku.trim(),
-        barcode: draft.barcode.trim(),
-        description: draft.description,
-        highlights: draft.highlights
-          .split("\n")
-          .map((h) => h.trim())
-          .filter(Boolean),
-        is_featured: draft.isFeatured,
-        is_active: draft.isActive,
-        sort_order: Number(draft.sortOrder),
-        recommendation_mode: draft.recommendationMode,
-        sales_channel: draft.salesChannel,
-      };
-
-      if (!uuid) {
-        row.rating = 0;
-        row.reviews = 0;
-      }
-
-      const hasStockChanged = uuid ? Number(draft.stock) !== editing?.stock : true;
-      if (hasStockChanged) {
-        row.stock = Number(draft.stock);
-      }
-
-      // Save product
-      let productId = uuid;
-      if (uuid) {
-        const { error } = await supabase
-          .from("products")
-          .update(row as Database["public"]["Tables"]["products"]["Update"])
-          .eq("id", uuid);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from("products")
-          .insert(row as Database["public"]["Tables"]["products"]["Insert"])
-          .select("id")
-          .single();
-        if (error) throw error;
-        productId = data.id;
-      }
-
-      // Save cost
-      if (productId) {
-        const { error: costError } = await supabase
-          .from("product_costs")
-          .upsert({ product_id: productId, buying_price: draft.buyingPrice });
-        if (costError) throw costError;
-
-        // Sync product_images
-        const allUrls = new Set<string>();
-        if (draft.imageUrl.trim()) allUrls.add(draft.imageUrl.trim());
-        draft.images.forEach((img) => {
-          if (img.trim()) allUrls.add(img.trim());
-        });
-
-        const urlsArray = Array.from(allUrls);
-        const { data: existing } = await supabase
-          .from("product_images")
-          .select("*")
-          .eq("product_id", productId);
-
-        const toDelete = (existing || []).filter((e) => !urlsArray.includes(e.public_url));
-        for (const del of toDelete) {
-          await supabase.from("product_images").delete().eq("id", del.id);
-          if (del.storage_path) {
-            await supabase.rpc("delete_storage_object", {
-              bucket: "product-images",
-              object_path: del.storage_path,
-            });
-          }
-        }
-
-        for (let i = 0; i < urlsArray.length; i++) {
-          const url = urlsArray[i];
-          const isPrimary = url === draft.imageUrl.trim() || (i === 0 && !draft.imageUrl.trim());
-          const existingRow = (existing || []).find((e) => e.public_url === url);
-
-          if (existingRow) {
-            await supabase
-              .from("product_images")
-              .update({ is_primary: isPrimary, sort_order: i })
-              .eq("id", existingRow.id);
-          } else {
-            let storagePath = "";
-            if (url.includes("product-images/")) {
-              storagePath = url.split("product-images/")[1];
-            }
-            await supabase.from("product_images").insert({
-              product_id: productId,
-              public_url: url,
-              storage_path: storagePath,
-              alt_text: draft.name,
-              is_primary: isPrimary,
-              sort_order: i,
-            });
-          }
-        }
-
-        // Sync delivery fee setting
-        if (draft.deliveryFee !== undefined) {
-          const { data: currentSettings } = await supabase
-            .from("site_settings")
-            .select("value")
-            .eq("key", "product_delivery_fees")
-            .maybeSingle();
-          let feeMap: Record<string, number> = {};
-          if (currentSettings?.value) {
-            try {
-              feeMap = JSON.parse(currentSettings.value);
-            } catch {
-              feeMap = {};
-            }
-          }
-          feeMap[productId] = draft.deliveryFee;
-          feeMap[draft.slug] = draft.deliveryFee;
-          await supabase
-            .from("site_settings")
-            .upsert(
-              { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
-              { onConflict: "key" },
-            );
-        }
-
-        // Sync Product Relations
-        if (draft.relatedProductIds) {
-          const { error: relError } = await supabase.rpc("sync_product_relations", {
-            p_product_id: productId,
-            p_related_ids: draft.relatedProductIds,
-          });
-          if (relError) throw relError;
-        }
-      }
+  const saveProductMutation = useSaveProduct();
+  const save = {
+    isPending: saveProductMutation.isPending,
+    mutate: (payload: { draft: ProductDraft; uuid?: string }) => {
+      saveProductMutation.mutate(payload, {
+        onSuccess: () => {
+          setEditing(null);
+          setCreating(false);
+          invalidate();
+        },
+      });
     },
-    onSuccess: () => {
-      toast.success("Product saved");
-      setEditing(null);
-      setCreating(false);
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  };
 
   // Archive (set is_active=false)
   const archive = useMutation({
@@ -1582,6 +1459,11 @@ function ProductsTab() {
     [data, selectedIds],
   );
 
+  const productSelectionMetrics = useMemo(
+    () => getProductsSelectionMetrics(selectedProducts),
+    [selectedProducts],
+  );
+
   if (showBulkImport) {
     return (
       <Suspense
@@ -1726,18 +1608,15 @@ function ProductsTab() {
             onChange={(e) =>
               setStatusFilter(
                 e.target.value as
-                  | "all"
-                  | "active"
-                  | "in_stock"
-                  | "low_stock"
-                  | "out_of_stock"
-                  | "archived",
+                  "all" | "active" | "in_stock" | "low_stock" | "out_of_stock" | "archived",
               )
             }
             className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-border transition-all shadow-xs cursor-pointer"
           >
             <option value="all">
-              {channelTab === "archived" ? `All Archived (${archivedCount})` : `All Status (${activeCount})`}
+              {channelTab === "archived"
+                ? `All Archived (${archivedCount})`
+                : `All Status (${activeCount})`}
             </option>
             <option value="in_stock">In Stock ({inStockCount})</option>
             <option value="low_stock">Low Stock (≤ alert) ({lowStockCount})</option>
@@ -1805,24 +1684,18 @@ function ProductsTab() {
         </div>
       </div>
 
-      {/* Floating / Sticky Bulk Action Toolbar */}
-      {selectedIds.size > 0 && (
-        <div className="sticky top-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-card p-3 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2.5 pl-2">
-            <span className="flex size-6 items-center justify-center rounded-full bg-[#8B2020] text-[11px] font-bold text-white">
-              {selectedIds.size}
-            </span>
-            <p className="text-xs font-bold text-foreground">
-              {selectedIds.size} of {data?.length ?? 0} products selected
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+      {/* Smart Selection Summary & Bulk Action Toolbar */}
+      <SmartSelectionSummary
+        selectedCount={selectedIds.size}
+        metrics={productSelectionMetrics}
+        onClear={() => setSelectedIds(new Set())}
+        actions={
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Print labels for selected */}
             <button
               onClick={() => printLabel(selectedProducts)}
               disabled={isPrinting}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition cursor-pointer"
             >
               <Printer className="size-3.5" />
               <span>Print Labels</span>
@@ -1833,10 +1706,10 @@ function ProductsTab() {
               onClick={() => setStockTenSelected.mutate(Array.from(selectedIds))}
               disabled={setStockTenSelected.isPending}
               title="Quickly set stock to 10 for all selected products"
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
             >
               <Check className="size-3.5" />
-              <span>Set Stock to 10</span>
+              <span>Set Stock 10</span>
             </button>
 
             {/* Set delivery to Free (₹0) */}
@@ -1844,63 +1717,33 @@ function ProductsTab() {
               onClick={() => setDeliveryFeeBulk.mutate({ ids: Array.from(selectedIds), fee: 0 })}
               disabled={setDeliveryFeeBulk.isPending}
               title="Set Delivery to Free (₹0) for all selected products"
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
             >
               <Truck className="size-3.5" />
-              <span>Free Delivery (₹0)</span>
-            </button>
-
-            {/* Set delivery to ₹79 */}
-            <button
-              onClick={() => setDeliveryFeeBulk.mutate({ ids: Array.from(selectedIds), fee: 79 })}
-              disabled={setDeliveryFeeBulk.isPending}
-              title="Set Delivery to ₹79 for all selected products"
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-muted transition cursor-pointer"
-            >
-              <Truck className="size-3.5 text-muted-foreground" />
-              <span>Set Delivery ₹79</span>
+              <span>Free Delivery</span>
             </button>
 
             {/* Archive selected */}
             <button
               onClick={() => archiveSelected.mutate(Array.from(selectedIds))}
               disabled={archiveSelected.isPending}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-2xs hover:bg-amber-100 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 shadow-2xs hover:bg-amber-100 transition cursor-pointer"
             >
               <Archive className="size-3.5" />
               <span>Archive</span>
             </button>
 
-            {/* Restore selected */}
-            <button
-              onClick={() => restoreSelected.mutate(Array.from(selectedIds))}
-              disabled={restoreSelected.isPending}
-              className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 shadow-2xs hover:bg-blue-100 transition cursor-pointer"
-            >
-              <Package className="size-3.5" />
-              <span>Restore</span>
-            </button>
-
-            {/* Delete Selected (Custom deletion) */}
+            {/* Delete Selected */}
             <button
               onClick={() => setShowDeleteSelectedModal(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-destructive px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-destructive px-2.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
             >
               <Trash2 className="size-3.5" />
-              <span>Delete Selected ({selectedIds.size})</span>
-            </button>
-
-            {/* Clear Selection */}
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              aria-label="Clear selection"
-              className="rounded-xl border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
-            >
-              <X className="size-4" />
+              <span>Delete</span>
             </button>
           </div>
-        </div>
-      )}
+        }
+      />
 
       {isLoading ? (
         <AdminTableSkeleton rows={8} />
@@ -3425,6 +3268,19 @@ function CustomersTab() {
     );
   }, [customers, search]);
 
+  const customerSelection = useTableSelection({ items: filtered });
+  const customerMetrics = useMemo(() => {
+    const selectedWithStats = customerSelection.selectedItems.map((c) => {
+      const s = stats.get(c.id) ?? { count: 0, spend: 0 };
+      return {
+        id: c.id,
+        total_purchases: s.count,
+        total_spend: s.spend,
+      };
+    });
+    return getCustomersSelectionMetrics(selectedWithStats);
+  }, [customerSelection.selectedItems, stats]);
+
   return (
     <div className="space-y-6">
       {/* 2-Section Header & Channel Switcher */}
@@ -3518,11 +3374,30 @@ function CustomersTab() {
             </div>
           </div>
 
+          {/* Sticky Smart Selection Summary */}
+          <SmartSelectionSummary
+            selectedCount={customerSelection.selectedCount}
+            metrics={customerMetrics}
+            onClear={customerSelection.clearSelection}
+          />
+
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
                   <tr>
+                    <th className="w-10 px-4 py-3.5">
+                      <input
+                        type="checkbox"
+                        checked={customerSelection.isAllVisibleSelected(filtered)}
+                        ref={(el) => {
+                          if (el) el.indeterminate = customerSelection.isIndeterminate(filtered);
+                        }}
+                        onChange={() => customerSelection.toggleAllVisible(filtered)}
+                        aria-label="Select all customers"
+                        className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                      />
+                    </th>
                     <th className="px-5 py-3.5">Customer &amp; Profile (DP)</th>
                     <th className="px-5 py-3.5">Contact Details</th>
                     <th className="px-5 py-3.5">Delivery Address</th>
@@ -3533,6 +3408,7 @@ function CustomersTab() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filtered.map((c) => {
+                    const isSelected = customerSelection.isSelected(c.id);
                     const s = stats.get(c.id) ?? { count: 0, spend: 0, lastOrderDate: null };
                     const initials = c.full_name
                       ? c.full_name
@@ -3546,8 +3422,19 @@ function CustomersTab() {
                     return (
                       <tr
                         key={c.id}
-                        className="group transition-colors hover:bg-muted/40 align-middle"
+                        className={`group transition-colors align-middle ${
+                          isSelected ? "bg-primary/5 font-medium" : "hover:bg-muted/40"
+                        }`}
                       >
+                        <td className="w-10 px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => customerSelection.toggle(c.id)}
+                            aria-label={`Select customer ${c.full_name || c.email}`}
+                            className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                          />
+                        </td>
                         {/* DP & Name */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -3934,6 +3821,12 @@ function CouponsTab() {
     active: true,
   });
 
+  const couponSelection = useTableSelection({ items: coupons ?? [] });
+  const couponMetrics = useMemo(
+    () => getCouponsSelectionMetrics(couponSelection.selectedItems),
+    [couponSelection.selectedItems],
+  );
+
   return (
     <div className="space-y-6">
       {/* Top Bar */}
@@ -4084,11 +3977,30 @@ function CouponsTab() {
         </div>
       )}
 
+      {/* Sticky Smart Selection Summary */}
+      <SmartSelectionSummary
+        selectedCount={couponSelection.selectedCount}
+        metrics={couponMetrics}
+        onClear={couponSelection.clearSelection}
+      />
+
       {/* Coupons Table */}
       <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-xs">
         <table className="w-full text-left text-xs whitespace-nowrap">
           <thead className="bg-muted/60 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
             <tr>
+              <th className="w-10 px-4 py-4">
+                <input
+                  type="checkbox"
+                  checked={couponSelection.isAllVisibleSelected(coupons ?? [])}
+                  ref={(el) => {
+                    if (el) el.indeterminate = couponSelection.isIndeterminate(coupons ?? []);
+                  }}
+                  onChange={() => couponSelection.toggleAllVisible(coupons ?? [])}
+                  aria-label="Select all coupons"
+                  className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                />
+              </th>
               <th className="px-5 py-4">Code</th>
               <th className="px-5 py-4">Discount</th>
               <th className="px-5 py-4">Min Order</th>
@@ -4098,9 +4010,25 @@ function CouponsTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {(coupons ?? []).map((c) => (
-              <tr key={c.id} className="group transition-colors hover:bg-muted/30">
-                <td className="px-5 py-4">
+            {(coupons ?? []).map((c) => {
+              const isSelected = couponSelection.isSelected(c.id);
+              return (
+                <tr
+                  key={c.id}
+                  className={`group transition-colors ${
+                    isSelected ? "bg-primary/5 font-medium" : "hover:bg-muted/30"
+                  }`}
+                >
+                  <td className="w-10 px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => couponSelection.toggle(c.id)}
+                      aria-label={`Select coupon ${c.code}`}
+                      className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-5 py-4">
                   <span className="font-mono font-bold text-foreground text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
                     {c.code}
                   </span>
@@ -4167,8 +4095,9 @@ function CouponsTab() {
                   </div>
                 </td>
               </tr>
-            ))}
-            {!isLoading && (coupons ?? []).length === 0 && (
+            );
+          })}
+          {!isLoading && (coupons ?? []).length === 0 && (
               <tr>
                 <td
                   colSpan={6}

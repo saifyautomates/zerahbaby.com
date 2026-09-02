@@ -39,9 +39,13 @@ export type A4InvoiceSale = {
   discount_type: string;
   discount_value: number;
   total: number;
+  store_credit_used?: number;
+  credit_token_used?: string | null;
   payment_method: string;
   notes?: string;
   sale_date?: Date;
+  status?: "completed" | "pending_sync" | "failed";
+  is_offline_queued?: boolean;
 };
 
 export type A4InvoiceItem = {
@@ -370,11 +374,18 @@ function buildA4HTML(
 </div>
 <div class="invoice-meta-container">
   <div>
-    <div class="invoice-title">Invoice</div>
+    <div class="invoice-title">${sale.status === "pending_sync" || sale.is_offline_queued ? "OFFLINE VOUCHER" : "TAX INVOICE"}</div>
     <div class="invoice-number">${escapeHtml(sale.sale_number)}</div>
     <div class="invoice-date">${dateStr}<br/>${timeStr}</div>
   </div>
 </div>
+${
+  sale.status === "pending_sync" || sale.is_offline_queued
+    ? `<div style="margin: 10px 0; padding: 8px 12px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; text-align: center; color: #b45309; font-weight: 700; font-size: 11px;">
+        ⚡ PENDING CLOUD SYNCHRONIZATION — This sale was recorded offline and will be synchronized automatically.
+       </div>`
+    : ""
+}
 
 <!-- ── BILLED TO / PAYMENT INFO ── -->
 <div class="info-grid">
@@ -385,9 +396,16 @@ function buildA4HTML(
     ${sale.customer_email ? `<div class="info-card-sub">${escapeHtml(sale.customer_email)}</div>` : ""}
   </div>
   <div class="info-card">
-    <div class="info-card-title">Payment</div>
+    <div class="info-card-title">Payment Mode</div>
     <div style="margin-top:2px;"><span class="payment-badge">${escapeHtml(paymentDisplay)}</span></div>
-    <div class="info-card-sub" style="margin-top:6px;">Status: PAID</div>
+    ${
+      sale.store_credit_used && sale.store_credit_used > 0
+        ? `<div class="info-card-sub" style="margin-top:4px; font-weight:700; color:#047857;">
+            Store Credit: ₹${sale.store_credit_used.toLocaleString("en-IN")} ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}
+           </div>`
+        : ""
+    }
+    <div class="info-card-sub" style="margin-top:4px;">Status: PAID</div>
   </div>
 </div>
 
@@ -421,10 +439,21 @@ function buildA4HTML(
       </div>`
         : ""
     }
-    <div class="totals-row grand-total">
-      <span>TOTAL</span>
-      <span>₹${sale.total.toLocaleString("en-IN")}</span>
-    </div>
+    ${
+      sale.store_credit_used && sale.store_credit_used > 0
+        ? `<div class="totals-row alt" style="color:#047857; font-weight:700;">
+            <span>Store Credit ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
+            <span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+          </div>
+          <div class="totals-row grand-total">
+            <span>NET PAID (${escapeHtml(paymentDisplay)})</span>
+            <span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
+          </div>`
+        : `<div class="totals-row grand-total">
+            <span>TOTAL</span>
+            <span>₹${sale.total.toLocaleString("en-IN")}</span>
+          </div>`
+    }
   </div>
 </div>
 

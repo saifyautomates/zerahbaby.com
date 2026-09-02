@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,9 @@ import {
   type Order,
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
-import { formatPrice } from "@/lib/store";
+import { formatPrice, useProducts } from "@/lib/store";
+import { useTableSelection, getOrdersSelectionMetrics } from "@/lib/table-selection";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import type { OfflineSale } from "@/lib/pos";
 import {
   useCreateShiprocketShipment,
@@ -69,11 +71,17 @@ export function OnlineSalesTab() {
     if (!orderToDelete) return;
     try {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
-        const { error } = await supabase.rpc("admin_delete_offline_sale" as never, {
-          _sale_id: orderToDelete.id,
-        } as never);
+        const { error } = await supabase.rpc(
+          "admin_delete_offline_sale" as never,
+          {
+            _sale_id: orderToDelete.id,
+          } as never,
+        );
         if (error) {
-          const { error: delErr } = await supabase.from("offline_sales").delete().eq("id", orderToDelete.id);
+          const { error: delErr } = await supabase
+            .from("offline_sales")
+            .delete()
+            .eq("id", orderToDelete.id);
           if (delErr) throw new Error(error.message || delErr.message);
         }
         toast.success("POS sale deleted and stock restored.");
@@ -193,6 +201,17 @@ export function OnlineSalesTab() {
     if (o._type === "offline" && filter === "completed") return o.status === "completed";
     return o.status === filter;
   });
+
+  const { data: products = [] } = useProducts(true);
+  const selection = useTableSelection<UnifiedTransaction>({ items: orders });
+  const visibleOrders = useMemo(
+    () => orders.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+    [orders, page],
+  );
+  const selectionMetrics = useMemo(
+    () => getOrdersSelectionMetrics(selection.selectedItems as unknown as Order[], products),
+    [selection.selectedItems, products],
+  );
 
   return (
     <div className="space-y-6">
@@ -360,13 +379,37 @@ export function OnlineSalesTab() {
             </button>
           ))}
         </div>
-        <p className="text-xs font-medium text-muted-foreground">
-          Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
-          of {orders.length} transactions
-          {filter === "new_orders" && " (placed in last 24 hours)"}
-          {filter === "unpaid" && " (unpaid / abandoned payments)"}
-        </p>
+        <div className="flex items-center gap-3">
+          {orders.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer bg-muted/50 hover:bg-muted px-3 py-1.5 rounded-xl border border-border transition-colors">
+              <input
+                type="checkbox"
+                checked={selection.isAllVisibleSelected(visibleOrders)}
+                ref={(el) => {
+                  if (el) el.indeterminate = selection.isIndeterminate(visibleOrders);
+                }}
+                onChange={() => selection.toggleAllVisible(visibleOrders)}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>Select Page ({visibleOrders.length})</span>
+            </label>
+          )}
+
+          <p className="text-xs font-medium text-muted-foreground">
+            Showing {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, orders.length)}{" "}
+            of {orders.length} transactions
+            {filter === "new_orders" && " (placed in last 24 hours)"}
+            {filter === "unpaid" && " (unpaid / abandoned payments)"}
+          </p>
+        </div>
       </div>
+
+      {/* Sticky Smart Selection Summary */}
+      <SmartSelectionSummary
+        selectedCount={selection.selectedCount}
+        metrics={selectionMetrics}
+        onClear={selection.clearSelection}
+      />
 
       {isLoading && <AdminTableSkeleton rows={5} />}
 
@@ -380,19 +423,30 @@ export function OnlineSalesTab() {
       )}
 
       <ul className="space-y-4">
-        {orders.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE).map((order) => (
-          <li
-            key={order.id}
-            className="overflow-hidden rounded-3xl border border-gray-100 bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border"
-          >
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="font-mono text-sm font-bold text-foreground">
-                    {order._type === "offline"
-                      ? order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`
-                      : `#${order.id.slice(0, 8).toUpperCase()}`}
-                  </span>
+        {visibleOrders.map((order) => {
+          const isSelected = selection.isSelected(order.id);
+          return (
+            <li
+              key={order.id}
+              className={`overflow-hidden rounded-3xl border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border ${
+                isSelected ? "border-[#8B2020] ring-2 ring-[#8B2020]/20 bg-[#8B2020]/5" : "border-gray-100"
+              }`}
+            >
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => selection.toggle(order.id)}
+                      aria-label={`Select transaction ${order.id}`}
+                      className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer mr-1"
+                    />
+                    <span className="font-mono text-sm font-bold text-foreground">
+                      {order._type === "offline"
+                        ? order.sale_number || `#${order.id.slice(0, 8).toUpperCase()}`
+                        : `#${order.id.slice(0, 8).toUpperCase()}`}
+                    </span>
                   <span className="rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2.5 py-0.5 text-xs font-semibold capitalize">
                     {order.status}
                   </span>
@@ -601,7 +655,8 @@ export function OnlineSalesTab() {
               </div>
             </div>
           </li>
-        ))}
+        );
+        })}
       </ul>
 
       {Math.ceil(orders.length / ITEMS_PER_PAGE) > 1 && (
