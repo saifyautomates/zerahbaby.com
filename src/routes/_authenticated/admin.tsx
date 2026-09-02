@@ -130,6 +130,11 @@ const BulkImportTab = safeLazy(() =>
 const PagesPoliciesTab = safeLazy(() =>
   import("@/components/admin/PagesPoliciesTab").then((m) => ({ default: m.PagesPoliciesTab })),
 );
+const CustomerHistoryPanel = safeLazy(() =>
+  import("@/components/admin/CustomerHistoryPanel").then((m) => ({
+    default: m.CustomerHistoryPanel,
+  })),
+);
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";

@@ -24,6 +24,7 @@ import {
 import {
   useCanonicalPOSSales,
   invalidateCanonicalReportingQueries,
+  notifyPOSSaleChanged,
 } from "@/lib/canonical-reporting";
 import { isValidPOSSale, useReportingDateRange, type DatePreset } from "@/lib/financial-reporting";
 import {
@@ -435,7 +436,7 @@ export function OfflineAnalyticsTab() {
         revenue: number;
       }
     >();
-    for (const sale of (sales ?? []).filter((s) => inCurrentPeriod(s.created_at))) {
+    for (const sale of (activeSales ?? []).filter((s) => inCurrentPeriod(s.created_at))) {
       for (const item of sale.offline_sale_items ?? []) {
         const key = item.sku || item.name;
         const cur = map.get(key) ?? {
@@ -459,7 +460,7 @@ export function OfflineAnalyticsTab() {
     return Array.from(map.values())
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  }, [sales, inCurrentPeriod]);
+  }, [activeSales, inCurrentPeriod]);
 
   const handleClearDummyData = async () => {
     if (
@@ -471,23 +472,7 @@ export function OfflineAnalyticsTab() {
     try {
       // 1. Clear local offline queue, cart, and IndexedDB stores
       if (typeof window !== "undefined") {
-        localStorage.removeItem("zerah_offline_sales_queue");
-        localStorage.removeItem("zerah_pos_cart");
-        localStorage.removeItem("zerah_offline_tokens");
-        try {
-          if (window.indexedDB) {
-            const req = window.indexedDB.open("zerah_pos_offline_db", 1);
-            req.onsuccess = (e) => {
-              const db = (e.target as IDBOpenDBRequest).result;
-              if (db.objectStoreNames.contains("offline_sales")) {
-                const tx = db.transaction(["offline_sales"], "readwrite");
-                tx.objectStore("offline_sales").clear();
-              }
-            };
-          }
-        } catch {
-          /* ignore */
-        }
+        await clearAllQueuedSales();
       }
 
       // 2. Try RPC first
@@ -997,18 +982,36 @@ export function OfflineAnalyticsTab() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                toast.info("Retrying all offline sales sync...");
-                await processOfflineSyncQueue({ forceRetry: true });
-                refetchSales();
-              }}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition cursor-pointer shadow-xs whitespace-nowrap"
-            >
-              <RefreshCw className="size-3.5" />
-              Sync All Now
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm("Discard all pending offline drafts? This cannot be undone.")) {
+                    await clearAllQueuedSales();
+                    toast.success("All pending offline drafts discarded.");
+                    invalidateCanonicalReportingQueries(qc);
+                    notifyPOSSaleChanged();
+                    refetchSales();
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 font-medium text-xs transition cursor-pointer whitespace-nowrap shadow-xs"
+              >
+                <Trash2 className="size-3.5" />
+                Discard All
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  toast.info("Retrying all offline sales sync...");
+                  await processOfflineSyncQueue({ forceRetry: true });
+                  refetchSales();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition cursor-pointer shadow-xs whitespace-nowrap"
+              >
+                <RefreshCw className="size-3.5" />
+                Sync All Now
+              </button>
+            </div>
           </div>
         )}
 
@@ -1159,6 +1162,8 @@ export function OfflineAnalyticsTab() {
                                   if (confirm("Discard this unsynced draft permanently?")) {
                                     await deleteQueuedSale(sale.id);
                                     toast.success("Local draft discarded");
+                                    invalidateCanonicalReportingQueries(qc);
+                                    notifyPOSSaleChanged();
                                     refetchSales();
                                   }
                                 }}
