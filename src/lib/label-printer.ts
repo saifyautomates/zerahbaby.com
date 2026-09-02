@@ -760,6 +760,36 @@ export function buildLabelPrintParts(params: {
       flex-shrink: 0;
       letter-spacing: 0.02em;
     }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
+    @media screen {
+      .screen-print-bar {
+        position: fixed;
+        top: 12px;
+        right: 16px;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #8B2020;
+        color: #ffffff;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        font-weight: bold;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        cursor: pointer;
+        user-select: none;
+      }
+      .screen-print-bar:hover {
+        background: #7a1c1c;
+      }
+    }
   `.trim();
 
   const fullHtml = `<!DOCTYPE html>
@@ -771,7 +801,15 @@ export function buildLabelPrintParts(params: {
   <style>${css}</style>
 </head>
 <body>
-${pagesHtml}
+  <div class="screen-print-bar no-print" onclick="window.print()">
+    🖨️ Print Labels (${labels.length})
+  </div>
+  ${pagesHtml}
+  <script>
+    window.addEventListener('load', function() {
+      try { window.print(); } catch(e) {}
+    });
+  </script>
 </body>
 </html>`;
 
@@ -905,123 +943,20 @@ export function printProductLabels(params: {
     }
   }
 
-  // Build exact quantities
-  const quantities: Record<string, number> = { ...(params.quantities ?? {}) };
-  for (const p of rawProducts) {
-    const key = getProductKey(p);
-    if (quantities[key] === undefined || quantities[key] <= 0) {
-      quantities[key] = 1;
-    }
-  }
-
-  const layout = params.layout || "thermal-58";
-  const labelType = params.labelType || "full";
-  const showDiscount = params.showDiscount ?? false;
-  const showMrp = params.showMrp ?? true;
-  const showSellPrice = false; // strictly enforce no selling price per approved retail specification
-  const separatePriceLine = false;
-
-  const { fullHtml } = buildLabelPrintParts({
-    products: rawProducts,
-    quantities,
-    layout,
-    labelType,
-    showDiscount,
-    showMrp,
-    showSellPrice,
-    separatePriceLine,
-  });
-
   try {
-    // 1. Remove previous print iframe if existing
-    const existing = document.getElementById("zerah-canonical-print-frame");
-    if (existing && existing.parentNode) {
-      try {
-        existing.parentNode.removeChild(existing);
-      } catch {}
-    }
-
-    // 2. Create dedicated print iframe with real physical layout bounds
-    // (Chromium skips styles & SVG if frame is 0x0 or display:none)
-    const iframe = document.createElement("iframe");
-    iframe.id = "zerah-canonical-print-frame";
-    iframe.setAttribute("aria-hidden", "true");
-    iframe.setAttribute("tabindex", "-1");
-    iframe.setAttribute("title", "Zerah Product Label Print Engine");
-    Object.assign(iframe.style, {
-      position: "fixed",
-      top: "0px",
-      left: "-9999px",
-      width: "800px",
-      height: "600px",
-      border: "none",
-      zIndex: "-1",
-      visibility: "visible",
-      pointerEvents: "none",
+    const success = openLabelPrintInNewTab({
+      products: rawProducts,
+      quantities: params.quantities,
+      layout: params.layout,
+      labelType: params.labelType,
+      showDiscount: params.showDiscount,
+      showMrp: params.showMrp,
+      showSellPrice: params.showSellPrice,
+      separatePriceLine: params.separatePriceLine,
     });
-    document.body.appendChild(iframe);
-
-    const cw = iframe.contentWindow;
-    if (!cw) {
-      throw new Error("Unable to access print frame context");
-    }
-
-    // 3. Write self-contained HTML document
-    const doc = cw.document;
-    doc.open();
-    doc.write(fullHtml);
-    doc.close();
-
-    // 4. Trigger print synchronously when content is ready
-    const handlePrint = () => {
-      try {
-        cw.focus();
-        cw.print();
-      } catch (printErr) {
-        console.warn("[ZerahPrint] iframe print blocked, opening in tab fallback:", printErr);
-        openLabelPrintInNewTab({
-          products: rawProducts,
-          quantities,
-          layout,
-          labelType,
-          showDiscount,
-          showMrp,
-          showSellPrice,
-          separatePriceLine,
-        });
-      } finally {
-        params.onDone?.();
-      }
-    };
-
-    // Clean up iframe safely after the print job concludes (afterprint)
-    cw.addEventListener(
-      "afterprint",
-      () => {
-        setTimeout(() => {
-          try {
-            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-          } catch {}
-        }, 1000);
-      },
-      { once: true },
-    );
-
-    // Call handlePrint
-    if (doc.readyState === "complete") {
-      setTimeout(handlePrint, 50);
-    } else {
-      cw.onload = () => setTimeout(handlePrint, 50);
-    }
-
-    return true;
-  } catch (err) {
-    console.error("[ZerahPrint] printProductLabels error:", err);
-    toast.error(
-      "Failed to open print dialog: " + (err instanceof Error ? err.message : String(err)),
-    );
+    return success;
+  } finally {
     params.onDone?.();
-    return false;
   }
 }
 

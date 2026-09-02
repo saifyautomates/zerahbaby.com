@@ -1641,21 +1641,19 @@ function ProductsTab() {
             <button
               type="button"
               onClick={() => {
-                const targetProducts = selectedIds.size > 0 ? selectedProducts : list;
-                if (targetProducts.length === 0) {
-                  toast.error("Please select at least 1 product to print labels.");
-                  return;
+                if (selectedIds.size === 0) {
+                  // If no products are selected, clicking Print Labels opens the Print Setup Modal
+                  setPrintingLabels(true);
+                } else {
+                  // If products are selected, print labels for selected products
+                  printLabel(selectedProducts);
                 }
-                printLabel(targetProducts);
               }}
-              disabled={
-                isPrinting ||
-                (selectedIds.size > 0 ? selectedProducts.length === 0 : list.length === 0)
-              }
+              disabled={isPrinting}
               title={
                 selectedIds.size > 0
-                  ? `Print labels for ${selectedIds.size} selected`
-                  : "Print labels directly for visible products (1-Click)"
+                  ? `Print labels for ${selectedIds.size} selected products`
+                  : "Open Product Label Printer (Preview, Quantities & Format)"
               }
               className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
             >
