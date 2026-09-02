@@ -209,7 +209,12 @@ function ProductPage() {
     isLoading: singleLoading,
     isError: singleQueryError,
     refetch,
-  } = useProduct(id);
+  } = useQuery({
+    ...singleProductQueryOptions(id, false),
+    initialData: loaderData?.product
+      ? { product: loaderData.product, error: null, isNotFound: false, isError: false }
+      : undefined,
+  });
 
   const { add, items } = useCart();
   const { user } = useSession();

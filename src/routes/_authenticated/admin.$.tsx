@@ -4,18 +4,22 @@ export const Route = createFileRoute("/_authenticated/admin/$")({
   beforeLoad: ({ params, search }) => {
     const splat = params._splat || "";
     const parts = splat.split("/").filter(Boolean);
-    if (parts.length === 0) {
-      return {};
-    }
     const sub = parts[0]?.toLowerCase();
-    if (!sub) {
-      return {};
+    if (parts.length === 0 || !sub) {
+      const searchParams = (search || {}) as Record<string, unknown>;
+      throw redirect({
+        to: "/admin",
+        search: searchParams,
+        replace: true,
+      });
     }
     let targetTab = "dashboard";
     let subTab: string | undefined = undefined;
 
     if (sub === "orders") {
       targetTab = "orders";
+    } else if (sub === "returns") {
+      targetTab = "returns";
     } else if (sub === "products" || sub === "inventory") {
       targetTab = "products";
     } else if (sub === "billing" || sub === "pos") {
@@ -23,9 +27,6 @@ export const Route = createFileRoute("/_authenticated/admin/$")({
       if (parts[1]?.toLowerCase() === "returns") {
         subTab = "returns";
       }
-    } else if (sub === "returns") {
-      targetTab = "billing";
-      subTab = "returns";
     } else if (sub === "media") {
       targetTab = "media";
     } else if (sub === "analytics") {
@@ -69,4 +70,5 @@ export const Route = createFileRoute("/_authenticated/admin/$")({
       replace: true,
     });
   },
+  component: () => null,
 });

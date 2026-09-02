@@ -24,7 +24,7 @@ import {
   Loader2,
   LayoutGrid,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import logo from "@/assets/zerah-logo-official.png";
 import { ageGroups, useCategories, useSettings, useProducts } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -44,9 +44,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { BrandName } from "@/components/site/BrandName";
 import { AnnouncementBanner } from "@/components/public/AnnouncementBanner";
-import { CategoriesTab } from "@/components/admin/CategoriesManager";
 import { uploadMedia } from "@/lib/uploads";
 import { toast } from "sonner";
+import { safeLazy } from "@/lib/safe-lazy";
+
+const CategoriesTab = safeLazy(() =>
+  import("@/components/admin/CategoriesManager").then((m) => ({ default: m.CategoriesTab })),
+);
 
 // Simple debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -175,8 +179,8 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter products for suggestions
-  const suggestions = (() => {
+  // Filter products for suggestions (memoized to avoid expensive filtering on every render)
+  const suggestions = useMemo(() => {
     if (!products || !debouncedTerm.trim()) return [];
     const query = debouncedTerm.trim().toLowerCase();
     return products
@@ -186,7 +190,7 @@ export function Header() {
           .some((val) => String(val).toLowerCase().includes(query)),
       )
       .slice(0, 4); // Show top 4 matches
-  })();
+  }, [products, debouncedTerm]);
 
   const handleSignOut = async () => {
     await qc.cancelQueries();
@@ -1051,7 +1055,15 @@ export function Header() {
                 <X className="size-5" />
               </button>
             </div>
-            <CategoriesTab />
+            <Suspense
+              fallback={
+                <div className="flex h-64 items-center justify-center">
+                  <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+              }
+            >
+              <CategoriesTab />
+            </Suspense>
           </div>
         </div>
       )}

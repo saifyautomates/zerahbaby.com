@@ -17,7 +17,6 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { BottomNav } from "@/components/site/BottomNav";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
-import { SplashScreen } from "@/components/site/SplashScreen";
 import { supabase } from "@/integrations/supabase/client";
 import { Suspense } from "react";
 import { safeLazy, isChunkLoadError } from "@/lib/safe-lazy";
@@ -379,12 +378,14 @@ function RootComponent() {
   }, [isAdminRoute]);
 
   useEffect(() => {
-    // Visitor Analytics Tracking
+    // Visitor Analytics Tracking (only on production domain, never on localhost/development)
     const trackVisitor = async () => {
-      // Don't track admin pages or if already tracked in this session
+      // Don't track admin pages, local environments, or if already tracked in this session
       if (
         typeof window === "undefined" ||
         isAdminRoute ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
         sessionStorage.getItem("visitor_tracked")
       )
         return;
@@ -465,12 +466,11 @@ function RootComponent() {
         </MaintenanceGuard>
         <Toaster />
         <Suspense fallback={null}>
-          <DirectLabelPrintHost />
           <GlobalRealtimeSyncHost />
-          <OfflineSyncHost />
+          {isAdminRoute && <DirectLabelPrintHost />}
+          {isAdminRoute && <OfflineSyncHost />}
         </Suspense>
         <OnboardingModal />
-        <SplashScreen />
       </CartProvider>
     </QueryClientProvider>
   );
