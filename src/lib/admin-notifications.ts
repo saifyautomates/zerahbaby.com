@@ -10,7 +10,8 @@ export type AdminNotificationType =
   | "email_failed"
   | "contact_message"
   | "pos_sale"
-  | "pos_return";
+  | "pos_return"
+  | "online_return";
 
 export interface AdminNotification {
   id: string;
@@ -193,7 +194,23 @@ export function useAdminNotifications() {
     staleTime: 10_000,
   });
 
-  // Realtime subscription to invalidate notifications immediately on new sales/orders/returns
+  // 7. Fetch pending online returns
+  const { data: rawOnlineReturns = [] } = useQuery({
+    queryKey: ["admin-notif-online-returns"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("online_returns")
+        .select("id, return_number, return_status, refund_status, reason_label, final_refund_amount, created_at")
+        .in("return_status", ["REQUESTED", "QC_PENDING", "RECEIVED"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return data ?? [];
+    },
+    staleTime: 15_000,
+  });
+
+  // Real-time synchronization
   useEffect(() => {
     const channel = supabase
       .channel("admin-notifications-realtime")
@@ -205,6 +222,10 @@ export function useAdminNotifications() {
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_returns" }, () => {
         qc.invalidateQueries({ queryKey: ["admin-notif-offline-returns"] });
         qc.invalidateQueries({ queryKey: ["offline-returns"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "online_returns" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-notif-online-returns"] });
+        qc.invalidateQueries({ queryKey: ["admin-online-returns"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
         qc.invalidateQueries({ queryKey: ["admin-notif-orders"] });
@@ -340,6 +361,23 @@ export function useAdminNotifications() {
       });
     }
 
+    // Process Online Returns
+    for (const ret of rawOnlineReturns) {
+      list.push({
+        id: `ret-${ret.id}-${ret.return_status}`,
+        type: "online_return",
+        title:
+          ret.return_status === "REQUESTED"
+            ? `New Return Request #${ret.return_number}`
+            : `Return #${ret.return_number} Needs Inspection`,
+        message: `${ret.reason_label} · Refund: ₹${ret.final_refund_amount}`,
+        timestamp: ret.created_at,
+        tab: "returns",
+        read: readIds.has(`ret-${ret.id}-${ret.return_status}`),
+        priority: "high",
+      });
+    }
+
     // Filter out dismissed notifications and sort by unread first, then date descending
     return list
       .filter((n) => !dismissedIds.has(n.id))
@@ -351,6 +389,7 @@ export function useAdminNotifications() {
     rawOrders,
     rawOfflineSales,
     rawOfflineReturns,
+    rawOnlineReturns,
     rawLowStock,
     rawFailedLogs,
     rawQueries,

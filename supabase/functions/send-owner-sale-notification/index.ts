@@ -538,6 +538,131 @@ function renderOfflineReturnEmail(
   return { subject, html };
 }
 
+function renderOnlineReturnEmail(
+  ret: Record<string, any>,
+  order: Record<string, any>,
+  items: Array<Record<string, any>>,
+): { subject: string; html: string } {
+  const returnNumber = ret.return_number || "ONLINE-RETURN";
+  const orderRef = order.invoice_no || (order.id ? `#${order.id.slice(0, 8).toUpperCase()}` : "ORDER");
+  const dateStr = new Date(ret.created_at || Date.now()).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const refundAmount = Number(ret.final_refund_amount || 0);
+  const eligibleAmount = Number(ret.eligible_refund_amount || 0);
+  const returnFee = Number(ret.return_shipping_fee || 0);
+  const customerName = order.full_name || "Online Customer";
+  const customerPhone = order.phone || "Not provided";
+  const returnReason = ret.reason_label || ret.reason_category || "Customer return";
+  const customerNote = ret.customer_note || "";
+
+  const itemsHtml = items
+    .map((item) => {
+      const name = item.product_name_snapshot || "Product";
+      const sku = item.sku_snapshot ? `SKU: ${item.sku_snapshot}` : "";
+      const variant = [item.color_snapshot, item.size_snapshot].filter(Boolean).join(" / ");
+      const meta = [sku, variant].filter(Boolean).join(" | ");
+      const qty = Number(item.quantity_requested || 1);
+      const price = Number(item.historical_unit_price || 0);
+      const lineRefund = Number(item.item_refund_amount || price * qty);
+
+      return `
+      <tr>
+        <td>
+          <div style="font-weight:600; color:#0f172a;">${escapeHtml(name)}</div>
+          ${meta ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">${escapeHtml(meta)}</div>` : ""}
+        </td>
+        <td style="text-align:center; font-weight:600;">${qty}</td>
+        <td class="text-right">${formatCurrency(price)}</td>
+        <td class="text-right" style="font-weight:600;">${formatCurrency(lineRefund)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const bodyContent = `
+    <div class="meta-box">
+      <div class="meta-row">
+        <span class="meta-label">Return Request:</span>
+        <span class="meta-value" style="color:#b91c1c; font-weight:700;">${escapeHtml(returnNumber)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Original Order:</span>
+        <span class="meta-value font-mono">${escapeHtml(orderRef)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Date &amp; Time:</span>
+        <span class="meta-value">${escapeHtml(dateStr)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Customer Name:</span>
+        <span class="meta-value">${escapeHtml(customerName)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Customer Phone:</span>
+        <span class="meta-value">${escapeHtml(customerPhone)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Return Reason:</span>
+        <span class="meta-value" style="color:#dc2626;">${escapeHtml(returnReason)}</span>
+      </div>
+      ${
+        customerNote
+          ? `
+      <div class="meta-row">
+        <span class="meta-label">Customer Note:</span>
+        <span class="meta-value">${escapeHtml(customerNote)}</span>
+      </div>`
+          : ""
+      }
+    </div>
+
+    <h3 style="font-size:15px; font-weight:700; margin:24px 0 10px 0; color:#334155;">Items to Return (${items.length})</h3>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th style="text-align:center;">Qty</th>
+          <th class="text-right">Unit Price</th>
+          <th class="text-right">Eligible Refund</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+
+    <div class="totals-box" style="background:#fef2f2; border:1px solid #fecaca;">
+      <div class="total-row">
+        <span>Items Eligible Total:</span>
+        <span>${formatCurrency(eligibleAmount)}</span>
+      </div>
+      ${
+        returnFee > 0
+          ? `
+      <div class="total-row" style="color:#dc2626;">
+        <span>Return Logistics Fee:</span>
+        <span>- ${formatCurrency(returnFee)}</span>
+      </div>`
+          : `
+      <div class="total-row" style="color:#16a34a;">
+        <span>Return Logistics Fee:</span>
+        <span>FREE (Waived)</span>
+      </div>`
+      }
+      <div class="total-row grand-total" style="color:#b91c1c;">
+        <span>Net Estimated Refund:</span>
+        <span>${formatCurrency(refundAmount)}</span>
+      </div>
+    </div>
+  `;
+
+  const subject = `Online Return Requested — ${formatCurrency(refundAmount)} — ${returnNumber}`;
+  const html = getBaseLayout(subject, "Online Store Return", "#fee2e2", "#991b1b", bodyContent);
+
+  return { subject, html };
+}
+
 function renderCustomerQueryEmail(
   customerName: string,
   customerEmail: string,
@@ -641,7 +766,7 @@ serve(async (req) => {
 
     if (
       !type ||
-      !["offline_sale", "online_order", "offline_return", "customer_query", "test"].includes(type)
+      !["offline_sale", "online_order", "offline_return", "online_return", "customer_query", "test"].includes(type)
     ) {
       return new Response(JSON.stringify({ error: "Invalid or missing notification type" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -843,6 +968,32 @@ serve(async (req) => {
       totalAmount = Number(retRecord.refund_amount);
 
       const rendered = renderOfflineReturnEmail(retRecord, items || []);
+      emailSubject = rendered.subject;
+      emailHtml = rendered.html;
+    } else if (type === "online_return") {
+      if (!return_id) throw new Error("Missing return_id for online return notification");
+
+      // Fetch online return joined with order
+      const { data: retRecord, error: retErr } = await adminClient
+        .from("online_returns")
+        .select("*, orders(*)")
+        .eq("id", return_id)
+        .single();
+      if (retErr || !retRecord)
+        throw new Error(`Online return not found: ${retErr?.message || "unknown"}`);
+
+      // Fetch return items
+      const { data: items, error: itemsErr } = await adminClient
+        .from("online_return_items")
+        .select("*")
+        .eq("return_id", return_id);
+      if (itemsErr) throw itemsErr;
+
+      referenceId = retRecord.id;
+      referenceNumber = retRecord.return_number;
+      totalAmount = Number(retRecord.final_refund_amount);
+
+      const rendered = renderOnlineReturnEmail(retRecord, retRecord.orders || {}, items || []);
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
     } else if (type === "customer_query") {

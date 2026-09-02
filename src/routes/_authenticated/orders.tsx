@@ -1,15 +1,30 @@
-//
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useProducts, formatPrice } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
-import { useMyOrders, useCancelCustomerOrder, isOrderCancellable, type Order } from "@/lib/orders";
+import {
+  useMyOrders,
+  useCancelCustomerOrder,
+  isOrderCancellable,
+  isOrderReturnable,
+  isOpenBoxEligible,
+  type Order,
+} from "@/lib/orders";
+import {
+  useMyReturns,
+  type OnlineReturn,
+  RETURN_STATUS_BADGES,
+  REFUND_STATUS_BADGES,
+} from "@/lib/online-returns";
+import { OnlineReturnModal } from "@/components/site/OnlineReturnModal";
+import { OnlineReturnDetailsModal } from "@/components/site/OnlineReturnDetailsModal";
+import { OpenBoxActionModal } from "@/components/site/OpenBoxActionModal";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { ReviewModal } from "@/components/site/ReviewModal";
-import { Star } from "lucide-react";
+import { Star, RotateCcw, PackageCheck, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { OrdersSkeleton } from "@/components/ui/Skeletons";
 
@@ -41,21 +56,41 @@ const statusColors: Record<string, string> = {
   pending: "bg-secondary text-secondary-foreground",
   processing: "bg-blue-100 text-blue-800 border border-blue-200",
   shipped: "bg-blue-100 text-blue-800 border border-blue-200",
-  out_for_delivery: "bg-blue-100 text-blue-800 border border-blue-200",
+  out_for_delivery: "bg-indigo-100 text-indigo-800 border border-indigo-200",
+  open_box_inspection: "bg-amber-100 text-amber-800 border border-amber-200",
+  open_box_accepted: "bg-emerald-100 text-emerald-800 border border-emerald-200",
+  open_box_rejected: "bg-rose-100 text-rose-800 border border-rose-200",
   delivered: "bg-emerald-100 text-emerald-800 border border-emerald-200",
   cancelled: "bg-destructive/15 text-destructive border border-destructive/20",
+  returned: "bg-purple-100 text-purple-800 border border-purple-200",
+  return_in_transit: "bg-sky-100 text-sky-800 border border-sky-200",
+  return_received: "bg-teal-100 text-teal-800 border border-teal-200",
+  refund_processing: "bg-blue-100 text-blue-800 border border-blue-200",
 };
 
 function OrdersPage() {
   const { user } = useSession();
   const { data: orders, isLoading } = useMyOrders(user?.id);
+  const { data: returns } = useMyReturns(user?.id);
   const { data: products } = useProducts();
   const { data: isAdmin } = useIsAdmin(user?.id);
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [returningOrder, setReturningOrder] = useState<Order | null>(null);
+  const [viewingReturn, setViewingReturn] = useState<OnlineReturn | null>(null);
+  const [openBoxOrder, setOpenBoxOrder] = useState<Order | null>(null);
   const [reviewingProduct, setReviewingProduct] = useState<{
     product: { id: string; uuid: string; name: string; image?: string; brand?: string };
     orderId: string;
   } | null>(null);
+
+  const returnsByOrderId = useMemo(() => {
+    const map: Record<string, OnlineReturn[]> = {};
+    for (const ret of returns || []) {
+      if (!map[ret.order_id]) map[ret.order_id] = [];
+      map[ret.order_id].push(ret);
+    }
+    return map;
+  }, [returns]);
 
   if (isLoading) {
     return <OrdersSkeleton />;
@@ -155,6 +190,88 @@ function OrdersPage() {
                 </div>
               )}
 
+              {/* Online Returns Associated with this Order */}
+              {(returnsByOrderId[order.id] ?? []).map((ret) => {
+                const rBadge = RETURN_STATUS_BADGES[ret.return_status] || {
+                  label: ret.return_status,
+                  bg: "bg-muted",
+                  text: "text-muted-foreground",
+                  border: "border-border",
+                };
+                const rfBadge = REFUND_STATUS_BADGES[ret.refund_status] || {
+                  label: ret.refund_status,
+                  bg: "bg-muted",
+                  text: "text-muted-foreground",
+                  border: "border-border",
+                };
+
+                return (
+                  <div
+                    key={ret.id}
+                    className="mt-3 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-amber-200 bg-amber-50/40 p-3.5 text-xs animate-in fade-in"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-7 items-center justify-center rounded-full bg-amber-200/60 text-amber-900 shrink-0">
+                        <RotateCcw className="size-3.5" />
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-foreground">Return #{ret.return_number}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${rBadge.bg} ${rBadge.text} ${rBadge.border}`}
+                          >
+                            {rBadge.label}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${rfBadge.bg} ${rfBadge.text} ${rfBadge.border}`}
+                          >
+                            {rfBadge.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {ret.reason_label} · Refund:{" "}
+                          <strong className="text-foreground">{formatPrice(Number(ret.final_refund_amount))}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewingReturn(ret)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs ml-auto sm:ml-0"
+                    >
+                      <Eye className="size-3.5 text-muted-foreground" />
+                      <span>View Return</span>
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Open Box Delivery Verification Card */}
+              {isOpenBoxEligible(order) && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/40 p-3.5 text-xs text-indigo-950 animate-in fade-in">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-indigo-200/60 text-indigo-900 shrink-0">
+                      <PackageCheck className="size-4" />
+                    </span>
+                    <div>
+                      <p className="font-bold">Open Box Delivery Active</p>
+                      <p className="text-[11px] text-indigo-800/80">
+                        You may open and inspect your package contents with the delivery agent before confirming.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setOpenBoxOrder(order)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition cursor-pointer ml-auto sm:ml-0"
+                  >
+                    <span>Inspect &amp; Verify</span>
+                  </button>
+                </div>
+              )}
+
               <ul className="mt-4 space-y-3">
                 {order.order_items.map((item) => {
                   const product = products?.find((p) => p.id === item.product_slug);
@@ -228,7 +345,21 @@ function OrdersPage() {
               </ul>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-                <InvoiceBox order={order} />
+                <div className="flex items-center gap-2">
+                  <InvoiceBox order={order} />
+
+                  {isOrderReturnable(order) && (
+                    <button
+                      type="button"
+                      onClick={() => setReturningOrder(order)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#8B2020]/30 bg-red-50/40 px-3.5 py-1.5 text-xs font-bold text-[#8B2020] transition hover:bg-[#8B2020] hover:text-white cursor-pointer shadow-2xs"
+                    >
+                      <RotateCcw className="size-3.5" />
+                      <span>Return Items</span>
+                    </button>
+                  )}
+                </div>
+
                 <p className="ml-auto text-sm font-bold">
                   Total {formatPrice(Number(order.total))}
                 </p>
@@ -237,6 +368,30 @@ function OrdersPage() {
           );
         })}
       </ul>
+
+      {/* Online Return Request Modal */}
+      {returningOrder && (
+        <OnlineReturnModal
+          order={returningOrder}
+          onClose={() => setReturningOrder(null)}
+        />
+      )}
+
+      {/* Online Return Details & Timeline Modal */}
+      {viewingReturn && (
+        <OnlineReturnDetailsModal
+          onlineReturn={viewingReturn}
+          onClose={() => setViewingReturn(null)}
+        />
+      )}
+
+      {/* Open Box Delivery Modal */}
+      {openBoxOrder && (
+        <OpenBoxActionModal
+          order={openBoxOrder}
+          onClose={() => setOpenBoxOrder(null)}
+        />
+      )}
 
       {/* Cancellation Confirmation Dialog */}
       {cancellingOrder && (

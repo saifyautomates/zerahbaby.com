@@ -113,6 +113,10 @@ const QueriesTab = safeLazy(() =>
 );
 import { DashboardTab } from "@/components/admin/DashboardTab";
 import { OnlineSalesTab } from "@/components/admin/OnlineSalesTab";
+const OnlineReturnsTab = safeLazy(() =>
+  import("@/components/admin/OnlineReturnsTab").then((m) => ({ default: m.OnlineReturnsTab })),
+);
+import { useAllOnlineReturns } from "@/lib/online-returns";
 const AdminGlobalSearch = safeLazy(() =>
   import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
 );
@@ -156,6 +160,7 @@ type Tab =
   | "hero"
   | "media"
   | "orders"
+  | "returns"
   | "customers"
   | "categories"
   | "settings"
@@ -174,6 +179,7 @@ const VALID_TABS: Tab[] = [
   "hero",
   "media",
   "orders",
+  "returns",
   "customers",
   "categories",
   "settings",
@@ -420,6 +426,13 @@ function AdminPage() {
     staleTime: 15_000,
   });
 
+  const { data: adminOnlineReturns = [] } = useAllOnlineReturns(isAdmin ?? false);
+  const pendingReturnsCount = useMemo(() => {
+    return adminOnlineReturns.filter(
+      (r) => r.return_status === "REQUESTED" || r.return_status === "QC_PENDING"
+    ).length;
+  }, [adminOnlineReturns]);
+
   if (sessionLoading || (user && isAdmin === undefined && (roleLoading || rolePending))) {
     return (
       <div className="flex h-screen bg-background overflow-hidden animate-pulse">
@@ -488,6 +501,12 @@ function AdminPage() {
       label: "Online Orders",
       icon: ShoppingBag,
       badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
+    },
+    {
+      key: "returns",
+      label: "Online Returns",
+      icon: RotateCcw,
+      badge: pendingReturnsCount > 0 ? pendingReturnsCount.toString() : undefined,
     },
     { key: "products", label: "Products", icon: Package },
     { key: "categories", label: "Categories", icon: Layers },
@@ -959,6 +978,7 @@ function AdminPage() {
                 {tab === "hero" && <HeroMediaManager />}
                 {tab === "media" && <MediaLibrary />}
                 {tab === "orders" && <OnlineSalesTab />}
+                {tab === "returns" && <OnlineReturnsTab />}
                 {tab === "customers" && <CustomersTab />}
                 {tab === "categories" && <CategoriesTab />}
                 {tab === "marketing" && <MarketingTab />}

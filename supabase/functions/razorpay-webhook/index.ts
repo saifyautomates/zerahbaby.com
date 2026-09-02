@@ -138,6 +138,36 @@ serve(async (req) => {
           .eq("razorpay_order_id", rzpOrderId)
           .neq("payment_status", "paid");
       }
+    } else if (payload.event === "refund.processed" || payload.event === "refund.created") {
+      const refundEntity = payload.payload?.refund?.entity;
+      const refundId = refundEntity?.id;
+      const status = refundEntity?.status;
+
+      if (refundId) {
+        await supabaseClient
+          .from("online_returns")
+          .update({
+            razorpay_refund_id: refundId,
+            razorpay_refund_status: status || "PROCESSED",
+            refund_status: "PROCESSED",
+            return_status: "COMPLETED",
+            refund_completed_at: new Date().toISOString(),
+          })
+          .eq("razorpay_refund_id", refundId);
+      }
+    } else if (payload.event === "refund.failed") {
+      const refundEntity = payload.payload?.refund?.entity;
+      const refundId = refundEntity?.id;
+
+      if (refundId) {
+        await supabaseClient
+          .from("online_returns")
+          .update({
+            razorpay_refund_status: "FAILED",
+            refund_status: "FAILED",
+          })
+          .eq("razorpay_refund_id", refundId);
+      }
     }
 
     // 5. Mark webhook event as processed

@@ -57,6 +57,10 @@ export type Order = {
   awb_code?: string | null;
   courier_name?: string | null;
   shiprocket_status?: string | null;
+  open_box_eligible?: boolean | null;
+  open_box_status?: string | null;
+  open_box_inspected_at?: string | null;
+  open_box_notes?: string | null;
 };
 
 export const orderStatuses = [
@@ -67,7 +71,13 @@ export const orderStatuses = [
   "packed",
   "shipped",
   "out_for_delivery",
+  "open_box_inspection",
+  "open_box_accepted",
+  "open_box_rejected",
   "delivered",
+  "return_in_transit",
+  "return_received",
+  "refund_processing",
   "cancelled",
   "returned",
 ];
@@ -83,6 +93,26 @@ export const CANCELLABLE_ORDER_STATUSES = [
 export function isOrderCancellable(status: string | undefined): boolean {
   if (!status) return false;
   return (CANCELLABLE_ORDER_STATUSES as readonly string[]).includes(status.toLowerCase());
+}
+
+export function isOrderReturnable(order: Order | undefined | null, windowDays = 7): boolean {
+  if (!order) return false;
+  const status = (order.status || "").toLowerCase();
+  if (status !== "delivered" && status !== "open_box_accepted") return false;
+
+  const orderDate = new Date(order.created_at);
+  const now = new Date();
+  const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays <= windowDays;
+}
+
+export function isOpenBoxEligible(order: Order | undefined | null): boolean {
+  if (!order) return false;
+  const status = (order.status || "").toLowerCase();
+  return (
+    order.open_box_eligible === true &&
+    (status === "out_for_delivery" || status === "open_box_inspection" || order.open_box_status === "INSPECTION_PENDING")
+  );
 }
 
 export type Profile = {

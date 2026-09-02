@@ -45,10 +45,10 @@ serve(async (req) => {
 
     // 2. Parse request payload
     const body = await req.json().catch(() => ({}));
-    const { action, orderId } = body;
+    const { action, orderId, returnId } = body;
 
-    if (!action || !orderId) {
-      throw new Error("Missing action or orderId");
+    if (!action || (!orderId && !returnId)) {
+      throw new Error("Missing action, orderId, or returnId");
     }
 
     // --- Helper: Get Shiprocket Token ---
@@ -106,6 +106,118 @@ serve(async (req) => {
     };
 
     // --- Process Actions ---
+
+    if (action === "create_return_shipment") {
+      const targetReturnId = returnId || body.return_id;
+      if (!targetReturnId) throw new Error("Missing returnId for reverse shipment");
+
+      const { data: ret, error: retErr } = await adminClient
+        .from("online_returns")
+        .select("*, orders(*), online_return_items(*)")
+        .eq("id", targetReturnId)
+        .single();
+
+      if (retErr || !ret) throw new Error("Online return record not found");
+
+      if (ret.shiprocket_return_order_id) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Reverse pickup already created",
+            shiprocket_return_order_id: ret.shiprocket_return_order_id,
+            shiprocket_return_awb: ret.shiprocket_return_awb,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+
+      const retOrder = ret.orders;
+      const firstName = (retOrder?.full_name || "Customer").split(" ")[0];
+      const lastName = (retOrder?.full_name || "Customer").split(" ").slice(1).join(" ") || firstName;
+
+      const orderItems = (ret.online_return_items || []).map((i: any) => ({
+        name: i.product_name_snapshot || "Product",
+        sku: i.sku_snapshot || "SKU-RETURN",
+        units: i.quantity_requested || 1,
+        selling_price: i.historical_unit_price || 0,
+        discount: 0,
+        tax: 0,
+        hsn: "",
+      }));
+
+      const returnPayload = {
+        order_id: String(ret.return_number).substring(0, 20),
+        order_date: new Date(ret.created_at).toISOString().split("T")[0],
+        channel_id: "",
+        pickup_customer_name: firstName,
+        pickup_last_name: lastName,
+        pickup_address: retOrder.address,
+        pickup_address_2: retOrder.address_line2 || "",
+        pickup_city: retOrder.city,
+        pickup_state: retOrder.state,
+        pickup_country: "India",
+        pickup_pincode: retOrder.pincode,
+        pickup_email: retOrder.email || "hello@zerahkids.com",
+        pickup_phone: retOrder.phone,
+        shipping_customer_name: "Zerah Baby & Kids Store",
+        shipping_last_name: "Returns Department",
+        shipping_address: "80 Feet Link Rd, near Bajot Restaurant",
+        shipping_address_2: "Bajot Restaurant Circle",
+        shipping_city: "Kota",
+        shipping_state: "Rajasthan",
+        shipping_country: "India",
+        shipping_pincode: "324001",
+        shipping_email: "hello@zerahkids.com",
+        shipping_phone: "919000000000",
+        order_items: orderItems,
+        payment_method: "Prepaid",
+        sub_total: ret.final_refund_amount || 100,
+        length: 10,
+        breadth: 10,
+        height: 10,
+        weight: 0.5,
+      };
+
+      const res = await fetch(`${srBaseUrl}/v1/external/orders/create/return`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(returnPayload),
+      });
+
+      const srData = await res.json();
+      if (!res.ok || srData.status_code !== 1) {
+        console.error("Shiprocket Create Return Error:", srData);
+        // Fallback: If return API is not enabled on account, return informative response
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: srData.message || "Shiprocket reverse pickup creation failed",
+            details: srData,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
+      await adminClient
+        .from("online_returns")
+        .update({
+          shiprocket_return_order_id: srData.order_id,
+          shiprocket_return_shipment_id: srData.shipment_id,
+          shiprocket_return_status: "PICKUP_SCHEDULED",
+          return_status: "PICKUP_SCHEDULED",
+          pickup_scheduled_at: new Date().toISOString(),
+        })
+        .eq("id", targetReturnId);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          shiprocket_return_order_id: srData.order_id,
+          shiprocket_return_shipment_id: srData.shipment_id,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
 
     // Fetch authoritative order details
     const { data: order, error: orderError } = await adminClient
