@@ -1081,93 +1081,48 @@ export function ProductForm({
                 </label>
               </div>
 
-              {/* Delivery Fee Section — Only applicable for Online Store products */}
+              {/* Delivery Fee Section (Compact & Clean) */}
               {draft.salesChannel !== "OFFLINE_ONLY" && (
-                <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Truck className="size-4 text-primary" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Delivery / Shipping Price
-                      </span>
+                <div className="mb-6 rounded-xl border border-border/80 bg-background/80 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Truck className="size-4 text-primary" />
+                    <div>
+                      <span className="text-xs font-bold text-foreground">Delivery / Shipping Fee</span>
+                      <span className="text-[11px] text-muted-foreground block">Customer delivery charge</span>
                     </div>
-                    <span className="text-xs font-semibold text-primary">
-                      {draft.deliveryFee === 0
-                        ? "🎉 Free Delivery Active"
-                        : `₹${draft.deliveryFee} Shipping Charge`}
-                    </span>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Shipping Price (₹)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          className={`${input} pl-7 font-bold text-foreground`}
-                          placeholder="0 (Free Delivery)"
-                          value={draft.deliveryFee === 0 ? "" : draft.deliveryFee}
-                          onChange={(e) =>
-                            set(
-                              "deliveryFee",
-                              e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Quick Presets
-                      </label>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 0)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 0
-                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Free (₹0)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 79)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 79
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Standard (₹79)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 149)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 149
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Express (₹149)
-                        </button>
-                      </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { label: "Free (₹0)", value: 0 },
+                      { label: "Standard (₹79)", value: 79 },
+                      { label: "Express (₹149)", value: 149 },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => set("deliveryFee", opt.value)}
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                          draft.deliveryFee === opt.value
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    <div className="relative w-24">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Custom"
+                        className="h-8 w-full rounded-lg border border-border bg-background pl-6 pr-2 text-xs font-bold outline-none focus:border-primary"
+                        value={draft.deliveryFee === 0 || draft.deliveryFee === 79 || draft.deliveryFee === 149 ? "" : draft.deliveryFee}
+                        onChange={(e) => set("deliveryFee", e.target.value === "" ? 79 : Math.max(0, Number(e.target.value)))}
+                      />
                     </div>
                   </div>
-                  <p className="mt-2.5 text-[11px] text-muted-foreground">
-                    💡 Naye product par default <b>₹79</b> rehta hai. Aap ise <b>Free (₹0)</b> ya
-                    apni marzi ka koi bhi amount set kar sakte hain.
-                  </p>
                 </div>
               )}
 
@@ -1525,32 +1480,36 @@ export function ProductForm({
                 })}
               </div>
             </div>
-            <label className="text-sm font-semibold sm:col-span-2">
-              Description
-              <textarea
-                rows={3}
-                placeholder="Product material, care instructions, and details..."
-                className={input}
-                value={draft.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            </label>
-            <label className="text-sm font-semibold sm:col-span-2">
-              Highlights (one per line)
-              <textarea
-                rows={3}
-                placeholder="100% Organic Cotton&#10;Breathable & Super Soft&#10;Easy Button Closure"
-                className={input}
-                value={draft.highlights}
-                onChange={(e) => set("highlights", e.target.value)}
-              />
-            </label>
+            {/* Description & Key Highlights (2-Column Grid) */}
+            <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold">
+                Description (Optional)
+                <textarea
+                  rows={3}
+                  placeholder="Material, fabric softness, care routine, or outfit details..."
+                  className={`${input} mt-1.5`}
+                  value={draft.description}
+                  onChange={(e) => set("description", e.target.value)}
+                />
+              </label>
+
+              <label className="text-sm font-semibold">
+                Key Highlights (Optional · 1 per line)
+                <textarea
+                  rows={3}
+                  placeholder="100% Organic Breathable Cotton&#10;Gentle on Sensitive Baby Skin&#10;Easy Snap Button Closure"
+                  className={`${input} mt-1.5`}
+                  value={draft.highlights}
+                  onChange={(e) => set("highlights", e.target.value)}
+                />
+              </label>
+            </div>
 
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-purple-50/30">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <Store className="size-4 text-muted-foreground" />
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Sales Channel
+                  Sales Channel & Visibility
                 </span>
               </div>
               <label className="block text-sm font-semibold">
@@ -1571,39 +1530,70 @@ export function ProductForm({
                   <option value="OFFLINE_ONLY">Only Offline POS (Hidden from Website)</option>
                 </select>
                 <div className="text-[11px] font-normal text-muted-foreground mt-1.5">
-                  Offline-only products will not be visible on the website and cannot be purchased
-                  online.
+                  Offline-only products will not be visible on the website and cannot be purchased online.
                 </div>
               </label>
             </div>
 
+            {/* 1-Click Visual Toggles for Featured & Store Visibility */}
             {draft.salesChannel !== "OFFLINE_ONLY" && (
-              <>
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={draft.isFeatured}
-                    onChange={(e) => set("isFeatured", e.target.checked)}
-                    className="size-4 accent-[var(--primary)]"
-                  />
-                  Featured{" "}
-                  <span className="text-muted-foreground font-normal ml-1">
-                    (Website ke homepage par special section me dikhega)
+              <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => set("isFeatured", !draft.isFeatured)}
+                  className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer text-left ${
+                    draft.isFeatured
+                      ? "border-amber-500/50 bg-amber-50/50 shadow-2xs"
+                      : "border-border bg-card hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">⭐</span>
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Featured Product</span>
+                      <span className="text-[11px] text-muted-foreground">Homepage hero & top picks section</span>
+                    </div>
+                  </div>
+                  <span
+                    className={`size-5 rounded-md flex items-center justify-center border transition ${
+                      draft.isFeatured
+                        ? "bg-amber-500 border-amber-500 text-white"
+                        : "border-muted-foreground/30 bg-background"
+                    }`}
+                  >
+                    {draft.isFeatured && <Check className="size-3.5 stroke-[3]" />}
                   </span>
-                </label>
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={draft.isActive}
-                    onChange={(e) => set("isActive", e.target.checked)}
-                    className="size-4 accent-[var(--primary)]"
-                  />
-                  Visible in store{" "}
-                  <span className="text-muted-foreground font-normal ml-1">
-                    (Customer ko website par dikhega aur wo khareed payenge)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => set("isActive", !draft.isActive)}
+                  className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer text-left ${
+                    draft.isActive
+                      ? "border-emerald-500/50 bg-emerald-50/50 shadow-2xs"
+                      : "border-border bg-card hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{draft.isActive ? "👁️" : "🙈"}</span>
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Visible in Store</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {draft.isActive ? "Live in online store for customers" : "Draft / Hidden from store"}
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`size-5 rounded-md flex items-center justify-center border transition ${
+                      draft.isActive
+                        ? "bg-emerald-600 border-emerald-600 text-white"
+                        : "border-muted-foreground/30 bg-background"
+                    }`}
+                  >
+                    {draft.isActive && <Check className="size-3.5 stroke-[3]" />}
                   </span>
-                </label>
-              </>
+                </button>
+              </div>
             )}
 
             {/* COLLAPSIBLE ADVANCED & AUTO-GENERATED SETTINGS */}
