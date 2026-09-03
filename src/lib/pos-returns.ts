@@ -471,9 +471,9 @@ export function useProcessOfflineReturn() {
         _refund_status: input.refund_status,
         _return_reason: input.return_reason,
         _notes: input.notes,
+        _original_sale_id: input.original_sale_id || null,
         _items: input.items,
         _idempotency_key: input.idempotency_key,
-        _original_sale_id: input.original_sale_id || null,
       });
 
       if (error) {
