@@ -13,10 +13,11 @@ function getAudioContext(): AudioContext | null {
       audioCtx = new AudioContextClass();
     }
     if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
+      audioCtx.resume().catch(console.error);
     }
     return audioCtx;
-  } catch {
+  } catch (err) {
+    console.error("AudioContext initialization failed:", err);
     return null;
   }
 }

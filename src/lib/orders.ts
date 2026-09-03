@@ -337,7 +337,7 @@ export function useCancelCustomerOrder() {
             notify_owner: false,
           },
         })
-        .catch(() => {});
+        .catch(console.error);
 
       return data;
     },

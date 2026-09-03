@@ -26,7 +26,7 @@ import { productsQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/cart")({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(productsQueryOptions(false)).catch(() => null);
+    await context.queryClient.ensureQueryData(productsQueryOptions(false)).catch(console.error);
   },
   head: () => ({
     meta: [

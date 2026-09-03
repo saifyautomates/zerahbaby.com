@@ -352,9 +352,9 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       // Synchronize offline IndexedDB catalog with current active products
       import("@/lib/offline-sync-engine")
         .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(console.error);
         })
-        .catch(() => null);
+        .catch(console.error);
 
       return mapped;
     }
@@ -367,8 +367,8 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       if (cached && cached.length > 0) {
         return (cached as unknown as ProductRow[]).map(mapProduct);
       }
-    } catch {
-      // ignore
+    } catch (offlineErr) {
+      console.warn("[fetchProducts] Failed to read from offline cache fallback", offlineErr);
     }
   }
 

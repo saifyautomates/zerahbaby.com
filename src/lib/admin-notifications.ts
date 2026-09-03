@@ -48,13 +48,13 @@ export function useAdminNotifications() {
     queryKey: ["admin-database-notifications"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .select(
           "id, event_key, type, title, message, tab, filter, priority, is_read, is_dismissed, created_at",
         )
-        .eq("is_dismissed" as never, false as never)
-        .order("is_read" as never, { ascending: true })
-        .order("created_at" as never, { ascending: false })
+        .eq("is_dismissed", false)
+        .order("is_read", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(60);
 
       if (error) {
@@ -88,12 +88,12 @@ export function useAdminNotifications() {
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .update({
           is_read: true,
           read_at: new Date().toISOString(),
-        } as never)
-        .eq("id" as never, id as never);
+        })
+        .eq("id", id);
 
       if (error) throw error;
       return id;
@@ -123,12 +123,12 @@ export function useAdminNotifications() {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .update({
           is_read: true,
           read_at: new Date().toISOString(),
-        } as never)
-        .eq("is_read" as never, false as never);
+        })
+        .eq("is_read", false);
 
       if (error) throw error;
     },
@@ -157,12 +157,12 @@ export function useAdminNotifications() {
   const dismissMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .update({
           is_dismissed: true,
           dismissed_at: new Date().toISOString(),
-        } as never)
-        .eq("id" as never, id as never);
+        })
+        .eq("id", id);
 
       if (error) throw error;
       return id;
@@ -192,12 +192,12 @@ export function useAdminNotifications() {
   const clearAllMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .update({
           is_dismissed: true,
           dismissed_at: new Date().toISOString(),
-        } as never)
-        .eq("is_dismissed" as never, false as never);
+        })
+        .eq("is_dismissed", false);
 
       if (error) throw error;
     },
@@ -221,9 +221,9 @@ export function useAdminNotifications() {
   const hardDeleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("admin_notifications" as never)
+        .from("admin_notifications")
         .delete()
-        .eq("id" as never, id as never);
+        .eq("id", id);
 
       if (error) throw error;
       return id;

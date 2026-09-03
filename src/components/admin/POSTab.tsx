@@ -438,9 +438,9 @@ export function POSTab() {
       const mapped = (data as never[]).map((r) => mapProduct(r as never));
       import("@/lib/offline-sync-engine")
         .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(() => null);
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(console.error);
         })
-        .catch(() => null);
+        .catch(console.error);
       return mapped;
     },
   });

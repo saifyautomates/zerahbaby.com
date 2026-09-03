@@ -173,9 +173,9 @@ function ContactPage() {
               message: cleanMessage,
             },
           })
-          .catch(() => {});
-      } catch {
-        // Non-blocking
+          .catch(console.error);
+      } catch (err) {
+        console.error(err);
       }
 
       setSubmittedQuery({

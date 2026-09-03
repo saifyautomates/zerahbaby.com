@@ -242,10 +242,10 @@ export function BulkImportTab({ onBack }: BulkImportTabProps) {
       import("@/lib/offline-sync-engine")
         .then((m) => {
           if (typeof m.cacheFullCatalog === "function") {
-            m.cacheFullCatalog([]).catch(() => null);
+            m.cacheFullCatalog([]).catch(console.error);
           }
         })
-        .catch(() => null);
+        .catch(console.error);
 
       setStep(3);
       if (res.failed.length === 0) {
