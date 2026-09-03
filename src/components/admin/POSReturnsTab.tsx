@@ -56,6 +56,8 @@ import { playScanSuccess, playScanError } from "@/lib/audio";
 import { useGlobalBarcodeScanner, clearPendingScans } from "@/lib/barcode-scanner";
 import { generateIdempotencyKey } from "@/lib/pos";
 import { useTableSelection, getReturnsSelectionMetrics } from "@/lib/table-selection";
+import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   type ReturnCartItem,
   type OfflineReturn,
@@ -65,6 +67,7 @@ import {
   RETURN_REASONS,
   lookupProductForReturn,
   useProcessOfflineReturn,
+  useDeleteOfflineReturns,
   useOfflineReturnsList,
   useOfflineSalesForReturnsLookup,
   parseReturnScanCode,
@@ -131,6 +134,8 @@ export function POSReturnsTab() {
     useOfflineSalesForReturnsLookup();
   const { data: returnsList = [], isLoading: isHistoryLoading } = useOfflineReturnsList();
   const processReturnMutation = useProcessOfflineReturn();
+  const deleteReturnsMutation = useDeleteOfflineReturns();
+  const [deleteTarget, setDeleteTarget] = useState<string[] | null>(null);
 
   // Clear any residual scans when entering Returns tab so POS Terminal is clean
   useEffect(() => {
@@ -1528,16 +1533,60 @@ export function POSReturnsTab() {
                 className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs text-foreground outline-none focus:border-primary"
               />
             </div>
-            <span className="text-xs text-muted-foreground font-bold">
-              Total Returns: {returnsList.length}
-            </span>
+            <div className="flex items-center gap-3">
+              {historySelection.selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(Array.from(historySelection.selectedIds))}
+                  className="px-3 py-1.5 rounded-xl bg-destructive text-destructive-foreground font-bold text-xs hover:bg-destructive/90 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete Selected ({historySelection.selectedCount})</span>
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground font-bold">
+                Total Returns: {returnsList.length}
+              </span>
+            </div>
           </div>
+
+          {/* Smart Selection Summary Bar */}
+          {historySelection.selectedCount > 0 && (
+            <SmartSelectionSummary
+              selectedCount={historySelection.selectedCount}
+              selectedLabel="Selected Returns"
+              metrics={historyMetrics}
+              onClear={historySelection.clearSelection}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(Array.from(historySelection.selectedIds))}
+                  className="px-3 py-1 rounded-xl bg-destructive text-destructive-foreground font-bold text-xs hover:bg-destructive/90 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete ({historySelection.selectedCount})</span>
+                </button>
+              }
+            />
+          )}
 
           <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border text-muted-foreground font-bold">
                   <tr>
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredHistory.length > 0 && historySelection.isAllVisibleSelected(filteredHistory)}
+                        ref={(el) => {
+                          if (el) el.indeterminate = historySelection.isIndeterminate(filteredHistory);
+                        }}
+                        onChange={() => historySelection.toggleAllVisible(filteredHistory)}
+                        className="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
+                        title="Select All Returns"
+                      />
+                    </th>
                     <th className="p-3 whitespace-nowrap">Return ID</th>
                     <th className="p-3 whitespace-nowrap">Original Sale</th>
                     <th className="p-3 whitespace-nowrap">Customer</th>
@@ -1555,13 +1604,13 @@ export function POSReturnsTab() {
                 <tbody className="divide-y divide-border/60">
                   {isHistoryLoading ? (
                     <tr>
-                      <td colSpan={12} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={13} className="p-6 text-center text-muted-foreground">
                         Loading return records...
                       </td>
                     </tr>
                   ) : filteredHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={13} className="p-6 text-center text-muted-foreground">
                         No return records found.
                       </td>
                     </tr>
@@ -1576,9 +1625,23 @@ export function POSReturnsTab() {
                       );
                       const isFullyRedeemed = used >= issued && issued > 0;
                       const isPartiallyUsed = used > 0 && !isFullyRedeemed;
+                      const isRowSelected = historySelection.isSelected(ret.id);
 
                       return (
-                        <tr key={ret.id} className="hover:bg-muted/20">
+                        <tr
+                          key={ret.id}
+                          className={`hover:bg-muted/20 transition-colors ${
+                            isRowSelected ? "bg-primary/5 dark:bg-primary/10" : ""
+                          }`}
+                        >
+                          <td className="p-3 w-10 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={() => historySelection.toggle(ret.id)}
+                              className="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
+                            />
+                          </td>
                           <td className="p-3 font-mono font-bold text-primary whitespace-nowrap">
                             {ret.return_number}
                           </td>
@@ -1677,43 +1740,54 @@ export function POSReturnsTab() {
                             })}
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const receiptData: ReturnReceiptData = {
-                                  return_number: ret.return_number,
-                                  credit_token: ret.credit_token || "",
-                                  customer_name: ret.customer_name,
-                                  customer_phone: ret.customer_phone,
-                                  items: (ret.offline_return_items || []).map((i) => ({
-                                    name: i.name,
-                                    sku: i.sku,
-                                    barcode: i.barcode,
-                                    variant_info: i.variant_info,
-                                    qty: i.qty,
-                                    refund_price: i.refund_price,
-                                    subtotal: i.subtotal || i.refund_price * i.qty,
-                                  })),
-                                  refund_amount: ret.refund_amount,
-                                  credit_used: ret.credit_used ?? 0,
-                                  credit_balance:
-                                    ret.credit_balance ??
-                                    Math.max(0, ret.refund_amount - (ret.credit_used ?? 0)),
-                                  original_sale_number: ret.original_sale_number,
-                                  original_sale_id: ret.original_sale_id,
-                                  linked_sale_id: ret.linked_sale_id,
-                                  refund_method: "exchange_credit",
-                                  return_reason: ret.return_reason,
-                                  notes: ret.notes,
-                                  created_at: ret.created_at,
-                                };
-                                setActiveReceipt(receiptData);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
-                            >
-                              <Printer className="size-3" />
-                              <span>Voucher</span>
-                            </button>
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const receiptData: ReturnReceiptData = {
+                                    return_number: ret.return_number,
+                                    credit_token: ret.credit_token || "",
+                                    customer_name: ret.customer_name,
+                                    customer_phone: ret.customer_phone,
+                                    items: (ret.offline_return_items || []).map((i) => ({
+                                      name: i.name,
+                                      sku: i.sku,
+                                      barcode: i.barcode,
+                                      variant_info: i.variant_info,
+                                      qty: i.qty,
+                                      refund_price: i.refund_price,
+                                      subtotal: i.subtotal || i.refund_price * i.qty,
+                                    })),
+                                    refund_amount: ret.refund_amount,
+                                    credit_used: ret.credit_used ?? 0,
+                                    credit_balance:
+                                      ret.credit_balance ??
+                                      Math.max(0, ret.refund_amount - (ret.credit_used ?? 0)),
+                                    original_sale_number: ret.original_sale_number,
+                                    original_sale_id: ret.original_sale_id,
+                                    linked_sale_id: ret.linked_sale_id,
+                                    refund_method: "exchange_credit",
+                                    return_reason: ret.return_reason,
+                                    notes: ret.notes,
+                                    created_at: ret.created_at,
+                                  };
+                                  setActiveReceipt(receiptData);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
+                              >
+                                <Printer className="size-3" />
+                                <span>Voucher</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget([ret.id])}
+                                className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition cursor-pointer"
+                                title="Delete Return Record"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1724,6 +1798,35 @@ export function POSReturnsTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── DELETE RETURN CONFIRMATION DIALOG ── */}
+      {deleteTarget && (
+        <ConfirmDialog
+          title={
+            deleteTarget.length === 1
+              ? "Delete Return Record?"
+              : `Delete ${deleteTarget.length} Return Records?`
+          }
+          message="Are you sure you want to permanently delete these offline return records? Associated voucher tokens will be removed from circulation."
+          confirmLabel={deleteReturnsMutation.isPending ? "Deleting..." : "Yes, Delete"}
+          cancelLabel="Cancel"
+          destructive
+          busy={deleteReturnsMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await deleteReturnsMutation.mutateAsync({
+                returnIds: deleteTarget,
+                revertStock: false,
+              });
+              setDeleteTarget(null);
+              historySelection.clearSelection();
+            } catch {
+              // Handled by onError in hook
+            }
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
 
       {/* ── CONFIRMATION MODAL ── */}

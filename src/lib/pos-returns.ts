@@ -5,6 +5,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -646,6 +647,59 @@ export function useOfflineReturnsList() {
 
       if (error) throw error;
       return (data ?? []) as unknown as OfflineReturn[];
+    },
+  });
+}
+
+export function useDeleteOfflineReturns() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      returnIds,
+      revertStock = false,
+    }: {
+      returnIds: string[];
+      revertStock?: boolean;
+    }) => {
+      const validUuids = returnIds.filter((id) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
+      );
+
+      if (validUuids.length === 0) {
+        throw new Error("No valid return IDs provided");
+      }
+
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{
+          data: { success?: boolean; message?: string; deleted_count?: number } | null;
+          error: { message: string } | null;
+        }>
+      )("admin_hard_delete_offline_returns", {
+        _return_ids: validUuids,
+        _revert_stock: revertStock,
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to delete return records");
+      }
+
+      return data;
+    },
+    onSuccess: (res) => {
+      toast.success(res?.message || "Return record(s) deleted successfully.");
+      qc.invalidateQueries({ queryKey: ["offline-returns"] });
+      qc.invalidateQueries({ queryKey: ["pos-returns"] });
+      qc.invalidateQueries({ queryKey: ["admin-canonical-pos-sales"] });
+      qc.invalidateQueries({ queryKey: ["admin-database-notifications"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete return records");
     },
   });
 }
