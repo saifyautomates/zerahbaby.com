@@ -1083,6 +1083,48 @@ export function ProductForm({
                 <option value="All Ages" />
               </datalist>
             </label>
+
+            {/* Label & Barcode Preview directly above Pricing */}
+            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="size-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Label Preview
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Zérah Baby & Kids
+                </p>
+                <p className="text-xs font-semibold mt-1 text-center">
+                  {draft.name || "Product Name"}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
+                  {draft.mrp > draft.price && (
+                    <span className="text-[10px] text-muted-foreground line-through">
+                      {formatPrice(draft.mrp)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 scale-90">
+                  <Barcode
+                    value={draft.barcode || draft.sku || previewBarcode}
+                    format="CODE128"
+                    width={1.2}
+                    height={40}
+                    fontSize={10}
+                    margin={0}
+                    displayValue={true}
+                    background="transparent"
+                  />
+                </div>
+                <p className="mt-1 text-[9px] text-muted-foreground">
+                  SKU: {draft.sku || previewSKU}
+                </p>
+              </div>
+            </div>
+
             {/* PRICING & PROFIT SECTION */}
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
               <div className="flex items-center gap-2 mb-4">
@@ -1270,46 +1312,7 @@ export function ProductForm({
               </div>
             </div>
 
-            {/* Barcode & Label Preview Section right by pricing */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Tag className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Label & Barcode Preview
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Zérah Baby & Kids
-                </p>
-                <p className="text-xs font-semibold mt-1 text-center">
-                  {draft.name || "Product Name"}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
-                  {draft.mrp > draft.price && (
-                    <span className="text-[10px] text-muted-foreground line-through">
-                      {formatPrice(draft.mrp)}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 scale-90">
-                  <Barcode
-                    value={draft.barcode || draft.sku || previewBarcode}
-                    format="CODE128"
-                    width={1.2}
-                    height={40}
-                    fontSize={10}
-                    margin={0}
-                    displayValue={true}
-                    background="transparent"
-                  />
-                </div>
-                <p className="mt-1 text-[9px] text-muted-foreground">
-                  SKU: {draft.sku || previewSKU}
-                </p>
-              </div>
-            </div>
+
 
             {/* VARIANTS SECTION */}
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
