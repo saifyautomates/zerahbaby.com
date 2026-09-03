@@ -20,6 +20,7 @@ export type ReturnCartItem = {
   image_url: string | null;
   current_price: number;
   recent_sold_price?: number | null;
+  /** final_unit_paid_price from offline_sale_items snapshot — the single source of truth for return credit */
   refund_price: number;
   mrp: number;
   current_stock: number;
@@ -32,6 +33,17 @@ export type ReturnCartItem = {
   original_qty?: number;
   already_returned_qty?: number;
   max_returnable_qty?: number;
+  // Historical pricing snapshot (from offline_sale_items)
+  unit_mrp?: number;
+  unit_selling_price?: number;
+  line_gross_amount?: number;
+  product_discount_amount?: number;
+  allocated_bill_discount?: number;
+  allocated_coupon_discount?: number;
+  final_unit_paid_price?: number;
+  quantity_sold?: number;
+  quantity_returned?: number;
+  quantity_returnable?: number;
 };
 
 export type OfflineReturnItem = {
@@ -113,9 +125,11 @@ export type ProcessReturnInput = {
     sku: string;
     barcode: string;
     variant_info: string;
+    /** refund_price sent to RPC — for invoice-linked items, RPC ignores this and uses historical snapshot */
     refund_price: number;
     qty: number;
     mrp: number;
+    /** When set, RPC uses historical final_unit_paid_price for this item */
     original_sale_item_id?: string | null;
   }>;
   idempotency_key: string;
@@ -154,6 +168,17 @@ export type OfflineSaleItemWithReturnStatus = {
   already_returned_qty: number;
   returnable_qty: number;
   is_fully_returned: boolean;
+  // ── Historical Pricing Snapshot ──
+  unit_mrp: number;
+  unit_selling_price: number;
+  line_gross_amount: number;
+  product_discount_amount: number;
+  allocated_bill_discount: number;
+  allocated_coupon_discount: number;
+  final_unit_paid_price: number;
+  quantity_sold: number;
+  quantity_returned: number;
+  quantity_returnable: number;
 };
 
 export type OfflineSaleWithReturnMetrics = {
@@ -243,6 +268,12 @@ export type ReturnProductLookupResult = {
   image_url?: string | null;
   current_price?: number;
   recent_sold_price?: number | null;
+  /** final_unit_paid_price from most recent offline_sale_items row — used as refund price for barcode-scan walk-in returns */
+  historical_paid_price?: number | null;
+  historical_unit_mrp?: number | null;
+  historical_unit_selling_price?: number | null;
+  historical_allocated_bill_discount?: number | null;
+  historical_allocated_coupon_discount?: number | null;
   mrp?: number;
   stock?: number;
   variant_info?: string;
@@ -291,45 +322,54 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     return { found: false, error: `Product not found for barcode '${trimmed}'` };
   }
 
-  // 2. Check recent offline sales history for historical sold price
+  // 2. Fetch most recent offline sale item for this product — use historical snapshot
+  //    final_unit_paid_price is the exact net amount paid per unit after all discounts.
+  //    This is the ONLY correct source for walk-in barcode return pricing.
   let recentSoldPrice: number | null = null;
+  let historicalPaidPrice: number | null = null;
+  let historicalUnitMrp: number | null = null;
+  let historicalUnitSellingPrice: number | null = null;
+  let historicalAllocatedBill: number | null = null;
+  let historicalAllocatedCoupon: number | null = null;
+
   try {
-    const { data: recentSaleItem } = await (
-      supabase as unknown as {
-        from: (t: string) => {
-          select: (cols: string) => {
-            eq: (
-              col: string,
-              val: string | number,
-            ) => {
-              order: (
-                col: string,
-                opts: { ascending: boolean },
-              ) => {
-                limit: (n: number) => {
-                  maybeSingle: () => Promise<{
-                    data: { price: number; created_at: string } | null;
-                    error: unknown;
-                  }>;
-                };
-              };
-            };
-          };
-        };
-      }
-    )
+    const { data: recentSaleItem } = await (supabase as any)
       .from("offline_sale_items")
-      .select("price, created_at")
+      .select(
+        "price, final_unit_paid_price, unit_mrp, unit_selling_price, allocated_bill_discount, allocated_coupon_discount, created_at",
+      )
       .eq("product_id", product.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (recentSaleItem && typeof recentSaleItem.price === "number") {
-      recentSoldPrice = recentSaleItem.price;
+    if (recentSaleItem) {
+      recentSoldPrice = typeof recentSaleItem.price === "number" ? recentSaleItem.price : null;
+      // Prefer final_unit_paid_price (post-migration rows), fallback to price (pre-migration rows)
+      historicalPaidPrice =
+        typeof recentSaleItem.final_unit_paid_price === "number" &&
+        recentSaleItem.final_unit_paid_price > 0
+          ? recentSaleItem.final_unit_paid_price
+          : recentSoldPrice;
+      historicalUnitMrp =
+        typeof recentSaleItem.unit_mrp === "number" && recentSaleItem.unit_mrp > 0
+          ? recentSaleItem.unit_mrp
+          : null;
+      historicalUnitSellingPrice =
+        typeof recentSaleItem.unit_selling_price === "number"
+          ? recentSaleItem.unit_selling_price
+          : null;
+      historicalAllocatedBill =
+        typeof recentSaleItem.allocated_bill_discount === "number"
+          ? recentSaleItem.allocated_bill_discount
+          : null;
+      historicalAllocatedCoupon =
+        typeof recentSaleItem.allocated_coupon_discount === "number"
+          ? recentSaleItem.allocated_coupon_discount
+          : null;
     }
   } catch {
-    // Non-fatal, fallback to active current_price
+    // Non-fatal, fallback to current_price
   }
 
   const currentPrice = Number(product.price || 0);
@@ -347,6 +387,11 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
       null,
     current_price: currentPrice,
     recent_sold_price: recentSoldPrice,
+    historical_paid_price: historicalPaidPrice,
+    historical_unit_mrp: historicalUnitMrp,
+    historical_unit_selling_price: historicalUnitSellingPrice,
+    historical_allocated_bill_discount: historicalAllocatedBill,
+    historical_allocated_coupon_discount: historicalAllocatedCoupon,
     mrp: mrp,
     stock: Number(product.stock || 0),
     variant_info: product.age_group || "",
@@ -398,9 +443,24 @@ export function useOfflineSalesForReturnsLookup() {
             const itemQty = Number(it.qty) || 1;
             totalItemsCount += itemQty;
 
+            // DB is now authoritative for quantity_returned — use it directly
+            // Fall back to returnedQtyByItemId join for pre-migration rows
             const alreadyReturned = returnedQtyByItemId.get(it.id) || 0;
-            const returnableQty = Math.max(0, itemQty - alreadyReturned);
-            totalReturnableCount += returnableQty;
+
+            // Historical pricing snapshot — prefer DB columns, fall back to price
+            const dbFinalUnitPaid = Number(it.final_unit_paid_price) || 0;
+            const dbUnitMrp = Number(it.unit_mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0;
+            const dbUnitSelling = Number(it.unit_selling_price) || Number(it.price) || 0;
+            const dbAllocBill = Number(it.allocated_bill_discount) || 0;
+            const dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
+            const dbQuantitySold = Number(it.quantity_sold) || itemQty;
+            const dbQuantityReturned = Number(it.quantity_returned) || alreadyReturned;
+            // quantity_returnable: prefer DB computed value, fallback to client-side math
+            const dbQuantityReturnable =
+              it.quantity_returnable != null
+                ? Number(it.quantity_returnable)
+                : Math.max(0, dbQuantitySold - dbQuantityReturned);
+            totalReturnableCount += dbQuantityReturnable;
 
             return {
               id: it.id,
@@ -414,12 +474,23 @@ export function useOfflineSalesForReturnsLookup() {
               color: it.color || "",
               size: it.size || "",
               qty: itemQty,
-              price: Number(it.price) || 0,
-              mrp: Number(it.mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0,
+              price: dbUnitSelling,           // show historical selling price, not current
+              mrp: dbUnitMrp,
               created_at: it.created_at || s.created_at,
-              already_returned_qty: alreadyReturned,
-              returnable_qty: returnableQty,
-              is_fully_returned: returnableQty <= 0,
+              already_returned_qty: dbQuantityReturned,
+              returnable_qty: dbQuantityReturnable,
+              is_fully_returned: dbQuantityReturnable <= 0,
+              // ── Historical Pricing Snapshot ──
+              unit_mrp: dbUnitMrp,
+              unit_selling_price: dbUnitSelling,
+              line_gross_amount: Number(it.line_gross_amount) || dbUnitSelling * itemQty,
+              product_discount_amount: Number(it.product_discount_amount) || 0,
+              allocated_bill_discount: dbAllocBill,
+              allocated_coupon_discount: dbAllocCoupon,
+              final_unit_paid_price: dbFinalUnitPaid > 0 ? dbFinalUnitPaid : dbUnitSelling,
+              quantity_sold: dbQuantitySold,
+              quantity_returned: dbQuantityReturned,
+              quantity_returnable: dbQuantityReturnable,
             };
           },
         );
