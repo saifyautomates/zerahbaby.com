@@ -29,6 +29,7 @@ export type ReturnReceiptData = {
   return_reason: string;
   notes?: string;
   created_at?: string;
+  expires_at?: string;
   items: Array<{
     name: string;
     sku?: string;

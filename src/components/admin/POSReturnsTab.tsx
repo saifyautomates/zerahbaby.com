@@ -643,6 +643,7 @@ export function POSReturnsTab() {
         return_reason: returnReason,
         notes: returnNotes.trim(),
         created_at: new Date().toISOString(),
+        expires_at: result.expires_at,
       };
 
       setActiveReceipt(receiptData);

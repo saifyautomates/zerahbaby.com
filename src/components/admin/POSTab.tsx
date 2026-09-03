@@ -73,7 +73,7 @@ import {
   generateIdempotencyKey,
   validatePOSCoupon,
 } from "@/lib/pos";
-import { useCustomerStoreCredit } from "@/lib/pos-returns";
+import { useCustomerStoreCredit, useStoreCreditVoucher } from "@/lib/pos-returns";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
@@ -333,12 +333,57 @@ export function POSTab() {
   const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
 
-  // Authoritative Customer Store Credit Query
+  // Dedicated Voucher Instrument Query (4-character token scope)
+  const { data: voucherData, isFetching: voucherFetching } = useStoreCreditVoucher({
+    token: creditTokenInput,
+    customerId,
+    phone: customerPhone,
+  });
+
+  // Authoritative Customer Account Store Credit Query (phone/customerId scope)
   const { data: customerCreditData } = useCustomerStoreCredit({
     customerId,
     phone: customerPhone,
-    token: creditTokenInput,
   });
+
+  // Authoritative Available Credit:
+  // When a 4-char voucher token is entered, use ONLY that specific voucher's remaining balance.
+  // Otherwise, use the customer's account store credit balance.
+  const availableCredit = useMemo(() => {
+    if (creditTokenInput && creditTokenInput.trim().length >= 4) {
+      if (voucherData?.valid) {
+        return voucherData.remaining_balance ?? 0;
+      }
+      return 0;
+    }
+    return customerCreditData?.available_credit ?? 0;
+  }, [creditTokenInput, voucherData, customerCreditData]);
+
+  // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
+  useEffect(() => {
+    if (availableCredit > 0 && total > 0 && storeCreditApplied === 0) {
+      const applyAmount = Math.min(availableCredit, total);
+      setStoreCreditApplied(applyAmount);
+      if (creditTokenInput.trim()) {
+        toast.success(`Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`);
+      }
+    }
+  }, [availableCredit, total, storeCreditApplied, creditTokenInput]);
+
+  // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes)
+  useEffect(() => {
+    if (storeCreditApplied > 0 && (storeCreditApplied > availableCredit || storeCreditApplied > total)) {
+      setStoreCreditApplied(Math.min(availableCredit, total));
+    }
+  }, [availableCredit, total, storeCreditApplied]);
+
+  // Auto-clamp applied credit to available credit and final total
+  const effectiveCreditUsed = useMemo(() => {
+    return Math.min(storeCreditApplied, availableCredit, total);
+  }, [storeCreditApplied, availableCredit, total]);
+
+  const payableAfterCredit = Math.max(0, total - effectiveCreditUsed);
+  const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
 
   // Real-time Customer Intelligence Profile (History, Total Spend, Recent Orders)
   const { data: customerIntel } = useQuery({
@@ -372,27 +417,6 @@ export function POSTab() {
       };
     },
   });
-
-  const availableCredit = customerCreditData?.available_credit ?? 0;
-
-  // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
-  useEffect(() => {
-    if (availableCredit > 0 && total > 0 && storeCreditApplied === 0) {
-      const applyAmount = Math.min(availableCredit, total);
-      setStoreCreditApplied(applyAmount);
-      if (creditTokenInput.trim()) {
-        toast.success(`Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`);
-      }
-    }
-  }, [availableCredit, total, storeCreditApplied, creditTokenInput]);
-
-  // Auto-clamp applied credit to available credit and final total
-  const effectiveCreditUsed = useMemo(() => {
-    return Math.min(storeCreditApplied, availableCredit, total);
-  }, [storeCreditApplied, availableCredit, total]);
-
-  const payableAfterCredit = Math.max(0, total - effectiveCreditUsed);
-  const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
 
   const changeDue = useMemo(() => {
     if (typeof cashTendered !== "number" || cashTendered < payableAfterCredit) return 0;
@@ -1689,9 +1713,9 @@ export function POSTab() {
                           onClick={() => {
                             if (availableCredit > 0) {
                               setStoreCreditApplied(Math.min(availableCredit, total));
-                              toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                              toast.success(`Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
                             } else if (creditTokenInput.trim()) {
-                              toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
+                              toast.info(`Checking voucher ${creditTokenInput.trim().toUpperCase()}...`);
                             } else {
                               toast.info("Please enter a voucher code");
                             }
@@ -1703,49 +1727,88 @@ export function POSTab() {
                       )}
                     </div>
 
-                    {/* Available Credit Banner */}
-                    {availableCredit > 0 ? (
-                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+                    {/* Invalid / Expired / Consumed Voucher Error Notice */}
+                    {creditTokenInput.trim().length >= 4 && voucherData && !voucherData.valid && (
+                      <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive flex items-start gap-2">
+                        <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold text-emerald-950 dark:text-emerald-100">
-                            Available Credit: <span className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatPrice(availableCredit)}</span>
-                          </p>
-                          <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300/80">
-                            {creditTokenInput
-                              ? `Token Code: ${creditTokenInput}`
-                              : customerName
-                                ? `Account: ${customerName}`
-                                : "Walk-in Credit Token"}
+                          <p className="font-bold">{voucherData.error || "Invalid or ineligible voucher"}</p>
+                          <p className="text-[11px] opacity-80 mt-0.5">
+                            Exchange vouchers expire 7 days after issuance and cannot be re-used after full redemption.
                           </p>
                         </div>
+                      </div>
+                    )}
 
-                        {storeCreditApplied > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs">
-                              Applied −{formatPrice(effectiveCreditUsed)}
-                            </span>
+                    {/* Available Credit Banner */}
+                    {availableCredit > 0 ? (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-emerald-950 dark:text-emerald-100">
+                                Available Credit: <span className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatPrice(availableCredit)}</span>
+                              </p>
+                              {voucherData?.days_remaining !== undefined && (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold">
+                                  {voucherData.days_remaining > 0 ? `Expires in ${voucherData.days_remaining}d` : "Expires today"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                              {creditTokenInput
+                                ? `Voucher Token: ${creditTokenInput.toUpperCase()} • Issued Value: ${formatPrice(voucherData?.original_amount ?? availableCredit)}`
+                                : customerName
+                                  ? `Customer Account: ${customerName}`
+                                  : "Walk-in Credit Token"}
+                            </p>
+                          </div>
+
+                          {storeCreditApplied > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs">
+                                Applied −{formatPrice(effectiveCreditUsed)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStoreCreditApplied(0);
+                                  toast.info("Voucher removed from this checkout. Balance remains untouched.");
+                                }}
+                                className="px-2 py-1 rounded-lg bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 text-xs font-bold transition cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => setStoreCreditApplied(0)}
-                              className="px-2 py-1 rounded-lg bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 text-xs font-bold transition cursor-pointer"
+                              onClick={() => {
+                                setStoreCreditApplied(Math.min(availableCredit, total));
+                                toast.success(`Applied ${formatPrice(Math.min(availableCredit, total))} store credit`);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer"
                             >
-                              Remove
+                              Apply Store Credit
                             </button>
+                          )}
+                        </div>
+
+                        {effectiveCreditUsed > 0 && availableCredit > effectiveCreditUsed && (
+                          <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-emerald-900/80 dark:text-emerald-200/80">
+                            <span>Projected Remaining Voucher Balance:</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                              {formatPrice(availableCredit - effectiveCreditUsed)}
+                            </span>
                           </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setStoreCreditApplied(Math.min(availableCredit, total))}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer"
-                          >
-                            Apply Store Credit
-                          </button>
                         )}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-muted-foreground">
-                        Select an existing customer or enter a Return Credit Token to redeem store credit towards this purchase.
-                      </p>
+                      !voucherData?.error && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Enter a 4-character Return Credit Token (e.g. <span className="font-mono font-bold">A7K2</span>) or select an existing customer to redeem store credit towards this purchase.
+                        </p>
+                      )
                     )}
                   </div>
 

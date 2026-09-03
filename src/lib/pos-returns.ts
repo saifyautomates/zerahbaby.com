@@ -91,6 +91,7 @@ export type ReturnResult = {
   items_restocked?: number;
   original_sale_id?: string | null;
   original_sale_number?: string | null;
+  expires_at?: string;
   duplicate?: boolean;
 };
 
@@ -524,6 +525,60 @@ export type CustomerCreditInfo = {
     created_at: string;
   }>;
 };
+
+export type StoreCreditVoucherResult = {
+  valid: boolean;
+  error?: string;
+  voucher_id?: string;
+  token?: string;
+  customer_id?: string | null;
+  customer_name?: string;
+  customer_phone?: string;
+  original_sale_id?: string | null;
+  original_sale_number?: string | null;
+  original_return_number?: string;
+  original_amount?: number;
+  credit_used?: number;
+  remaining_balance?: number;
+  available_credit?: number;
+  issued_at?: string;
+  expires_at?: string;
+  days_remaining?: number;
+  status?: string;
+  expired?: boolean;
+  ownership_mismatch?: boolean;
+};
+
+export function useStoreCreditVoucher(params: {
+  token?: string | null;
+  customerId?: string | null;
+  phone?: string | null;
+}) {
+  const { token, customerId, phone } = params;
+  const cleanToken = token?.trim().toUpperCase() || "";
+  const enabled = cleanToken.length >= 4;
+
+  return useQuery<StoreCreditVoucherResult>({
+    queryKey: ["pos-store-credit-voucher", cleanToken, customerId, phone],
+    queryFn: async () => {
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: StoreCreditVoucherResult | null; error: { message: string } | null }>
+      )("get_store_credit_voucher", {
+        _token: cleanToken,
+        _customer_id: customerId || null,
+        _phone: phone || "",
+      });
+
+      if (error) throw new Error(error.message);
+      return data || { valid: false, error: "Voucher not found" };
+    },
+    enabled,
+    staleTime: 5_000,
+  });
+}
 
 export function useCustomerStoreCredit(params: {
   customerId?: string | null;
