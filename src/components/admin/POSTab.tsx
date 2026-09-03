@@ -93,7 +93,6 @@ export type HeldPOSOrder = {
   cart: POSCartItem[];
   discountType: "none" | "percentage" | "fixed";
   discountValue: number;
-  appliedCoupon: CouponRule | null;
   customerMode: "walkin" | "existing" | "new";
   customerName: string;
   customerPhone: string;
@@ -218,14 +217,6 @@ export function POSTab() {
   const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
 
-  // Coupon Engine State
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponRule | null>(() => {
-    const draft = loadPOSDraft();
-    return draft?.appliedCoupon || null;
-  });
-  const [couponCodeInput, setCouponCodeInput] = useState("");
-  const [couponLoading, setCouponLoading] = useState(false);
-
   // Store Credit / Exchange Tender State
   const [storeCreditApplied, setStoreCreditApplied] = useState<number>(() => {
     const draft = loadPOSDraft();
@@ -244,7 +235,6 @@ export function POSTab() {
         step,
         discountType,
         discountValue,
-        appliedCoupon,
         customerMode,
         customerName,
         customerPhone,
@@ -271,7 +261,6 @@ export function POSTab() {
     step,
     discountType,
     discountValue,
-    appliedCoupon,
     customerMode,
     customerName,
     customerPhone,
@@ -331,9 +320,9 @@ export function POSTab() {
         items: cart.map((i) => ({ price: i.price, mrp: i.mrp, qty: i.qty })),
         discountType,
         discountValue,
-        coupon: appliedCoupon,
+        coupon: null,
       }),
-    [cart, discountType, discountValue, appliedCoupon],
+    [cart, discountType, discountValue],
   );
 
   const subtotal = posFinancials.subtotal;
@@ -490,7 +479,6 @@ export function POSTab() {
       cart: [...cart],
       discountType,
       discountValue,
-      appliedCoupon,
       customerMode,
       customerName,
       customerPhone,
@@ -518,7 +506,6 @@ export function POSTab() {
     setCart(held.cart);
     setDiscountType(held.discountType);
     setDiscountValue(held.discountValue);
-    setAppliedCoupon(held.appliedCoupon);
     setCustomerMode(held.customerMode);
     setCustomerName(held.customerName);
     setCustomerPhone(held.customerPhone);
@@ -543,33 +530,7 @@ export function POSTab() {
     toast.info("Held order discarded");
   };
 
-  // Coupon handlers
-  const handleApplyCoupon = async () => {
-    if (!couponCodeInput.trim()) {
-      toast.error("Please enter a coupon code");
-      return;
-    }
-    setCouponLoading(true);
-    try {
-      const res = await validatePOSCoupon(couponCodeInput, subtotal);
-      if (!res.valid || !res.coupon) {
-        toast.error(res.error || "Invalid coupon code");
-        return;
-      }
-      setAppliedCoupon(res.coupon);
-      setCouponCodeInput("");
-      toast.success(`Coupon "${res.coupon.code}" applied!`);
-    } catch {
-      toast.error("Failed to validate coupon");
-    } finally {
-      setCouponLoading(false);
-    }
-  };
 
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    toast.info("Coupon removed");
-  };
 
   const handleQuickCheckout = () => {
     if (quickOrderProduct || quickOrderPrice) {
@@ -857,7 +818,6 @@ export function POSTab() {
         idempotency_key: idempotencyKey,
         store_credit_used: effectiveCreditUsed,
         credit_token: creditTokenInput.trim() || undefined,
-        coupon_code: appliedCoupon?.code || undefined,
       });
 
       // Synchronously invalidate and broadcast canonical reporting updates
@@ -876,8 +836,6 @@ export function POSTab() {
         ...result,
         store_credit_used: effectiveCreditUsed,
         credit_token_used: creditTokenInput.trim() || undefined,
-        coupon_code: appliedCoupon?.code || undefined,
-        coupon_discount: couponDiscount,
       });
 
       // Open receipt or invoice modal based on user's printer format selection (with autoPrint)
@@ -909,8 +867,6 @@ export function POSTab() {
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
-    setAppliedCoupon(null);
-    setCouponCodeInput("");
     setCustomerMode("walkin");
     setCustomerName("");
     setCustomerPhone("");
@@ -1482,75 +1438,6 @@ export function POSTab() {
                         </div>
                       </div>
                     )}
-
-                    {/* Store Coupon Code Section */}
-                    <div className="pt-3.5 mt-3.5 border-t border-border/70 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Tag className="size-3.5 text-primary" />
-                          <span className="text-xs font-bold text-foreground">
-                            Store Coupon Code
-                          </span>
-                        </div>
-                        {appliedCoupon && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            −{formatPrice(couponDiscount)}
-                          </span>
-                        )}
-                      </div>
-
-                      {appliedCoupon ? (
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
-                          <div className="flex items-center gap-2">
-                            <Check className="size-4 text-emerald-600 shrink-0" />
-                            <div>
-                              <p className="font-bold text-emerald-950 dark:text-emerald-100">
-                                Coupon: <span className="font-mono text-emerald-700 dark:text-emerald-300">{appliedCoupon.code}</span>
-                              </p>
-                              <p className="text-[10px] text-emerald-700 dark:text-emerald-300">
-                                {appliedCoupon.discountType === "percentage"
-                                  ? `${appliedCoupon.discountValue}% OFF`
-                                  : `₹${appliedCoupon.discountValue} Flat OFF`}
-                                {appliedCoupon.minimumOrderValue ? ` • Min Cart: ₹${appliedCoupon.minimumOrderValue}` : ""}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleRemoveCoupon}
-                            className="text-destructive text-xs font-bold hover:underline cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <input
-                              type="text"
-                              value={couponCodeInput}
-                              onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleApplyCoupon();
-                                }
-                              }}
-                              placeholder="Enter coupon code (e.g. WELCOME10)..."
-                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleApplyCoupon}
-                            disabled={couponLoading || !couponCodeInput.trim()}
-                            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer disabled:opacity-50 shrink-0"
-                          >
-                            {couponLoading ? "Checking…" : "Apply"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* 2. Customer Section */}
@@ -2018,14 +1905,6 @@ export function POSTab() {
                         <div className="flex justify-between text-muted-foreground text-[11px]">
                           <span>MRP Savings</span>
                           <span className="text-emerald-600 font-bold">−{formatPrice(productSavings)}</span>
-                        </div>
-                      )}
-                      {couponDiscount > 0 && (
-                        <div className="flex justify-between text-emerald-700 font-bold">
-                          <span>
-                            Coupon ({appliedCoupon?.code})
-                          </span>
-                          <span>−{formatPrice(couponDiscount)}</span>
                         </div>
                       )}
                       {discountAmount > 0 && (
@@ -2644,11 +2523,6 @@ export function POSTab() {
                             {order.cart.length} unique line{order.cart.length > 1 ? "s" : ""} • Total:{" "}
                             <span className="font-bold text-primary">{formatPrice(order.totalAmount)}</span>
                           </p>
-                          {order.appliedCoupon && (
-                            <p className="text-[10px] text-emerald-600 font-medium">
-                              Coupon: {order.appliedCoupon.code}
-                            </p>
-                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
