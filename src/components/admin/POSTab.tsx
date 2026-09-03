@@ -1304,14 +1304,23 @@ export function POSTab() {
                     </p>
                   </div>
                 </div>
-                <div className="text-right flex items-center gap-3">
-                  <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                      Net Payable
-                    </span>
-                    <span className="font-black text-xl text-primary">{formatPrice(total)}</span>
+                  <div className="text-right flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Net Payable
+                      </span>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {effectiveCreditUsed > 0 && (
+                          <span className="text-xs text-muted-foreground line-through font-semibold">
+                            {formatPrice(total)}
+                          </span>
+                        )}
+                        <span className={`font-black text-xl ${payableAfterCredit === 0 ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`}>
+                          {formatPrice(payableAfterCredit)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
               </div>
 
               {/* 2-Column Responsive Layout */}
@@ -1669,22 +1678,29 @@ export function POSTab() {
                           className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (availableCredit > 0) {
-                            setStoreCreditApplied(Math.min(availableCredit, total));
-                            toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
-                          } else if (creditTokenInput.trim()) {
-                            toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
-                          } else {
-                            toast.info("Please enter a voucher code");
-                          }
-                        }}
-                        className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
-                      >
-                        {availableCredit > 0 ? `Apply ₹${Math.min(availableCredit, total)}` : "Apply"}
-                      </button>
+                      {effectiveCreditUsed > 0 ? (
+                        <span className="px-3.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0 flex items-center gap-1 border border-emerald-500/30">
+                          <Check className="size-3.5" />
+                          Applied
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (availableCredit > 0) {
+                              setStoreCreditApplied(Math.min(availableCredit, total));
+                              toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                            } else if (creditTokenInput.trim()) {
+                              toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
+                            } else {
+                              toast.info("Please enter a voucher code");
+                            }
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
+                        >
+                          {availableCredit > 0 ? `Apply ₹${Math.min(availableCredit, total)}` : "Apply"}
+                        </button>
+                      )}
                     </div>
 
                     {/* Available Credit Banner */}
@@ -1711,7 +1727,7 @@ export function POSTab() {
                             <button
                               type="button"
                               onClick={() => setStoreCreditApplied(0)}
-                              className="text-muted-foreground hover:text-destructive text-xs font-bold underline cursor-pointer"
+                              className="px-2 py-1 rounded-lg bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 text-xs font-bold transition cursor-pointer"
                             >
                               Remove
                             </button>
@@ -2011,7 +2027,11 @@ export function POSTab() {
                       ) : (
                         <>
                           <Check className="size-5" />
-                          <span>Complete Sale — {formatPrice(total)}</span>
+                          <span>
+                            {payableAfterCredit === 0 && effectiveCreditUsed > 0
+                              ? `Complete Sale — Settle ₹0 (100% Store Credit)`
+                              : `Complete Sale — ${formatPrice(payableAfterCredit)}`}
+                          </span>
                         </>
                       )}
                     </button>
