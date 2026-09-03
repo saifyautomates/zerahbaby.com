@@ -162,6 +162,7 @@ const toDraft = (
     mrp: p?.mrp ?? 0,
     rating: p?.rating ?? 0,
     reviews: p?.reviews ?? 0,
+    ageGroup: p?.ageGroup ?? "0-6m",
     imageUrl:
       p?.imageUrl && !p.imageUrl.startsWith("blob:") && !p.imageUrl.startsWith("data:")
         ? p.imageUrl
@@ -484,6 +485,7 @@ export function ProductForm({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [showPostCreatePrompt, setShowPostCreatePrompt] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { printLabel, isPrinting: isDirectPrinting } = useDirectLabelPrint();
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -654,8 +656,9 @@ export function ProductForm({
   }
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/40 p-0 sm:p-4 md:p-6"
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/40 p-0 sm:p-4 md:p-6"
       role="dialog"
       aria-modal="true"
       onClick={onCancel}
@@ -999,9 +1002,10 @@ export function ProductForm({
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold sm:col-span-2">
-              Name
+              Product Name *
               <input
                 className={input}
+                placeholder="e.g. Cotton Printed Baby Romper"
                 value={draft.name}
                 onChange={(e) => {
                   const newName = e.target.value;
@@ -1018,92 +1022,19 @@ export function ProductForm({
                 }}
               />
             </label>
-            <label className="text-sm font-semibold sm:col-span-2">
-              Slug (URL id)
-              <input
-                className={input}
-                value={draft.slug}
-                onChange={(e) => set("slug", e.target.value)}
-                list="existing-slugs"
-              />
-              <datalist id="existing-slugs">
-                {(allProducts ?? []).map((p) => (
-                  <option key={p.id} value={p.id} />
-                ))}
-              </datalist>
-            </label>
-
-            {/* SKU & Barcode with preview */}
-            <label className="text-sm font-semibold">
-              SKU
-              <input
-                className={input}
-                value={draft.sku}
-                onChange={(e) => set("sku", e.target.value)}
-                placeholder={`Auto: ${generateSKU(draft.category)}`}
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              Barcode
-              <input
-                className={input}
-                value={draft.barcode}
-                onChange={(e) => set("barcode", e.target.value)}
-                placeholder="Auto-generated if empty"
-              />
-            </label>
-
-            {/* Barcode Preview */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Tag className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Label Preview
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Zérah Baby & Kids
-                </p>
-                <p className="text-xs font-semibold mt-1 text-center">
-                  {draft.name || "Product Name"}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
-                  {draft.mrp > draft.price && (
-                    <span className="text-[10px] text-muted-foreground line-through">
-                      {formatPrice(draft.mrp)}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 scale-90">
-                  <Barcode
-                    value={draft.barcode || draft.sku || previewBarcode}
-                    format="CODE128"
-                    width={1.2}
-                    height={40}
-                    fontSize={10}
-                    margin={0}
-                    displayValue={true}
-                    background="transparent"
-                  />
-                </div>
-                <p className="mt-1 text-[9px] text-muted-foreground">
-                  SKU: {draft.sku || previewSKU}
-                </p>
-              </div>
-            </div>
 
             <label className="text-sm font-semibold">
               Brand
               <input
                 className={input}
+                placeholder="e.g. Zérah, Saify"
                 value={draft.brand}
                 onChange={(e) => set("brand", e.target.value)}
               />
             </label>
+
             <label className="text-sm font-semibold">
-              Section / category
+              Category / Section
               <select
                 className={input}
                 value={draft.category}
@@ -1119,7 +1050,8 @@ export function ProductForm({
                 )}
               </select>
             </label>
-            <label className="text-sm font-semibold">
+
+            <label className="text-sm font-semibold sm:col-span-2">
               Age group
               <select
                 className={input}
@@ -1628,43 +1560,11 @@ export function ProductForm({
                 })}
               </div>
             </div>
-            <label className="text-sm font-semibold">
-              Low-stock alert at
-              <input
-                type="number"
-                min="0"
-                className={input}
-                placeholder="0"
-                value={draft.lowStockAt === 0 ? "" : draft.lowStockAt}
-                onChange={(e) =>
-                  set("lowStockAt", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                }
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              Sort order
-              <input
-                type="number"
-                className={input}
-                placeholder="0"
-                value={draft.sortOrder === 0 ? "" : draft.sortOrder}
-                onChange={(e) =>
-                  set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))
-                }
-              />
-            </label>
-            <label className="text-sm font-semibold">
-              Main image URL (optional override)
-              <input
-                className={input}
-                value={draft.imageUrl}
-                onChange={(e) => set("imageUrl", e.target.value)}
-              />
-            </label>
             <label className="text-sm font-semibold sm:col-span-2">
               Description
               <textarea
                 rows={3}
+                placeholder="Product material, care instructions, and details..."
                 className={input}
                 value={draft.description}
                 onChange={(e) => set("description", e.target.value)}
@@ -1674,96 +1574,12 @@ export function ProductForm({
               Highlights (one per line)
               <textarea
                 rows={3}
+                placeholder="100% Organic Cotton&#10;Breathable & Super Soft&#10;Easy Button Closure"
                 className={input}
                 value={draft.highlights}
                 onChange={(e) => set("highlights", e.target.value)}
               />
             </label>
-
-            {/* MERCHANDISING / RELATED PRODUCTS SECTION */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-amber-50/30">
-              <div className="flex items-center gap-2 mb-4">
-                <Tag className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Merchandising / "More in this Style"
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <label className="block text-sm font-semibold">
-                  Recommendation Logic
-                  <select
-                    className={input}
-                    value={draft.recommendationMode}
-                    onChange={(e) =>
-                      set(
-                        "recommendationMode",
-                        e.target.value as "manual" | "manual_fallback" | "auto",
-                      )
-                    }
-                  >
-                    <option value="manual_fallback">
-                      Admin Selected + Auto Fallback (Recommended)
-                    </option>
-                    <option value="manual">Admin Selected ONLY (Strict)</option>
-                    <option value="auto">Auto Match ONLY (Same Category/Brand)</option>
-                  </select>
-                </label>
-
-                {draft.recommendationMode !== "auto" && (
-                  <label className="block text-sm font-semibold">
-                    Manually Selected Related Products
-                    <div className="text-[11px] font-normal text-muted-foreground mb-2">
-                      Select products that should appear in the "More in this style" section.
-                      Relationships are automatically bidirectional.
-                    </div>
-                    <div className="border border-border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
-                      {(allProducts || [])
-                        .filter((p) => p.id !== draft.slug)
-                        .map((p) => (
-                          <label
-                            key={p.id}
-                            className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
-                          >
-                            <input
-                              type="checkbox"
-                              className="size-4 accent-[var(--primary)]"
-                              checked={draft.relatedProductIds.includes(p.uuid)}
-                              onChange={(e) => {
-                                const newIds = e.target.checked
-                                  ? [...draft.relatedProductIds, p.uuid]
-                                  : draft.relatedProductIds.filter((id) => id !== p.uuid);
-                                set("relatedProductIds", newIds);
-                              }}
-                            />
-                            {p.imageUrl ? (
-                              <img
-                                loading="lazy"
-                                decoding="async"
-                                src={p.imageUrl}
-                                className="size-8 rounded-md object-cover"
-                              />
-                            ) : (
-                              <div className="size-8 rounded-md bg-muted" />
-                            )}
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">{p.name}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {p.sku} • {p.category}
-                              </span>
-                            </div>
-                          </label>
-                        ))}
-                      {allProducts?.length === 1 && (
-                        <div className="p-4 text-sm text-center text-muted-foreground">
-                          No other products available yet.
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                )}
-              </div>
-            </div>
 
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-purple-50/30">
               <div className="flex items-center gap-2 mb-4">
@@ -1824,6 +1640,226 @@ export function ProductForm({
                 </label>
               </>
             )}
+
+            {/* COLLAPSIBLE ADVANCED & AUTO-GENERATED SETTINGS */}
+            <div className="sm:col-span-2 rounded-2xl border border-border/80 bg-muted/20 overflow-hidden transition-all">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex w-full items-center justify-between p-4 text-left font-semibold text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Settings2 className="size-4 text-primary" />
+                  <span className="text-foreground font-bold">
+                    Advanced & Custom Identifiers (Slug, SKU, Barcode, Recommendations)
+                  </span>
+                </span>
+                <span className="text-xs text-primary font-semibold">
+                  {showAdvanced ? "Hide Advanced ▲" : "Customize Auto-Generated Fields ▼"}
+                </span>
+              </button>
+
+              {showAdvanced && (
+                <div className="p-4 border-t border-border/60 bg-background/60 grid gap-4 sm:grid-cols-2 animate-in fade-in duration-200">
+                  <div className="sm:col-span-2 text-xs text-muted-foreground bg-primary/5 p-3 rounded-xl border border-primary/10">
+                    💡 <strong>Auto-Generated:</strong> You don't need to fill these out manually. The system automatically creates clean SEO slugs, barcodes, and unique SKUs if left empty.
+                  </div>
+
+                  <label className="text-sm font-semibold">
+                    Custom Slug (URL identifier)
+                    <input
+                      className={input}
+                      value={draft.slug}
+                      onChange={(e) => set("slug", e.target.value)}
+                      placeholder="Auto: product-name"
+                      list="existing-slugs"
+                    />
+                    <datalist id="existing-slugs">
+                      {(allProducts ?? []).map((p) => (
+                        <option key={p.id} value={p.id} />
+                      ))}
+                    </datalist>
+                  </label>
+
+                  <label className="text-sm font-semibold">
+                    Custom SKU
+                    <input
+                      className={input}
+                      value={draft.sku}
+                      onChange={(e) => set("sku", e.target.value)}
+                      placeholder={`Auto: ${generateSKU(draft.category)}`}
+                    />
+                  </label>
+
+                  <label className="text-sm font-semibold">
+                    Custom Barcode
+                    <input
+                      className={input}
+                      value={draft.barcode}
+                      onChange={(e) => set("barcode", e.target.value)}
+                      placeholder="Auto-generated if empty"
+                    />
+                  </label>
+
+                  <label className="text-sm font-semibold">
+                    Low-stock alert threshold
+                    <input
+                      type="number"
+                      min="0"
+                      className={input}
+                      placeholder="5"
+                      value={draft.lowStockAt === 0 ? "" : draft.lowStockAt}
+                      onChange={(e) =>
+                        set("lowStockAt", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                      }
+                    />
+                  </label>
+
+                  <label className="text-sm font-semibold">
+                    Sort order index
+                    <input
+                      type="number"
+                      className={input}
+                      placeholder="0"
+                      value={draft.sortOrder === 0 ? "" : draft.sortOrder}
+                      onChange={(e) =>
+                        set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))
+                      }
+                    />
+                  </label>
+
+                  <label className="text-sm font-semibold sm:col-span-2">
+                    Primary Image URL Override (Optional)
+                    <input
+                      className={input}
+                      placeholder="Auto-detected from media gallery"
+                      value={draft.imageUrl}
+                      onChange={(e) => set("imageUrl", e.target.value)}
+                    />
+                  </label>
+
+                  {/* Barcode & Label Preview inside Advanced */}
+                  <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag className="size-4 text-muted-foreground" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Label Preview
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Zérah Baby & Kids
+                      </p>
+                      <p className="text-xs font-semibold mt-1 text-center">
+                        {draft.name || "Product Name"}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
+                        {draft.mrp > draft.price && (
+                          <span className="text-[10px] text-muted-foreground line-through">
+                            {formatPrice(draft.mrp)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 scale-90">
+                        <Barcode
+                          value={draft.barcode || draft.sku || previewBarcode}
+                          format="CODE128"
+                          width={1.2}
+                          height={40}
+                          fontSize={10}
+                          margin={0}
+                          displayValue={true}
+                          background="transparent"
+                        />
+                      </div>
+                      <p className="mt-1 text-[9px] text-muted-foreground">
+                        SKU: {draft.sku || previewSKU}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* MERCHANDISING / RELATED PRODUCTS SECTION */}
+                  <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-amber-50/30">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Tag className="size-4 text-muted-foreground" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Merchandising / "More in this Style"
+                      </span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block text-sm font-semibold">
+                        Recommendation Logic
+                        <select
+                          className={input}
+                          value={draft.recommendationMode}
+                          onChange={(e) =>
+                            set(
+                              "recommendationMode",
+                              e.target.value as "manual" | "manual_fallback" | "auto",
+                            )
+                          }
+                        >
+                          <option value="manual_fallback">
+                            Admin Selected + Auto Fallback (Recommended)
+                          </option>
+                          <option value="manual">Admin Selected ONLY (Strict)</option>
+                          <option value="auto">Auto Match ONLY (Same Category/Brand)</option>
+                        </select>
+                      </label>
+
+                      {draft.recommendationMode !== "auto" && (
+                        <label className="block text-sm font-semibold">
+                          Manually Selected Related Products
+                          <div className="text-[11px] font-normal text-muted-foreground mb-2">
+                            Select products that should appear in the "More in this style" section.
+                          </div>
+                          <div className="border border-border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
+                            {(allProducts || [])
+                              .filter((p) => p.id !== draft.slug)
+                              .map((p) => (
+                                <label
+                                  key={p.id}
+                                  className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="size-4 accent-[var(--primary)]"
+                                    checked={draft.relatedProductIds.includes(p.uuid)}
+                                    onChange={(e) => {
+                                      const newIds = e.target.checked
+                                        ? [...draft.relatedProductIds, p.uuid]
+                                        : draft.relatedProductIds.filter((id) => id !== p.uuid);
+                                      set("relatedProductIds", newIds);
+                                    }}
+                                  />
+                                  {p.imageUrl ? (
+                                    <img
+                                      loading="lazy"
+                                      decoding="async"
+                                      src={p.imageUrl}
+                                      className="size-8 rounded-md object-cover"
+                                    />
+                                  ) : (
+                                    <div className="size-8 rounded-md bg-muted" />
+                                  )}
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{p.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {p.sku} • {p.category}
+                                    </span>
+                                  </div>
+                                </label>
+                              ))}
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1871,6 +1907,7 @@ export function ProductForm({
           </button>
         </div>
       </div>
+    </div>
 
       {/* Print Labels modal */}
       {printing && (product || createdProduct) && (
@@ -1929,7 +1966,7 @@ export function ProductForm({
           </div>
         </div>
       )}
-    </div>,
+    </>,
     document.body,
   );
 }
