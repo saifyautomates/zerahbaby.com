@@ -221,6 +221,104 @@ export function OfflineAnalyticsTab() {
     },
   });
 
+  const hardDeleteSalesMutation = useMutation({
+    mutationFn: async ({ saleIds, restoreStock = false }: { saleIds: string[]; restoreStock?: boolean }) => {
+      const validUuids = saleIds.filter((id) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
+      );
+      const draftIds = saleIds.filter(
+        (id) =>
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) ||
+          id.startsWith("off_"),
+      );
+
+      for (const draftId of draftIds) {
+        await deleteQueuedSale(draftId);
+      }
+
+      if (validUuids.length > 0) {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{
+            data: { success?: boolean; message?: string; deleted_count?: number } | null;
+            error: { message: string } | null;
+          }>
+        )("admin_hard_delete_offline_sales", {
+          _sale_ids: validUuids,
+          _restore_stock: restoreStock,
+        });
+
+        if (error) {
+          throw new Error(error.message || "Failed to delete POS sales");
+        }
+        return data;
+      }
+
+      return { success: true, message: `${saleIds.length} draft record(s) removed.` };
+    },
+    onSuccess: (res) => {
+      toast.success(res?.message || "POS sale record(s) permanently deleted.");
+      salesSelection.clearSelection();
+      invalidateCanonicalReportingQueries(qc);
+      notifyPOSSaleChanged();
+      refetchSales();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete sales");
+    },
+  });
+
+  const bulkVoidSalesMutation = useMutation({
+    mutationFn: async ({
+      saleIds,
+      reason = "Bulk cancellation",
+      restoreStock = true,
+    }: {
+      saleIds: string[];
+      reason?: string;
+      restoreStock?: boolean;
+    }) => {
+      const validUuids = saleIds.filter((id) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
+      );
+
+      if (validUuids.length > 0) {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{
+            data: { success?: boolean; message?: string; voided_count?: number } | null;
+            error: { message: string } | null;
+          }>
+        )("admin_bulk_void_offline_sales", {
+          _sale_ids: validUuids,
+          _reason: reason,
+          _restore_stock: restoreStock,
+        });
+
+        if (error) {
+          throw new Error(error.message || "Failed to bulk void sales");
+        }
+        return data;
+      }
+
+      return { success: true, message: `${saleIds.length} record(s) processed.` };
+    },
+    onSuccess: (res) => {
+      toast.success(res?.message || "Selected POS sales voided successfully.");
+      salesSelection.clearSelection();
+      invalidateCanonicalReportingQueries(qc);
+      notifyPOSSaleChanged();
+      refetchSales();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to void selected sales");
+    },
+  });
+
   // Fetch all products for dynamic image & slug resolution
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products-lookup"],
@@ -1021,6 +1119,47 @@ export function OfflineAnalyticsTab() {
           selectedLabel="Selected Sales"
           metrics={salesMetrics}
           onClear={salesSelection.clearSelection}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const ids = Array.from(salesSelection.selectedIds);
+                  if (confirm(`Void/Cancel ${ids.length} selected POS sale(s) and restore inventory?`)) {
+                    await bulkVoidSalesMutation.mutateAsync({
+                      saleIds: ids,
+                      reason: "Bulk void via selection toolbar",
+                      restoreStock: true,
+                    });
+                  }
+                }}
+                disabled={voidSaleMutation.isPending || hardDeleteSalesMutation.isPending || bulkVoidSalesMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                title="Cancel selected sales and restore stock"
+              >
+                <RotateCcw className="size-3.5" />
+                Cancel Selected
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const ids = Array.from(salesSelection.selectedIds);
+                  if (confirm(`Permanently delete ${ids.length} selected POS sale record(s) from database? This cannot be undone.`)) {
+                    await hardDeleteSalesMutation.mutateAsync({
+                      saleIds: ids,
+                      restoreStock: false,
+                    });
+                  }
+                }}
+                disabled={voidSaleMutation.isPending || hardDeleteSalesMutation.isPending || bulkVoidSalesMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-800 dark:text-rose-200 border border-rose-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                title="Permanently purge selected records from database"
+              >
+                <Trash2 className="size-3.5" />
+                Delete Selected
+              </button>
+            </div>
+          }
         />
 
         <div className="overflow-x-auto">
@@ -1451,10 +1590,34 @@ export function OfflineAnalyticsTab() {
                               {(sale.status === "cancelled" ||
                                 sale.status === "voided" ||
                                 sale.is_voided) && (
-                                <div className="flex flex-col items-end gap-1">
-                                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                                    <RotateCcw className="size-3.5" />
-                                    Cancelled
+                                <div className="flex flex-col items-end gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
+                                      <RotateCcw className="size-3.5" />
+                                      Cancelled
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (
+                                          confirm(
+                                            `Permanently delete cancelled POS sale #${sale.sale_number} from database? This cannot be undone.`,
+                                          )
+                                        ) {
+                                          await hardDeleteSalesMutation.mutateAsync({
+                                            saleIds: [sale.id],
+                                            restoreStock: false,
+                                          });
+                                        }
+                                      }}
+                                      disabled={hardDeleteSalesMutation.isPending}
+                                      className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                                      title="Permanently purge this sale record from database"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                      Delete Record
+                                    </button>
                                   </div>
                                   {sale.void_reason && (
                                     <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
