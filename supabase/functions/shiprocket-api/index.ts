@@ -169,7 +169,7 @@ serve(async (req) => {
         shipping_country: "India",
         shipping_pincode: "324001",
         shipping_email: "hello@zerahkids.com",
-        shipping_phone: "919000000000",
+        shipping_phone: "919057074777",
         order_items: orderItems,
         payment_method: "Prepaid",
         sub_total: ret.final_refund_amount || 100,

@@ -324,9 +324,10 @@ function ProductPage() {
     queryFn: async () => {
       if (!product?.uuid) return [];
 
-      // Validate UUID format
+      // Validate UUID format before invoking RPC
       const uuidRegex =
         /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+      if (!uuidRegex.test(product.uuid)) return [];
 
       try {
         const { data, error } = await supabase.rpc("get_related_products", {
