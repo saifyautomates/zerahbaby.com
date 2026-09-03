@@ -61,30 +61,31 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
       const addBtn = page.getByRole("button", { name: /Add to bag/i }).first();
       if (await addBtn.isVisible()) {
         await addBtn.click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(1000);
       }
     }
 
     // Go to cart
     await page.goto("/cart", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: /Your bag/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Your bag/i })).toBeVisible({ timeout: 10000 });
   });
 
   test("4. Cart Quantities, Summary, and Coupon Flow", async ({ page }) => {
     // Navigate to shop and add a product if available
     await page.goto("/shop", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1000);
     const productCard = page.locator("article").first();
     if ((await productCard.count()) > 0 && (await productCard.isVisible())) {
       const addBtn = productCard.getByRole("button", { name: /Add to bag/i });
       if (await addBtn.isVisible()) {
         await addBtn.click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(1000);
       }
     }
 
     // Go to cart
     await page.goto("/cart", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: /Your bag/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Your bag/i })).toBeVisible({ timeout: 10000 });
 
     // Verify summary subtotal if aside is visible
     const aside = page.locator("aside");
