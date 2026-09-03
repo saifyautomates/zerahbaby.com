@@ -162,10 +162,26 @@ const toDraft = (
     mrp: p?.mrp ?? 0,
     rating: p?.rating ?? 0,
     reviews: p?.reviews ?? 0,
-    ageGroup: p?.ageGroup ?? "0-6m",
-    imageUrl: p?.imageUrl ?? "",
-    images: p?.images ?? [],
-    productImages: pImages,
+    imageUrl:
+      p?.imageUrl && !p.imageUrl.startsWith("blob:") && !p.imageUrl.startsWith("data:")
+        ? p.imageUrl
+        : pImages[0]?.public_url || "",
+    images: (p?.images && p.images.length > 0
+      ? p.images
+      : pImages.map((img) => img.public_url)
+    ).filter(
+      (u) =>
+        typeof u === "string" &&
+        u.trim().length > 0 &&
+        !u.startsWith("blob:") &&
+        !u.startsWith("data:"),
+    ),
+    productImages: pImages.filter(
+      (img) =>
+        img.public_url &&
+        !img.public_url.startsWith("blob:") &&
+        !img.public_url.startsWith("data:"),
+    ),
     stock: p?.stock ?? 10,
     lowStockAt: p?.lowStockAt ?? 5,
     deliveryFee:
