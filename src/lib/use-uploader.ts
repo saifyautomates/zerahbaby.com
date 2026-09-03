@@ -1,7 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import * as tus from "tus-js-client";
-import { uploadMedia } from "@/lib/uploads"; // use the existing compressor and simple uploader for images
+import { uploadMedia } from "@/lib/uploads";
 
 export type UploadState =
   "SELECTED" | "PREPROCESSING" | "UPLOADING" | "SAVING" | "SAVED" | "FAILED" | "CANCELLED";
@@ -15,14 +13,7 @@ export type UploadJob = {
   state: UploadState;
   error?: string;
   abortController?: AbortController;
-  tusUpload?: tus.Upload;
 };
-
-const BUCKET = "product-images";
-
-// Extracted from supabase instance
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 type UseUploaderOptions = {
   concurrency?: number;
@@ -64,62 +55,15 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
 
     try {
       const startTime = performance.now();
-      updateJob(job.id, { state: "UPLOADING", progress: 0 });
-
       const isVideo = job.file.type.startsWith("video/");
-      const ext = (job.file.name.split(".").pop() ?? "bin").toLowerCase();
-      const filename = `${prefix}/${crypto.randomUUID()}.${ext}`;
+      updateJob(job.id, {
+        state: isVideo ? "UPLOADING" : "PREPROCESSING",
+        progress: 10,
+      });
 
-      let publicUrl = "";
-
-      if (isVideo) {
-        // TUS Resumable Upload for Video
-        publicUrl = await new Promise<string>((resolve, reject) => {
-          const upload = new tus.Upload(job.file, {
-            endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
-            retryDelays: [0, 3000, 5000, 10000, 20000],
-            headers: {
-              Authorization: `Bearer ${supabaseAnonKey}`,
-              apikey: supabaseAnonKey,
-              "x-upsert": "true",
-            },
-            uploadDataDuringCreation: true,
-            removeFingerprintOnSuccess: true,
-            metadata: {
-              bucketName: BUCKET,
-              objectName: filename,
-              contentType: job.file.type,
-              cacheControl: "31536000",
-            },
-            chunkSize: 6 * 1024 * 1024, // 6MB chunks
-            onError: (error) => {
-              reject(error);
-            },
-            onProgress: (bytesUploaded, bytesTotal) => {
-              const progress = Math.round((bytesUploaded / bytesTotal) * 100);
-              updateJob(job.id, { progress });
-            },
-            onSuccess: () => {
-              const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-              resolve(data.publicUrl);
-            },
-          });
-
-          updateJob(job.id, { tusUpload: upload });
-
-          upload.findPreviousUploads().then((previousUploads) => {
-            if (previousUploads.length) {
-              upload.resumeFromPreviousUpload(previousUploads[0]);
-            }
-            upload.start();
-          });
-        });
-      } else {
-        updateJob(job.id, { state: "PREPROCESSING" });
-        // uploadMedia handles compressImage + supabase.upload
-        publicUrl = await uploadMedia(job.file, prefix);
-        updateJob(job.id, { progress: 100 });
-      }
+      // uploadMedia handles MIME checks, sizing, compression (for images), and Supabase Storage upload
+      const publicUrl = await uploadMedia(job.file, prefix);
+      updateJob(job.id, { progress: 100 });
 
       const uploadDuration = performance.now() - startTime;
       console.log(
@@ -184,9 +128,6 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       if (job.abortController) {
         job.abortController.abort();
       }
-      if (job.tusUpload && job.state === "UPLOADING") {
-        job.tusUpload.abort();
-      }
       URL.revokeObjectURL(job.previewUrl);
     }
 
@@ -226,7 +167,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
     return () => {
       jobsRef.current.forEach((job) => {
         URL.revokeObjectURL(job.previewUrl);
-        if (job.tusUpload && job.state === "UPLOADING") job.tusUpload.abort();
+        if (job.abortController) job.abortController.abort();
       });
     };
   }, []);

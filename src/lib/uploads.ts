@@ -81,19 +81,26 @@ export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<s
     );
   }
 
-  // Compress image to make upload "snap of a finger" fast
+  const isVideo = rawFile.type.startsWith("video/");
+  const maxLimit = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+
+  // Cap file size
+  if (rawFile.size > maxLimit) {
+    throw new Error(
+      isVideo
+        ? `Video size must be under 50 MB (Current: ${(rawFile.size / (1024 * 1024)).toFixed(1)} MB).`
+        : `Image size must be under 10 MB (Current: ${(rawFile.size / (1024 * 1024)).toFixed(1)} MB).`,
+    );
+  }
+
+  // Compress image to make upload "snap of a finger" fast (bypassed for video)
   const file = await compressImage(rawFile);
 
-  const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+  const ext = (file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg")).toLowerCase();
 
   // Validate extension
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     throw new Error(`File extension ".${ext}" is not allowed.`);
-  }
-
-  // Cap file size at 10MB
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error("File size must be under 10 MB.");
   }
 
   const filename = `${crypto.randomUUID()}.${ext}`;
@@ -101,8 +108,8 @@ export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<s
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "31536000",
-    upsert: false,
-    contentType: file.type,
+    upsert: true,
+    contentType: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
   });
   if (error) throw error;
 
