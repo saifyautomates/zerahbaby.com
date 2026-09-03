@@ -25,10 +25,13 @@ import {
   Settings2,
   Store,
   Layers,
+  Sparkles,
+  Video,
 } from "lucide-react";
 import {
   ageGroups,
   formatPrice,
+  discountPct,
   useCategories,
   useProducts,
   getProductColors,
@@ -549,7 +552,72 @@ export function ProductForm({
     reorderJobs(from, to);
   }
 
-  async function handleSave() {
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  const handleAiAutoGenerate = () => {
+    if (!draft.name.trim()) {
+      toast.warning("Please enter a product title first!");
+      return;
+    }
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      const title = draft.name.trim();
+      const lower = title.toLowerCase();
+
+      // Smart baby-focused luxury description
+      const desc = `Crafted with utmost care for your little one, this ${title} blends premium fabric softness with charming everyday style. Perfect for active play, outings, and cozy nap times with effortless breathability.`;
+
+      // Smart baby highlights
+      const hl = [
+        "100% Breathable Ultra-Soft Baby-Safe Fabric",
+        "Gentle on Sensitive Skin with Non-Toxic Dyes",
+        "Reinforced Seams with Easy Snap Closures",
+        "Machine Wash Friendly & Fade Resistant",
+      ];
+
+      // Smart category detection
+      let detectedCat = draft.category;
+      if (
+        lower.includes("romper") ||
+        lower.includes("dress") ||
+        lower.includes("shirt") ||
+        lower.includes("set") ||
+        lower.includes("top") ||
+        lower.includes("pant") ||
+        lower.includes("frock") ||
+        lower.includes("cloth")
+      ) {
+        detectedCat = "clothing";
+      } else if (
+        lower.includes("toy") ||
+        lower.includes("rattle") ||
+        lower.includes("plush") ||
+        lower.includes("car")
+      ) {
+        detectedCat = "toys";
+      } else if (
+        lower.includes("bootie") ||
+        lower.includes("shoe") ||
+        lower.includes("sandal") ||
+        lower.includes("sock")
+      ) {
+        detectedCat = "footwear";
+      }
+
+      setDraft((prev) => ({
+        ...prev,
+        category: detectedCat || prev.category,
+        description: prev.description ? prev.description : desc,
+        highlights: prev.highlights ? prev.highlights : hl.join("\n"),
+        brand: prev.brand || "Zérah",
+      }));
+
+      setIsGeneratingAi(false);
+      toast.success("✨ AI Generated Description & Key Highlights!");
+    }, 350);
+  };
+
+  async function handleSave(keepOpenForNext = false) {
     if (saving || isSubmitting) return;
 
     if (isUploading) {
@@ -598,6 +666,53 @@ export function ProductForm({
 
     try {
       const res = (await Promise.resolve(onSave(finalDraft))) as any;
+
+      if (keepOpenForNext) {
+        toast.success(`🎉 Saved "${finalDraft.name}"! Ready for next product.`);
+        // Reset draft for next product creation
+        setDraft({
+          slug: "",
+          name: "",
+          brand: "Zérah",
+          category: categories?.[0]?.slug || "clothing",
+          price: 0,
+          buyingPrice: 0,
+          mrp: 0,
+          stock: 10,
+          sku: "",
+          barcode: "",
+          imageUrl: "",
+          images: [],
+          productImages: [],
+          colors: [],
+          description: "",
+          highlights: "",
+          isFeatured: false,
+          isActive: true,
+          sortOrder: 0,
+          lowStockAt: 2,
+          ageGroup: "0-6m",
+          deliveryFee: 79,
+          salesChannel: "ONLINE_AND_OFFLINE",
+          variants: [
+            {
+              name: "Default",
+              color: null,
+              size: null,
+              sku: generateSKU("clothing"),
+              barcode: generateBarcode(),
+              stock: 10,
+              price_override: null,
+            },
+          ],
+          relatedProductIds: [],
+          recommendationMode: "manual_fallback",
+        });
+        setInitialJobs([]);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Show post-creation prompt for NEW products ONLY when save succeeds
       if (!product) {
         const newProductObj: Product = {
@@ -898,11 +1013,23 @@ export function ProductForm({
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-semibold sm:col-span-2">
-              Product Name *
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-semibold">Product Name *</label>
+                <button
+                  type="button"
+                  onClick={handleAiAutoGenerate}
+                  disabled={isGeneratingAi || !draft.name.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500/10 via-primary/10 to-rose-500/10 border border-primary/20 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer disabled:opacity-40"
+                  title="Generate Description, Highlights & Smart Category from Title"
+                >
+                  <Sparkles className={`size-3.5 text-amber-500 ${isGeneratingAi ? "animate-spin" : ""}`} />
+                  <span>{isGeneratingAi ? "Generating..." : "✨ AI Auto-Fill Details"}</span>
+                </button>
+              </div>
               <input
                 className={input}
-                placeholder="e.g. Cotton Printed Baby Romper"
+                placeholder="e.g. 100% Organic Cotton Printed Baby Romper"
                 value={draft.name}
                 onChange={(e) => {
                   const newName = e.target.value;
@@ -918,7 +1045,7 @@ export function ProductForm({
                   }));
                 }}
               />
-            </label>
+            </div>
 
             <label className="text-sm font-semibold">
               Brand
@@ -1067,7 +1194,14 @@ export function ProductForm({
                   />
                 </label>
                 <label className="text-sm font-semibold">
-                  MRP (₹)
+                  <div className="flex items-center justify-between">
+                    <span>MRP (₹)</span>
+                    {draft.price > 0 && draft.mrp > draft.price && (
+                      <span className="text-[10px] font-bold text-emerald-600">
+                        {discountPct({ price: draft.price, mrp: draft.mrp } as any)}% OFF
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -1078,6 +1212,34 @@ export function ProductForm({
                       set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
                     }
                   />
+                  {draft.price > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => set("mrp", Math.round(draft.price * 1.3))}
+                        className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-muted/80 hover:text-foreground transition cursor-pointer"
+                        title="Set MRP 30% higher than selling price"
+                      >
+                        +30%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("mrp", Math.round(draft.price * 1.5))}
+                        className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-muted/80 hover:text-foreground transition cursor-pointer"
+                        title="Set MRP 50% higher than selling price"
+                      >
+                        +50%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("mrp", Math.round(draft.price * 2))}
+                        className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
+                        title="Double the selling price (50% Flat Discount)"
+                      >
+                        2× (50% OFF)
+                      </button>
+                    </div>
+                  )}
                 </label>
               </div>
 
@@ -1747,11 +1909,25 @@ export function ProductForm({
           >
             Cancel
           </button>
+          {!product && (
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
+              className="rounded-full border border-primary/40 bg-primary/10 px-5 py-2 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-60 cursor-pointer transition-all active:scale-95"
+            >
+              {saving || isSubmitting
+                ? "Saving…"
+                : isUploading
+                  ? "Uploading…"
+                  : "🚀 Save & Add Another"}
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
-            className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95"
+            className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95 shadow-premium-sm hover:bg-primary/90"
           >
             {saving || isSubmitting
               ? "Saving…"
