@@ -376,8 +376,68 @@ export function ProductForm({
 
   const [activeColorTab, setActiveColorTab] = useState<string>("ALL");
   const [newColorName, setNewColorName] = useState<string>("");
-  const [matrixSizes, setMatrixSizes] = useState<string[]>(["S", "M", "L"]);
+  const [matrixSizes, setMatrixSizes] = useState<string[]>(["0-6m", "6-12m", "1-2Y"]);
   const [customSizeInput, setCustomSizeInput] = useState<string>("");
+  const [bulkStock, setBulkStock] = useState<number>(10);
+  const [hasVariants, setHasVariants] = useState<boolean>(() => {
+    return draft.variants.length > 1 || Boolean(draft.variants[0]?.color || draft.variants[0]?.size);
+  });
+
+  const popularColors = [
+    "Blue",
+    "Pink",
+    "Red",
+    "White",
+    "Black",
+    "Yellow",
+    "Green",
+    "Beige",
+    "Grey",
+    "Navy",
+    "Brown",
+    "Multi",
+  ];
+
+  const popularSizes = [
+    "0-3m",
+    "3-6m",
+    "0-6m",
+    "6-12m",
+    "12-18m",
+    "1-2Y",
+    "2-3Y",
+    "3-4Y",
+    "4-5Y",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "Free Size",
+  ];
+
+  const toggleColorPreset = (cName: string) => {
+    const exists = draft.colors.some((c) => c.toLowerCase() === cName.toLowerCase());
+    if (exists) {
+      handleRemoveColor(cName);
+    } else {
+      setDraft((d) => ({ ...d, colors: [...d.colors, cName] }));
+    }
+  };
+
+  const toggleSizePreset = (sName: string) => {
+    setMatrixSizes((prev) =>
+      prev.includes(sName) ? prev.filter((s) => s !== sName) : [...prev, sName],
+    );
+  };
+
+  const handleApplyBulkStock = () => {
+    const updated = draft.variants.map((v) => ({ ...v, stock: bulkStock }));
+    setDraft((d) => ({
+      ...d,
+      variants: updated,
+      stock: updated.reduce((sum, val) => sum + val.stock, 0),
+    }));
+  };
 
   const handleAddColor = () => {
     const trimmed = newColorName.trim();
@@ -391,13 +451,13 @@ export function ProductForm({
   };
 
   const handleRemoveColor = (colorToRemove: string) => {
-    const updatedColors = draft.colors.filter((c) => c !== colorToRemove);
+    const updatedColors = draft.colors.filter((c) => c.toLowerCase() !== colorToRemove.toLowerCase());
     // Unassign color from images and variants that had this color
     const updatedImages = (draft.productImages || []).map((img) =>
-      img.color === colorToRemove ? { ...img, color: null } : img,
+      img.color?.toLowerCase() === colorToRemove.toLowerCase() ? { ...img, color: null } : img,
     );
     const updatedVariants = draft.variants.map((v) =>
-      v.color === colorToRemove ? { ...v, color: null } : v,
+      v.color?.toLowerCase() === colorToRemove.toLowerCase() ? { ...v, color: null } : v,
     );
     setDraft((d) => ({
       ...d,
@@ -405,7 +465,7 @@ export function ProductForm({
       productImages: updatedImages,
       variants: updatedVariants,
     }));
-    if (activeColorTab === colorToRemove) {
+    if (activeColorTab.toLowerCase() === colorToRemove.toLowerCase()) {
       setActiveColorTab("ALL");
     }
   };
@@ -459,7 +519,7 @@ export function ProductForm({
             size: sizeName,
             sku: generateSKU(draft.category, colorName, sizeName),
             barcode: generateBarcode(),
-            stock: 10,
+            stock: bulkStock || 10,
             price_override: null,
             mrp_override: null,
             image_url: colorName
@@ -1319,314 +1379,432 @@ export function ProductForm({
 
 
 
-            {/* VARIANTS SECTION */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            {/* VARIANTS & STOCK SECTION (Amazon / Flipkart / Shopify Style) */}
+            <div className="sm:col-span-2 rounded-2xl border border-border p-5 bg-card shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <Layers className="size-4 text-muted-foreground" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Color × Size Variants & Stock ({draft.variants.length})
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    set("variants", [
-                      ...draft.variants,
-                      {
-                        name: "",
-                        color: draft.colors[0] || null,
-                        size: "M",
-                        sku: generateSKU(draft.category, draft.colors[0], "M"),
-                        barcode: generateBarcode(),
-                        stock: 10,
-                        price_override: null,
-                      },
-                    ])
-                  }
-                  className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition cursor-pointer"
-                >
-                  <Plus className="size-3" /> Add Single Variant
-                </button>
-              </div>
-
-              {/* Quick Matrix Generator Box */}
-              <div className="mb-4 rounded-xl border border-border/80 bg-background p-3.5 shadow-2xs">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    ⚡ Quick Matrix Generator (Colors × Sizes)
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleGenerateMatrix}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>⚡ Generate Color × Size Matrix</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-semibold text-muted-foreground w-16">Colors:</span>
-                    {draft.colors.length === 0 ? (
-                      <span className="text-amber-600 text-xs italic">
-                        No colors added yet. Add colors in the Media Gallery above first.
-                      </span>
-                    ) : (
-                      draft.colors.map((c) => (
-                        <span
-                          key={c}
-                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground text-xs"
-                        >
-                          <span className="size-2 rounded-full bg-primary" /> {c}
-                        </span>
-                      ))
-                    )}
+                  <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">
+                    <Layers className="size-4" />
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="font-semibold text-muted-foreground w-16">Sizes:</span>
-                    {[
-                      "0-3m",
-                      "3-6m",
-                      "6-12m",
-                      "1-2Y",
-                      "2-3Y",
-                      "S",
-                      "M",
-                      "L",
-                      "XL",
-                      "Free Size",
-                    ].map((sz) => {
-                      const isSel = matrixSizes.includes(sz);
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => {
-                            setMatrixSizes((prev) =>
-                              isSel ? prev.filter((s) => s !== sz) : [...prev, sz],
-                            );
-                          }}
-                          className={`rounded px-2 py-0.5 text-xs font-semibold transition cursor-pointer ${
-                            isSel
-                              ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
+                  <div>
+                    <span className="text-sm font-bold text-foreground">
+                      Inventory & Product Variants
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      {hasVariants
+                        ? `${draft.variants.length} variant(s) configured · Total stock: ${draft.stock} units`
+                        : "Single product inventory without color/size options"}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Variants List */}
-              <div className="space-y-3">
-                {draft.variants.map((v, idx) => {
-                  const swatchImg = v.color
-                    ? getColorSwatchImage(
-                        { ...product, product_images: draft.productImages } as any,
-                        v.color,
-                      )
-                    : draft.images[0] || "";
-
-                  return (
-                    <div
-                      key={idx}
-                      className="flex flex-wrap gap-2.5 items-end p-3 rounded-lg border border-border bg-background shadow-2xs"
+                <div className="flex items-center gap-2">
+                  {!hasVariants ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasVariants(true);
+                        if (draft.colors.length === 0) {
+                          setDraft((d) => ({ ...d, colors: ["Blue"] }));
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary px-3.5 py-1.5 text-xs font-bold hover:bg-primary hover:text-primary-foreground transition cursor-pointer active:scale-95"
                     >
-                      {/* Swatch preview */}
-                      <div className="size-9 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted/30 mb-0.5">
-                        {swatchImg ? (
-                          <img
-                            loading="lazy"
-                            decoding="async"
-                            src={swatchImg}
-                            alt=""
-                            className="size-full object-cover"
+                      <Plus className="size-3.5" />
+                      <span>+ Add Colors & Sizes (Variants)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasVariants(false);
+                        set("variants", [
+                          {
+                            name: "Default",
+                            color: null,
+                            size: null,
+                            sku: generateSKU(draft.category),
+                            barcode: generateBarcode(),
+                            stock: draft.stock || 10,
+                            price_override: null,
+                            mrp_override: null,
+                          },
+                        ]);
+                      }}
+                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition underline cursor-pointer"
+                    >
+                      Switch to Single Item
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {!hasVariants ? (
+                /* SINGLE PRODUCT SIMPLE STOCK VIEW (AMAZON STYLE) */
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                  <div className="max-w-xs">
+                    <label className="block text-xs font-bold text-foreground mb-1.5">
+                      Available Stock Quantity *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        className={`${input} font-black text-base pl-3`}
+                        placeholder="e.g. 25"
+                        value={draft.stock === 0 ? "" : draft.stock}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
+                          set("stock", val);
+                          if (draft.variants.length > 0) {
+                            const updated = [...draft.variants];
+                            updated[0].stock = val;
+                            set("variants", updated);
+                          }
+                        }}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                        units
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Enter the total number of units available for sale.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* MULTI-VARIANT BUILDER & TABLE (FLIPKART / SHOPIFY STYLE) */
+                <div className="space-y-4">
+                  {/* Step 1: Select Available Options */}
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    {/* Colors Selection */}
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <span>1. Colors:</span>
+                          <span className="text-[11px] font-normal text-muted-foreground">
+                            (Click pills to select or type custom)
+                          </span>
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {popularColors.map((col) => {
+                          const isSel = draft.colors.some(
+                            (c) => c.toLowerCase() === col.toLowerCase(),
+                          );
+                          return (
+                            <button
+                              key={col}
+                              type="button"
+                              onClick={() => toggleColorPreset(col)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
+                                isSel
+                                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                                  : "bg-background border border-border text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              <span>{col}</span>
+                              {isSel && <span className="text-[10px] ml-0.5 opacity-80">✓</span>}
+                            </button>
+                          );
+                        })}
+
+                        {/* Custom Color Input */}
+                        <div className="inline-flex items-center gap-1 ml-1">
+                          <input
+                            type="text"
+                            placeholder="+ Custom Color"
+                            value={newColorName}
+                            onChange={(e) => setNewColorName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddColor();
+                              }
+                            }}
+                            className="h-7 w-28 rounded-lg border border-dashed border-border bg-background px-2 text-xs outline-none focus:border-primary placeholder:text-muted-foreground"
                           />
-                        ) : (
-                          <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
-                            {v.color?.[0] || "D"}
-                          </div>
+                          {newColorName.trim() && (
+                            <button
+                              type="button"
+                              onClick={handleAddColor}
+                              className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sizes Selection */}
+                    <div>
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5 mb-2">
+                        <span>2. Sizes:</span>
+                        <span className="text-[11px] font-normal text-muted-foreground">
+                          (Click pills to select)
+                        </span>
+                      </label>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {popularSizes.map((sz) => {
+                          const isSel = matrixSizes.includes(sz);
+                          return (
+                            <button
+                              key={sz}
+                              type="button"
+                              onClick={() => toggleSizePreset(sz)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
+                                isSel
+                                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                                  : "bg-background border border-border text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
+
+                        {/* Custom Size Input */}
+                        <div className="inline-flex items-center gap-1 ml-1">
+                          <input
+                            type="text"
+                            placeholder="+ Custom Size"
+                            value={customSizeInput}
+                            onChange={(e) => setCustomSizeInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const trimmed = customSizeInput.trim();
+                                if (trimmed && !matrixSizes.includes(trimmed)) {
+                                  setMatrixSizes((prev) => [...prev, trimmed]);
+                                  setCustomSizeInput("");
+                                }
+                              }
+                            }}
+                            className="h-7 w-28 rounded-lg border border-dashed border-border bg-background px-2 text-xs outline-none focus:border-primary placeholder:text-muted-foreground"
+                          />
+                          {customSizeInput.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const trimmed = customSizeInput.trim();
+                                if (trimmed && !matrixSizes.includes(trimmed)) {
+                                  setMatrixSizes((prev) => [...prev, trimmed]);
+                                  setCustomSizeInput("");
+                                }
+                              }}
+                              className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2: Generator & Bulk Action Bar */}
+                    <div className="pt-2 border-t border-border/60 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Default stock per item:
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={bulkStock}
+                          onChange={(e) => setBulkStock(Math.max(0, Number(e.target.value)))}
+                          className="h-7 w-16 rounded-lg border border-border bg-background px-2 text-xs font-bold text-center"
+                        />
+                        {draft.variants.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleApplyBulkStock}
+                            className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold transition cursor-pointer"
+                          >
+                            Apply to all
+                          </button>
                         )}
                       </div>
 
-                      {/* Color (Editable Input + Dropdown Datalist) */}
-                      <label className="w-32 text-xs font-semibold text-muted-foreground">
-                        Color
-                        <div className="relative mt-1">
-                          <input
-                            type="text"
-                            className={`${input} mt-0 text-foreground font-medium placeholder:font-normal placeholder:text-muted-foreground/60`}
-                            placeholder="Type or select color"
-                            value={v.color ?? ""}
-                            list={`variant-colors-list-${idx}`}
-                            onChange={(e) => {
-                              const updated = [...draft.variants];
-                              const rawVal = e.target.value;
-                              const newColor =
-                                rawVal.trim() === "(No Color)" ? null : rawVal.trim() || null;
-                              updated[idx].color = newColor;
-                              updated[idx].name =
-                                newColor && updated[idx].size
-                                  ? `${newColor} / ${updated[idx].size}`
-                                  : newColor || updated[idx].size || "Default";
-                              updated[idx].sku = generateSKU(
-                                draft.category,
-                                newColor,
-                                updated[idx].size,
-                              );
-                              set("variants", updated);
-
-                              if (
-                                newColor &&
-                                !draft.colors.some(
-                                  (c) => c.toLowerCase() === newColor.toLowerCase(),
-                                )
-                              ) {
-                                setDraft((d) => ({
-                                  ...d,
-                                  colors: [...d.colors, newColor],
-                                }));
-                              }
-                            }}
-                          />
-                          <datalist id={`variant-colors-list-${idx}`}>
-                            <option value="(No Color)" />
-                            {draft.colors.map((c) => (
-                              <option key={c} value={c} />
-                            ))}
-                          </datalist>
-                        </div>
-                      </label>
-
-                      {/* Size */}
-                      <label className="w-24 text-xs font-semibold text-muted-foreground">
-                        Size
-                        <input
-                          className={`${input} mt-1 text-foreground font-medium`}
-                          value={v.size ?? ""}
-                          placeholder="e.g. M, 6-12m"
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            const newSize = e.target.value || null;
-                            updated[idx].size = newSize;
-                            updated[idx].name =
-                              updated[idx].color && newSize
-                                ? `${updated[idx].color} / ${newSize}`
-                                : updated[idx].color || newSize || "Default";
-                            updated[idx].sku = generateSKU(
-                              draft.category,
-                              updated[idx].color,
-                              newSize,
-                            );
-                            set("variants", updated);
-                          }}
-                        />
-                      </label>
-
-                      {/* Stock */}
-                      <label className="w-20 text-xs font-semibold text-muted-foreground">
-                        Stock
-                        <input
-                          type="number"
-                          min="0"
-                          className={`${input} mt-1 text-foreground font-bold`}
-                          value={v.stock}
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            updated[idx].stock = Math.max(0, Number(e.target.value));
-                            set("variants", updated);
-                            set(
-                              "stock",
-                              updated.reduce((sum, val) => sum + val.stock, 0),
-                            );
-                          }}
-                        />
-                      </label>
-
-                      {/* SKU */}
-                      <label className="flex-1 min-w-[130px] text-xs font-semibold text-muted-foreground">
-                        SKU
-                        <input
-                          className={`${input} mt-1 text-foreground font-mono text-xs`}
-                          value={v.sku}
-                          placeholder="Auto"
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            updated[idx].sku = e.target.value;
-                            set("variants", updated);
-                          }}
-                        />
-                      </label>
-
-                      {/* Barcode */}
-                      <label className="w-28 text-xs font-semibold text-muted-foreground">
-                        Barcode
-                        <input
-                          className={`${input} mt-1 text-foreground font-mono text-xs`}
-                          value={v.barcode ?? ""}
-                          placeholder="Auto"
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            updated[idx].barcode = e.target.value;
-                            set("variants", updated);
-                          }}
-                        />
-                      </label>
-
-                      {/* Price Override */}
-                      <label className="w-24 text-xs font-semibold text-muted-foreground">
-                        Price (₹)
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="Default"
-                          className={`${input} mt-1 text-foreground`}
-                          value={v.price_override ?? ""}
-                          onChange={(e) => {
-                            const updated = [...draft.variants];
-                            updated[idx].price_override = e.target.value
-                              ? Number(e.target.value)
-                              : null;
-                            set("variants", updated);
-                          }}
-                        />
-                      </label>
-
                       <button
                         type="button"
-                        onClick={() => {
-                          const updated = draft.variants.filter((_, i) => i !== idx);
-                          if (updated.length === 0) {
-                            updated.push({
-                              name: "Default",
-                              color: null,
-                              size: null,
-                              sku: generateSKU(draft.category),
-                              barcode: generateBarcode(),
-                              stock: 10,
-                              price_override: null,
-                            });
-                          }
-                          set("variants", updated);
-                          set(
-                            "stock",
-                            updated.reduce((sum, val) => sum + val.stock, 0),
-                          );
-                        }}
-                        className="p-2 mb-0.5 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition cursor-pointer"
-                        title="Remove Variant"
+                        onClick={handleGenerateMatrix}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer active:scale-95"
                       >
-                        <Trash2 className="size-4" />
+                        <span>⚡ Generate / Sync Variants Table ({draft.colors.length || 1} × {matrixSizes.length || 1} = {(draft.colors.length || 1) * (matrixSizes.length || 1)})</span>
                       </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  {/* Step 3: Sleek Sober Variants Table */}
+                  <div className="rounded-xl border border-border overflow-hidden bg-background">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/40 text-muted-foreground font-bold text-[11px] uppercase tracking-wider">
+                            <th className="py-2.5 px-3">Variant Name</th>
+                            <th className="py-2.5 px-3">Color</th>
+                            <th className="py-2.5 px-3">Size</th>
+                            <th className="py-2.5 px-3 w-28">Stock (Qty)</th>
+                            <th className="py-2.5 px-3 w-36">Price (₹ Override)</th>
+                            <th className="py-2.5 px-3">SKU</th>
+                            <th className="py-2.5 px-3 text-right">Remove</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/70">
+                          {draft.variants.map((v, idx) => {
+                            const swatchImg = v.color
+                              ? getColorSwatchImage(
+                                  { ...product, product_images: draft.productImages } as any,
+                                  v.color,
+                                )
+                              : draft.images[0] || "";
+
+                            return (
+                              <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="size-7 rounded-md overflow-hidden border border-border/80 shrink-0 bg-muted/30 flex items-center justify-center">
+                                      {swatchImg ? (
+                                        <img
+                                          loading="lazy"
+                                          decoding="async"
+                                          src={swatchImg}
+                                          alt=""
+                                          className="size-full object-cover"
+                                        />
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-muted-foreground">
+                                          {v.color?.[0] || "✓"}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-semibold text-foreground">
+                                      {v.name || "Default"}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                                    {v.color || <span className="text-muted-foreground italic">—</span>}
+                                  </span>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <span className="inline-block px-2 py-0.5 rounded bg-muted font-semibold text-foreground text-[11px]">
+                                    {v.size || "Standard"}
+                                  </span>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="w-20 rounded-lg border border-border bg-background px-2.5 py-1 font-bold text-foreground text-xs focus:border-primary outline-none"
+                                    value={v.stock}
+                                    onChange={(e) => {
+                                      const updated = [...draft.variants];
+                                      updated[idx].stock = Math.max(0, Number(e.target.value));
+                                      set("variants", updated);
+                                      set(
+                                        "stock",
+                                        updated.reduce((sum, val) => sum + val.stock, 0),
+                                      );
+                                    }}
+                                  />
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder={`Base ₹${draft.price || 0}`}
+                                    className="w-28 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
+                                    value={v.price_override ?? ""}
+                                    onChange={(e) => {
+                                      const updated = [...draft.variants];
+                                      updated[idx].price_override = e.target.value
+                                        ? Number(e.target.value)
+                                        : null;
+                                      set("variants", updated);
+                                    }}
+                                  />
+                                </td>
+
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground">
+                                  {v.sku}
+                                </td>
+
+                                <td className="py-2.5 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = draft.variants.filter((_, i) => i !== idx);
+                                      if (updated.length === 0) {
+                                        updated.push({
+                                          name: "Default",
+                                          color: null,
+                                          size: null,
+                                          sku: generateSKU(draft.category),
+                                          barcode: generateBarcode(),
+                                          stock: 10,
+                                          price_override: null,
+                                          mrp_override: null,
+                                        });
+                                      }
+                                      set("variants", updated);
+                                      set(
+                                        "stock",
+                                        updated.reduce((sum, val) => sum + val.stock, 0),
+                                      );
+                                    }}
+                                    className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition cursor-pointer"
+                                    title="Remove this variant"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="p-3 border-t border-border bg-muted/20 flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          set("variants", [
+                            ...draft.variants,
+                            {
+                              name: `Custom Variant ${draft.variants.length + 1}`,
+                              color: draft.colors[0] || null,
+                              size: "Free Size",
+                              sku: generateSKU(draft.category, draft.colors[0], "Free Size"),
+                              barcode: generateBarcode(),
+                              stock: bulkStock || 10,
+                              price_override: null,
+                              mrp_override: null,
+                            },
+                          ])
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
+                      >
+                        <Plus className="size-3.5" />
+                        <span>Add Another Custom Variant Row</span>
+                      </button>
+
+                      <span className="text-xs font-bold text-foreground">
+                        Total Stock: {draft.stock} units
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <label className="text-sm font-semibold sm:col-span-2">
               Description
