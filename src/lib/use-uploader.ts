@@ -41,6 +41,9 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
   }, [jobs]);
 
   const updateJob = useCallback((id: string, updates: Partial<UploadJob>) => {
+    jobsRef.current = jobsRef.current.map((job) =>
+      job.id === id ? { ...job, ...updates } : job,
+    );
     setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)));
   }, []);
 
@@ -153,7 +156,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
 
   const addFiles = useCallback(
     (files: File[]) => {
-      const newJobs = files.map((file) => ({
+      const newJobs: UploadJob[] = files.map((file) => ({
         id: crypto.randomUUID(),
         file,
         previewUrl: URL.createObjectURL(file),
@@ -161,6 +164,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
         state: "SELECTED" as UploadState,
       }));
 
+      jobsRef.current = [...jobsRef.current, ...newJobs];
       setJobs((prev) => [...prev, ...newJobs]);
 
       for (const job of newJobs) {
@@ -168,7 +172,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       }
 
       for (let i = 0; i < concurrency; i++) {
-        processNext();
+        void processNext();
       }
     },
     [concurrency, processNext],
@@ -187,6 +191,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
     }
 
     queueRef.current = queueRef.current.filter((qid) => qid !== id);
+    jobsRef.current = jobsRef.current.filter((j) => j.id !== id);
     setJobs((prev) => prev.filter((j) => j.id !== id));
   }, []);
 
@@ -196,7 +201,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       if (job && (job.state === "FAILED" || job.state === "CANCELLED")) {
         updateJob(id, { state: "SELECTED", error: undefined, progress: 0 });
         queueRef.current.push(id);
-        processNext();
+        void processNext();
       }
     },
     [processNext, updateJob],
@@ -207,11 +212,13 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       const copy = [...prev];
       const [moved] = copy.splice(fromIndex, 1);
       copy.splice(toIndex, 0, moved);
+      jobsRef.current = copy;
       return copy;
     });
   }, []);
 
   const setInitialJobs = useCallback((initialJobs: UploadJob[]) => {
+    jobsRef.current = initialJobs;
     setJobs(initialJobs);
   }, []);
 
