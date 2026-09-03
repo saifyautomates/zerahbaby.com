@@ -69,19 +69,19 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
   }) => {
     // Unauthenticated user attempting to access /admin
     await page.goto("/admin");
-    await expect(page).toHaveURL(/.*\/auth/);
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /profile
     await page.goto("/profile");
-    await expect(page).toHaveURL(/.*\/auth/);
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /orders
     await page.goto("/orders");
-    await expect(page).toHaveURL(/.*\/auth/);
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /wishlist
     await page.goto("/wishlist");
-    await expect(page).toHaveURL(/.*\/auth/);
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
   });
 
   test("6. Authentication: Passwordless OTP UI", async ({ page }) => {

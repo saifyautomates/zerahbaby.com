@@ -473,12 +473,31 @@ export function AdminPage() {
     );
   }
 
-  if (!user || !isAdmin) {
+  useEffect(() => {
+    if (!sessionLoading && !user) {
+      navigate({
+        to: "/auth",
+        search: { redirect: "/admin" },
+        replace: true,
+      });
+    }
+  }, [sessionLoading, user, navigate]);
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="size-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="mt-4 text-sm text-muted-foreground">Redirecting to sign in...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold">Admin access needed</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You're signed in as {user?.email}, which isn't an approved store admin account. Sign in
+          You're signed in as {user.email}, which isn't an approved store admin account. Sign in
           with your admin email, or ask an existing admin to add you.
         </p>
         <Link
