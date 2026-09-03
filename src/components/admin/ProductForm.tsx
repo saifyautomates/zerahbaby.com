@@ -320,13 +320,40 @@ export function ProductForm({
 
   // Sync uploader jobs back to draft.images whenever jobs change
   useEffect(() => {
-    const urls = jobs.filter((j) => j.state === "SAVED" && j.publicUrl).map((j) => j.publicUrl!);
+    const validJobs = jobs.filter(
+      (j) =>
+        j.state === "SAVED" &&
+        j.publicUrl &&
+        typeof j.publicUrl === "string" &&
+        !j.publicUrl.startsWith("blob:") &&
+        !j.publicUrl.startsWith("data:"),
+    );
+    const urls = validJobs.map((j) => j.publicUrl!);
 
     // Check if urls actually changed to prevent infinite loops
     const currentStr = JSON.stringify(draft.images);
     const newStr = JSON.stringify(urls);
     if (currentStr !== newStr) {
-      setDraft((d) => ({ ...d, images: urls, imageUrl: urls[0] ?? "" }));
+      setDraft((d) => {
+        const existingMap = new Map((d.productImages || []).map((img) => [img.public_url, img]));
+        const updatedProductImages = urls.map((u, i) => {
+          const matched = existingMap.get(u);
+          return {
+            public_url: u,
+            is_primary: i === 0,
+            sort_order: i,
+            color: matched?.color ?? null,
+            alt_text: matched?.alt_text || d.name,
+          };
+        });
+
+        return {
+          ...d,
+          images: urls,
+          imageUrl: urls[0] ?? "",
+          productImages: updatedProductImages,
+        };
+      });
     }
   }, [jobs, draft.images]);
 
@@ -506,12 +533,47 @@ export function ProductForm({
 
   async function handleSave() {
     if (saving || isSubmitting) return;
+
+    if (isUploading) {
+      toast.warning("Please wait for images to finish uploading before saving.");
+      return;
+    }
+
     setIsSubmitting(true);
+
+    // Filter out invalid or ephemeral blob/data URLs
+    const validImages = draft.images.filter(
+      (u) =>
+        typeof u === "string" &&
+        u.trim().length > 0 &&
+        !u.startsWith("blob:") &&
+        !u.startsWith("data:"),
+    );
+
+    const validProductImages = (draft.productImages || []).filter(
+      (img) =>
+        img &&
+        typeof img.public_url === "string" &&
+        img.public_url.trim().length > 0 &&
+        !img.public_url.startsWith("blob:") &&
+        !img.public_url.startsWith("data:"),
+    );
 
     // Auto-generate SKU and barcode if empty, sync primary image
     const finalDraft = {
       ...draft,
-      imageUrl: draft.images[0] || draft.imageUrl || "",
+      images: validImages,
+      imageUrl: validImages[0] || "",
+      productImages:
+        validProductImages.length > 0
+          ? validProductImages
+          : validImages.map((u, i) => ({
+              public_url: u,
+              is_primary: i === 0,
+              sort_order: i,
+              color: null,
+              alt_text: draft.name,
+            })),
       sku: draft.sku.trim() || generateSKU(draft.category),
       barcode: draft.barcode.trim() || generateBarcode(),
     };
@@ -1785,7 +1847,11 @@ export function ProductForm({
             disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
             className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95"
           >
-            {saving || isSubmitting ? "Saving…" : "Save product"}
+            {saving || isSubmitting
+              ? "Saving…"
+              : isUploading
+                ? "Uploading images…"
+                : "Save product"}
           </button>
         </div>
       </div>

@@ -153,16 +153,26 @@ export function useSaveProduct() {
         if (costError) throw costError;
 
         // Sync product_images with color association and order preservation
-        const incomingImages =
+        const rawIncoming =
           draft.productImages && draft.productImages.length > 0
             ? draft.productImages
-            : draft.images.map((url, idx) => ({
-                public_url: url.trim(),
+            : (draft.images || []).map((url, idx) => ({
+                public_url: typeof url === "string" ? url.trim() : "",
                 is_primary: idx === 0,
                 sort_order: idx,
                 color: null,
                 alt_text: draft.name,
               }));
+
+        // Exclude ephemeral local blob: and data: URIs
+        const incomingImages = rawIncoming.filter(
+          (img) =>
+            img &&
+            typeof img.public_url === "string" &&
+            img.public_url.trim().length > 0 &&
+            !img.public_url.startsWith("blob:") &&
+            !img.public_url.startsWith("data:"),
+        );
 
         const primaryUrl = draft.imageUrl?.trim() || incomingImages[0]?.public_url?.trim() || "";
         const processedImages: {

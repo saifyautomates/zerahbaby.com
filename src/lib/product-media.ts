@@ -148,7 +148,12 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
   // 1. Check DB product_images relation
   const dbImages = Array.isArray(product.product_images)
     ? [...product.product_images].filter(
-        (img) => img && typeof img.public_url === "string" && img.public_url.trim().length > 0,
+        (img) =>
+          img &&
+          typeof img.public_url === "string" &&
+          img.public_url.trim().length > 0 &&
+          !img.public_url.startsWith("blob:") &&
+          !img.public_url.startsWith("data:"),
       )
     : [];
 
@@ -167,10 +172,22 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
   }
 
   // 2. Check direct imageUrl / images on the product object
-  if (product.imageUrl && product.imageUrl.trim().length > 0) {
+  if (
+    product.imageUrl &&
+    typeof product.imageUrl === "string" &&
+    product.imageUrl.trim().length > 0 &&
+    !product.imageUrl.startsWith("blob:") &&
+    !product.imageUrl.startsWith("data:")
+  ) {
     const gallery =
       Array.isArray(product.images) && product.images.length > 0
-        ? product.images.filter((u) => typeof u === "string" && u.trim().length > 0)
+        ? product.images.filter(
+            (u) =>
+              typeof u === "string" &&
+              u.trim().length > 0 &&
+              !u.startsWith("blob:") &&
+              !u.startsWith("data:"),
+          )
         : [product.imageUrl];
 
     return {
@@ -182,7 +199,13 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
   }
 
   if (Array.isArray(product.images) && product.images.length > 0) {
-    const validImages = product.images.filter((u) => typeof u === "string" && u.trim().length > 0);
+    const validImages = product.images.filter(
+      (u) =>
+        typeof u === "string" &&
+        u.trim().length > 0 &&
+        !u.startsWith("blob:") &&
+        !u.startsWith("data:"),
+    );
     if (validImages.length > 0) {
       return {
         primaryImage: validImages[0],
