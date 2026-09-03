@@ -60,6 +60,7 @@ export function useProductReviews(productId: string | undefined) {
   return useQuery({
     queryKey: ["reviews", productId],
     enabled: Boolean(productId),
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       if (!productId) return [];
       const canonicalId = await resolveProductUuid(productId);

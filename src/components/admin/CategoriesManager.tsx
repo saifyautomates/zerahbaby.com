@@ -28,6 +28,7 @@ export function CategoriesTab() {
 
   const { data } = useQuery({
     queryKey: ["admin-categories"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.from("categories").select("*").order("sort_order");
       if (error) throw error;
