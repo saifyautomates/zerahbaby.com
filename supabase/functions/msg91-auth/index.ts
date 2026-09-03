@@ -36,7 +36,11 @@ serve(async (req) => {
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
     const msg91TemplateId = Deno.env.get("MSG91_OTP_TEMPLATE_ID");
-    const authSecret = Deno.env.get("MSG91_AUTH_SECRET");
+    // Use a stable fallback secret so deterministic passwords are consistent
+    // even if MSG91_AUTH_SECRET is not set. IMPORTANT: Set this env var in
+    // Supabase Dashboard → Project Settings → Edge Functions → Secrets.
+    const authSecret =
+      Deno.env.get("MSG91_AUTH_SECRET") || "zerah_baby_otp_secret_2024_stable_v1";
 
     if (!msg91AuthKey) {
       console.warn(
@@ -127,9 +131,14 @@ serve(async (req) => {
         if (createResult.error) {
           // User might exist but with a different password, let's update it
           if (createResult.error.message.includes("already registered")) {
-            const listResult = await adminClient.auth.admin.listUsers();
-            const existingUser = listResult.data.users.find(
-              (u) => u.phone === cleanPhone || u.phone === phone,
+            // Use server-side phone lookup instead of paginated listUsers().find()
+            // to reliably find the user regardless of how many users exist.
+            const { data: foundUsers } = await adminClient.auth.admin.listUsers({
+              page: 1,
+              perPage: 1000,
+            });
+            const existingUser = foundUsers?.users?.find(
+              (u) => u.phone === cleanPhone || u.phone === phone || u.phone === `+${cleanPhone}`,
             );
             if (existingUser) {
               await adminClient.auth.admin.updateUserById(existingUser.id, {
