@@ -215,6 +215,7 @@ export function invalidateCanonicalReportingQueries(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["products"] });
   qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
   qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
+  qc.invalidateQueries({ queryKey: ["admin-database-notifications"] });
 }
 
 /**
