@@ -27,6 +27,7 @@ import { ReviewModal } from "@/components/site/ReviewModal";
 import { Star, RotateCcw, PackageCheck, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { OrdersSkeleton } from "@/components/ui/Skeletons";
+import clothing from "@/assets/cat-clothing.jpg";
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
@@ -285,17 +286,19 @@ function OrdersPage() {
                         params={{ id: item.product_slug }}
                         className="group flex flex-1 items-center gap-4 min-w-0"
                       >
-                        {product ? (
+                        {item.image_url || product?.image ? (
                           <img
-                            src={product.image}
+                            src={item.image_url || product?.image}
                             alt={item.name}
                             className="size-14 rounded-xl border border-border object-cover transition-opacity group-hover:opacity-80 shrink-0"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).style.opacity = "0";
+                              (e.target as HTMLImageElement).src = clothing;
                             }}
                           />
                         ) : (
-                          <div className="size-14 rounded-xl border border-border bg-muted transition-opacity group-hover:opacity-80 shrink-0" />
+                          <div className="size-14 rounded-xl border border-border bg-muted flex items-center justify-center shrink-0">
+                            <PackageCheck className="size-6 text-muted-foreground/50" />
+                          </div>
                         )}
                         <div className="flex flex-1 flex-col justify-center min-w-0">
                           <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary truncate">
