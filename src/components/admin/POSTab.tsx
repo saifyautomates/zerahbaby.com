@@ -386,6 +386,17 @@ export function POSTab() {
 
   const availableCredit = customerCreditData?.available_credit ?? 0;
 
+  // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
+  useEffect(() => {
+    if (availableCredit > 0 && total > 0 && storeCreditApplied === 0) {
+      const applyAmount = Math.min(availableCredit, total);
+      setStoreCreditApplied(applyAmount);
+      if (creditTokenInput.trim()) {
+        toast.success(`Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`);
+      }
+    }
+  }, [availableCredit, total, storeCreditApplied, creditTokenInput]);
+
   // Auto-clamp applied credit to available credit and final total
   const effectiveCreditUsed = useMemo(() => {
     return Math.min(storeCreditApplied, availableCredit, total);
@@ -1755,20 +1766,38 @@ export function POSTab() {
                         <input
                           type="text"
                           value={creditTokenInput}
-                          onChange={(e) => setCreditTokenInput(e.target.value.toUpperCase())}
-                          placeholder="Enter or scan Store Credit (e.g. A123, P258)..."
+                          onChange={(e) => setCreditTokenInput(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (availableCredit > 0) {
+                                setStoreCreditApplied(Math.min(availableCredit, total));
+                                toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                              } else if (creditTokenInput.trim()) {
+                                toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
+                              }
+                            }
+                          }}
+                          placeholder="Enter or scan 4-character Voucher Token (e.g. A7K2, Q9XZ)..."
                           className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
                         />
                       </div>
-                      {availableCredit > 0 && storeCreditApplied === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setStoreCreditApplied(Math.min(availableCredit, total))}
-                          className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
-                        >
-                          Apply ₹{Math.min(availableCredit, total)}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (availableCredit > 0) {
+                            setStoreCreditApplied(Math.min(availableCredit, total));
+                            toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                          } else if (creditTokenInput.trim()) {
+                            toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
+                          } else {
+                            toast.info("Please enter a voucher code");
+                          }
+                        }}
+                        className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
+                      >
+                        {availableCredit > 0 ? `Apply ₹${Math.min(availableCredit, total)}` : "Apply"}
+                      </button>
                     </div>
 
                     {/* Available Credit Banner */}
