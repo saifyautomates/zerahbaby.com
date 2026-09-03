@@ -68,19 +68,19 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
     page,
   }) => {
     // Unauthenticated user attempting to access /admin
-    await page.goto("/admin");
+    await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /profile
-    await page.goto("/profile");
+    await page.goto("/profile", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /orders
-    await page.goto("/orders");
+    await page.goto("/orders", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
 
     // Unauthenticated user attempting to access /wishlist
-    await page.goto("/wishlist");
+    await page.goto("/wishlist", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 10000 });
   });
 
