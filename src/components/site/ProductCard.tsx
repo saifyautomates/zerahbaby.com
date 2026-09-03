@@ -34,6 +34,22 @@ export function ProductCard({ product }: { product: Product }) {
   const featHoverSwap = settings?.["feature_hover_swap"] !== "false";
   const featPromoBadges = settings?.["feature_promo_badges"] !== "false";
 
+  const validImages = (product.images || []).filter(
+    (u): u is string =>
+      typeof u === "string" &&
+      u.trim().length > 0 &&
+      !u.startsWith("blob:") &&
+      !u.startsWith("data:") &&
+      u.startsWith("http"),
+  );
+
+  const distinctImages = Array.from(new Set(validImages));
+  const primaryImage = product.image || distinctImages[0] || imageFor(product.category, null, product);
+  const secondaryImage =
+    featHoverSwap && distinctImages.length > 1 && distinctImages[1] !== primaryImage
+      ? distinctImages[1]
+      : null;
+
   // Prefetch product details on hover for instantaneous navigation
   const handlePrefetch = () => {
     qc.prefetchQuery(singleProductQueryOptions(product.id, false));
@@ -53,21 +69,18 @@ export function ProductCard({ product }: { product: Product }) {
       >
         <div className="relative aspect-square w-full overflow-hidden bg-muted">
           <LazyImage
-            src={product.image}
+            src={primaryImage}
             alt={product.name}
             placeholderSrc={imageFor(product.category, null, product)}
-            className={`h-full w-full object-cover object-center ${
-              featHoverSwap && product.images && product.images.length > 1
-                ? "transition-opacity duration-500 group-hover:opacity-0"
-                : "transition-transform duration-700 ease-out group-hover:scale-105"
-            }`}
+            className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
           />
-          {/* Second Image Swap on Hover only if multiple distinct images exist */}
-          {featHoverSwap && product.images && product.images.length > 1 && (
+          {/* Second Image Swap on Hover only if distinct secondary image actually exists and is valid */}
+          {secondaryImage && (
             <LazyImage
-              src={product.images[1]}
-              alt={`${product.name} alternate view`}
-              className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
+              src={secondaryImage}
+              alt=""
+              placeholderSrc={primaryImage}
+              className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 group-hover:scale-105 pointer-events-none"
             />
           )}
         </div>
