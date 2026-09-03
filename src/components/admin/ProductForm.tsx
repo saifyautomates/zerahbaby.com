@@ -25,6 +25,7 @@ import {
   Settings2,
   Store,
   Layers,
+  Video,
 } from "lucide-react";
 import {
   ageGroups,
@@ -726,9 +727,8 @@ export function ProductForm({
             {product ? "Edit product" : "Add product"}
           </h2>
         </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-          {/* Gallery with Full Drag & Drop Support */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-6">
+          {/* CARD 1: 📸 PHOTOS & VIDEOS */}
           <div
             onDragOver={handleDragOverContainer}
             onDragEnter={handleDragEnterContainer}
@@ -740,39 +740,39 @@ export function ProductForm({
                 : "border-border bg-card"
             }`}
           >
-            {/* Active Drop Overlay */}
             {isDraggingOver && (
               <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-primary/15 backdrop-blur-[2px] border-2 border-dashed border-primary pointer-events-none animate-in fade-in duration-150">
                 <div className="flex flex-col items-center bg-card p-5 rounded-2xl shadow-xl border border-primary/30">
                   <UploadCloud className="size-10 text-primary animate-bounce" />
-                  <p className="mt-2 text-sm font-bold text-primary">Drop images to upload</p>
-                  <p className="text-xs text-muted-foreground">
-                    Release your mouse to add instantly
-                  </p>
+                  <p className="mt-2 text-sm font-bold text-primary">Drop files to upload</p>
                 </div>
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div>
-                <p className="text-sm font-semibold">Media gallery</p>
+                <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <span>📸 Product Photos & Videos</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({jobs.length}/{MAX_IMAGES})
+                  </span>
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Up to {MAX_IMAGES} photos or videos · assign colors to images · first image is the
-                  main thumbnail
+                  First photo will be the main display cover
                 </p>
               </div>
               <button
                 type="button"
                 disabled={isUploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60 shadow-xs active:scale-95"
+                className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60 shadow-xs active:scale-95"
               >
                 {isUploading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <Upload className="size-4" />
+                  <Upload className="size-3.5" />
                 )}
-                <span>{isUploading ? "Uploading…" : "Upload files"}</span>
+                <span>{isUploading ? "Uploading…" : "+ Add Photos"}</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -788,753 +788,341 @@ export function ProductForm({
               />
             </div>
 
-            {/* COLOR MANAGEMENT FOR MEDIA */}
-            <div className="mt-4 pt-3 border-t border-border/60">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Product Colors ({draft.colors.length})
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="e.g. Pink, Beige, Blue"
-                    value={newColorName}
-                    onChange={(e) => setNewColorName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddColor();
-                      }
-                    }}
-                    className="h-7 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary w-36"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddColor}
-                    className="h-7 rounded-lg bg-primary px-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="size-3" /> Add Color
-                  </button>
-                </div>
-              </div>
+            {/* Media Thumbnails Grid */}
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-6 pt-1">
+              {jobs.map((job, i) => {
+                const url = job.previewUrl || job.publicUrl || "";
+                const isProcessing = job.state === "SELECTED" || job.state === "UPLOADING" || job.state === "SAVING";
+                const isError = job.state === "FAILED";
 
-              {/* Color filter tabs */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
+                return (
+                  <div
+                    key={job.id}
+                    draggable={!isProcessing}
+                    onDragStart={() => setDragIndex(i)}
+                    onDragEnd={() => setDragIndex(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
+                      setDragIndex(null);
+                    }}
+                    className={`group relative aspect-square overflow-hidden rounded-xl border bg-muted/30 transition-all ${
+                      i === 0 ? "border-primary/80 ring-2 ring-primary/20" : "border-border"
+                    } ${isProcessing ? "opacity-75" : "hover:border-primary/50"}`}
+                  >
+                    {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
+                      (job.file && job.file.type.startsWith("video/")) ? (
+                        <div className="relative size-full">
+                          <video src={url} className="size-full object-cover" muted playsInline />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <Video className="size-5 text-white drop-shadow" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={url}
+                          alt=""
+                          className="size-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = generateProductFallbackSvg({
+                              name: draft.name,
+                              category: draft.category,
+                              slug: draft.slug,
+                            });
+                          }}
+                        />
+                      )}
+
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-2 text-center">
+                        <Loader2 className="size-4 animate-spin text-primary mb-1" />
+                        <span className="text-[9px] font-bold">{job.progress}%</span>
+                      </div>
+                    )}
+
+                    {isError && (
+                      <div className="absolute inset-0 bg-destructive/90 flex flex-col items-center justify-center p-1 text-center">
+                        <span className="text-[9px] text-white font-bold mb-1">Failed</span>
+                        <button
+                          type="button"
+                          onClick={() => retryJob(job.id)}
+                          className="text-[9px] bg-white text-destructive px-1.5 py-0.5 rounded font-bold"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {i === 0 && !isProcessing && (
+                      <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground shadow-xs">
+                        <Star className="size-2.5 fill-current" /> Cover
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeJob(job.id);
+                      }}
+                      className="absolute right-1 top-1 z-20 rounded-md bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100 hover:bg-destructive"
+                      title="Remove"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {jobs.length < MAX_IMAGES && (
                 <button
                   type="button"
-                  onClick={() => setActiveColorTab("ALL")}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                    activeColorTab === "ALL"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/10 text-muted-foreground transition hover:border-primary/50 hover:bg-muted/30 hover:text-primary active:scale-95"
                 >
-                  All Photos ({jobs.length})
+                  <Plus className="size-5 mb-0.5 opacity-70" />
+                  <span className="text-[10px] font-bold">Add photo</span>
                 </button>
-                {draft.colors.map((c) => {
-                  const count = (draft.productImages || []).filter(
-                    (img) => img.color && img.color.toLowerCase() === c.toLowerCase(),
-                  ).length;
-                  return (
-                    <div
-                      key={c}
-                      className={`inline-flex items-center rounded-lg border text-xs font-semibold overflow-hidden transition ${
-                        activeColorTab === c
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-card border-border text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setActiveColorTab(c)}
-                        className="px-2.5 py-1 cursor-pointer"
-                      >
-                        {c} ({count})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveColor(c)}
-                        className="px-1.5 py-1 hover:bg-destructive/20 text-destructive-foreground/80 hover:text-destructive cursor-pointer"
-                        title={`Remove color ${c}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              )}
             </div>
-
-            {/* If no images uploaded yet: large interactive clickable dropzone */}
-            {jobs.length === 0 ? (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                className={`mt-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
-                  isDraggingOver
-                    ? "border-primary bg-primary/10"
-                    : "border-border/80 bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
-                }`}
-              >
-                <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
-                  <UploadCloud className="size-6" />
-                </div>
-                <p className="text-sm font-bold text-foreground">
-                  {isUploading
-                    ? "Uploading media files…"
-                    : isDraggingOver
-                      ? "Drop images right here!"
-                      : "Drag & drop images here, or click to browse"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Supports JPEG, PNG, WebP, GIF, MP4 (Up to 10 MB each · Max {MAX_IMAGES} files)
-                </p>
-              </div>
-            ) : (
-              <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {jobs
-                  .filter((job) => {
-                    if (activeColorTab === "ALL") return true;
-                    const url = job.previewUrl || job.publicUrl || "";
-                    const assignedColor = draft.productImages?.find(
-                      (img) => img.public_url === url,
-                    )?.color;
-                    return assignedColor?.toLowerCase() === activeColorTab.toLowerCase();
-                  })
-                  .map((job, i) => {
-                    const url = job.previewUrl || job.publicUrl || "";
-                    const isError = job.state === "FAILED";
-                    const isProcessing = job.state !== "SAVED" && !isError;
-                    const assignedColor =
-                      draft.productImages?.find((img) => img.public_url === url)?.color || "";
-
-                    return (
-                      <div
-                        key={job.id}
-                        draggable={!isProcessing}
-                        onDragStart={() => setDragIndex(i)}
-                        onDragEnd={() => setDragIndex(null)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.stopPropagation();
-                          if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i);
-                          setDragIndex(null);
-                        }}
-                        className={`group relative aspect-square overflow-hidden rounded-xl border border-border shadow-2xs ${isProcessing ? "bg-muted/40 animate-pulse" : "bg-muted/20"}`}
-                      >
-                        {url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
-                        (job.file && job.file.type.startsWith("video/")) ? (
-                          <video
-                            src={url}
-                            className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
-                            playsInline
-                            muted
-                            autoPlay
-                            loop
-                          />
-                        ) : (
-                          <img
-                            src={url}
-                            alt=""
-                            loading="lazy"
-                            className={`size-full object-cover ${isProcessing ? "opacity-50" : ""}`}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = generateProductFallbackSvg({
-                                name: draft.name,
-                                category: draft.category,
-                                slug: draft.slug,
-                              });
-                            }}
-                          />
-                        )}
-
-                        {/* Progress overlay */}
-                        {isProcessing && (
-                          <div className="absolute inset-x-0 bottom-0 p-2 bg-background/80 backdrop-blur-sm z-10 flex flex-col justify-end">
-                            <div className="text-[10px] font-semibold text-center mb-1">
-                              {job.state === "UPLOADING" ? `${job.progress}%` : job.state}
-                            </div>
-                            <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
-                              <div
-                                className="h-full bg-primary transition-all duration-300 ease-out"
-                                style={{ width: `${job.progress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Error overlay */}
-                        {isError && (
-                          <div className="absolute inset-0 bg-destructive/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-2 text-center">
-                            <span className="text-[10px] font-bold text-destructive-foreground mb-1 leading-tight">
-                              {job.error || "Failed"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                retryJob(job.id);
-                              }}
-                              className="text-[9px] bg-background text-foreground px-2 py-1 rounded shadow cursor-pointer"
-                            >
-                              Retry
-                            </button>
-                          </div>
-                        )}
-
-                        {i === 0 && !isProcessing && (
-                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-xs">
-                            <Star className="size-3" /> Main
-                          </span>
-                        )}
-
-                        {/* Color Assignment Selector */}
-                        <div className="absolute bottom-1 right-1 z-20">
-                          <select
-                            value={assignedColor}
-                            onChange={(e) => handleSetImageColor(url, e.target.value || null)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded-md bg-background/90 text-[10px] font-bold text-foreground px-1.5 py-0.5 border border-border shadow-xs outline-none cursor-pointer hover:bg-background"
-                          >
-                            <option value="">No Color</option>
-                            {draft.colors.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {!isProcessing && (
-                          <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
-                            <GripVertical className="size-3" />
-                          </span>
-                        )}
-
-                        <button
-                          type="button"
-                          aria-label="Remove image"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeJob(job.id);
-                          }}
-                          className="absolute right-1 top-1 z-20 rounded-lg bg-background/90 p-1 text-destructive opacity-0 transition group-hover:opacity-100 shadow-xs hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-
-                {jobs.length < MAX_IMAGES && (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-muted/20 p-4 text-muted-foreground transition hover:border-primary/50 hover:bg-muted/40 hover:text-primary active:scale-95"
-                  >
-                    <Plus className="size-6 mb-1 opacity-70" />
-                    <span className="text-[10px] font-bold">Add media</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-semibold sm:col-span-2">
-              Product Name *
-              <input
-                className={input}
-                placeholder="e.g. Cotton Printed Baby Romper"
-                value={draft.name}
-                onChange={(e) => {
-                  const newName = e.target.value;
-                  setDraft((d) => ({
-                    ...d,
-                    name: newName,
-                    slug: !product
-                      ? newName
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, "-")
-                          .replace(/(^-|-$)/g, "")
-                      : d.slug,
-                  }));
-                }}
-              />
-            </label>
+          {/* CARD 2: 📝 BASIC PRODUCT DETAILS */}
+          <div className="rounded-2xl border border-border p-5 bg-card space-y-4 shadow-2xs">
+            <p className="text-sm font-bold text-foreground">📝 Basic Details</p>
 
-            <label className="text-sm font-semibold">
-              Brand
-              <input
-                className={input}
-                placeholder="e.g. Zérah, Saify"
-                value={draft.brand}
-                onChange={(e) => set("brand", e.target.value)}
-                list="brand-suggestions"
-              />
-              <datalist id="brand-suggestions">
-                <option value="Zérah" />
-                <option value="Saify" />
-              </datalist>
-            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-xs font-bold text-foreground sm:col-span-2">
+                Product Title *
+                <input
+                  className={`${input} mt-1.5 font-medium text-sm`}
+                  placeholder="e.g. 100% Organic Cotton Printed Baby Romper"
+                  value={draft.name}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setDraft((d) => ({
+                      ...d,
+                      name: newName,
+                      slug: !product
+                        ? newName
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, "-")
+                            .replace(/(^-|-$)/g, "")
+                        : d.slug,
+                    }));
+                  }}
+                />
+              </label>
 
-            <label className="text-sm font-semibold">
-              Category / Section
-              <select
-                className={input}
-                value={draft.category}
-                onChange={(e) => set("category", e.target.value)}
-              >
-                {(categories ?? []).map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
-                {!(categories ?? []).some((c) => c.slug === draft.category) && draft.category && (
-                  <option value={draft.category}>{draft.category}</option>
-                )}
-              </select>
-            </label>
+              <label className="text-xs font-bold text-foreground">
+                Category *
+                <select
+                  className={`${input} mt-1.5 font-medium text-xs`}
+                  value={draft.category}
+                  onChange={(e) => set("category", e.target.value)}
+                >
+                  {(categories ?? []).map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                  {!(categories ?? []).some((c) => c.slug === draft.category) && draft.category && (
+                    <option value={draft.category}>{draft.category}</option>
+                  )}
+                </select>
+              </label>
 
-            <div className="sm:col-span-2">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="text-sm font-semibold">Age Group</label>
-                <span className="text-[11px] text-muted-foreground">Click a preset or type custom</span>
+              <div>
+                <label className="text-xs font-bold text-foreground block mb-1.5">
+                  Age Group *
+                </label>
+                <div className="flex flex-wrap items-center gap-1 mb-1.5">
+                  {["0-6m", "6-12m", "1-2Y", "2-3Y", "3-4Y", "4-6Y", "All Ages"].map((ag) => (
+                    <button
+                      key={ag}
+                      type="button"
+                      onClick={() => set("ageGroup", ag)}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer active:scale-95 ${
+                        draft.ageGroup === ag
+                          ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                          : "bg-muted/60 text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {ag}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  className={`${input} mt-0 text-xs`}
+                  placeholder="Or type custom e.g. 18-24m, Newborn"
+                  value={draft.ageGroup}
+                  onChange={(e) => set("ageGroup", e.target.value)}
+                  list="age-group-suggestions"
+                />
+                <datalist id="age-group-suggestions">
+                  <option value="0-3m" />
+                  <option value="0-6m" />
+                  <option value="3-6m" />
+                  <option value="6-12m" />
+                  <option value="12-18m" />
+                  <option value="1-2y" />
+                  <option value="2-3y" />
+                  <option value="3-4y" />
+                  <option value="4-6y" />
+                  <option value="6-8y" />
+                  <option value="All Ages" />
+                </datalist>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                {["0-6m", "6-12m", "12-24m", "1-2Y", "2-3Y", "3-4Y", "4-6Y", "6-8Y", "All Ages"].map((ag) => (
-                  <button
-                    key={ag}
-                    type="button"
-                    onClick={() => set("ageGroup", ag)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
-                      draft.ageGroup === ag
-                        ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                        : "bg-muted/60 text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {ag}
-                  </button>
-                ))}
-              </div>
-              <input
-                className={input}
-                placeholder="Or type custom e.g. 0-6m, 2-4y, 4-6y, Newborn, All Ages"
-                value={draft.ageGroup}
-                onChange={(e) => set("ageGroup", e.target.value)}
-                list="age-group-suggestions"
-              />
-              <datalist id="age-group-suggestions">
-                <option value="0-3m" />
-                <option value="0-6m" />
-                <option value="3-6m" />
-                <option value="6-12m" />
-                <option value="12-18m" />
-                <option value="12-24m" />
-                <option value="18-24m" />
-                <option value="2-3y" />
-                <option value="2-4y" />
-                <option value="3-4y" />
-                <option value="4-6y" />
-                <option value="6-8y" />
-                <option value="8-10y" />
-                <option value="10-12y" />
-                <option value="12-14y" />
-                <option value="Newborn" />
-                <option value="Infant" />
-                <option value="Toddler" />
-                <option value="Kids" />
-                <option value="All Ages" />
-              </datalist>
             </div>
+          </div>
 
-            {/* Label & Barcode Preview directly above Pricing */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Tag className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Label Preview
+          {/* CARD 3: 💰 PRICING, STOCK & VARIANTS */}
+          <div className="rounded-2xl border border-border p-5 bg-card space-y-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-bold text-foreground">💰 Pricing & Inventory</p>
+              {draft.mrp > draft.price && draft.price > 0 && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 shadow-2xs">
+                  🎉 {Math.round(((draft.mrp - draft.price) / draft.mrp) * 100)}% OFF (Saves ₹{draft.mrp - draft.price})
                 </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Zérah Baby & Kids
-                </p>
-                <p className="text-xs font-semibold mt-1 text-center">
-                  {draft.name || "Product Name"}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-black">{formatPrice(draft.price || 0)}</span>
-                  {draft.mrp > draft.price && (
-                    <span className="text-[10px] text-muted-foreground line-through">
-                      {formatPrice(draft.mrp)}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 scale-90">
-                  <Barcode
-                    value={draft.barcode || draft.sku || previewBarcode}
-                    format="CODE128"
-                    width={1.2}
-                    height={40}
-                    fontSize={10}
-                    margin={0}
-                    displayValue={true}
-                    background="transparent"
-                  />
-                </div>
-                <p className="mt-1 text-[9px] text-muted-foreground">
-                  SKU: {draft.sku || previewSKU}
-                </p>
-              </div>
-            </div>
-
-            {/* PRICING & PROFIT SECTION */}
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
-              <div className="flex items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <Tag className="size-4 text-muted-foreground" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Pricing & Profit
-                  </span>
-                </div>
-                {draft.mrp > draft.price && draft.price > 0 && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 shadow-2xs">
-                    🎉 {Math.round(((draft.mrp - draft.price) / draft.mrp) * 100)}% OFF (Saves ₹{draft.mrp - draft.price})
-                  </span>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3 mb-6">
-                <label className="text-sm font-semibold">
-                  Buying Price (₹)
-                  <input
-                    type="number"
-                    min="0"
-                    className={input}
-                    placeholder="0"
-                    value={draft.buyingPrice === 0 ? "" : draft.buyingPrice}
-                    onChange={(e) =>
-                      set(
-                        "buyingPrice",
-                        e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
-                      )
-                    }
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  Selling Price (₹) *
-                  <input
-                    type="number"
-                    min="0"
-                    className={input}
-                    placeholder="0"
-                    value={draft.price === 0 ? "" : draft.price}
-                    onChange={(e) =>
-                      set("price", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                    }
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  MRP (₹) *
-                  <input
-                    type="number"
-                    min="0"
-                    className={input}
-                    placeholder="0"
-                    value={draft.mrp === 0 ? "" : draft.mrp}
-                    onChange={(e) =>
-                      set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                    }
-                  />
-                </label>
-              </div>
-
-              {/* Delivery Fee Section — Only applicable for Online Store products */}
-              {draft.salesChannel !== "OFFLINE_ONLY" && (
-                <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Truck className="size-4 text-primary" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        Delivery / Shipping Price
-                      </span>
-                    </div>
-                    <span className="text-xs font-semibold text-primary">
-                      {draft.deliveryFee === 0
-                        ? "🎉 Free Delivery Active"
-                        : `₹${draft.deliveryFee} Shipping Charge`}
-                    </span>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Shipping Price (₹)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          className={`${input} pl-7 font-bold text-foreground`}
-                          placeholder="0 (Free Delivery)"
-                          value={draft.deliveryFee === 0 ? "" : draft.deliveryFee}
-                          onChange={(e) =>
-                            set(
-                              "deliveryFee",
-                              e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Quick Presets
-                      </label>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 0)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 0
-                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Free (₹0)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 79)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 79
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Standard (₹79)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => set("deliveryFee", 149)}
-                          className={`rounded-xl px-3 py-2 text-xs font-bold border transition cursor-pointer ${
-                            draft.deliveryFee === 149
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "bg-background border-border hover:bg-muted text-foreground"
-                          }`}
-                        >
-                          Express (₹149)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-2.5 text-[11px] text-muted-foreground">
-                    💡 Naye product par default <b>₹79</b> rehta hai. Aap ise <b>Free (₹0)</b> ya
-                    apni marzi ka koi bhi amount set kar sakte hain.
-                  </p>
-                </div>
               )}
-
-              {/* Profit Calculation Box */}
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">Expected Profit</p>
-                    <p
-                      className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? "text-destructive" : "text-emerald-600"}`}
-                    >
-                      {draft.price - draft.buyingPrice < 0 ? "-" : ""}
-                      {formatPrice(Math.abs(draft.price - draft.buyingPrice))}
-                    </p>
-                  </div>
-                  <div className="hidden sm:block w-px h-10 bg-border"></div>
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">Profit Margin</p>
-                    <p
-                      className={`text-xl font-bold ${draft.price - draft.buyingPrice < 0 ? "text-destructive" : "text-emerald-600"}`}
-                    >
-                      {draft.buyingPrice > 0
-                        ? (((draft.price - draft.buyingPrice) / draft.buyingPrice) * 100).toFixed(2)
-                        : draft.price > 0
-                          ? "100.00"
-                          : "0.00"}
-                      %
-                    </p>
-                  </div>
-                </div>
-
-                {/* Validation Warnings */}
-                {draft.price > draft.mrp && draft.mrp > 0 && (
-                  <p className="mt-3 text-xs font-medium text-amber-600 flex items-center gap-1">
-                    ⚠️ Selling Price is higher than MRP.
-                  </p>
-                )}
-                {draft.price < draft.buyingPrice && (
-                  <p className="mt-3 text-xs font-medium text-destructive flex items-center gap-1">
-                    ⚠️ Warning: Selling Price is lower than Buying Price. This will result in a
-                    loss.
-                  </p>
-                )}
-              </div>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-xs font-bold text-foreground">
+                Selling Price (₹) *
+                <input
+                  type="number"
+                  min="0"
+                  className={`${input} mt-1.5 font-black text-sm`}
+                  placeholder="e.g. 499"
+                  value={draft.price === 0 ? "" : draft.price}
+                  onChange={(e) =>
+                    set("price", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                  }
+                />
+              </label>
 
+              <label className="text-xs font-bold text-foreground">
+                MRP (₹ Original Price) *
+                <input
+                  type="number"
+                  min="0"
+                  className={`${input} mt-1.5 text-sm font-semibold`}
+                  placeholder="e.g. 999"
+                  value={draft.mrp === 0 ? "" : draft.mrp}
+                  onChange={(e) =>
+                    set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
+                  }
+                />
+              </label>
+            </div>
 
-            {/* VARIANTS & STOCK SECTION (Amazon / Flipkart / Shopify Style) */}
-            <div className="sm:col-span-2 rounded-2xl border border-border p-5 bg-card shadow-2xs">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">
-                    <Layers className="size-4" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-bold text-foreground">
-                      Inventory & Product Variants
-                    </span>
-                    <p className="text-[11px] text-muted-foreground">
-                      {hasVariants
-                        ? `${draft.variants.length} variant(s) configured · Total stock: ${draft.stock} units`
-                        : "Single product inventory without color/size options"}
-                    </p>
-                  </div>
+            {/* VARIANT MODE TOGGLE */}
+            <div className="pt-3 border-t border-border/70">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <span className="text-xs font-bold text-foreground">
+                    Does this product have multiple Colors or Sizes?
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    {hasVariants ? "Variants enabled" : "Single item with one stock count"}
+                  </p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {!hasVariants ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasVariants(true);
-                        if (draft.colors.length === 0) {
-                          setDraft((d) => ({ ...d, colors: ["Blue"] }));
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary px-3.5 py-1.5 text-xs font-bold hover:bg-primary hover:text-primary-foreground transition cursor-pointer active:scale-95"
-                    >
-                      <Plus className="size-3.5" />
-                      <span>+ Add Colors & Sizes (Variants)</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasVariants(false);
-                        set("variants", [
-                          {
-                            name: "Default",
-                            color: null,
-                            size: null,
-                            sku: generateSKU(draft.category),
-                            barcode: generateBarcode(),
-                            stock: draft.stock || 10,
-                            price_override: null,
-                            mrp_override: null,
-                          },
-                        ]);
-                      }}
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition underline cursor-pointer"
-                    >
-                      Switch to Single Item
-                    </button>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextState = !hasVariants;
+                    setHasVariants(nextState);
+                    if (nextState) {
+                      if (draft.colors.length === 0) setDraft((d) => ({ ...d, colors: ["Blue"] }));
+                      syncMatrix(["Blue"], matrixSizes);
+                    } else {
+                      set("variants", [
+                        {
+                          name: "Default",
+                          color: null,
+                          size: null,
+                          sku: generateSKU(draft.category),
+                          barcode: generateBarcode(),
+                          stock: draft.stock || 10,
+                          price_override: null,
+                          mrp_override: null,
+                        },
+                      ]);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 ${
+                    hasVariants
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "bg-muted border border-border text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span>{hasVariants ? "✓ Multi-Variants Enabled" : "+ Enable Colors & Sizes"}</span>
+                </button>
               </div>
 
               {!hasVariants ? (
-                /* SINGLE PRODUCT SIMPLE STOCK VIEW (AMAZON STYLE) */
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                  <div className="max-w-xs">
-                    <label className="block text-xs font-bold text-foreground mb-1.5">
-                      Available Stock Quantity *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        className={`${input} font-black text-base pl-3`}
-                        placeholder="e.g. 25"
-                        value={draft.stock === 0 ? "" : draft.stock}
-                        onChange={(e) => {
-                          const val = e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
-                          set("stock", val);
-                          if (draft.variants.length > 0) {
-                            const updated = [...draft.variants];
-                            updated[0].stock = val;
-                            set("variants", updated);
-                          }
-                        }}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-                        units
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Enter the total number of units available for sale.
-                    </p>
+                /* SINGLE ITEM STOCK */
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 max-w-xs">
+                  <label className="block text-xs font-bold text-foreground mb-1">
+                    Stock Quantity *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      className={`${input} font-black text-sm pl-3`}
+                      placeholder="e.g. 25"
+                      value={draft.stock === 0 ? "" : draft.stock}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
+                        set("stock", val);
+                        if (draft.variants.length > 0) {
+                          const updated = [...draft.variants];
+                          updated[0].stock = val;
+                          set("variants", updated);
+                        }
+                      }}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                      units
+                    </span>
                   </div>
                 </div>
               ) : (
-                /* MULTI-VARIANT BUILDER & TABLE (FLIPKART / SHOPIFY STYLE) */
-                <div className="space-y-4">
-                  {/* Step 1: Select Available Options */}
-                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
-                    {/* Colors Selection */}
+                /* MULTI-VARIANT PICKER & COMPACT TABLE */
+                <div className="space-y-3.5 mt-2">
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-3">
+                    {/* Colors */}
                     <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <span>1. Colors:</span>
-                          <span className="text-[11px] font-normal text-muted-foreground">
-                            (Click pills to select or type custom)
-                          </span>
-                        </label>
-                      </div>
-
+                      <span className="text-[11px] font-bold text-foreground block mb-1.5">
+                        1. Select Colors:
+                      </span>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {popularColors.map((col) => {
-                          const isSel = draft.colors.some(
-                            (c) => c.toLowerCase() === col.toLowerCase(),
-                          );
+                          const isSel = draft.colors.some((c) => c.toLowerCase() === col.toLowerCase());
                           return (
                             <button
                               key={col}
                               type="button"
                               onClick={() => toggleColorPreset(col)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
                                 isSel
-                                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                                  ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                                   : "bg-background border border-border text-foreground hover:bg-muted"
                               }`}
                             >
-                              <span>{col}</span>
-                              {isSel && <span className="text-[10px] ml-0.5 opacity-80">✓</span>}
+                              {col} {isSel && "✓"}
                             </button>
                           );
                         })}
-
-                        {/* Custom Color Input */}
-                        <div className="inline-flex items-center gap-1 ml-1">
+                        <div className="inline-flex items-center gap-1">
                           <input
                             type="text"
-                            placeholder="+ Custom Color"
+                            placeholder="+ Custom"
                             value={newColorName}
                             onChange={(e) => setNewColorName(e.target.value)}
                             onKeyDown={(e) => {
@@ -1543,13 +1131,13 @@ export function ProductForm({
                                 handleAddColor();
                               }
                             }}
-                            className="h-7 w-28 rounded-lg border border-dashed border-border bg-background px-2 text-xs outline-none focus:border-primary placeholder:text-muted-foreground"
+                            className="h-7 w-20 rounded-lg border border-dashed border-border bg-background px-2 text-xs outline-none focus:border-primary"
                           />
                           {newColorName.trim() && (
                             <button
                               type="button"
                               onClick={handleAddColor}
-                              className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer"
+                              className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
                             >
                               Add
                             </button>
@@ -1558,15 +1146,11 @@ export function ProductForm({
                       </div>
                     </div>
 
-                    {/* Sizes Selection */}
+                    {/* Sizes */}
                     <div>
-                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5 mb-2">
-                        <span>2. Sizes:</span>
-                        <span className="text-[11px] font-normal text-muted-foreground">
-                          (Click pills to select)
-                        </span>
-                      </label>
-
+                      <span className="text-[11px] font-bold text-foreground block mb-1.5">
+                        2. Select Sizes:
+                      </span>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {popularSizes.map((sz) => {
                           const isSel = matrixSizes.includes(sz);
@@ -1577,7 +1161,7 @@ export function ProductForm({
                               onClick={() => toggleSizePreset(sz)}
                               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
                                 isSel
-                                  ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                                  ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                                   : "bg-background border border-border text-foreground hover:bg-muted"
                               }`}
                             >
@@ -1585,551 +1169,268 @@ export function ProductForm({
                             </button>
                           );
                         })}
-
-                        {/* Custom Size Input */}
-                        <div className="inline-flex items-center gap-1 ml-1">
-                          <input
-                            type="text"
-                            placeholder="+ Custom Size"
-                            value={customSizeInput}
-                            onChange={(e) => setCustomSizeInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const trimmed = customSizeInput.trim();
-                                if (trimmed && !matrixSizes.includes(trimmed)) {
-                                  setMatrixSizes((prev) => [...prev, trimmed]);
-                                  setCustomSizeInput("");
-                                }
-                              }
-                            }}
-                            className="h-7 w-28 rounded-lg border border-dashed border-border bg-background px-2 text-xs outline-none focus:border-primary placeholder:text-muted-foreground"
-                          />
-                          {customSizeInput.trim() && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const trimmed = customSizeInput.trim();
-                                if (trimmed && !matrixSizes.includes(trimmed)) {
-                                  setMatrixSizes((prev) => [...prev, trimmed]);
-                                  setCustomSizeInput("");
-                                }
-                              }}
-                              className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition cursor-pointer"
-                            >
-                              Add
-                            </button>
-                          )}
-                        </div>
                       </div>
                     </div>
 
-                    {/* Step 2: Generator & Bulk Action Bar */}
-                    <div className="pt-2 border-t border-border/60 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          Default stock per item:
-                        </span>
+                    {/* Bulk Stock Tool */}
+                    <div className="pt-2 border-t border-border/60 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground font-semibold">Bulk Stock:</span>
                         <input
                           type="number"
                           min="0"
                           value={bulkStock}
                           onChange={(e) => setBulkStock(Math.max(0, Number(e.target.value)))}
-                          className="h-7 w-16 rounded-lg border border-border bg-background px-2 text-xs font-bold text-center"
+                          className="h-7 w-16 rounded-lg border border-border bg-background text-xs font-bold text-center"
                         />
-                        {draft.variants.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={handleApplyBulkStock}
-                            className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold transition cursor-pointer"
-                          >
-                            Apply to all
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={handleApplyBulkStock}
+                          className="h-7 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold transition cursor-pointer"
+                        >
+                          Apply to all
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={handleGenerateMatrix}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer active:scale-95"
-                      >
-                        <span>⚡ Generate / Sync Variants Table ({draft.colors.length || 1} × {matrixSizes.length || 1} = {(draft.colors.length || 1) * (matrixSizes.length || 1)})</span>
-                      </button>
+                      <span className="text-xs font-bold text-foreground">
+                        {draft.variants.length} Variants ({draft.stock} Total Units)
+                      </span>
                     </div>
                   </div>
 
-                  {/* Step 3: Sleek Sober Variants Table */}
+                  {/* Sleek Variants Table */}
                   <div className="rounded-xl border border-border overflow-hidden bg-background">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="border-b border-border bg-muted/40 text-muted-foreground font-bold text-[11px] uppercase tracking-wider">
-                            <th className="py-2.5 px-3">Variant Name</th>
-                            <th className="py-2.5 px-3">Color</th>
-                            <th className="py-2.5 px-3">Size</th>
-                            <th className="py-2.5 px-3 w-28">Stock (Qty)</th>
-                            <th className="py-2.5 px-3 w-36">Price (₹ Override)</th>
-                            <th className="py-2.5 px-3">SKU</th>
-                            <th className="py-2.5 px-3 text-right">Remove</th>
+                          <tr className="border-b border-border bg-muted/40 text-muted-foreground font-bold text-[11px] uppercase">
+                            <th className="py-2 px-3">Variant</th>
+                            <th className="py-2 px-3">Color</th>
+                            <th className="py-2 px-3">Size</th>
+                            <th className="py-2 px-3 w-24">Stock</th>
+                            <th className="py-2 px-3 w-32">Price Override</th>
+                            <th className="py-2 px-3 text-right">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/70">
-                          {draft.variants.map((v, idx) => {
-                            const swatchImg = v.color
-                              ? getColorSwatchImage(
-                                  { ...product, product_images: draft.productImages } as any,
-                                  v.color,
-                                )
-                              : draft.images[0] || "";
-
-                            return (
-                              <tr key={idx} className="hover:bg-muted/30 transition-colors">
-                                <td className="py-2.5 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="size-7 rounded-md overflow-hidden border border-border/80 shrink-0 bg-muted/30 flex items-center justify-center">
-                                      {swatchImg ? (
-                                        <img
-                                          loading="lazy"
-                                          decoding="async"
-                                          src={swatchImg}
-                                          alt=""
-                                          className="size-full object-cover"
-                                        />
-                                      ) : (
-                                        <span className="text-[10px] font-bold text-muted-foreground">
-                                          {v.color?.[0] || "✓"}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="font-semibold text-foreground">
-                                      {v.name || "Default"}
-                                    </span>
-                                  </div>
-                                </td>
-
-                                <td className="py-2.5 px-3">
-                                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                                    {v.color || <span className="text-muted-foreground italic">—</span>}
-                                  </span>
-                                </td>
-
-                                <td className="py-2.5 px-3">
-                                  <span className="inline-block px-2 py-0.5 rounded bg-muted font-semibold text-foreground text-[11px]">
-                                    {v.size || "Standard"}
-                                  </span>
-                                </td>
-
-                                <td className="py-2.5 px-3">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="w-20 rounded-lg border border-border bg-background px-2.5 py-1 font-bold text-foreground text-xs focus:border-primary outline-none"
-                                    value={v.stock}
-                                    onChange={(e) => {
-                                      const updated = [...draft.variants];
-                                      updated[idx].stock = Math.max(0, Number(e.target.value));
-                                      set("variants", updated);
-                                      set(
-                                        "stock",
-                                        updated.reduce((sum, val) => sum + val.stock, 0),
-                                      );
-                                    }}
-                                  />
-                                </td>
-
-                                <td className="py-2.5 px-3">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    placeholder={`Base ₹${draft.price || 0}`}
-                                    className="w-28 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary outline-none"
-                                    value={v.price_override ?? ""}
-                                    onChange={(e) => {
-                                      const updated = [...draft.variants];
-                                      updated[idx].price_override = e.target.value
-                                        ? Number(e.target.value)
-                                        : null;
-                                      set("variants", updated);
-                                    }}
-                                  />
-                                </td>
-
-                                <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground">
-                                  {v.sku}
-                                </td>
-
-                                <td className="py-2.5 px-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = draft.variants.filter((_, i) => i !== idx);
-                                      if (updated.length === 0) {
-                                        updated.push({
-                                          name: "Default",
-                                          color: null,
-                                          size: null,
-                                          sku: generateSKU(draft.category),
-                                          barcode: generateBarcode(),
-                                          stock: 10,
-                                          price_override: null,
-                                          mrp_override: null,
-                                        });
-                                      }
-                                      set("variants", updated);
-                                      set(
-                                        "stock",
-                                        updated.reduce((sum, val) => sum + val.stock, 0),
-                                      );
-                                    }}
-                                    className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition cursor-pointer"
-                                    title="Remove this variant"
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                        <tbody className="divide-y divide-border/60">
+                          {draft.variants.map((v, idx) => (
+                            <tr key={idx} className="hover:bg-muted/20 transition">
+                              <td className="py-2 px-3 font-semibold">{v.name || "Default"}</td>
+                              <td className="py-2 px-3">{v.color || "—"}</td>
+                              <td className="py-2 px-3">
+                                <span className="px-1.5 py-0.5 rounded bg-muted text-[11px] font-bold">
+                                  {v.size || "Standard"}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="w-16 rounded border border-border px-2 py-1 font-bold text-xs"
+                                  value={v.stock}
+                                  onChange={(e) => {
+                                    const updated = [...draft.variants];
+                                    updated[idx].stock = Math.max(0, Number(e.target.value));
+                                    set("variants", updated);
+                                    set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                                  }}
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder={`₹${draft.price || 0}`}
+                                  className="w-24 rounded border border-border px-2 py-1 text-xs"
+                                  value={v.price_override ?? ""}
+                                  onChange={(e) => {
+                                    const updated = [...draft.variants];
+                                    updated[idx].price_override = e.target.value ? Number(e.target.value) : null;
+                                    set("variants", updated);
+                                  }}
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = draft.variants.filter((_, i) => i !== idx);
+                                    if (updated.length === 0) {
+                                      updated.push({
+                                        name: "Default",
+                                        color: null,
+                                        size: null,
+                                        sku: generateSKU(draft.category),
+                                        barcode: generateBarcode(),
+                                        stock: 10,
+                                        price_override: null,
+                                        mrp_override: null,
+                                      });
+                                    }
+                                    set("variants", updated);
+                                    set("stock", updated.reduce((sum, val) => sum + val.stock, 0));
+                                  }}
+                                  className="p-1 text-muted-foreground hover:text-destructive transition cursor-pointer"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
-                    </div>
-
-                    <div className="p-3 border-t border-border bg-muted/20 flex flex-wrap items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          set("variants", [
-                            ...draft.variants,
-                            {
-                              name: `Custom Variant ${draft.variants.length + 1}`,
-                              color: draft.colors[0] || null,
-                              size: "Free Size",
-                              sku: generateSKU(draft.category, draft.colors[0], "Free Size"),
-                              barcode: generateBarcode(),
-                              stock: bulkStock || 10,
-                              price_override: null,
-                              mrp_override: null,
-                            },
-                          ])
-                        }
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
-                      >
-                        <Plus className="size-3.5" />
-                        <span>Add Another Custom Variant Row</span>
-                      </button>
-
-                      <span className="text-xs font-bold text-foreground">
-                        Total Stock: {draft.stock} units
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <label className="text-sm font-semibold sm:col-span-2">
-              Description
-              <textarea
-                rows={3}
-                placeholder="Product material, care instructions, and details..."
-                className={input}
-                value={draft.description}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            </label>
-            <label className="text-sm font-semibold sm:col-span-2">
-              Highlights (one per line)
-              <textarea
-                rows={3}
-                placeholder="100% Organic Cotton&#10;Breathable & Super Soft&#10;Easy Button Closure"
-                className={input}
-                value={draft.highlights}
-                onChange={(e) => set("highlights", e.target.value)}
-              />
-            </label>
-
-            <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-purple-50/30">
-              <div className="flex items-center gap-2 mb-4">
-                <Store className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Sales Channel
-                </span>
-              </div>
-              <label className="block text-sm font-semibold">
-                Product Availability
-                <select
-                  className={input}
-                  value={draft.salesChannel}
-                  onChange={(e) => {
-                    const val = e.target.value as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
-                    set("salesChannel", val);
-                    if (val === "OFFLINE_ONLY") {
-                      set("isFeatured", false);
-                      set("deliveryFee", 0);
-                    }
-                  }}
-                >
-                  <option value="ONLINE_AND_OFFLINE">Online Website + Offline POS</option>
-                  <option value="OFFLINE_ONLY">Only Offline POS (Hidden from Website)</option>
-                </select>
-                <div className="text-[11px] font-normal text-muted-foreground mt-1.5">
-                  Offline-only products will not be visible on the website and cannot be purchased
-                  online.
-                </div>
-              </label>
-            </div>
-
-            {draft.salesChannel !== "OFFLINE_ONLY" && (
-              <>
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={draft.isFeatured}
-                    onChange={(e) => set("isFeatured", e.target.checked)}
-                    className="size-4 accent-[var(--primary)]"
-                  />
-                  Featured{" "}
-                  <span className="text-muted-foreground font-normal ml-1">
-                    (Website ke homepage par special section me dikhega)
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={draft.isActive}
-                    onChange={(e) => set("isActive", e.target.checked)}
-                    className="size-4 accent-[var(--primary)]"
-                  />
-                  Visible in store{" "}
-                  <span className="text-muted-foreground font-normal ml-1">
-                    (Customer ko website par dikhega aur wo khareed payenge)
-                  </span>
-                </label>
-              </>
-            )}
-
-            {/* COLLAPSIBLE ADVANCED & AUTO-GENERATED SETTINGS */}
-            <div className="sm:col-span-2 rounded-2xl border border-border/80 bg-muted/20 overflow-hidden transition-all">
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex w-full items-center justify-between p-4 text-left font-semibold text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <Settings2 className="size-4 text-primary" />
-                  <span className="text-foreground font-bold">
-                    Advanced & Custom Identifiers (Slug, SKU, Barcode, Recommendations)
-                  </span>
-                </span>
-                <span className="text-xs text-primary font-semibold">
-                  {showAdvanced ? "Hide Advanced ▲" : "Customize Auto-Generated Fields ▼"}
-                </span>
-              </button>
-
-              {showAdvanced && (
-                <div className="p-4 border-t border-border/60 bg-background/60 grid gap-4 sm:grid-cols-2 animate-in fade-in duration-200">
-                  <div className="sm:col-span-2 text-xs text-muted-foreground bg-primary/5 p-3 rounded-xl border border-primary/10">
-                    💡 <strong>Auto-Generated:</strong> You don't need to fill these out manually. The system automatically creates clean SEO slugs, barcodes, and unique SKUs if left empty.
-                  </div>
-
-                  <label className="text-sm font-semibold">
-                    Custom Slug (URL identifier)
-                    <input
-                      className={input}
-                      value={draft.slug}
-                      onChange={(e) => set("slug", e.target.value)}
-                      placeholder="Auto: product-name"
-                      list="existing-slugs"
-                    />
-                    <datalist id="existing-slugs">
-                      {(allProducts ?? []).map((p) => (
-                        <option key={p.id} value={p.id} />
-                      ))}
-                    </datalist>
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Custom SKU
-                    <input
-                      className={input}
-                      value={draft.sku}
-                      onChange={(e) => set("sku", e.target.value)}
-                      placeholder={`Auto: ${generateSKU(draft.category)}`}
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Custom Barcode
-                    <input
-                      className={input}
-                      value={draft.barcode}
-                      onChange={(e) => set("barcode", e.target.value)}
-                      placeholder="Auto-generated if empty"
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Low-stock alert threshold
-                    <input
-                      type="number"
-                      min="0"
-                      className={input}
-                      placeholder="5"
-                      value={draft.lowStockAt === 0 ? "" : draft.lowStockAt}
-                      onChange={(e) =>
-                        set("lowStockAt", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                      }
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Sort order index
-                    <input
-                      type="number"
-                      className={input}
-                      placeholder="0"
-                      value={draft.sortOrder === 0 ? "" : draft.sortOrder}
-                      onChange={(e) =>
-                        set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))
-                      }
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold sm:col-span-2">
-                    Primary Image URL Override (Optional)
-                    <input
-                      className={input}
-                      placeholder="Auto-detected from media gallery"
-                      value={draft.imageUrl}
-                      onChange={(e) => set("imageUrl", e.target.value)}
-                    />
-                  </label>
-
-                  {/* MERCHANDISING / RELATED PRODUCTS SECTION */}
-                  <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-amber-50/30">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Tag className="size-4 text-muted-foreground" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Merchandising / "More in this Style"
-                      </span>
-                    </div>
-
-                    <div className="space-y-4">
-                      <label className="block text-sm font-semibold">
-                        Recommendation Logic
-                        <select
-                          className={input}
-                          value={draft.recommendationMode}
-                          onChange={(e) =>
-                            set(
-                              "recommendationMode",
-                              e.target.value as "manual" | "manual_fallback" | "auto",
-                            )
-                          }
-                        >
-                          <option value="manual_fallback">
-                            Admin Selected + Auto Fallback (Recommended)
-                          </option>
-                          <option value="manual">Admin Selected ONLY (Strict)</option>
-                          <option value="auto">Auto Match ONLY (Same Category/Brand)</option>
-                        </select>
-                      </label>
-
-                      {draft.recommendationMode !== "auto" && (
-                        <label className="block text-sm font-semibold">
-                          Manually Selected Related Products
-                          <div className="text-[11px] font-normal text-muted-foreground mb-2">
-                            Select products that should appear in the "More in this style" section.
-                          </div>
-                          <div className="border border-border rounded-xl bg-background overflow-hidden max-h-60 overflow-y-auto">
-                            {(allProducts || [])
-                              .filter((p) => p.id !== draft.slug)
-                              .map((p) => (
-                                <label
-                                  key={p.id}
-                                  className="flex items-center gap-3 p-3 border-b border-border hover:bg-muted/50 cursor-pointer transition"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="size-4 accent-[var(--primary)]"
-                                    checked={draft.relatedProductIds.includes(p.uuid)}
-                                    onChange={(e) => {
-                                      const newIds = e.target.checked
-                                        ? [...draft.relatedProductIds, p.uuid]
-                                        : draft.relatedProductIds.filter((id) => id !== p.uuid);
-                                      set("relatedProductIds", newIds);
-                                    }}
-                                  />
-                                  {p.imageUrl ? (
-                                    <img
-                                      loading="lazy"
-                                      decoding="async"
-                                      src={p.imageUrl}
-                                      className="size-8 rounded-md object-cover"
-                                    />
-                                  ) : (
-                                    <div className="size-8 rounded-md bg-muted" />
-                                  )}
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium">{p.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {p.sku} • {p.category}
-                                    </span>
-                                  </div>
-                                </label>
-                              ))}
-                          </div>
-                        </label>
-                      )}
                     </div>
                   </div>
                 </div>
               )}
             </div>
           </div>
+
+          {/* CARD 4: ⚙️ OPTIONAL / ADVANCED DETAILS (COLLAPSIBLE - ZERO CLUTTER) */}
+          <div className="rounded-2xl border border-border bg-card overflow-hidden transition-all shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex w-full items-center justify-between p-4 text-left font-semibold text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Settings2 className="size-4 text-primary" />
+                <span className="text-foreground font-bold">
+                  ⚙️ Optional Details (Description, Highlights, Brand, Shipping & Barcode)
+                </span>
+              </span>
+              <span className="text-xs text-primary font-bold">
+                {showAdvanced ? "Hide Optional Details ▲" : "Show Optional Details ▼"}
+              </span>
+            </button>
+
+            {showAdvanced && (
+              <div className="p-5 border-t border-border bg-background space-y-4 animate-in fade-in duration-150">
+                <label className="block text-xs font-bold text-foreground">
+                  Description
+                  <textarea
+                    rows={2}
+                    placeholder="Product material, care instructions, and details..."
+                    className={`${input} mt-1 text-xs`}
+                    value={draft.description}
+                    onChange={(e) => set("description", e.target.value)}
+                  />
+                </label>
+
+                <label className="block text-xs font-bold text-foreground">
+                  Highlights (one per line)
+                  <textarea
+                    rows={2}
+                    placeholder="100% Organic Cotton&#10;Breathable & Super Soft"
+                    className={`${input} mt-1 text-xs`}
+                    value={draft.highlights}
+                    onChange={(e) => set("highlights", e.target.value)}
+                  />
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                  <label className="text-xs font-bold text-foreground">
+                    Brand (Default: Zérah)
+                    <input
+                      className={`${input} mt-1 text-xs`}
+                      value={draft.brand}
+                      onChange={(e) => set("brand", e.target.value)}
+                    />
+                  </label>
+
+                  <label className="text-xs font-bold text-foreground">
+                    Delivery Fee (₹)
+                    <input
+                      type="number"
+                      min="0"
+                      className={`${input} mt-1 text-xs`}
+                      value={draft.deliveryFee}
+                      onChange={(e) => set("deliveryFee", Number(e.target.value))}
+                    />
+                  </label>
+
+                  <label className="text-xs font-bold text-foreground">
+                    Sales Channel
+                    <select
+                      className={`${input} mt-1 text-xs`}
+                      value={draft.salesChannel}
+                      onChange={(e) => set("salesChannel", e.target.value as any)}
+                    >
+                      <option value="ONLINE_AND_OFFLINE">Online Website + Offline POS</option>
+                      <option value="OFFLINE_ONLY">Only Offline POS</option>
+                    </select>
+                  </label>
+
+                  <label className="text-xs font-bold text-foreground">
+                    Buying / Cost Price (₹)
+                    <input
+                      type="number"
+                      min="0"
+                      className={`${input} mt-1 text-xs`}
+                      value={draft.buyingPrice === 0 ? "" : draft.buyingPrice}
+                      onChange={(e) => set("buyingPrice", Number(e.target.value))}
+                    />
+                  </label>
+                </div>
+
+                {/* Label Preview */}
+                <div className="p-3 rounded-xl border border-border bg-muted/20 flex flex-col items-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Live Barcode Label
+                  </p>
+                  <p className="text-xs font-semibold mt-0.5">{draft.name || "Product Name"}</p>
+                  <div className="my-1 scale-90">
+                    <Barcode
+                      value={draft.barcode || draft.sku || previewBarcode}
+                      format="CODE128"
+                      width={1.1}
+                      height={35}
+                      fontSize={9}
+                      margin={0}
+                      displayValue={true}
+                      background="transparent"
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">SKU: {draft.sku || previewSKU}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="shrink-0 border-t border-border p-6 flex justify-end gap-3 bg-muted/50">
-          {product && (
-            <div className="mr-auto inline-flex items-center rounded-full border border-border bg-card shadow-2xs overflow-hidden">
-              <button
-                type="button"
-                onClick={() => printLabel(product)}
-                disabled={isDirectPrinting}
-                title="Print Label (1-Click Direct Print)"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
-              >
-                <Printer className="size-4 text-[#8B2020]" />
-                <span>Print Label</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrinting(true)}
-                title="More print options (Customize quantities & format)"
-                className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted transition cursor-pointer"
-              >
-                <Settings2 className="size-3.5" />
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-muted cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
-            className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95"
-          >
-            {saving || isSubmitting
-              ? "Saving…"
-              : isUploading
-                ? "Uploading images…"
-                : "Save product"}
-          </button>
+        {/* STICKY FOOTER ACTION BAR */}
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card p-4 sm:p-5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-foreground">
+              Total Stock: {draft.stock} units
+            </span>
+            {hasVariants && (
+              <span className="text-[11px] text-muted-foreground">
+                ({draft.variants.length} variants)
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-xl border border-border px-4 py-2 text-xs font-bold hover:bg-muted cursor-pointer transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
+              className="rounded-xl bg-primary px-6 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95 shadow-sm"
+            >
+              {saving || isSubmitting
+                ? "Saving…"
+                : isUploading
+                  ? "Uploading images…"
+                  : "Save Product"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
