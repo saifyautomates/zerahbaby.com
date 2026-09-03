@@ -40,9 +40,7 @@ function createSupabaseClient() {
       : ({} as Record<string, string | undefined>);
 
   const rawUrl =
-    metaEnv["VITE_SUPABASE_URL"] ||
-    procEnv["SUPABASE_URL"] ||
-    procEnv["VITE_SUPABASE_URL"];
+    metaEnv["VITE_SUPABASE_URL"] || procEnv["SUPABASE_URL"] || procEnv["VITE_SUPABASE_URL"];
   const SUPABASE_URL =
     rawUrl && rawUrl !== "undefined" ? rawUrl : "https://wbbatgbvizhghtkvuguf.supabase.co";
 

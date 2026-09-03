@@ -103,7 +103,9 @@ test.describe("Storefront Post-Polish Audit", () => {
           console.log("[INFO] Toast not detected — may be a variant-selection product");
         }
       } else {
-        console.log("[INFO] Add to Cart button not immediately visible — may need variant selection");
+        console.log(
+          "[INFO] Add to Cart button not immediately visible — may need variant selection",
+        );
       }
     } else {
       console.log("[INFO] No products found on /shop — database may be empty in test env");

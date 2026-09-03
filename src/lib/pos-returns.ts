@@ -449,7 +449,8 @@ export function useOfflineSalesForReturnsLookup() {
 
             // Historical pricing snapshot — prefer DB columns, fall back to price
             const dbFinalUnitPaid = Number(it.final_unit_paid_price) || 0;
-            const dbUnitMrp = Number(it.unit_mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0;
+            const dbUnitMrp =
+              Number(it.unit_mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0;
             const dbUnitSelling = Number(it.unit_selling_price) || Number(it.price) || 0;
             const dbAllocBill = Number(it.allocated_bill_discount) || 0;
             const dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
@@ -474,7 +475,7 @@ export function useOfflineSalesForReturnsLookup() {
               color: it.color || "",
               size: it.size || "",
               qty: itemQty,
-              price: dbUnitSelling,           // show historical selling price, not current
+              price: dbUnitSelling, // show historical selling price, not current
               mrp: dbUnitMrp,
               created_at: it.created_at || s.created_at,
               already_returned_qty: dbQuantityReturned,

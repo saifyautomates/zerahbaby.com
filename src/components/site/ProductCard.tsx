@@ -44,7 +44,8 @@ export function ProductCard({ product }: { product: Product }) {
   );
 
   const distinctImages = Array.from(new Set(validImages));
-  const primaryImage = product.image || distinctImages[0] || imageFor(product.category, null, product);
+  const primaryImage =
+    product.image || distinctImages[0] || imageFor(product.category, null, product);
   const secondaryImage =
     featHoverSwap && distinctImages.length > 1 && distinctImages[1] !== primaryImage
       ? distinctImages[1]

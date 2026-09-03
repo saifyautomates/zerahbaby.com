@@ -32,9 +32,7 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
   }, [jobs]);
 
   const updateJob = useCallback((id: string, updates: Partial<UploadJob>) => {
-    jobsRef.current = jobsRef.current.map((job) =>
-      job.id === id ? { ...job, ...updates } : job,
-    );
+    jobsRef.current = jobsRef.current.map((job) => (job.id === id ? { ...job, ...updates } : job));
     setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)));
   }, []);
 

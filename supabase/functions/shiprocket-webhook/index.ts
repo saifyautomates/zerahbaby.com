@@ -76,7 +76,9 @@ serve(async (req) => {
         newStoreStatus = "shipped";
       } else if (statusUpper === "DELIVERED") {
         newStoreStatus = "delivered";
-      } else if (["RTO INITIATED", "RTO DELIVERED", "RETURNED", "CANCELLED"].includes(statusUpper)) {
+      } else if (
+        ["RTO INITIATED", "RTO DELIVERED", "RETURNED", "CANCELLED"].includes(statusUpper)
+      ) {
         newStoreStatus = "cancelled";
       }
 
@@ -121,9 +123,14 @@ serve(async (req) => {
       // If returned item delivered to store, mark as RECEIVED if not yet in terminal state
       if (
         statusUpper === "DELIVERED" &&
-        !["RECEIVED", "QC_PENDING", "QC_APPROVED", "QC_REJECTED", "COMPLETED", "CANCELLED"].includes(
-          onlineReturn.return_status,
-        )
+        ![
+          "RECEIVED",
+          "QC_PENDING",
+          "QC_APPROVED",
+          "QC_REJECTED",
+          "COMPLETED",
+          "CANCELLED",
+        ].includes(onlineReturn.return_status)
       ) {
         updates.return_status = "RECEIVED";
       } else if (

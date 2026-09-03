@@ -439,6 +439,16 @@ export function AdminPage() {
     ).length;
   }, [adminOnlineReturns]);
 
+  useEffect(() => {
+    if (!sessionLoading && !user) {
+      navigate({
+        to: "/auth",
+        search: { redirect: "/admin" },
+        replace: true,
+      });
+    }
+  }, [sessionLoading, user, navigate]);
+
   if (sessionLoading || (user && isAdmin === undefined && (roleLoading || rolePending))) {
     return (
       <div className="flex h-screen bg-background overflow-hidden animate-pulse">
@@ -474,16 +484,6 @@ export function AdminPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (!sessionLoading && !user) {
-      navigate({
-        to: "/auth",
-        search: { redirect: "/admin" },
-        replace: true,
-      });
-    }
-  }, [sessionLoading, user, navigate]);
 
   if (!user) {
     return (

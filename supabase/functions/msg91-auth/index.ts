@@ -39,8 +39,7 @@ serve(async (req) => {
     // Use a stable fallback secret so deterministic passwords are consistent
     // even if MSG91_AUTH_SECRET is not set. IMPORTANT: Set this env var in
     // Supabase Dashboard → Project Settings → Edge Functions → Secrets.
-    const authSecret =
-      Deno.env.get("MSG91_AUTH_SECRET") || "zerah_baby_otp_secret_2024_stable_v1";
+    const authSecret = Deno.env.get("MSG91_AUTH_SECRET") || "zerah_baby_otp_secret_2024_stable_v1";
 
     if (!msg91AuthKey) {
       console.warn(

@@ -342,9 +342,8 @@ export function POSReturnsTab() {
         // Add new verified historical item — use final_unit_paid_price as refund_price
         // This is the exact net amount paid per unit after ALL discounts (bill + coupon).
         // NEVER use item.price (unit_selling_price) — that does not reflect discount allocation.
-        const historicalPaidPrice = item.final_unit_paid_price > 0
-          ? item.final_unit_paid_price
-          : item.price; // fallback for pre-migration rows
+        const historicalPaidPrice =
+          item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price; // fallback for pre-migration rows
 
         const newItem: ReturnCartItem = {
           product_id: item.product_id,
@@ -443,7 +442,8 @@ export function POSReturnsTab() {
           // Use historical_paid_price (final_unit_paid_price from DB) as refund.
           // This is the exact net amount paid per unit in the most recent sale.
           // Falls back to recent_sold_price then current_price if no sale history.
-          refund_price: result.historical_paid_price ?? result.recent_sold_price ?? result.current_price ?? 0,
+          refund_price:
+            result.historical_paid_price ?? result.recent_sold_price ?? result.current_price ?? 0,
           mrp: result.historical_unit_mrp || result.mrp || result.current_price || 0,
           current_stock: result.stock || 0,
           variant_info: result.variant_info || "",
@@ -453,7 +453,8 @@ export function POSReturnsTab() {
           unit_selling_price: result.historical_unit_selling_price || result.current_price || 0,
           allocated_bill_discount: result.historical_allocated_bill_discount || 0,
           allocated_coupon_discount: result.historical_allocated_coupon_discount || 0,
-          final_unit_paid_price: result.historical_paid_price ?? result.recent_sold_price ?? result.current_price ?? 0,
+          final_unit_paid_price:
+            result.historical_paid_price ?? result.recent_sold_price ?? result.current_price ?? 0,
         };
 
         toast.success(
@@ -975,15 +976,26 @@ export function POSReturnsTab() {
                                                 </span>
                                               )}
                                               <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 text-[10.5px] font-extrabold text-blue-700 dark:text-blue-300">
-                                                Sold At: {formatPrice(item.unit_selling_price || item.price)}
+                                                Sold At:{" "}
+                                                {formatPrice(item.unit_selling_price || item.price)}
                                               </span>
-                                              {(item.allocated_bill_discount > 0 || item.allocated_coupon_discount > 0) && (
+                                              {(item.allocated_bill_discount > 0 ||
+                                                item.allocated_coupon_discount > 0) && (
                                                 <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10.5px] font-bold text-amber-700 dark:text-amber-300">
-                                                  Disc: −{formatPrice((item.allocated_bill_discount || 0) + (item.allocated_coupon_discount || 0))}
+                                                  Disc: −
+                                                  {formatPrice(
+                                                    (item.allocated_bill_discount || 0) +
+                                                      (item.allocated_coupon_discount || 0),
+                                                  )}
                                                 </span>
                                               )}
                                               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300">
-                                                Net Paid: {formatPrice(item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price)}
+                                                Net Paid:{" "}
+                                                {formatPrice(
+                                                  item.final_unit_paid_price > 0
+                                                    ? item.final_unit_paid_price
+                                                    : item.price,
+                                                )}
                                               </span>
                                               <span className="text-[10.5px] text-muted-foreground font-medium">
                                                 Bought: {item.quantity_sold || item.qty}
@@ -1016,7 +1028,15 @@ export function POSReturnsTab() {
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0"
                                           >
                                             <Plus className="size-3.5" />
-                                            <span>Select ({formatPrice(item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price)})</span>
+                                            <span>
+                                              Select (
+                                              {formatPrice(
+                                                item.final_unit_paid_price > 0
+                                                  ? item.final_unit_paid_price
+                                                  : item.price,
+                                              )}
+                                              )
+                                            </span>
                                           </button>
                                         </div>
                                       ))}
@@ -1206,15 +1226,27 @@ export function POSReturnsTab() {
                               <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.2 font-extrabold text-blue-700 dark:text-blue-300">
                                 Sold At: {formatPrice(item.unit_selling_price || item.price)}
                               </span>
-                              {(item.allocated_bill_discount > 0 || item.allocated_coupon_discount > 0) && (
+                              {(item.allocated_bill_discount > 0 ||
+                                item.allocated_coupon_discount > 0) && (
                                 <span className="inline-flex items-center rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 font-bold text-amber-700 dark:text-amber-300">
-                                  Disc: −{formatPrice((item.allocated_bill_discount || 0) + (item.allocated_coupon_discount || 0))}
+                                  Disc: −
+                                  {formatPrice(
+                                    (item.allocated_bill_discount || 0) +
+                                      (item.allocated_coupon_discount || 0),
+                                  )}
                                 </span>
                               )}
                               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 font-extrabold text-emerald-700 dark:text-emerald-300">
-                                Net Paid: {formatPrice(item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price)}
+                                Net Paid:{" "}
+                                {formatPrice(
+                                  item.final_unit_paid_price > 0
+                                    ? item.final_unit_paid_price
+                                    : item.price,
+                                )}
                               </span>
-                              <span className="text-muted-foreground">Qty Bought: {item.quantity_sold || item.qty}</span>
+                              <span className="text-muted-foreground">
+                                Qty Bought: {item.quantity_sold || item.qty}
+                              </span>
                               <span
                                 className={`font-bold px-1.5 py-0.2 rounded ${
                                   item.returnable_qty > 0
@@ -1234,7 +1266,15 @@ export function POSReturnsTab() {
                             className="px-3 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1"
                           >
                             <Plus className="size-3.5" />
-                            <span>Select ({formatPrice(item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price)})</span>
+                            <span>
+                              Select (
+                              {formatPrice(
+                                item.final_unit_paid_price > 0
+                                  ? item.final_unit_paid_price
+                                  : item.price,
+                              )}
+                              )
+                            </span>
                           </button>
                         </div>
                       ))
@@ -1316,15 +1356,27 @@ export function POSReturnsTab() {
                                 <span className="font-extrabold text-blue-600 dark:text-blue-400">
                                   Sold At: {formatPrice(item.unit_selling_price || item.price)}
                                 </span>
-                                {(item.allocated_bill_discount > 0 || item.allocated_coupon_discount > 0) && (
+                                {(item.allocated_bill_discount > 0 ||
+                                  item.allocated_coupon_discount > 0) && (
                                   <span className="font-bold text-amber-600 dark:text-amber-400">
-                                    Disc: −{formatPrice((item.allocated_bill_discount || 0) + (item.allocated_coupon_discount || 0))}
+                                    Disc: −
+                                    {formatPrice(
+                                      (item.allocated_bill_discount || 0) +
+                                        (item.allocated_coupon_discount || 0),
+                                    )}
                                   </span>
                                 )}
                                 <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                                  Net Paid: {formatPrice(item.final_unit_paid_price > 0 ? item.final_unit_paid_price : item.price)}
+                                  Net Paid:{" "}
+                                  {formatPrice(
+                                    item.final_unit_paid_price > 0
+                                      ? item.final_unit_paid_price
+                                      : item.price,
+                                  )}
                                 </span>
-                                <span className="text-muted-foreground">Bought: {item.quantity_sold || item.qty}</span>
+                                <span className="text-muted-foreground">
+                                  Bought: {item.quantity_sold || item.qty}
+                                </span>
                                 <span
                                   className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
                                     item.returnable_qty > 0
@@ -1403,19 +1455,27 @@ export function POSReturnsTab() {
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px]">
                           {/* Show historical pricing breakdown if available */}
-                          {item.unit_mrp != null && item.unit_mrp > (item.unit_selling_price ?? item.refund_price) && (
-                            <span className="font-bold text-muted-foreground line-through text-[10px]">
-                              MRP: {formatPrice(item.unit_mrp)}
-                            </span>
-                          )}
-                          {item.unit_selling_price != null && item.unit_selling_price !== item.refund_price && (
-                            <span className="text-muted-foreground text-[10.5px]">
-                              Sold At: {formatPrice(item.unit_selling_price)}
-                            </span>
-                          )}
-                          {((item.allocated_bill_discount ?? 0) + (item.allocated_coupon_discount ?? 0)) > 0 && (
+                          {item.unit_mrp != null &&
+                            item.unit_mrp > (item.unit_selling_price ?? item.refund_price) && (
+                              <span className="font-bold text-muted-foreground line-through text-[10px]">
+                                MRP: {formatPrice(item.unit_mrp)}
+                              </span>
+                            )}
+                          {item.unit_selling_price != null &&
+                            item.unit_selling_price !== item.refund_price && (
+                              <span className="text-muted-foreground text-[10.5px]">
+                                Sold At: {formatPrice(item.unit_selling_price)}
+                              </span>
+                            )}
+                          {(item.allocated_bill_discount ?? 0) +
+                            (item.allocated_coupon_discount ?? 0) >
+                            0 && (
                             <span className="font-bold text-amber-600 dark:text-amber-400 text-[10.5px]">
-                              Disc: −{formatPrice((item.allocated_bill_discount ?? 0) + (item.allocated_coupon_discount ?? 0))}
+                              Disc: −
+                              {formatPrice(
+                                (item.allocated_bill_discount ?? 0) +
+                                  (item.allocated_coupon_discount ?? 0),
+                              )}
                             </span>
                           )}
                           <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
