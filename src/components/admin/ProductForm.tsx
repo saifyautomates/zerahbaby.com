@@ -415,97 +415,19 @@ export function ProductForm({
     "Free Size",
   ];
 
-  const toggleColorPreset = (cName: string) => {
-    const exists = draft.colors.some((c) => c.toLowerCase() === cName.toLowerCase());
-    if (exists) {
-      handleRemoveColor(cName);
-    } else {
-      setDraft((d) => ({ ...d, colors: [...d.colors, cName] }));
-    }
-  };
-
-  const toggleSizePreset = (sName: string) => {
-    setMatrixSizes((prev) =>
-      prev.includes(sName) ? prev.filter((s) => s !== sName) : [...prev, sName],
-    );
-  };
-
-  const handleApplyBulkStock = () => {
-    const updated = draft.variants.map((v) => ({ ...v, stock: bulkStock }));
-    setDraft((d) => ({
-      ...d,
-      variants: updated,
-      stock: updated.reduce((sum, val) => sum + val.stock, 0),
-    }));
-  };
-
-  const handleAddColor = () => {
-    const trimmed = newColorName.trim();
-    if (!trimmed) return;
-    if (!draft.colors.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
-      const updatedColors = [...draft.colors, trimmed];
-      setDraft((d) => ({ ...d, colors: updatedColors }));
-      setActiveColorTab(trimmed);
-    }
-    setNewColorName("");
-  };
-
-  const handleRemoveColor = (colorToRemove: string) => {
-    const updatedColors = draft.colors.filter((c) => c.toLowerCase() !== colorToRemove.toLowerCase());
-    // Unassign color from images and variants that had this color
-    const updatedImages = (draft.productImages || []).map((img) =>
-      img.color?.toLowerCase() === colorToRemove.toLowerCase() ? { ...img, color: null } : img,
-    );
-    const updatedVariants = draft.variants.map((v) =>
-      v.color?.toLowerCase() === colorToRemove.toLowerCase() ? { ...v, color: null } : v,
-    );
-    setDraft((d) => ({
-      ...d,
-      colors: updatedColors,
-      productImages: updatedImages,
-      variants: updatedVariants,
-    }));
-    if (activeColorTab.toLowerCase() === colorToRemove.toLowerCase()) {
-      setActiveColorTab("ALL");
-    }
-  };
-
-  const handleSetImageColor = (imgUrl: string, color: string | null) => {
-    const existing = draft.productImages || [];
-    const idx = existing.findIndex((p) => p.public_url === imgUrl);
-    let updated: typeof existing;
-    if (idx >= 0) {
-      updated = [...existing];
-      updated[idx] = { ...updated[idx], color };
-    } else {
-      updated = [
-        ...existing,
-        {
-          public_url: imgUrl,
-          is_primary: existing.length === 0,
-          sort_order: existing.length,
-          color,
-          alt_text: draft.name,
-        },
-      ];
-    }
-    setDraft((d) => ({ ...d, productImages: updated }));
-  };
-
-  const handleGenerateMatrix = () => {
-    const colors = draft.colors.length > 0 ? draft.colors : ["Default"];
-    const sizes = matrixSizes.length > 0 ? matrixSizes : ["Standard"];
+  const syncMatrix = (colors: string[], sizes: string[]) => {
+    const activeColors = colors.length > 0 ? colors : ["Default"];
+    const activeSizes = sizes.length > 0 ? sizes : ["Standard"];
 
     const newVariants: ProductVariantDraft[] = [];
 
-    for (const c of colors) {
-      for (const s of sizes) {
+    for (const c of activeColors) {
+      for (const s of activeSizes) {
         const colorName = c === "Default" ? null : c;
         const sizeName = s === "Standard" ? null : s;
         const varName =
           colorName && sizeName ? `${colorName} / ${sizeName}` : colorName || sizeName || "Default";
 
-        // Find if an existing variant matches this color + size
         const existing = draft.variants.find(
           (v) => (v.color ?? null) === colorName && (v.size ?? null) === sizeName,
         );
@@ -535,10 +457,82 @@ export function ProductForm({
 
     setDraft((d) => ({
       ...d,
+      colors,
       variants: newVariants,
       stock: newVariants.reduce((sum, v) => sum + v.stock, 0),
     }));
-    toast.success(`Generated ${newVariants.length} Color × Size variants!`);
+  };
+
+  const toggleColorPreset = (cName: string) => {
+    const exists = draft.colors.some((c) => c.toLowerCase() === cName.toLowerCase());
+    const nextColors = exists
+      ? draft.colors.filter((c) => c.toLowerCase() !== cName.toLowerCase())
+      : [...draft.colors, cName];
+    syncMatrix(nextColors, matrixSizes);
+  };
+
+  const toggleSizePreset = (sName: string) => {
+    const nextSizes = matrixSizes.includes(sName)
+      ? matrixSizes.filter((s) => s !== sName)
+      : [...matrixSizes, sName];
+    setMatrixSizes(nextSizes);
+    syncMatrix(draft.colors, nextSizes);
+  };
+
+  const handleApplyBulkStock = () => {
+    const updated = draft.variants.map((v) => ({ ...v, stock: bulkStock }));
+    setDraft((d) => ({
+      ...d,
+      variants: updated,
+      stock: updated.reduce((sum, val) => sum + val.stock, 0),
+    }));
+    toast.success(`Updated stock to ${bulkStock} across all ${draft.variants.length} variants!`);
+  };
+
+  const handleAddColor = () => {
+    const trimmed = newColorName.trim();
+    if (!trimmed) return;
+    if (!draft.colors.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const nextColors = [...draft.colors, trimmed];
+      syncMatrix(nextColors, matrixSizes);
+      setActiveColorTab(trimmed);
+    }
+    setNewColorName("");
+  };
+
+  const handleRemoveColor = (colorToRemove: string) => {
+    const updatedColors = draft.colors.filter((c) => c.toLowerCase() !== colorToRemove.toLowerCase());
+    syncMatrix(updatedColors, matrixSizes);
+    if (activeColorTab.toLowerCase() === colorToRemove.toLowerCase()) {
+      setActiveColorTab("ALL");
+    }
+  };
+
+  const handleSetImageColor = (imgUrl: string, color: string | null) => {
+    const existing = draft.productImages || [];
+    const idx = existing.findIndex((p) => p.public_url === imgUrl);
+    let updated: typeof existing;
+    if (idx >= 0) {
+      updated = [...existing];
+      updated[idx] = { ...updated[idx], color };
+    } else {
+      updated = [
+        ...existing,
+        {
+          public_url: imgUrl,
+          is_primary: existing.length === 0,
+          sort_order: existing.length,
+          color,
+          alt_text: draft.name,
+        },
+      ];
+    }
+    setDraft((d) => ({ ...d, productImages: updated }));
+  };
+
+  const handleGenerateMatrix = () => {
+    syncMatrix(draft.colors, matrixSizes);
+    toast.success(`Generated ${draft.variants.length} Color × Size variants!`);
   };
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -1116,11 +1110,30 @@ export function ProductForm({
               </select>
             </label>
 
-            <label className="text-sm font-semibold sm:col-span-2">
-              Age group
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="text-sm font-semibold">Age Group</label>
+                <span className="text-[11px] text-muted-foreground">Click a preset or type custom</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                {["0-6m", "6-12m", "12-24m", "1-2Y", "2-3Y", "3-4Y", "4-6Y", "6-8Y", "All Ages"].map((ag) => (
+                  <button
+                    key={ag}
+                    type="button"
+                    onClick={() => set("ageGroup", ag)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer active:scale-95 ${
+                      draft.ageGroup === ag
+                        ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                        : "bg-muted/60 text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {ag}
+                  </button>
+                ))}
+              </div>
               <input
                 className={input}
-                placeholder="e.g. 0-6m, 2-4y, 4-6y, Newborn, All Ages"
+                placeholder="Or type custom e.g. 0-6m, 2-4y, 4-6y, Newborn, All Ages"
                 value={draft.ageGroup}
                 onChange={(e) => set("ageGroup", e.target.value)}
                 list="age-group-suggestions"
@@ -1147,7 +1160,7 @@ export function ProductForm({
                 <option value="Kids" />
                 <option value="All Ages" />
               </datalist>
-            </label>
+            </div>
 
             {/* Label & Barcode Preview directly above Pricing */}
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-muted/30">
@@ -1192,11 +1205,18 @@ export function ProductForm({
 
             {/* PRICING & PROFIT SECTION */}
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
-              <div className="flex items-center gap-2 mb-4">
-                <Tag className="size-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Pricing & Profit
-                </span>
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Tag className="size-4 text-muted-foreground" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Pricing & Profit
+                  </span>
+                </div>
+                {draft.mrp > draft.price && draft.price > 0 && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 shadow-2xs">
+                    🎉 {Math.round(((draft.mrp - draft.price) / draft.mrp) * 100)}% OFF (Saves ₹{draft.mrp - draft.price})
+                  </span>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3 mb-6">
@@ -1217,7 +1237,7 @@ export function ProductForm({
                   />
                 </label>
                 <label className="text-sm font-semibold">
-                  Selling Price (₹)
+                  Selling Price (₹) *
                   <input
                     type="number"
                     min="0"
@@ -1230,7 +1250,7 @@ export function ProductForm({
                   />
                 </label>
                 <label className="text-sm font-semibold">
-                  MRP (₹)
+                  MRP (₹) *
                   <input
                     type="number"
                     min="0"
