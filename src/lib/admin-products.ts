@@ -169,7 +169,12 @@ export function useSaveProduct() {
 
         // Sync variants (with color, size, barcode, mrp_override, image_url)
         if (draft.variants && draft.variants.length > 0) {
-          const variantsToInsert = draft.variants.map((v) => {
+          // Separate new variants (no id) from existing (have id) to avoid
+          // passing id: null which violates the NOT NULL constraint.
+          const existingVariants: Record<string, unknown>[] = [];
+          const newVariants: Record<string, unknown>[] = [];
+
+          for (const v of draft.variants) {
             // Build descriptive name if color / size present
             let variantName = v.name;
             if (v.color && v.size) {
@@ -180,8 +185,7 @@ export function useSaveProduct() {
               variantName = v.size;
             }
 
-            return {
-              id: v.id || undefined,
+            const base: Record<string, unknown> = {
               product_id: productId,
               name: variantName || "Default",
               color: v.color ? v.color.trim() : null,
@@ -193,12 +197,27 @@ export function useSaveProduct() {
               mrp_override: v.mrp_override ?? null,
               image_url: v.image_url ?? null,
             };
-          });
 
-          const { error: varError } = await (supabase
-            .from("product_variants" as any)
-            .upsert(variantsToInsert, { onConflict: "id" }) as any);
-          if (varError) throw varError;
+            if (v.id) {
+              existingVariants.push({ ...base, id: v.id });
+            } else {
+              newVariants.push(base); // omit id → DB uses gen_random_uuid()
+            }
+          }
+
+          if (existingVariants.length > 0) {
+            const { error: upErr } = await (supabase
+              .from("product_variants" as any)
+              .upsert(existingVariants, { onConflict: "id" }) as any);
+            if (upErr) throw upErr;
+          }
+
+          if (newVariants.length > 0) {
+            const { error: insErr } = await (supabase
+              .from("product_variants" as any)
+              .insert(newVariants) as any);
+            if (insErr) throw insErr;
+          }
 
           // Cleanup deleted variants
           const keepIds = draft.variants.map((v) => v.id).filter(Boolean);

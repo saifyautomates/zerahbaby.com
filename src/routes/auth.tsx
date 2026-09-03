@@ -53,6 +53,10 @@ function AuthPage() {
   const [cooldown, setCooldown] = useState(0);
   const [otpExpired, setOtpExpired] = useState(false);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
+  // contactInputRef: read the live DOM value as authoritative source.
+  // This makes the button reliably reflect what's in the input even after
+  // HMR resets React state (dev) or when Playwright fills the field.
+  const contactInputRef = useRef<HTMLInputElement | null>(null);
 
   // ─── Interval-based countdown (avoids setTimeout chain / StrictMode double-fire)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -134,8 +138,11 @@ function AuthPage() {
   // ─── SEND OTP (first time) ────────────────────────────────────────────────────
   async function onSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    const raw = contact.trim();
+    // Use DOM value as authoritative source in case React state was reset by HMR
+    const raw = (contactInputRef.current?.value ?? contact).trim();
     if (!raw || busy) return;
+    // Sync React state if DOM value differs (e.g. after HMR)
+    if (raw !== contact) setContact(raw);
 
     if (isEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -397,6 +404,7 @@ function AuthPage() {
               )}
               <input
                 id="auth-contact-input"
+                ref={contactInputRef}
                 type="text"
                 required
                 value={contact}
@@ -416,7 +424,7 @@ function AuthPage() {
             <button
               id="auth-send-otp-btn"
               type="submit"
-              disabled={busy || !contact.trim()}
+              disabled={busy}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {busy ? "Sending OTP…" : "Get OTP"}
