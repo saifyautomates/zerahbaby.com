@@ -156,7 +156,7 @@ const toDraft = (
   return {
     slug: p?.id ?? "",
     name: p?.name ?? "",
-    brand: p?.brand ?? "",
+    brand: p?.brand ?? "Zérah",
     category: p?.category ?? defaultCategory ?? "clothing",
     price: p?.price ?? 0,
     mrp: p?.mrp ?? 0,
@@ -1030,7 +1030,12 @@ export function ProductForm({
                 placeholder="e.g. Zérah, Saify"
                 value={draft.brand}
                 onChange={(e) => set("brand", e.target.value)}
+                list="brand-suggestions"
               />
+              <datalist id="brand-suggestions">
+                <option value="Zérah" />
+                <option value="Saify" />
+              </datalist>
             </label>
 
             <label className="text-sm font-semibold">
