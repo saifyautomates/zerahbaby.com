@@ -115,6 +115,8 @@ type ProductRow = {
   sku?: string;
   barcode?: string | null;
   delivery_fee?: number | null;
+  image_url?: string | null;
+  images?: string[] | null;
   product_images?:
     | {
         id?: string;
@@ -239,6 +241,8 @@ export const mapProduct = (row: ProductRow): Product => {
     name: row.name,
     sku: row.sku,
     category: row.category,
+    imageUrl: row.image_url ?? null,
+    images: row.images ?? [],
     product_images: row.product_images,
   });
 

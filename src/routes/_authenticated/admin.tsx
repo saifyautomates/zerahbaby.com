@@ -1062,7 +1062,7 @@ function ProductsTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(public_url, is_primary, sort_order)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, image_url, images, product_images(id, public_url, is_primary, sort_order, color, alt_text)",
           )
           .order("sort_order"),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
