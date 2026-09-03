@@ -536,30 +536,35 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       });
   }, []);
 
-  /** Print directly via QZ Tray (No Browser Dialog) */
-  const doDirectPrint = async () => {
+  /** Print directly via QZ Tray if active, otherwise seamless fallback to browser print */
+  const doPrint = async () => {
     setPrintStatus("printing");
+    setPrintFailedReason(null);
     try {
       const html = buildA4HTML(sale, items, storeSettings);
 
-      const res = await sendHTMLViaQZTray(invoicePrinter, html, { isThermal: false });
-      if (res.success) {
-        setPrintStatus("success");
-        onPrintSuccess?.();
-      } else {
-        setPrintStatus("failed");
-        setPrintFailedReason(res.error || "Direct print failed");
-        onPrintFail?.(res.error || "Direct print failed");
+      // Attempt QZ Tray direct silent print if configured & not default
+      if (invoicePrinter && invoicePrinter !== "Default A4 Printer") {
+        try {
+          const res = await sendHTMLViaQZTray(invoicePrinter, html, { isThermal: false });
+          if (res.success) {
+            setPrintStatus("success");
+            onPrintSuccess?.();
+            return;
+          }
+        } catch {
+          // QZ Tray not active, continue to system print
+        }
       }
-    } catch (err) {
-      setPrintStatus("failed");
-      const msg = err instanceof Error ? err.message : "Unknown print error";
-      setPrintFailedReason(msg);
-      onPrintFail?.(msg);
+
+      // Seamless browser system print dialog
+      doSystemPrintFallback();
+    } catch {
+      doSystemPrintFallback();
     }
   };
 
-  /** Print via hidden iframe — ONLY as explicit fallback */
+  /** Print via hidden iframe */
   const doSystemPrintFallback = () => {
     setPrintStatus("printing");
     try {
@@ -618,7 +623,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
   // Auto-print on mount (only if not a duplicate sale)
   useEffect(() => {
     if (autoPrint) {
-      const timer = setTimeout(() => doDirectPrint(), 500);
+      const timer = setTimeout(() => doPrint(), 400);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -661,37 +666,24 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
           {printStatus === "printing" && (
             <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-              Sending to printer…
+              Opening print dialog…
             </div>
           )}
           {printStatus === "success" && (
-            <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              Invoice sent to printer successfully.
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              Invoice print ready.
             </div>
           )}
           {printStatus === "failed" && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center shadow-inner mt-4">
-              <MonitorOff className="mx-auto size-8 text-red-500 mb-3" />
-              <p className="font-bold text-red-800">Printer Unavailable</p>
-              <p className="mt-1 text-xs text-red-600 mb-6">
-                {printFailedReason || "Failed to communicate with QZ Tray or printer."}
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row justify-center">
-                <button
-                  onClick={doDirectPrint}
-                  className="rounded-lg bg-red-700 px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-800 transition flex items-center justify-center gap-2"
-                >
-                  <Printer className="size-4" />
-                  Retry Direct Print
-                </button>
-                <button
-                  onClick={doSystemPrintFallback}
-                  className="rounded-lg border-2 border-red-200 bg-white px-6 py-2.5 text-sm font-bold text-red-800 hover:bg-red-50 transition flex items-center justify-center gap-2"
-                >
-                  Use System Print
-                </button>
-              </div>
+            <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <span>{printFailedReason || "Print dialog closed or canceled."}</span>
+              <button
+                onClick={doSystemPrintFallback}
+                className="font-bold underline text-amber-900 cursor-pointer ml-2 shrink-0"
+              >
+                Retry Print
+              </button>
             </div>
           )}
 
@@ -753,7 +745,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
             Close
           </button>
           <button
-            onClick={doDirectPrint}
+            onClick={doPrint}
             disabled={printStatus === "printing"}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B2020] py-2.5 text-sm font-bold text-white hover:bg-[#7a1c1c] disabled:opacity-60 transition-all"
           >
