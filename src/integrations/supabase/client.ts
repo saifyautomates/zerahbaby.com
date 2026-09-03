@@ -30,18 +30,27 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseClient() {
+  const metaEnv =
+    typeof import.meta !== "undefined" && (import.meta as any).env
+      ? (import.meta as any).env
+      : ({} as Record<string, string | undefined>);
+  const procEnv =
+    typeof process !== "undefined" && process.env
+      ? process.env
+      : ({} as Record<string, string | undefined>);
+
   const rawUrl =
-    import.meta.env["VITE_SUPABASE_URL"] ||
-    process.env["SUPABASE_URL"] ||
-    process.env["VITE_SUPABASE_URL"];
+    metaEnv["VITE_SUPABASE_URL"] ||
+    procEnv["SUPABASE_URL"] ||
+    procEnv["VITE_SUPABASE_URL"];
   const SUPABASE_URL =
     rawUrl && rawUrl !== "undefined" ? rawUrl : "https://wbbatgbvizhghtkvuguf.supabase.co";
 
   const rawKey =
-    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-    import.meta.env["VITE_SUPABASE_ANON_KEY"] ||
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    metaEnv["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    metaEnv["VITE_SUPABASE_ANON_KEY"] ||
+    procEnv["SUPABASE_PUBLISHABLE_KEY"] ||
+    procEnv["VITE_SUPABASE_PUBLISHABLE_KEY"];
   const SUPABASE_PUBLISHABLE_KEY =
     rawKey && rawKey !== "undefined" ? rawKey : "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP";
 

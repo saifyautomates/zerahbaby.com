@@ -2364,14 +2364,18 @@ function ProductsTab() {
           <ProductForm
             product={editing}
             defaultSalesChannel={channelTab === "all" ? undefined : channelTab}
-            saving={save.isPending}
+            saving={saveProductMutation.isPending}
             onCancel={() => {
               setCreating(false);
               setEditing(null);
             }}
-            onSave={(draft: ProductDraft) =>
-              save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })
-            }
+            onSave={async (draft: ProductDraft) => {
+              const res = await saveProductMutation.mutateAsync(
+                editing ? { draft, uuid: editing.uuid } : { draft },
+              );
+              invalidate();
+              return res;
+            }}
           />
         </Suspense>
       )}

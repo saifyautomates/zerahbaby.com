@@ -49,12 +49,56 @@ function useInvalidateCatalogue() {
   };
 }
 
+/**
+ * Resolves a collision-free slug for a product.
+ * If the slug is already used by another product, appends -2, -3, etc.
+ */
+export async function resolveUniqueProductSlug(
+  baseSlug: string,
+  excludeId?: string,
+): Promise<string> {
+  let clean = baseSlug
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  if (!clean) clean = "product";
+
+  // Check if current clean slug is already taken
+  let query = (supabase.from("products" as any) as any).select("id").eq("slug", clean);
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data: exactMatch } = await query.maybeSingle();
+
+  if (!exactMatch) {
+    return clean;
+  }
+
+  // Fetch all existing slugs starting with this prefix
+  let prefixQuery = (supabase.from("products" as any) as any)
+    .select("slug")
+    .ilike("slug", `${clean}%`);
+  if (excludeId) prefixQuery = prefixQuery.neq("id", excludeId);
+  const { data: similar } = await prefixQuery;
+
+  const existingSlugs = new Set(((similar as Array<{ slug: string }>) || []).map((s) => s.slug));
+
+  let counter = 2;
+  while (existingSlugs.has(`${clean}-${counter}`)) {
+    counter++;
+  }
+  return `${clean}-${counter}`;
+}
+
 /** Create/update a product — used by the admin panel and by inline site editing. */
 export function useSaveProduct() {
   const invalidate = useInvalidateCatalogue();
   return useMutation({
     mutationFn: async ({ draft, uuid }: { draft: ProductDraft; uuid?: string }) => {
       const row = draftToRow(draft);
+
+      // Ensure slug is clean and globally unique across the database
+      const uniqueSlug = await resolveUniqueProductSlug(draft.slug || draft.name, uuid);
+      row.slug = uniqueSlug;
 
       // Save product
       let productId = uuid;
@@ -65,13 +109,40 @@ export function useSaveProduct() {
           .eq("id", uuid);
         if (error) throw error;
       } else {
+        let insertData: { id: string } | null = null;
         const { data, error } = await supabase
           .from("products")
           .insert(row as TablesInsert<"products">)
           .select("id")
           .single();
-        if (error) throw error;
-        productId = data.id;
+
+        if (error) {
+          // If concurrent race condition hit products_slug_key (error code 23505)
+          const isSlugCollision =
+            (error as any).code === "23505" &&
+            (error.message?.includes("products_slug_key") ||
+              error.message?.includes("slug") ||
+              (error as any).details?.includes("slug"));
+
+          if (isSlugCollision) {
+            const fallbackSlug = `${uniqueSlug}-${Date.now().toString(36).slice(-4)}`;
+            row.slug = fallbackSlug;
+            const { data: retryData, error: retryError } = await supabase
+              .from("products")
+              .insert(row as TablesInsert<"products">)
+              .select("id")
+              .single();
+            if (retryError) throw retryError;
+            insertData = retryData;
+          } else {
+            throw error;
+          }
+        } else {
+          insertData = data;
+        }
+
+        if (!insertData?.id) throw new Error("Failed to create product record");
+        productId = insertData.id;
       }
 
       // Save cost
@@ -255,6 +326,7 @@ export function useSaveProduct() {
             );
         }
       }
+      return { productId: productId || "", slug: (row.slug as string) || "" };
     },
     onSuccess: () => {
       toast.success("Saved to the live store");

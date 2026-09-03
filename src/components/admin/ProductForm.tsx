@@ -228,11 +228,13 @@ export function ProductForm({
 }: {
   product: Product | null;
   saving: boolean;
-  onSave: (draft: ProductDraft) => void;
+  onSave: (draft: ProductDraft) => void | Promise<unknown>;
   onCancel: () => void;
   defaultCategory?: string;
   defaultSalesChannel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdProduct, setCreatedProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(
     toDraft(product, defaultCategory, defaultSalesChannel),
   );
@@ -502,7 +504,10 @@ export function ProductForm({
     reorderJobs(from, to);
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (saving || isSubmitting) return;
+    setIsSubmitting(true);
+
     // Auto-generate SKU and barcode if empty, sync primary image
     const finalDraft = {
       ...draft,
@@ -510,12 +515,63 @@ export function ProductForm({
       sku: draft.sku.trim() || generateSKU(draft.category),
       barcode: draft.barcode.trim() || generateBarcode(),
     };
-    onSave(finalDraft);
 
-    // Show post-creation prompt for NEW products
-    if (!product) {
-      // The onSave will be async — show prompt after a brief delay
-      setTimeout(() => setShowPostCreatePrompt(true), 500);
+    try {
+      const res = (await Promise.resolve(onSave(finalDraft))) as any;
+      // Show post-creation prompt for NEW products ONLY when save succeeds
+      if (!product) {
+        const newProductObj: Product = {
+          id: res?.slug || finalDraft.slug,
+          uuid: res?.productId || "",
+          name: finalDraft.name,
+          brand: finalDraft.brand,
+          category: finalDraft.category,
+          price: Number(finalDraft.price),
+          mrp: Number(finalDraft.mrp),
+          stock: Number(finalDraft.stock),
+          sku: finalDraft.sku,
+          barcode: finalDraft.barcode,
+          image: finalDraft.imageUrl || finalDraft.images[0] || "",
+          imageUrl: finalDraft.imageUrl,
+          images: finalDraft.images,
+          description: finalDraft.description || "",
+          rating: 5,
+          reviews: 0,
+          highlights: Array.isArray(finalDraft.highlights)
+            ? finalDraft.highlights
+            : (finalDraft.highlights || "")
+                .split("\n")
+                .map((h: string) => h.trim())
+                .filter(Boolean),
+          isFeatured: finalDraft.isFeatured || false,
+          isActive: finalDraft.isActive,
+          sortOrder: finalDraft.sortOrder || 0,
+          lowStockAt: finalDraft.lowStockAt || 2,
+          ageGroup: finalDraft.ageGroup || "",
+          salesChannel: finalDraft.salesChannel,
+          sales_channel: finalDraft.salesChannel,
+          variants: (finalDraft.variants || []).map((v) => ({
+            id: v.id || "",
+            name: v.name,
+            sku: v.sku,
+            barcode: v.barcode ?? null,
+            stock: v.stock,
+            priceOverride: v.price_override ?? undefined,
+            mrpOverride: v.mrp_override ?? undefined,
+            color: v.color ?? null,
+            size: v.size ?? null,
+            imageUrl: v.image_url ?? null,
+          })),
+        };
+        setCreatedProduct(newProductObj);
+        setShowPostCreatePrompt(true);
+      } else {
+        onCancel();
+      }
+    } catch (err) {
+      console.error("Failed to save product:", err);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -1724,28 +1780,38 @@ export function ProductForm({
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
-            disabled={saving || isUploading || !draft.name || !draft.slug}
-            className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
+            className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95"
           >
-            {saving ? "Saving…" : "Save product"}
+            {saving || isSubmitting ? "Saving…" : "Save product"}
           </button>
         </div>
       </div>
 
       {/* Print Labels modal */}
-      {printing && product && (
-        <PrintLabelsModal products={[product]} onClose={() => setPrinting(false)} />
+      {printing && (product || createdProduct) && (
+        <PrintLabelsModal
+          products={[product || createdProduct!]}
+          onClose={() => {
+            setPrinting(false);
+            if (!product) onCancel();
+          }}
+        />
       )}
 
       {/* Post-creation prompt */}
       {showPostCreatePrompt && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowPostCreatePrompt(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => {
+            setShowPostCreatePrompt(false);
+            onCancel();
+          }}
         >
           <div
-            className="bg-card rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center"
+            className="bg-card rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 mb-4">
@@ -1757,18 +1823,23 @@ export function ProductForm({
             </p>
             <div className="space-y-2">
               <button
+                type="button"
                 onClick={() => {
                   setShowPostCreatePrompt(false);
                   setPrinting(true);
                 }}
-                className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
+                className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition cursor-pointer active:scale-95"
               >
                 <Printer className="size-4 inline mr-2" />
                 Print Barcode Label
               </button>
               <button
-                onClick={() => setShowPostCreatePrompt(false)}
-                className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted"
+                type="button"
+                onClick={() => {
+                  setShowPostCreatePrompt(false);
+                  onCancel();
+                }}
+                className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted transition cursor-pointer"
               >
                 Skip for now
               </button>

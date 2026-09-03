@@ -32,4 +32,18 @@ test.describe("Admin Products Management & FirstCry Catalog", () => {
     expect(categories.has("bath")).toBe(true);
     expect(categories.has("footwear")).toBe(true);
   });
+
+  test("resolveUniqueProductSlug automatically deduplicates colliding product slugs", async () => {
+    const { resolveUniqueProductSlug } = await import("../src/lib/admin-products");
+
+    // Non-existent slug returns cleaned slug
+    const uniqueTestSlug = `test-unique-item-${Date.now()}`;
+    const res1 = await resolveUniqueProductSlug(uniqueTestSlug);
+    expect(res1).toBe(uniqueTestSlug);
+
+    // Existing product slug returns suffixed version (e.g. -2)
+    // "minions" or other products exist in seed database
+    const res2 = await resolveUniqueProductSlug("minions");
+    expect(res2).toMatch(/^minions(-\d+)?$/);
+  });
 });
