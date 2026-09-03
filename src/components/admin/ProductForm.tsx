@@ -1053,17 +1053,35 @@ export function ProductForm({
 
             <label className="text-sm font-semibold sm:col-span-2">
               Age group
-              <select
+              <input
                 className={input}
+                placeholder="e.g. 0-6m, 2-4y, 4-6y, Newborn, All Ages"
                 value={draft.ageGroup}
                 onChange={(e) => set("ageGroup", e.target.value)}
-              >
-                {ageGroups.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
+                list="age-group-suggestions"
+              />
+              <datalist id="age-group-suggestions">
+                <option value="0-3m" />
+                <option value="0-6m" />
+                <option value="3-6m" />
+                <option value="6-12m" />
+                <option value="12-18m" />
+                <option value="12-24m" />
+                <option value="18-24m" />
+                <option value="2-3y" />
+                <option value="2-4y" />
+                <option value="3-4y" />
+                <option value="4-6y" />
+                <option value="6-8y" />
+                <option value="8-10y" />
+                <option value="10-12y" />
+                <option value="12-14y" />
+                <option value="Newborn" />
+                <option value="Infant" />
+                <option value="Toddler" />
+                <option value="Kids" />
+                <option value="All Ages" />
+              </datalist>
             </label>
             {/* PRICING & PROFIT SECTION */}
             <div className="sm:col-span-2 rounded-xl border border-border p-4 bg-slate-50/50">
