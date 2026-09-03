@@ -26,7 +26,9 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
     return initial;
   });
 
-  const [selectedReason, setSelectedReason] = useState<ReturnReasonOption>(ONLINE_RETURN_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState<ReturnReasonOption>(
+    ONLINE_RETURN_REASONS[0],
+  );
   const [customerNote, setCustomerNote] = useState("");
 
   const calculateRefund = useCalculateOnlineReturnRefund();
@@ -167,7 +169,9 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
                         <div className="size-12 rounded-xl border border-border bg-muted shrink-0" />
                       )}
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">{item.name}</p>
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {item.name}
+                        </p>
                         <p className="text-[11px] text-muted-foreground">
                           {item.color ? `${item.color} · ` : ""}
                           {item.size ? `Size: ${item.size} · ` : ""}
@@ -176,10 +180,15 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex items-center gap-3 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {isSelected && item.qty > 1 && (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-muted-foreground font-medium">Qty:</span>
+                          <span className="text-[11px] text-muted-foreground font-medium">
+                            Qty:
+                          </span>
                           <select
                             value={selectedQty}
                             onChange={(e) => updateItemQty(item, Number(e.target.value))}
@@ -226,11 +235,13 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
             <div className="mt-2 flex items-center gap-2 text-xs">
               {isFreeReturn ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                  <ShieldCheck className="size-4" /> Free return — logistics fee waived for defective/wrong item
+                  <ShieldCheck className="size-4" /> Free return — logistics fee waived for
+                  defective/wrong item
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Truck className="size-4" /> Standard reverse logistics fee (₹70) deducted from refund
+                  <Truck className="size-4" /> Standard reverse logistics fee (₹70) deducted from
+                  refund
                 </span>
               )}
             </div>
@@ -254,7 +265,9 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
           {!isEligible && (
             <div className="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800">
               <AlertCircle className="size-5 shrink-0" />
-              <p className="font-semibold">{calcData?.ineligible_reason || "This order is not eligible for return."}</p>
+              <p className="font-semibold">
+                {calcData?.ineligible_reason || "This order is not eligible for return."}
+              </p>
             </div>
           )}
 

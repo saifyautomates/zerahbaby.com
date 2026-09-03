@@ -9,7 +9,7 @@
  * - Exchange Policy note: "Exchange only — valid for purchasing any item at Zérah Baby & Kids"
  * - Restock confirmation
  */
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, RotateCcw, Sparkles, Tag, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
@@ -75,7 +75,10 @@ function buildThermalReturnHTML(
 
   const itemRows = returnData.items
     .map((item) => {
-      const variantStr = [item.sku ? `SKU: ${escHtml(item.sku)}` : "", item.variant_info ? escHtml(item.variant_info) : ""]
+      const variantStr = [
+        item.sku ? `SKU: ${escHtml(item.sku)}` : "",
+        item.variant_info ? escHtml(item.variant_info) : "",
+      ]
         .filter(Boolean)
         .join(" · ");
       return `
@@ -145,14 +148,18 @@ function buildThermalReturnHTML(
           <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">AVAILABLE STORE CREDIT VALUE</div>
           <div class="voucher-amount">₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</div>
           <div style="font-size: 9px; font-weight: 700;">✓ Valid for purchasing any item at store</div>
-          ${returnData.credit_token ? `
+          ${
+            returnData.credit_token
+              ? `
             <div style="margin-top: 6px; border: 2px solid #000; padding: 4px; background: #fafafa;">
               <div style="font-size: 9px; font-weight: 800; text-transform: uppercase;">STORE CREDIT CODE</div>
               <div style="font-size: 22px; font-weight: 900; letter-spacing: 3px; font-family: monospace; color: #000; margin: 2px 0;">
                 ${escHtml(returnData.credit_token)}
               </div>
               <div style="font-size: 8px; color: #555;">Show or enter this 4-character code at POS checkout</div>
-            </div>` : ""}
+            </div>`
+              : ""
+          }
         </div>`
       : ""
   }
@@ -253,11 +260,11 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
     returnData.refund_method === "exchange_credit" || !returnData.refund_method;
   const totalItemsCount = returnData.items.reduce((sum, i) => sum + (i.qty || 1), 0);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     if (onPrint) onPrint();
     const html = buildThermalReturnHTML(returnData, date, isExchangeCredit, totalItemsCount);
     printViaIframe(html);
-  };
+  }, [onPrint, returnData, date, isExchangeCredit, totalItemsCount]);
 
   useEffect(() => {
     if (autoPrint) {
@@ -269,7 +276,7 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
       };
     }
     return undefined;
-  }, [autoPrint]);
+  }, [autoPrint, handlePrint]);
 
   const content = (
     <div
@@ -362,7 +369,9 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             {returnData.credit_token && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Credit Token</span>
-                <span className="font-bold text-foreground font-mono">{returnData.credit_token}</span>
+                <span className="font-bold text-foreground font-mono">
+                  {returnData.credit_token}
+                </span>
               </div>
             )}
             <div className="flex justify-between">

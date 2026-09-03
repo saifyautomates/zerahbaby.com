@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { uploadMedia } from "@/lib/uploads";
 import { useSubmitReview, type Review } from "@/lib/reviews";
+import { supabase } from "@/integrations/supabase/client";
 
 const RATING_LEVELS: Record<number, { label: string; color: string; desc: string }> = {
   1: { label: "Terrible", color: "text-red-500", desc: "Very poor quality or defective" },
@@ -103,8 +104,27 @@ export function ReviewModal({
     }
 
     try {
+      const UUID_REGEX =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      let targetProductId = product.uuid;
+
+      if (!UUID_REGEX.test(targetProductId)) {
+        try {
+          const { data: dbProd } = await supabase
+            .from("products")
+            .select("id")
+            .or(`slug.eq.${product.id || product.uuid},id.eq.${product.id || product.uuid}`)
+            .maybeSingle();
+          if (dbProd?.id && UUID_REGEX.test(dbProd.id)) {
+            targetProductId = dbProd.id;
+          }
+        } catch (resolveErr) {
+          console.warn("Could not resolve product UUID in ReviewModal:", resolveErr);
+        }
+      }
+
       await submitReview.mutateAsync({
-        product_id: product.uuid,
+        product_id: targetProductId,
         user_id: user.id,
         order_id: orderId ?? null,
         rating,

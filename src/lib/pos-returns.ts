@@ -378,47 +378,51 @@ export function useOfflineSalesForReturnsLookup() {
 
       // Map: original_sale_item_id -> total returned qty
       const returnedQtyByItemId = new Map<string, number>();
-      
-      ((rawReturnItems || []) as Array<{ original_sale_item_id?: string; qty?: number }>).forEach((ri) => {
-        if (ri.original_sale_item_id) {
-          const prev = returnedQtyByItemId.get(ri.original_sale_item_id) || 0;
-          returnedQtyByItemId.set(ri.original_sale_item_id, prev + (Number(ri.qty) || 1));
-        }
-      });
+
+      ((rawReturnItems || []) as Array<{ original_sale_item_id?: string; qty?: number }>).forEach(
+        (ri) => {
+          if (ri.original_sale_item_id) {
+            const prev = returnedQtyByItemId.get(ri.original_sale_item_id) || 0;
+            returnedQtyByItemId.set(ri.original_sale_item_id, prev + (Number(ri.qty) || 1));
+          }
+        },
+      );
 
       // 3. Enrich sales with item-level returnable calculations
       const enriched: OfflineSaleWithReturnMetrics[] = (rawSales as any[]).map((s) => {
         let totalReturnableCount = 0;
         let totalItemsCount = 0;
 
-        const enrichedItems: OfflineSaleItemWithReturnStatus[] = (s.offline_sale_items || []).map((it: any) => {
-          const itemQty = Number(it.qty) || 1;
-          totalItemsCount += itemQty;
+        const enrichedItems: OfflineSaleItemWithReturnStatus[] = (s.offline_sale_items || []).map(
+          (it: any) => {
+            const itemQty = Number(it.qty) || 1;
+            totalItemsCount += itemQty;
 
-          const alreadyReturned = returnedQtyByItemId.get(it.id) || 0;
-          const returnableQty = Math.max(0, itemQty - alreadyReturned);
-          totalReturnableCount += returnableQty;
+            const alreadyReturned = returnedQtyByItemId.get(it.id) || 0;
+            const returnableQty = Math.max(0, itemQty - alreadyReturned);
+            totalReturnableCount += returnableQty;
 
-          return {
-            id: it.id,
-            sale_id: it.sale_id,
-            product_id: it.product_id,
-            product_slug: it.product_slug,
-            name: it.name || "Item",
-            sku: it.sku || "",
-            barcode: it.barcode || it.barcode_snapshot || "",
-            variant_info: it.variant_info || "",
-            color: it.color || "",
-            size: it.size || "",
-            qty: itemQty,
-            price: Number(it.price) || 0,
-            mrp: Number(it.mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0,
-            created_at: it.created_at || s.created_at,
-            already_returned_qty: alreadyReturned,
-            returnable_qty: returnableQty,
-            is_fully_returned: returnableQty <= 0,
-          };
-        });
+            return {
+              id: it.id,
+              sale_id: it.sale_id,
+              product_id: it.product_id,
+              product_slug: it.product_slug,
+              name: it.name || "Item",
+              sku: it.sku || "",
+              barcode: it.barcode || it.barcode_snapshot || "",
+              variant_info: it.variant_info || "",
+              color: it.color || "",
+              size: it.size || "",
+              qty: itemQty,
+              price: Number(it.price) || 0,
+              mrp: Number(it.mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0,
+              created_at: it.created_at || s.created_at,
+              already_returned_qty: alreadyReturned,
+              returnable_qty: returnableQty,
+              is_fully_returned: returnableQty <= 0,
+            };
+          },
+        );
 
         return {
           id: s.id,
@@ -589,8 +593,8 @@ export function useCustomerStoreCredit(params: {
   const { customerId, phone, token } = params;
   const enabled = Boolean(
     customerId ||
-      (phone && phone.replace(/\D/g, "").length >= 10) ||
-      (token && token.trim().length >= 4),
+    (phone && phone.replace(/\D/g, "").length >= 10) ||
+    (token && token.trim().length >= 4),
   );
 
   return useQuery<CustomerCreditInfo>({
@@ -608,7 +612,14 @@ export function useCustomerStoreCredit(params: {
       });
 
       if (error) throw new Error(error.message);
-      return data || { customer_id: null, customer_name: "Walk-in Customer", available_credit: 0, history: [] };
+      return (
+        data || {
+          customer_id: null,
+          customer_name: "Walk-in Customer",
+          available_credit: 0,
+          history: [],
+        }
+      );
     },
     enabled,
     staleTime: 5_000,

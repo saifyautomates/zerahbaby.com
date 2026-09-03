@@ -8,6 +8,8 @@ import {
   orderStatuses,
   useRetryOrderNotification,
   useDeleteCancelledOrder,
+  useProcessOrderRefund,
+  useResendCustomerInvoice,
   type Order,
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
@@ -51,6 +53,8 @@ export function OnlineSalesTab() {
   const createShipment = useCreateShiprocketShipment();
   const generateAwb = useGenerateShiprocketAWB();
   const requestPickup = useRequestShiprocketPickup();
+  const processRefund = useProcessOrderRefund();
+  const resendCustomerInvoice = useResendCustomerInvoice();
 
   type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
 
@@ -551,8 +555,43 @@ export function OnlineSalesTab() {
                       <strong>Note:</strong> “{order.notes}”
                     </div>
                   )}
-                  <div className="mt-5 border-t border-gray-100 pt-5">
+                  <div className="mt-5 border-t border-gray-100 pt-5 flex flex-wrap items-center justify-between gap-3">
                     <InvoiceBox order={order as unknown as Order} />
+
+                    {order._type === "online" && order.email && (
+                      <div className="flex items-center gap-2">
+                        {order.customer_notification_status === "sent" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                            <MailCheck className="size-3.5" />
+                            <span>Invoice Emailed</span>
+                          </span>
+                        ) : order.customer_notification_status === "failed" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-xs font-bold text-rose-700">
+                            <MailWarning className="size-3.5" />
+                            <span>Email Failed</span>
+                          </span>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => resendCustomerInvoice.mutate({ orderId: order.id })}
+                          disabled={resendCustomerInvoice.isPending}
+                          title="Email official order confirmation & tax invoice directly to customer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 hover:bg-muted px-3 py-1 text-xs font-semibold text-foreground transition disabled:opacity-50 cursor-pointer shadow-2xs"
+                        >
+                          {resendCustomerInvoice.isPending ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <Send className="size-3 text-muted-foreground" />
+                          )}
+                          <span>
+                            {order.customer_notification_status === "sent"
+                              ? "Resend Customer Email"
+                              : "Email Customer Invoice"}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -645,16 +684,56 @@ export function OnlineSalesTab() {
                     </div>
                   )}
 
-                  {/* Secure Admin Delete Action for Cancelled Orders Only */}
+                  {/* Razorpay Refund Action & Status for Cancelled Orders */}
                   {order.status === "cancelled" && (
-                    <button
-                      type="button"
-                      onClick={() => setOrderToDelete(order as unknown as Order)}
-                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm"
-                    >
-                      <Trash2 className="size-3.5" />
-                      Delete Permanently
-                    </button>
+                    <div className="mt-2.5 flex flex-col gap-2">
+                      {order._type === "online" && order.razorpay_refund_id ? (
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-2 text-left">
+                          <p className="text-[10px] font-bold text-emerald-800 uppercase">
+                            Refunded via Razorpay
+                          </p>
+                          <p className="text-xs font-mono font-bold text-emerald-950 mt-0.5 truncate">
+                            {order.razorpay_refund_id}
+                          </p>
+                          {order.refund_amount && (
+                            <p className="text-[10px] font-semibold text-emerald-700 mt-0.5">
+                              {formatPrice(Number(order.refund_amount))} credited
+                            </p>
+                          )}
+                        </div>
+                      ) : order._type === "online" &&
+                        (order.payment_status === "paid" ||
+                          order.payment_status === "refunded" ||
+                          Boolean(order.razorpay_payment_id)) ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            processRefund.mutate({
+                              orderId: order.id,
+                              reason: "Admin initiated cancellation refund",
+                            })
+                          }
+                          disabled={processRefund.isPending}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
+                        >
+                          {processRefund.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="size-3.5" />
+                          )}
+                          Refund via Razorpay
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setOrderToDelete(order as unknown as Order)}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300 shadow-sm cursor-pointer"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete Permanently
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

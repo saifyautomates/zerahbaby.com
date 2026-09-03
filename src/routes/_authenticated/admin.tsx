@@ -1,5 +1,5 @@
 //
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, Outlet } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -154,7 +154,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: AdminPage,
+  component: () => <Outlet />,
 });
 
 type Tab =
@@ -196,7 +196,7 @@ const VALID_TABS: Tab[] = [
   "pages",
 ];
 
-function AdminPage() {
+export function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, loading: sessionLoading } = useSession();
@@ -433,7 +433,7 @@ function AdminPage() {
   const { data: adminOnlineReturns = [] } = useAllOnlineReturns(isAdmin ?? false);
   const pendingReturnsCount = useMemo(() => {
     return adminOnlineReturns.filter(
-      (r) => r.return_status === "REQUESTED" || r.return_status === "QC_PENDING"
+      (r) => r.return_status === "REQUESTED" || r.return_status === "QC_PENDING",
     ).length;
   }, [adminOnlineReturns]);
 
@@ -538,7 +538,7 @@ function AdminPage() {
       <AdminGlobalSearch
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onNavigate={(targetTab) => setTab(targetTab as Tab)}
+        onNavigate={(targetTab: string) => setTab(targetTab as Tab)}
       />
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
@@ -989,7 +989,9 @@ function AdminPage() {
                 {tab === "pages" && <PagesPoliciesTab />}
                 {tab === "settings" && <SettingsTab />}
                 {tab === "sms" && <SMSLogsTab />}
-                {tab === "queries" && <QueriesTab onOpenOrder={(_ord) => setTab("orders")} />}
+                {tab === "queries" && (
+                  <QueriesTab onOpenOrder={(_ord: string) => setTab("orders")} />
+                )}
                 {tab === "admins" && <AdminsTab currentEmail={user?.email ?? ""} />}
                 {tab === "coupons" && <CouponsTab />}
                 {tab === "reviews" && <ReviewsTab />}
@@ -1095,24 +1097,39 @@ function ProductsTab() {
   const updateStock = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
       const cleanStock = Math.max(0, stock);
+
+      // Check if this product has multiple variants
+      const { data: variants } = await supabase
+        .from("product_variants")
+        .select("id, name")
+        .eq("product_id", id);
+
+      if (variants && variants.length > 1) {
+        throw new Error(
+          `This product has ${variants.length} distinct variants. Please edit stock per variant in the Product Editor to prevent inventory drift.`,
+        );
+      }
+
       const { error: prodErr } = await supabase
         .from("products")
         .update({ stock: cleanStock })
         .eq("id", id);
       if (prodErr) throw prodErr;
 
-      // Also atomically sync variant stock to prevent drift
-      await (supabase as any)
-        .from("product_variants")
-        .update({ stock: cleanStock })
-        .eq("product_id", id);
+      // Sync single/default variant stock
+      if (variants && variants.length === 1) {
+        await supabase
+          .from("product_variants")
+          .update({ stock: cleanStock })
+          .eq("id", variants[0].id);
+      }
     },
     onSuccess: () => {
       toast.success("Stock updated successfully");
       setEditingStockId(null);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message, { duration: 6000 }),
   });
 
   const setDeliveryFeeQuick = useMutation({
@@ -2333,7 +2350,9 @@ function ProductsTab() {
               setCreating(false);
               setEditing(null);
             }}
-            onSave={(draft) => save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })}
+            onSave={(draft: ProductDraft) =>
+              save.mutate(editing ? { draft, uuid: editing.uuid } : { draft })
+            }
           />
         </Suspense>
       )}

@@ -65,7 +65,7 @@ export function AdminProductControls({ product }: { product: Product }) {
             product={product}
             saving={save.isPending}
             onCancel={() => setEditing(false)}
-            onSave={(draft) => {
+            onSave={(draft: ProductDraft) => {
               save.mutate({ draft, uuid: product.uuid }, { onSuccess: () => setEditing(false) });
             }}
           />
@@ -292,7 +292,7 @@ export function AdminAddProduct({
             defaultCategory={defaultCategory}
             saving={save.isPending}
             onCancel={() => setOpen(false)}
-            onSave={(draft) => {
+            onSave={(draft: ProductDraft) => {
               save.mutate({ draft }, { onSuccess: () => setOpen(false) });
             }}
           />

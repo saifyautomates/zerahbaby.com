@@ -504,7 +504,9 @@ export function ThermalReceipt({
             {sale.store_credit_used && sale.store_credit_used > 0 ? (
               <div className="pt-1 text-[10px] space-y-0.5 border-t border-dashed border-gray-300">
                 <div className="flex justify-between text-emerald-700 font-semibold">
-                  <span>Store Credit {sale.credit_token_used ? `[${sale.credit_token_used}]` : ""}</span>
+                  <span>
+                    Store Credit {sale.credit_token_used ? `[${sale.credit_token_used}]` : ""}
+                  </span>
                   <span>−{formatPrice(sale.store_credit_used)}</span>
                 </div>
                 <div className="flex justify-between font-bold">

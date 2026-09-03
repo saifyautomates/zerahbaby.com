@@ -208,7 +208,10 @@ export function useGlobalBarcodeScanner(onScan: (code: string) => void, enabled:
       const detail = (e as CustomEvent<BarcodeScanDetail>).detail;
       if (detail && detail.code) {
         const now = Date.now();
-        if (lastHandledRef.current.code === detail.code && now - lastHandledRef.current.time < 1200) {
+        if (
+          lastHandledRef.current.code === detail.code &&
+          now - lastHandledRef.current.time < 1200
+        ) {
           return;
         }
         lastHandledRef.current = { code: detail.code, time: now };

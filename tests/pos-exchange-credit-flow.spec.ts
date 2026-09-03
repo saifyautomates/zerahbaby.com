@@ -1,6 +1,6 @@
 /**
  * POS SALES HISTORY & EXCHANGE CREDIT TOKEN SYSTEM COMPREHENSIVE TEST SUITE
- * 
+ *
  * Verifies all 23 canonical business rules:
  * 1. ₹500 sale → ₹500 return → ₹500 credit issued (no cash refund)
  * 2. ₹500 credit → ₹800 purchase → ₹500 credit tender + ₹300 payment (total = ₹800)
@@ -267,9 +267,7 @@ test.describe("POS Sales History & Exchange Credit Token System (23 Business Tes
 
   // Test Case 15: Invalid / unknown token rejection
   test("Test Case 15: Invalid or nonexistent token returns 0 available credit", () => {
-    const vouchers = [
-      { credit_token: "CR-2609-01001", credit_balance: 500 },
-    ];
+    const vouchers = [{ credit_token: "CR-2609-01001", credit_balance: 500 }];
 
     const lookup = vouchers.find((v) => v.credit_token === "UNKNOWN-TOKEN");
     const available = lookup ? lookup.credit_balance : 0;
@@ -297,7 +295,9 @@ test.describe("POS Sales History & Exchange Credit Token System (23 Business Tes
 
     expect(() => {
       if (requestedQty > originalQty) {
-        throw new Error(`Cannot return ${requestedQty} units. Only ${originalQty} units returnable.`);
+        throw new Error(
+          `Cannot return ${requestedQty} units. Only ${originalQty} units returnable.`,
+        );
       }
     }).toThrow("Cannot return 3 units");
   });

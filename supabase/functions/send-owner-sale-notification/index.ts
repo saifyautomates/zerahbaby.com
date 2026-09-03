@@ -387,6 +387,210 @@ function renderOnlineSaleEmail(
   return { subject, html };
 }
 
+function renderCustomerOrderConfirmationEmail(
+  order: Record<string, any>,
+  items: Array<Record<string, any>>,
+  _settings?: Record<string, string>,
+): { subject: string; html: string } {
+  const orderRef =
+    order.order_number ||
+    `#${String(order.id || "")
+      .slice(0, 8)
+      .toUpperCase()}`;
+  const dateStr = new Date(order.created_at || Date.now()).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const finalTotal = Number(order.total || 0);
+  const subtotal = Number(order.subtotal || 0);
+  const discount = Number(order.discount || 0);
+  const shipping = Number(order.shipping || 0);
+  const customerName = order.full_name || "Valued Parent";
+  const addressFormatted = [
+    order.address,
+    order.address_line2,
+    order.landmark ? `Near ${order.landmark}` : "",
+    order.city,
+    order.state,
+    order.pincode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const paymentMethod = (order.payment_method || "online").toLowerCase().includes("cod")
+    ? "Cash on Delivery"
+    : "Online Payment (Razorpay)";
+  const paymentStatus = (order.payment_status || "paid").toUpperCase();
+  const trackingUrl = `https://zerahkids.com/orders`;
+
+  const itemsHtml = items
+    .map((item) => {
+      const variantInfo = [item.color, item.size].filter(Boolean).join(" · ");
+      const imageUrl = item.image_url || item.image || "";
+      return `
+      <tr>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              ${
+                imageUrl
+                  ? `<td style="width: 48px; padding-right: 12px; vertical-align: top;">
+                      <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.name)}" width="48" height="48" style="border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0; display: block;" />
+                    </td>`
+                  : ""
+              }
+              <td style="vertical-align: top;">
+                <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.3;">
+                  ${escapeHtml(item.name)}
+                </div>
+                ${
+                  variantInfo
+                    ? `<div style="font-size: 12px; color: #8B2020; font-weight: 600; margin-top: 3px;">${escapeHtml(variantInfo)}</div>`
+                    : ""
+                }
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Qty: ${item.qty} × ${formatCurrency(Number(item.price))}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; vertical-align: middle; font-weight: 700; color: #0f172a; font-size: 14px;">
+          ${formatCurrency(Number(item.price) * Number(item.qty))}
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Confirmed — Zérah Baby &amp; Kids</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #faf5f5; margin: 0; padding: 20px; color: #1e293b; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid #f1e4e4; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(139, 32, 32, 0.08); }
+    .header { background: linear-gradient(135deg, #8B2020 0%, #681818 100%); color: #ffffff; padding: 32px 28px; text-align: center; }
+    .brand-title { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; margin: 0; text-transform: uppercase; }
+    .brand-sub { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; margin-top: 6px; font-weight: 600; color: #fecaca; }
+    .content { padding: 32px 28px; }
+    .success-badge { display: inline-block; background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 6px 16px; border-radius: 999px; margin-bottom: 12px; }
+    .meta-box { background: #fafafa; border: 1px solid #f1f1f1; border-radius: 16px; padding: 20px; margin: 24px 0; font-size: 13px; line-height: 1.6; }
+    .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta-label { color: #64748b; font-weight: 500; }
+    .meta-value { font-weight: 700; color: #0f172a; text-align: right; }
+    .track-btn { display: inline-block; background: #8B2020; color: #ffffff !important; font-weight: 800; font-size: 14px; text-decoration: none; padding: 14px 32px; border-radius: 999px; box-shadow: 0 4px 12px rgba(139, 32, 32, 0.25); text-align: center; }
+    .totals-box { background: #fef7f7; border: 1px solid #fee2e2; border-radius: 16px; padding: 20px; margin-top: 24px; }
+    .total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #475569; }
+    .grand-total { font-size: 18px; font-weight: 900; color: #8B2020; border-top: 2px dashed #fca5a5; padding-top: 12px; margin-top: 12px; }
+    .footer { text-align: center; padding: 28px 20px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f8fafc; background: #fafafa; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand-title">Zérah Baby &amp; Kids</div>
+      <div class="brand-sub">Pure Comfort for Little Wonders</div>
+    </div>
+    <div class="content">
+      <div style="text-align: center;">
+        <span class="success-badge">✓ Order Confirmed</span>
+        <h2 style="margin: 4px 0 8px 0; font-size: 24px; font-weight: 900; color: #0f172a;">
+          Thank you, ${escapeHtml(customerName)}!
+        </h2>
+        <p style="color: #64748b; font-size: 14px; margin: 0 auto; max-width: 440px; line-height: 1.5;">
+          We have received your order. Our Kota team is handpicking and packing your items with extra baby-safe love and care.
+        </p>
+      </div>
+
+      <div class="meta-box">
+        <div class="meta-row">
+          <span class="meta-label">Order Number:</span>
+          <span class="meta-value" style="color: #8B2020;">#${escapeHtml(orderRef)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Date Placed:</span>
+          <span class="meta-value">${escapeHtml(dateStr)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Payment Method:</span>
+          <span class="meta-value">${escapeHtml(paymentMethod)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Payment Status:</span>
+          <span class="meta-value" style="color: #16a34a;">${escapeHtml(paymentStatus)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Delivery Address:</span>
+          <span class="meta-value" style="max-width: 260px;">${escapeHtml(addressFormatted)}</span>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${escapeHtml(trackingUrl)}" class="track-btn" target="_blank">
+          View &amp; Track Order Status →
+        </a>
+      </div>
+
+      <h3 style="font-size: 15px; font-weight: 800; margin: 28px 0 12px 0; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+        Order Details (${items.length} item${items.length > 1 ? "s" : ""})
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div class="totals-box">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span style="font-weight: 600; color: #0f172a;">${formatCurrency(subtotal)}</span>
+        </div>
+        ${
+          discount > 0
+            ? `<div class="total-row" style="color: #16a34a; font-weight: 600;">
+          <span>Coupon Discount:</span>
+          <span>- ${formatCurrency(discount)}</span>
+        </div>`
+            : ""
+        }
+        <div class="total-row">
+          <span>Delivery Charges:</span>
+          <span style="font-weight: 700; color: ${shipping === 0 ? "#16a34a" : "#0f172a"};">
+            ${shipping === 0 ? "FREE DELIVERY" : formatCurrency(shipping)}
+          </span>
+        </div>
+        <div class="total-row grand-total">
+          <span>Total Paid (incl. taxes):</span>
+          <span>${formatCurrency(finalTotal)}</span>
+        </div>
+      </div>
+
+      <div style="margin: 24px 0; padding: 14px; background: #fdf8f8; border: 1px solid #fae8e8; border-radius: 14px; text-align: center; font-size: 12px; color: #7f1d1d; line-height: 1.4; font-weight: 600;">
+        🛡️ <strong>Easy 7-Day Returns</strong> &nbsp;|&nbsp; 📦 <strong>Safe Open Box Delivery</strong> &nbsp;|&nbsp; 🌿 <strong>100% Baby Safe</strong>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; text-align: center; font-size: 13px; color: #475569;">
+        Need help with this order? Reply directly to this email or chat with us on 
+        <a href="https://wa.me/919057074777?text=Hi%2C%20I%20need%20help%20with%20Order%20${escapeHtml(orderRef)}" style="color: #8B2020; font-weight: 700; text-decoration: none;">
+          WhatsApp (+91 9057074777)
+        </a>.
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>Zérah Baby &amp; Kids</strong><br>
+      80 Feet Link Rd, near Bajot Restaurant, Kota, Rajasthan 324001<br>
+      Website: <a href="https://zerahkids.com" style="color: #8B2020; text-decoration: none;">zerahkids.com</a> · Support: hello@zerahkids.com
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const subject = `Order Confirmed! #${orderRef} — Zérah Baby & Kids`;
+  return { subject, html };
+}
+
 function renderTestEmail(): { subject: string; html: string } {
   const dateStr = new Date().toLocaleString("en-IN", {
     dateStyle: "full",
@@ -544,7 +748,8 @@ function renderOnlineReturnEmail(
   items: Array<Record<string, any>>,
 ): { subject: string; html: string } {
   const returnNumber = ret.return_number || "ONLINE-RETURN";
-  const orderRef = order.invoice_no || (order.id ? `#${order.id.slice(0, 8).toUpperCase()}` : "ORDER");
+  const orderRef =
+    order.invoice_no || (order.id ? `#${order.id.slice(0, 8).toUpperCase()}` : "ORDER");
   const dateStr = new Date(ret.created_at || Date.now()).toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -766,7 +971,15 @@ serve(async (req) => {
 
     if (
       !type ||
-      !["offline_sale", "online_order", "offline_return", "online_return", "customer_query", "test"].includes(type)
+      ![
+        "offline_sale",
+        "online_order",
+        "customer_order_invoice",
+        "offline_return",
+        "online_return",
+        "customer_query",
+        "test",
+      ].includes(type)
     ) {
       return new Response(JSON.stringify({ error: "Invalid or missing notification type" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -781,7 +994,7 @@ serve(async (req) => {
       settings[row.key] = row.value;
     });
 
-    const configuredOwnerEmail =
+    let configuredOwnerEmail =
       customRecipient ||
       settings.owner_notification_email ||
       Deno.env.get("OWNER_NOTIFICATION_EMAIL")?.trim() ||
@@ -917,12 +1130,128 @@ serve(async (req) => {
       }
 
       referenceId = order.id;
-      referenceNumber = `#${order.id.slice(0, 8).toUpperCase()}`;
+      referenceNumber = order.order_number || `#${order.id.slice(0, 8).toUpperCase()}`;
       totalAmount = Number(order.total);
 
       const rendered = renderOnlineSaleEmail(order, items || [], costsMap);
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
+
+      // Dispatch Customer Order Confirmation & Tax Invoice Email
+      if (order.email && order.email.includes("@")) {
+        const customerRendered = renderCustomerOrderConfirmationEmail(order, items || [], settings);
+
+        let customerMsgId: string | null = null;
+        let customerDispatchError: string | null = null;
+
+        if (!resendApiKey) {
+          console.log(
+            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Simulating customer invoice to: ${order.email}`,
+          );
+          customerMsgId = `simulated_customer_${Date.now()}`;
+        } else {
+          try {
+            let custRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${resendApiKey}`,
+              },
+              body: JSON.stringify({
+                from: fromEmail,
+                to: [order.email.trim()],
+                reply_to: "hello@zerahkids.com",
+                subject: customerRendered.subject,
+                html: customerRendered.html,
+              }),
+            });
+
+            let custData = await custRes.json();
+
+            // Automatic fallback to onboarding@resend.dev if custom domain is not yet verified on Resend
+            if (
+              !custRes.ok &&
+              (custData.message?.includes("domain") || custData.message?.includes("not verified"))
+            ) {
+              console.warn(
+                "[send-owner-sale-notification] Custom domain not verified on Resend. Retrying customer email with onboarding@resend.dev fallback...",
+              );
+              custRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${resendApiKey}`,
+                },
+                body: JSON.stringify({
+                  from: "Zérah Baby & Kids <onboarding@resend.dev>",
+                  to: [order.email.trim()],
+                  reply_to: "hello@zerahkids.com",
+                  subject: customerRendered.subject,
+                  html: customerRendered.html,
+                }),
+              });
+              custData = await custRes.json();
+            }
+
+            if (custRes.ok) {
+              customerMsgId = custData.id;
+              console.log(
+                `[send-owner-sale-notification] Customer invoice email delivered: ${customerMsgId} to ${order.email}`,
+              );
+            } else {
+              customerDispatchError = custData.message || JSON.stringify(custData);
+              console.error(
+                `[send-owner-sale-notification] Customer invoice email error:`,
+                customerDispatchError,
+              );
+            }
+          } catch (custFetchErr: unknown) {
+            customerDispatchError =
+              (custFetchErr as Error).message || "Network error sending customer email";
+            console.error(
+              `[send-owner-sale-notification] Customer invoice fetch error:`,
+              customerDispatchError,
+            );
+          }
+        }
+
+        // Update database with customer notification status
+        await adminClient
+          .from("orders")
+          .update({
+            customer_notification_status: customerDispatchError === null ? "sent" : "failed",
+            customer_notified_at: customerDispatchError === null ? new Date().toISOString() : null,
+          })
+          .eq("id", order.id);
+      }
+    } else if (type === "customer_order_invoice") {
+      if (!order_id) throw new Error("Missing order_id for customer invoice dispatch");
+
+      const { data: order, error: orderErr } = await adminClient
+        .from("orders")
+        .select("*")
+        .eq("id", order_id)
+        .single();
+      if (orderErr || !order) throw new Error(`Order not found: ${orderErr?.message || "unknown"}`);
+      if (!order.email || !order.email.includes("@")) {
+        throw new Error("Customer email address missing or invalid on this order");
+      }
+
+      const { data: items, error: itemsErr } = await adminClient
+        .from("order_items")
+        .select("*")
+        .eq("order_id", order_id);
+      if (itemsErr) throw itemsErr;
+
+      const customerRendered = renderCustomerOrderConfirmationEmail(order, items || [], settings);
+      emailSubject = customerRendered.subject;
+      emailHtml = customerRendered.html;
+      referenceId = order.id;
+      referenceNumber = order.order_number || `#${order.id.slice(0, 8).toUpperCase()}`;
+      totalAmount = Number(order.total);
+
+      // Recipient is the customer directly
+      configuredOwnerEmail = order.email.trim();
     } else if (type === "offline_return") {
       if (!return_id) throw new Error("Missing return_id for offline return notification");
       if (!notifyOffline && !force_retry) {
@@ -1042,8 +1371,37 @@ serve(async (req) => {
           }),
         });
 
-        const resendData = await resendRes.json();
-        if (!resendRes.ok) {
+        let resendData = await resendRes.json();
+        if (
+          !resendRes.ok &&
+          (resendData.message?.includes("domain") || resendData.message?.includes("not verified"))
+        ) {
+          console.warn(
+            "[send-owner-sale-notification] Custom domain not verified on Resend. Retrying with onboarding@resend.dev fallback...",
+          );
+          const retryRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${resendApiKey}`,
+            },
+            body: JSON.stringify({
+              from: "Zérah Baby & Kids <onboarding@resend.dev>",
+              to: [configuredOwnerEmail],
+              reply_to: "hello@zerahkids.com",
+              subject: emailSubject,
+              html: emailHtml,
+            }),
+          });
+          resendData = await retryRes.json();
+          if (retryRes.ok) {
+            resendMessageId = resendData.id;
+            dispatchError = null;
+          } else {
+            dispatchError = resendData.message || JSON.stringify(resendData);
+            console.error("[send-owner-sale-notification] Resend fallback error:", dispatchError);
+          }
+        } else if (!resendRes.ok) {
           dispatchError = resendData.message || JSON.stringify(resendData);
           console.error("[send-owner-sale-notification] Resend API error:", dispatchError);
         } else {
@@ -1073,6 +1431,14 @@ serve(async (req) => {
         .update({
           owner_notification_status: isSuccess ? "sent" : "failed",
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
+        })
+        .eq("id", order_id);
+    } else if (type === "customer_order_invoice" && order_id) {
+      await adminClient
+        .from("orders")
+        .update({
+          customer_notification_status: isSuccess ? "sent" : "failed",
+          customer_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", order_id);
     } else if (type === "offline_return" && return_id) {

@@ -92,7 +92,8 @@ export function OpenBoxActionModal({ order, onClose }: OpenBoxActionModalProps) 
                 <ShieldCheck className="size-4 text-amber-700" />
                 Inspect before delivery confirmation
               </p>
-              Under Zérah's Open Box Delivery policy, you can inspect the item in front of the courier agent to verify condition, tags, and contents before confirming receipt.
+              Under Zérah's Open Box Delivery policy, you can inspect the item in front of the
+              courier agent to verify condition, tags, and contents before confirming receipt.
             </div>
 
             <p className="text-xs font-semibold text-foreground">
@@ -127,7 +128,8 @@ export function OpenBoxActionModal({ order, onClose }: OpenBoxActionModalProps) 
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-800 leading-relaxed">
               <p className="font-bold mb-1">Confirm Package Acceptance</p>
-              By confirming, you acknowledge that all items have been inspected, are in new and undamaged condition, and you have received them in full.
+              By confirming, you acknowledge that all items have been inspected, are in new and
+              undamaged condition, and you have received them in full.
             </div>
 
             <div className="flex justify-end gap-2.5 pt-2">
@@ -168,7 +170,8 @@ export function OpenBoxActionModal({ order, onClose }: OpenBoxActionModalProps) 
                 <AlertTriangle className="size-4" />
                 Rejecting Open Box Delivery
               </p>
-              The package will be handed back to the delivery agent immediately. An automated return and refund process will be initiated without any return shipping fee.
+              The package will be handed back to the delivery agent immediately. An automated return
+              and refund process will be initiated without any return shipping fee.
             </div>
 
             <div>

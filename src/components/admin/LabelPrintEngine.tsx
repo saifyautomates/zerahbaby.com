@@ -97,9 +97,7 @@ function SingleStickerPreview({
     labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.34);
 
   const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price;
-  const discountPct = hasDiscount
-    ? Math.round(((mrpVal - product.price) / mrpVal) * 100)
-    : 0;
+  const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
 
   return (
     <div
@@ -115,8 +113,8 @@ function SingleStickerPreview({
       </p>
 
       {/* Row 2: Product Name & Prices (Full Toggle Support) */}
-      {labelType !== "barcode-only" && (
-        separatePriceLine && (showMrp || showSellPrice) ? (
+      {labelType !== "barcode-only" &&
+        (separatePriceLine && (showMrp || showSellPrice) ? (
           <>
             {/* Standalone Product Name */}
             <p
@@ -224,16 +222,13 @@ function SingleStickerPreview({
                 >
                   MRP: {formatPrice(mrpVal)}{" "}
                   {showDiscount && hasDiscount && discountPct > 0 && (
-                    <span className="font-extrabold text-emerald-800">
-                      (-{discountPct}%)
-                    </span>
+                    <span className="font-extrabold text-emerald-800">(-{discountPct}%)</span>
                   )}
                 </span>
               ) : null}
             </div>
           </div>
-        )
-      )}
+        ))}
 
       {/* Row 3: Barcode with numbers */}
       <div className="w-full flex justify-center items-center overflow-hidden">

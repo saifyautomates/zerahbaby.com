@@ -127,13 +127,14 @@ serve(async (req) => {
             shiprocket_return_order_id: ret.shiprocket_return_order_id,
             shiprocket_return_awb: ret.shiprocket_return_awb,
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
       }
 
       const retOrder = ret.orders;
       const firstName = (retOrder?.full_name || "Customer").split(" ")[0];
-      const lastName = (retOrder?.full_name || "Customer").split(" ").slice(1).join(" ") || firstName;
+      const lastName =
+        (retOrder?.full_name || "Customer").split(" ").slice(1).join(" ") || firstName;
 
       const orderItems = (ret.online_return_items || []).map((i: any) => ({
         name: i.product_name_snapshot || "Product",
@@ -194,7 +195,7 @@ serve(async (req) => {
             error: srData.message || "Shiprocket reverse pickup creation failed",
             details: srData,
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
         );
       }
 
@@ -215,7 +216,7 @@ serve(async (req) => {
           shiprocket_return_order_id: srData.order_id,
           shiprocket_return_shipment_id: srData.shipment_id,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
@@ -284,8 +285,12 @@ serve(async (req) => {
 
       const isCod = order.payment_method === "cod" || order.payment_method === "COD";
 
+      const srOrderId =
+        order.order_number ||
+        `ORD-${String(order.id).replace(/-/g, "").substring(0, 12).toUpperCase()}`;
+
       const payload = {
-        order_id: String(order.id).substring(0, 20), // SR requires max 20 chars
+        order_id: srOrderId,
         order_date: new Date(order.created_at).toISOString().split("T")[0],
         pickup_location: "Primary", // Usually configured in SR panel
         billing_customer_name: firstName,

@@ -135,7 +135,10 @@ function OrdersPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">#{order.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-sm font-semibold">
+                      #
+                      {order.order_number || order.invoice_no || order.id.slice(0, 8).toUpperCase()}
+                    </p>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
                       {order.payment_method || "cod"}
                     </span>
@@ -218,7 +221,9 @@ function OrdersPage() {
                       </span>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-foreground">Return #{ret.return_number}</span>
+                          <span className="font-bold text-foreground">
+                            Return #{ret.return_number}
+                          </span>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${rBadge.bg} ${rBadge.text} ${rBadge.border}`}
                           >
@@ -232,7 +237,9 @@ function OrdersPage() {
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           {ret.reason_label} · Refund:{" "}
-                          <strong className="text-foreground">{formatPrice(Number(ret.final_refund_amount))}</strong>
+                          <strong className="text-foreground">
+                            {formatPrice(Number(ret.final_refund_amount))}
+                          </strong>
                         </p>
                       </div>
                     </div>
@@ -259,7 +266,8 @@ function OrdersPage() {
                     <div>
                       <p className="font-bold">Open Box Delivery Active</p>
                       <p className="text-[11px] text-indigo-800/80">
-                        You may open and inspect your package contents with the delivery agent before confirming.
+                        You may open and inspect your package contents with the delivery agent
+                        before confirming.
                       </p>
                     </div>
                   </div>
@@ -276,7 +284,12 @@ function OrdersPage() {
 
               <ul className="mt-4 space-y-3">
                 {order.order_items.map((item) => {
-                  const product = products?.find((p) => p.id === item.product_slug);
+                  const product = products?.find(
+                    (p) =>
+                      (item.product_id && p.uuid === item.product_id) ||
+                      p.id === item.product_slug ||
+                      p.uuid === item.product_slug,
+                  );
                   return (
                     <li
                       key={item.id}
@@ -319,21 +332,41 @@ function OrdersPage() {
                         {!isCancelled && (
                           <button
                             type="button"
-                            onClick={() => {
-                              const prodObj = product
-                                ? {
-                                    id: product.id,
-                                    uuid: product.uuid,
-                                    name: product.name,
-                                    image: product.image,
-                                    brand: product.brand,
+                            onClick={async () => {
+                              const UUID_REGEX =
+                                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                              let canonicalUuid = product?.uuid;
+
+                              if (
+                                !canonicalUuid &&
+                                item.product_id &&
+                                UUID_REGEX.test(item.product_id)
+                              ) {
+                                canonicalUuid = item.product_id;
+                              }
+
+                              if (!canonicalUuid && item.product_slug) {
+                                try {
+                                  const { data: dbProd } = await supabase
+                                    .from("products")
+                                    .select("id")
+                                    .or(`slug.eq.${item.product_slug},id.eq.${item.product_slug}`)
+                                    .maybeSingle();
+                                  if (dbProd?.id && UUID_REGEX.test(dbProd.id)) {
+                                    canonicalUuid = dbProd.id;
                                   }
-                                : {
-                                    id: item.product_slug,
-                                    uuid: item.product_slug,
-                                    name: item.name,
-                                    image: item.image_url ?? undefined,
-                                  };
+                                } catch (lookupErr) {
+                                  console.warn("Could not resolve product UUID:", lookupErr);
+                                }
+                              }
+
+                              const prodObj = {
+                                id: product?.id || item.product_slug,
+                                uuid: canonicalUuid || item.product_id || item.product_slug,
+                                name: product?.name || item.name,
+                                image: product?.image || item.image_url || undefined,
+                                brand: product?.brand,
+                              };
                               setReviewingProduct({ product: prodObj, orderId: order.id });
                             }}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#8B2020]/30 bg-red-50/50 text-[#8B2020] text-xs font-bold hover:bg-[#8B2020] hover:text-white transition cursor-pointer shadow-2xs"
@@ -375,10 +408,7 @@ function OrdersPage() {
 
       {/* Online Return Request Modal */}
       {returningOrder && (
-        <OnlineReturnModal
-          order={returningOrder}
-          onClose={() => setReturningOrder(null)}
-        />
+        <OnlineReturnModal order={returningOrder} onClose={() => setReturningOrder(null)} />
       )}
 
       {/* Online Return Details & Timeline Modal */}
@@ -391,10 +421,7 @@ function OrdersPage() {
 
       {/* Open Box Delivery Modal */}
       {openBoxOrder && (
-        <OpenBoxActionModal
-          order={openBoxOrder}
-          onClose={() => setOpenBoxOrder(null)}
-        />
+        <OpenBoxActionModal order={openBoxOrder} onClose={() => setOpenBoxOrder(null)} />
       )}
 
       {/* Cancellation Confirmation Dialog */}
@@ -453,7 +480,8 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <h2 id="cancel-modal-title" className="font-display text-xl font-bold text-foreground">
-              Cancel Order #{order.id.slice(0, 8).toUpperCase()}
+              Cancel Order #
+              {order.order_number || order.invoice_no || order.id.slice(0, 8).toUpperCase()}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Orders can be cancelled before shipment. Items will be returned to stock.

@@ -5,17 +5,22 @@ import {
   REFUND_STATUS_BADGES,
 } from "@/lib/online-returns";
 import { formatPrice } from "@/lib/store";
-import { RotateCcw, PackageCheck, Truck, ShieldCheck, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  RotateCcw,
+  PackageCheck,
+  Truck,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 
 interface OnlineReturnDetailsModalProps {
   onlineReturn: OnlineReturn;
   onClose: () => void;
 }
 
-export function OnlineReturnDetailsModal({
-  onlineReturn,
-  onClose,
-}: OnlineReturnDetailsModalProps) {
+export function OnlineReturnDetailsModal({ onlineReturn, onClose }: OnlineReturnDetailsModalProps) {
   const returnBadge = RETURN_STATUS_BADGES[onlineReturn.return_status] || {
     label: onlineReturn.return_status,
     bg: "bg-muted",
@@ -81,24 +86,32 @@ export function OnlineReturnDetailsModal({
           <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2.5 text-xs">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Reason:</span>
-              <span className="font-semibold text-foreground text-right">{onlineReturn.reason_label}</span>
+              <span className="font-semibold text-foreground text-right">
+                {onlineReturn.reason_label}
+              </span>
             </div>
             {onlineReturn.customer_note && (
               <div className="flex justify-between items-start pt-1 border-t border-border/50">
                 <span className="text-muted-foreground shrink-0">Customer Note:</span>
-                <span className="font-medium text-foreground text-right max-w-xs">{onlineReturn.customer_note}</span>
+                <span className="font-medium text-foreground text-right max-w-xs">
+                  {onlineReturn.customer_note}
+                </span>
               </div>
             )}
             {onlineReturn.shiprocket_return_awb && (
               <div className="flex justify-between items-center pt-1 border-t border-border/50">
                 <span className="text-muted-foreground">Reverse Pickup AWB:</span>
-                <span className="font-mono font-bold text-indigo-700">{onlineReturn.shiprocket_return_awb}</span>
+                <span className="font-mono font-bold text-indigo-700">
+                  {onlineReturn.shiprocket_return_awb}
+                </span>
               </div>
             )}
             {onlineReturn.qc_summary && (
               <div className="flex justify-between items-start pt-1 border-t border-border/50">
                 <span className="text-muted-foreground shrink-0">QC Summary:</span>
-                <span className="font-semibold text-emerald-800 text-right">{onlineReturn.qc_summary}</span>
+                <span className="font-semibold text-emerald-800 text-right">
+                  {onlineReturn.qc_summary}
+                </span>
               </div>
             )}
           </div>
@@ -125,7 +138,9 @@ export function OnlineReturnDetailsModal({
                       <div className="size-11 rounded-xl border border-border bg-muted shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{item.product_name_snapshot}</p>
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {item.product_name_snapshot}
+                      </p>
                       <p className="text-[11px] text-muted-foreground">
                         {item.color_snapshot ? `${item.color_snapshot} · ` : ""}
                         {item.size_snapshot ? `Size: ${item.size_snapshot} · ` : ""}
@@ -143,8 +158,8 @@ export function OnlineReturnDetailsModal({
                         item.qc_status === "APPROVED"
                           ? "bg-emerald-100 text-emerald-800"
                           : item.qc_status === "REJECTED"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-800"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-amber-100 text-amber-800"
                       }`}
                     >
                       QC: {item.qc_status}
@@ -190,11 +205,11 @@ export function OnlineReturnDetailsModal({
                   <li key={event.id} className="relative">
                     <span className="absolute -left-[1.35rem] top-1 size-2.5 rounded-full bg-[#8B2020]" />
                     <p className="text-xs font-bold text-foreground">
-                      {event.new_status ? event.new_status.replace(/_/g, " ") : event.event_type.replace(/_/g, " ")}
+                      {event.new_status
+                        ? event.new_status.replace(/_/g, " ")
+                        : event.event_type.replace(/_/g, " ")}
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {event.note}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{event.note}</p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                       {new Date(event.created_at).toLocaleString("en-IN")}
                     </p>

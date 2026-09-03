@@ -336,7 +336,7 @@ function RootComponent() {
         },
       });
     }
-  }, [location.pathname, isAdminRoute]);
+  }, [location.pathname, location.searchStr, isAdminRoute]);
 
   useEffect(() => {
     // Global handler for stale dynamic module imports / chunk load failures

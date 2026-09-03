@@ -18,20 +18,22 @@ export function trackEvent(
     const sessionId = getSessionId();
 
     // 1. Primary path: RPC record_store_activity (bypasses anon/auth permission quirks)
-    (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: string | null; error: Error | null }>)(
-      "record_store_activity",
-      {
-        _event_name: eventName,
-        _product_id: opts?.productId || null,
-        _order_id: opts?.orderId || null,
-        _session_id: sessionId,
-        _metadata: opts?.metadata || {},
-      },
-    )
+    (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: string | null; error: Error | null }>
+    )("record_store_activity", {
+      _event_name: eventName,
+      _product_id: opts?.productId || null,
+      _order_id: opts?.orderId || null,
+      _session_id: sessionId,
+      _metadata: opts?.metadata || {},
+    })
       .then(({ error }) => {
         if (error) {
           // 2. Fallback: Direct table insert
-          supabase.auth.getUser().then(({ data }) => {
+          supabase.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
             const userId = data?.user?.id ?? null;
             supabase
               .from("analytics_events")
@@ -41,7 +43,8 @@ export function trackEvent(
                 event_name: eventName,
                 product_id: opts?.productId ?? null,
                 order_id: opts?.orderId ?? null,
-                metadata: (opts?.metadata ?? null) as unknown as import("@/integrations/supabase/types").Json,
+                metadata: (opts?.metadata ??
+                  null) as unknown as import("@/integrations/supabase/types").Json,
               })
               .then(() => {
                 dispatchLocalActivityEvent(eventName, opts);

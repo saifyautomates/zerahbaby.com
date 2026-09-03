@@ -232,9 +232,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         for (const localLine of prev) {
           if (
             !merged.find(
-              (l) =>
-                l.id === localLine.id &&
-                (l.variantId || "") === (localLine.variantId || ""),
+              (l) => l.id === localLine.id && (l.variantId || "") === (localLine.variantId || ""),
             )
           ) {
             merged.push(localLine);

@@ -427,14 +427,22 @@ export function validatePrintPreflight(params: {
 }): { valid: boolean; error?: string; totalLabels: number } {
   const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
   if (rawProducts.length === 0) {
-    return { valid: false, error: "Please select at least 1 product to print labels.", totalLabels: 0 };
+    return {
+      valid: false,
+      error: "Please select at least 1 product to print labels.",
+      totalLabels: 0,
+    };
   }
 
   let totalLabels = 0;
   for (const p of rawProducts) {
     const check = validatePrintableProduct(p);
     if (!check.valid) {
-      return { valid: false, error: check.error || `Invalid data for product: ${p.name || "Unknown"}`, totalLabels: 0 };
+      return {
+        valid: false,
+        error: check.error || `Invalid data for product: ${p.name || "Unknown"}`,
+        totalLabels: 0,
+      };
     }
     const key = getProductKey(p);
     const qty = params.quantities?.[key] !== undefined ? params.quantities[key] : 1;
@@ -444,7 +452,11 @@ export function validatePrintPreflight(params: {
   }
 
   if (totalLabels === 0) {
-    return { valid: false, error: "Total label quantity to print must be at least 1.", totalLabels: 0 };
+    return {
+      valid: false,
+      error: "Total label quantity to print must be at least 1.",
+      totalLabels: 0,
+    };
   }
 
   return { valid: true, totalLabels };
@@ -1138,7 +1150,10 @@ export function openLabelPrintInNewTab(params: {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   try {
     const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
-    const preflight = validatePrintPreflight({ products: rawProducts, quantities: params.quantities });
+    const preflight = validatePrintPreflight({
+      products: rawProducts,
+      quantities: params.quantities,
+    });
     if (!preflight.valid) {
       toast.error(preflight.error || "Cannot print labels: invalid data");
       return false;
@@ -1207,7 +1222,10 @@ export function printProductLabels(params: {
   toast.dismiss();
 
   const rawProducts = Array.isArray(params.products) ? params.products : [params.products];
-  const preflight = validatePrintPreflight({ products: rawProducts, quantities: params.quantities });
+  const preflight = validatePrintPreflight({
+    products: rawProducts,
+    quantities: params.quantities,
+  });
   if (!preflight.valid) {
     toast.error(preflight.error || "Cannot print labels: invalid data");
     params.onDone?.();
@@ -1239,7 +1257,9 @@ export function printProductLabels(params: {
   if (iframe) {
     try {
       iframe.remove();
-    } catch {}
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   iframe = document.createElement("iframe");
@@ -1258,7 +1278,9 @@ export function printProductLabels(params: {
     try {
       const existing = document.getElementById(iframeId);
       if (existing) existing.remove();
-    } catch {}
+    } catch (e) {
+      console.error(e);
+    }
     params.onDone?.();
   };
 
@@ -1283,7 +1305,9 @@ export function printProductLabels(params: {
       try {
         const labelsInDoc = doc.querySelectorAll(".label-page, .label-cell");
         if (!labelsInDoc || labelsInDoc.length === 0) {
-          console.warn("[ZerahPrint] No label elements detected in print iframe, falling back to new tab");
+          console.warn(
+            "[ZerahPrint] No label elements detected in print iframe, falling back to new tab",
+          );
           cleanup();
           return openLabelPrintInNewTab(params);
         }

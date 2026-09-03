@@ -28,16 +28,47 @@ export type ReviewStats = {
   allImages: Array<{ url: string; reviewId: string; rating: number; title: string }>;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves a product UUID from either a valid UUID string or a product slug.
+ * Prevents PostgreSQL 22P02 invalid input syntax errors when a slug is passed.
+ */
+export async function resolveProductUuid(identifier: string | undefined): Promise<string | null> {
+  if (!identifier) return null;
+  const trimmed = identifier.trim();
+  if (UUID_REGEX.test(trimmed)) return trimmed;
+
+  try {
+    const { data } = await supabase
+      .from("products")
+      .select("id")
+      .or(`slug.eq.${trimmed},id.eq.${trimmed}`)
+      .maybeSingle();
+
+    if (data?.id && UUID_REGEX.test(data.id)) {
+      return data.id;
+    }
+  } catch (err) {
+    console.warn("[reviews] Failed to resolve product UUID for identifier:", identifier, err);
+  }
+  return null;
+}
+
 /** Fetch approved reviews for a product with user profile info */
 export function useProductReviews(productId: string | undefined) {
   return useQuery({
     queryKey: ["reviews", productId],
     enabled: Boolean(productId),
     queryFn: async () => {
+      if (!productId) return [];
+      const canonicalId = await resolveProductUuid(productId);
+      if (!canonicalId) return [];
+
       const { data, error } = await supabase
         .from("reviews")
         .select("*")
-        .eq("product_id", productId!)
+        .eq("product_id", canonicalId)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
 
@@ -82,18 +113,22 @@ export function useCanUserReviewProduct(
         };
       }
 
-      // 1. Check if user already submitted a review for this product
+      // 1. Resolve canonical product UUID
+      const canonicalId =
+        (await resolveProductUuid(productId)) || (await resolveProductUuid(productSlug));
+
+      // 2. Check if user already submitted a review for this product
       let existingReviewQuery = supabase.from("reviews").select("*").eq("user_id", userId);
 
-      if (productId) {
-        existingReviewQuery = existingReviewQuery.eq("product_id", productId);
+      if (canonicalId) {
+        existingReviewQuery = existingReviewQuery.eq("product_id", canonicalId);
       }
 
       const { data: existingReviews } = await existingReviewQuery.limit(1);
       const existingReview =
         existingReviews && existingReviews.length > 0 ? (existingReviews[0] as Review) : null;
 
-      // 2. Query user's non-cancelled orders with order items
+      // 3. Query user's non-cancelled orders with order items
       const { data: orders, error } = await supabase
         .from("orders")
         .select("id, status, order_items(product_id, product_slug)")
@@ -118,6 +153,9 @@ export function useCanUserReviewProduct(
         for (const order of orders) {
           const items = Array.isArray(order.order_items) ? order.order_items : [];
           const matched = items.some((item) => {
+            if (canonicalId && item.product_id === canonicalId) {
+              return true;
+            }
             if (productId && (item.product_id === productId || item.product_slug === productId)) {
               return true;
             }
@@ -230,6 +268,13 @@ export function useSubmitReview() {
       images?: string[];
       review_id?: string;
     }) => {
+      const canonicalProductId = await resolveProductUuid(input.product_id);
+      if (!canonicalProductId) {
+        throw new Error(
+          "Could not verify product identifier. Please refresh the page and try again.",
+        );
+      }
+
       const verified = Boolean(input.order_id);
       const images = Array.isArray(input.images) ? input.images.filter(Boolean) : [];
 
@@ -238,6 +283,7 @@ export function useSubmitReview() {
         const { error } = await supabase
           .from("reviews")
           .update({
+            product_id: canonicalProductId,
             rating: input.rating,
             title: input.title.trim(),
             comment: input.comment.trim(),
@@ -253,7 +299,7 @@ export function useSubmitReview() {
       } else {
         // Insert new review
         const { error } = await supabase.from("reviews").insert({
-          product_id: input.product_id,
+          product_id: canonicalProductId,
           user_id: input.user_id,
           order_id: input.order_id ?? null,
           rating: input.rating,
@@ -269,8 +315,8 @@ export function useSubmitReview() {
     },
     onSuccess: (_, vars) => {
       toast.success("Thank you! Your verified review has been submitted.");
-      qc.invalidateQueries({ queryKey: ["reviews", vars.product_id] });
-      qc.invalidateQueries({ queryKey: ["can-review-product", vars.product_id] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["can-review-product"] });
       qc.invalidateQueries({ queryKey: ["admin-reviews"] });
     },
     onError: (e: Error) => toast.error(e.message),

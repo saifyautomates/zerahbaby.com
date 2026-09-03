@@ -30,8 +30,19 @@ function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useSession();
   const { items } = useCart();
-  const isOAuthRedirect =
-    typeof window !== "undefined" && window.location.hash.includes("access_token");
+
+  // ─── Hydration Determinism ──────────────────────────────────────────────────
+  // Ensures SSR initial render === first client hydration render.
+  // Auth resolution and redirects take place cleanly after hydration.
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [isOAuthRedirect, setIsOAuthRedirect] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+    if (window.location.hash.includes("access_token")) {
+      setIsOAuthRedirect(true);
+    }
+  }, []);
 
   // ─── UI State ─────────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<"input" | "verify">("input");
@@ -91,6 +102,7 @@ function AuthPage() {
 
   // ─── Redirect when session arrives ────────────────────────────────────────────
   useEffect(() => {
+    if (!isHydrated) return;
     if (!loading && user) {
       const searchParams =
         typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -117,7 +129,7 @@ function AuthPage() {
         navigate({ to: items.length > 0 ? "/checkout" : "/", replace: true });
       }
     }
-  }, [user, loading, items.length, navigate]);
+  }, [isHydrated, user, loading, items.length, navigate]);
 
   // ─── SEND OTP (first time) ────────────────────────────────────────────────────
   async function onSendOtp(e: React.FormEvent) {
@@ -335,14 +347,16 @@ function AuthPage() {
   }
 
   // ─── RENDER ───────────────────────────────────────────────────────────────────
-
-  if (loading || user || (busy && mode === "verify") || success || isOAuthRedirect) {
+  // During SSR and first client hydration render (isHydrated === false),
+  // always render the deterministic auth form. Client-side auth resolution / redirect
+  // takes place smoothly after mount without hydration mismatch.
+  if ((isHydrated && user) || (busy && mode === "verify") || success || isOAuthRedirect) {
     return (
       <div className="mx-auto flex min-h-[70vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
-            {loading || user ? "Loading..." : "Signing in..."}
+            {user ? "Redirecting..." : "Signing in..."}
           </p>
         </div>
       </div>

@@ -1578,9 +1578,13 @@ export function POSReturnsTab() {
                     <th className="p-3 w-10 text-center">
                       <input
                         type="checkbox"
-                        checked={filteredHistory.length > 0 && historySelection.isAllVisibleSelected(filteredHistory)}
+                        checked={
+                          filteredHistory.length > 0 &&
+                          historySelection.isAllVisibleSelected(filteredHistory)
+                        }
                         ref={(el) => {
-                          if (el) el.indeterminate = historySelection.isIndeterminate(filteredHistory);
+                          if (el)
+                            el.indeterminate = historySelection.isIndeterminate(filteredHistory);
                         }}
                         onChange={() => historySelection.toggleAllVisible(filteredHistory)}
                         className="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"

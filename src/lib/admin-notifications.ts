@@ -220,10 +220,7 @@ export function useAdminNotifications() {
   // 7. Hard Delete Single Notification (permanent removal from DB)
   const hardDeleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("admin_notifications")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("admin_notifications").delete().eq("id", id);
 
       if (error) throw error;
       return id;
@@ -286,7 +283,7 @@ export function useAdminNotifications() {
     markAsRead: (id: string) => markAsReadMutation.mutate(id),
     markAllAsRead: () => markAllAsReadMutation.mutate(),
     dismiss: (id: string) => dismissMutation.mutate(id),
-    deleteNotification: (id: string) => hardDeleteMutation.mutate(id),  // hard DELETE
+    deleteNotification: (id: string) => hardDeleteMutation.mutate(id), // hard DELETE
     clearAll: () => clearAllMutation.mutate(),
     clearAllNotifications: () => clearAllMutation.mutate(),
   };

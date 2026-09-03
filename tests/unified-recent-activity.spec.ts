@@ -66,7 +66,15 @@ test.describe("Unified Store Activity Feed & Real-time Stream", () => {
       event_type: "view",
       source: "analytics",
     };
-    const validTypes = new Set(["view", "cart", "checkout", "order", "return", "wishlist", "other"]);
+    const validTypes = new Set([
+      "view",
+      "cart",
+      "checkout",
+      "order",
+      "return",
+      "wishlist",
+      "other",
+    ]);
     expect(validTypes.has(sampleRecord.event_type)).toBe(true);
   });
 
@@ -116,24 +124,44 @@ test.describe("Unified Store Activity Feed & Real-time Stream", () => {
 
   test("6. Search filtering searches across title, subtitle, and product name", () => {
     const sampleFeed = [
-      { id: "1", title: "Floral Frock viewed", subtitle: "Visitor", productName: "Floral Frock", customerName: "Visitor" },
-      { id: "2", title: "Online Order #1002 placed", subtitle: "Rahul Sharma • ₹1,499", productName: null, customerName: "Rahul Sharma" },
-      { id: "3", title: "Store Sale #POS-505 completed", subtitle: "Walk-in Customer • ₹850", productName: null, customerName: "Walk-in Customer" },
+      {
+        id: "1",
+        title: "Floral Frock viewed",
+        subtitle: "Visitor",
+        productName: "Floral Frock",
+        customerName: "Visitor",
+      },
+      {
+        id: "2",
+        title: "Online Order #1002 placed",
+        subtitle: "Rahul Sharma • ₹1,499",
+        productName: null,
+        customerName: "Rahul Sharma",
+      },
+      {
+        id: "3",
+        title: "Store Sale #POS-505 completed",
+        subtitle: "Walk-in Customer • ₹850",
+        productName: null,
+        customerName: "Walk-in Customer",
+      },
     ];
 
-    const searchRahul = sampleFeed.filter((a) =>
-      a.title.toLowerCase().includes("rahul") ||
-      a.subtitle.toLowerCase().includes("rahul") ||
-      (a.productName && a.productName.toLowerCase().includes("rahul")) ||
-      (a.customerName && a.customerName.toLowerCase().includes("rahul")),
+    const searchRahul = sampleFeed.filter(
+      (a) =>
+        a.title.toLowerCase().includes("rahul") ||
+        a.subtitle.toLowerCase().includes("rahul") ||
+        (a.productName && a.productName.toLowerCase().includes("rahul")) ||
+        (a.customerName && a.customerName.toLowerCase().includes("rahul")),
     );
     expect(searchRahul.length).toBe(1);
     expect(searchRahul[0].id).toBe("2");
 
-    const searchFrock = sampleFeed.filter((a) =>
-      a.title.toLowerCase().includes("frock") ||
-      a.subtitle.toLowerCase().includes("frock") ||
-      (a.productName && a.productName.toLowerCase().includes("frock")),
+    const searchFrock = sampleFeed.filter(
+      (a) =>
+        a.title.toLowerCase().includes("frock") ||
+        a.subtitle.toLowerCase().includes("frock") ||
+        (a.productName && a.productName.toLowerCase().includes("frock")),
     );
     expect(searchFrock.length).toBe(1);
     expect(searchFrock[0].id).toBe("1");

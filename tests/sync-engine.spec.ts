@@ -71,7 +71,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
           isSequential,
           matchByBarcodeFound: matchByBarcode?.name === testProduct.name,
           matchBySkuFound: matchBySku?.name === testProduct.name,
-          saleQueued: Boolean(queuedItem && queuedItem.status === "PENDING"),
+          saleQueued: Boolean(queuedItem && queuedItem.status === "PENDING_SYNC"),
         };
       } catch (err: unknown) {
         return {

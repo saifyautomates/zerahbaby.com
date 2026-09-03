@@ -64,14 +64,14 @@ import {
 type SaleItem = {
   id: string;
   name: string;
-  sku: string;
+  sku?: string | null;
   price: number;
   qty: number;
   subtotal: number;
   product_id?: string | null;
-  product_slug?: string;
-  mrp_snapshot?: number;
-  barcode_snapshot?: string;
+  product_slug?: string | null;
+  mrp_snapshot?: number | null;
+  barcode_snapshot?: string | null;
 };
 
 type Sale = {
@@ -222,7 +222,13 @@ export function OfflineAnalyticsTab() {
   });
 
   const hardDeleteSalesMutation = useMutation({
-    mutationFn: async ({ saleIds, restoreStock = false }: { saleIds: string[]; restoreStock?: boolean }) => {
+    mutationFn: async ({
+      saleIds,
+      restoreStock = false,
+    }: {
+      saleIds: string[];
+      restoreStock?: boolean;
+    }) => {
       const validUuids = saleIds.filter((id) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
       );
@@ -349,9 +355,9 @@ export function OfflineAnalyticsTab() {
 
   const resolveProduct = (item: {
     product_id?: string | null;
-    product_slug?: string;
-    sku?: string;
-    name?: string;
+    product_slug?: string | null;
+    sku?: string | null;
+    name?: string | null;
   }) => {
     if (item.product_id && productLookup.byId.has(item.product_id)) {
       return productLookup.byId.get(item.product_id);
@@ -1125,7 +1131,9 @@ export function OfflineAnalyticsTab() {
                 type="button"
                 onClick={async () => {
                   const ids = Array.from(salesSelection.selectedIds);
-                  if (confirm(`Void/Cancel ${ids.length} selected POS sale(s) and restore inventory?`)) {
+                  if (
+                    confirm(`Void/Cancel ${ids.length} selected POS sale(s) and restore inventory?`)
+                  ) {
                     await bulkVoidSalesMutation.mutateAsync({
                       saleIds: ids,
                       reason: "Bulk void via selection toolbar",
@@ -1133,7 +1141,11 @@ export function OfflineAnalyticsTab() {
                     });
                   }
                 }}
-                disabled={voidSaleMutation.isPending || hardDeleteSalesMutation.isPending || bulkVoidSalesMutation.isPending}
+                disabled={
+                  voidSaleMutation.isPending ||
+                  hardDeleteSalesMutation.isPending ||
+                  bulkVoidSalesMutation.isPending
+                }
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                 title="Cancel selected sales and restore stock"
               >
@@ -1144,14 +1156,22 @@ export function OfflineAnalyticsTab() {
                 type="button"
                 onClick={async () => {
                   const ids = Array.from(salesSelection.selectedIds);
-                  if (confirm(`Permanently delete ${ids.length} selected POS sale record(s) from database? This cannot be undone.`)) {
+                  if (
+                    confirm(
+                      `Permanently delete ${ids.length} selected POS sale record(s) from database? This cannot be undone.`,
+                    )
+                  ) {
                     await hardDeleteSalesMutation.mutateAsync({
                       saleIds: ids,
                       restoreStock: false,
                     });
                   }
                 }}
-                disabled={voidSaleMutation.isPending || hardDeleteSalesMutation.isPending || bulkVoidSalesMutation.isPending}
+                disabled={
+                  voidSaleMutation.isPending ||
+                  hardDeleteSalesMutation.isPending ||
+                  bulkVoidSalesMutation.isPending
+                }
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-800 dark:text-rose-200 border border-rose-500/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                 title="Permanently purge selected records from database"
               >
@@ -1786,7 +1806,8 @@ export function OfflineAnalyticsTab() {
                 <AlertTriangle className="size-4 shrink-0" />
                 Receipt Cancellation Note
               </p>
-              Cancelling this sale will mark the bill as cancelled and remove it from sales totals while preserving a record in history for auditing.
+              Cancelling this sale will mark the bill as cancelled and remove it from sales totals
+              while preserving a record in history for auditing.
             </div>
 
             <div className="space-y-3">
@@ -1835,7 +1856,8 @@ export function OfflineAnalyticsTab() {
                       Add items back to stock
                     </span>
                     <p className="text-[11px] text-muted-foreground">
-                      Return items back to inventory (uncheck if goods were damaged or already taken).
+                      Return items back to inventory (uncheck if goods were damaged or already
+                      taken).
                     </p>
                   </div>
                 </label>

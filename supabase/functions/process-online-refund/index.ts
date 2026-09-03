@@ -69,7 +69,7 @@ serve(async (req) => {
           message: "Refund already processed for this return",
           refund_id: ret.razorpay_refund_id,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
@@ -78,7 +78,9 @@ serve(async (req) => {
       throw new Error("Associated order not found for this return");
     }
 
-    const finalAmount = Number(override_amount !== undefined ? override_amount : ret.final_refund_amount);
+    const finalAmount = Number(
+      override_amount !== undefined ? override_amount : ret.final_refund_amount,
+    );
 
     if (finalAmount <= 0) {
       // If amount is 0 (e.g. shipping fee exceeded refund), complete return without gateway call
@@ -91,14 +93,21 @@ serve(async (req) => {
       });
 
       return new Response(
-        JSON.stringify({ success: true, zero_refund: true, message: "Return completed with 0 refund" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        JSON.stringify({
+          success: true,
+          zero_refund: true,
+          message: "Return completed with 0 refund",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
     // 4. Handle based on original payment method
     const paymentMethod = (order.payment_method || "").toLowerCase();
-    const isOnlinePaid = paymentMethod.includes("razorpay") || paymentMethod.includes("online") || Boolean(order.razorpay_payment_id);
+    const isOnlinePaid =
+      paymentMethod.includes("razorpay") ||
+      paymentMethod.includes("online") ||
+      Boolean(order.razorpay_payment_id);
 
     if (!isOnlinePaid) {
       // For COD or offline orders: manual bank transfer record
@@ -117,7 +126,7 @@ serve(async (req) => {
           amount: finalAmount,
           message: "COD refund recorded as manual bank transfer",
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
@@ -160,7 +169,8 @@ serve(async (req) => {
 
     if (!rzpRes.ok) {
       console.error("[process-online-refund] Razorpay Refund Error:", rzpData);
-      const desc = rzpData.error?.description || `Razorpay refund failed with status ${rzpRes.status}`;
+      const desc =
+        rzpData.error?.description || `Razorpay refund failed with status ${rzpRes.status}`;
       throw new Error(desc);
     }
 
@@ -181,7 +191,7 @@ serve(async (req) => {
         currency: "INR",
         status: rzpData.status,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     );
   } catch (err: unknown) {
     const message = (err as Error).message || "Failed to process refund";

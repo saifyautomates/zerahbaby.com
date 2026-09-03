@@ -42,7 +42,9 @@ test.describe("Marketing & Social Links Validation and Normalization Engine", ()
     expect(res1.isValid).toBe(false);
     expect(res1.error).toContain("Unsafe protocol detected");
 
-    const res2 = validateAndNormalizeInstagram("data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==");
+    const res2 = validateAndNormalizeInstagram(
+      "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+    );
     expect(res2.isValid).toBe(false);
     expect(res2.error).toContain("Unsafe protocol detected");
   });

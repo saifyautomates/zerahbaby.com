@@ -46,7 +46,9 @@ export function PrintLabelsModal({
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
   const [showMrp, setShowMrp] = useState<boolean>(() => getSavedShowMrp());
   const [showSellPrice, setShowSellPrice] = useState<boolean>(() => getSavedShowSellPrice());
-  const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() => getSavedSeparatePrice());
+  const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() =>
+    getSavedSeparatePrice(),
+  );
   const [isPrinting, setIsPrinting] = useState(false);
 
   const handleLabelTypeChange = (newType: LabelType) => {
@@ -179,8 +181,8 @@ export function PrintLabelsModal({
                   {layout === "thermal-58"
                     ? "Thermal 50×25mm"
                     : layout === "thermal-108"
-                    ? "Thermal 100×25mm"
-                    : "A4 Grid (4-Col)"}
+                      ? "Thermal 100×25mm"
+                      : "A4 Grid (4-Col)"}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -422,8 +424,8 @@ export function PrintLabelsModal({
               {layout === "thermal-58"
                 ? "Exact physical preview (Horizontal 50×25mm sticker)"
                 : layout === "thermal-108"
-                ? "Exact physical preview (Horizontal 100×25mm sticker)"
-                : "Exact physical preview (A4 4-Column Grid Sheet)"}
+                  ? "Exact physical preview (Horizontal 100×25mm sticker)"
+                  : "Exact physical preview (A4 4-Column Grid Sheet)"}
             </span>
           </div>
 

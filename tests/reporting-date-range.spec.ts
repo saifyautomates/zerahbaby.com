@@ -1,6 +1,6 @@
 /**
  * CANONICAL REPORTING DATE-RANGE REGRESSION TEST SUITE
- * 
+ *
  * Validates:
  * 1. Today preset (inclusive 00:00:00 IST, exclusive tomorrow 00:00:00 IST)
  * 2. Yesterday preset (exact 24h IST interval)

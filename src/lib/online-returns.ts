@@ -20,12 +20,7 @@ export type OnlineReturnStatus =
   | "COMPLETED";
 
 export type OnlineRefundStatus =
-  | "NOT_APPLICABLE"
-  | "PENDING"
-  | "PROCESSING"
-  | "PROCESSED"
-  | "FAILED"
-  | "MANUAL_REVIEW";
+  "NOT_APPLICABLE" | "PENDING" | "PROCESSING" | "PROCESSED" | "FAILED" | "MANUAL_REVIEW";
 
 export type OnlineReturnItem = {
   id: string;
@@ -237,29 +232,114 @@ export const RETURN_STATUS_BADGES: Record<
   OnlineReturnStatus,
   { label: string; bg: string; text: string; border: string }
 > = {
-  REQUESTED: { label: "Return Requested", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
-  APPROVED: { label: "Return Approved", bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-200" },
-  PICKUP_SCHEDULED: { label: "Pickup Scheduled", bg: "bg-indigo-50", text: "text-indigo-800", border: "border-indigo-200" },
-  PICKUP_ATTEMPTED: { label: "Pickup Attempted", bg: "bg-purple-50", text: "text-purple-800", border: "border-purple-200" },
-  IN_TRANSIT: { label: "In Transit to Store", bg: "bg-sky-50", text: "text-sky-800", border: "border-sky-200" },
-  RECEIVED: { label: "Received at Facility", bg: "bg-teal-50", text: "text-teal-800", border: "border-teal-200" },
-  QC_PENDING: { label: "QC Inspection Pending", bg: "bg-orange-50", text: "text-orange-800", border: "border-orange-200" },
-  QC_APPROVED: { label: "QC Passed", bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
-  QC_REJECTED: { label: "QC Rejected", bg: "bg-rose-50", text: "text-rose-800", border: "border-rose-200" },
-  CANCELLED: { label: "Cancelled", bg: "bg-zinc-100", text: "text-zinc-700", border: "border-zinc-200" },
-  COMPLETED: { label: "Return Completed", bg: "bg-green-100", text: "text-green-800", border: "border-green-300" },
+  REQUESTED: {
+    label: "Return Requested",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+  },
+  APPROVED: {
+    label: "Return Approved",
+    bg: "bg-blue-50",
+    text: "text-blue-800",
+    border: "border-blue-200",
+  },
+  PICKUP_SCHEDULED: {
+    label: "Pickup Scheduled",
+    bg: "bg-indigo-50",
+    text: "text-indigo-800",
+    border: "border-indigo-200",
+  },
+  PICKUP_ATTEMPTED: {
+    label: "Pickup Attempted",
+    bg: "bg-purple-50",
+    text: "text-purple-800",
+    border: "border-purple-200",
+  },
+  IN_TRANSIT: {
+    label: "In Transit to Store",
+    bg: "bg-sky-50",
+    text: "text-sky-800",
+    border: "border-sky-200",
+  },
+  RECEIVED: {
+    label: "Received at Facility",
+    bg: "bg-teal-50",
+    text: "text-teal-800",
+    border: "border-teal-200",
+  },
+  QC_PENDING: {
+    label: "QC Inspection Pending",
+    bg: "bg-orange-50",
+    text: "text-orange-800",
+    border: "border-orange-200",
+  },
+  QC_APPROVED: {
+    label: "QC Passed",
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+  },
+  QC_REJECTED: {
+    label: "QC Rejected",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    bg: "bg-zinc-100",
+    text: "text-zinc-700",
+    border: "border-zinc-200",
+  },
+  COMPLETED: {
+    label: "Return Completed",
+    bg: "bg-green-100",
+    text: "text-green-800",
+    border: "border-green-300",
+  },
 };
 
 export const REFUND_STATUS_BADGES: Record<
   OnlineRefundStatus,
   { label: string; bg: string; text: string; border: string }
 > = {
-  NOT_APPLICABLE: { label: "No Refund", bg: "bg-zinc-100", text: "text-zinc-600", border: "border-zinc-200" },
-  PENDING: { label: "Refund Pending", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
-  PROCESSING: { label: "Processing Refund", bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-200" },
-  PROCESSED: { label: "Refund Processed", bg: "bg-emerald-100", text: "text-emerald-800", border: "border-emerald-300" },
-  FAILED: { label: "Refund Failed", bg: "bg-rose-100", text: "text-rose-800", border: "border-rose-200" },
-  MANUAL_REVIEW: { label: "Manual Bank Transfer Needed", bg: "bg-purple-50", text: "text-purple-800", border: "border-purple-200" },
+  NOT_APPLICABLE: {
+    label: "No Refund",
+    bg: "bg-zinc-100",
+    text: "text-zinc-600",
+    border: "border-zinc-200",
+  },
+  PENDING: {
+    label: "Refund Pending",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+  },
+  PROCESSING: {
+    label: "Processing Refund",
+    bg: "bg-blue-50",
+    text: "text-blue-800",
+    border: "border-blue-200",
+  },
+  PROCESSED: {
+    label: "Refund Processed",
+    bg: "bg-emerald-100",
+    text: "text-emerald-800",
+    border: "border-emerald-300",
+  },
+  FAILED: {
+    label: "Refund Failed",
+    bg: "bg-rose-100",
+    text: "text-rose-800",
+    border: "border-rose-200",
+  },
+  MANUAL_REVIEW: {
+    label: "Manual Bank Transfer Needed",
+    bg: "bg-purple-50",
+    text: "text-purple-800",
+    border: "border-purple-200",
+  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -274,14 +354,16 @@ export function useMyReturns(userId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("online_returns")
-        .select(`
+        .select(
+          `
           *,
           online_return_items (*),
           online_return_events (*),
           orders (
             id, order_number, invoice_no, full_name, phone, payment_method, payment_status, total, created_at, status
           )
-        `)
+        `,
+        )
         .eq("user_id", userId!)
         .order("created_at", { ascending: false });
 
@@ -298,11 +380,13 @@ export function useOrderReturns(orderId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("online_returns")
-        .select(`
+        .select(
+          `
           *,
           online_return_items (*),
           online_return_events (*)
-        `)
+        `,
+        )
         .eq("order_id", orderId!)
         .order("created_at", { ascending: false });
 
@@ -321,14 +405,16 @@ export function useAllOnlineReturns(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("online_returns")
-        .select(`
+        .select(
+          `
           *,
           online_return_items (*),
           online_return_events (*),
           orders (
             id, order_number, invoice_no, full_name, email, phone, payment_method, payment_status, total, subtotal, discount, shipping, address, city, state, pincode, status, created_at
           )
-        `)
+        `,
+        )
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -489,11 +575,7 @@ export function useAdminProcessReturnQC() {
 export function useAdminProcessOnlineRefund() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: {
-      returnId: string;
-      overrideAmount?: number;
-      notes?: string;
-    }) => {
+    mutationFn: async (payload: { returnId: string; overrideAmount?: number; notes?: string }) => {
       const { data, error } = await supabase.functions.invoke("process-online-refund", {
         body: {
           return_id: payload.returnId,

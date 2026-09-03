@@ -16,6 +16,7 @@ export function containsDangerousProtocol(raw: string): boolean {
   if (!raw) return false;
   const lower = raw.trim().toLowerCase();
   // Strip whitespace and control chars that attackers use to bypass checks
+  // eslint-disable-next-line no-control-regex
   const sanitized = lower.replace(/[\u0000-\u001F\u007F-\u009F\s]/g, "");
   return (
     sanitized.startsWith("javascript:") ||
@@ -87,7 +88,8 @@ export function validateAndNormalizeInstagram(raw: string): ValidationResult {
       return {
         isValid: false,
         normalizedUrl: "",
-        error: "Instagram link must include a profile username (e.g. https://instagram.com/zerah_kids)",
+        error:
+          "Instagram link must include a profile username (e.g. https://instagram.com/zerah_kids)",
       };
     }
 

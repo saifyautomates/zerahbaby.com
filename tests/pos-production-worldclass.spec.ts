@@ -1,8 +1,8 @@
 /**
  * ZÉRAH BABY & KIDS — WORLD-CLASS PRODUCTION POS COMPREHENSIVE TEST SUITE
- * 
+ *
  * Verifies all 24 production POS business rules and mathematical invariants:
- * 
+ *
  * 1. Barcode scanner burst vs typing detection (burst interval < 75ms vs normal typing)
  * 2. Barcode normalization and exact variant/product resolution
  * 3. Re-scanning same barcode increments existing cart line quantity without duplicate lines
@@ -53,8 +53,22 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
     expect(cleanBarcode).toBe("8901234567890");
 
     const catalog = [
-      { id: "p1", barcode: "8901234567890", sku: "ZRK-DRS-001", name: "Floral Dress", stock: 10, price: 499 },
-      { id: "p2", barcode: "8901234567891", sku: "ZRK-ROM-002", name: "Cotton Romper", stock: 5, price: 349 },
+      {
+        id: "p1",
+        barcode: "8901234567890",
+        sku: "ZRK-DRS-001",
+        name: "Floral Dress",
+        stock: 10,
+        price: 499,
+      },
+      {
+        id: "p2",
+        barcode: "8901234567891",
+        sku: "ZRK-ROM-002",
+        name: "Cotton Romper",
+        stock: 5,
+        price: 349,
+      },
     ];
 
     const match = catalog.find((p) => p.barcode === cleanBarcode || p.sku === cleanBarcode);
@@ -65,16 +79,26 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
 
   // Test 3: Re-scanning increments qty on same cart line
   test("Test 3: Scanning the same barcode repeatedly increments line quantity without creating duplicate lines", () => {
-    const cart: Array<{ id: string; barcode: string; name: string; qty: number; price: number }> = [];
+    const cart: Array<{ id: string; barcode: string; name: string; qty: number; price: number }> =
+      [];
 
-    function scanProduct(barcode: string, product: { id: string; barcode: string; name: string; price: number; stock: number }) {
+    function scanProduct(
+      barcode: string,
+      product: { id: string; barcode: string; name: string; price: number; stock: number },
+    ) {
       const existing = cart.find((i) => i.barcode === barcode);
       if (existing) {
         if (existing.qty < product.stock) {
           existing.qty += 1;
         }
       } else {
-        cart.push({ id: product.id, barcode: product.barcode, name: product.name, qty: 1, price: product.price });
+        cart.push({
+          id: product.id,
+          barcode: product.barcode,
+          name: product.name,
+          qty: 1,
+          price: product.price,
+        });
       }
     }
 
@@ -142,7 +166,10 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
     function attemptSale(requestedQty: number): { success: boolean; error?: string } {
       // Simulates Postgres `SELECT stock FROM products WHERE id = ... FOR UPDATE`
       if (databaseStock < requestedQty) {
-        return { success: false, error: `Insufficient stock: only ${databaseStock} available, ${requestedQty} requested` };
+        return {
+          success: false,
+          error: `Insufficient stock: only ${databaseStock} available, ${requestedQty} requested`,
+        };
       }
       databaseStock -= requestedQty;
       return { success: true };
@@ -382,8 +409,18 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
   // Test 21: Multi-field customer search (name, phone, email, UUID)
   test("Test 21: POS customer search matches across name, phone, email, and UUID", () => {
     const customers = [
-      { id: "e5b8d91c-1234-4567-8901-abcdef123456", name: "Aarav Sharma", phone: "9876543210", email: "aarav@example.com" },
-      { id: "f2a1c43b-5678-4321-1234-fedcba654321", name: "Diya Patel", phone: "9123456780", email: "diya@example.com" },
+      {
+        id: "e5b8d91c-1234-4567-8901-abcdef123456",
+        name: "Aarav Sharma",
+        phone: "9876543210",
+        email: "aarav@example.com",
+      },
+      {
+        id: "f2a1c43b-5678-4321-1234-fedcba654321",
+        name: "Diya Patel",
+        phone: "9123456780",
+        email: "diya@example.com",
+      },
     ];
 
     function searchPOSCustomers(query: string) {
@@ -393,7 +430,7 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
           c.name.toLowerCase().includes(q) ||
           c.phone.includes(q) ||
           c.email.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q)
+          c.id.toLowerCase().includes(q),
       );
     }
 
@@ -416,8 +453,20 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
       total_spend: 5600,
       store_credit_balance: 450,
       recentSales: [
-        { id: "s1", sale_number: "POS-104", total: 1800, payment_method: "cash", created_at: "2026-09-01T10:00:00Z" },
-        { id: "s2", sale_number: "POS-099", total: 2200, payment_method: "upi", created_at: "2026-08-25T14:30:00Z" },
+        {
+          id: "s1",
+          sale_number: "POS-104",
+          total: 1800,
+          payment_method: "cash",
+          created_at: "2026-09-01T10:00:00Z",
+        },
+        {
+          id: "s2",
+          sale_number: "POS-099",
+          total: 2200,
+          payment_method: "upi",
+          created_at: "2026-08-25T14:30:00Z",
+        },
       ],
     };
 
@@ -436,7 +485,11 @@ test.describe("Production POS Audit & Synchronization — 24 Invariant Tests", (
       { product_id: "p1", name: "Party Frock", price: 799, qty: 1 },
       { product_id: "p2", name: "Hairband", price: 99, qty: 2 },
     ];
-    const appliedCoupon: CouponRule = { code: "FESTIVE10", discountType: "percentage", discountValue: 10 };
+    const appliedCoupon: CouponRule = {
+      code: "FESTIVE10",
+      discountType: "percentage",
+      discountValue: 10,
+    };
 
     // 1. Cashier puts cart on hold
     const heldOrder = {

@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ensureAuthSession, useSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -25,9 +25,10 @@ export const Route = createFileRoute("/_authenticated")({
 
       throw redirect({
         to: "/auth",
-        search: targetUrl && targetUrl !== "/" && !targetUrl.startsWith("/auth")
-          ? { redirect: targetUrl }
-          : undefined,
+        search:
+          targetUrl && targetUrl !== "/" && !targetUrl.startsWith("/auth")
+            ? { redirect: targetUrl }
+            : undefined,
       });
     }
 
@@ -39,8 +40,14 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user, loading } = useSession();
   const navigate = useNavigate();
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
     if (!loading && !user) {
       const redirectUrl =
         typeof window !== "undefined"
@@ -52,9 +59,11 @@ function AuthenticatedLayout() {
         replace: true,
       });
     }
-  }, [user, loading, navigate]);
+  }, [isHydrated, user, loading, navigate]);
 
-  if (loading) {
+  // During SSR and first client hydration render (isHydrated === false),
+  // render skeleton deterministically to prevent hydration mismatch.
+  if (!isHydrated || loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 space-y-6 animate-pulse">
         <div className="flex items-center justify-between border-b border-border/60 pb-6">

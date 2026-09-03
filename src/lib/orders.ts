@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type OrderItem = {
   id: string;
   order_id?: string;
+  product_id?: string;
   product_slug: string;
   variant_id?: string | null;
   name: string;
@@ -38,6 +39,7 @@ export type Order = {
   payment_status?: string;
   fulfillment_status?: string;
   invoice_no: string | null;
+  order_number?: string | null;
   subtotal: number;
   shipping: number;
   discount: number;
@@ -61,6 +63,12 @@ export type Order = {
   open_box_status?: string | null;
   open_box_inspected_at?: string | null;
   open_box_notes?: string | null;
+  razorpay_payment_id?: string | null;
+  razorpay_refund_id?: string | null;
+  razorpay_refund_status?: string | null;
+  refund_amount?: number | null;
+  customer_notification_status?: string | null;
+  customer_notified_at?: string | null;
 };
 
 export const orderStatuses = [
@@ -111,7 +119,9 @@ export function isOpenBoxEligible(order: Order | undefined | null): boolean {
   const status = (order.status || "").toLowerCase();
   return (
     order.open_box_eligible === true &&
-    (status === "out_for_delivery" || status === "open_box_inspection" || order.open_box_status === "INSPECTION_PENDING")
+    (status === "out_for_delivery" ||
+      status === "open_box_inspection" ||
+      order.open_box_status === "INSPECTION_PENDING")
   );
 }
 
@@ -328,6 +338,26 @@ export function useCancelCustomerOrder() {
       });
       if (error) throw error;
 
+      // Automatically trigger Razorpay gateway refund if order was paid online
+      try {
+        const { data: refundRes, error: refundErr } = await supabase.functions.invoke(
+          "process-order-cancellation-refund",
+          {
+            body: {
+              order_id: orderId,
+              reason: reason || "Customer order cancellation",
+            },
+          },
+        );
+        if (refundErr) {
+          console.warn("[Cancellation] Auto refund call note:", refundErr);
+        } else if (refundRes?.refund_id) {
+          console.log("[Cancellation] Razorpay refund initiated:", refundRes.refund_id);
+        }
+      } catch (refundCatchErr) {
+        console.warn("[Cancellation] Auto-refund background notice:", refundCatchErr);
+      }
+
       // Trigger order cancellation SMS (non-blocking)
       supabase.functions
         .invoke("msg91-transactional", {
@@ -346,6 +376,44 @@ export function useCancelCustomerOrder() {
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
+    },
+  });
+}
+
+/**
+ * Admin manual refund hook for online orders.
+ */
+export function useProcessOrderRefund() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      reason,
+      amount,
+    }: {
+      orderId: string;
+      reason?: string;
+      amount?: number;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("process-order-cancellation-refund", {
+        body: {
+          order_id: orderId,
+          reason: reason || "Admin initiated refund",
+          amount,
+        },
+      });
+      if (error) throw new Error(error.message || "Failed to process refund with gateway");
+      if (!data?.success) throw new Error(data?.error || "Refund gateway rejected transaction");
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      toast.success("Refund successfully initiated via Razorpay");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Refund failed");
     },
   });
 }
@@ -385,6 +453,36 @@ export function useRetryOrderNotification() {
     },
     onError: (e: Error) => {
       toast.error(`Failed to send email notification: ${e.message}`);
+    },
+  });
+}
+
+/**
+ * Hook for admin to resend order confirmation & tax invoice email to customer.
+ */
+export function useResendCustomerInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
+        body: {
+          type: "customer_order_invoice",
+          order_id: orderId,
+          force_retry: true,
+        },
+      });
+      if (error) throw new Error(error.message || "Failed to dispatch customer email");
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Customer order confirmation & tax invoice emailed successfully!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Failed to email customer: ${e.message}`);
     },
   });
 }

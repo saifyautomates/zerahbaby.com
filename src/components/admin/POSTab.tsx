@@ -59,7 +59,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { type Product, mapProduct, formatPrice, imageFor, getColorSwatchImage } from "@/lib/store";
 import { calculatePOSFinancials, type CouponRule } from "@/lib/pricing-engine";
-import { invalidateCanonicalReportingQueries, notifyPOSSaleChanged } from "@/lib/canonical-reporting";
+import {
+  invalidateCanonicalReportingQueries,
+  notifyPOSSaleChanged,
+} from "@/lib/canonical-reporting";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
@@ -365,14 +368,19 @@ export function POSTab() {
       const applyAmount = Math.min(availableCredit, total);
       setStoreCreditApplied(applyAmount);
       if (creditTokenInput.trim()) {
-        toast.success(`Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`);
+        toast.success(
+          `Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`,
+        );
       }
     }
   }, [availableCredit, total, storeCreditApplied, creditTokenInput]);
 
   // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes)
   useEffect(() => {
-    if (storeCreditApplied > 0 && (storeCreditApplied > availableCredit || storeCreditApplied > total)) {
+    if (
+      storeCreditApplied > 0 &&
+      (storeCreditApplied > availableCredit || storeCreditApplied > total)
+    ) {
       setStoreCreditApplied(Math.min(availableCredit, total));
     }
   }, [availableCredit, total, storeCreditApplied]);
@@ -397,8 +405,7 @@ export function POSTab() {
         .eq("id", customerId)
         .maybeSingle();
 
-      const { data: recentSales } = await (supabase
-        .from("offline_sales") as any)
+      const { data: recentSales } = await (supabase.from("offline_sales") as any)
         .select("id, sale_number, total, payment_method, return_status, created_at")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
@@ -406,14 +413,15 @@ export function POSTab() {
 
       return {
         ...cust,
-        recentSales: (recentSales as unknown as Array<{
-          id: string;
-          sale_number: string;
-          total: number;
-          payment_method: string;
-          return_status?: string;
-          created_at: string;
-        }>) || [],
+        recentSales:
+          (recentSales as unknown as Array<{
+            id: string;
+            sale_number: string;
+            total: number;
+            payment_method: string;
+            return_status?: string;
+            created_at: string;
+          }>) || [],
       };
     },
   });
@@ -438,7 +446,9 @@ export function POSTab() {
       const mapped = (data as never[]).map((r) => mapProduct(r as never));
       import("@/lib/offline-sync-engine")
         .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(console.error);
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
+            console.error,
+          );
         })
         .catch(console.error);
       return mapped;
@@ -553,8 +563,6 @@ export function POSTab() {
     saveHeldOrders(updated);
     toast.info("Held order discarded");
   };
-
-
 
   const handleQuickCheckout = () => {
     if (quickOrderProduct || quickOrderPrice) {
@@ -684,7 +692,7 @@ export function POSTab() {
         setScanLoading(false);
       }
     },
-    [products],
+    [products, addProductManually],
   );
 
   // Hook into centralized hardware scanner events (also drains queued scans on mount)
@@ -818,13 +826,14 @@ export function POSTab() {
 
     if (payableAfterCredit > 0 && paymentMethod === "cash") {
       if (typeof cashTendered === "number" && cashTendered < payableAfterCredit) {
-        toast.error(`Cash tendered (₹${cashTendered}) is less than payable amount (₹${payableAfterCredit})`);
+        toast.error(
+          `Cash tendered (₹${cashTendered}) is less than payable amount (₹${payableAfterCredit})`,
+        );
         return;
       }
     }
 
-    const resolvedCustomerId =
-      overrideCustomerId !== undefined ? overrideCustomerId : customerId;
+    const resolvedCustomerId = overrideCustomerId !== undefined ? overrideCustomerId : customerId;
 
     try {
       setTxState("PROCESSING");
@@ -1328,23 +1337,25 @@ export function POSTab() {
                     </p>
                   </div>
                 </div>
-                  <div className="text-right flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                        Net Payable
-                      </span>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        {effectiveCreditUsed > 0 && (
-                          <span className="text-xs text-muted-foreground line-through font-semibold">
-                            {formatPrice(total)}
-                          </span>
-                        )}
-                        <span className={`font-black text-xl ${payableAfterCredit === 0 ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`}>
-                          {formatPrice(payableAfterCredit)}
+                <div className="text-right flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                      Net Payable
+                    </span>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {effectiveCreditUsed > 0 && (
+                        <span className="text-xs text-muted-foreground line-through font-semibold">
+                          {formatPrice(total)}
                         </span>
-                      </div>
+                      )}
+                      <span
+                        className={`font-black text-xl ${payableAfterCredit === 0 ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`}
+                      >
+                        {formatPrice(payableAfterCredit)}
+                      </span>
                     </div>
                   </div>
+                </div>
               </div>
 
               {/* 2-Column Responsive Layout */}
@@ -1582,7 +1593,9 @@ export function POSTab() {
                             <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs border border-emerald-200 dark:border-emerald-800">
                               <Check className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
                               <div className="flex-1">
-                                <p className="font-bold text-emerald-900 dark:text-emerald-100">{customerName}</p>
+                                <p className="font-bold text-emerald-900 dark:text-emerald-100">
+                                  {customerName}
+                                </p>
                                 <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono">
                                   {customerPhone}
                                 </p>
@@ -1614,32 +1627,59 @@ export function POSTab() {
                                 </div>
                                 <div className="grid grid-cols-3 gap-1.5 text-center">
                                   <div className="p-1.5 rounded-lg bg-background border border-border/50">
-                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Orders</p>
-                                    <p className="text-xs font-black text-foreground">{customerIntel.total_purchases || 0}</p>
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">
+                                      Orders
+                                    </p>
+                                    <p className="text-xs font-black text-foreground">
+                                      {customerIntel.total_purchases || 0}
+                                    </p>
                                   </div>
                                   <div className="p-1.5 rounded-lg bg-background border border-border/50">
-                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Spend</p>
-                                    <p className="text-xs font-black text-primary">{formatPrice(customerIntel.total_spend || 0)}</p>
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">
+                                      Spend
+                                    </p>
+                                    <p className="text-xs font-black text-primary">
+                                      {formatPrice(customerIntel.total_spend || 0)}
+                                    </p>
                                   </div>
                                   <div className="p-1.5 rounded-lg bg-background border border-border/50">
-                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">Credit</p>
-                                    <p className="text-xs font-black text-emerald-600">{formatPrice(customerIntel.store_credit_balance || 0)}</p>
+                                    <p className="text-[9px] text-muted-foreground uppercase font-bold">
+                                      Credit
+                                    </p>
+                                    <p className="text-xs font-black text-emerald-600">
+                                      {formatPrice(customerIntel.store_credit_balance || 0)}
+                                    </p>
                                   </div>
                                 </div>
-                                {customerIntel.recentSales && customerIntel.recentSales.length > 0 && (
-                                  <div className="pt-1">
-                                    <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Recent Invoices</p>
-                                    <div className="space-y-1">
-                                      {customerIntel.recentSales.map((s) => (
-                                        <div key={s.id} className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40">
-                                          <span className="font-mono font-bold text-foreground">#{s.sale_number}</span>
-                                          <span className="text-muted-foreground">{new Date(s.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</span>
-                                          <span className="font-black text-primary">{formatPrice(s.total)}</span>
-                                        </div>
-                                      ))}
+                                {customerIntel.recentSales &&
+                                  customerIntel.recentSales.length > 0 && (
+                                    <div className="pt-1">
+                                      <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">
+                                        Recent Invoices
+                                      </p>
+                                      <div className="space-y-1">
+                                        {customerIntel.recentSales.map((s) => (
+                                          <div
+                                            key={s.id}
+                                            className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40"
+                                          >
+                                            <span className="font-mono font-bold text-foreground">
+                                              #{s.sale_number}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                              {new Date(s.created_at).toLocaleDateString("en-IN", {
+                                                month: "short",
+                                                day: "numeric",
+                                              })}
+                                            </span>
+                                            <span className="font-black text-primary">
+                                              {formatPrice(s.total)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
                               </div>
                             )}
                           </div>
@@ -1686,13 +1726,19 @@ export function POSTab() {
                         <input
                           type="text"
                           value={creditTokenInput}
-                          onChange={(e) => setCreditTokenInput(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
+                          onChange={(e) =>
+                            setCreditTokenInput(
+                              e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""),
+                            )
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
                               if (availableCredit > 0) {
                                 setStoreCreditApplied(Math.min(availableCredit, total));
-                                toast.success(`Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                                toast.success(
+                                  `Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
+                                );
                               } else if (creditTokenInput.trim()) {
                                 toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
                               }
@@ -1713,16 +1759,22 @@ export function POSTab() {
                           onClick={() => {
                             if (availableCredit > 0) {
                               setStoreCreditApplied(Math.min(availableCredit, total));
-                              toast.success(`Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(Math.min(availableCredit, total))}`);
+                              toast.success(
+                                `Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
+                              );
                             } else if (creditTokenInput.trim()) {
-                              toast.info(`Checking voucher ${creditTokenInput.trim().toUpperCase()}...`);
+                              toast.info(
+                                `Checking voucher ${creditTokenInput.trim().toUpperCase()}...`,
+                              );
                             } else {
                               toast.info("Please enter a voucher code");
                             }
                           }}
                           className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
                         >
-                          {availableCredit > 0 ? `Apply ₹${Math.min(availableCredit, total)}` : "Apply"}
+                          {availableCredit > 0
+                            ? `Apply ₹${Math.min(availableCredit, total)}`
+                            : "Apply"}
                         </button>
                       )}
                     </div>
@@ -1732,9 +1784,12 @@ export function POSTab() {
                       <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive flex items-start gap-2">
                         <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold">{voucherData.error || "Invalid or ineligible voucher"}</p>
+                          <p className="font-bold">
+                            {voucherData.error || "Invalid or ineligible voucher"}
+                          </p>
                           <p className="text-[11px] opacity-80 mt-0.5">
-                            Exchange vouchers expire 7 days after issuance and cannot be re-used after full redemption.
+                            Exchange vouchers expire 7 days after issuance and cannot be re-used
+                            after full redemption.
                           </p>
                         </div>
                       </div>
@@ -1747,11 +1802,16 @@ export function POSTab() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-bold text-emerald-950 dark:text-emerald-100">
-                                Available Credit: <span className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatPrice(availableCredit)}</span>
+                                Available Credit:{" "}
+                                <span className="text-base font-black text-emerald-700 dark:text-emerald-300">
+                                  {formatPrice(availableCredit)}
+                                </span>
                               </p>
                               {voucherData?.days_remaining !== undefined && (
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold">
-                                  {voucherData.days_remaining > 0 ? `Expires in ${voucherData.days_remaining}d` : "Expires today"}
+                                  {voucherData.days_remaining > 0
+                                    ? `Expires in ${voucherData.days_remaining}d`
+                                    : "Expires today"}
                                 </span>
                               )}
                             </div>
@@ -1773,7 +1833,9 @@ export function POSTab() {
                                 type="button"
                                 onClick={() => {
                                   setStoreCreditApplied(0);
-                                  toast.info("Voucher removed from this checkout. Balance remains untouched.");
+                                  toast.info(
+                                    "Voucher removed from this checkout. Balance remains untouched.",
+                                  );
                                 }}
                                 className="px-2 py-1 rounded-lg bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 text-xs font-bold transition cursor-pointer"
                               >
@@ -1785,7 +1847,9 @@ export function POSTab() {
                               type="button"
                               onClick={() => {
                                 setStoreCreditApplied(Math.min(availableCredit, total));
-                                toast.success(`Applied ${formatPrice(Math.min(availableCredit, total))} store credit`);
+                                toast.success(
+                                  `Applied ${formatPrice(Math.min(availableCredit, total))} store credit`,
+                                );
                               }}
                               className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer"
                             >
@@ -1806,7 +1870,9 @@ export function POSTab() {
                     ) : (
                       !voucherData?.error && (
                         <p className="text-[11px] text-muted-foreground">
-                          Enter a 4-character Return Credit Token (e.g. <span className="font-mono font-bold">A7K2</span>) or select an existing customer to redeem store credit towards this purchase.
+                          Enter a 4-character Return Credit Token (e.g.{" "}
+                          <span className="font-mono font-bold">A7K2</span>) or select an existing
+                          customer to redeem store credit towards this purchase.
                         </p>
                       )
                     )}
@@ -1816,7 +1882,8 @@ export function POSTab() {
                   <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-2xs border border-border space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-bold text-foreground">
-                        4. Payment Tender {effectiveCreditUsed > 0 && `(Payable: ${formatPrice(payableAfterCredit)})`}
+                        4. Payment Tender{" "}
+                        {effectiveCreditUsed > 0 && `(Payable: ${formatPrice(payableAfterCredit)})`}
                       </h3>
                       {payableAfterCredit === 0 && effectiveCreditUsed > 0 && (
                         <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -1861,7 +1928,9 @@ export function POSTab() {
                         {paymentMethod === "cash" && (
                           <div className="rounded-xl bg-muted/40 p-3.5 border border-border/80 space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-foreground">Cash Received:</span>
+                              <span className="text-xs font-bold text-foreground">
+                                Cash Received:
+                              </span>
                               {/* Quick tender chips */}
                               <div className="flex items-center gap-1">
                                 <button
@@ -1896,7 +1965,9 @@ export function POSTab() {
                                   type="number"
                                   value={cashTendered}
                                   onChange={(e) =>
-                                    setCashTendered(e.target.value === "" ? "" : Number(e.target.value))
+                                    setCashTendered(
+                                      e.target.value === "" ? "" : Number(e.target.value),
+                                    )
                                   }
                                   placeholder={`Enter cash amount (min ${payableAfterCredit})`}
                                   min={0}
@@ -1920,7 +1991,8 @@ export function POSTab() {
                       </>
                     ) : (
                       <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                        ✓ Full purchase covered by Store Credit ({formatPrice(effectiveCreditUsed)}). No cash/UPI collection needed.
+                        ✓ Full purchase covered by Store Credit ({formatPrice(effectiveCreditUsed)}
+                        ). No cash/UPI collection needed.
                       </div>
                     )}
                   </div>
@@ -1983,7 +2055,9 @@ export function POSTab() {
                       {productSavings > 0 && (
                         <div className="flex justify-between text-muted-foreground text-[11px]">
                           <span>MRP Savings</span>
-                          <span className="text-emerald-600 font-bold">−{formatPrice(productSavings)}</span>
+                          <span className="text-emerald-600 font-bold">
+                            −{formatPrice(productSavings)}
+                          </span>
                         </div>
                       )}
                       {discountAmount > 0 && (
@@ -2106,7 +2180,9 @@ export function POSTab() {
         )}
 
         {step === "success" && saleResult && (
-          <div className={`flex-1 overflow-y-auto ${saleResult.status === "pending_sync" || saleResult.is_offline_queued ? "bg-gradient-to-b from-amber-50/60 to-white" : "bg-gradient-to-b from-emerald-50/50 to-white"} p-6 flex flex-col items-center justify-center`}>
+          <div
+            className={`flex-1 overflow-y-auto ${saleResult.status === "pending_sync" || saleResult.is_offline_queued ? "bg-gradient-to-b from-amber-50/60 to-white" : "bg-gradient-to-b from-emerald-50/50 to-white"} p-6 flex flex-col items-center justify-center`}
+          >
             <div className="max-w-md w-full space-y-6">
               {/* Success / Offline Pending Header */}
               <div className="text-center">
@@ -2119,9 +2195,12 @@ export function POSTab() {
                       <span className="size-2 rounded-full bg-amber-500 animate-ping" />
                       Pending Cloud Synchronization
                     </div>
-                    <h2 className="text-2xl font-bold text-amber-950">Offline Sale Saved Locally</h2>
+                    <h2 className="text-2xl font-bold text-amber-950">
+                      Offline Sale Saved Locally
+                    </h2>
                     <p className="text-xs text-amber-800 mt-1 max-w-xs mx-auto">
-                      Stored in local POS queue. Will synchronize to the cloud automatically once internet connection is active.
+                      Stored in local POS queue. Will synchronize to the cloud automatically once
+                      internet connection is active.
                     </p>
                   </>
                 ) : (
@@ -2583,7 +2662,10 @@ export function POSTab() {
                   <div className="text-center py-12 text-muted-foreground">
                     <PauseCircle className="size-10 mx-auto opacity-30 mb-2" />
                     <p className="font-semibold text-sm">No Held Carts</p>
-                    <p className="text-xs mt-1">When customers step away, click &ldquo;Hold Cart&rdquo; to save their cart here.</p>
+                    <p className="text-xs mt-1">
+                      When customers step away, click &ldquo;Hold Cart&rdquo; to save their cart
+                      here.
+                    </p>
                   </div>
                 ) : (
                   heldOrders.map((order) => {
@@ -2596,15 +2678,20 @@ export function POSTab() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-foreground">
-                              {order.customerMode === "walkin" ? "Walk-in Customer" : order.customerName || "Customer"}
+                              {order.customerMode === "walkin"
+                                ? "Walk-in Customer"
+                                : order.customerName || "Customer"}
                             </span>
                             <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-mono">
                               {timeAgo <= 0 ? "Just now" : `${timeAgo}m ago`}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {order.cart.length} unique line{order.cart.length > 1 ? "s" : ""} • Total:{" "}
-                            <span className="font-bold text-primary">{formatPrice(order.totalAmount)}</span>
+                            {order.cart.length} unique line{order.cart.length > 1 ? "s" : ""} •
+                            Total:{" "}
+                            <span className="font-bold text-primary">
+                              {formatPrice(order.totalAmount)}
+                            </span>
                           </p>
                         </div>
 

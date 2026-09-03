@@ -238,39 +238,39 @@ function CheckoutPage() {
             document.body.appendChild(script);
           });
 
-          // Try creating Razorpay Order via Edge Function
-          let rzpOrderId: string | undefined = undefined;
-          let rzpKeyId: string = import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
-          let rzpAmount: number = Math.round(finalTotal * 100);
-
-          try {
-            const { data: createData } = await supabase.functions.invoke("create-razorpay-order", {
+          // Strict server-side Razorpay Order creation via Edge Function
+          const { data: createData, error: createError } = await supabase.functions.invoke(
+            "create-razorpay-order",
+            {
               body: { orderId },
-            });
-            if (createData?.rzp_order_id) {
-              rzpOrderId = createData.rzp_order_id;
-            }
-            if (createData?.key_id) {
-              rzpKeyId = createData.key_id;
-            }
-            if (createData?.amount) {
-              rzpAmount = createData.amount;
-            }
-          } catch (createErr) {
-            console.warn(
-              "[Checkout] create-razorpay-order backend fallback to client key:",
-              createErr,
+            },
+          );
+
+          if (createError) {
+            throw new Error(createError.message || "Failed to initialize payment gateway order");
+          }
+          if (createData?.error) {
+            throw new Error(createData.error);
+          }
+          if (!createData?.rzp_order_id) {
+            throw new Error(
+              "Payment gateway did not return a valid order identifier. Please retry.",
             );
           }
 
-          // Open Razorpay Standard Checkout Modal
+          const rzpOrderId: string = createData.rzp_order_id;
+          const rzpKeyId: string =
+            createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
+          const rzpAmount: number = createData.amount || Math.round(finalTotal * 100);
+
+          // Open Razorpay Standard Checkout Modal with authoritative server order ID
           const options: Record<string, unknown> = {
             key: rzpKeyId,
             amount: rzpAmount,
             currency: "INR",
             name: "Zerah Baby And Kid's",
             description: `Order Payment (${formatPrice(finalTotal)})`,
-            ...(rzpOrderId ? { order_id: rzpOrderId } : {}),
+            order_id: rzpOrderId,
             prefill: {
               name: orderPayload.full_name,
               email: orderPayload.email,
@@ -341,17 +341,8 @@ function CheckoutPage() {
             modal: {
               ondismiss: async () => {
                 setSubmitting(false);
-                try {
-                  await (
-                    supabase as unknown as {
-                      rpc: (name: string, args: { order_id: string }) => Promise<void>;
-                    }
-                  ).rpc("cancel_abandoned_order", { order_id: orderId });
-                } catch (cancelErr) {
-                  console.warn("[Checkout] Failed to cancel abandoned order:", cancelErr);
-                }
                 toast.error(
-                  "Payment window closed. Your order has been cancelled. Please place a new order if you wish to try again.",
+                  "Payment window closed. You can click 'Place order' to retry payment anytime.",
                 );
               },
             },
@@ -394,8 +385,8 @@ function CheckoutPage() {
             rawMessage.includes("credentials") ||
               rawMessage.includes("Authentication") ||
               rawMessage.includes("status 401")
-              ? "Payment gateway is currently unavailable. Please try Cash on Delivery or contact support."
-              : `Payment initialization error: ${rawMessage}.`,
+              ? "Payment gateway is currently unavailable. Please try again shortly or contact support."
+              : `Payment initialization error: ${rawMessage}. Please retry.`,
           );
           return;
         }
@@ -428,6 +419,18 @@ function CheckoutPage() {
         })
         .catch((smsErr) => {
           console.warn("[Checkout] COD SMS dispatch non-blocking error:", smsErr);
+        });
+
+      // Dispatch order notification & customer invoice email
+      supabase.functions
+        .invoke("send-owner-sale-notification", {
+          body: {
+            type: "online_order",
+            order_id: orderId,
+          },
+        })
+        .catch((emailErr) => {
+          console.warn("[Checkout] COD email notification non-blocking error:", emailErr);
         });
 
       await clear();

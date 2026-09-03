@@ -1,5 +1,14 @@
-DROP FUNCTION IF EXISTS public.place_order(jsonb, text, text, text, text, text, text, text, text, text, text, text, text, text, text);
+-- Migration: 20260928000092_fix_place_order_payment_method_default.sql
+-- Description: Place _items before optional parameters so _payment_method can safely
+-- have DEFAULT 'online'. This preserves the exact server-side pricing engine while
+-- allowing callers to omit _payment_method without triggering PostgREST schema cache errors.
 
+-- 1. Drop existing overloaded signatures
+DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, text, jsonb, text, text, text, text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.place_order(text, text, text, text, text, text, text, jsonb, text, text, text, text, text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.place_order CASCADE;
+
+-- 2. Create canonical place_order function
 CREATE OR REPLACE FUNCTION public.place_order(
   _full_name text,
   _email text,
@@ -8,18 +17,19 @@ CREATE OR REPLACE FUNCTION public.place_order(
   _city text,
   _state text,
   _pincode text,
-  _payment_method text,
   _items jsonb,
-  _coupon_code text DEFAULT NULL::text,
-  _notes text DEFAULT NULL::text,
-  _idempotency_key text DEFAULT NULL::text,
-  _alt_phone text DEFAULT NULL::text,
-  _address_line2 text DEFAULT NULL::text,
-  _landmark text DEFAULT NULL::text
+  _payment_method text DEFAULT 'online',
+  _coupon_code text DEFAULT NULL,
+  _notes text DEFAULT '',
+  _idempotency_key text DEFAULT NULL,
+  _alt_phone text DEFAULT '',
+  _address_line2 text DEFAULT '',
+  _landmark text DEFAULT ''
 )
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, auth
 AS $$
 DECLARE
   uid uuid;
@@ -80,19 +90,32 @@ BEGIN
   END IF;
 
   -- 3. Calculate Subtotal from Database Prices
-  FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(variant_id uuid, qty int) LOOP
+  FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(variant_id uuid, product_slug text, qty int) LOOP
     IF item.qty IS NULL OR item.qty <= 0 THEN
       RAISE EXCEPTION 'Item quantity must be greater than zero';
     END IF;
 
-    SELECT v.id, COALESCE(v.price_override, p.price) AS price, v.stock, p.name, p.is_active
-    INTO variant
-    FROM public.product_variants v
-    JOIN public.products p ON p.id = v.product_id
-    WHERE v.id = item.variant_id;
+    -- Lookup variant by ID if provided
+    IF item.variant_id IS NOT NULL THEN
+      SELECT v.id, COALESCE(v.price_override, p.price) AS price, v.stock, p.name, p.is_active
+      INTO variant
+      FROM public.product_variants v
+      JOIN public.products p ON p.id = v.product_id
+      WHERE v.id = item.variant_id;
+    ELSIF item.product_slug IS NOT NULL THEN
+      -- Lookup default variant by product slug/id
+      SELECT v.id, COALESCE(v.price_override, p.price) AS price, v.stock, p.name, p.is_active
+      INTO variant
+      FROM public.product_variants v
+      JOIN public.products p ON p.id = v.product_id
+      WHERE p.slug = item.product_slug OR p.id::text = item.product_slug
+      LIMIT 1;
+    ELSE
+      RAISE EXCEPTION 'Invalid order item: missing variant_id or product_slug';
+    END IF;
 
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Product variant % not found', item.variant_id;
+    IF NOT FOUND OR variant.id IS NULL THEN
+      RAISE EXCEPTION 'Product variant % not found', COALESCE(item.variant_id::text, item.product_slug, 'unknown');
     END IF;
 
     IF variant.is_active = false THEN
@@ -168,7 +191,7 @@ BEGIN
     id, user_id, invoice_no, order_number, subtotal, shipping, discount, total, coupon_code, status, payment_method, payment_status,
     full_name, email, phone, alt_phone, address, address_line2, landmark, city, state, pincode, notes, idempotency_key
   ) VALUES (
-    new_order_id, uid, new_invoice, new_order_number, computed_subtotal, shipping, computed_discount, computed_total, _coupon_code, 'placed'::public.order_status, _payment_method, 
+    new_order_id, uid, new_invoice, new_order_number, computed_subtotal, shipping, computed_discount, computed_total, _coupon_code, 'placed'::public.order_status, COALESCE(_payment_method, 'online'), 
     v_initial_payment_status,
     _full_name, _email, _phone, _alt_phone, _address, _address_line2, _landmark, _city, _state, _pincode,
     CASE WHEN v_clean_idem IS NOT NULL THEN COALESCE(_notes, '') || ' [idem:' || v_clean_idem || ']' ELSE _notes END,
@@ -179,16 +202,29 @@ BEGIN
   VALUES (new_order_id, 'placed', 'Order placed successfully', uid);
 
   -- 7. Insert Items, Deduct Stock & Capture Historical Buying Price Snapshot
-  FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(variant_id uuid, qty int) LOOP
-    SELECT v.id AS variant_id, COALESCE(v.price_override, p.price) AS price, v.sku AS variant_sku,
-           v.barcode AS variant_barcode, v.color AS variant_color, v.size AS variant_size,
-           v.name AS variant_name, v.image_url AS variant_image, v.stock AS v_stock,
-           p.slug AS product_slug, p.name AS product_name, p.id AS p_id, p.stock AS p_stock
-    INTO variant
-    FROM public.product_variants v
-    JOIN public.products p ON p.id = v.product_id
-    WHERE v.id = item.variant_id
-    FOR UPDATE OF v, p;
+  FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(variant_id uuid, product_slug text, qty int) LOOP
+    IF item.variant_id IS NOT NULL THEN
+      SELECT v.id AS variant_id, COALESCE(v.price_override, p.price) AS price, v.sku AS variant_sku,
+             v.barcode AS variant_barcode, v.color AS variant_color, v.size AS variant_size,
+             v.name AS variant_name, v.image_url AS variant_image, v.stock AS v_stock,
+             p.slug AS product_slug, p.name AS product_name, p.id AS p_id, p.stock AS p_stock
+      INTO variant
+      FROM public.product_variants v
+      JOIN public.products p ON p.id = v.product_id
+      WHERE v.id = item.variant_id
+      FOR UPDATE OF v, p;
+    ELSE
+      SELECT v.id AS variant_id, COALESCE(v.price_override, p.price) AS price, v.sku AS variant_sku,
+             v.barcode AS variant_barcode, v.color AS variant_color, v.size AS variant_size,
+             v.name AS variant_name, v.image_url AS variant_image, v.stock AS v_stock,
+             p.slug AS product_slug, p.name AS product_name, p.id AS p_id, p.stock AS p_stock
+      INTO variant
+      FROM public.product_variants v
+      JOIN public.products p ON p.id = v.product_id
+      WHERE p.slug = item.product_slug OR p.id::text = item.product_slug
+      LIMIT 1
+      FOR UPDATE OF v, p;
+    END IF;
 
     -- Fetch historical buying price
     SELECT COALESCE(buying_price, 0) INTO v_item_buying_price
@@ -212,12 +248,11 @@ BEGIN
       LIMIT 1;
     END IF;
 
-    -- FIXED: Removed "quantity" column, using only "qty"
     INSERT INTO public.order_items (
-      order_id, product_id, variant_id, product_slug, qty, price, subtotal, sku_snapshot,
+      order_id, product_id, variant_id, product_slug, qty, quantity, price, price_at_time, subtotal, sku_snapshot,
       color, size, barcode_snapshot, image_url_snapshot, image_url, product_name_snapshot, name, buying_price
     ) VALUES (
-      new_order_id, variant.p_id, variant.variant_id, variant.product_slug, item.qty, variant.price, (variant.price * item.qty), variant.variant_sku,
+      new_order_id, variant.p_id, variant.variant_id, variant.product_slug, item.qty, item.qty, variant.price, variant.price, (variant.price * item.qty), variant.variant_sku,
       variant.variant_color, variant.variant_size, variant.variant_barcode, item_image, item_image, variant.product_name, variant.product_name, COALESCE(v_item_buying_price, 0)
     );
 
@@ -245,9 +280,10 @@ BEGIN
     );
   END LOOP;
 
-  -- 8. Clean up user's cart in database
-  DELETE FROM public.cart_items 
-  WHERE cart_id IN (SELECT id FROM public.carts WHERE user_id = uid);
+  -- 8. Clean up user's cart in database if authenticated
+  IF uid IS NOT NULL THEN
+    DELETE FROM public.cart_items WHERE user_id = uid;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -262,3 +298,7 @@ BEGIN
   );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.place_order(text, text, text, text, text, text, text, jsonb, text, text, text, text, text, text, text) TO authenticated, anon, service_role;
+
+NOTIFY pgrst, 'reload schema';

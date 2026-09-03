@@ -2012,7 +2012,7 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
               setIsCreating(false);
               setEditingProduct(null);
             }}
-            onSave={(draft) =>
+            onSave={(draft: ProductDraft) =>
               saveProduct.mutate(editingProduct ? { draft, uuid: editingProduct.uuid } : { draft })
             }
           />

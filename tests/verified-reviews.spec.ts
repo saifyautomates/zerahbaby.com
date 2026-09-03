@@ -157,4 +157,28 @@ test.describe("Verified Purchase Reviews & Stats Engine Suite", () => {
     );
     expect(canReviewCancelledItem).toBe(false);
   });
+
+  test("5. UUID Regex Validator & Fallback Slug Protection", () => {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    const validUuid = "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d";
+    const invalidSlug = "organic-cotton-onesie";
+    const invalidShortId = "12345";
+
+    expect(UUID_REGEX.test(validUuid)).toBe(true);
+    expect(UUID_REGEX.test(invalidSlug)).toBe(false);
+    expect(UUID_REGEX.test(invalidShortId)).toBe(false);
+
+    // Resolves UUID from order_item if present
+    const orderItem = {
+      product_id: validUuid,
+      product_slug: invalidSlug,
+      name: "Organic Cotton Onesie",
+    };
+
+    const resolvedId =
+      (UUID_REGEX.test(orderItem.product_id) ? orderItem.product_id : null) ||
+      orderItem.product_slug;
+    expect(resolvedId).toBe(validUuid);
+  });
 });

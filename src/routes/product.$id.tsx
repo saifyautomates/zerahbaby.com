@@ -1848,15 +1848,17 @@ function BuyNowModal({
         document.body.appendChild(script);
       });
 
-      // Try creating Razorpay Order via Edge Function
+      // Create Razorpay Order via Edge Function
       let rzpOrderId: string | undefined = undefined;
       let rzpKeyId: string = import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
       let rzpAmount: number = Math.round(finalTotal * 100);
 
       try {
-        const { data: createData } = await supabase.functions.invoke("create-razorpay-order", {
-          body: { orderId },
-        });
+        const { data: createData, error: createError } = await supabase.functions.invoke(
+          "create-razorpay-order",
+          { body: { orderId } },
+        );
+        if (createError) throw createError;
         if (createData?.rzp_order_id) {
           rzpOrderId = createData.rzp_order_id;
         }
@@ -1867,7 +1869,10 @@ function BuyNowModal({
           rzpAmount = createData.amount;
         }
       } catch (createErr) {
-        console.warn("[BuyNow] create-razorpay-order backend fallback to client key:", createErr);
+        console.error("[BuyNow] Failed to create Razorpay order:", createErr);
+        toast.error("Failed to initialize payment gateway. Please try again.");
+        setSubmitting(false);
+        return;
       }
 
       // Launch Razorpay Standard Checkout Modal
@@ -1894,26 +1899,29 @@ function BuyNowModal({
         }) => {
           try {
             toast.loading("Verifying payment...", { id: "buy-now-verify" });
-            if (response.razorpay_signature && (response.razorpay_order_id || rzpOrderId)) {
-              await supabase.functions.invoke("verify-razorpay-payment", {
+            const orderRef = response.razorpay_order_id || rzpOrderId;
+            if (!response.razorpay_signature || !orderRef) {
+              throw new Error("Payment signature or order reference missing from gateway response");
+            }
+
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+              "verify-razorpay-payment",
+              {
                 body: {
-                  razorpay_order_id: response.razorpay_order_id || rzpOrderId,
+                  razorpay_order_id: orderRef,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                 },
-              });
-            }
+              },
+            );
 
-            // Update local order status in Supabase
-            await supabase
-              .from("orders")
-              .update({
-                payment_status: "paid",
-                status: "processing",
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id || rzpOrderId || null,
-              })
-              .eq("id", orderId);
+            if (verifyError || !verifyData?.success) {
+              throw new Error(
+                verifyError?.message ||
+                  verifyData?.error ||
+                  "Cryptographic signature verification failed",
+              );
+            }
 
             trackEvent("order_created", {
               metadata: {
@@ -1930,10 +1938,13 @@ function BuyNowModal({
             onClose();
             navigate({ to: "/orders" });
           } catch (verifyErr: unknown) {
-            console.warn("[BuyNow] Payment verification notice:", verifyErr);
-            toast.success("Payment received! Order confirmed.", {
-              id: "buy-now-verify",
-            });
+            console.error("[BuyNow] Payment verification failure:", verifyErr);
+            toast.error(
+              verifyErr instanceof Error
+                ? verifyErr.message
+                : "Payment verification failed. Please check My Orders.",
+              { id: "buy-now-verify", duration: 6000 },
+            );
             onClose();
             navigate({ to: "/orders" });
           }

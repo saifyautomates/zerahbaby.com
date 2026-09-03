@@ -406,7 +406,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
       const d = subDays(today, 6 - i);
       const dayStart = startOfDay(d).getTime();
       const dayEnd = endOfDay(d).getTime();
-      const inDay = (dateStr: string) => {
+      const inDay = (dateStr: string | null | undefined) => {
+        if (!dateStr) return false;
         const t = new Date(dateStr).getTime();
         return t >= dayStart && t <= dayEnd;
       };
@@ -1827,9 +1828,7 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                         {act.channelTag}
                       </span>
                     )}
-                    <span className="text-[11px] text-muted-foreground">
-                      {act.time}
-                    </span>
+                    <span className="text-[11px] text-muted-foreground">{act.time}</span>
                   </div>
                 </div>
               );
@@ -1932,7 +1931,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Live real-time feed of visitor browsing, cart additions, checkouts, orders, and in-store sales
+                    Live real-time feed of visitor browsing, cart additions, checkouts, orders, and
+                    in-store sales
                   </p>
                 </div>
               </div>
@@ -2078,7 +2078,8 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-3 bg-muted/20">
               <span className="text-xs text-muted-foreground">
-                Showing {filteredActivities.length} of {parsedActivities.length} recent activity logs
+                Showing {filteredActivities.length} of {parsedActivities.length} recent activity
+                logs
               </span>
               <button
                 type="button"

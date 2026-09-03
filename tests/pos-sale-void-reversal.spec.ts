@@ -1,6 +1,6 @@
 /**
  * POS SALE VOID, REVERSAL & INVENTORY RESTORATION REGRESSION TEST SUITE
- * 
+ *
  * Verifies:
  * 1. Historical record preservation on void/reversal (never hard-deleted)
  * 2. Compensating inventory transaction creation (stock restored exactly once)
@@ -93,11 +93,14 @@ test.describe("POS Sale Deletion Safety & Reversal Architecture", () => {
   test("3. Idempotent Void Request: Double-voiding does not duplicate stock restorations", async () => {
     // Call admin_void_offline_sale on a non-existent UUID to test safe error contract
     const nonExistentUuid = "00000000-0000-0000-0000-000000000099";
-    const { data, error } = await supabase.rpc("admin_void_offline_sale" as never, {
-      _sale_id: nonExistentUuid,
-      _reason: "Test void non-existent",
-      _restore_stock: true,
-    } as never);
+    const { data, error } = await supabase.rpc(
+      "admin_void_offline_sale" as never,
+      {
+        _sale_id: nonExistentUuid,
+        _reason: "Test void non-existent",
+        _restore_stock: true,
+      } as never,
+    );
 
     expect(error).toBeNull();
     const result = data as { success: boolean; code?: string; message?: string };
@@ -108,9 +111,12 @@ test.describe("POS Sale Deletion Safety & Reversal Architecture", () => {
   test("4. Compatibility Layer: admin_delete_offline_sale aliases to admin_void_offline_sale", async () => {
     // Calling admin_delete_offline_sale with non-existent UUID safely returns void contract
     const nonExistentUuid = "00000000-0000-0000-0000-000000000088";
-    const { data, error } = await supabase.rpc("admin_delete_offline_sale" as never, {
-      _sale_id: nonExistentUuid,
-    } as never);
+    const { data, error } = await supabase.rpc(
+      "admin_delete_offline_sale" as never,
+      {
+        _sale_id: nonExistentUuid,
+      } as never,
+    );
 
     expect(error).toBeNull();
     const result = data as { success: boolean; code?: string; message?: string };

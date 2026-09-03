@@ -15,7 +15,6 @@ import {
 import { toast } from "sonner";
 import { InstagramIcon, FacebookIcon, WhatsAppIcon } from "@/components/ui/BrandIcons";
 
-
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
@@ -97,8 +96,17 @@ function ContactPage() {
     whatsappUrl,
   } = useSettings();
 
+  const cleanPhoneForWa = (raw: string) => {
+    if (!raw) return "";
+    const primary = raw.split(/[/,]/)[0].trim();
+    const digits = primary.replace(/\D/g, "");
+    if (digits.length === 10) return `91${digits}`;
+    if (digits.length === 12 && digits.startsWith("91")) return digits;
+    return digits;
+  };
+
   const waLink =
-    whatsappUrl || (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
+    whatsappUrl || (contactPhone ? `https://wa.me/${cleanPhoneForWa(contactPhone)}` : "");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

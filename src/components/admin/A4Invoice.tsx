@@ -87,12 +87,12 @@ const STORE = {
   email: "hello@zerahkids.com",
   website: "zerahkids.com",
   instagram: "@zerah_kids",
-  gstin: "08XXXXXXXXXXXXX",
-  bank_name: "HDFC Bank",
-  account_no: "5020XXXXXXXXXX",
-  ifsc: "HDFC000XXXX",
-  branch: "Kota Main Branch",
-  upi_id: "zerahkids@hdfcbank",
+  gstin: "",
+  bank_name: "",
+  account_no: "",
+  ifsc: "",
+  branch: "",
+  upi_id: "",
 };
 
 /* ------------------------------------------------------------------ */

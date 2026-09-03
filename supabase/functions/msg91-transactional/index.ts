@@ -311,8 +311,32 @@ serve(async (req) => {
       if (msg91AuthKey) {
         try {
           const flowUrl = "https://control.msg91.com/api/v5/flow/";
+          let targetTemplateId = Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") || "DEFAULT_FLOW";
+
+          if (currentEventType === "order_cancelled") {
+            targetTemplateId =
+              Deno.env.get("MSG91_TEMPLATE_ORDER_CANCELLED") ||
+              Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") ||
+              "DEFAULT_FLOW";
+          } else if (currentEventType === "pos_return") {
+            targetTemplateId =
+              Deno.env.get("MSG91_TEMPLATE_POS_RETURN") ||
+              Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") ||
+              "DEFAULT_FLOW";
+          } else if (offline_sale_id || currentEventType === "pos_sale") {
+            targetTemplateId =
+              Deno.env.get("MSG91_TEMPLATE_POS_SALE") ||
+              Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") ||
+              "DEFAULT_FLOW";
+          } else if (targetRecipientType === "owner") {
+            targetTemplateId =
+              Deno.env.get("MSG91_TEMPLATE_OWNER_ALERT") ||
+              Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") ||
+              "DEFAULT_FLOW";
+          }
+
           const flowPayload = {
-            template_id: Deno.env.get("MSG91_TEMPLATE_ORDER_PLACED") || "DEFAULT_FLOW",
+            template_id: targetTemplateId,
             short_url: "0",
             recipients: [
               {

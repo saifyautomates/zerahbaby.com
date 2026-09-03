@@ -154,6 +154,15 @@ serve(async (req) => {
             refund_completed_at: new Date().toISOString(),
           })
           .eq("razorpay_refund_id", refundId);
+
+        await supabaseClient
+          .from("orders")
+          .update({
+            razorpay_refund_status: status || "PROCESSED",
+            payment_status: "refunded",
+            refund_completed_at: new Date().toISOString(),
+          })
+          .eq("razorpay_refund_id", refundId);
       }
     } else if (payload.event === "refund.failed") {
       const refundEntity = payload.payload?.refund?.entity;
@@ -165,6 +174,13 @@ serve(async (req) => {
           .update({
             razorpay_refund_status: "FAILED",
             refund_status: "FAILED",
+          })
+          .eq("razorpay_refund_id", refundId);
+
+        await supabaseClient
+          .from("orders")
+          .update({
+            razorpay_refund_status: "FAILED",
           })
           .eq("razorpay_refund_id", refundId);
       }

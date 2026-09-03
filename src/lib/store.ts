@@ -352,7 +352,9 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       // Synchronize offline IndexedDB catalog with current active products
       import("@/lib/offline-sync-engine")
         .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(console.error);
+          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
+            console.error,
+          );
         })
         .catch(console.error);
 
@@ -743,7 +745,10 @@ export function useSettings() {
       "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
     storeHours: s["store_hours"] ?? "Open daily · 10:30 AM – 10:00 PM",
     mapsUrl: s["maps_url"] ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
-    instagramUrl: igNorm.isValid && igNorm.normalizedUrl ? igNorm.normalizedUrl : "https://www.instagram.com/zerah_kids/",
+    instagramUrl:
+      igNorm.isValid && igNorm.normalizedUrl
+        ? igNorm.normalizedUrl
+        : "https://www.instagram.com/zerah_kids/",
     facebookUrl: fbNorm.isValid && fbNorm.normalizedUrl ? fbNorm.normalizedUrl : "",
     whatsappUrl: waNorm.isValid && waNorm.normalizedUrl ? waNorm.normalizedUrl : "",
   };

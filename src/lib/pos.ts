@@ -7,7 +7,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/store";
-import { invalidateCanonicalReportingQueries, notifyPOSSaleChanged } from "@/lib/canonical-reporting";
+import {
+  invalidateCanonicalReportingQueries,
+  notifyPOSSaleChanged,
+} from "@/lib/canonical-reporting";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -533,7 +536,10 @@ export function useCreatePOSCustomer() {
           supabase as unknown as {
             from: (t: string) => {
               select: (q: string) => {
-                eq: (col: string, val: string) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
                   maybeSingle: () => Promise<{
                     data: POSCustomer | null;
                     error: { message: string } | null;

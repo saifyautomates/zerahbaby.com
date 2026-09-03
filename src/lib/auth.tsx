@@ -28,7 +28,7 @@ if (typeof window !== "undefined") {
 
   globalInitPromise = supabase.auth
     .getSession()
-    .then(({ data }) => {
+    .then(({ data }: { data: { session: Session | null } }) => {
       const s = data.session ?? null;
       notifyAuthSubscribers(s, true);
       return s;
@@ -47,10 +47,7 @@ export async function ensureAuthSession(): Promise<Session | null> {
   if (typeof window === "undefined") return null;
 
   // Test mode bypass for local E2E in-browser audits
-  if (
-    import.meta.env.DEV &&
-    localStorage.getItem("zerah_test_admin") === "true"
-  ) {
+  if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
     return {
       user: {
         id: "00000000-0000-0000-0000-000000000001",
@@ -178,10 +175,7 @@ export function useSession() {
 export function useIsAdmin(userId: string | undefined) {
   const cachedAdmin = useMemo(() => {
     if (typeof window === "undefined" || !userId) return undefined;
-    if (
-      import.meta.env.DEV &&
-      localStorage.getItem("zerah_test_admin") === "true"
-    ) {
+    if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
       return true;
     }
     const val = localStorage.getItem(`zerah_is_admin_${userId}`);

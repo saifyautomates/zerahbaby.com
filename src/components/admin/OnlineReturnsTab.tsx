@@ -50,10 +50,10 @@ export function OnlineReturnsTab() {
     const total = returns.length;
     const requested = returns.filter((r) => r.return_status === "REQUESTED").length;
     const qcPending = returns.filter(
-      (r) => r.return_status === "RECEIVED" || r.return_status === "QC_PENDING"
+      (r) => r.return_status === "RECEIVED" || r.return_status === "QC_PENDING",
     ).length;
     const refundPending = returns.filter(
-      (r) => r.return_status === "QC_APPROVED" && r.refund_status === "PENDING"
+      (r) => r.return_status === "QC_APPROVED" && r.refund_status === "PENDING",
     ).length;
     const totalRefunded = returns
       .filter((r) => r.refund_status === "PROCESSED")
@@ -80,7 +80,12 @@ export function OnlineReturnsTab() {
       if (search.trim()) {
         const q = search.toLowerCase();
         const returnNum = (r.return_number || "").toLowerCase();
-        const orderNum = (r.orders?.order_number || r.orders?.invoice_no || r.order_id || "").toLowerCase();
+        const orderNum = (
+          r.orders?.order_number ||
+          r.orders?.invoice_no ||
+          r.order_id ||
+          ""
+        ).toLowerCase();
         const customer = (r.orders?.full_name || "").toLowerCase();
         const phone = (r.orders?.phone || "").toLowerCase();
         const awb = (r.shiprocket_return_awb || "").toLowerCase();
@@ -261,7 +266,8 @@ export function OnlineReturnsTab() {
                           {ret.orders?.full_name || "Customer"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          {ret.orders?.phone} · Order #{ret.orders?.invoice_no || ret.order_id.slice(0, 8).toUpperCase()}
+                          {ret.orders?.phone} · Order #
+                          {ret.orders?.invoice_no || ret.order_id.slice(0, 8).toUpperCase()}
                         </div>
                       </td>
 
@@ -281,7 +287,7 @@ export function OnlineReturnsTab() {
                       <td className="py-3.5 px-4 text-center font-semibold">
                         {(ret.online_return_items ?? []).reduce(
                           (sum, i) => sum + (i.quantity_requested || 1),
-                          0
+                          0,
                         )}
                       </td>
 
@@ -400,8 +406,7 @@ function AdminReturnDetailsDrawer({
     onlineReturn.refund_status !== "PROCESSED" &&
     Number(onlineReturn.final_refund_amount) > 0;
 
-  const isCodOrder =
-    (onlineReturn.orders?.payment_method || "").toLowerCase() === "cod";
+  const isCodOrder = (onlineReturn.orders?.payment_method || "").toLowerCase() === "cod";
 
   const handleApprove = async () => {
     try {
@@ -490,7 +495,8 @@ function AdminReturnDetailsDrawer({
               </h2>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Order #{onlineReturn.orders?.invoice_no || onlineReturn.order_id.slice(0, 8).toUpperCase()} ·{" "}
+              Order #
+              {onlineReturn.orders?.invoice_no || onlineReturn.order_id.slice(0, 8).toUpperCase()} ·{" "}
               {new Date(onlineReturn.created_at).toLocaleString("en-IN")}
             </p>
           </div>
@@ -532,7 +538,8 @@ function AdminReturnDetailsDrawer({
               </button>
             )}
 
-            {(onlineReturn.return_status === "APPROVED" || onlineReturn.return_status === "REQUESTED") &&
+            {(onlineReturn.return_status === "APPROVED" ||
+              onlineReturn.return_status === "REQUESTED") &&
               !onlineReturn.shiprocket_return_awb && (
                 <button
                   type="button"
@@ -647,7 +654,10 @@ function AdminReturnDetailsDrawer({
                             onClick={() =>
                               setQcState((prev) => ({
                                 ...prev,
-                                [item.order_item_id]: { ...prev[item.order_item_id], passed: false },
+                                [item.order_item_id]: {
+                                  ...prev[item.order_item_id],
+                                  passed: false,
+                                },
                               }))
                             }
                             className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -702,7 +712,10 @@ function AdminReturnDetailsDrawer({
                   onChange={(e) => setRestockApproved(e.target.checked)}
                   className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020]"
                 />
-                <label htmlFor="restock-checkbox" className="text-xs font-semibold text-foreground cursor-pointer">
+                <label
+                  htmlFor="restock-checkbox"
+                  className="text-xs font-semibold text-foreground cursor-pointer"
+                >
                   Atomically restock approved items to inventory ledger
                 </label>
               </div>
@@ -759,7 +772,8 @@ function AdminReturnDetailsDrawer({
             <div className="pt-2 border-t border-border/50 text-muted-foreground">
               <p className="text-[11px]">Pickup Address:</p>
               <p className="font-medium text-foreground">
-                {onlineReturn.orders?.address}, {onlineReturn.orders?.city}, {onlineReturn.orders?.state} - {onlineReturn.orders?.pincode}
+                {onlineReturn.orders?.address}, {onlineReturn.orders?.city},{" "}
+                {onlineReturn.orders?.state} - {onlineReturn.orders?.pincode}
               </p>
             </div>
           </div>
@@ -786,7 +800,9 @@ function AdminReturnDetailsDrawer({
                       <div className="size-12 rounded-xl border border-border bg-muted shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{item.product_name_snapshot}</p>
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {item.product_name_snapshot}
+                      </p>
                       <p className="text-[11px] text-muted-foreground">
                         {item.sku_snapshot ? `SKU: ${item.sku_snapshot} · ` : ""}
                         {item.color_snapshot ? `${item.color_snapshot} · ` : ""}
@@ -805,8 +821,8 @@ function AdminReturnDetailsDrawer({
                         item.qc_status === "APPROVED"
                           ? "bg-emerald-100 text-emerald-800"
                           : item.qc_status === "REJECTED"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-800"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-amber-100 text-amber-800"
                       }`}
                     >
                       QC: {item.qc_status}
@@ -866,15 +882,15 @@ function AdminReturnDetailsDrawer({
                     <span className="absolute -left-[1.35rem] top-1 size-2.5 rounded-full bg-[#8B2020]" />
                     <div className="flex items-center gap-2">
                       <p className="text-xs font-bold text-foreground">
-                        {event.new_status ? event.new_status.replace(/_/g, " ") : event.event_type.replace(/_/g, " ")}
+                        {event.new_status
+                          ? event.new_status.replace(/_/g, " ")
+                          : event.event_type.replace(/_/g, " ")}
                       </p>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
                         {event.actor_role}
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {event.note}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{event.note}</p>
                     <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                       {new Date(event.created_at).toLocaleString("en-IN")}
                     </p>

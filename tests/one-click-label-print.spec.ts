@@ -269,9 +269,7 @@ test.describe("One-Click Product Label Printing Suite", () => {
 
   test("9. Trailing Page Break Suppression to Prevent Blank Labels", () => {
     const parts = buildLabelPrintParts({
-      products: [
-        { uuid: "p1", name: "Item", barcode: "111", sku: "SKU1", price: 100, mrp: 200 },
-      ],
+      products: [{ uuid: "p1", name: "Item", barcode: "111", sku: "SKU1", price: 100, mrp: 200 }],
       quantities: { p1: 2 },
       layout: "thermal-58",
     });
