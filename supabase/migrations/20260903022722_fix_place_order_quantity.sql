@@ -1,6 +1,6 @@
+DROP FUNCTION IF EXISTS public.place_order(jsonb, text, text, text, text, text, text, text, text, text, text, text, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.place_order(
-  _items jsonb,
-  _payment_method text,
   _full_name text,
   _email text,
   _phone text,
@@ -8,14 +8,19 @@ CREATE OR REPLACE FUNCTION public.place_order(
   _city text,
   _state text,
   _pincode text,
+  _payment_method text,
+  _items jsonb,
+  _coupon_code text DEFAULT NULL::text,
+  _notes text DEFAULT NULL::text,
+  _idempotency_key text DEFAULT NULL::text,
   _alt_phone text DEFAULT NULL::text,
   _address_line2 text DEFAULT NULL::text,
-  _landmark text DEFAULT NULL::text,
-  _notes text DEFAULT NULL::text,
-  _coupon_code text DEFAULT NULL::text,
-  _idempotency_key text DEFAULT NULL::text
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
-
+  _landmark text DEFAULT NULL::text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   uid uuid;
   item record;
@@ -173,7 +178,7 @@ BEGIN
   INSERT INTO public.order_status_history (order_id, new_status, note, changed_by)
   VALUES (new_order_id, 'placed', 'Order placed successfully', uid);
 
-  -- 7. Insert Items, Deduct Stock \u0026 Capture Historical Buying Price Snapshot
+  -- 7. Insert Items, Deduct Stock & Capture Historical Buying Price Snapshot
   FOR item IN SELECT * FROM jsonb_to_recordset(_items) AS x(variant_id uuid, qty int) LOOP
     SELECT v.id AS variant_id, COALESCE(v.price_override, p.price) AS price, v.sku AS variant_sku,
            v.barcode AS variant_barcode, v.color AS variant_color, v.size AS variant_size,
@@ -207,6 +212,7 @@ BEGIN
       LIMIT 1;
     END IF;
 
+    -- FIXED: Removed "quantity" column, using only "qty"
     INSERT INTO public.order_items (
       order_id, product_id, variant_id, product_slug, qty, price, price_at_time, subtotal, sku_snapshot,
       color, size, barcode_snapshot, image_url_snapshot, image_url, product_name_snapshot, name, buying_price
@@ -254,5 +260,4 @@ BEGIN
     'duplicate', false
   );
 END;
-
 $$;
