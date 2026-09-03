@@ -269,10 +269,11 @@ export function useSaveProduct() {
               image_url: v.image_url ?? null,
             };
 
-            if (v.id) {
-              existingVariants.push({ ...base, id: v.id });
+            const variantId = v.id && v.id.trim() !== "" ? v.id : crypto.randomUUID();
+            if (v.id && v.id.trim() !== "") {
+              existingVariants.push({ ...base, id: variantId });
             } else {
-              newVariants.push(base); // omit id → DB uses gen_random_uuid()
+              newVariants.push({ ...base, id: variantId });
             }
           }
 
