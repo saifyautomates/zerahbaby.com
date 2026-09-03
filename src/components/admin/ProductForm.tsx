@@ -734,83 +734,6 @@ export function ProductForm({
               />
             </div>
 
-            {/* COLOR MANAGEMENT FOR MEDIA */}
-            <div className="mt-4 pt-3 border-t border-border/60">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Product Colors ({draft.colors.length})
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="e.g. Pink, Beige, Blue"
-                    value={newColorName}
-                    onChange={(e) => setNewColorName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddColor();
-                      }
-                    }}
-                    className="h-7 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary w-36"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddColor}
-                    className="h-7 rounded-lg bg-primary px-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="size-3" /> Add Color
-                  </button>
-                </div>
-              </div>
-
-              {/* Color filter tabs */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveColorTab("ALL")}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                    activeColorTab === "ALL"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  All Photos ({jobs.length})
-                </button>
-                {draft.colors.map((c) => {
-                  const count = (draft.productImages || []).filter(
-                    (img) => img.color && img.color.toLowerCase() === c.toLowerCase(),
-                  ).length;
-                  return (
-                    <div
-                      key={c}
-                      className={`inline-flex items-center rounded-lg border text-xs font-semibold overflow-hidden transition ${
-                        activeColorTab === c
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-card border-border text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setActiveColorTab(c)}
-                        className="px-2.5 py-1 cursor-pointer"
-                      >
-                        {c} ({count})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveColor(c)}
-                        className="px-1.5 py-1 hover:bg-destructive/20 text-destructive-foreground/80 hover:text-destructive cursor-pointer"
-                        title={`Remove color ${c}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* If no images uploaded yet: large interactive clickable dropzone */}
             {jobs.length === 0 ? (
               <div
@@ -840,21 +763,12 @@ export function ProductForm({
                       : "Drag & drop images here, or click to browse"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Supports JPEG, PNG, WebP, GIF, MP4 (Up to 10 MB each · Max {MAX_IMAGES} files)
+                  Supports JPEG, PNG, WebP, GIF, MP4 (Up to 50 MB each · Max {MAX_IMAGES} files)
                 </p>
               </div>
             ) : (
               <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {jobs
-                  .filter((job) => {
-                    if (activeColorTab === "ALL") return true;
-                    const url = job.previewUrl || job.publicUrl || "";
-                    const assignedColor = draft.productImages?.find(
-                      (img) => img.public_url === url,
-                    )?.color;
-                    return assignedColor?.toLowerCase() === activeColorTab.toLowerCase();
-                  })
-                  .map((job, i) => {
+                {jobs.map((job, i) => {
                     const url = job.previewUrl || job.publicUrl || "";
                     const isError = job.state === "FAILED";
                     const isProcessing = job.state !== "SAVED" && !isError;
@@ -940,23 +854,6 @@ export function ProductForm({
                             <Star className="size-3" /> Main
                           </span>
                         )}
-
-                        {/* Color Assignment Selector */}
-                        <div className="absolute bottom-1 right-1 z-20">
-                          <select
-                            value={assignedColor}
-                            onChange={(e) => handleSetImageColor(url, e.target.value || null)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded-md bg-background/90 text-[10px] font-bold text-foreground px-1.5 py-0.5 border border-border shadow-xs outline-none cursor-pointer hover:bg-background"
-                          >
-                            <option value="">No Color</option>
-                            {draft.colors.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
 
                         {!isProcessing && (
                           <span className="absolute bottom-1 left-1 rounded bg-background/80 p-1 text-muted-foreground shadow-xs">
@@ -1729,47 +1626,7 @@ export function ProductForm({
 
               {showAdvanced && (
                 <div className="p-4 border-t border-border/60 bg-background/60 grid gap-4 sm:grid-cols-2 animate-in fade-in duration-200">
-                  <div className="sm:col-span-2 text-xs text-muted-foreground bg-primary/5 p-3 rounded-xl border border-primary/10">
-                    💡 <strong>Auto-Generated:</strong> You don't need to fill these out manually. The system automatically creates clean SEO slugs, barcodes, and unique SKUs if left empty.
-                  </div>
-
-                  <label className="text-sm font-semibold">
-                    Custom Slug (URL identifier)
-                    <input
-                      className={input}
-                      value={draft.slug}
-                      onChange={(e) => set("slug", e.target.value)}
-                      placeholder="Auto: product-name"
-                      list="existing-slugs"
-                    />
-                    <datalist id="existing-slugs">
-                      {(allProducts ?? []).map((p) => (
-                        <option key={p.id} value={p.id} />
-                      ))}
-                    </datalist>
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Custom SKU
-                    <input
-                      className={input}
-                      value={draft.sku}
-                      onChange={(e) => set("sku", e.target.value)}
-                      placeholder={`Auto: ${generateSKU(draft.category)}`}
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Custom Barcode
-                    <input
-                      className={input}
-                      value={draft.barcode}
-                      onChange={(e) => set("barcode", e.target.value)}
-                      placeholder="Auto-generated if empty"
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold">
+                  <label className="text-sm font-semibold sm:col-span-2">
                     Low-stock alert threshold
                     <input
                       type="number"
@@ -1781,29 +1638,9 @@ export function ProductForm({
                         set("lowStockAt", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
                       }
                     />
-                  </label>
-
-                  <label className="text-sm font-semibold">
-                    Sort order index
-                    <input
-                      type="number"
-                      className={input}
-                      placeholder="0"
-                      value={draft.sortOrder === 0 ? "" : draft.sortOrder}
-                      onChange={(e) =>
-                        set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))
-                      }
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold sm:col-span-2">
-                    Primary Image URL Override (Optional)
-                    <input
-                      className={input}
-                      placeholder="Auto-detected from media gallery"
-                      value={draft.imageUrl}
-                      onChange={(e) => set("imageUrl", e.target.value)}
-                    />
+                    <span className="text-[11px] text-muted-foreground font-normal mt-1 block">
+                      Jab inventory is number se kam hogi toh low stock warning show hogi.
+                    </span>
                   </label>
 
                   {/* MERCHANDISING / RELATED PRODUCTS SECTION */}
