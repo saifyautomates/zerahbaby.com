@@ -215,13 +215,15 @@ export function parseReturnScanCode(raw: string): { type: ScanCodeType; value: s
 }
 
 /**
- * Generates snappy 1 Letter + 3 Digits Store Credit Code (e.g. A123, P258)
+ * Generates 4-character uppercase alphanumeric Store Credit Voucher Token (e.g. A7K2, Q9XZ)
  */
 export function generateStoreCreditCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // excludes confusing I, O
-  const letter = chars.charAt(Math.floor(Math.random() * chars.length));
-  const num = Math.floor(100 + Math.random() * 900); // 100 to 999
-  return `${letter}${num}`;
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let res = "";
+  for (let i = 0; i < 4; i++) {
+    res += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return res;
 }
 
 /* ------------------------------------------------------------------ */
