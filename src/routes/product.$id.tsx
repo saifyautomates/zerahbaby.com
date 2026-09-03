@@ -864,14 +864,17 @@ function ProductPage() {
                 )
               : product.variants || [];
 
-            const showSizes =
-              availableVariants.length > 0 &&
-              !(
-                availableVariants.length === 1 &&
-                (!availableVariants[0].size || availableVariants[0].name === "Default")
-              );
+            // Only show size buttons if there are meaningful, named sizes (not 'Default' / 'Standard' / empty)
+            const validSizeVariants = availableVariants.filter(
+              (v) =>
+                v.size &&
+                v.size.trim().length > 0 &&
+                v.size.toLowerCase() !== "default" &&
+                v.size.toLowerCase() !== "standard" &&
+                v.name?.toLowerCase() !== "default",
+            );
 
-            if (!showSizes && (!product.variants || product.variants.length <= 1)) return null;
+            if (validSizeVariants.length === 0) return null;
 
             return (
               <div className="mt-6">
@@ -889,7 +892,7 @@ function ProductPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2.5">
-                  {availableVariants.map((v) => {
+                  {validSizeVariants.map((v) => {
                     const isSelected = selectedVariantId === v.id;
                     const isOutOfStock = v.stock <= 0;
                     const label = v.size || v.name;
@@ -924,7 +927,7 @@ function ProductPage() {
             );
           })()}
 
-          {featSwatches && swatches.length > 0 && (
+          {featSwatches && swatches.length > 0 && product.recommendationMode === "manual" && (
             <div className="mt-8">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                 More in this style
@@ -945,28 +948,30 @@ function ProductPage() {
                   </div>
                 </div>
 
-                {swatches.map((s) => (
-                  <Link
-                    key={s.id || s.uuid}
-                    to="/product/$id"
-                    params={{ id: s.id || s.uuid }}
-                    onClick={() => {
-                      setActiveImage(0);
-                      setQty(1);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="size-14 shrink-0 rounded-full border-2 border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary transition-all duration-300 hover:scale-110 hover:shadow-md cursor-pointer bg-muted"
-                    title={s.name}
-                  >
-                    <img
-                      loading="lazy"
-                      decoding="async"
-                      src={s.image}
-                      alt={s.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </Link>
-                ))}
+                {swatches
+                  .filter((s) => s.id !== product.id && s.uuid !== product.uuid)
+                  .map((s) => (
+                    <Link
+                      key={s.id || s.uuid}
+                      to="/product/$id"
+                      params={{ id: s.id || s.uuid }}
+                      onClick={() => {
+                        setActiveImage(0);
+                        setQty(1);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="size-14 shrink-0 rounded-full border-2 border-border overflow-hidden opacity-80 hover:opacity-100 hover:border-primary transition-all duration-300 hover:scale-110 hover:shadow-md cursor-pointer bg-muted"
+                      title={s.name}
+                    >
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={s.image}
+                        alt={s.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </Link>
+                  ))}
               </div>
             </div>
           )}
