@@ -182,10 +182,11 @@ function OrdersPage() {
                       Reason: “{order.cancellation_reason}”
                     </p>
                   )}
-                  {order.payment_status === "paid" && (
+                  {(order.payment_status === "paid" || order.payment_status === "refunded") && (
                     <p className="mt-1 font-medium text-amber-700">
-                      Payment was completed online. Your refund will be credited to your original
-                      payment method in 5-7 business days.
+                      {order.payment_status === "refunded"
+                        ? "Refund initiated. Amount will be credited to your original payment method in 5-7 business days."
+                        : "Payment was completed online. Your refund will be credited to your original payment method in 5-7 business days."}
                     </p>
                   )}
                 </div>

@@ -217,7 +217,39 @@ export function useAdminNotifications() {
     },
   });
 
-  // 7. Strict Client-Side Deduplication & Normalization
+  // 7. Hard Delete Single Notification (permanent removal from DB)
+  const hardDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("admin_notifications" as never)
+        .delete()
+        .eq("id" as never, id as never);
+
+      if (error) throw error;
+      return id;
+    },
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ["admin-database-notifications"] });
+      const prev = qc.getQueryData<RawAdminNotificationRow[]>(["admin-database-notifications"]);
+      if (prev) {
+        qc.setQueryData<RawAdminNotificationRow[]>(
+          ["admin-database-notifications"],
+          prev.filter((row) => row.id !== id),
+        );
+      }
+      return { prev };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.prev) {
+        qc.setQueryData(["admin-database-notifications"], context.prev);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["admin-database-notifications"] });
+    },
+  });
+
+  // 8. Strict Client-Side Deduplication & Normalization
   const notifications = useMemo<AdminNotification[]>(() => {
     const seenEventKeys = new Set<string>();
     const deduplicated: AdminNotification[] = [];
@@ -254,7 +286,7 @@ export function useAdminNotifications() {
     markAsRead: (id: string) => markAsReadMutation.mutate(id),
     markAllAsRead: () => markAllAsReadMutation.mutate(),
     dismiss: (id: string) => dismissMutation.mutate(id),
-    deleteNotification: (id: string) => dismissMutation.mutate(id),
+    deleteNotification: (id: string) => hardDeleteMutation.mutate(id),  // hard DELETE
     clearAll: () => clearAllMutation.mutate(),
     clearAllNotifications: () => clearAllMutation.mutate(),
   };
