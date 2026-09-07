@@ -66,9 +66,12 @@ export function OnlineSalesTab() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success("Order updated");
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      if (variables.status === "confirmed") {
+        createShipment.mutate(variables.id);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -590,6 +593,51 @@ export function OnlineSalesTab() {
                               : "Email Customer Invoice"}
                           </span>
                         </button>
+                      </div>
+                    )}
+
+                    {order._type === "online" && (
+                      <div className="flex items-center gap-2">
+                        {order.shiprocket_order_id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-bold text-blue-700">
+                              <Truck className="size-3.5" />
+                              <span>
+                                SR #{order.shiprocket_order_id}{" "}
+                                {order.shiprocket_status ? `(${order.shiprocket_status})` : ""}
+                              </span>
+                            </span>
+                            {!order.shiprocket_shipment_id && (
+                              <button
+                                type="button"
+                                onClick={() => generateAwb.mutate(order.id)}
+                                disabled={generateAwb.isPending}
+                                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted cursor-pointer shadow-2xs"
+                              >
+                                {generateAwb.isPending ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  "Gen AWB"
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        ) : order.status !== "cancelled" ? (
+                          <button
+                            type="button"
+                            onClick={() => createShipment.mutate(order.id)}
+                            disabled={createShipment.isPending}
+                            title="Push order to Shiprocket for fulfillment & courier assignment"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/50 hover:bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 transition disabled:opacity-50 cursor-pointer shadow-2xs"
+                          >
+                            {createShipment.isPending ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Truck className="size-3" />
+                            )}
+                            <span>Sync to Shiprocket</span>
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>

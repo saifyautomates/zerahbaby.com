@@ -165,6 +165,25 @@ serve(async (req) => {
       // Non-blocking
     }
 
+    // 10. Automatically trigger Shiprocket Shipment Creation (non-blocking)
+    try {
+      fetch(`${supabaseUrl}/functions/v1/shiprocket-api`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          action: "create_shipment",
+          orderId: order.id,
+        }),
+      }).catch((srErr) => {
+        console.warn("[verify-razorpay-payment] Shiprocket auto sync non-blocking error:", srErr);
+      });
+    } catch {
+      // Non-blocking
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

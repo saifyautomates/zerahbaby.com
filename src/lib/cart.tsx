@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -21,6 +22,7 @@ export type CartItem = {
   variantId?: string;
   variant?: ProductVariant | null;
   price: number;
+  mrp: number;
   stock: number;
   color?: string | null;
   size?: string | null;
@@ -46,12 +48,13 @@ type CartContextValue = {
   savings: number;
   total: number;
   coupon: CartCoupon | null;
-  add: (id: string, qty?: number, variantId?: string) => void;
+  add: (id: string, qty?: number, variantId?: string, productData?: Product) => void;
   setQty: (id: string, qty: number, variantId?: string) => void;
   remove: (id: string, variantId?: string) => void;
   clear: () => void;
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => void;
+  registerProduct: (product: Product) => void;
   shipping: number;
   eligibleSubtotal: number;
   isFreeDelivery: boolean;
@@ -95,13 +98,16 @@ async function syncToSupabase(userId: string, lines: CartLine[], products: Produ
         .map((line) => {
           const product = products.find((p) => p.id === line.id);
           if (!product) return null;
+          const defaultVariantId = product.variants?.length ? product.variants[0].id : null;
+          const vId = line.variantId || defaultVariantId;
+          const variant = product.variants?.find((v) => v.id === vId);
+          const priceAtAdd = variant?.priceOverride ?? product.price;
           return {
             cart_id: cart.id,
             product_id: product.uuid,
-            variant_id:
-              line.variantId || (product.variants?.length ? product.variants[0].id : null),
+            variant_id: vId,
             quantity: line.qty,
-            price_at_add: product.price,
+            price_at_add: priceAtAdd,
           };
         })
         .filter((x): x is NonNullable<typeof x> => Boolean(x));
@@ -155,6 +161,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { data: products, isLoading: productsLoading } = useProducts();
   const prevUserIdRef = useRef<{ id?: string }>({ id: undefined });
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
+  const isHydratedRef = useRef(false);
+  const [knownProducts, setKnownProducts] = useState<Record<string, Product>>({});
+
+  const registerProduct = useCallback((p: Product) => {
+    if (!p) return;
+    setKnownProducts((prev) => {
+      if (prev[p.id] && prev[p.uuid]) return prev;
+      return {
+        ...prev,
+        [p.id]: p,
+        [p.uuid]: p,
+      };
+    });
+  }, []);
+
+  const allProducts = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of Object.values(knownProducts)) {
+      if (p.id) map.set(p.id, p);
+      if (p.uuid) map.set(p.uuid, p);
+    }
+    if (products) {
+      for (const p of products) {
+        if (p.id) map.set(p.id, p);
+        if (p.uuid) map.set(p.uuid, p);
+      }
+    }
+    return Array.from(new Set(map.values()));
+  }, [products, knownProducts]);
+
+  // Load persisted cart from localStorage after client hydration
+  useEffect(() => {
+    try {
+      const key = getCartStorageKey(user?.id);
+      const raw = window.localStorage.getItem(key);
+      if (raw) {
+        setLines(JSON.parse(raw) as CartLine[]);
+      }
+    } catch {
+      // Ignore parse error
+    } finally {
+      isHydratedRef.current = true;
+    }
+  }, [user?.id]);
 
   const { data: settingsData } = useQuery({
     queryKey: ["site_settings", "shipping"],
@@ -222,6 +272,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Keep user-scoped localStorage updated when lines change
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!isHydratedRef.current) {
+      isHydratedRef.current = true;
+      return;
+    }
     try {
       const key = getCartStorageKey(user?.id);
       window.localStorage.setItem(key, JSON.stringify(lines));
@@ -259,8 +313,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Prune deleted or inactive products from cart lines
   useEffect(() => {
-    if (!products) return;
-    const validIds = new Set(products.map((p) => p.id));
+    if (!products || products.length === 0) return;
+    const validIds = new Set<string>();
+    for (const p of products) {
+      validIds.add(p.id);
+      validIds.add(p.uuid);
+    }
     setLines((prev) => {
       const filtered = prev.filter((l) => validIds.has(l.id));
       return filtered.length !== prev.length ? filtered : prev;
@@ -301,20 +359,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [lines, products, coupon]);
 
   const value = useMemo<CartContextValue>(() => {
-    const list = products ?? [];
+    const list = allProducts;
     const items: CartItem[] = lines
       .map((line): CartItem | null => {
-        const product = list.find((x) => x.id === line.id);
+        const product = list.find((x) => x.id === line.id || x.uuid === line.id);
         if (!product) return null;
 
         const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
         const vId = line.variantId || defaultVariantId;
         const variant = product.variants?.find((v) => v.id === vId);
         const stock = variant ? variant.stock : product.stock;
-        const price = variant?.priceOverride || product.price;
+        const price = variant?.priceOverride ?? product.price;
+        const mrp = variant?.mrpOverride ?? product.mrp;
         const color = variant?.color || null;
         const size = variant?.size || null;
-        const image = color ? getColorSwatchImage(product, color) : product.image;
+        const image =
+          variant?.imageUrl || (color ? getColorSwatchImage(product, color) : product.image);
         const sku = variant?.sku || product.sku;
 
         const clampedQty = Math.min(line.qty, stock);
@@ -324,6 +384,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           variantId: vId,
           variant: variant || null,
           price,
+          mrp,
           stock,
           color,
           size,
@@ -336,7 +397,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const financials = calculateCartFinancials({
       items: items.map((i) => ({
         price: i.price,
-        mrp: i.product.mrp,
+        mrp: i.mrp,
         qty: i.qty,
       })),
       coupon: coupon
@@ -378,48 +439,60 @@ export function CartProvider({ children }: { children: ReactNode }) {
       freeDeliveryMessage: financials.freeDeliveryMessage,
       amountToFreeDelivery: financials.amountToFreeDelivery,
       coupon: activeCoupon,
-      add: (id, qty = 1, variantId) =>
+      add: (id, qty = 1, variantId, productData) => {
+        if (productData) {
+          registerProduct(productData);
+        }
         setLines((prev) => {
-          const product = list.find((p) => p.id === id);
-          if (!product) return prev;
-
-          const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
+          const product = productData || list.find((p) => p.id === id || p.uuid === id);
+          const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
-          const variant = product.variants?.find((v) => v.id === vId);
-          const stock = variant ? variant.stock : product.stock;
+          const stock = product
+            ? (product.variants?.find((v) => v.id === vId)?.stock ?? product.stock)
+            : 999;
 
           if (stock <= 0) return prev;
 
           const existing = prev.find(
-            (l) => l.id === id && (l.variantId || defaultVariantId) === vId,
+            (l) =>
+              (l.id === id || (product && l.id === product.id)) &&
+              (l.variantId || defaultVariantId) === vId,
           );
           const requestedQty = (existing?.qty || 0) + qty;
           const finalQty = Math.max(1, Math.min(requestedQty, stock));
 
           if (existing) {
             return prev.map((l) =>
-              l.id === id && (l.variantId || defaultVariantId) === vId
+              (l.id === id || (product && l.id === product.id)) &&
+              (l.variantId || defaultVariantId) === vId
                 ? { ...l, qty: finalQty }
                 : l,
             );
           }
-          return [...prev, { id, qty: finalQty, variantId: vId }];
-        }),
+          return [...prev, { id: product ? product.id : id, qty: finalQty, variantId: vId }];
+        });
+      },
       setQty: (id, qty, variantId) =>
         setLines((prev) => {
-          const product = list.find((p) => p.id === id);
-          if (!product) return prev;
-
-          const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
+          const product = list.find((p) => p.id === id || p.uuid === id);
+          const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
-          const variant = product.variants?.find((v) => v.id === vId);
-          const stock = variant ? variant.stock : product.stock;
+          const stock = product
+            ? (product.variants?.find((v) => v.id === vId)?.stock ?? product.stock)
+            : 999;
 
           const finalQty = Math.min(qty, stock);
           return finalQty <= 0
-            ? prev.filter((l) => !(l.id === id && (l.variantId || defaultVariantId) === vId))
+            ? prev.filter(
+                (l) =>
+                  !(
+                    (l.id === id || (product && l.id === product.id)) &&
+                    (l.variantId || defaultVariantId) === vId
+                  ),
+              )
             : prev.map((l) =>
-                l.id === id && (l.variantId || defaultVariantId) === vId
+                (l.id === id || (product && l.id === product.id)) &&
+                (l.variantId || defaultVariantId) === vId
                   ? { ...l, qty: finalQty }
                   : l,
               );
@@ -427,10 +500,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove: (id, variantId) =>
         setLines((prev) =>
           prev.filter((l) => {
-            if (!variantId) return l.id !== id; // if no variantId provided, remove all variants of this product
-            const product = list.find((p) => p.id === id);
+            const product = list.find((p) => p.id === id || p.uuid === id);
+            const canonicalId = product ? product.id : id;
+            if (!variantId) return l.id !== canonicalId && l.id !== id;
             const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
-            return !(l.id === id && (l.variantId || defaultVariantId) === variantId);
+            return !(
+              (l.id === canonicalId || l.id === id) &&
+              (l.variantId || defaultVariantId) === variantId
+            );
           }),
         ),
       clear: async () => {
@@ -482,9 +559,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
       },
       removeCoupon: () => setCoupon(null),
-      isLoading: Boolean(productsLoading && lines.length > 0),
+      registerProduct,
+      isLoading: Boolean(productsLoading && lines.length > 0 && allProducts.length === 0),
     };
-  }, [lines, products, productsLoading, coupon, user, settingsData]);
+  }, [lines, allProducts, productsLoading, coupon, user, settingsData, registerProduct]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

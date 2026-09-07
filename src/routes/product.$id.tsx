@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  ShoppingBag,
 } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon } from "@/components/ui/BrandIcons";
 import { useQuery } from "@tanstack/react-query";
@@ -64,6 +65,7 @@ import { RelatedProducts } from "@/components/site/RelatedProducts";
 import { RecentlyViewed } from "@/components/site/RecentlyViewed";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { ProductDetailSkeleton } from "@/components/ui/Skeletons";
+import { CartItemCard } from "@/components/site/CartItemCard";
 
 import { productsQueryOptions, singleProductQueryOptions } from "@/lib/store";
 
@@ -218,7 +220,16 @@ function ProductPage() {
       : undefined,
   });
 
-  const { add, items } = useCart();
+  const {
+    add,
+    items,
+    setQty: setCartQty,
+    remove: removeFromCart,
+    count: cartCount,
+    subtotal: cartSubtotal,
+    total: cartTotal,
+    registerProduct,
+  } = useCart();
   const { user } = useSession();
   const { isWishlisted, toggle: toggleWishlist } = useWishlist();
   const navigate = useNavigate();
@@ -227,6 +238,9 @@ function ProductPage() {
   const [showBuyNowModal, setShowBuyNowModal] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [lastAddedKey, setLastAddedKey] = useState<string | null>(null);
+  const cartSectionRef = useRef<HTMLElement>(null);
 
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
   const [isZooming, setIsZooming] = useState(false);
@@ -262,6 +276,12 @@ function ProductPage() {
   }, [singleResult, loaderData?.product, list, id, decodedId]);
 
   const wishlisted = user && product ? isWishlisted(product.uuid) : false;
+
+  useEffect(() => {
+    if (product) {
+      registerProduct(product);
+    }
+  }, [product, registerProduct]);
 
   const isLoading = (singleLoading || productsLoading) && !product;
   const isNetworkError = (singleQueryError || singleResult?.isError) && !product;
@@ -410,32 +430,71 @@ function ProductPage() {
   }, []);
 
   const handleAddToCart = () => {
-    if (!product) return;
+    if (!product || isAdding) return;
     const variantIdToUse =
       selectedVariantId ?? (product.variants?.length ? product.variants[0].id : undefined);
+
+    const hasDistinctVariants = Boolean(
+      product.variants &&
+        product.variants.length > 1 &&
+        product.variants.some(
+          (v) =>
+            (v.color && v.color.trim()) ||
+            (v.size && v.size.trim()) ||
+            (v.name && v.name !== "Default"),
+        ),
+    );
+
+    if (hasDistinctVariants && !selectedVariantId) {
+      toast.error("Please select a variant");
+      return;
+    }
 
     // Check stock for this specific variant in cart
     const inCart =
       items.find((i) => i.product.id === product.id && i.variantId === variantIdToUse)?.qty || 0;
     const remaining = Math.max(0, activeStock - inCart);
+    if (remaining <= 0) {
+      toast.error("Max stock already in bag", { description: "You cannot add more of this item." });
+      return;
+    }
     if (qty > remaining) {
       toast.error("Not enough stock", { description: `You can only add ${remaining} more.` });
       return;
     }
 
-    if (product.variants?.length > 1 && !selectedVariantId) {
-      toast.error("Please select a variant");
-      return;
-    }
+    setIsAdding(true);
+    const itemKey = `${product.id}-${variantIdToUse || "default"}`;
+    add(product.id, qty, variantIdToUse, product);
+    setLastAddedKey(itemKey);
 
-    add(product.id, qty, variantIdToUse);
     trackEvent("add_to_cart", {
       productId: product.uuid,
       metadata: { qty, variantId: variantIdToUse, from: "product_page" },
     });
 
-    const variantName = activeVariant?.name !== "Default" ? ` - ${activeVariant?.name}` : "";
+    const variantName =
+      activeVariant?.name && activeVariant?.name !== "Default" ? ` - ${activeVariant?.name}` : "";
     toast.success("Added to bag", { description: `${qty} × ${product.name}${variantName}` });
+
+    setTimeout(() => {
+      const targetElement =
+        document.getElementById(`cart-item-${itemKey}`) || cartSectionRef.current;
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        const isInViewport =
+          rect.top >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+        if (!isInViewport) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+      setIsAdding(false);
+    }, 150);
+
+    setTimeout(() => {
+      setLastAddedKey((prev) => (prev === itemKey ? null : prev));
+    }, 2500);
   };
 
   useEffect(() => {
@@ -1034,11 +1093,17 @@ function ProductPage() {
                   return (
                     <div className="flex w-full md:w-auto flex-1 gap-2 sm:gap-3 items-center">
                       <button
-                        disabled={soldOut || maxed || qty > remaining}
+                        disabled={soldOut || maxed || qty > remaining || isAdding}
                         onClick={handleAddToCart}
                         className="focus-ring flex-1 rounded-full bg-primary px-2 py-3 sm:px-4 sm:py-3.5 text-[13px] sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none whitespace-nowrap"
                       >
-                        {soldOut ? "Out of stock" : maxed ? "Added to bag" : "Add to bag"}
+                        {soldOut
+                          ? "Out of stock"
+                          : maxed
+                            ? "Added to bag"
+                            : isAdding
+                              ? "Adding..."
+                              : "Add to bag"}
                       </button>
                       {!soldOut && !maxed && (
                         <button
@@ -1134,6 +1199,65 @@ function ProductPage() {
                 <span>100% Safe Checkout</span>
               </div>
             </div>
+
+            {/* Cart Section (Inline Bag Section below product actions) */}
+            {items.length > 0 && (
+              <section
+                id="cart-section"
+                ref={cartSectionRef}
+                aria-label="Your Bag"
+                className="mt-6 rounded-3xl border border-border/80 bg-card p-4 sm:p-5 shadow-premium-sm transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+              >
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/50">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="size-4 text-primary" />
+                    <h3 className="font-display text-base font-bold text-foreground">
+                      Your Bag ({cartCount} {cartCount === 1 ? "item" : "items"})
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-primary">{formatPrice(cartTotal)}</span>
+                    <Link
+                      to="/cart"
+                      className="text-xs font-bold text-primary hover:underline ml-1"
+                    >
+                      View All →
+                    </Link>
+                  </div>
+                </div>
+
+                <ul className="space-y-3">
+                  {items.map((cartItem) => (
+                    <CartItemCard
+                      key={`${cartItem.product.id}-${cartItem.variantId || "default"}`}
+                      item={cartItem}
+                      onSetQty={setCartQty}
+                      onRemove={removeFromCart}
+                      isHighlighted={
+                        lastAddedKey ===
+                        `${cartItem.product.id}-${cartItem.variantId || "default"}`
+                      }
+                      compact
+                    />
+                  ))}
+                </ul>
+
+                <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Order Subtotal</p>
+                    <p className="text-base font-bold text-foreground">
+                      {formatPrice(cartSubtotal)}
+                    </p>
+                  </div>
+                  <Link
+                    to="/cart"
+                    className="focus-ring rounded-full bg-primary px-5 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all text-center"
+                  >
+                    Proceed to Checkout
+                  </Link>
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </div>
@@ -1202,10 +1326,10 @@ function ProductPage() {
 
               <button
                 onClick={handleAddToCart}
-                disabled={soldOut || (product?.stock ?? 0) <= 0}
+                disabled={soldOut || (product?.stock ?? 0) <= 0 || isAdding}
                 className="flex-1 md:flex-none rounded-full bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50"
               >
-                Add to bag
+                {soldOut ? "Out of stock" : isAdding ? "Adding..." : "Add to bag"}
               </button>
             </div>
           </div>

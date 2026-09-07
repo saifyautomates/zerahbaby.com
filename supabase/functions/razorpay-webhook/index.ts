@@ -121,6 +121,25 @@ serve(async (req) => {
           } catch {
             // Non-blocking
           }
+
+          // Automatically trigger Shiprocket Shipment Creation (non-blocking)
+          try {
+            fetch(`${supabaseUrl}/functions/v1/shiprocket-api`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                action: "create_shipment",
+                orderId: updatedOrder.id,
+              }),
+            }).catch((srErr) => {
+              console.warn("[razorpay-webhook] Shiprocket auto sync error:", srErr);
+            });
+          } catch {
+            // Non-blocking
+          }
         }
       }
     } else if (payload.event === "payment.failed") {

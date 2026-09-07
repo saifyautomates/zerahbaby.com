@@ -21,26 +21,29 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Authenticate user from JWT token (only admins allowed)
+    // 1. Authenticate caller (Admin user JWT or Supabase Service Role for system automation)
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
     if (!token) throw new Error("Missing Authorization header");
 
-    const {
-      data: { user },
-    } = await adminClient.auth.getUser(token);
+    const isServiceRole = token === supabaseServiceKey;
+    if (!isServiceRole) {
+      const {
+        data: { user },
+      } = await adminClient.auth.getUser(token);
 
-    if (!user) throw new Error("Invalid token");
+      if (!user) throw new Error("Invalid token");
 
-    const { data: roleRow } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .maybeSingle();
+      const { data: roleRow } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (roleRow?.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
+      if (roleRow?.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
     }
 
     // 2. Parse request payload

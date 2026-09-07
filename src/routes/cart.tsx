@@ -21,6 +21,7 @@ import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { CartPageSkeleton } from "@/components/ui/Skeletons";
+import { CartItemCard } from "@/components/site/CartItemCard";
 
 import { productsQueryOptions } from "@/lib/store";
 
@@ -107,118 +108,14 @@ function CartPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
         <ul className="space-y-4">
-          {items.map(
-            ({ product, qty, variantId, variant, price, stock, color, size, image, sku }, i) => (
-              <li
-                key={`${product.id}-${variantId || "default"}`}
-                className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border border-border/60 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both bg-card shadow-premium-sm hover:shadow-premium-md transition-shadow"
-                style={{ animationDelay: `${i * 75}ms` }}
-              >
-                <div className="flex flex-1 gap-3 sm:gap-4">
-                  <Link
-                    to="/product/$id"
-                    params={{ id: product.id }}
-                    className="size-20 sm:size-24 shrink-0 rounded-xl overflow-hidden bg-muted hover:opacity-90 transition block border border-border/60"
-                    title={`View ${product.name}`}
-                  >
-                    <img
-                      src={image || product.image}
-                      alt={product.name}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = imageFor(
-                          product.category,
-                          null,
-                          product,
-                        );
-                      }}
-                      className="w-full h-full object-cover object-center"
-                    />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground truncate">
-                      {product.brand}
-                    </p>
-                    <h2 className="text-sm font-semibold">
-                      <Link
-                        to="/product/$id"
-                        params={{ id: product.id }}
-                        className="hover:text-primary"
-                      >
-                        {product.name}
-                      </Link>
-                    </h2>
-
-                    {/* Variant Badges (Color & Size) */}
-                    {(color || size || (variant && variant.name !== "Default")) && (
-                      <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
-                        {color && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-0.5 font-semibold text-[11px]">
-                            Color: {color}
-                          </span>
-                        )}
-                        {size && (
-                          <span className="inline-flex items-center rounded-md bg-muted text-foreground px-2 py-0.5 font-semibold text-[11px]">
-                            Size: {size}
-                          </span>
-                        )}
-                        {!color && !size && variant && variant.name !== "Default" && (
-                          <span className="inline-flex items-center rounded-md bg-muted text-foreground px-2 py-0.5 font-semibold text-[11px]">
-                            {variant.name}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {sku && (
-                      <p className="text-[10px] font-mono text-muted-foreground mt-1">SKU: {sku}</p>
-                    )}
-
-                    <p className="mt-1.5 text-sm font-bold">{formatPrice(price)}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3 sm:gap-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-border/40">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-3 rounded-full border border-border px-3 py-1.5 bg-background shadow-xs">
-                      <button
-                        onClick={() => setQty(product.id, qty - 1, variantId)}
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="size-3.5" />
-                      </button>
-                      <span className="w-5 text-center text-sm font-semibold">{qty}</span>
-                      <button
-                        disabled={qty >= stock}
-                        onClick={() => {
-                          if (qty >= stock) {
-                            toast.error("Max stock reached");
-                            return;
-                          }
-                          setQty(product.id, qty + 1, variantId);
-                        }}
-                        aria-label="Increase quantity"
-                        className="disabled:cursor-not-allowed disabled:opacity-30"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => remove(product.id, variantId)}
-                      className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-destructive cursor-pointer"
-                    >
-                      <Trash2 className="size-3.5" />{" "}
-                      <span className="hidden sm:inline">Remove</span>
-                    </button>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground sm:hidden mb-0.5">Total</p>
-                    <p className="text-sm font-bold sm:text-base">{formatPrice(price * qty)}</p>
-                  </div>
-                </div>
-              </li>
-            ),
-          )}
+          {items.map((item) => (
+            <CartItemCard
+              key={`${item.product.id}-${item.variantId || "default"}`}
+              item={item}
+              onSetQty={setQty}
+              onRemove={remove}
+            />
+          ))}
           <li>
             <button
               onClick={clear}
