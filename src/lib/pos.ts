@@ -619,7 +619,7 @@ export function calculateDiscount(
   discountType: "none" | "percentage" | "fixed",
   discountValue: number,
 ): number {
-  if (discountType === "percentage") {
+  if (discountType === "percentage" || (discountType as string) === "percent") {
     return Math.round((subtotal * Math.min(100, Math.max(0, discountValue))) / 100);
   }
   if (discountType === "fixed") {
@@ -689,7 +689,10 @@ export async function validatePOSCoupon(
       valid: true,
       coupon: {
         code: data.code,
-        discountType: data.discount_type as "percentage" | "fixed",
+        discountType:
+          data.discount_type === "percent" || data.discount_type === "percentage"
+            ? "percentage"
+            : "fixed",
         discountValue: Number(data.discount_value || 0),
         minimumOrderValue: minCart,
         maximumDiscount: Number(data.maximum_discount || 0),

@@ -130,7 +130,7 @@ function buildThermalHTML(
   const discountRow =
     sale.discount > 0
       ? `<div style="display:flex;justify-content:space-between;color:#15803d;">
-          <span>Discount${sale.discount_type === "percentage" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}</span>
+          <span>Discount${sale.discount_type === "percentage" || sale.discount_type === "percent" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}</span>
           <span style="font-weight:600;">−₹${sale.discount.toLocaleString("en-IN")}</span>
          </div>`
       : "";
@@ -488,7 +488,7 @@ export function ThermalReceipt({
               <div className="flex justify-between text-green-700">
                 <span>
                   Discount
-                  {sale.discount_type === "percentage"
+                  {sale.discount_type === "percentage" || sale.discount_type === "percent"
                     ? ` (${sale.discount_value}%)`
                     : sale.discount_type === "fixed"
                       ? ` (₹${sale.discount_value})`

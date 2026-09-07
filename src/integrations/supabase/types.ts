@@ -475,7 +475,7 @@ export type Database = {
           active: boolean
           code: string
           created_at: string
-          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_type: string
           discount_value: number
           expires_at: string | null
           id: string
@@ -497,7 +497,7 @@ export type Database = {
           active?: boolean
           code: string
           created_at?: string
-          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_type?: string
           discount_value?: number
           expires_at?: string | null
           id?: string
@@ -519,7 +519,7 @@ export type Database = {
           active?: boolean
           code?: string
           created_at?: string
-          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_type?: string
           discount_value?: number
           expires_at?: string | null
           id?: string
@@ -1538,7 +1538,7 @@ export type Database = {
           tracking_number: string | null
           tracking_url: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           address?: string
@@ -1600,7 +1600,7 @@ export type Database = {
           tracking_number?: string | null
           tracking_url?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -1662,7 +1662,7 @@ export type Database = {
           tracking_number?: string | null
           tracking_url?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -3195,7 +3195,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff" | "customer" | "pos"
-      discount_type: "percentage" | "fixed"
+      discount_type: "percentage" | "fixed" | "percent" | "none"
       fulfillment_status: "unfulfilled" | "partially_fulfilled" | "fulfilled"
       inventory_tx_type:
         | "purchase"
@@ -3361,7 +3361,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff", "customer", "pos"],
-      discount_type: ["percentage", "fixed"],
+      discount_type: ["percentage", "fixed", "percent", "none"],
       fulfillment_status: ["unfulfilled", "partially_fulfilled", "fulfilled"],
       inventory_tx_type: [
         "purchase",

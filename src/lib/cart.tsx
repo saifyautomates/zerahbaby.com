@@ -551,7 +551,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setCoupon({
           code: result.code!,
           id: result.coupon_id!,
-          discountType: (result.discount_type as "percentage" | "fixed") || "percentage",
+          discountType:
+            result.discount_type === "percent" || result.discount_type === "percentage"
+              ? "percentage"
+              : "fixed",
           discountValue: Number(result.discount_value || 0),
           minimumOrderValue: Number(result.minimum_order_value || 0),
           maximumDiscount: Number(result.maximum_discount || 0),

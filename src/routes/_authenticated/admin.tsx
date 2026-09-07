@@ -4195,7 +4195,7 @@ function CouponsTab() {
                     </span>
                   </td>
                   <td className="px-5 py-4 font-bold text-emerald-600 dark:text-emerald-400">
-                    {c.discount_type === "percentage"
+                    {c.discount_type === "percentage" || (c.discount_type as string) === "percent"
                       ? `${c.discount_value}% OFF`
                       : formatPrice(c.discount_value)}
                   </td>

@@ -147,7 +147,7 @@ function buildA4HTML(
 
   const discountLabel =
     sale.discount > 0
-      ? `Discount${sale.discount_type === "percentage" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}`
+      ? `Discount${sale.discount_type === "percentage" || sale.discount_type === "percent" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}`
       : "";
 
   const paymentDisplay = sale.payment_method

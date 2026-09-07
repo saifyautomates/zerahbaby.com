@@ -311,4 +311,60 @@ test.describe("Backend Production Audit & Security Hardening Suite", () => {
     expect(res4.shipping).toBe(0);
     expect(res4.finalTotal).toBe(1500);
   });
+
+  // 10. Coupon Security & Enum Robustness
+  test("10. Coupon Security: Pricing Engine Normalizes 'percent' and 'percentage' Accurately", async () => {
+    const { calculateCouponDiscount } = await import("../src/lib/pricing-engine");
+
+    // Case 1: Standard 'percentage' representation (25% off 1600 = 400)
+    const discount1 = calculateCouponDiscount(1600, {
+      code: "SAIFY25",
+      discountType: "percentage",
+      discountValue: 25,
+      minimumOrderValue: 1000,
+      maximumDiscount: 0,
+    });
+    expect(discount1).toBe(400);
+
+    // Case 2: Alternate 'percent' representation (25% off 1600 = 400)
+    const discount2 = calculateCouponDiscount(1600, {
+      code: "SAIFY25",
+      discountType: "percent" as any,
+      discountValue: 25,
+      minimumOrderValue: 1000,
+      maximumDiscount: 0,
+    });
+    expect(discount2).toBe(400);
+
+    // Case 3: Fixed discount (₹200 off 1600 = 200)
+    const discount3 = calculateCouponDiscount(1600, {
+      code: "FLAT200",
+      discountType: "fixed",
+      discountValue: 200,
+      minimumOrderValue: 1000,
+      maximumDiscount: 0,
+    });
+    expect(discount3).toBe(200);
+
+    // Case 4: Subtotal below minimum order value returns 0
+    const discount4 = calculateCouponDiscount(800, {
+      code: "SAIFY25",
+      discountType: "percentage",
+      discountValue: 25,
+      minimumOrderValue: 1000,
+      maximumDiscount: 0,
+    });
+    expect(discount4).toBe(0);
+
+    // Case 5: Capped maximum discount
+    const discount5 = calculateCouponDiscount(2000, {
+      code: "MAXCAP",
+      discountType: "percent" as any,
+      discountValue: 50,
+      minimumOrderValue: 500,
+      maximumDiscount: 300,
+    });
+    expect(discount5).toBe(300);
+  });
 });
+

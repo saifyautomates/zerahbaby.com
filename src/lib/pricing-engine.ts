@@ -116,7 +116,8 @@ export function calculateCouponDiscount(
   const minOrder = Math.max(0, coupon.minimumOrderValue || 0);
   if (subtotal < minOrder) return 0;
 
-  const discountType = coupon.discountType || "percentage";
+  const rawType = (coupon.discountType as string) || "percentage";
+  const discountType = rawType === "percent" || rawType === "percentage" ? "percentage" : "fixed";
   const discountVal = Math.max(0, coupon.discountValue || 0);
   const maxDiscount = Math.max(0, coupon.maximumDiscount || 0);
 
@@ -268,7 +269,7 @@ export function calculatePOSFinancials({
   let discount = 0;
   const dVal = Math.max(0, discountValue || 0);
 
-  if (discountType === "percentage") {
+  if (discountType === "percentage" || (discountType as string) === "percent") {
     const cappedPct = Math.min(100, dVal);
     discount = roundMoney((remainingSubtotal * cappedPct) / 100);
   } else if (discountType === "fixed") {
