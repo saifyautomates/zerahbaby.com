@@ -132,6 +132,72 @@ export function useGlobalRealtimeSync() {
         notifyListeners("coupons", payload.eventType, payload);
         debouncedInvalidate(qc, [["coupons"]]);
       })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_variants" },
+        (payload) => {
+          notifyListeners("product_variants", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["products"],
+            ["admin-products"],
+            ["inventory-products"],
+            ["pos-products"],
+            ["product-relations"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inventory_transactions" },
+        (payload) => {
+          notifyListeners("inventory_transactions", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["inventory-products"],
+            ["admin-products"],
+            ["products"],
+            ["admin-dashboard"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "offline_returns" },
+        (payload) => {
+          notifyListeners("offline_returns", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["offline-sales"],
+            ["offline-returns"],
+            ["pos-customers"],
+            ["admin-dashboard"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "online_returns" },
+        (payload) => {
+          notifyListeners("online_returns", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["online-returns"],
+            ["orders"],
+            ["admin-orders"],
+            ["my-orders"],
+            ["admin-dashboard"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "contact_messages" },
+        (payload) => {
+          notifyListeners("contact_messages", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["admin-queries"],
+            ["contact-messages"],
+            ["customer-queries"],
+          ]);
+        },
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           console.info("[RealtimeSync] Global real-time channel active.");

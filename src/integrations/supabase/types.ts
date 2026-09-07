@@ -797,65 +797,104 @@ export type Database = {
       }
       offline_sale_items: {
         Row: {
+          allocated_bill_discount: number
+          allocated_coupon_discount: number
           barcode: string | null
           barcode_snapshot: string
           buying_price: number
           color: string | null
+          color_snapshot: string | null
+          cost_price: number | null
           created_at: string
           custom_price: number | null
+          final_unit_paid_price: number
           id: string
+          line_gross_amount: number
           mrp_snapshot: number
           name: string
           price: number
+          product_discount_amount: number
           product_id: string | null
           product_slug: string
           qty: number
+          quantity_returned: number
+          quantity_sold: number
           sale_id: string
           size: string | null
+          size_snapshot: string | null
           sku: string
+          sku_snapshot: string | null
           subtotal: number
+          unit_mrp: number
+          unit_selling_price: number
           variant_id: string | null
           variant_info: string
         }
         Insert: {
+          allocated_bill_discount?: number
+          allocated_coupon_discount?: number
           barcode?: string | null
           barcode_snapshot?: string
           buying_price?: number
           color?: string | null
+          color_snapshot?: string | null
+          cost_price?: number | null
           created_at?: string
           custom_price?: number | null
+          final_unit_paid_price?: number
           id?: string
+          line_gross_amount?: number
           mrp_snapshot?: number
           name: string
           price?: number
+          product_discount_amount?: number
           product_id?: string | null
           product_slug: string
           qty?: number
+          quantity_returned?: number
+          quantity_sold?: number
           sale_id: string
           size?: string | null
+          size_snapshot?: string | null
           sku?: string
+          sku_snapshot?: string | null
           subtotal?: number
+          unit_mrp?: number
+          unit_selling_price?: number
           variant_id?: string | null
           variant_info?: string
         }
         Update: {
+          allocated_bill_discount?: number
+          allocated_coupon_discount?: number
           barcode?: string | null
           barcode_snapshot?: string
           buying_price?: number
           color?: string | null
+          color_snapshot?: string | null
+          cost_price?: number | null
           created_at?: string
           custom_price?: number | null
+          final_unit_paid_price?: number
           id?: string
+          line_gross_amount?: number
           mrp_snapshot?: number
           name?: string
           price?: number
+          product_discount_amount?: number
           product_id?: string | null
           product_slug?: string
           qty?: number
+          quantity_returned?: number
+          quantity_sold?: number
           sale_id?: string
           size?: string | null
+          size_snapshot?: string | null
           sku?: string
+          sku_snapshot?: string | null
           subtotal?: number
+          unit_mrp?: number
+          unit_selling_price?: number
           variant_id?: string | null
           variant_info?: string
         }
@@ -1321,6 +1360,7 @@ export type Database = {
           barcode_snapshot: string | null
           buying_price: number
           color: string | null
+          color_snapshot: string | null
           created_at: string
           id: string
           image_url: string | null
@@ -1333,6 +1373,7 @@ export type Database = {
           product_slug: string
           qty: number
           size: string | null
+          size_snapshot: string | null
           sku_snapshot: string
           subtotal: number
           variant_id: string | null
@@ -1341,6 +1382,7 @@ export type Database = {
           barcode_snapshot?: string | null
           buying_price?: number
           color?: string | null
+          color_snapshot?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
@@ -1353,6 +1395,7 @@ export type Database = {
           product_slug?: string
           qty?: number
           size?: string | null
+          size_snapshot?: string | null
           sku_snapshot?: string
           subtotal?: number
           variant_id?: string | null
@@ -1361,6 +1404,7 @@ export type Database = {
           barcode_snapshot?: string | null
           buying_price?: number
           color?: string | null
+          color_snapshot?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
@@ -1373,6 +1417,7 @@ export type Database = {
           product_slug?: string
           qty?: number
           size?: string | null
+          size_snapshot?: string | null
           sku_snapshot?: string
           subtotal?: number
           variant_id?: string | null
@@ -1447,6 +1492,8 @@ export type Database = {
           courier_name: string | null
           created_at: string
           currency: string
+          customer_notification_status: string | null
+          customer_notified_at: string | null
           customer_phone: string
           discount: number
           email: string
@@ -1454,6 +1501,7 @@ export type Database = {
           full_name: string
           id: string
           idempotency_key: string | null
+          invoice_date: string | null
           invoice_no: string | null
           landmark: string
           notes: string
@@ -1470,7 +1518,12 @@ export type Database = {
           pincode: string
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
+          razorpay_refund_id: string | null
+          razorpay_refund_status: string | null
           razorpay_signature: string | null
+          refund_amount: number | null
+          refund_completed_at: string | null
+          refund_notes: string | null
           shipping: number
           shipping_address_snapshot: Json | null
           shipping_fee: number
@@ -1501,6 +1554,8 @@ export type Database = {
           courier_name?: string | null
           created_at?: string
           currency?: string
+          customer_notification_status?: string | null
+          customer_notified_at?: string | null
           customer_phone?: string
           discount?: number
           email?: string
@@ -1508,6 +1563,7 @@ export type Database = {
           full_name?: string
           id?: string
           idempotency_key?: string | null
+          invoice_date?: string | null
           invoice_no?: string | null
           landmark?: string
           notes?: string
@@ -1524,7 +1580,12 @@ export type Database = {
           pincode?: string
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
+          razorpay_refund_id?: string | null
+          razorpay_refund_status?: string | null
           razorpay_signature?: string | null
+          refund_amount?: number | null
+          refund_completed_at?: string | null
+          refund_notes?: string | null
           shipping?: number
           shipping_address_snapshot?: Json | null
           shipping_fee?: number
@@ -1555,6 +1616,8 @@ export type Database = {
           courier_name?: string | null
           created_at?: string
           currency?: string
+          customer_notification_status?: string | null
+          customer_notified_at?: string | null
           customer_phone?: string
           discount?: number
           email?: string
@@ -1562,6 +1625,7 @@ export type Database = {
           full_name?: string
           id?: string
           idempotency_key?: string | null
+          invoice_date?: string | null
           invoice_no?: string | null
           landmark?: string
           notes?: string
@@ -1578,7 +1642,12 @@ export type Database = {
           pincode?: string
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
+          razorpay_refund_id?: string | null
+          razorpay_refund_status?: string | null
           razorpay_signature?: string | null
+          refund_amount?: number | null
+          refund_completed_at?: string | null
+          refund_notes?: string | null
           shipping?: number
           shipping_address_snapshot?: Json | null
           shipping_fee?: number
@@ -1706,6 +1775,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          last_visit_date: string | null
           name: string
           notes: string
           phone: string
@@ -1721,6 +1791,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          last_visit_date?: string | null
           name?: string
           notes?: string
           phone?: string
@@ -1736,6 +1807,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          last_visit_date?: string | null
           name?: string
           notes?: string
           phone?: string
@@ -2856,6 +2928,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_approved_product_reviews: {
+        Args: { p_product_id: string }
+        Returns: {
+          comment: string
+          created_at: string
+          id: string
+          images: string[]
+          order_id: string
+          product_id: string
+          rating: number
+          status: Database["public"]["Enums"]["review_status"]
+          title: string
+          updated_at: string
+          user_id: string
+          user_name: string
+          verified_purchase: boolean
+        }[]
+      }
       get_customer_store_credit: {
         Args: { _customer_id?: string; _phone?: string; _token?: string }
         Returns: Json
@@ -2865,24 +2955,6 @@ export type Database = {
         Returns: {
           next_token: number
           token_date: string
-        }[]
-      }
-      get_approved_product_reviews: {
-        Args: { p_product_id: string }
-        Returns: {
-          id: string
-          product_id: string
-          user_id: string
-          order_id: string | null
-          rating: number
-          title: string
-          comment: string
-          images: string[]
-          verified_purchase: boolean
-          status: Database["public"]["Enums"]["review_status"]
-          created_at: string
-          updated_at: string
-          user_name: string
         }[]
       }
       get_related_products: {
@@ -2989,7 +3061,7 @@ export type Database = {
           _items: Json
           _landmark?: string
           _notes?: string
-          _payment_method: string
+          _payment_method?: string
           _phone: string
           _pincode: string
           _state: string
@@ -2998,17 +3070,17 @@ export type Database = {
       }
       process_offline_return: {
         Args: {
-          _customer_email: string
-          _customer_id: string
-          _customer_name: string
-          _customer_phone: string
+          _customer_email?: string
+          _customer_id?: string
+          _customer_name?: string
+          _customer_phone?: string
           _idempotency_key?: string
-          _items: Json
-          _notes: string
-          _original_sale_id: string
-          _refund_method: string
-          _refund_status: string
-          _return_reason: string
+          _items?: Json
+          _notes?: string
+          _original_sale_id?: string
+          _refund_method?: string
+          _refund_status?: string
+          _return_reason?: string
         }
         Returns: Json
       }
@@ -3050,6 +3122,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          last_visit_date: string | null
           name: string
           notes: string
           phone: string
