@@ -380,10 +380,9 @@ function OrdersPage() {
                   );
                 })}
               </ul>
-
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                 <div className="flex items-center gap-2">
-                  <InvoiceBox order={order} />
+                  {Boolean(isAdmin) && <InvoiceBox order={order} />}
 
                   {isOrderReturnable(order) && (
                     <button

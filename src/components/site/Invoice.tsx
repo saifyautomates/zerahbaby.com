@@ -4,11 +4,18 @@ import { FileText, Printer, X } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
+import { useSession, useIsAdmin } from "@/lib/auth";
 import logo from "@/assets/zerah-logo-official.png";
 
-/** Small clickable invoice chip — opens the full printable invoice. */
-export function InvoiceBox({ order }: { order: Order }) {
+/** Small clickable invoice chip — opens the full printable invoice (strictly restricted to administrators). */
+export function InvoiceBox({ order, requireAdmin = true }: { order: Order; requireAdmin?: boolean }) {
+  const { user } = useSession();
+  const { data: isAdmin } = useIsAdmin(user?.id);
   const [open, setOpen] = useState(false);
+
+  if (requireAdmin && !isAdmin) {
+    return null;
+  }
 
   return (
     <>
