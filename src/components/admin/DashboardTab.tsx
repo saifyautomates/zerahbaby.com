@@ -784,9 +784,7 @@ export function DashboardTab({
 
     const productSlug =
       act.productSlug ||
-      (act.title.includes("/product/")
-        ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1]
-        : null) ||
+      (act.title.includes("/product/") ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1] : null) ||
       (typeof act.metadata?.path === "string" && act.metadata.path.includes("/product/")
         ? act.metadata.path.match(/\/product\/([^\s?#/]+)/)?.[1]
         : null);
@@ -949,9 +947,7 @@ export function DashboardTab({
     // 4. Product Page
     const productSlug =
       act.productSlug ||
-      (act.title.includes("/product/")
-        ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1]
-        : null) ||
+      (act.title.includes("/product/") ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1] : null) ||
       (typeof act.metadata?.path === "string" && act.metadata.path.includes("/product/")
         ? act.metadata.path.match(/\/product\/([^\s?#/]+)/)?.[1]
         : null);

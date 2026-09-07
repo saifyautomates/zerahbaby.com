@@ -11,7 +11,9 @@ test.describe("Admin Variant Stock Management", () => {
     // If redirected to /auth or not logged in, we verify the component code
     const currentUrl = page.url();
     if (currentUrl.includes("/auth")) {
-      console.log("Admin requires auth session in test runner; skipping live browser auth interaction");
+      console.log(
+        "Admin requires auth session in test runner; skipping live browser auth interaction",
+      );
       return;
     }
 

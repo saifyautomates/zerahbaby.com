@@ -93,7 +93,9 @@ test.describe("Omnichannel Order Click & Inspection Flow", () => {
 
     // 9. Verify transition to Orders tab with order focused
     await expect(page).toHaveURL(/.*tab=orders.*/, { timeout: 10000 });
-    const orderCard = page.locator("#order-card-cc461d36-e0e6-42bb-a4ca-fd50b80562e5, li[id*='cc461d36']").first();
+    const orderCard = page
+      .locator("#order-card-cc461d36-e0e6-42bb-a4ca-fd50b80562e5, li[id*='cc461d36']")
+      .first();
     await expect(orderCard).toBeVisible({ timeout: 10000 });
 
     // Capture screenshot of the Orders tab with the focused card

@@ -39,9 +39,7 @@ export function QuickVariantStockModal({
 
   const handleStockChange = (variantId: string, newStock: number) => {
     const clean = Math.max(0, newStock);
-    setVariants((prev) =>
-      prev.map((v) => (v.id === variantId ? { ...v, stock: clean } : v)),
-    );
+    setVariants((prev) => prev.map((v) => (v.id === variantId ? { ...v, stock: clean } : v)));
   };
 
   const handleDeleteVariant = (variantId: string) => {

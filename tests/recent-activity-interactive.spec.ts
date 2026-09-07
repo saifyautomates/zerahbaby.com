@@ -128,7 +128,9 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
     await expect(activityFeedItems.first()).toBeVisible();
 
     // Take screenshot of recent activity widget
-    const recentActivityCard = page.locator("div:has(> div > h3:text-is('Recent Activity'))").first();
+    const recentActivityCard = page
+      .locator("div:has(> div > h3:text-is('Recent Activity'))")
+      .first();
     await recentActivityCard.screenshot({
       path: "C:/Users/jackx/.gemini/antigravity-ide/brain/57e4e7f2-4a35-423f-899c-7d8d383295b1/recent_activity_widget_verified.png",
     });

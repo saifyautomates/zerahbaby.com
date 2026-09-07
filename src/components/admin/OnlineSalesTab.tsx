@@ -552,7 +552,8 @@ export function OnlineSalesTab() {
         {searchTerm && (
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <span>
-              Showing <strong>{orders.length}</strong> matching {orders.length === 1 ? "order" : "orders"}
+              Showing <strong>{orders.length}</strong> matching{" "}
+              {orders.length === 1 ? "order" : "orders"}
             </span>
             <button
               type="button"

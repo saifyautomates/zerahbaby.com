@@ -64,8 +64,12 @@ test.describe("Permanent 404 Prevention & Smart Routing", () => {
     expect(bodyText).not.toContain("The page you're looking for doesn't exist or has been moved.");
   });
 
-  test("Unrecognized multi-segment URL renders rich FallbackRecoveryPage instead of raw 404", async ({ page }) => {
-    await page.goto("http://localhost:8080/unknown/nested/missing/page", { waitUntil: "domcontentloaded" });
+  test("Unrecognized multi-segment URL renders rich FallbackRecoveryPage instead of raw 404", async ({
+    page,
+  }) => {
+    await page.goto("http://localhost:8080/unknown/nested/missing/page", {
+      waitUntil: "domcontentloaded",
+    });
     await page.waitForTimeout(600);
     const bodyText = await page.locator("body").innerText();
     // Raw 404 must NOT appear

@@ -30,8 +30,9 @@ test.describe("POS Product & SKU Search Complete Suite", () => {
     expect(variantResults.length).toBeGreaterThan(0);
     const hasPurple = variantResults.some(
       (p) =>
-        p.variants.some((v) => v.color?.toLowerCase() === "purple" || v.name.toLowerCase() === "purple") ||
-        p.name.toLowerCase().includes("purple"),
+        p.variants.some(
+          (v) => v.color?.toLowerCase() === "purple" || v.name.toLowerCase() === "purple",
+        ) || p.name.toLowerCase().includes("purple"),
     );
     expect(hasPurple).toBe(true);
 

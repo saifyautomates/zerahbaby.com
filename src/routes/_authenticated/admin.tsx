@@ -1064,9 +1064,7 @@ export function AdminPage() {
                   )
                 }
               >
-                {tab === "dashboard" && (
-                  <DashboardTab onNavigate={handleAdminNavigate} />
-                )}
+                {tab === "dashboard" && <DashboardTab onNavigate={handleAdminNavigate} />}
                 {tab === "billing" && <BillingCenterTab />}
                 {tab === "products" && <ProductsTab />}
                 {tab === "hero" && <HeroMediaManager />}
@@ -2145,7 +2143,9 @@ function ProductsTab() {
                             }`}
                           >
                             <span>{p.stock}</span>
-                            <span className="text-[9px] text-primary font-bold">({p.variants.length}v)</span>
+                            <span className="text-[9px] text-primary font-bold">
+                              ({p.variants.length}v)
+                            </span>
                           </button>
 
                           <button

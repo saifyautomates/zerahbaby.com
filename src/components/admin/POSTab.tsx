@@ -76,11 +76,7 @@ import {
   generateIdempotencyKey,
   validatePOSCoupon,
 } from "@/lib/pos";
-import {
-  searchPOSProducts,
-  type POSSearchResult,
-  type POSSearchVariant,
-} from "@/lib/pos-search";
+import { searchPOSProducts, type POSSearchResult, type POSSearchVariant } from "@/lib/pos-search";
 import { useCustomerStoreCredit, useStoreCreditVoucher } from "@/lib/pos-returns";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
@@ -683,7 +679,9 @@ export function POSTab() {
 
           setProductSearch(cleanCode);
           setIsSearchDropdownOpen(true);
-          toast.info(`Found ${searchMatches.length} product${searchMatches.length > 1 ? "s" : ""} matching "${cleanCode}"`);
+          toast.info(
+            `Found ${searchMatches.length} product${searchMatches.length > 1 ? "s" : ""} matching "${cleanCode}"`,
+          );
           return;
         }
 
@@ -1098,8 +1096,7 @@ export function POSTab() {
         image_url: itemImage,
         qty: 1,
         sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
-          | "ONLINE_AND_OFFLINE"
-          | "OFFLINE_ONLY",
+          "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
       });
 
       if (added) {
@@ -1255,7 +1252,9 @@ export function POSTab() {
 
                 {/* Right Action / Loading indicators */}
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0) || scanLoading) && (
+                  {(isSearchLoading ||
+                    (isSearchFetching && searchResults.length === 0) ||
+                    scanLoading) && (
                     <div className="flex items-center gap-1.5 text-xs text-primary font-semibold animate-pulse">
                       <Loader2 className="size-4 animate-spin text-primary" />
                       <span className="text-[11px] hidden sm:inline">Searching…</span>
@@ -1285,7 +1284,7 @@ export function POSTab() {
               {isSearchDropdownOpen && productSearch.trim().length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1.5 z-30 max-h-96 overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl divide-y divide-border/40 backdrop-blur-md">
                   {/* Loading State on initial fetch */}
-                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0)) ? (
+                  {isSearchLoading || (isSearchFetching && searchResults.length === 0) ? (
                     <div className="p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
                       <Loader2 className="size-6 animate-spin text-primary" />
                       <p className="text-xs font-medium">Searching live database catalogue…</p>
@@ -1293,7 +1292,8 @@ export function POSTab() {
                   ) : searchResults.length === 0 ? (
                     <div className="p-6 text-center space-y-1">
                       <p className="text-xs font-semibold text-foreground">
-                        No products found matching &ldquo;<span className="text-primary font-bold">{productSearch}</span>&rdquo;
+                        No products found matching &ldquo;
+                        <span className="text-primary font-bold">{productSearch}</span>&rdquo;
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         Try searching by product name, exact SKU, variant color, or barcode.
@@ -1313,8 +1313,7 @@ export function POSTab() {
                       );
                       const hasRealVariants =
                         distinctVariants.length > 1 ||
-                        (distinctVariants.length === 1 &&
-                          distinctVariants[0].name !== "Default");
+                        (distinctVariants.length === 1 && distinctVariants[0].name !== "Default");
 
                       return (
                         <div
@@ -1365,7 +1364,8 @@ export function POSTab() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                                   <span>
-                                    SKU: <strong className="text-foreground">{p.sku || "N/A"}</strong>
+                                    SKU:{" "}
+                                    <strong className="text-foreground">{p.sku || "N/A"}</strong>
                                   </span>
                                   <span>•</span>
                                   <span>
@@ -1373,10 +1373,13 @@ export function POSTab() {
                                   </span>
                                   <span>•</span>
                                   <span>
-                                    Price: <strong className="text-primary font-bold">₹{p.price}</strong>
+                                    Price:{" "}
+                                    <strong className="text-primary font-bold">₹{p.price}</strong>
                                   </span>
                                   {p.mrp > p.price && (
-                                    <span className="line-through text-[11px] opacity-60">₹{p.mrp}</span>
+                                    <span className="line-through text-[11px] opacity-60">
+                                      ₹{p.mrp}
+                                    </span>
                                   )}
                                   <span>•</span>
                                   <span>
@@ -1452,8 +1455,8 @@ export function POSTab() {
                                       isItemHighlighted
                                         ? "ring-2 ring-primary border-primary bg-primary/10 text-primary shadow-sm"
                                         : isOutOfStock
-                                        ? "bg-muted/60 text-muted-foreground/50 border-border/50 cursor-not-allowed line-through"
-                                        : "bg-background hover:bg-primary/5 hover:border-primary/40 border-border text-foreground hover:text-primary"
+                                          ? "bg-muted/60 text-muted-foreground/50 border-border/50 cursor-not-allowed line-through"
+                                          : "bg-background hover:bg-primary/5 hover:border-primary/40 border-border text-foreground hover:text-primary"
                                     }`}
                                   >
                                     {v.color && (
@@ -1465,7 +1468,9 @@ export function POSTab() {
                                     )}
                                     <span className="font-bold">{v.name}</span>
                                     {v.sku && v.sku !== p.sku && (
-                                      <span className="text-[10px] text-muted-foreground">({v.sku})</span>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        ({v.sku})
+                                      </span>
                                     )}
                                     <span className="text-primary font-bold">₹{v.price}</span>
                                     <span

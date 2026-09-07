@@ -39,10 +39,7 @@ export interface POSSearchResult {
  * High-performance server-side product and variant search for POS Terminal.
  * Leverages pg_trgm fuzzy matching, multi-word matching, and 5-tier priority ranking.
  */
-export async function searchPOSProducts(
-  query: string,
-  limit = 20,
-): Promise<POSSearchResult[]> {
+export async function searchPOSProducts(query: string, limit = 20): Promise<POSSearchResult[]> {
   const clean = query.trim();
   if (!clean) return [];
 
@@ -94,19 +91,21 @@ export async function searchPOSProducts(
           const brandLower = (p.brand || "").toLowerCase();
           const categoryLower = (p.category || "").toLowerCase();
 
-          const variants: POSSearchVariant[] = (p.variants || p.product_variants || []).map((v: any) => ({
-            id: v.id,
-            name: v.name || "Default",
-            sku: v.sku || p.sku,
-            barcode: v.barcode || null,
-            stock: Number(v.stock ?? p.stock ?? 0),
-            price: Number(v.price_override ?? v.priceOverride ?? p.price ?? 0),
-            mrp: Number(v.mrp_override ?? v.mrpOverride ?? p.mrp ?? p.price ?? 0),
-            color: v.color || null,
-            size: v.size || null,
-            image_url: v.image_url || v.imageUrl || p.image || null,
-            is_matched: false,
-          }));
+          const variants: POSSearchVariant[] = (p.variants || p.product_variants || []).map(
+            (v: any) => ({
+              id: v.id,
+              name: v.name || "Default",
+              sku: v.sku || p.sku,
+              barcode: v.barcode || null,
+              stock: Number(v.stock ?? p.stock ?? 0),
+              price: Number(v.price_override ?? v.priceOverride ?? p.price ?? 0),
+              mrp: Number(v.mrp_override ?? v.mrpOverride ?? p.mrp ?? p.price ?? 0),
+              color: v.color || null,
+              size: v.size || null,
+              image_url: v.image_url || v.imageUrl || p.image || null,
+              is_matched: false,
+            }),
+          );
 
           let score = 0;
           let matchedVariantId: string | null = null;
@@ -149,7 +148,12 @@ export async function searchPOSProducts(
             reason = "Name Prefix";
           }
           // All terms match
-          else if (terms.length > 1 && terms.every((t) => nameLower.includes(t) || brandLower.includes(t) || categoryLower.includes(t))) {
+          else if (
+            terms.length > 1 &&
+            terms.every(
+              (t) => nameLower.includes(t) || brandLower.includes(t) || categoryLower.includes(t),
+            )
+          ) {
             score = 65;
             reason = "Multi-word Match";
           }

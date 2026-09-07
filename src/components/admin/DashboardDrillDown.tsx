@@ -1539,10 +1539,7 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
           .eq("id", variants[0].id);
       }
 
-      const { error } = await supabase
-        .from("products")
-        .update({ stock: cleanStock })
-        .eq("id", id);
+      const { error } = await supabase.from("products").update({ stock: cleanStock }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
