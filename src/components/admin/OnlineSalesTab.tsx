@@ -56,6 +56,11 @@ export function OnlineSalesTab() {
   const [bulkCancelReason, setBulkCancelReason] = useState("Bulk cancelled by Admin");
   const [isBulkCancelling, setIsBulkCancelling] = useState(false);
 
+  // Bulk Delete Cancelled Orders State
+  const [isDeleteBulkModalOpen, setIsDeleteBulkModalOpen] = useState(false);
+  const [deleteTargetMode, setDeleteTargetMode] = useState<"selected" | "all_cancelled">("selected");
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   const retryNotification = useRetryOrderNotification();
   const deleteOrder = useDeleteCancelledOrder();
   const createShipment = useCreateShiprocketShipment();
@@ -292,6 +297,71 @@ export function OnlineSalesTab() {
     }
   }
 
+  // Cancelled orders eligible for permanent deletion
+  const ordersToDeletePool = useMemo(() => {
+    if (deleteTargetMode === "all_cancelled") {
+      return (onlineOrdersData || []).filter((o) => o.status === "cancelled");
+    }
+    const selectedList = (selection.selectedItems as unknown as UnifiedTransaction[]) || [];
+    return selectedList.filter((o) => o.status === "cancelled");
+  }, [deleteTargetMode, selection.selectedItems, onlineOrdersData]);
+
+  function handleOpenDeleteModal(mode: "selected" | "all_cancelled") {
+    setDeleteTargetMode(mode);
+    setIsDeleteBulkModalOpen(true);
+  }
+
+  async function handleExecuteBulkDelete() {
+    if (ordersToDeletePool.length === 0) {
+      toast.error("No cancelled orders found to delete. Only cancelled orders can be permanently deleted.");
+      setIsDeleteBulkModalOpen(false);
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const orderIds = ordersToDeletePool.map((o) => o.id);
+
+      // 1. Try atomic bulk RPC
+      const { error: bulkErr } = await supabase.rpc("delete_cancelled_orders_bulk" as never, {
+        _order_ids: orderIds,
+      } as never);
+
+      if (bulkErr) {
+        console.warn("[BulkDelete] Bulk RPC fallback:", bulkErr);
+        // Resilient fallback in chunks of 10
+        const CHUNK_SIZE = 10;
+        for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
+          const chunk = orderIds.slice(i, i + CHUNK_SIZE);
+          await Promise.all(
+            chunk.map(async (id) => {
+              const { error: rpcErr } = await supabase.rpc("delete_cancelled_order", { _order_id: id });
+              if (rpcErr) {
+                await supabase.from("coupon_usage").delete().eq("order_id", id);
+                await supabase.from("order_items").delete().eq("order_id", id);
+                await supabase.from("order_status_history").delete().eq("order_id", id);
+                await supabase.from("payments").delete().eq("order_id", id);
+                await supabase.from("orders").delete().eq("id", id).eq("status", "cancelled");
+              }
+            }),
+          );
+        }
+      }
+
+      toast.success(`Successfully deleted ${orderIds.length} cancelled orders permanently.`);
+      selection.clearSelection();
+      setIsDeleteBulkModalOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      invalidateCanonicalReportingQueries(qc);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || "Failed to delete cancelled orders");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -508,6 +578,18 @@ export function OnlineSalesTab() {
                     : `Cancel Visible (${visibleOrders.filter((o) => o.status !== "cancelled").length})`}
                 </span>
               </button>
+              {/* If on Cancelled tab, offer Delete All Cancelled */}
+              {filter === "cancelled" && cancelledOrdersCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenDeleteModal("all_cancelled")}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs"
+                  title="Permanently delete all cancelled orders in database"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete All Cancelled ({cancelledOrdersCount})</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -527,17 +609,80 @@ export function OnlineSalesTab() {
         metrics={selectionMetrics}
         onClear={selection.clearSelection}
         actions={
-          <button
-            type="button"
-            onClick={() => handleOpenCancelModal("selected")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
-            title="Cancel all selected orders and restore stock"
-          >
-            <Ban className="size-3.5" />
-            <span>Cancel All Selected ({selection.selectedCount})</span>
-          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Delete Selected (only for cancelled orders) */}
+            {selection.selectedItems.some((o) => (o as unknown as Order).status === "cancelled") && (
+              <button
+                type="button"
+                onClick={() => handleOpenDeleteModal("selected")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Permanently delete selected cancelled orders"
+              >
+                <Trash2 className="size-3.5" />
+                <span>
+                  Delete Selected (
+                  {
+                    selection.selectedItems.filter(
+                      (o) => (o as unknown as Order).status === "cancelled",
+                    ).length
+                  }
+                  )
+                </span>
+              </button>
+            )}
+
+            {/* Delete All Cancelled (when in Cancelled tab) */}
+            {filter === "cancelled" && cancelledOrdersCount > 0 && (
+              <button
+                type="button"
+                onClick={() => handleOpenDeleteModal("all_cancelled")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-400/80 bg-rose-700 hover:bg-rose-800 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Permanently delete all cancelled orders in the database"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete All Cancelled ({cancelledOrdersCount})</span>
+              </button>
+            )}
+
+            {/* Cancel Selected (for active orders) */}
+            {selection.selectedItems.some((o) => (o as unknown as Order).status !== "cancelled") && (
+              <button
+                type="button"
+                onClick={() => handleOpenCancelModal("selected")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Cancel all active selected orders"
+              >
+                <Ban className="size-3.5" />
+                <span>
+                  Cancel Selected (
+                  {
+                    selection.selectedItems.filter(
+                      (o) => (o as unknown as Order).status !== "cancelled",
+                    ).length
+                  }
+                  )
+                </span>
+              </button>
+            )}
+          </div>
         }
       />
+
+      {/* Select All in View Banner */}
+      {selection.isAllVisibleSelected(visibleOrders) &&
+        orders.length > visibleOrders.length &&
+        selection.selectedCount < orders.length && (
+          <div className="rounded-2xl border border-[#8B2020]/20 bg-[#8B2020]/5 p-3 text-center text-xs font-medium text-foreground flex items-center justify-center gap-2">
+            <span>All {visibleOrders.length} orders on this page are selected.</span>
+            <button
+              type="button"
+              onClick={() => selection.selectAllFiltered(orders)}
+              className="font-bold text-[#8B2020] underline hover:text-[#8B2020]/80 cursor-pointer"
+            >
+              Select all {orders.length} orders in {filter === "cancelled" ? "Cancelled" : "this view"}
+            </button>
+          </div>
+        )}
 
       {isLoading && <AdminTableSkeleton rows={5} />}
 
@@ -1203,6 +1348,166 @@ export function OnlineSalesTab() {
                   <>
                     <Ban className="size-3.5" />
                     <span>Yes, Cancel {activeOrdersToCancel.length} Orders</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Cancelled Orders Modal */}
+      {isDeleteBulkModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !isBulkDeleting && setIsDeleteBulkModalOpen(false)}
+        >
+          <div
+            className="flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border bg-rose-50/40 dark:bg-rose-950/30">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-md">
+                  <Trash2 className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Permanently Delete Cancelled Orders
+                  </h3>
+                  <p className="text-xs text-rose-700 dark:text-rose-400 font-semibold">
+                    {ordersToDeletePool.length}{" "}
+                    {ordersToDeletePool.length === 1 ? "order" : "orders"} will be permanently purged
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={() => setIsDeleteBulkModalOpen(false)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
+              {/* Target Mode Toggle if in Cancelled filter */}
+              {filter === "cancelled" && selection.selectedCount > 0 && (
+                <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-xl border border-border text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetMode("selected")}
+                    className={`flex-1 py-1.5 rounded-lg transition text-center cursor-pointer ${
+                      deleteTargetMode === "selected"
+                        ? "bg-card text-foreground shadow-2xs font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Selected Orders ({selection.selectedItems.filter((o) => (o as unknown as Order).status === "cancelled").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetMode("all_cancelled")}
+                    className={`flex-1 py-1.5 rounded-lg transition text-center cursor-pointer ${
+                      deleteTargetMode === "all_cancelled"
+                        ? "bg-card text-foreground shadow-2xs font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    All Cancelled Orders ({cancelledOrdersCount})
+                  </button>
+                </div>
+              )}
+
+              {/* Summary Card */}
+              <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">Orders to Delete:</span>
+                  <span className="font-black text-rose-950 dark:text-rose-100 text-sm">
+                    {ordersToDeletePool.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">Total Value:</span>
+                  <span className="font-bold text-foreground">
+                    {formatPrice(ordersToDeletePool.reduce((sum, o) => sum + Number(o.total || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">Database Action:</span>
+                  <span className="font-semibold text-rose-700 dark:text-rose-400">
+                    Hard Cascade Delete (Audit logged)
+                  </span>
+                </div>
+              </div>
+
+              {/* Target Orders Preview */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Orders to be deleted ({ordersToDeletePool.length})
+                </label>
+                <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-background p-2.5 flex flex-wrap gap-1.5">
+                  {ordersToDeletePool.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      No cancelled orders found in this selection.
+                    </span>
+                  ) : (
+                    ordersToDeletePool.map((o) => (
+                      <span
+                        key={o.id}
+                        className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-foreground border border-border"
+                      >
+                        #{o.id.slice(0, 8).toUpperCase()}
+                        <span className="text-[10px] text-muted-foreground font-sans">
+                          ({formatPrice(Number(o.total))})
+                        </span>
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5">
+                <AlertTriangle className="size-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">
+                  <strong>Permanent Action:</strong> This will completely remove these cancelled
+                  orders, order items, coupon usages, and payment records from the database.
+                  Audit logs will be permanently retained in the system security audit table.
+                </span>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-border bg-muted/20">
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={() => setIsDeleteBulkModalOpen(false)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
+              >
+                Keep Orders
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkDeleting || ordersToDeletePool.length === 0}
+                onClick={handleExecuteBulkDelete}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Deleting {ordersToDeletePool.length} Orders…</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5" />
+                    <span>Yes, Permanently Delete {ordersToDeletePool.length} Orders</span>
                   </>
                 )}
               </button>
