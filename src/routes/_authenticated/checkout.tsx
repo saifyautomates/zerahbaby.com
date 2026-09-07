@@ -325,7 +325,17 @@ function CheckoutPage() {
       );
 
       if (createError) {
-        throw new Error(createError.message || "Failed to initialize payment gateway order");
+        let msg = createError.message;
+        try {
+          const errCtx = (createError as { context?: Response }).context;
+          if (errCtx && typeof errCtx.json === "function") {
+            const body = await errCtx.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch {
+          // fallback to message
+        }
+        throw new Error(msg || "Failed to initialize payment gateway order");
       }
       if (createData?.error) {
         throw new Error(createData.error);
@@ -381,10 +391,18 @@ function CheckoutPage() {
             );
 
             if (verifyError || !verifyData?.success) {
+              let msg = verifyError?.message;
+              try {
+                const errCtx = (verifyError as { context?: Response }).context;
+                if (errCtx && typeof errCtx.json === "function") {
+                  const body = await errCtx.json();
+                  if (body?.error) msg = body.error;
+                }
+              } catch {
+                // fallback
+              }
               throw new Error(
-                verifyError?.message ||
-                  verifyData?.error ||
-                  "Cryptographic signature verification failed",
+                msg || verifyData?.error || "Cryptographic signature verification failed",
               );
             }
 

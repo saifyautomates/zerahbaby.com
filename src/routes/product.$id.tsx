@@ -2023,7 +2023,19 @@ function BuyNowModal({
           "create-razorpay-order",
           { body: { orderId } },
         );
-        if (createError) throw createError;
+        if (createError) {
+          let msg = createError.message;
+          try {
+            const errCtx = (createError as { context?: Response }).context;
+            if (errCtx && typeof errCtx.json === "function") {
+              const body = await errCtx.json();
+              if (body?.error) msg = body.error;
+            }
+          } catch {
+            // fallback
+          }
+          throw new Error(msg || "Failed to initialize payment gateway. Please try again.");
+        }
         if (createData?.rzp_order_id) {
           rzpOrderId = createData.rzp_order_id;
         }
@@ -2035,7 +2047,11 @@ function BuyNowModal({
         }
       } catch (createErr) {
         console.error("[BuyNow] Failed to create Razorpay order:", createErr);
-        toast.error("Failed to initialize payment gateway. Please try again.");
+        toast.error(
+          createErr instanceof Error
+            ? createErr.message
+            : "Failed to initialize payment gateway. Please try again.",
+        );
         setSubmitting(false);
         return;
       }
@@ -2081,10 +2097,18 @@ function BuyNowModal({
             );
 
             if (verifyError || !verifyData?.success) {
+              let msg = verifyError?.message;
+              try {
+                const errCtx = (verifyError as { context?: Response }).context;
+                if (errCtx && typeof errCtx.json === "function") {
+                  const body = await errCtx.json();
+                  if (body?.error) msg = body.error;
+                }
+              } catch {
+                // fallback
+              }
               throw new Error(
-                verifyError?.message ||
-                  verifyData?.error ||
-                  "Cryptographic signature verification failed",
+                msg || verifyData?.error || "Cryptographic signature verification failed",
               );
             }
 

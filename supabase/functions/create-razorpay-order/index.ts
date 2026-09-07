@@ -76,7 +76,17 @@ serve(async (req) => {
         .single();
 
       if (sessError || !session) {
-        throw new Error("Checkout session not found or expired");
+        console.error(
+          "[create-razorpay-order] Session query error:",
+          sessError,
+          "sessionId:",
+          sessionId,
+        );
+        throw new Error(
+          sessError
+            ? `Session query error: ${sessError.message || JSON.stringify(sessError)}`
+            : "Checkout session not found or expired",
+        );
       }
 
       if (session.status === "converted") {
