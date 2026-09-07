@@ -54,7 +54,18 @@ BEGIN
   -- 1. Fetch Manual Relations (strictly active and ONLINE_AND_OFFLINE)
   RETURN QUERY
   SELECT 
-    p.id, p.name, p.slug, p.price, p.mrp, p.image_url, p.images, p.category, p.brand, p.stock, p.low_stock_at, p.is_active,
+    p.id,
+    p.name,
+    p.slug,
+    p.price,
+    p.mrp,
+    (SELECT pi.public_url FROM public.product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.sort_order ASC LIMIT 1) AS image_url,
+    COALESCE((SELECT array_agg(pi.public_url ORDER BY pi.sort_order ASC) FROM public.product_images pi WHERE pi.product_id = p.id), '{}'::text[]) AS images,
+    p.category,
+    p.brand,
+    p.stock,
+    p.low_stock_at,
+    p.is_active,
     'manual'::text AS relation_source,
     CASE 
       WHEN pr.product_1_id = p_product_id THEN pr.sort_order_1 
@@ -80,7 +91,18 @@ BEGIN
     IF v_manual_count < p_limit THEN
       RETURN QUERY
       SELECT 
-        p.id, p.name, p.slug, p.price, p.mrp, p.image_url, p.images, p.category, p.brand, p.stock, p.low_stock_at, p.is_active,
+        p.id,
+        p.name,
+        p.slug,
+        p.price,
+        p.mrp,
+        (SELECT pi.public_url FROM public.product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.sort_order ASC LIMIT 1) AS image_url,
+        COALESCE((SELECT array_agg(pi.public_url ORDER BY pi.sort_order ASC) FROM public.product_images pi WHERE pi.product_id = p.id), '{}'::text[]) AS images,
+        p.category,
+        p.brand,
+        p.stock,
+        p.low_stock_at,
+        p.is_active,
         'auto'::text AS relation_source,
         999 AS sort_order
       FROM public.products p
@@ -154,6 +176,8 @@ GRANT EXECUTE ON FUNCTION public.get_approved_product_reviews(uuid) TO anon, aut
 
 
 -- 3. Harden cancel_abandoned_order Authorization & Parameter Overloads
+DROP FUNCTION IF EXISTS public.cancel_abandoned_order(uuid);
+
 CREATE OR REPLACE FUNCTION public.cancel_abandoned_order(order_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -237,14 +261,6 @@ BEGIN
 
   INSERT INTO public.order_status_history (order_id, new_status, note, changed_by)
   VALUES (order_id, 'cancelled', 'Order cancelled due to abandoned payment window', uid);
-END;
-$$;
-
--- Provide _order_id parameter alias wrapper for client compatibility
-CREATE OR REPLACE FUNCTION public.cancel_abandoned_order(_order_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public.cancel_abandoned_order(order_id := _order_id);
 END;
 $$;
 

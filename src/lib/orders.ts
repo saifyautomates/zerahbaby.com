@@ -473,7 +473,20 @@ export function useResendCustomerInvoice() {
           force_retry: true,
         },
       });
-      if (error) throw new Error(error.message || "Failed to dispatch customer email");
+      if (error) {
+        let detailMsg = error.message;
+        if ((error as any).context) {
+          try {
+            const errBody = await (error as any).context.json();
+            if (errBody?.error || errBody?.message) {
+              detailMsg = errBody.error || errBody.message;
+            }
+          } catch {
+            // Keep error.message
+          }
+        }
+        throw new Error(detailMsg || "Failed to dispatch customer email");
+      }
       if (data && !data.success && data.error) {
         throw new Error(data.error);
       }
