@@ -758,7 +758,8 @@ function CheckoutPage() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or NetBanking.
+                          Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or
+                          NetBanking.
                         </p>
                       </div>
                     </button>
@@ -791,7 +792,9 @@ function CheckoutPage() {
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Banknote className="size-4 text-primary shrink-0" />
-                            <span className="font-bold text-sm text-foreground">Cash on Delivery</span>
+                            <span className="font-bold text-sm text-foreground">
+                              Cash on Delivery
+                            </span>
                             {codFee > 0 && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                                 +₹{codFee} fee

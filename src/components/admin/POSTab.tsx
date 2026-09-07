@@ -439,7 +439,7 @@ export function POSTab() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, uuid, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+          "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
         )
         .eq("is_active", true);
       if (error) throw error;
@@ -926,16 +926,26 @@ export function POSTab() {
   // Filtered products for manual search
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return [];
-    const q = productSearch.toLowerCase();
+    const q = productSearch.trim().toLowerCase();
     return products
       .filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
+          p.name?.toLowerCase().includes(q) ||
+          p.sku?.toLowerCase().includes(q) ||
           p.barcode?.toLowerCase().includes(q) ||
-          p.brand.toLowerCase().includes(q),
+          p.brand?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q) ||
+          p.id?.toLowerCase().includes(q) ||
+          p.variants?.some(
+            (v) =>
+              v.name?.toLowerCase().includes(q) ||
+              v.sku?.toLowerCase().includes(q) ||
+              v.barcode?.toLowerCase().includes(q) ||
+              v.color?.toLowerCase().includes(q) ||
+              v.size?.toLowerCase().includes(q),
+          ),
       )
-      .slice(0, 8);
+      .slice(0, 10);
   }, [products, productSearch]);
 
   // Customer search results
@@ -1057,7 +1067,16 @@ export function POSTab() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && filteredProducts.length > 0) {
                       e.preventDefault();
-                      addProductManually(filteredProducts[0]);
+                      const first = filteredProducts[0];
+                      const q = productSearch.trim().toLowerCase();
+                      const matchedVar = first.variants?.find(
+                        (v) =>
+                          v.sku?.toLowerCase().includes(q) ||
+                          v.barcode?.toLowerCase().includes(q) ||
+                          v.name?.toLowerCase().includes(q) ||
+                          v.color?.toLowerCase().includes(q),
+                      );
+                      addProductManually(first, matchedVar);
                     } else if (e.key === "Escape") {
                       setProductSearch("");
                       scanInputRef.current?.focus();
@@ -1086,52 +1105,119 @@ export function POSTab() {
                 )}
               </div>
 
+              {/* No results message */}
+              {productSearch.trim().length > 0 && filteredProducts.length === 0 && !productsLoading && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 p-4 rounded-xl border border-border bg-card shadow-xl text-center text-xs text-muted-foreground">
+                  No products found matching &ldquo;<span className="font-semibold text-foreground">{productSearch}</span>&rdquo;. Try searching by product name, SKU, or category.
+                </div>
+              )}
+
+              {/* Results dropdown */}
               {filteredProducts.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-64 overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
-                  {filteredProducts.map((p) => (
-                    <button
-                      key={p.uuid}
-                      onClick={() => addProductManually(p)}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted transition-colors border-b border-border/30 last:border-0 cursor-pointer"
-                    >
-                      <img
-                        src={imageFor(p.category, p.imageUrl || p.image)}
-                        alt={p.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="size-9 rounded-lg object-cover border border-border shrink-0"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = clothing;
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
-                          {p.salesChannel === "OFFLINE_ONLY" ? (
-                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
-                              🏪 Offline Only
-                            </span>
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-72 overflow-y-auto rounded-xl border border-border bg-card shadow-xl divide-y divide-border/40">
+                  {filteredProducts.map((p) => {
+                    const q = productSearch.trim().toLowerCase();
+                    const matchedVar = p.variants?.find(
+                      (v) =>
+                        v.sku?.toLowerCase().includes(q) ||
+                        v.barcode?.toLowerCase().includes(q) ||
+                        v.name?.toLowerCase().includes(q) ||
+                        v.color?.toLowerCase().includes(q),
+                    );
+
+                    return (
+                      <div
+                        key={p.uuid}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-muted/40 transition-colors gap-2"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => addProductManually(p, matchedVar)}
+                          className="flex flex-1 items-center gap-3 text-left cursor-pointer min-w-0"
+                        >
+                          <img
+                            src={imageFor(p.category, p.imageUrl || p.image)}
+                            alt={p.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="size-10 rounded-lg object-cover border border-border shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = clothing;
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
+                              {p.salesChannel === "OFFLINE_ONLY" ? (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                  🏪 Offline Only
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                  🌐 Online + Store
+                                </span>
+                              )}
+                              {p.variants && p.variants.length > 1 && (
+                                <span className="text-[10px] text-muted-foreground font-semibold">
+                                  ({p.variants.length} variants)
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {matchedVar ? (
+                                <span className="text-primary font-semibold">
+                                  Variant: {matchedVar.name} ({matchedVar.sku}) • ₹{matchedVar.priceOverride || p.price} • Stock: {matchedVar.stock}
+                                </span>
+                              ) : (
+                                `${p.sku} • ${formatPrice(p.price)} • Stock: ${p.stock}`
+                              )}
+                            </p>
+                          </div>
+                        </button>
+
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap">
+                          {p.variants && p.variants.length > 1 ? (
+                            p.variants.map((v) => (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => addProductManually(p, v)}
+                                disabled={(v.stock ?? 0) <= 0}
+                                title={`Add ${v.name} (${v.stock} in stock)`}
+                                className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                                  (v.stock ?? 0) > 0
+                                    ? "bg-primary/5 hover:bg-primary hover:text-white border-primary/30 text-primary"
+                                    : "bg-muted text-muted-foreground border-border opacity-40 cursor-not-allowed"
+                                }`}
+                              >
+                                {v.color && (
+                                  <span
+                                    className="size-2 rounded-full border border-black/20 shrink-0"
+                                    style={{ backgroundColor: v.color.toLowerCase() }}
+                                  />
+                                )}
+                                <span>{v.name}</span>
+                                <span className="text-[9px] opacity-70">({v.stock})</span>
+                              </button>
+                            ))
                           ) : (
-                            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
-                              🌐 Online + Store
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => addProductManually(p, matchedVar)}
+                              disabled={p.stock <= 0}
+                              className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                                p.stock > 0
+                                  ? "bg-primary text-white border-primary hover:bg-primary/90"
+                                  : "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
+                              }`}
+                            >
+                              {p.stock > 0 ? "+ Add" : "Out"}
+                            </button>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {p.sku} • {formatPrice(p.price)} • Stock: {p.stock}
-                        </p>
                       </div>
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          p.stock > 0
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {p.stock > 0 ? `${p.stock}` : "OOS"}
-                      </span>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

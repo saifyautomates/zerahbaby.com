@@ -239,9 +239,12 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight">Customer Inquiries & Support</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight">
+            Customer Inquiries & Support
+          </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Authoritative inbox for customer questions, order support, and contact form messages. Click any row to view full details.
+            Authoritative inbox for customer questions, order support, and contact form messages.
+            Click any row to view full details.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -437,13 +440,20 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="font-semibold">{q.name}</span>
-                        <span className="block text-xs text-muted-foreground truncate">{q.email}</span>
+                        <span className="block text-xs text-muted-foreground truncate">
+                          {q.email}
+                        </span>
                       </td>
                       <td className="px-4 py-3.5">{q.order_number || "—"}</td>
-                      <td className="px-4 py-3.5 max-w-[200px] truncate text-muted-foreground text-xs">{q.message}</td>
+                      <td className="px-4 py-3.5 max-w-[200px] truncate text-muted-foreground text-xs">
+                        {q.message}
+                      </td>
                       <td className="px-4 py-3.5 capitalize">{q.priority}</td>
                       <td className="px-4 py-3.5 capitalize">{q.status.replace("_", " ")}</td>
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-4 py-3.5 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"

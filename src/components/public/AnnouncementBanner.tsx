@@ -92,9 +92,23 @@ export function AnnouncementBanner() {
     >
       {isDefaultBurgundy && <span className="announce-sheen" aria-hidden="true" />}
       {link ? (
-        <Link to={link} className="block w-full transition-opacity hover:opacity-95">
-          {content}
-        </Link>
+        /^https?:\/\//i.test(link) || link.startsWith("tel:") || link.startsWith("mailto:") ? (
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full transition-opacity hover:opacity-95"
+          >
+            {content}
+          </a>
+        ) : (
+          <Link
+            to={(link.startsWith("/") ? link : `/${link}`) as any}
+            className="block w-full transition-opacity hover:opacity-95"
+          >
+            {content}
+          </Link>
+        )
       ) : (
         <div className="w-full">{content}</div>
       )}

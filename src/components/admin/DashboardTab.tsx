@@ -33,6 +33,7 @@ import {
   Percent,
   Info,
   ChevronDown,
+  ChevronRight,
   MoreVertical,
   Calendar,
   Download,
@@ -51,7 +52,16 @@ import {
   RefreshCw,
   Tag,
   Sparkles,
+  ExternalLink,
+  Mail,
+  Phone,
+  MapPin,
+  Copy,
+  Receipt,
+  Truck,
+  Ban,
 } from "lucide-react";
+import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +116,11 @@ function calculateDelta(current: number, prev: number, periodLabel: string) {
   return { text: `0% vs ${periodLabel}`, isPositive: true };
 }
 
-export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+export function DashboardTab({
+  onNavigate,
+}: {
+  onNavigate?: (tab: string, payload?: string) => void;
+}) {
   const [activeDrillDown, setActiveDrillDownState] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -160,6 +174,30 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
   const [salesChannelFilter, setSalesChannelFilter] = useState<"all" | "online" | "pos">("all");
   const [salesSearchQuery, setSalesSearchQuery] = useState("");
   const dateDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Omnichannel Transaction Details Modal State
+  const [selectedSale, setSelectedSale] = useState<{
+    key: string;
+    id: string;
+    rawId: string;
+    customer: string;
+    phone: string;
+    amount: number;
+    payment_method: string;
+    status: string;
+    source: "Online" | "POS";
+    created_at: string;
+    itemCount: number;
+    itemsSummary: string;
+  } | null>(null);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const handleCopyId = (idStr: string) => {
+    navigator.clipboard.writeText(idStr);
+    setCopiedId(true);
+    toast.success("Order ID copied to clipboard");
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   useEffect(() => {
     initPerformanceMetrics();
@@ -268,6 +306,16 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
     isError: posError,
     refetch: refetchPos,
   } = useCanonicalPOSSales();
+
+  const matchingOrder = useMemo(() => {
+    if (!selectedSale || selectedSale.source !== "Online") return null;
+    return orders.find((o) => o.id === selectedSale.rawId) || null;
+  }, [selectedSale, orders]);
+
+  const matchingPos = useMemo(() => {
+    if (!selectedSale || selectedSale.source !== "POS") return null;
+    return rawPosSales.find((s) => s.id === selectedSale.rawId) || null;
+  }, [selectedSale, rawPosSales]);
 
   const {
     data: offlineReturns = [],
@@ -669,22 +717,306 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
         fullTime: format(new Date(act.created_at), "MMMM dd, yyyy 'at' hh:mm:ss a"),
         icon,
         color,
+        metadata: act.metadata,
       };
     });
   }, [unifiedActivities]);
 
+  type ActivityItem = {
+    id: string;
+    source?: string;
+    typeKey?: string;
+    title: string;
+    subtitle?: string;
+    amount?: number;
+    productName?: string | null;
+    productSlug?: string | null;
+    productImage?: string | null;
+    customerName?: string | null;
+    channelTag?: string;
+    time?: string;
+    fullTime?: string;
+    icon: any;
+    color: string;
+    metadata?: Record<string, any> | null;
+  };
+
+  const getActionMeta = (act: ActivityItem) => {
+    if (!act || act.id === "operational") return null;
+
+    const isOnlineOrder =
+      act.source === "online_order" ||
+      (act.typeKey === "order" && act.source !== "pos_sale") ||
+      act.title.toLowerCase().includes("online order");
+
+    if (isOnlineOrder) {
+      return {
+        label: "View Order",
+        tooltip: "Click to inspect online order details",
+        icon: ChevronRight,
+        isExternal: false,
+      };
+    }
+
+    if (act.source === "pos_sale" || act.title.toLowerCase().includes("store sale")) {
+      return {
+        label: "View Sale",
+        tooltip: "Click to inspect POS sale receipt",
+        icon: ChevronRight,
+        isExternal: false,
+      };
+    }
+
+    if (
+      act.source === "pos_return" ||
+      act.source === "online_return" ||
+      act.typeKey === "return" ||
+      act.title.toLowerCase().includes("return") ||
+      act.title.toLowerCase().includes("voucher")
+    ) {
+      return {
+        label: "Returns",
+        tooltip: "Click to go to Returns & Exchanges",
+        icon: ChevronRight,
+        isExternal: false,
+      };
+    }
+
+    const productSlug =
+      act.productSlug ||
+      (act.title.includes("/product/")
+        ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1]
+        : null) ||
+      (typeof act.metadata?.path === "string" && act.metadata.path.includes("/product/")
+        ? act.metadata.path.match(/\/product\/([^\s?#/]+)/)?.[1]
+        : null);
+
+    if (productSlug) {
+      return {
+        label: "View Product",
+        tooltip: `Click to open product: /product/${productSlug}`,
+        icon: ExternalLink,
+        isExternal: true,
+      };
+    }
+
+    if (
+      act.typeKey === "checkout" ||
+      act.title.toLowerCase().includes("checkout") ||
+      act.title.includes("/checkout") ||
+      act.metadata?.path === "/checkout"
+    ) {
+      return {
+        label: "Checkouts",
+        tooltip: "Click to view Orders & Checkouts",
+        icon: ChevronRight,
+        isExternal: false,
+      };
+    }
+
+    if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
+      return {
+        label: "View Cart",
+        tooltip: "Click to open storefront cart",
+        icon: ExternalLink,
+        isExternal: true,
+      };
+    }
+
+    if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
+      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
+      if (!path.startsWith("/")) path = `/${path}`;
+      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
+      if (path === "/products" || path === "/products/") path = "/shop";
+      return {
+        label: path === "/" ? "Visit Store" : "Open Page",
+        tooltip: `Click to visit ${path} in new tab`,
+        icon: ExternalLink,
+        isExternal: true,
+      };
+    }
+
+    return {
+      label: "Inspect",
+      tooltip: "Click to inspect activity",
+      icon: ChevronRight,
+      isExternal: false,
+    };
+  };
+
+  const handleActivityClick = (act: ActivityItem) => {
+    if (!act || act.id === "operational") return;
+
+    // 1. Online Order
+    const isOnlineOrder =
+      act.source === "online_order" ||
+      (act.typeKey === "order" && act.source !== "pos_sale") ||
+      act.title.toLowerCase().includes("online order");
+
+    if (isOnlineOrder) {
+      const orderId = act.metadata?.order_id || act.id;
+      const orderMatch = orders.find(
+        (o) =>
+          o.id === orderId ||
+          (o.invoice_no && act.title.includes(o.invoice_no)) ||
+          act.title.toUpperCase().includes(o.id.slice(0, 8).toUpperCase()),
+      );
+      if (orderMatch) {
+        setIsRecentActivityModalOpen(false);
+        setSelectedSale({
+          key: `online-${orderMatch.id}`,
+          id: orderMatch.invoice_no
+            ? `#${orderMatch.invoice_no}`
+            : `#${orderMatch.id.slice(0, 8).toUpperCase()}`,
+          rawId: orderMatch.id,
+          customer: orderMatch.full_name || orderMatch.email || "Online Buyer",
+          phone: orderMatch.phone || "",
+          amount: Number(orderMatch.total || 0),
+          payment_method: orderMatch.payment_method || "Online",
+          status: orderMatch.status || "placed",
+          source: "Online",
+          created_at: orderMatch.created_at,
+          itemCount: orderMatch.order_items?.length || 1,
+          itemsSummary:
+            orderMatch.order_items
+              ?.map((i) => i.name)
+              .filter(Boolean)
+              .join(", ") || "Order items",
+        });
+        return;
+      }
+      if (onNavigate) {
+        setIsRecentActivityModalOpen(false);
+        onNavigate("orders", orderId);
+        return;
+      }
+    }
+
+    // 2. POS Sale
+    if (act.source === "pos_sale" || act.title.toLowerCase().includes("store sale")) {
+      const saleId = act.metadata?.sale_id || act.id;
+      const posMatch = rawPosSales.find(
+        (s) =>
+          s.id === saleId ||
+          (s.sale_number && act.title.includes(s.sale_number)) ||
+          act.title.toUpperCase().includes(s.id.slice(0, 8).toUpperCase()),
+      );
+      if (posMatch) {
+        setIsRecentActivityModalOpen(false);
+        setSelectedSale({
+          key: `pos-${posMatch.id}`,
+          id: posMatch.sale_number || `#${posMatch.id.slice(0, 8).toUpperCase()}`,
+          rawId: posMatch.id,
+          customer: posMatch.customer_name || "Walk-in Customer",
+          phone: posMatch.customer_phone || "",
+          amount: Number(posMatch.total || 0),
+          payment_method: posMatch.payment_method || "Cash",
+          status: posMatch.status || "completed",
+          source: "POS",
+          created_at: posMatch.created_at,
+          itemCount: posMatch.offline_sale_items?.length || 1,
+          itemsSummary:
+            posMatch.offline_sale_items
+              ?.map((i) => i.name || i.product_slug)
+              .filter(Boolean)
+              .join(", ") || "POS items",
+        });
+        return;
+      }
+      if (onNavigate) {
+        setIsRecentActivityModalOpen(false);
+        onNavigate("billing");
+        return;
+      }
+    }
+
+    // 3. Returns & Exchanges
+    if (
+      act.source === "pos_return" ||
+      act.source === "online_return" ||
+      act.typeKey === "return" ||
+      act.title.toLowerCase().includes("return") ||
+      act.title.toLowerCase().includes("voucher")
+    ) {
+      if (onNavigate) {
+        setIsRecentActivityModalOpen(false);
+        onNavigate("returns");
+        toast.info("Navigated to Returns & Exchanges");
+        return;
+      }
+    }
+
+    // 4. Product Page
+    const productSlug =
+      act.productSlug ||
+      (act.title.includes("/product/")
+        ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1]
+        : null) ||
+      (typeof act.metadata?.path === "string" && act.metadata.path.includes("/product/")
+        ? act.metadata.path.match(/\/product\/([^\s?#/]+)/)?.[1]
+        : null);
+
+    if (productSlug) {
+      window.open(`/product/${productSlug}`, "_blank");
+      return;
+    }
+
+    // 5. Checkout started / Page viewed: /checkout
+    if (
+      act.typeKey === "checkout" ||
+      act.title.toLowerCase().includes("checkout") ||
+      act.title.includes("/checkout") ||
+      act.metadata?.path === "/checkout"
+    ) {
+      if (onNavigate) {
+        setIsRecentActivityModalOpen(false);
+        onNavigate("orders");
+        toast.info("Navigated to Orders to review checkouts and unpaid orders");
+        return;
+      }
+    }
+
+    // 6. Cart view / add
+    if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
+      window.open("/cart", "_blank");
+      return;
+    }
+
+    // 7. Generic Page views e.g. "Page viewed: /" or "Page viewed: /shop"
+    if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
+      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
+      if (!path.startsWith("/")) path = `/${path}`;
+      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
+      if (path === "/products" || path === "/products/") path = "/shop";
+      window.open(path, "_blank");
+      return;
+    }
+
+    // Fallback: Toast activity info
+    toast.info(act.title);
+  };
+
   // Widget preview on Dashboard (top 8 activities)
-  const recentActivity = useMemo(() => {
+  const recentActivity = useMemo<ActivityItem[]>(() => {
     if (parsedActivities.length === 0) {
       return [
         {
           id: "operational",
+          source: "system",
+          typeKey: "system",
           title: "Store operational",
           subtitle: "Waiting for store events",
           time: "Live",
+          fullTime: "Live",
           icon: Check,
           color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50",
           channelTag: "",
+          amount: 0,
+          productName: null,
+          productSlug: null,
+          productImage: null,
+          customerName: null,
+          metadata: null,
         },
       ];
     }
@@ -1621,13 +1953,14 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 <th className="pb-3">Items Summary</th>
                 <th className="pb-3">Payment</th>
                 <th className="pb-3">Status</th>
-                <th className="pb-3 text-right pr-2">Total Amount</th>
+                <th className="pb-3 text-right">Total Amount</th>
+                <th className="pb-3 text-center pr-2">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {allSalesHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
+                  <td colSpan={9} className="py-10 text-center text-xs text-muted-foreground">
                     <ShoppingBag className="size-8 mx-auto mb-2 opacity-30" />
                     <p className="font-semibold">No sales recorded matching this filter.</p>
                     <p className="text-[11px] mt-0.5">
@@ -1640,13 +1973,12 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 allSalesHistory.slice(0, 15).map((s) => (
                   <tr
                     key={s.key}
-                    onClick={() => {
-                      if (s.source === "Online") onNavigate?.("orders");
-                      else onNavigate?.("billing");
-                    }}
+                    onClick={() => setSelectedSale(s)}
                     className="hover:bg-muted/50 transition-colors cursor-pointer group"
                   >
-                    <td className="py-3 pl-2 font-bold text-foreground font-mono">{s.id}</td>
+                    <td className="py-3 pl-2 font-bold text-foreground font-mono group-hover:text-primary transition-colors">
+                      {s.id}
+                    </td>
                     <td className="py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
@@ -1693,8 +2025,34 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                         {s.status}
                       </span>
                     </td>
-                    <td className="py-3 text-right pr-2 font-black text-foreground text-sm">
+                    <td className="py-3 text-right font-black text-foreground text-sm whitespace-nowrap">
                       {formatPrice(s.amount)}
+                    </td>
+                    <td className="py-3 text-center pr-2 whitespace-nowrap">
+                      <div
+                        className="flex items-center justify-center gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSale(s)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card hover:bg-muted px-2.5 py-1 text-[11px] font-bold text-foreground transition shadow-2xs cursor-pointer"
+                          title="Open full order details"
+                        >
+                          <Eye className="size-3 text-primary" />
+                          <span>Details</span>
+                        </button>
+                        {s.source === "Online" && onNavigate && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate("orders", s.rawId)}
+                            className="inline-flex items-center rounded-lg border border-border bg-card hover:bg-muted p-1 text-muted-foreground hover:text-foreground transition shadow-2xs cursor-pointer"
+                            title="Manage in Orders Tab"
+                          >
+                            <ExternalLink className="size-3" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1804,31 +2162,69 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               <ChevronDown className="h-3 w-3 rotate-270" />
             </button>
           </div>
-          <div className="space-y-3.5">
+          <div className="space-y-1.5">
             {recentActivity.map((act, i) => {
               const Icon = act.icon;
+              const actionMeta = getActionMeta(act);
+              const isClickable = Boolean(actionMeta);
+              const ActionIcon = actionMeta?.icon || ChevronRight;
+
               return (
-                <div key={act.id || i} className="flex items-center justify-between text-xs gap-2">
+                <div
+                  key={act.id || i}
+                  role={isClickable ? "button" : undefined}
+                  tabIndex={isClickable ? 0 : undefined}
+                  title={actionMeta?.tooltip || act.title}
+                  onClick={() => isClickable && handleActivityClick(act)}
+                  onKeyDown={(e) => {
+                    if (isClickable && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      handleActivityClick(act);
+                    }
+                  }}
+                  className={`flex items-center justify-between text-xs gap-2 px-2.5 py-2 rounded-xl transition-all select-none ${
+                    isClickable
+                      ? "cursor-pointer hover:bg-muted/70 hover:shadow-2xs active:scale-[0.99] group border border-transparent hover:border-border/60"
+                      : ""
+                  }`}
+                >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${act.color}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform ${
+                        isClickable ? "group-hover:scale-105" : ""
+                      } ${act.color}`}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{act.title}</p>
+                      <p
+                        className={`font-medium text-foreground truncate transition-colors ${
+                          isClickable ? "group-hover:text-primary" : ""
+                        }`}
+                      >
+                        {act.title}
+                      </p>
                       {act.subtitle && act.subtitle !== "Visitor" && (
                         <p className="text-[10px] text-muted-foreground truncate">{act.subtitle}</p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
                     {act.channelTag && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground border border-border/50">
                         {act.channelTag}
                       </span>
                     )}
                     <span className="text-[11px] text-muted-foreground">{act.time}</span>
+                    {isClickable && (
+                      <div className="flex items-center text-muted-foreground/50 group-hover:text-primary transition-colors">
+                        <ActionIcon
+                          className={`size-3.5 transition-transform ${
+                            actionMeta?.isExternal ? "" : "group-hover:translate-x-0.5"
+                          }`}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -2012,14 +2408,34 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
               ) : (
                 filteredActivities.map((act) => {
                   const Icon = act.icon;
+                  const actionMeta = getActionMeta(act);
+                  const isClickable = Boolean(actionMeta);
+                  const ActionIcon = actionMeta?.icon || ChevronRight;
+
                   return (
                     <div
                       key={act.id}
-                      className="flex items-center justify-between p-3 rounded-2xl bg-muted/20 border border-border/60 hover:bg-muted/40 transition gap-3"
+                      role={isClickable ? "button" : undefined}
+                      tabIndex={isClickable ? 0 : undefined}
+                      title={actionMeta?.tooltip || act.title}
+                      onClick={() => isClickable && handleActivityClick(act)}
+                      onKeyDown={(e) => {
+                        if (isClickable && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          handleActivityClick(act);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl bg-muted/20 border border-border/60 transition gap-3 ${
+                        isClickable
+                          ? "cursor-pointer hover:bg-muted/50 hover:border-primary/40 hover:shadow-xs group active:scale-[0.995]"
+                          : ""
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${act.color}`}
+                          className={`flex size-9 shrink-0 items-center justify-center rounded-xl transition-transform ${
+                            isClickable ? "group-hover:scale-105" : ""
+                          } ${act.color}`}
                         >
                           <Icon className="size-4" />
                         </div>
@@ -2031,7 +2447,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                           />
                         )}
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">
+                          <p
+                            className={`text-xs font-semibold text-foreground truncate transition-colors ${
+                              isClickable ? "group-hover:text-primary" : ""
+                            }`}
+                          >
                             {act.title}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -2058,15 +2478,11 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                             ₹{Math.round(act.amount).toLocaleString("en-IN")}
                           </span>
                         )}
-                        {act.productSlug && (
-                          <Link
-                            to="/product/$id"
-                            params={{ id: act.productSlug }}
-                            target="_blank"
-                            className="text-xs font-medium text-primary hover:underline ml-1"
-                          >
-                            View Product →
-                          </Link>
+                        {actionMeta && (
+                          <div className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-all ml-1">
+                            <span>{actionMeta.label}</span>
+                            <ActionIcon className="size-3" />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2085,6 +2501,304 @@ export function DashboardTab({ onNavigate }: { onNavigate?: (tab: string) => voi
                 type="button"
                 onClick={() => setIsRecentActivityModalOpen(false)}
                 className="px-4 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-xs font-bold text-foreground transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Omnichannel Transaction Details Modal */}
+      {selectedSale && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedSale(null)}
+        >
+          <div
+            className="flex flex-col w-full max-w-3xl max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border/80 px-6 py-4 bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`size-10 rounded-2xl flex items-center justify-center border shadow-xs ${
+                    selectedSale.source === "Online"
+                      ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                      : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                  }`}
+                >
+                  {selectedSale.source === "Online" ? (
+                    <ShoppingBag className="size-5" />
+                  ) : (
+                    <Receipt className="size-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-bold text-foreground font-mono">
+                      {selectedSale.id}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyId(selectedSale.rawId || selectedSale.id)}
+                      className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                      title="Copy full ID"
+                    >
+                      {copiedId ? (
+                        <Check className="size-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-3.5" />
+                      )}
+                    </button>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                        selectedSale.source === "Online"
+                          ? "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                          : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                      }`}
+                    >
+                      {selectedSale.source === "Online" ? "Online Store" : "POS Register"}
+                    </span>
+                    <span
+                      className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        selectedSale.status === "delivered" || selectedSale.status === "completed"
+                          ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20"
+                          : selectedSale.status === "shipped"
+                            ? "bg-blue-500/10 text-blue-700 border border-blue-500/20"
+                            : selectedSale.status === "cancelled"
+                              ? "bg-rose-500/10 text-rose-700 border border-rose-500/20"
+                              : "bg-amber-500/10 text-amber-700 border border-amber-500/20"
+                      }`}
+                    >
+                      {selectedSale.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(selectedSale.created_at), "EEEE, MMMM dd, yyyy • hh:mm a")}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSale(null)}
+                className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Customer & Address Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+                  <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <Users className="size-4 text-primary" />
+                    <span>Customer Details</span>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-sm font-bold text-foreground">
+                      {matchingOrder?.full_name || selectedSale.customer}
+                    </p>
+                    {matchingOrder?.email && (
+                      <p className="text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="size-3.5 text-muted-foreground/70 shrink-0" />
+                        <a
+                          href={`mailto:${matchingOrder.email}`}
+                          className="hover:underline text-foreground"
+                        >
+                          {matchingOrder.email}
+                        </a>
+                      </p>
+                    )}
+                    {selectedSale.phone && (
+                      <p className="text-muted-foreground flex items-center gap-1.5 font-mono">
+                        <Phone className="size-3.5 text-muted-foreground/70 shrink-0" />
+                        <a
+                          href={`tel:${selectedSale.phone}`}
+                          className="hover:underline text-foreground"
+                        >
+                          {selectedSale.phone}
+                          {matchingOrder?.alt_phone ? ` / ${matchingOrder.alt_phone}` : ""}
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+                  <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <MapPin className="size-4 text-primary" />
+                    <span>Delivery Location</span>
+                  </div>
+                  <div className="text-xs text-foreground space-y-1">
+                    {selectedSale.source === "Online" && matchingOrder ? (
+                      <>
+                        <p className="font-medium">
+                          {matchingOrder.address || "No street address provided"}
+                        </p>
+                        {matchingOrder.address_line2 && (
+                          <p className="text-muted-foreground">{matchingOrder.address_line2}</p>
+                        )}
+                        <p className="font-semibold text-muted-foreground">
+                          {[matchingOrder.city, matchingOrder.state].filter(Boolean).join(", ")}
+                          {matchingOrder.pincode ? ` - ${matchingOrder.pincode}` : ""}
+                        </p>
+                        {matchingOrder.landmark && (
+                          <p className="text-[11px] text-muted-foreground italic">
+                            Landmark: {matchingOrder.landmark}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground italic">
+                        In-Store Direct Purchase (POS Counter Register)
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cancellation Notice Banner (if cancelled) */}
+              {selectedSale.status === "cancelled" && (
+                <div className="rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 p-4 text-xs text-rose-900 dark:text-rose-200 space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-rose-800 dark:text-rose-300">
+                    <Ban className="size-4 text-rose-600 dark:text-rose-400" />
+                    <span>Order Cancelled</span>
+                    {matchingOrder?.cancelled_at && (
+                      <span className="font-normal text-muted-foreground">
+                        • {new Date(matchingOrder.cancelled_at).toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </div>
+                  {matchingOrder?.cancellation_reason && (
+                    <p className="italic text-[11px] text-rose-700 dark:text-rose-300 pl-6">
+                      Reason: “{matchingOrder.cancellation_reason}”
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Products in this Order / Sale */}
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between mb-3 border-b border-border/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Package className="size-4 text-primary" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Products in this {selectedSale.source === "Online" ? "Order" : "Sale"} (
+                      {selectedSale.itemCount} {selectedSale.itemCount === 1 ? "unit" : "units"})
+                    </h4>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-foreground">
+                    Total: {formatPrice(selectedSale.amount)}
+                  </span>
+                </div>
+
+                {selectedSale.source === "Online" && matchingOrder ? (
+                  <AdminOrderItemsList order={matchingOrder} defaultExpanded={true} />
+                ) : selectedSale.source === "POS" && matchingPos ? (
+                  <AdminOrderItemsList
+                    order={
+                      {
+                        ...matchingPos,
+                        _type: "offline",
+                        order_items: [],
+                        offline_sale_items: matchingPos.offline_sale_items,
+                      } as unknown as Order
+                    }
+                    defaultExpanded={true}
+                  />
+                ) : (
+                  <div className="p-3 text-xs text-muted-foreground bg-muted/20 rounded-xl">
+                    <p className="font-semibold text-foreground">{selectedSale.itemsSummary}</p>
+                    <p className="text-[11px] mt-0.5">Quantity: {selectedSale.itemCount} items</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment & Financial Ledger */}
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+                <div className="flex items-center justify-between text-xs mb-3 border-b border-border/60 pb-2">
+                  <span className="font-bold uppercase tracking-wider text-muted-foreground">
+                    Payment & Settlement Details
+                  </span>
+                  <span className="font-semibold text-foreground uppercase">
+                    Method: {selectedSale.payment_method}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  {matchingOrder && (
+                    <>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Items Subtotal</span>
+                        <span>{formatPrice(matchingOrder.subtotal || selectedSale.amount)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Shipping & Handling</span>
+                        <span>
+                          {Number(matchingOrder.shipping || 0) === 0
+                            ? "FREE"
+                            : formatPrice(matchingOrder.shipping || 0)}
+                        </span>
+                      </div>
+                      {Number(matchingOrder.discount || 0) > 0 && (
+                        <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                          <span>Discount Savings</span>
+                          <span>- {formatPrice(matchingOrder.discount || 0)}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="flex justify-between text-sm font-black text-foreground pt-2 border-t border-border">
+                    <span>Final Amount</span>
+                    <span>{formatPrice(selectedSale.amount)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-between border-t border-border/80 px-6 py-3.5 bg-muted/10">
+              <div>
+                {selectedSale.source === "Online" && onNavigate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetId = selectedSale.rawId;
+                      setSelectedSale(null);
+                      onNavigate("orders", targetId);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 transition cursor-pointer"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    <span>Manage in Online Orders</span>
+                  </button>
+                ) : selectedSale.source === "POS" && onNavigate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSale(null);
+                      onNavigate("billing");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 transition cursor-pointer"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    <span>Open In-Store POS</span>
+                  </button>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSale(null)}
+                className="rounded-xl border border-border bg-card hover:bg-muted px-4 py-2 text-xs font-bold text-foreground transition cursor-pointer shadow-2xs"
               >
                 Close
               </button>

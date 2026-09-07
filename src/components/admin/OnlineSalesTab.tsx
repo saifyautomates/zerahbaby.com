@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,8 @@ import {
   PackageCheck,
   Send,
   Ban,
+  AlertCircle,
+  Search,
 } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
@@ -50,15 +52,40 @@ export function OnlineSalesTab() {
   const ITEMS_PER_PAGE = 25;
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
+  // Search and URL Direct Order Deep Link
+  const [searchTerm, setSearchTerm] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      return p.get("orderId") || p.get("search") || "";
+    }
+    return "";
+  });
+
+  // Keep search term synchronized when URL changes or navigation occurs
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    const param = p.get("orderId") || p.get("search");
+    if (param && param !== searchTerm) {
+      setSearchTerm(param);
+      setFilter("all");
+      setPage(1);
+    }
+  }, []);
+
   // Bulk Cancel Orders State
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [cancelTargetMode, setCancelTargetMode] = useState<"selected" | "visible" | "all">("selected");
+  const [cancelTargetMode, setCancelTargetMode] = useState<"selected" | "visible" | "all">(
+    "selected",
+  );
   const [bulkCancelReason, setBulkCancelReason] = useState("Bulk cancelled by Admin");
   const [isBulkCancelling, setIsBulkCancelling] = useState(false);
 
   // Bulk Delete Cancelled Orders State
   const [isDeleteBulkModalOpen, setIsDeleteBulkModalOpen] = useState(false);
-  const [deleteTargetMode, setDeleteTargetMode] = useState<"selected" | "all_cancelled">("selected");
+  const [deleteTargetMode, setDeleteTargetMode] = useState<"selected" | "all_cancelled">(
+    "selected",
+  );
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const retryNotification = useRetryOrderNotification();
@@ -191,6 +218,25 @@ export function OnlineSalesTab() {
   const cancelledOrdersCount = allData.filter((o) => o.status === "cancelled").length;
 
   const orders = allData.filter((o) => {
+    // Filter by Search Query (ID, Customer Name, Phone, Email, City)
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim().replace(/^#/, "");
+      const idShort = o.id.slice(0, 8).toLowerCase();
+      const idFull = o.id.toLowerCase();
+      const name = (o.full_name || o.customer_name || "").toLowerCase();
+      const email = (o.email || (o as any).customer_email || "").toLowerCase();
+      const phone = (o.phone || o.customer_phone || "").toLowerCase();
+      const city = (o.city || "").toLowerCase();
+      const match =
+        idShort.includes(q) ||
+        idFull.includes(q) ||
+        name.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q) ||
+        city.includes(q);
+      if (!match) return false;
+    }
+
     if (filter === "new_orders") {
       return isWithinLast24Hours(o.created_at);
     }
@@ -216,6 +262,25 @@ export function OnlineSalesTab() {
     if (o._type === "offline" && filter === "completed") return o.status === "completed";
     return o.status === filter;
   });
+
+  // Smooth scroll to targeted order when searched or navigated directly
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+    const cleanTerm = searchTerm.toLowerCase().trim().replace(/^#/, "");
+    const matchingOrder = orders.find((o) => o.id.toLowerCase().includes(cleanTerm));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (matchingOrder) {
+      timer = setTimeout(() => {
+        const el = document.getElementById(`order-card-${matchingOrder.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [searchTerm, orders]);
 
   const { data: products = [] } = useProducts(true);
   const selection = useTableSelection<UnifiedTransaction>({ items: orders });
@@ -313,7 +378,9 @@ export function OnlineSalesTab() {
 
   async function handleExecuteBulkDelete() {
     if (ordersToDeletePool.length === 0) {
-      toast.error("No cancelled orders found to delete. Only cancelled orders can be permanently deleted.");
+      toast.error(
+        "No cancelled orders found to delete. Only cancelled orders can be permanently deleted.",
+      );
       setIsDeleteBulkModalOpen(false);
       return;
     }
@@ -323,9 +390,12 @@ export function OnlineSalesTab() {
       const orderIds = ordersToDeletePool.map((o) => o.id);
 
       // 1. Try atomic bulk RPC
-      const { error: bulkErr } = await supabase.rpc("delete_cancelled_orders_bulk" as never, {
-        _order_ids: orderIds,
-      } as never);
+      const { error: bulkErr } = await supabase.rpc(
+        "delete_cancelled_orders_bulk" as never,
+        {
+          _order_ids: orderIds,
+        } as never,
+      );
 
       if (bulkErr) {
         console.warn("[BulkDelete] Bulk RPC fallback:", bulkErr);
@@ -335,7 +405,9 @@ export function OnlineSalesTab() {
           const chunk = orderIds.slice(i, i + CHUNK_SIZE);
           await Promise.all(
             chunk.map(async (id) => {
-              const { error: rpcErr } = await supabase.rpc("delete_cancelled_order", { _order_id: id });
+              const { error: rpcErr } = await supabase.rpc("delete_cancelled_order", {
+                _order_id: id,
+              });
               if (rpcErr) {
                 await supabase.from("coupon_usage").delete().eq("order_id", id);
                 await supabase.from("order_items").delete().eq("order_id", id);
@@ -443,6 +515,65 @@ export function OnlineSalesTab() {
         </div>
       </div>
 
+      {/* Search Input Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3.5 rounded-2xl border border-border shadow-2xs">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search orders by #ID, customer name, phone, city..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+            className="h-9.5 w-full rounded-xl border border-border bg-background pl-10 pr-9 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setPage(1);
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("orderId");
+                  url.searchParams.delete("search");
+                  window.history.replaceState({}, "", url.toString());
+                }
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+              title="Clear search"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span>
+              Showing <strong>{orders.length}</strong> matching {orders.length === 1 ? "order" : "orders"}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setPage(1);
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("orderId");
+                  url.searchParams.delete("search");
+                  window.history.replaceState({}, "", url.toString());
+                }
+              }}
+              className="text-primary hover:underline font-bold text-[11px] cursor-pointer"
+            >
+              Reset filter
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* New Orders (24h) Filter Button before 'All' */}
@@ -532,7 +663,9 @@ export function OnlineSalesTab() {
           {orders.length > 0 && (
             <button
               type="button"
-              onClick={() => handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "all")}
+              onClick={() =>
+                handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "all")
+              }
               className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition cursor-pointer shadow-2xs"
               title="Cancel multiple or all orders in view"
             >
@@ -563,7 +696,9 @@ export function OnlineSalesTab() {
 
               <button
                 type="button"
-                onClick={() => handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "visible")}
+                onClick={() =>
+                  handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "visible")
+                }
                 className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer shadow-2xs"
                 title={
                   selection.selectedCount > 0
@@ -611,7 +746,9 @@ export function OnlineSalesTab() {
         actions={
           <div className="flex items-center gap-1.5 flex-wrap">
             {/* Delete Selected (only for cancelled orders) */}
-            {selection.selectedItems.some((o) => (o as unknown as Order).status === "cancelled") && (
+            {selection.selectedItems.some(
+              (o) => (o as unknown as Order).status === "cancelled",
+            ) && (
               <button
                 type="button"
                 onClick={() => handleOpenDeleteModal("selected")}
@@ -645,7 +782,9 @@ export function OnlineSalesTab() {
             )}
 
             {/* Cancel Selected (for active orders) */}
-            {selection.selectedItems.some((o) => (o as unknown as Order).status !== "cancelled") && (
+            {selection.selectedItems.some(
+              (o) => (o as unknown as Order).status !== "cancelled",
+            ) && (
               <button
                 type="button"
                 onClick={() => handleOpenCancelModal("selected")}
@@ -679,7 +818,8 @@ export function OnlineSalesTab() {
               onClick={() => selection.selectAllFiltered(orders)}
               className="font-bold text-[#8B2020] underline hover:text-[#8B2020]/80 cursor-pointer"
             >
-              Select all {orders.length} orders in {filter === "cancelled" ? "Cancelled" : "this view"}
+              Select all {orders.length} orders in{" "}
+              {filter === "cancelled" ? "Cancelled" : "this view"}
             </button>
           </div>
         )}
@@ -698,13 +838,19 @@ export function OnlineSalesTab() {
       <ul className="space-y-4">
         {visibleOrders.map((order) => {
           const isSelected = selection.isSelected(order.id);
+          const isSearchMatch =
+            searchTerm.trim().length > 0 &&
+            order.id.toLowerCase().includes(searchTerm.toLowerCase().trim().replace(/^#/, ""));
           return (
             <li
               key={order.id}
+              id={`order-card-${order.id}`}
               className={`overflow-hidden rounded-3xl border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-border ${
                 isSelected
                   ? "border-[#8B2020] ring-2 ring-[#8B2020]/20 bg-[#8B2020]/5"
-                  : "border-gray-100"
+                  : isSearchMatch
+                    ? "border-primary ring-2 ring-primary/40 bg-primary/5 shadow-md"
+                    : "border-gray-100"
               }`}
             >
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -1023,29 +1169,54 @@ export function OnlineSalesTab() {
                             </p>
                           )}
                         </div>
-                      ) : order._type === "online" &&
-                        (order.payment_status === "paid" ||
-                          order.payment_status === "refunded" ||
-                          Boolean(order.razorpay_payment_id)) ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            processRefund.mutate({
-                              orderId: order.id,
-                              reason: "Admin initiated cancellation refund",
-                            })
-                          }
-                          disabled={processRefund.isPending}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
-                        >
-                          {processRefund.isPending ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <RotateCcw className="size-3.5" />
-                          )}
-                          Refund via Razorpay
-                        </button>
-                      ) : null}
+                      ) : (
+                        <>
+                          {order._type === "online" &&
+                            order.razorpay_refund_status === "FAILED" && (
+                              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-2 text-left shadow-xs">
+                                <p className="text-[10px] font-bold text-rose-800 uppercase flex items-center gap-1">
+                                  <AlertCircle className="size-3 shrink-0" /> Refund Attempt Failed
+                                </p>
+                                <p className="text-xs text-rose-950 mt-0.5 break-words font-medium">
+                                  {order.refund_notes?.replace(/^Gateway refund failed:\s*/i, "") ||
+                                    "Gateway rejected the refund"}
+                                </p>
+                              </div>
+                            )}
+
+                          {order._type === "online" &&
+                            (order.payment_status === "paid" ||
+                              Boolean(order.razorpay_payment_id)) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (processRefund.isPending) return;
+                                  processRefund.mutate({
+                                    orderId: order.id,
+                                    reason: "Admin initiated cancellation refund",
+                                  });
+                                }}
+                                disabled={processRefund.isPending}
+                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
+                              >
+                                {processRefund.isPending &&
+                                (processRefund.variables as any)?.orderId === order.id ? (
+                                  <>
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                    Processing Refund...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RotateCcw className="size-3.5" />
+                                    {order.razorpay_refund_status === "FAILED"
+                                      ? "Retry Refund via Razorpay"
+                                      : "Refund via Razorpay"}
+                                  </>
+                                )}
+                              </button>
+                            )}
+                        </>
+                      )}
 
                       <button
                         type="button"
@@ -1209,12 +1380,11 @@ export function OnlineSalesTab() {
                   <Ban className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">
-                    Cancel Orders
-                  </h3>
+                  <h3 className="text-base font-bold text-foreground">Cancel Orders</h3>
                   <p className="text-xs text-muted-foreground">
                     {activeOrdersToCancel.length} active{" "}
-                    {activeOrdersToCancel.length === 1 ? "order" : "orders"} selected for cancellation
+                    {activeOrdersToCancel.length === 1 ? "order" : "orders"} selected for
+                    cancellation
                   </p>
                 </div>
               </div>
@@ -1233,17 +1403,25 @@ export function OnlineSalesTab() {
               {/* Summary Card */}
               <div className="rounded-2xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-800 dark:text-rose-300">Orders to Cancel:</span>
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">
+                    Orders to Cancel:
+                  </span>
                   <span className="font-bold text-foreground">{activeOrdersToCancel.length}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-800 dark:text-rose-300">Total Value:</span>
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">
+                    Total Value:
+                  </span>
                   <span className="font-black text-rose-900 dark:text-rose-200 text-sm">
-                    {formatPrice(activeOrdersToCancel.reduce((sum, o) => sum + Number(o.total || 0), 0))}
+                    {formatPrice(
+                      activeOrdersToCancel.reduce((sum, o) => sum + Number(o.total || 0), 0),
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-800 dark:text-rose-300">Stock Restoration:</span>
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">
+                    Stock Restoration:
+                  </span>
                   <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                     Automatic (catalog stock restored)
                   </span>
@@ -1380,7 +1558,8 @@ export function OnlineSalesTab() {
                   </h3>
                   <p className="text-xs text-rose-700 dark:text-rose-400 font-semibold">
                     {ordersToDeletePool.length}{" "}
-                    {ordersToDeletePool.length === 1 ? "order" : "orders"} will be permanently purged
+                    {ordersToDeletePool.length === 1 ? "order" : "orders"} will be permanently
+                    purged
                   </p>
                 </div>
               </div>
@@ -1408,7 +1587,13 @@ export function OnlineSalesTab() {
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    Selected Orders ({selection.selectedItems.filter((o) => (o as unknown as Order).status === "cancelled").length})
+                    Selected Orders (
+                    {
+                      selection.selectedItems.filter(
+                        (o) => (o as unknown as Order).status === "cancelled",
+                      ).length
+                    }
+                    )
                   </button>
                   <button
                     type="button"
@@ -1427,19 +1612,27 @@ export function OnlineSalesTab() {
               {/* Summary Card */}
               <div className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-900 dark:text-rose-200">Orders to Delete:</span>
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">
+                    Orders to Delete:
+                  </span>
                   <span className="font-black text-rose-950 dark:text-rose-100 text-sm">
                     {ordersToDeletePool.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-900 dark:text-rose-200">Total Value:</span>
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">
+                    Total Value:
+                  </span>
                   <span className="font-bold text-foreground">
-                    {formatPrice(ordersToDeletePool.reduce((sum, o) => sum + Number(o.total || 0), 0))}
+                    {formatPrice(
+                      ordersToDeletePool.reduce((sum, o) => sum + Number(o.total || 0), 0),
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-900 dark:text-rose-200">Database Action:</span>
+                  <span className="font-semibold text-rose-900 dark:text-rose-200">
+                    Database Action:
+                  </span>
                   <span className="font-semibold text-rose-700 dark:text-rose-400">
                     Hard Cascade Delete (Audit logged)
                   </span>
@@ -1476,8 +1669,8 @@ export function OnlineSalesTab() {
                 <AlertTriangle className="size-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                 <span className="leading-relaxed">
                   <strong>Permanent Action:</strong> This will completely remove these cancelled
-                  orders, order items, coupon usages, and payment records from the database.
-                  Audit logs will be permanently retained in the system security audit table.
+                  orders, order items, coupon usages, and payment records from the database. Audit
+                  logs will be permanently retained in the system security audit table.
                 </span>
               </div>
             </div>

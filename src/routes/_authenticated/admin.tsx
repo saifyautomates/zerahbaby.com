@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link, useNavigate, Outlet, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -52,6 +52,10 @@ import {
   FileText,
   Copy,
   Receipt,
+  Mail,
+  Phone,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
@@ -62,13 +66,14 @@ import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import { useSaveProduct } from "@/lib/admin-products";
-import { useAllOrders, useCustomers, useProfile, orderStatuses } from "@/lib/orders";
+import { useAllOrders, useCustomers, useProfile, orderStatuses, type Order } from "@/lib/orders";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { InvoiceBox } from "@/components/site/Invoice";
 import { useAllCoupons, useCreateCoupon, useDeleteCoupon, useToggleCoupon } from "@/lib/coupons";
 import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/reviews";
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
+import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 import {
   useTableSelection,
   getProductsSelectionMetrics,
@@ -81,6 +86,7 @@ import {
   POSTerminalSkeleton,
   AdminTableSkeleton,
 } from "@/components/ui/Skeletons";
+import { QuickVariantStockModal } from "@/components/admin/QuickVariantStockModal";
 import {
   validateAndNormalizeInstagram,
   validateAndNormalizeFacebook,
@@ -271,6 +277,25 @@ export function AdminPage() {
         url.searchParams.delete("tab");
       } else {
         url.searchParams.set("tab", newTab);
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  const handleAdminNavigate = useCallback((targetTab: string, payload?: string) => {
+    setTabState(targetTab as Tab);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_admin_active_tab", targetTab);
+      const url = new URL(window.location.href);
+      if (targetTab === "dashboard") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", targetTab);
+      }
+      if (payload) {
+        url.searchParams.set("orderId", payload);
+      } else {
+        url.searchParams.delete("orderId");
       }
       window.history.replaceState({}, "", url.toString());
     }
@@ -603,7 +628,7 @@ export function AdminPage() {
       <AdminGlobalSearch
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onNavigate={(targetTab: string) => setTab(targetTab as Tab)}
+        onNavigate={handleAdminNavigate}
       />
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
@@ -1040,7 +1065,7 @@ export function AdminPage() {
                 }
               >
                 {tab === "dashboard" && (
-                  <DashboardTab onNavigate={setTab as (tab: string) => void} />
+                  <DashboardTab onNavigate={handleAdminNavigate} />
                 )}
                 {tab === "billing" && <BillingCenterTab />}
                 {tab === "products" && <ProductsTab />}
@@ -1087,6 +1112,7 @@ function ProductsTab() {
   >("all");
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [stockVal, setStockVal] = useState<number>(0);
+  const [managingVariantsProduct, setManagingVariantsProduct] = useState<Product | null>(null);
   const { printLabel, isPrinting } = useDirectLabelPrint();
 
   // Selection states
@@ -1106,7 +1132,7 @@ function ProductsTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
           .order("sort_order"),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
@@ -1166,13 +1192,26 @@ function ProductsTab() {
       // Check if this product has multiple variants
       const { data: variants } = await supabase
         .from("product_variants")
-        .select("id, name")
+        .select("id, name, stock")
         .eq("product_id", id);
 
       if (variants && variants.length > 1) {
-        throw new Error(
-          `This product has ${variants.length} distinct variants. Please edit stock per variant in the Product Editor to prevent inventory drift.`,
-        );
+        // Adjust stock across variants smoothly without throwing error
+        const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        const diff = cleanStock - currentTotal;
+        if (diff !== 0) {
+          const primaryVar = variants[0];
+          const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
+          await supabase
+            .from("product_variants")
+            .update({ stock: newPrimaryStock })
+            .eq("id", primaryVar.id);
+        }
+      } else if (variants && variants.length === 1) {
+        await supabase
+          .from("product_variants")
+          .update({ stock: cleanStock })
+          .eq("id", variants[0].id);
       }
 
       const { error: prodErr } = await supabase
@@ -1180,14 +1219,6 @@ function ProductsTab() {
         .update({ stock: cleanStock })
         .eq("id", id);
       if (prodErr) throw prodErr;
-
-      // Sync single/default variant stock
-      if (variants && variants.length === 1) {
-        await supabase
-          .from("product_variants")
-          .update({ stock: cleanStock })
-          .eq("id", variants[0].id);
-      }
     },
     onSuccess: () => {
       toast.success("Stock updated successfully");
@@ -2090,7 +2121,43 @@ function ProductsTab() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      {editingStockId === p.uuid ? (
+                      {p.variants && p.variants.length > 1 ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setManagingVariantsProduct(p)}
+                            title="Adjust variant stock (-)"
+                            className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                          >
+                            <Minus className="size-3" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setManagingVariantsProduct(p)}
+                            title="Click to manage stock for each variant"
+                            className={`min-w-10 px-2 py-0.5 rounded-md text-xs font-bold text-center transition cursor-pointer flex items-center justify-center gap-1 ${
+                              p.stock === 0
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : p.stock <= (p.lowStockAt || 5)
+                                  ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                  : "bg-muted text-foreground border border-border hover:border-primary/50 hover:bg-primary/5"
+                            }`}
+                          >
+                            <span>{p.stock}</span>
+                            <span className="text-[9px] text-primary font-bold">({p.variants.length}v)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setManagingVariantsProduct(p)}
+                            title="Adjust variant stock (+)"
+                            className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                          >
+                            <Plus className="size-3" />
+                          </button>
+                        </div>
+                      ) : editingStockId === p.uuid ? (
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
@@ -2441,6 +2508,14 @@ function ProductsTab() {
             onClose={() => setPrintingLabels(false)}
           />
         </Suspense>
+      )}
+
+      {managingVariantsProduct && (
+        <QuickVariantStockModal
+          product={managingVariantsProduct}
+          onClose={() => setManagingVariantsProduct(null)}
+          onSuccess={invalidate}
+        />
       )}
     </div>
   );
@@ -4295,23 +4370,25 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("*")
+        .select("*, order_items(*)")
         .eq("coupon_code", couponCode)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as Order[];
     },
   });
+
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalSavings = orders.reduce((sum, o) => sum + (o.discount || 0), 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+        <div className="flex items-center justify-between border-b border-border p-4 sm:p-5 bg-muted/20">
           <div className="flex items-center gap-3">
             <div className="size-10 grid place-items-center rounded-2xl bg-primary/10 text-primary">
               <Tag className="size-5" />
@@ -4322,7 +4399,7 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
                 <span className="font-mono text-primary font-black">{couponCode}</span>
               </h3>
               <p className="text-xs text-muted-foreground">
-                Customers who redeemed this coupon code
+                Customers who redeemed this coupon code & ordered items
               </p>
             </div>
           </div>
@@ -4336,20 +4413,20 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
         </div>
 
         {/* Usage Summary Cards */}
-        <div className="grid grid-cols-3 gap-3 p-5 bg-muted/10 border-b border-border">
-          <div className="rounded-2xl border border-border bg-card p-3 text-center">
+        <div className="grid grid-cols-3 gap-3 p-4 sm:p-5 bg-muted/10 border-b border-border">
+          <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-2xs">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Total Uses
             </p>
             <p className="text-lg font-black text-foreground mt-0.5">{totalOrders}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-3 text-center">
+          <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-2xs">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Revenue Sales
             </p>
             <p className="text-lg font-black text-primary mt-0.5">{formatPrice(totalRevenue)}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-3 text-center">
+          <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-2xs">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Total Savings
             </p>
@@ -4360,7 +4437,7 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
         </div>
 
         {/* Customer List */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {isLoading ? (
             <div className="flex justify-center py-12">
               <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -4372,50 +4449,186 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
                 No customers have redeemed this coupon yet.
               </p>
               <p className="text-[11px]">
-                When customers place orders using {couponCode}, their details will appear here.
+                When customers place orders using {couponCode}, their details and ordered items will
+                appear here.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-border">
-              <table className="w-full text-left text-xs whitespace-nowrap">
+              <table className="w-full text-left text-xs">
                 <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
                   <tr>
                     <th className="px-4 py-3">Customer</th>
                     <th className="px-4 py-3">Order ID</th>
+                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Order Total</th>
                     <th className="px-4 py-3 text-right">Discount</th>
+                    <th className="px-4 py-3 text-center">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {orders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-muted/40 transition">
-                      <td className="px-4 py-3">
-                        <p className="font-bold text-foreground">
-                          {ord.full_name || "Guest Customer"}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground font-mono">
-                          {ord.customer_phone || ord.phone || ord.email || "N/A"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 font-mono font-bold text-primary">
-                        {ord.order_number || ord.id.slice(0, 8)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {new Date(ord.created_at).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="px-4 py-3 font-bold text-foreground">
-                        {formatPrice(ord.total || 0)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                        - {formatPrice(ord.discount || 0)}
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((ord) => {
+                    const isExpanded = expandedOrderId === ord.id;
+                    const itemsCount =
+                      ord.order_items?.reduce(
+                        (acc: number, it: any) => acc + Number(it.quantity || it.qty || 1),
+                        0,
+                      ) || 0;
+
+                    return (
+                      <Fragment key={ord.id}>
+                        <tr
+                          onClick={() => setExpandedOrderId(isExpanded ? null : ord.id)}
+                          className={`hover:bg-muted/40 transition cursor-pointer ${isExpanded ? "bg-muted/30" : ""}`}
+                        >
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-foreground flex items-center gap-1.5">
+                              {ord.full_name || "Guest Customer"}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground font-mono">
+                              {ord.phone || ord.email || "N/A"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-primary whitespace-nowrap">
+                            {ord.order_number || `#${ord.id.slice(0, 8).toUpperCase()}`}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 text-[#8B2020] border border-red-100 px-2 py-0.5 text-[10px] font-semibold capitalize">
+                              {ord.status}
+                            </span>
+                            {ord.payment_status && (
+                              <span
+                                className={`ml-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                                  ord.payment_status === "paid"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                                }`}
+                              >
+                                {ord.payment_status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                            {new Date(ord.created_at).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-foreground whitespace-nowrap">
+                            {formatPrice(ord.total || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            - {formatPrice(ord.discount || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedOrderId(isExpanded ? null : ord.id);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card hover:bg-muted px-2.5 py-1 text-[11px] font-bold text-foreground transition shadow-2xs cursor-pointer"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="size-3 text-primary" />
+                                  Hide Details
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="size-3 text-primary" />
+                                  View Items ({itemsCount})
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Drawer: Customer Details & Ordered Products */}
+                        {isExpanded && (
+                          <tr className="bg-muted/15 border-b border-border">
+                            <td colSpan={7} className="p-3 sm:p-5">
+                              <div className="flex flex-col gap-4 animate-in fade-in-50 duration-200">
+                                {/* Customer & Delivery Details Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 rounded-2xl border border-border bg-card p-4 shadow-xs">
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Users className="size-4 text-primary" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                        Customer & Contact
+                                      </h4>
+                                    </div>
+                                    <div className="space-y-1.5 text-xs">
+                                      <p className="font-bold text-foreground text-sm">
+                                        {ord.full_name || "Guest Customer"}
+                                      </p>
+                                      <p className="text-muted-foreground flex items-center gap-1.5">
+                                        <Mail className="size-3.5 text-muted-foreground/70 shrink-0" />
+                                        <span>{ord.email || "No email provided"}</span>
+                                      </p>
+                                      <p className="text-muted-foreground flex items-center gap-1.5 font-mono">
+                                        <Phone className="size-3.5 text-muted-foreground/70 shrink-0" />
+                                        <span>
+                                          {ord.phone || "No phone provided"}
+                                          {ord.alt_phone ? ` / ${ord.alt_phone}` : ""}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <MapPin className="size-4 text-primary" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                        Delivery Address
+                                      </h4>
+                                    </div>
+                                    <div className="text-xs text-foreground space-y-1">
+                                      <p className="font-medium">
+                                        {ord.address || "No street address"}
+                                      </p>
+                                      {ord.address_line2 && (
+                                        <p className="text-muted-foreground">{ord.address_line2}</p>
+                                      )}
+                                      <p className="font-semibold text-muted-foreground">
+                                        {[ord.city, ord.state].filter(Boolean).join(", ")}
+                                        {ord.pincode ? ` - ${ord.pincode}` : ""}
+                                      </p>
+                                      {ord.landmark && (
+                                        <p className="text-[11px] text-muted-foreground italic">
+                                          Landmark: {ord.landmark}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* What Customer Ordered: Products & Line Items */}
+                                <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+                                  <div className="flex items-center justify-between mb-3 border-b border-border/60 pb-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <Package className="size-4 text-primary" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                        Products in this Order ({itemsCount}{" "}
+                                        {itemsCount === 1 ? "unit" : "units"})
+                                      </h4>
+                                    </div>
+                                    <span className="font-mono text-[11px] font-bold text-primary">
+                                      Order #{ord.order_number || ord.id.slice(0, 8).toUpperCase()}
+                                    </span>
+                                  </div>
+
+                                  <AdminOrderItemsList order={ord} />
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

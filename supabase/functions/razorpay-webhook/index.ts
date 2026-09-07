@@ -205,32 +205,64 @@ serve(async (req) => {
     } else if (payload.event === "refund.processed" || payload.event === "refund.created") {
       const refundEntity = payload.payload?.refund?.entity;
       const refundId = refundEntity?.id;
-      const status = refundEntity?.status;
+      const paymentId = refundEntity?.payment_id;
+      const orderIdNote = refundEntity?.notes?.order_id;
+      const status = refundEntity?.status || "processed";
+      const amountPaise = refundEntity?.amount;
+      const amountRupees = amountPaise ? Number(amountPaise) / 100 : undefined;
 
       if (refundId) {
-        await supabaseClient
+        // 1. Reconcile online_returns
+        const { data: updatedReturns } = await supabaseClient
           .from("online_returns")
           .update({
             razorpay_refund_id: refundId,
-            razorpay_refund_status: status || "PROCESSED",
+            razorpay_refund_status: status,
             refund_status: "PROCESSED",
             return_status: "COMPLETED",
             refund_completed_at: new Date().toISOString(),
           })
-          .eq("razorpay_refund_id", refundId);
+          .eq("razorpay_refund_id", refundId)
+          .select("id");
 
-        await supabaseClient
+        // 2. Reconcile orders table by refund_id
+        const { data: updatedOrders } = await supabaseClient
           .from("orders")
           .update({
-            razorpay_refund_status: status || "PROCESSED",
+            razorpay_refund_status: status,
             payment_status: "refunded",
             refund_completed_at: new Date().toISOString(),
+            ...(amountRupees ? { refund_amount: amountRupees } : {}),
           })
-          .eq("razorpay_refund_id", refundId);
+          .eq("razorpay_refund_id", refundId)
+          .select("id");
+
+        // 3. Fallback matching by payment_id or order_id notes if not yet matched
+        if ((!updatedOrders || updatedOrders.length === 0) && (paymentId || orderIdNote)) {
+          console.log(
+            `[razorpay-webhook] Matching order by paymentId ${paymentId} or note ${orderIdNote}`,
+          );
+          let orderMatchQuery = supabaseClient.from("orders").update({
+            razorpay_refund_id: refundId,
+            razorpay_refund_status: status,
+            payment_status: "refunded",
+            refund_completed_at: new Date().toISOString(),
+            ...(amountRupees ? { refund_amount: amountRupees } : {}),
+          });
+
+          if (paymentId) {
+            orderMatchQuery = orderMatchQuery.eq("razorpay_payment_id", paymentId);
+          } else if (orderIdNote) {
+            orderMatchQuery = orderMatchQuery.eq("id", orderIdNote);
+          }
+
+          await orderMatchQuery;
+        }
       }
     } else if (payload.event === "refund.failed") {
       const refundEntity = payload.payload?.refund?.entity;
       const refundId = refundEntity?.id;
+      const paymentId = refundEntity?.payment_id;
 
       if (refundId) {
         await supabaseClient
@@ -241,12 +273,17 @@ serve(async (req) => {
           })
           .eq("razorpay_refund_id", refundId);
 
-        await supabaseClient
-          .from("orders")
-          .update({
-            razorpay_refund_status: "FAILED",
-          })
-          .eq("razorpay_refund_id", refundId);
+        let query = supabaseClient.from("orders").update({
+          razorpay_refund_status: "FAILED",
+        });
+
+        if (paymentId) {
+          query = query.or(`razorpay_refund_id.eq.${refundId},razorpay_payment_id.eq.${paymentId}`);
+        } else {
+          query = query.eq("razorpay_refund_id", refundId);
+        }
+
+        await query;
       }
     }
 

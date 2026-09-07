@@ -230,7 +230,8 @@ export function SMSLogsTab() {
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight">Transactional SMS Logs</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Track MSG91 delivery status, retries, and errors for system-generated messages. Click any row to view full details.
+            Track MSG91 delivery status, retries, and errors for system-generated messages. Click
+            any row to view full details.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -374,7 +375,10 @@ export function SMSLogsTab() {
                       title="Click row to view full details"
                     >
                       {/* Checkbox */}
-                      <td className="px-4 py-3.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-4 py-3.5 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <input
                           type="checkbox"
                           checked={selectedLogs.includes(log.id)}
@@ -485,7 +489,10 @@ export function SMSLogsTab() {
                       </td>
 
                       {/* Action */}
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-4 py-3.5 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1.5">
                           {/* View Details Eye Button */}
                           <button
@@ -570,7 +577,9 @@ export function SMSLogsTab() {
                       })}
                     </span>
                     <span>•</span>
-                    <span className="font-mono text-[11px]">ID: {selectedLog.id.substring(0, 8)}...</span>
+                    <span className="font-mono text-[11px]">
+                      ID: {selectedLog.id.substring(0, 8)}...
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleCopy(selectedLog.id, "Log ID")}
@@ -617,7 +626,8 @@ export function SMSLogsTab() {
                             : "Delivered (MSG91)"}
                         </span>
                       </>
-                    ) : selectedLog.status === "FAILED" || selectedLog.provider_status === "error" ? (
+                    ) : selectedLog.status === "FAILED" ||
+                      selectedLog.provider_status === "error" ? (
                       <>
                         <XCircle className="size-4 text-destructive shrink-0" />
                         <span className="text-destructive font-bold text-sm">Failed</span>
@@ -841,9 +851,7 @@ export function SMSLogsTab() {
                       {selectedLog.template_id && (
                         <button
                           type="button"
-                          onClick={() =>
-                            handleCopy(selectedLog.template_id || "", "Template ID")
-                          }
+                          onClick={() => handleCopy(selectedLog.template_id || "", "Template ID")}
                           className="text-muted-foreground hover:text-foreground transition"
                         >
                           {copiedKey === "Template ID" ? (
@@ -862,7 +870,10 @@ export function SMSLogsTab() {
                       Idempotency Key
                     </span>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="font-mono text-xs font-medium text-foreground truncate max-w-[200px]" title={selectedLog.idempotency_key || ""}>
+                      <span
+                        className="font-mono text-xs font-medium text-foreground truncate max-w-[200px]"
+                        title={selectedLog.idempotency_key || ""}
+                      >
                         {selectedLog.idempotency_key || "None"}
                       </span>
                       {selectedLog.idempotency_key && (
@@ -970,4 +981,3 @@ export function SMSLogsTab() {
     </div>
   );
 }
-

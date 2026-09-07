@@ -1,13 +1,5 @@
 import { useState, useMemo } from "react";
-import {
-  Package,
-  ChevronDown,
-  ChevronUp,
-  Tag,
-  Layers,
-  Archive,
-  Info,
-} from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Tag, Layers, Archive, Info } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import type { Order, OrderItem } from "@/lib/orders";
 import type { Product } from "@/lib/store";
@@ -39,10 +31,15 @@ interface AdminOrderItemsListProps {
     }>;
   };
   products?: Product[];
+  defaultExpanded?: boolean;
 }
 
-export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsListProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function AdminOrderItemsList({
+  order,
+  products = [],
+  defaultExpanded = false,
+}: AdminOrderItemsListProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   // Normalize order items (supports both online order_items and offline_sale_items)
   const items = useMemo(() => {
@@ -80,17 +77,16 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
         price: Number(osi.price || 0),
         mrp: null,
         qty: Number(osi.qty || osi.quantity || 1),
-        subtotal: Number(osi.line_subtotal || osi.subtotal || osi.price * (osi.qty || osi.quantity || 1)),
+        subtotal: Number(
+          osi.line_subtotal || osi.subtotal || osi.price * (osi.qty || osi.quantity || 1),
+        ),
       }));
     }
 
     return [];
   }, [order.order_items, order.offline_sale_items]);
 
-  const totalQuantity = useMemo(
-    () => items.reduce((acc, it) => acc + it.qty, 0),
-    [items],
-  );
+  const totalQuantity = useMemo(() => items.reduce((acc, it) => acc + it.qty, 0), [items]);
 
   const orderSubtotal = Number(order.subtotal || items.reduce((acc, it) => acc + it.subtotal, 0));
   const orderDiscount = Number(order.discount || 0);
@@ -128,7 +124,8 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-sm text-foreground">
-                Products ({items.length} {items.length === 1 ? "item" : "items"} · {totalQuantity} units)
+                Products ({items.length} {items.length === 1 ? "item" : "items"} · {totalQuantity}{" "}
+                units)
               </span>
               {order.coupon_code && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
@@ -177,11 +174,7 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
             {isExpanded ? "Hide Details" : "View Details"}
           </span>
           <div className="p-1 rounded-full bg-muted text-muted-foreground">
-            {isExpanded ? (
-              <ChevronUp className="size-4" />
-            ) : (
-              <ChevronDown className="size-4" />
-            )}
+            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </div>
         </div>
       </div>
@@ -203,16 +196,17 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
                 (v) =>
                   (item.variantId && v.id === item.variantId) ||
                   (item.sku && v.sku && v.sku.toLowerCase() === item.sku.toLowerCase()) ||
-                  (item.color && v.color && v.color.toLowerCase() === item.color.toLowerCase() &&
-                    item.size && v.size && v.size.toLowerCase() === item.size.toLowerCase()),
+                  (item.color &&
+                    v.color &&
+                    v.color.toLowerCase() === item.color.toLowerCase() &&
+                    item.size &&
+                    v.size &&
+                    v.size.toLowerCase() === item.size.toLowerCase()),
               );
 
               // 1. MRP calculation
               const effectiveMrp =
-                item.mrp ||
-                catalogVariant?.mrpOverride ||
-                catalogProduct?.mrp ||
-                item.price;
+                item.mrp || catalogVariant?.mrpOverride || catalogProduct?.mrp || item.price;
 
               // 2. Product-level discount (MRP vs Original Selling Price)
               const productDiscountPerUnit = Math.max(0, effectiveMrp - item.price);
@@ -239,7 +233,12 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
                   <div className="flex items-start gap-3.5 min-w-0 flex-1">
                     <div className="size-16 sm:size-20 rounded-xl border border-border bg-background overflow-hidden shrink-0 shadow-2xs">
                       <img
-                        src={item.image || catalogVariant?.imageUrl || catalogProduct?.image || defaultPlaceholder}
+                        src={
+                          item.image ||
+                          catalogVariant?.imageUrl ||
+                          catalogProduct?.image ||
+                          defaultPlaceholder
+                        }
                         alt={item.name}
                         className="size-full object-cover object-center"
                         onError={(e) => {
@@ -321,7 +320,9 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
                       {effectiveMrp > item.price && (
                         <div className="flex items-center justify-between sm:justify-end gap-2 text-muted-foreground">
                           <span>MRP:</span>
-                          <span className="line-through">{formatPrice(effectiveMrp * item.qty)}</span>
+                          <span className="line-through">
+                            {formatPrice(effectiveMrp * item.qty)}
+                          </span>
                           <span className="text-[10px] text-muted-foreground">
                             ({formatPrice(effectiveMrp)}/u)
                           </span>
@@ -330,7 +331,9 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
 
                       <div className="flex items-center justify-between sm:justify-end gap-2">
                         <span className="text-muted-foreground">Original Selling:</span>
-                        <span className="font-semibold text-foreground">{formatPrice(item.subtotal)}</span>
+                        <span className="font-semibold text-foreground">
+                          {formatPrice(item.subtotal)}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">
                           ({formatPrice(item.price)}/u)
                         </span>
@@ -406,7 +409,9 @@ export function AdminOrderItemsList({ order, products = [] }: AdminOrderItemsLis
                   <span>COD Handling Fee:</span>
                   <span>
                     {orderGrandTotal > orderSubtotal - orderDiscount + orderShipping
-                      ? formatPrice(orderGrandTotal - (orderSubtotal - orderDiscount + orderShipping))
+                      ? formatPrice(
+                          orderGrandTotal - (orderSubtotal - orderDiscount + orderShipping),
+                        )
                       : "Included"}
                   </span>
                 </div>

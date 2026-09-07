@@ -1513,9 +1513,35 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
 
   const updateStock = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      const cleanStock = Math.max(0, stock);
+
+      // Reconcile variants if present to prevent inventory drift
+      const { data: variants } = await supabase
+        .from("product_variants")
+        .select("id, name, stock")
+        .eq("product_id", id);
+
+      if (variants && variants.length > 1) {
+        const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        const diff = cleanStock - currentTotal;
+        if (diff !== 0) {
+          const primaryVar = variants[0];
+          const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
+          await supabase
+            .from("product_variants")
+            .update({ stock: newPrimaryStock })
+            .eq("id", primaryVar.id);
+        }
+      } else if (variants && variants.length === 1) {
+        await supabase
+          .from("product_variants")
+          .update({ stock: cleanStock })
+          .eq("id", variants[0].id);
+      }
+
       const { error } = await supabase
         .from("products")
-        .update({ stock: Math.max(0, stock) })
+        .update({ stock: cleanStock })
         .eq("id", id);
       if (error) throw error;
     },

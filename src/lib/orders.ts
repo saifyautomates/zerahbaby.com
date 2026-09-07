@@ -74,6 +74,8 @@ export type Order = {
   razorpay_refund_id?: string | null;
   razorpay_refund_status?: string | null;
   refund_amount?: number | null;
+  refund_notes?: string | null;
+  refund_completed_at?: string | null;
   customer_notification_status?: string | null;
   customer_notified_at?: string | null;
 };
@@ -411,18 +413,41 @@ export function useProcessOrderRefund() {
           amount,
         },
       });
-      if (error) throw new Error(error.message || "Failed to process refund with gateway");
+
+      if (error) {
+        let backendMessage = "";
+        try {
+          if (error && typeof (error as any).context?.json === "function") {
+            const errBody = await (error as any).context.json();
+            backendMessage = errBody?.error || errBody?.message || "";
+          } else if (error && typeof (error as any).context?.text === "function") {
+            const text = await (error as any).context.text();
+            try {
+              const parsed = JSON.parse(text);
+              backendMessage = parsed?.error || parsed?.message || text;
+            } catch {
+              backendMessage = text;
+            }
+          }
+        } catch {
+          // fallback
+        }
+        throw new Error(backendMessage || error.message || "Failed to process refund with gateway");
+      }
+
       if (!data?.success) throw new Error(data?.error || "Refund gateway rejected transaction");
       return data;
     },
-    onSuccess: (_, variables) => {
-      toast.success("Refund successfully initiated via Razorpay");
+    onSuccess: (data, variables) => {
+      toast.success(data?.message || "Refund successfully processed via Razorpay");
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, variables) => {
       toast.error(err.message || "Refund failed");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
     },
   });
 }
