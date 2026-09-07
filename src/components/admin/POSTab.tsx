@@ -76,6 +76,11 @@ import {
   generateIdempotencyKey,
   validatePOSCoupon,
 } from "@/lib/pos";
+import {
+  searchPOSProducts,
+  type POSSearchResult,
+  type POSSearchVariant,
+} from "@/lib/pos-search";
 import { useCustomerStoreCredit, useStoreCreditVoucher } from "@/lib/pos-returns";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
@@ -171,6 +176,11 @@ export function POSTab() {
   const [scanValue, setScanValue] = useState("");
   const [scanLoading, setScanLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Quick Order State
   const [quickOrderProduct, setQuickOrderProduct] = useState("");
@@ -653,7 +663,27 @@ export function POSTab() {
           return;
         }
 
-        // Fallback: search in loaded local products catalog
+        // Fallback: search via server-side POS search engine (fuzzy, SKU, barcode, variants)
+        const searchMatches = await searchPOSProducts(cleanCode, 5);
+        if (searchMatches.length > 0) {
+          const topMatch = searchMatches[0];
+          const exactVar = topMatch.variants.find(
+            (v) =>
+              (v.barcode && v.barcode === cleanCode) ||
+              (v.sku && v.sku.toLowerCase() === cleanCode.toLowerCase()),
+          );
+          if (topMatch.match_score >= 80 || exactVar || searchMatches.length === 1) {
+            const added = addPOSResultToCart(topMatch, exactVar);
+            if (added) return;
+          }
+
+          setProductSearch(cleanCode);
+          setIsSearchDropdownOpen(true);
+          toast.info(`Found ${searchMatches.length} product${searchMatches.length > 1 ? "s" : ""} matching "${cleanCode}"`);
+          return;
+        }
+
+        // Secondary fallback: search in loaded local products catalog
         const q = cleanCode.toLowerCase();
         const localMatches = products.filter((p) => {
           return (
@@ -677,6 +707,7 @@ export function POSTab() {
 
         if (localMatches.length > 1) {
           setProductSearch(cleanCode);
+          setIsSearchDropdownOpen(true);
           toast.info(`Found ${localMatches.length} products matching "${cleanCode}"`);
           return;
         }
@@ -923,30 +954,166 @@ export function POSTab() {
     setTimeout(() => scanInputRef.current?.focus(), 80);
   }
 
-  // Filtered products for manual search
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return [];
-    const q = productSearch.trim().toLowerCase();
-    return products
-      .filter(
-        (p) =>
-          p.name?.toLowerCase().includes(q) ||
-          p.sku?.toLowerCase().includes(q) ||
-          p.barcode?.toLowerCase().includes(q) ||
-          p.brand?.toLowerCase().includes(q) ||
-          p.category?.toLowerCase().includes(q) ||
-          p.id?.toLowerCase().includes(q) ||
-          p.variants?.some(
-            (v) =>
-              v.name?.toLowerCase().includes(q) ||
-              v.sku?.toLowerCase().includes(q) ||
-              v.barcode?.toLowerCase().includes(q) ||
-              v.color?.toLowerCase().includes(q) ||
-              v.size?.toLowerCase().includes(q),
-          ),
-      )
-      .slice(0, 10);
-  }, [products, productSearch]);
+  // Debounce product search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(productSearch.trim());
+      setActiveSuggestionIndex(0);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [productSearch]);
+
+  // Open dropdown when query changes
+  useEffect(() => {
+    if (productSearch.trim().length > 0) {
+      setIsSearchDropdownOpen(true);
+    } else {
+      setIsSearchDropdownOpen(false);
+    }
+  }, [productSearch]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(e.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(e.target as Node)
+      ) {
+        setIsSearchDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Server-side POS search with automatic fallback to offline IndexedDB
+  const {
+    data: searchResults = [],
+    isLoading: isSearchLoading,
+    isFetching: isSearchFetching,
+  } = useQuery({
+    queryKey: ["pos-server-search", debouncedSearch],
+    enabled: debouncedSearch.length >= 1,
+    queryFn: () => searchPOSProducts(debouncedSearch, 20),
+    staleTime: 1000 * 30, // 30 seconds cache
+  });
+
+  // Flattened selectable items for keyboard arrow navigation & Enter selection
+  interface SelectableSearchItem {
+    product: POSSearchResult;
+    variant: POSSearchVariant;
+    isOutOfStock: boolean;
+    key: string;
+  }
+
+  const selectableItems = useMemo<SelectableSearchItem[]>(() => {
+    const list: SelectableSearchItem[] = [];
+    for (const p of searchResults) {
+      if (p.variants && p.variants.length > 0) {
+        for (const v of p.variants) {
+          list.push({
+            product: p,
+            variant: v,
+            isOutOfStock: v.stock <= 0,
+            key: `${p.id}-${v.id}`,
+          });
+        }
+      } else {
+        const dummyVar: POSSearchVariant = {
+          id: p.id,
+          name: "Default",
+          sku: p.sku,
+          barcode: p.barcode,
+          stock: p.stock,
+          price: p.price,
+          mrp: p.mrp,
+          color: null,
+          size: null,
+          image_url: p.image_url,
+          is_matched: true,
+        };
+        list.push({
+          product: p,
+          variant: dummyVar,
+          isOutOfStock: p.stock <= 0,
+          key: `${p.id}-default`,
+        });
+      }
+    }
+    return list;
+  }, [searchResults]);
+
+  // Dedicated handler to add variant or product from POS search directly into the cart
+  const addPOSResultToCart = useCallback(
+    (product: POSSearchResult, variant?: POSSearchVariant) => {
+      const selectedVar =
+        variant ||
+        (product.matched_variant_id
+          ? product.variants.find((v) => v.id === product.matched_variant_id)
+          : undefined) ||
+        product.variants.find((v) => v.stock > 0) ||
+        product.variants[0];
+
+      const stock = selectedVar ? selectedVar.stock : product.stock;
+
+      if (stock <= 0) {
+        playScanError();
+        toast.error(
+          `"${product.name}${selectedVar?.name && selectedVar.name !== "Default" ? ` (${selectedVar.name})` : ""}" is out of stock`,
+          { description: "Cannot add out-of-stock items to a new POS sale." },
+        );
+        return false;
+      }
+
+      const varName =
+        selectedVar && selectedVar.name && selectedVar.name !== "Default"
+          ? ` - ${selectedVar.name}`
+          : "";
+
+      const itemPrice = selectedVar?.price ?? product.price;
+      const itemMrp = selectedVar?.mrp ?? product.mrp ?? itemPrice;
+      const itemSku = selectedVar?.sku || product.sku;
+      const itemBarcode = selectedVar?.barcode || product.barcode || "";
+      const itemImage = selectedVar?.image_url || product.image_url;
+
+      const added = addToCart({
+        product_id: product.id,
+        variant_id: selectedVar?.id || "",
+        slug: product.slug || product.id,
+        name: `${product.name}${varName}`,
+        brand: product.brand || "Zérah Baby & Kids",
+        category: product.category || "Clothing",
+        age_group: "All",
+        price: itemPrice,
+        mrp: itemMrp,
+        stock: stock,
+        sku: itemSku,
+        barcode: itemBarcode,
+        image_url: itemImage,
+        qty: 1,
+        sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
+          | "ONLINE_AND_OFFLINE"
+          | "OFFLINE_ONLY",
+      });
+
+      if (added) {
+        playScanSuccess();
+        setProductSearch("");
+        setIsSearchDropdownOpen(false);
+        setActiveSuggestionIndex(0);
+        const isOfflineOnly = product.sales_channel === "OFFLINE_ONLY";
+        toast.success(`Added: ${product.name}${varName}`, {
+          description: `${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • ₹${itemPrice} • Stock: ${stock}`,
+        });
+        setTimeout(() => scanInputRef.current?.focus(), 50);
+        return true;
+      }
+      return false;
+    },
+    [addToCart],
+  );
 
   // Customer search results
   useEffect(() => {
@@ -1056,168 +1223,250 @@ export function POSTab() {
               )}
             </div>
 
-            {/* Bottom Secondary Input: Manual Product Search */}
-            <div className="relative">
+            {/* Bottom Secondary Input: High-Performance Server-Side Product & SKU Search */}
+            <div className="relative" ref={searchDropdownRef}>
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Search className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
+                  onFocus={() => {
+                    if (productSearch.trim().length > 0) setIsSearchDropdownOpen(true);
+                  }}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    if (!isSearchDropdownOpen && e.target.value.trim().length > 0) {
+                      setIsSearchDropdownOpen(true);
+                    }
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && filteredProducts.length > 0) {
+                    if (e.key === "ArrowDown") {
                       e.preventDefault();
-                      const first = filteredProducts[0];
-                      const q = productSearch.trim().toLowerCase();
-                      const matchedVar = first.variants?.find(
-                        (v) =>
-                          v.sku?.toLowerCase().includes(q) ||
-                          v.barcode?.toLowerCase().includes(q) ||
-                          v.name?.toLowerCase().includes(q) ||
-                          v.color?.toLowerCase().includes(q),
-                      );
-                      addProductManually(first, matchedVar);
+                      if (selectableItems.length > 0) {
+                        setActiveSuggestionIndex((prev) =>
+                          prev < selectableItems.length - 1 ? prev + 1 : 0,
+                        );
+                      }
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      if (selectableItems.length > 0) {
+                        setActiveSuggestionIndex((prev) =>
+                          prev > 0 ? prev - 1 : selectableItems.length - 1,
+                        );
+                      }
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (selectableItems.length > 0) {
+                        const target = selectableItems[activeSuggestionIndex] || selectableItems[0];
+                        if (target.isOutOfStock) {
+                          playScanError();
+                          toast.error(
+                            `"${target.product.name}${target.variant.name !== "Default" ? ` (${target.variant.name})` : ""}" is out of stock!`,
+                          );
+                        } else {
+                          addPOSResultToCart(target.product, target.variant);
+                        }
+                      }
                     } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setIsSearchDropdownOpen(false);
                       setProductSearch("");
                       scanInputRef.current?.focus();
                     }
                   }}
-                  placeholder="Search products manually (or press Enter to select first result)…"
-                  className="w-full rounded-xl border border-border bg-background pl-10 pr-9 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  placeholder="Search products by name, SKU, variant, color, or barcode (↑↓ to navigate, Enter to add)…"
+                  className="w-full rounded-xl border border-border bg-background pl-10 pr-24 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium shadow-xs"
                 />
-                {productsLoading && !productSearch && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin text-primary" />
-                    <span className="text-[11px] hidden sm:inline">Loading catalog…</span>
-                  </div>
-                )}
-                {productSearch && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProductSearch("");
-                      scanInputRef.current?.focus();
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
+
+                {/* Right Action / Loading indicators */}
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0)) && (
+                    <div className="flex items-center gap-1 text-xs text-primary animate-pulse">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span className="text-[10px] font-semibold hidden sm:inline">Searching…</span>
+                    </div>
+                  )}
+                  {productSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProductSearch("");
+                        setIsSearchDropdownOpen(false);
+                        searchInputRef.current?.focus();
+                      }}
+                      className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* No results message */}
-              {productSearch.trim().length > 0 && filteredProducts.length === 0 && !productsLoading && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 p-4 rounded-xl border border-border bg-card shadow-xl text-center text-xs text-muted-foreground">
-                  No products found matching &ldquo;<span className="font-semibold text-foreground">{productSearch}</span>&rdquo;. Try searching by product name, SKU, or category.
-                </div>
-              )}
-
-              {/* Results dropdown */}
-              {filteredProducts.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-72 overflow-y-auto rounded-xl border border-border bg-card shadow-xl divide-y divide-border/40">
-                  {filteredProducts.map((p) => {
-                    const q = productSearch.trim().toLowerCase();
-                    const matchedVar = p.variants?.find(
-                      (v) =>
-                        v.sku?.toLowerCase().includes(q) ||
-                        v.barcode?.toLowerCase().includes(q) ||
-                        v.name?.toLowerCase().includes(q) ||
-                        v.color?.toLowerCase().includes(q),
-                    );
-
-                    return (
-                      <div
-                        key={p.uuid}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-muted/40 transition-colors gap-2"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => addProductManually(p, matchedVar)}
-                          className="flex flex-1 items-center gap-3 text-left cursor-pointer min-w-0"
+              {/* Suggestions Dropdown */}
+              {isSearchDropdownOpen && productSearch.trim().length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 z-30 max-h-96 overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl divide-y divide-border/40 backdrop-blur-md">
+                  {/* Loading State on initial fetch */}
+                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0)) ? (
+                    <div className="p-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <Loader2 className="size-6 animate-spin text-primary" />
+                      <p className="text-xs font-medium">Searching live database catalogue…</p>
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-6 text-center space-y-1">
+                      <p className="text-xs font-semibold text-foreground">
+                        No products found matching &ldquo;<span className="text-primary font-bold">{productSearch}</span>&rdquo;
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Try searching by product name, exact SKU, variant color, or barcode.
+                      </p>
+                    </div>
+                  ) : (
+                    searchResults.map((p) => {
+                      const hasVariants = p.variants && p.variants.length > 0;
+                      return (
+                        <div
+                          key={p.id}
+                          className="p-3 hover:bg-muted/30 transition-colors flex flex-col gap-2.5"
                         >
-                          <img
-                            src={imageFor(p.category, p.imageUrl || p.image)}
-                            alt={p.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="size-10 rounded-lg object-cover border border-border shrink-0"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = clothing;
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-semibold truncate text-foreground">{p.name}</p>
-                              {p.salesChannel === "OFFLINE_ONLY" ? (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
-                                  🏪 Offline Only
+                          {/* Parent Product Info Bar */}
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={imageFor(p.category, p.image_url)}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="size-11 rounded-lg object-cover border border-border shrink-0 bg-muted"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = clothing;
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
+                                {p.sales_channel === "OFFLINE_ONLY" ? (
+                                  <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                    🏪 Offline Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                    🌐 Online + Store
+                                  </span>
+                                )}
+                                {p.matched_reason && (
+                                  <span className="text-[10px] font-semibold text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
+                                    {p.matched_reason}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                <span>
+                                  SKU: <strong className="text-foreground">{p.sku || "N/A"}</strong>
                                 </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
-                                  🌐 Online + Store
+                                <span>•</span>
+                                <span>
+                                  Brand: <strong className="text-foreground">{p.brand}</strong>
                                 </span>
-                              )}
-                              {p.variants && p.variants.length > 1 && (
-                                <span className="text-[10px] text-muted-foreground font-semibold">
-                                  ({p.variants.length} variants)
+                                <span>•</span>
+                                <span>
+                                  Price: <strong className="text-primary font-bold">₹{p.price}</strong>
                                 </span>
-                              )}
+                                {p.mrp > p.price && (
+                                  <span className="line-through text-[11px] opacity-60">₹{p.mrp}</span>
+                                )}
+                                <span>•</span>
+                                <span>
+                                  Total Stock:{" "}
+                                  <strong
+                                    className={
+                                      p.stock > 0
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-rose-600 font-bold"
+                                    }
+                                  >
+                                    {p.stock}
+                                  </strong>
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {matchedVar ? (
-                                <span className="text-primary font-semibold">
-                                  Variant: {matchedVar.name} ({matchedVar.sku}) • ₹{matchedVar.priceOverride || p.price} • Stock: {matchedVar.stock}
-                                </span>
-                              ) : (
-                                `${p.sku} • ${formatPrice(p.price)} • Stock: ${p.stock}`
-                              )}
-                            </p>
                           </div>
-                        </button>
 
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto flex-wrap">
-                          {p.variants && p.variants.length > 1 ? (
-                            p.variants.map((v) => (
+                          {/* Variant Selection Chips / Actions */}
+                          {hasVariants ? (
+                            <div className="flex flex-wrap items-center gap-2 pl-14 pt-1">
+                              <span className="text-[11px] font-bold text-muted-foreground mr-1 uppercase tracking-wider">
+                                Variants:
+                              </span>
+                              {p.variants.map((v) => {
+                                const isItemHighlighted =
+                                  selectableItems[activeSuggestionIndex]?.variant.id === v.id;
+                                const isOutOfStock = v.stock <= 0;
+
+                                return (
+                                  <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => !isOutOfStock && addPOSResultToCart(p, v)}
+                                    disabled={isOutOfStock}
+                                    title={
+                                      isOutOfStock
+                                        ? `${v.name} is Out of Stock`
+                                        : `Add ${v.name} (₹${v.price}, Stock: ${v.stock})`
+                                    }
+                                    className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                                      isItemHighlighted
+                                        ? "ring-2 ring-primary border-primary bg-primary/10 text-primary shadow-sm"
+                                        : isOutOfStock
+                                        ? "bg-muted/60 text-muted-foreground/50 border-border/50 cursor-not-allowed line-through"
+                                        : "bg-background hover:bg-primary/5 hover:border-primary/40 border-border text-foreground hover:text-primary"
+                                    }`}
+                                  >
+                                    {v.color && (
+                                      <span
+                                        className="size-2.5 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                                        style={{ backgroundColor: v.color.toLowerCase() }}
+                                        title={`Color: ${v.color}`}
+                                      />
+                                    )}
+                                    <span className="font-bold">{v.name}</span>
+                                    {v.sku && v.sku !== p.sku && (
+                                      <span className="text-[10px] text-muted-foreground">({v.sku})</span>
+                                    )}
+                                    <span className="text-primary font-bold">₹{v.price}</span>
+                                    <span
+                                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                        isOutOfStock
+                                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                                          : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                      }`}
+                                    >
+                                      {isOutOfStock ? "Out" : `${v.stock} in stock`}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="pl-14 pt-1 flex items-center justify-end">
                               <button
-                                key={v.id}
                                 type="button"
-                                onClick={() => addProductManually(p, v)}
-                                disabled={(v.stock ?? 0) <= 0}
-                                title={`Add ${v.name} (${v.stock} in stock)`}
-                                className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
-                                  (v.stock ?? 0) > 0
-                                    ? "bg-primary/5 hover:bg-primary hover:text-white border-primary/30 text-primary"
-                                    : "bg-muted text-muted-foreground border-border opacity-40 cursor-not-allowed"
+                                onClick={() => addPOSResultToCart(p)}
+                                disabled={p.stock <= 0}
+                                className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                                  p.stock > 0
+                                    ? "bg-primary text-white border-primary hover:bg-primary/90 shadow-sm"
+                                    : "bg-muted text-muted-foreground border-border cursor-not-allowed"
                                 }`}
                               >
-                                {v.color && (
-                                  <span
-                                    className="size-2 rounded-full border border-black/20 shrink-0"
-                                    style={{ backgroundColor: v.color.toLowerCase() }}
-                                  />
-                                )}
-                                <span>{v.name}</span>
-                                <span className="text-[9px] opacity-70">({v.stock})</span>
+                                {p.stock > 0 ? "+ Add to Cart" : "Out of Stock"}
                               </button>
-                            ))
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => addProductManually(p, matchedVar)}
-                              disabled={p.stock <= 0}
-                              className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
-                                p.stock > 0
-                                  ? "bg-primary text-white border-primary hover:bg-primary/90"
-                                  : "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
-                              }`}
-                            >
-                              {p.stock > 0 ? "+ Add" : "Out"}
-                            </button>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
