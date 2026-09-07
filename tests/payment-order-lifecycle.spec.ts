@@ -11,6 +11,7 @@ const headers = {
 };
 
 test.describe("Production Payment & Order Finalization Lifecycle (16 Critical Invariants)", () => {
+  test.describe.configure({ mode: "serial" });
   let inStockVariantId: string;
   let inStockProductId: string;
   let baseStock: number;

@@ -130,30 +130,47 @@ serve(async (req) => {
         if (createResult.error) {
           // User might exist but with a different password, let's update it
           if (createResult.error.message.includes("already registered")) {
-            // Use server-side phone lookup instead of paginated listUsers().find()
-            // to reliably find the user regardless of how many users exist.
+            // Use server-side phone lookup with robust 10-digit normalizer
+            // to reliably find the user regardless of prefix (+91, 91, 0)
             const { data: foundUsers } = await adminClient.auth.admin.listUsers({
               page: 1,
               perPage: 1000,
             });
-            const existingUser = foundUsers?.users?.find(
-              (u) => u.phone === cleanPhone || u.phone === phone || u.phone === `+${cleanPhone}`,
-            );
+            const tenDigit = cleanPhone.replace(/\D/g, "").slice(-10);
+            const existingUser = foundUsers?.users?.find((u) => {
+              if (!u.phone) return false;
+              const uDigits = u.phone.replace(/\D/g, "");
+              return (
+                u.phone === cleanPhone ||
+                u.phone === phone ||
+                u.phone === `+${cleanPhone}` ||
+                (tenDigit.length === 10 && uDigits.slice(-10) === tenDigit)
+              );
+            });
             if (existingUser) {
               await adminClient.auth.admin.updateUserById(existingUser.id, {
                 password: derivedPassword,
               });
+              // Use the existing user's exact registered phone format for signInWithPassword
+              if (existingUser.phone && existingUser.phone !== phone) {
+                signInResult = await adminClient.auth.signInWithPassword({
+                  phone: existingUser.phone,
+                  password: derivedPassword,
+                });
+              }
             }
           } else {
             throw createResult.error;
           }
         }
 
-        // Try sign in again after creation/update
-        signInResult = await adminClient.auth.signInWithPassword({
-          phone: phone,
-          password: derivedPassword,
-        });
+        // Try sign in again after creation/update if not already signed in
+        if (!signInResult.data?.session) {
+          signInResult = await adminClient.auth.signInWithPassword({
+            phone: phone,
+            password: derivedPassword,
+          });
+        }
       }
 
       if (signInResult.error) {

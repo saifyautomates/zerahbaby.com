@@ -141,10 +141,11 @@ function AuthPage() {
     // Use DOM value as authoritative source in case React state was reset by HMR
     const raw = (contactInputRef.current?.value ?? contact).trim();
     if (!raw || busy) return;
-    // Sync React state if DOM value differs (e.g. after HMR)
     if (raw !== contact) setContact(raw);
 
-    if (isEmail) {
+    const isRawEmail = raw.includes("@");
+
+    if (isRawEmail) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(raw)) {
         toast.error("Please enter a valid email address");
@@ -160,7 +161,7 @@ function AuthPage() {
 
     setBusy(true);
     try {
-      if (isEmail) {
+      if (isRawEmail) {
         const { error } = await supabase.auth.signInWithOtp({
           email: raw,
           options: { shouldCreateUser: true },
@@ -186,7 +187,7 @@ function AuthPage() {
       setMode("verify");
       startCooldown(60);
       toast.success(
-        isEmail ? "6-digit OTP sent to your email!" : "6-digit OTP sent to your mobile!",
+        isRawEmail ? "6-digit OTP sent to your email!" : "6-digit OTP sent to your mobile!",
       );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
@@ -202,8 +203,9 @@ function AuthPage() {
 
     setBusy(true);
     try {
+      const isContactEmail = contact.includes("@");
       // Direct call — no shared helper — guarantees a real new HTTP request
-      if (isEmail) {
+      if (isContactEmail) {
         const { error } = await supabase.auth.signInWithOtp({
           email: contact.trim(),
           options: { shouldCreateUser: true },
@@ -244,7 +246,8 @@ function AuthPage() {
 
     setBusy(true);
     try {
-      if (isEmail) {
+      const isContactEmail = contact.includes("@");
+      if (isContactEmail) {
         const { error } = await supabase.auth.verifyOtp({
           email: contact.trim(),
           token,
