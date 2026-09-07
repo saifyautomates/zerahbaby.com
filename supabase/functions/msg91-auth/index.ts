@@ -131,22 +131,29 @@ serve(async (req) => {
           // User might exist but with a different password, let's update it
           if (createResult.error.message.includes("already registered")) {
             // Use server-side phone lookup with robust 10-digit normalizer
-            // to reliably find the user regardless of prefix (+91, 91, 0)
-            const { data: foundUsers } = await adminClient.auth.admin.listUsers({
-              page: 1,
-              perPage: 1000,
-            });
             const tenDigit = cleanPhone.replace(/\D/g, "").slice(-10);
-            const existingUser = foundUsers?.users?.find((u) => {
-              if (!u.phone) return false;
-              const uDigits = u.phone.replace(/\D/g, "");
-              return (
-                u.phone === cleanPhone ||
-                u.phone === phone ||
-                u.phone === `+${cleanPhone}` ||
-                (tenDigit.length === 10 && uDigits.slice(-10) === tenDigit)
-              );
-            });
+            let existingUser: any = null;
+            let page = 1;
+            while (!existingUser) {
+              const { data: pageData } = await adminClient.auth.admin.listUsers({
+                page,
+                perPage: 1000,
+              });
+              const users = pageData?.users || [];
+              if (users.length === 0) break;
+              existingUser = users.find((u: { phone?: string }) => {
+                if (!u.phone) return false;
+                const uDigits = u.phone.replace(/\D/g, "");
+                return (
+                  u.phone === cleanPhone ||
+                  u.phone === phone ||
+                  u.phone === `+${cleanPhone}` ||
+                  (tenDigit.length === 10 && uDigits.slice(-10) === tenDigit)
+                );
+              });
+              if (users.length < 1000) break;
+              page++;
+            }
             if (existingUser) {
               await adminClient.auth.admin.updateUserById(existingUser.id, {
                 password: derivedPassword,

@@ -21,7 +21,7 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Authenticate user from JWT token (only admins allowed)
+    // 1. Authenticate user from JWT token
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
@@ -33,13 +33,46 @@ serve(async (req) => {
 
     if (!user) throw new Error("Invalid token");
 
+    // Canonical Admin Role Verification
+    let isAdmin = false;
+
     const { data: roleRow } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (roleRow?.role !== "admin") {
+    if (roleRow?.role === "admin") {
+      isAdmin = true;
+    }
+
+    if (!isAdmin && user.email) {
+      const { data: allowRow } = await adminClient
+        .from("admin_allowlist")
+        .select("email")
+        .eq("email", user.email.toLowerCase().trim())
+        .maybeSingle();
+      if (allowRow) isAdmin = true;
+    }
+
+    if (!isAdmin) {
+      const { data: profileRow } = await adminClient
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileRow?.is_admin === true) isAdmin = true;
+    }
+
+    if (!isAdmin) {
+      const { data: rpcAdmin } = await adminClient.rpc("has_role", {
+        _user_id: user.id,
+        _role: "admin",
+      });
+      if (rpcAdmin === true) isAdmin = true;
+    }
+
+    if (!isAdmin) {
       throw new Error("Unauthorized: Admin privileges required to process refunds");
     }
 
@@ -131,29 +164,94 @@ serve(async (req) => {
     }
 
     // 5. Online Order — Call Razorpay Refunds API
-    const paymentId = order.razorpay_payment_id;
+    const paymentId = (order.razorpay_payment_id || "").trim();
     if (!paymentId) {
       throw new Error("Razorpay Payment ID missing on order. Cannot initiate automated refund.");
     }
 
-    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
-    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
-    const razorpayKeyId = rawKeyId.trim();
-    const razorpayKeySecret = rawKeySecret.trim();
+    const rawKeyId = (Deno.env.get("RAZORPAY_KEY_ID") || "").trim();
+    const rawKeySecret = (Deno.env.get("RAZORPAY_KEY_SECRET") || "").trim();
 
-    if (!razorpayKeyId || !razorpayKeySecret) {
+    if (!rawKeyId || !rawKeySecret) {
       throw new Error("Razorpay API credentials not configured on server");
     }
 
+    // Detect mock tokens on live keys
+    const isLiveKey = rawKeyId.startsWith("rzp_live_");
+    const isMockToken =
+      paymentId.startsWith("pay_test_") ||
+      paymentId.startsWith("test_") ||
+      paymentId.startsWith("order_paid_") ||
+      !/^pay_[a-zA-Z0-9]+$/.test(paymentId);
+
+    if (isLiveKey && isMockToken) {
+      throw new Error(`Cannot refund: Payment ID '${paymentId}' is a mock token and does not exist on live Razorpay.`);
+    }
+
+    const credentials = btoa(`${rawKeyId}:${rawKeySecret}`);
+    const rzpAuthHeader = {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/json",
+    };
+
+    // Pre-flight check on payment status
+    const payCheckRes = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+      method: "GET",
+      headers: rzpAuthHeader,
+    });
+
+    if (!payCheckRes.ok) {
+      const errBody = await payCheckRes.json().catch(() => ({}));
+      const rzpErrDesc =
+        errBody.error?.description ||
+        `Razorpay payment lookup failed with status ${payCheckRes.status}`;
+      throw new Error(rzpErrDesc);
+    }
+
+    const paymentData = await payCheckRes.json();
+
+    // Check if payment was already refunded directly on Razorpay
+    if (
+      paymentData.status === "refunded" ||
+      (paymentData.amount_refunded && paymentData.amount_refunded >= paymentData.amount)
+    ) {
+      const refundsRes = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refunds`, {
+        method: "GET",
+        headers: rzpAuthHeader,
+      });
+      const refundsData = await refundsRes.json().catch(() => ({}));
+      const existingRefund = refundsData.items?.[0] || {};
+      const existingRefundId = existingRefund.id || ret.razorpay_refund_id || "EXT_REFUND";
+
+      await adminClient.rpc("admin_record_online_refund", {
+        _return_id: return_id,
+        _refund_amount: finalAmount,
+        _refund_method: "razorpay",
+        _gateway_refund_id: existingRefundId,
+        _notes: notes || "Synchronized from confirmed gateway refund",
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          already_refunded: true,
+          refund_id: existingRefundId,
+          amount: finalAmount,
+          message: "Payment was already refunded on Razorpay. Synchronized database records.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
+    if (paymentData.status !== "captured") {
+      throw new Error(`Cannot refund payment: Razorpay payment status is '${paymentData.status}'. Only captured payments can be refunded.`);
+    }
+
     const amountInPaise = Math.round(finalAmount * 100);
-    const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
 
     const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refund`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${credentials}`,
-      },
+      headers: rzpAuthHeader,
       body: JSON.stringify({
         amount: amountInPaise,
         speed: "optimum",

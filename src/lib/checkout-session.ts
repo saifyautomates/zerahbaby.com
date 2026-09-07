@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface CheckoutSessionItem {
-  variant_id: string;
+  variant_id?: string;
+  product_slug?: string;
+  product_id?: string;
   qty: number;
 }
 

@@ -163,7 +163,7 @@ export function CustomerHistoryPanel() {
     }
 
     for (const sale of rawSales) {
-      if (sale.status === "cancelled") continue;
+      if (sale.status === "cancelled" || sale.status === "voided" || (sale as { is_voided?: boolean }).is_voided) continue;
 
       const phone = (sale.customer_phone || "").trim();
       const rawName = (sale.customer_name || "").trim();

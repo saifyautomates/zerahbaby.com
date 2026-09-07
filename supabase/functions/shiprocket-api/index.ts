@@ -283,8 +283,9 @@ serve(async (req) => {
       }
 
       // Calculate safe names and addresses
-      const firstName = order.full_name.split(" ")[0];
-      const lastName = order.full_name.split(" ").slice(1).join(" ") || firstName;
+      const safeFullName = (order.full_name || "Customer").trim();
+      const firstName = safeFullName.split(" ")[0] || "Customer";
+      const lastName = safeFullName.split(" ").slice(1).join(" ") || firstName;
 
       const isCod = order.payment_method === "cod" || order.payment_method === "COD";
 

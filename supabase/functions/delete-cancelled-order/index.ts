@@ -38,14 +38,46 @@ serve(async (req) => {
       throw new Error("Unauthorized: Invalid session");
     }
 
-    // 2. Verify user has admin privileges in user_roles
-    const { data: roleRow, error: roleError } = await adminClient
+    // 2. Canonical Admin Role Verification
+    let isAdmin = false;
+
+    const { data: roleRow } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (roleError || roleRow?.role !== "admin") {
+    if (roleRow?.role === "admin") {
+      isAdmin = true;
+    }
+
+    if (!isAdmin && user.email) {
+      const { data: allowRow } = await adminClient
+        .from("admin_allowlist")
+        .select("email")
+        .eq("email", user.email.toLowerCase().trim())
+        .maybeSingle();
+      if (allowRow) isAdmin = true;
+    }
+
+    if (!isAdmin) {
+      const { data: profileRow } = await adminClient
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileRow?.is_admin === true) isAdmin = true;
+    }
+
+    if (!isAdmin) {
+      const { data: rpcAdmin } = await adminClient.rpc("has_role", {
+        _user_id: user.id,
+        _role: "admin",
+      });
+      if (rpcAdmin === true) isAdmin = true;
+    }
+
+    if (!isAdmin) {
       throw new Error("Unauthorized: Only store administrators can delete orders");
     }
 
@@ -91,6 +123,21 @@ serve(async (req) => {
     }
 
     // 6. Delete dependent child records
+    // A. Clean up online return child items and return records
+    const { data: retRows } = await adminClient
+      .from("online_returns")
+      .select("id")
+      .eq("order_id", orderId);
+
+    if (retRows && retRows.length > 0) {
+      const retIds = retRows.map((r: { id: string }) => r.id);
+      await adminClient.from("online_return_items").delete().in("return_id", retIds);
+      await adminClient.from("online_returns").delete().eq("order_id", orderId);
+    }
+
+    // B. Clean up shipments, coupons, items, status history, and payments
+    await adminClient.from("shiprocket_shipments").delete().eq("order_id", orderId);
+    await adminClient.from("order_shipments").delete().eq("order_id", orderId);
     await adminClient.from("coupon_usage").delete().eq("order_id", orderId);
     await adminClient.from("order_items").delete().eq("order_id", orderId);
     await adminClient.from("order_status_history").delete().eq("order_id", orderId);

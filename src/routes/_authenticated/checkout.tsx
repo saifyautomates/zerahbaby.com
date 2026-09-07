@@ -239,10 +239,16 @@ function CheckoutPage() {
               pincode: form.pincode.trim(),
             };
 
-      const sessionItems = items.map(({ product, qty, variantId }) => ({
-        variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
-        qty,
-      }));
+      const sessionItems = items.map(({ product, qty, variantId }) => {
+        const resolvedVariantId =
+          variantId || (product.variants?.length ? product.variants[0].id : undefined);
+        return {
+          variant_id: resolvedVariantId || undefined,
+          product_slug: product.id,
+          product_id: product.uuid || product.id,
+          qty,
+        };
+      });
 
       // 1. Create temporary checkout session (authoritative validation & total calculation on server)
       const sessionResult = await createCheckoutSession({

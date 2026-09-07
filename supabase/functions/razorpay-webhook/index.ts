@@ -155,6 +155,26 @@ serve(async (req) => {
             // Non-blocking
           }
 
+          // Trigger Transactional SMS for Online Order (Customer + Owner) (non-blocking)
+          try {
+            fetch(`${supabaseUrl}/functions/v1/msg91-transactional`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                order_id: targetOrderId,
+                event_type: "online_sale",
+                notify_owner: true,
+              }),
+            }).catch((smsErr) => {
+              console.warn("[razorpay-webhook] SMS dispatch non-blocking error:", smsErr);
+            });
+          } catch {
+            // Non-blocking
+          }
+
           // Automatically trigger Shiprocket Shipment Creation (non-blocking)
           try {
             fetch(`${supabaseUrl}/functions/v1/shiprocket-api`, {

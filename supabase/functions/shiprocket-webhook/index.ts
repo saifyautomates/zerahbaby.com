@@ -20,9 +20,14 @@ serve(async (req) => {
       throw new Error("Missing Supabase credentials");
     }
 
-    // Parse webhook payload
+    // Parse webhook payload safely
     const bodyText = await req.text();
-    const payload = JSON.parse(bodyText);
+    let payload: Record<string, any> = {};
+    try {
+      payload = JSON.parse(bodyText || "{}");
+    } catch {
+      return new Response("Bad Request: Invalid JSON body", { status: 400, headers: corsHeaders });
+    }
 
     // Important: Shiprocket sends webhooks for tracking updates.
     // Example Payload contains:
