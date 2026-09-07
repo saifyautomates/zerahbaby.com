@@ -5,9 +5,9 @@ export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
     "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&auto=format&fit=crop&q=80",
   toys: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
   care: "https://images.unsplash.com/photo-1584824486539-53bb4646bdbc?w=800&auto=format&fit=crop&q=80",
-  gear: "https://images.unsplash.com/photo-1522771930-78848d92fa1d?w=800&auto=format&fit=crop&q=80",
+  gear: "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=80",
   feeding:
-    "https://images.unsplash.com/photo-1555252834-3dd48d28c946?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1544126592-807ade215a0b?w=800&auto=format&fit=crop&q=80",
   diapering:
     "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
   bath: "https://images.unsplash.com/photo-1629198688000-71f23e745b6e?w=800&auto=format&fit=crop&q=80",

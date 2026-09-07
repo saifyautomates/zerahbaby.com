@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -2865,6 +2865,24 @@ export type Database = {
         Returns: {
           next_token: number
           token_date: string
+        }[]
+      }
+      get_approved_product_reviews: {
+        Args: { p_product_id: string }
+        Returns: {
+          id: string
+          product_id: string
+          user_id: string
+          order_id: string | null
+          rating: number
+          title: string
+          comment: string
+          images: string[]
+          verified_purchase: boolean
+          status: Database["public"]["Enums"]["review_status"]
+          created_at: string
+          updated_at: string
+          user_name: string
         }[]
       }
       get_related_products: {
