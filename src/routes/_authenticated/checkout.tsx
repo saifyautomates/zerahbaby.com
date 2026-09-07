@@ -8,7 +8,16 @@ import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/o
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
-import { Sparkles, TicketPercent, Truck, AlertCircle, Banknote, CreditCard } from "lucide-react";
+import {
+  Sparkles,
+  TicketPercent,
+  Truck,
+  AlertCircle,
+  Banknote,
+  CreditCard,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { CartPageSkeleton } from "@/components/ui/Skeletons";
 import { usePaymentSettings } from "@/lib/payment-settings";
 import {
@@ -83,18 +92,26 @@ function CheckoutPage() {
   const codEnabled = Boolean(paymentSettings?.cod_enabled);
   const codFee = form.payment_method === "cod" ? Number(paymentSettings?.cod_fee || 0) : 0;
 
-  const isCodEligible = useMemo(() => {
-    if (!codEnabled) return false;
+  // Pay Now collapsible/interactive options toggle
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(true);
+
+  // Determine why COD is unavailable (if applicable)
+  const codUnavailableReason = useMemo(() => {
+    if (!codEnabled) {
+      return "Cash on Delivery is currently unavailable (disabled by store admin).";
+    }
     if (paymentSettings?.cod_min_order_value && subtotal < paymentSettings.cod_min_order_value) {
-      return false;
+      return `Cash on Delivery requires an order between ₹${paymentSettings.cod_min_order_value} and ₹${paymentSettings?.cod_max_order_value || "∞"}.`;
     }
     if (paymentSettings?.cod_max_order_value && subtotal > paymentSettings.cod_max_order_value) {
-      return false;
+      return `Cash on Delivery is available only for orders up to ₹${paymentSettings.cod_max_order_value}.`;
     }
-    return true;
+    return null;
   }, [codEnabled, paymentSettings, subtotal]);
 
-  // If COD is not eligible or disabled, reset payment_method to 'online'
+  const isCodEligible = !codUnavailableReason;
+
+  // If COD is not eligible or disabled by admin, reset payment_method to 'online'
   useEffect(() => {
     if (!isCodEligible && form.payment_method === "cod") {
       setForm((f) => ({ ...f, payment_method: "online" }));
@@ -652,88 +669,166 @@ function CheckoutPage() {
           )}
 
           <div className="mt-8 border-t border-border pt-6">
-            <h2 className="text-lg font-bold">Payment &amp; Notes</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2 space-y-3">
-                <span className="text-sm font-semibold block">Payment Method</span>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Payment &amp; Notes</h2>
+              <span className="text-xs text-muted-foreground font-medium">
+                Select payment method
+              </span>
+            </div>
 
-                {isCodEligible ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label
-                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition ${
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 space-y-3">
+                {/* ─── PAY NOW TRIGGER CARD (Replaces previous static card) ─── */}
+                <button
+                  type="button"
+                  id="checkout-pay-now-trigger"
+                  onClick={() => setPaymentOptionsOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
+                      {form.payment_method === "cod" ? (
+                        <Banknote className="size-5" />
+                      ) : (
+                        <CreditCard className="size-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-base text-foreground">Pay Now</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {form.payment_method === "cod" ? "COD Selected" : "Online Selected"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {form.payment_method === "cod"
+                          ? "Cash on Delivery · Pay cash or UPI at doorstep"
+                          : "Online Payment · Instant via UPI, Cards, NetBanking"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-xs font-semibold text-primary hidden sm:inline">
+                      {paymentOptionsOpen ? "Hide Options" : "Change Method"}
+                    </span>
+                    <div className="p-1 rounded-full bg-muted text-muted-foreground group-hover:text-foreground transition-colors">
+                      {paymentOptionsOpen ? (
+                        <ChevronUp className="size-4" />
+                      ) : (
+                        <ChevronDown className="size-4" />
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                {/* ─── 2 TABS: ORDER ONLINE & CASH ON DELIVERY ─── */}
+                {paymentOptionsOpen && (
+                  <div className="grid gap-3 sm:grid-cols-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {/* TAB 1: ORDER ONLINE */}
+                    <button
+                      type="button"
+                      id="payment-tab-online"
+                      onClick={() => setForm((prev) => ({ ...prev, payment_method: "online" }))}
+                      className={`w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer ${
                         form.payment_method === "online"
-                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
                           : "border-border bg-card hover:bg-muted/30"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="online"
-                        checked={form.payment_method === "online"}
-                        onChange={() => setForm({ ...form, payment_method: "online" })}
-                        className="mt-0.5 size-4 accent-primary cursor-pointer"
-                      />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="size-4 text-primary" />
-                          <span className="font-bold text-sm text-foreground">Online Payment</span>
+                      <div className="mt-0.5 shrink-0">
+                        <div
+                          className={`size-4 rounded-full border flex items-center justify-center transition-colors ${
+                            form.payment_method === "online"
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-muted-foreground/40 bg-background"
+                          }`}
+                        >
+                          {form.payment_method === "online" && (
+                            <div className="size-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CreditCard className="size-4 text-primary shrink-0" />
+                          <span className="font-bold text-sm text-foreground">Order Online</span>
                           <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                             Instant
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Pay securely with UPI, Credit / Debit Cards, or NetBanking.
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or NetBanking.
                         </p>
                       </div>
-                    </label>
+                    </button>
 
-                    <label
-                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition ${
-                        form.payment_method === "cod"
-                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                          : "border-border bg-card hover:bg-muted/30"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="cod"
-                        checked={form.payment_method === "cod"}
-                        onChange={() => setForm({ ...form, payment_method: "cod" })}
-                        className="mt-0.5 size-4 accent-primary cursor-pointer"
-                      />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Banknote className="size-4 text-primary" />
-                          <span className="font-bold text-sm text-foreground">
-                            Cash on Delivery
-                          </span>
-                          {codFee > 0 && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                              +₹{codFee} fee
-                            </span>
-                          )}
+                    {/* TAB 2: CASH ON DELIVERY */}
+                    {isCodEligible ? (
+                      <button
+                        type="button"
+                        id="payment-tab-cod"
+                        onClick={() => setForm((prev) => ({ ...prev, payment_method: "cod" }))}
+                        className={`w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer ${
+                          form.payment_method === "cod"
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
+                            : "border-border bg-card hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          <div
+                            className={`size-4 rounded-full border flex items-center justify-center transition-colors ${
+                              form.payment_method === "cod"
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-muted-foreground/40 bg-background"
+                            }`}
+                          >
+                            {form.payment_method === "cod" && (
+                              <div className="size-1.5 rounded-full bg-white" />
+                            )}
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Pay with cash or UPI upon delivery at your doorstep.
-                        </p>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Banknote className="size-4 text-primary shrink-0" />
+                            <span className="font-bold text-sm text-foreground">Cash on Delivery</span>
+                            {codFee > 0 && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                +₹{codFee} fee
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Pay with cash or UPI upon delivery at your doorstep.
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      /* COD DISABLED / UNAVAILABLE STATE (Admin Turned Off or Limit Not Met) */
+                      <div
+                        id="payment-tab-cod-disabled"
+                        className="w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none"
+                        title={codUnavailableReason || "Cash on Delivery is unavailable"}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          <div className="size-4 rounded-full border border-muted-foreground/30 bg-muted flex items-center justify-center" />
+                        </div>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Banknote className="size-4 text-muted-foreground shrink-0" />
+                            <span className="font-bold text-sm text-muted-foreground line-through decoration-muted-foreground/50">
+                              Cash on Delivery
+                            </span>
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                              Unavailable
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {codUnavailableReason}
+                          </p>
+                        </div>
                       </div>
-                    </label>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-muted/20">
-                    <CreditCard className="size-4 text-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground">
-                        Online Payment (UPI / Cards / NetBanking)
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {codEnabled
-                          ? `Cash on Delivery requires an order between ₹${paymentSettings?.cod_min_order_value || 0} and ₹${paymentSettings?.cod_max_order_value || "∞"}.`
-                          : "Cash on Delivery is currently unavailable."}
-                      </p>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -757,7 +852,7 @@ function CheckoutPage() {
           >
             {busy
               ? "Placing order…"
-              : `${form.payment_method === "cod" ? "Confirm COD Order" : "Pay & Place Order"} · ${formatPrice(finalTotal)}`}
+              : `${form.payment_method === "cod" ? "Confirm COD Order" : "Pay Now"} · ${formatPrice(finalTotal)}`}
           </button>
         </form>
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">

@@ -39,6 +39,33 @@ export function PaymentMethodsSettingsCard() {
     }
   }, [settings]);
 
+  const handleToggleCod = async () => {
+    const nextVal = !codEnabled;
+    setCodEnabled(nextVal);
+    try {
+      const parsedFee = Number(codFee) || 0;
+      const parsedMin = minOrderVal.trim() !== "" ? Number(minOrderVal) : null;
+      const parsedMax = maxOrderVal.trim() !== "" ? Number(maxOrderVal) : null;
+
+      await updateSettings.mutateAsync({
+        cod_enabled: nextVal,
+        cod_fee: parsedFee,
+        cod_min_order_value: parsedMin,
+        cod_max_order_value: parsedMax,
+      });
+
+      setHasChanged(false);
+      toast.success(
+        nextVal
+          ? "Cash on Delivery is now ENABLED across the storefront!"
+          : "Cash on Delivery is now DISABLED across the storefront.",
+      );
+    } catch (err) {
+      setCodEnabled(!nextVal); // Revert state on failure
+      toast.error((err as Error).message || "Failed to update Cash on Delivery status");
+    }
+  };
+
   const onSave = async () => {
     try {
       const parsedFee = Number(codFee) || 0;
@@ -184,11 +211,9 @@ export function PaymentMethodsSettingsCard() {
                   type="button"
                   role="switch"
                   aria-checked={codEnabled}
-                  onClick={() => {
-                    setCodEnabled(!codEnabled);
-                    setHasChanged(true);
-                  }}
-                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  disabled={updateSettings.isPending}
+                  onClick={handleToggleCod}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 ${
                     codEnabled ? "bg-primary" : "bg-muted-foreground/30"
                   }`}
                 >
