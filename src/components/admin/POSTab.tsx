@@ -173,14 +173,18 @@ export function POSTab() {
     const draft = loadPOSDraft();
     return draft?.cart || [];
   });
-  const [scanValue, setScanValue] = useState("");
+  // Unified Universal POS Scan & Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const productSearch = searchQuery;
+  const setProductSearch = setSearchQuery;
+  const scanValue = searchQuery;
+  const setScanValue = setSearchQuery;
   const [scanLoading, setScanLoading] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = scanInputRef;
 
   // Quick Order State
   const [quickOrderProduct, setQuickOrderProduct] = useState("");
@@ -1180,67 +1184,27 @@ export function POSTab() {
           </div>
         </div>
 
-        {/* Scan Input - Only displayed during Cart scanning */}
+        {/* Unified Universal Scan & Search Input */}
         {step === "cart" && (
-          <div className="p-4 border-b border-border/50 bg-card space-y-3">
-            {/* Top Primary Input: Barcode / SKU Scanner */}
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Scan className="absolute left-4 top-3.5 size-5 text-muted-foreground" />
+          <div className="p-4 border-b border-border/50 bg-card">
+            <div className="relative" ref={searchDropdownRef}>
+              <div className="relative flex items-center">
+                <Scan className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-primary animate-pulse pointer-events-none" />
                 <input
                   ref={scanInputRef}
                   type="text"
-                  value={scanValue}
-                  onChange={(e) => setScanValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && scanValue.trim()) {
-                      handleScan(scanValue.trim());
-                      setScanValue("");
-                    }
-                  }}
-                  placeholder="Scan barcode or type SKU and press Enter..."
-                  aria-label="Scan barcode or SKU"
-                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-10 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all"
-                  autoFocus
-                />
-                {scanValue && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScanValue("");
-                      scanInputRef.current?.focus();
-                    }}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
-                  >
-                    <X className="size-4" />
-                  </button>
-                )}
-              </div>
-              {scanLoading && (
-                <div className="flex items-center px-3">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Secondary Input: High-Performance Server-Side Product & SKU Search */}
-            <div className="relative" ref={searchDropdownRef}>
-              <div className="relative">
-                <Search className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={productSearch}
+                  value={searchQuery}
                   onFocus={() => {
-                    if (productSearch.trim().length > 0) setIsSearchDropdownOpen(true);
+                    if (searchQuery.trim().length > 0) setIsSearchDropdownOpen(true);
                   }}
                   onChange={(e) => {
-                    setProductSearch(e.target.value);
-                    if (!isSearchDropdownOpen && e.target.value.trim().length > 0) {
+                    const val = e.target.value;
+                    setSearchQuery(val);
+                    if (!isSearchDropdownOpen && val.trim().length > 0) {
                       setIsSearchDropdownOpen(true);
                     }
                   }}
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === "ArrowDown") {
                       e.preventDefault();
                       if (selectableItems.length > 0) {
@@ -1257,50 +1221,63 @@ export function POSTab() {
                       }
                     } else if (e.key === "Enter") {
                       e.preventDefault();
-                      if (selectableItems.length > 0) {
+                      const clean = searchQuery.trim();
+                      if (!clean) return;
+
+                      // 1. If suggestions dropdown is open with suggestions, add highlighted item
+                      if (isSearchDropdownOpen && selectableItems.length > 0) {
                         const target = selectableItems[activeSuggestionIndex] || selectableItems[0];
                         if (target.isOutOfStock) {
                           playScanError();
                           toast.error(
                             `"${target.product.name}${target.variant.name !== "Default" ? ` (${target.variant.name})` : ""}" is out of stock!`,
                           );
-                        } else {
-                          addPOSResultToCart(target.product, target.variant);
+                          return;
                         }
+                        addPOSResultToCart(target.product, target.variant);
+                        return;
                       }
+
+                      // 2. Barcode scanner fast Enter or direct SKU enter
+                      await handleScan(clean);
                     } else if (e.key === "Escape") {
                       e.preventDefault();
                       setIsSearchDropdownOpen(false);
-                      setProductSearch("");
+                      setSearchQuery("");
                       scanInputRef.current?.focus();
                     }
                   }}
-                  placeholder="Search products by name, SKU, variant, color, or barcode (↑↓ to navigate, Enter to add)…"
-                  className="w-full rounded-xl border border-border bg-background pl-10 pr-24 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium shadow-xs"
+                  placeholder="Scan barcode, or search by product name, SKU, variant, color (Enter to add)…"
+                  aria-label="POS Universal Scan and Search Bar"
+                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-32 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all placeholder:text-muted-foreground/60 placeholder:font-normal placeholder:text-sm sm:placeholder:text-base"
+                  autoFocus
                 />
 
                 {/* Right Action / Loading indicators */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0)) && (
-                    <div className="flex items-center gap-1 text-xs text-primary animate-pulse">
-                      <Loader2 className="size-3.5 animate-spin" />
-                      <span className="text-[10px] font-semibold hidden sm:inline">Searching…</span>
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  {(isSearchLoading || (isSearchFetching && searchResults.length === 0) || scanLoading) && (
+                    <div className="flex items-center gap-1.5 text-xs text-primary font-semibold animate-pulse">
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      <span className="text-[11px] hidden sm:inline">Searching…</span>
                     </div>
                   )}
-                  {productSearch && (
+                  {searchQuery && (
                     <button
                       type="button"
                       onClick={() => {
-                        setProductSearch("");
+                        setSearchQuery("");
                         setIsSearchDropdownOpen(false);
-                        searchInputRef.current?.focus();
+                        scanInputRef.current?.focus();
                       }}
-                      className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors cursor-pointer"
+                      className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
                       title="Clear search"
                     >
-                      <X className="size-3.5" />
+                      <X className="size-4" />
                     </button>
                   )}
+                  <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted/60 border border-border/50 text-[10px] font-extrabold text-muted-foreground">
+                    <span>↵ ENTER</span>
+                  </div>
                 </div>
               </div>
 
