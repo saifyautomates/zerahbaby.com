@@ -1324,81 +1324,130 @@ export function POSTab() {
                     </div>
                   ) : (
                     searchResults.map((p) => {
-                      const hasVariants = p.variants && p.variants.length > 0;
+                      const distinctVariants = (p.variants || []).filter(
+                        (v, idx, arr) =>
+                          arr.findIndex(
+                            (o) =>
+                              o.name === v.name &&
+                              (o.color || "") === (v.color || "") &&
+                              (o.size || "") === (v.size || "") &&
+                              o.price === v.price,
+                          ) === idx,
+                      );
+                      const hasRealVariants =
+                        distinctVariants.length > 1 ||
+                        (distinctVariants.length === 1 &&
+                          distinctVariants[0].name !== "Default");
+
                       return (
                         <div
                           key={p.id}
-                          className="p-3 hover:bg-muted/30 transition-colors flex flex-col gap-2.5"
+                          onMouseDown={(e) => {
+                            if ((e.target as HTMLElement).closest("button")) return;
+                            e.preventDefault();
+                            addPOSResultToCart(p);
+                          }}
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest("button")) return;
+                            addPOSResultToCart(p);
+                          }}
+                          className="p-3 hover:bg-primary/5 transition-all flex flex-col gap-2.5 cursor-pointer group"
                         >
                           {/* Parent Product Info Bar */}
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={imageFor(p.category, p.image_url)}
-                              alt={p.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="size-11 rounded-lg object-cover border border-border shrink-0 bg-muted"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = clothing;
-                              }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
-                                {p.sales_channel === "OFFLINE_ONLY" ? (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
-                                    🏪 Offline Only
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <img
+                                src={imageFor(p.category, p.image_url)}
+                                alt={p.name}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-11 rounded-lg object-cover border border-border shrink-0 bg-muted group-hover:border-primary/40 transition-colors"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = clothing;
+                                }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                                    {p.name}
                                   </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
-                                    🌐 Online + Store
+                                  {p.sales_channel === "OFFLINE_ONLY" ? (
+                                    <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                      🏪 Offline Only
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                      🌐 Online + Store
+                                    </span>
+                                  )}
+                                  {p.matched_reason && (
+                                    <span className="text-[10px] font-semibold text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
+                                      {p.matched_reason}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                  <span>
+                                    SKU: <strong className="text-foreground">{p.sku || "N/A"}</strong>
                                   </span>
-                                )}
-                                {p.matched_reason && (
-                                  <span className="text-[10px] font-semibold text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
-                                    {p.matched_reason}
+                                  <span>•</span>
+                                  <span>
+                                    Brand: <strong className="text-foreground">{p.brand}</strong>
                                   </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                                <span>
-                                  SKU: <strong className="text-foreground">{p.sku || "N/A"}</strong>
-                                </span>
-                                <span>•</span>
-                                <span>
-                                  Brand: <strong className="text-foreground">{p.brand}</strong>
-                                </span>
-                                <span>•</span>
-                                <span>
-                                  Price: <strong className="text-primary font-bold">₹{p.price}</strong>
-                                </span>
-                                {p.mrp > p.price && (
-                                  <span className="line-through text-[11px] opacity-60">₹{p.mrp}</span>
-                                )}
-                                <span>•</span>
-                                <span>
-                                  Total Stock:{" "}
-                                  <strong
-                                    className={
-                                      p.stock > 0
-                                        ? "text-emerald-600 dark:text-emerald-400"
-                                        : "text-rose-600 font-bold"
-                                    }
-                                  >
-                                    {p.stock}
-                                  </strong>
-                                </span>
+                                  <span>•</span>
+                                  <span>
+                                    Price: <strong className="text-primary font-bold">₹{p.price}</strong>
+                                  </span>
+                                  {p.mrp > p.price && (
+                                    <span className="line-through text-[11px] opacity-60">₹{p.mrp}</span>
+                                  )}
+                                  <span>•</span>
+                                  <span>
+                                    Total Stock:{" "}
+                                    <strong
+                                      className={
+                                        p.stock > 0
+                                          ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                                          : "text-rose-600 font-bold"
+                                      }
+                                    >
+                                      {p.stock}
+                                    </strong>
+                                  </span>
+                                </div>
                               </div>
                             </div>
+
+                            {/* Quick Add Button on single-variant or card level */}
+                            <button
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                addPOSResultToCart(p);
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addPOSResultToCart(p);
+                              }}
+                              disabled={p.stock <= 0}
+                              className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                                p.stock > 0
+                                  ? "bg-primary text-white border-primary hover:bg-primary/90 shadow-sm"
+                                  : "bg-muted text-muted-foreground border-border cursor-not-allowed"
+                              }`}
+                            >
+                              {p.stock > 0 ? "+ Add" : "Out"}
+                            </button>
                           </div>
 
-                          {/* Variant Selection Chips / Actions */}
-                          {hasVariants ? (
+                          {/* Variant Selection Chips / Actions if distinct variants exist */}
+                          {hasRealVariants && (
                             <div className="flex flex-wrap items-center gap-2 pl-14 pt-1">
                               <span className="text-[11px] font-bold text-muted-foreground mr-1 uppercase tracking-wider">
                                 Variants:
                               </span>
-                              {p.variants.map((v) => {
+                              {distinctVariants.map((v) => {
                                 const isItemHighlighted =
                                   selectableItems[activeSuggestionIndex]?.variant.id === v.id;
                                 const isOutOfStock = v.stock <= 0;
@@ -1407,7 +1456,15 @@ export function POSTab() {
                                   <button
                                     key={v.id}
                                     type="button"
-                                    onClick={() => !isOutOfStock && addPOSResultToCart(p, v)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (!isOutOfStock) addPOSResultToCart(p, v);
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isOutOfStock) addPOSResultToCart(p, v);
+                                    }}
                                     disabled={isOutOfStock}
                                     title={
                                       isOutOfStock
@@ -1446,21 +1503,6 @@ export function POSTab() {
                                   </button>
                                 );
                               })}
-                            </div>
-                          ) : (
-                            <div className="pl-14 pt-1 flex items-center justify-end">
-                              <button
-                                type="button"
-                                onClick={() => addPOSResultToCart(p)}
-                                disabled={p.stock <= 0}
-                                className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
-                                  p.stock > 0
-                                    ? "bg-primary text-white border-primary hover:bg-primary/90 shadow-sm"
-                                    : "bg-muted text-muted-foreground border-border cursor-not-allowed"
-                                }`}
-                              >
-                                {p.stock > 0 ? "+ Add to Cart" : "Out of Stock"}
-                              </button>
                             </div>
                           )}
                         </div>
