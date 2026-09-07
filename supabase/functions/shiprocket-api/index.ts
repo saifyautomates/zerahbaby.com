@@ -44,7 +44,12 @@ serve(async (req) => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (roleRow?.role === "admin") {
+      if (
+        roleRow?.role === "admin" ||
+        roleRow?.role === "owner" ||
+        roleRow?.role === "staff" ||
+        roleRow?.role === "manager"
+      ) {
         isAdmin = true;
       }
 
@@ -107,7 +112,7 @@ serve(async (req) => {
         Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
 
       if (!srEmail || !srPassword) {
-        throw new Error("Shiprocket credentials not configured");
+        throw new Error("Shiprocket credentials not configured in Supabase secrets");
       }
 
       const authRes = await fetch(`${srBaseUrl}/v1/external/auth/login`, {
@@ -116,9 +121,13 @@ serve(async (req) => {
         body: JSON.stringify({ email: srEmail, password: srPassword }),
       });
 
-      const authData = await authRes.json();
+      const authData = await authRes.json().catch(() => ({}));
       if (!authRes.ok || !authData.token) {
-        throw new Error("Failed to authenticate with Shiprocket");
+        const err =
+          authData.message ||
+          (authData.errors ? Object.values(authData.errors).flat().join(", ") : "") ||
+          "Failed to authenticate with Shiprocket";
+        throw new Error(err);
       }
 
       const expiresAt = new Date();
@@ -139,6 +148,27 @@ serve(async (req) => {
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${srToken}`,
+    };
+
+    // Helper: Dynamically fetch active primary pickup location
+    const getPrimaryPickupLocation = async (): Promise<string> => {
+      try {
+        const res = await fetch(`${srBaseUrl}/v1/external/settings/company/pickup`, {
+          headers: { Authorization: `Bearer ${srToken}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const addresses = json?.data?.shipping_address || [];
+          const primary =
+            addresses.find((a: any) => a.is_primary_location === 1) || addresses[0];
+          if (primary?.pickup_location) {
+            return primary.pickup_location;
+          }
+        }
+      } catch (err) {
+        console.warn("[shiprocket-api] Failed to fetch pickup locations dynamically:", err);
+      }
+      return "work";
     };
 
     // --- Process Actions ---
@@ -221,14 +251,17 @@ serve(async (req) => {
         body: JSON.stringify(returnPayload),
       });
 
-      const srData = await res.json();
+      const srData = await res.json().catch(() => ({}));
       if (!res.ok || srData.status_code !== 1) {
         console.error("Shiprocket Create Return Error:", srData);
-        // Fallback: If return API is not enabled on account, return informative response
+        const errMsg =
+          srData.message ||
+          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
+          "Shiprocket reverse pickup creation failed";
         return new Response(
           JSON.stringify({
             success: false,
-            error: srData.message || "Shiprocket reverse pickup creation failed",
+            error: errMsg,
             details: srData,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
@@ -267,7 +300,18 @@ serve(async (req) => {
 
     if (action === "create_shipment") {
       if (order.shiprocket_order_id) {
-        throw new Error("Shipment already created for this order");
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Shipment already created for this order",
+            shiprocket_order_id: order.shiprocket_order_id,
+            shiprocket_shipment_id: order.shiprocket_shipment_id,
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          },
+        );
       }
 
       // Fetch order items to build payload
@@ -275,7 +319,7 @@ serve(async (req) => {
         .from("order_items")
         .select(
           `
-          quantity, qty, price, name, sku_snapshot,
+          qty, quantity, price, name, sku_snapshot,
           products ( name, sku, stock, mrp )
         `,
         )
@@ -283,19 +327,19 @@ serve(async (req) => {
 
       if (itemsError) {
         console.error("[shiprocket-api] Failed to fetch order items:", itemsError);
-        throw new Error("Failed to fetch order items for shipment creation");
+        throw new Error(`Failed to fetch order items: ${itemsError.message}`);
       }
 
       const orderItems = (items || []).map(
         (i: {
-          quantity?: number;
           qty?: number;
+          quantity?: number;
           price: number;
           name?: string;
           sku_snapshot?: string;
           products?: { name?: string; sku?: string; stock?: number; mrp?: number } | null;
         }) => {
-          const units = i.quantity || i.qty || 1;
+          const units = i.qty || i.quantity || 1;
           const itemName = i.products?.name || i.name || "Product";
           const itemSku = i.products?.sku || i.sku_snapshot || "SKU-UNKNOWN";
           const mrpVal = i.products?.mrp || i.price;
@@ -326,10 +370,15 @@ serve(async (req) => {
         order.order_number ||
         `ORD-${String(order.id).replace(/-/g, "").substring(0, 12).toUpperCase()}`;
 
+      const pickupLocation = await getPrimaryPickupLocation();
+
+      const orderDate = new Date(order.created_at);
+      const formattedDate = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, "0")}-${String(orderDate.getDate()).padStart(2, "0")} ${String(orderDate.getHours()).padStart(2, "0")}:${String(orderDate.getMinutes()).padStart(2, "0")}`;
+
       const payload = {
         order_id: srOrderId,
-        order_date: new Date(order.created_at).toISOString().split("T")[0],
-        pickup_location: "Primary", // Usually configured in SR panel
+        order_date: formattedDate,
+        pickup_location: pickupLocation,
         billing_customer_name: firstName,
         billing_last_name: lastName,
         billing_address: order.address,
@@ -338,28 +387,35 @@ serve(async (req) => {
         billing_pincode: order.pincode,
         billing_state: order.state,
         billing_country: "India",
-        billing_email: order.email || "noemail@zerah.in",
+        billing_email: order.email || "hello@zerahkids.com",
         billing_phone: order.phone,
         shipping_is_billing: true,
         order_items: orderItems,
         payment_method: isCod ? "COD" : "Prepaid",
-        sub_total: order.subtotal,
+        sub_total: Number(order.subtotal || order.total || 0),
         length: 10,
         breadth: 10,
         height: 10,
         weight: 0.5,
       };
 
-      const res = await fetch(`${srBaseUrl}/v1/external/orders/create/ad-hoc`, {
+      const res = await fetch(`${srBaseUrl}/v1/external/orders/create/adhoc`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       });
 
-      const srData = await res.json();
-      if (!res.ok || srData.status_code !== 1) {
+      const srData = await res.json().catch(() => ({}));
+      if (
+        !res.ok ||
+        (srData.status_code !== 1 && srData.status_code !== 200 && !srData.order_id)
+      ) {
         console.error("Shiprocket Create Order Error:", srData);
-        throw new Error(srData.message || "Failed to create shipment in Shiprocket");
+        const errMsg =
+          srData.message ||
+          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
+          "Failed to create shipment in Shiprocket";
+        throw new Error(errMsg);
       }
 
       // Save to database
@@ -368,7 +424,7 @@ serve(async (req) => {
         .update({
           shiprocket_order_id: srData.order_id,
           shiprocket_shipment_id: srData.shipment_id,
-          shiprocket_status: "NEW",
+          shiprocket_status: srData.status || "NEW",
         })
         .eq("id", orderId);
 
@@ -392,14 +448,18 @@ serve(async (req) => {
         headers,
         body: JSON.stringify({
           shipment_id: order.shiprocket_shipment_id,
-          courier_id: body.courierId || "", // Optionally pass specific courier, or let SR auto-assign if empty
+          courier_id: body.courierId || "",
         }),
       });
 
-      const srData = await res.json();
+      const srData = await res.json().catch(() => ({}));
       if (!res.ok || !srData.awb_assign_status) {
         console.error("Shiprocket AWB Error:", srData);
-        throw new Error(srData.message || "Failed to generate AWB");
+        const errMsg =
+          srData.message ||
+          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
+          "Failed to generate AWB";
+        throw new Error(errMsg);
       }
 
       const awbCode = srData.response?.data?.awb_code;
@@ -413,7 +473,7 @@ serve(async (req) => {
           awb_code: awbCode,
           courier_name: courierName || "Assigned",
           shiprocket_status: "AWB_GENERATED",
-          status: "processing", // Auto-update store order status
+          status: "processing",
         })
         .eq("id", orderId);
 
@@ -435,24 +495,31 @@ serve(async (req) => {
         }),
       });
 
-      const srData = await res.json();
-      if (!res.ok) {
+      const srData = await res.json().catch(() => ({}));
+      if (!res.ok || (srData.status !== 1 && srData.pickup_status !== 1 && !srData.response)) {
         console.error("Shiprocket Pickup Error:", srData);
-        throw new Error(srData.message || "Failed to request pickup");
+        const errMsg =
+          srData.message ||
+          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
+          "Failed to request pickup";
+        throw new Error(errMsg);
       }
 
       await adminClient
         .from("orders")
         .update({
           shiprocket_status: "PICKUP_SCHEDULED",
-          status: "packed", // Auto-update store order status
+          status: "packed",
         })
         .eq("id", orderId);
 
-      return new Response(JSON.stringify({ success: true, pickup_status: srData.pickup_status }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify({ success: true, pickup_status: srData.pickup_status || "Scheduled" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     } else {
       throw new Error(`Unknown action: ${action}`);
     }

@@ -629,6 +629,27 @@ export function useDeleteCancelledOrder() {
   });
 }
 
+async function invokeShiprocketApi(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("shiprocket-api", {
+    body,
+  });
+  if (error) {
+    let detailedMessage = error.message;
+    try {
+      if ("context" in error && (error as any).context && typeof (error as any).context.json === "function") {
+        const errJson = await (error as any).context.json();
+        if (errJson?.error) detailedMessage = errJson.error;
+        else if (errJson?.message) detailedMessage = errJson.message;
+      }
+    } catch {
+      // fallback to default error message
+    }
+    throw new Error(detailedMessage || "Shiprocket API request failed");
+  }
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
 /**
  * Shiprocket Integration Hooks
  */
@@ -636,12 +657,7 @@ export function useCreateShiprocketShipment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (orderId: string) => {
-      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
-        body: { action: "create_shipment", orderId },
-      });
-      if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
-      return data;
+      return invokeShiprocketApi({ action: "create_shipment", orderId });
     },
     onSuccess: () => {
       toast.success("Shiprocket shipment created!");
@@ -655,12 +671,7 @@ export function useGenerateShiprocketAWB() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (orderId: string) => {
-      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
-        body: { action: "generate_awb", orderId },
-      });
-      if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
-      return data;
+      return invokeShiprocketApi({ action: "generate_awb", orderId });
     },
     onSuccess: () => {
       toast.success("AWB Generated successfully!");
@@ -674,12 +685,7 @@ export function useRequestShiprocketPickup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (orderId: string) => {
-      const { data, error } = await supabase.functions.invoke("shiprocket-api", {
-        body: { action: "request_pickup", orderId },
-      });
-      if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
-      return data;
+      return invokeShiprocketApi({ action: "request_pickup", orderId });
     },
     onSuccess: () => {
       toast.success("Pickup requested successfully!");

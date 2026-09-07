@@ -650,7 +650,19 @@ export function useCreateShiprocketReturnPickup() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        let detailedMessage = error.message;
+        try {
+          if ("context" in error && (error as any).context && typeof (error as any).context.json === "function") {
+            const errJson = await (error as any).context.json();
+            if (errJson?.error) detailedMessage = errJson.error;
+            else if (errJson?.message) detailedMessage = errJson.message;
+          }
+        } catch {
+          // fallback
+        }
+        throw new Error(detailedMessage || "Reverse pickup creation failed");
+      }
       if (data && data.error) throw new Error(data.error);
       return data;
     },
