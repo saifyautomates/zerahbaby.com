@@ -76,13 +76,15 @@ serve(async (req) => {
       });
 
       // Track verification failure
-      await adminClient
-        .rpc("update_payment_attempt_status", {
+      try {
+        await adminClient.rpc("update_payment_attempt_status", {
           _razorpay_order_id: razorpay_order_id,
           _status: "verification_failed",
           _error_message: "Invalid payment verification signature",
-        })
-        .catch((e: unknown) => console.warn("Failed to record failure status:", e));
+        });
+      } catch (e: unknown) {
+        console.warn("Failed to record failure status:", e);
+      }
 
       throw new Error("Invalid payment verification signature");
     }
