@@ -274,7 +274,7 @@ export function DashboardTab({
 
   const clearVisitorsMutation = useMutation({
     mutationFn: async () => {
-      const { error: rpcErr } = await supabase.rpc("clear_website_visitors" as never);
+      const { error: rpcErr } = await supabase.rpc("clear_website_visitors");
       if (rpcErr) {
         const { error: delErr } = await supabase
           .from("website_visitors")

@@ -4058,6 +4058,7 @@ function CouponsTab() {
     starts_at: null as string | null,
     expires_at: null as string | null,
     active: true,
+    is_public: false,
   });
 
   const couponSelection = useTableSelection({ items: coupons ?? [] });
@@ -4112,6 +4113,7 @@ function CouponsTab() {
                     starts_at: null,
                     expires_at: null,
                     active: true,
+                    is_public: false,
                   });
                   toast.success("Coupon created successfully!");
                 },
@@ -4123,25 +4125,22 @@ function CouponsTab() {
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Tag className="size-4 text-primary" /> Create Percentage Coupon
             </h3>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="text-muted-foreground hover:text-foreground text-xs font-bold"
-            >
-              Close
-            </button>
+            <span className="text-[11px] text-muted-foreground">
+              Sitewide &amp; VIP discount codes
+            </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {/* Field 1: Coupon Code */}
             <label className="block space-y-1.5 text-xs font-bold text-foreground">
               <span>Coupon Code</span>
               <input
+                type="text"
                 required
                 value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().trim() })}
-                placeholder="e.g. FESTIVE25"
-                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-mono font-bold tracking-wider outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                placeholder="e.g. SUMMER20"
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
               />
             </label>
 
@@ -4187,6 +4186,17 @@ function CouponsTab() {
                   className="w-full rounded-xl border border-border bg-background pl-7 pr-3.5 py-2.5 text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
+            </label>
+
+            {/* Field 4: Public Visibility */}
+            <label className="flex items-center gap-2 text-xs font-bold text-foreground cursor-pointer pt-6">
+              <input
+                type="checkbox"
+                checked={form.is_public}
+                onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>Public (Banner/Store)</span>
             </label>
           </div>
 
@@ -4269,9 +4279,20 @@ function CouponsTab() {
                     />
                   </td>
                   <td className="px-5 py-4">
-                    <span className="font-mono font-bold text-foreground text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
-                      {c.code}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-foreground text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60">
+                        {c.code}
+                      </span>
+                      {c.is_public ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400 border border-blue-500/20">
+                          Public
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          Private
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-4 font-bold text-emerald-600 dark:text-emerald-400">
                     {c.discount_type === "percentage" || (c.discount_type as string) === "percent"

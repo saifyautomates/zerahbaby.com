@@ -35,13 +35,46 @@ serve(async (req) => {
 
       if (!user) throw new Error("Invalid token");
 
+      // Canonical Admin Role Verification
+      let isAdmin = false;
+
       const { data: roleRow } = await adminClient
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (roleRow?.role !== "admin") {
+      if (roleRow?.role === "admin") {
+        isAdmin = true;
+      }
+
+      if (!isAdmin && user.email) {
+        const { data: allowRow } = await adminClient
+          .from("admin_allowlist")
+          .select("email")
+          .eq("email", user.email.toLowerCase().trim())
+          .maybeSingle();
+        if (allowRow) isAdmin = true;
+      }
+
+      if (!isAdmin) {
+        const { data: profileRow } = await adminClient
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profileRow?.is_admin === true) isAdmin = true;
+      }
+
+      if (!isAdmin) {
+        const { data: rpcAdmin } = await adminClient.rpc("has_role", {
+          _user_id: user.id,
+          _role: "admin",
+        });
+        if (rpcAdmin === true) isAdmin = true;
+      }
+
+      if (!isAdmin) {
         throw new Error("Unauthorized: Admin access required");
       }
     }

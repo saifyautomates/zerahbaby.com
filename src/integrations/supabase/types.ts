@@ -557,6 +557,7 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean | null
+          is_public: boolean | null
           max_discount_amount: number | null
           max_uses: number | null
           maximum_discount: number
@@ -579,6 +580,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           max_discount_amount?: number | null
           max_uses?: number | null
           maximum_discount?: number
@@ -601,6 +603,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           max_discount_amount?: number | null
           max_uses?: number | null
           maximum_discount?: number
@@ -2946,7 +2949,7 @@ export type Database = {
       }
       admin_delete_all_products: { Args: { _force?: boolean }; Returns: Json }
       admin_delete_offline_sale: {
-        Args: { _restore_stock?: boolean; _sale_id: string }
+        Args: { _revert_stock?: boolean; _sale_id: string }
         Returns: Json
       }
       admin_delete_products: { Args: { _product_ids: string[] }; Returns: Json }
@@ -3048,6 +3051,10 @@ export type Database = {
       }
       current_ist_date: { Args: never; Returns: string }
       delete_cancelled_order: { Args: { _order_id: string }; Returns: Json }
+      delete_cancelled_orders_bulk: {
+        Args: { _order_ids: string[] }
+        Returns: Json
+      }
       delete_storage_object: {
         Args: { bucket: string; object_path: string }
         Returns: undefined
@@ -3153,6 +3160,10 @@ export type Database = {
           next_token: number
           token_date: string
         }[]
+      }
+      get_order_summary_by_session: {
+        Args: { _session_id: string }
+        Returns: Json
       }
       get_payment_settings: { Args: never; Returns: Json }
       get_related_products: {
@@ -3267,6 +3278,28 @@ export type Database = {
         }
         Returns: Json
       }
+      pos_search_products: {
+        Args: { _limit?: number; _query: string }
+        Returns: {
+          barcode: string
+          brand: string
+          category: string
+          id: string
+          image_url: string
+          is_active: boolean
+          match_score: number
+          matched_reason: string
+          matched_variant_id: string
+          mrp: number
+          name: string
+          price: number
+          sales_channel: string
+          sku: string
+          slug: string
+          stock: number
+          variants: Json
+        }[]
+      }
       process_offline_return: {
         Args: {
           _customer_email?: string
@@ -3290,6 +3323,21 @@ export type Database = {
           _order_id: string
           _rejection_notes?: string
           _rejection_reason?: string
+        }
+        Returns: Json
+      }
+      record_order_refund_failure: {
+        Args: { _admin_id?: string; _failure_reason: string; _order_id: string }
+        Returns: Json
+      }
+      record_order_refund_success: {
+        Args: {
+          _admin_id?: string
+          _notes?: string
+          _order_id: string
+          _refund_amount: number
+          _refund_id: string
+          _refund_status: string
         }
         Returns: Json
       }
@@ -3349,6 +3397,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_customer_query: {
         Args: {
           _email: string
@@ -3368,6 +3418,7 @@ export type Database = {
       }
       update_payment_attempt_status: {
         Args: {
+          _error_message?: string
           _failure_reason?: string
           _gateway_response?: Json
           _razorpay_order_id: string
@@ -3381,6 +3432,7 @@ export type Database = {
           _cod_fee?: number
           _cod_max_order_value?: number
           _cod_min_order_value?: number
+          _updated_by?: string
         }
         Returns: Json
       }

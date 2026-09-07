@@ -121,12 +121,12 @@ export function OnlineSalesTab() {
     try {
       if ((orderToDelete as Record<string, unknown>)._type === "offline") {
         const { error } = await supabase.rpc(
-          "admin_void_offline_sale" as never,
+          "admin_void_offline_sale",
           {
             _sale_id: orderToDelete.id,
             _reason: "Voided via Online Sales Tab",
             _restore_stock: true,
-          } as never,
+          },
         );
         if (error) {
           throw new Error(error.message || "Failed to void POS sale");
@@ -391,10 +391,10 @@ export function OnlineSalesTab() {
 
       // 1. Try atomic bulk RPC
       const { error: bulkErr } = await supabase.rpc(
-        "delete_cancelled_orders_bulk" as never,
+        "delete_cancelled_orders_bulk",
         {
           _order_ids: orderIds,
-        } as never,
+        },
       );
 
       if (bulkErr) {

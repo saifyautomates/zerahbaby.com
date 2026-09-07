@@ -104,13 +104,6 @@ serve(async (req) => {
     }
   }
 
-  if (!isAuthorized) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
-  }
-
   try {
     const payload = await req.json().catch(() => ({}));
     const {
@@ -123,6 +116,28 @@ serve(async (req) => {
       recipient_type = "customer",
       notify_owner = true,
     } = payload;
+
+    // If not already authorized as service_role or staff/admin, allow if referencing a real DB order
+    if (!isAuthorized) {
+      if (order_id) {
+        const { data: ord } = await adminClient
+          .from("orders")
+          .select("id")
+          .eq("id", order_id)
+          .maybeSingle();
+
+        if (ord) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
 
     /* ------------------------------------------------------------------ */
     /*  Action: RETRY an existing failed SMS log                          */

@@ -16,6 +16,7 @@ export type Coupon = {
   starts_at: string | null;
   expires_at: string | null;
   active: boolean;
+  is_public?: boolean | null;
   created_at: string;
 };
 
@@ -51,6 +52,7 @@ export function useCreateCoupon() {
         starts_at: input.starts_at,
         expires_at: input.expires_at,
         active: input.active,
+        is_public: input.is_public ?? false,
       });
       if (error) throw error;
     },

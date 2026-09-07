@@ -977,21 +977,46 @@ serve(async (req) => {
     }
   }
 
-  if (!isAuthorized) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 401,
-    });
-  }
-
   try {
-    const payload = await req.json();
+    const payload = await req.json().catch(() => ({}));
     let type = payload.type;
     let order_id = payload.order_id;
     let sale_id = payload.sale_id;
     let return_id = payload.return_id;
     const force_retry = payload.force_retry;
     const customRecipient = payload.recipient;
+
+    // If not already authorized as service_role or staff/admin, allow if referencing a real DB order/return
+    if (!isAuthorized) {
+      if (type === "online_order" && order_id) {
+        const { data: ord } = await adminClient
+          .from("orders")
+          .select("id")
+          .eq("id", order_id)
+          .maybeSingle();
+
+        if (ord) {
+          isAuthorized = true;
+        }
+      } else if (type === "online_return" && return_id) {
+        const { data: ret } = await adminClient
+          .from("online_returns")
+          .select("id")
+          .eq("id", return_id)
+          .maybeSingle();
+
+        if (ret) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
 
     // Support Supabase Database Webhook format
     if (payload.table && payload.record && ["INSERT", "UPDATE"].includes(payload.type)) {

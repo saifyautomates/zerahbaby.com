@@ -2143,11 +2143,7 @@ function BuyNowModal({
             setSubmitting(false);
             if (orderId) {
               try {
-                await (
-                  supabase as unknown as {
-                    rpc: (name: string, args: { order_id: string }) => Promise<void>;
-                  }
-                ).rpc("cancel_abandoned_order", { order_id: orderId });
+                await supabase.rpc("cancel_abandoned_order", { order_id: orderId });
               } catch (cancelErr) {
                 console.warn("[BuyNow] Failed to cancel order after dismiss:", cancelErr);
               }
@@ -2181,11 +2177,7 @@ function BuyNowModal({
 
       if (orderId) {
         try {
-          await (
-            supabase as unknown as {
-              rpc: (name: string, args: { order_id: string }) => Promise<void>;
-            }
-          ).rpc("cancel_abandoned_order", { order_id: orderId });
+          await supabase.rpc("cancel_abandoned_order", { order_id: orderId });
         } catch (cancelErr) {
           console.warn("[BuyNow] Failed to cancel order after error:", cancelErr);
         }
