@@ -20,7 +20,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
   test.beforeAll(async () => {
     // Fetch an in-stock product variant for testing
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/product_variants?select=id,product_id,stock&stock=gt.10&limit=1`,
+      `${SUPABASE_URL}/rest/v1/product_variants?select=id,product_id,stock&stock=gte.5&limit=1`,
       { headers },
     );
     const variants = await res.json();
