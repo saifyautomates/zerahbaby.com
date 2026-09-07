@@ -44,14 +44,16 @@ serve(async (req) => {
     }
 
     const webhookSecret = Deno.env.get("SHIPROCKET_WEBHOOK_SECRET")?.trim();
-    if (webhookSecret) {
-      // If a secret is configured, require it in headers
-      const providedToken =
-        req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
-      if (!providedToken || providedToken.replace(/^Bearer\s+/i, "").trim() !== webhookSecret) {
-        console.warn(`Unauthorized webhook attempt for AWB: ${awbCode}`);
-        return new Response("Unauthorized", { status: 401, headers: corsHeaders });
-      }
+    if (!webhookSecret) {
+      console.error("[shiprocket-webhook] SHIPROCKET_WEBHOOK_SECRET is not configured on server.");
+      return new Response("Webhook secret not configured", { status: 500, headers: corsHeaders });
+    }
+
+    const providedToken =
+      req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
+    if (!providedToken || providedToken.replace(/^Bearer\s+/i, "").trim() !== webhookSecret) {
+      console.warn(`[shiprocket-webhook] Unauthorized attempt for AWB: ${awbCode}`);
+      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
     }
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);

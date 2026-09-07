@@ -67,6 +67,50 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Strict Authentication Guard: Service Role or Authenticated Staff/Admin/POS User
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let isAuthorized = Boolean(token && token === supabaseServiceKey);
+
+  if (!isAuthorized && token) {
+    try {
+      const { data: { user } } = await adminClient.auth.getUser(token);
+      if (user) {
+        const { data: roleRow } = await adminClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const { data: profile } = await adminClient
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (
+          roleRow?.role === "admin" ||
+          roleRow?.role === "owner" ||
+          roleRow?.role === "staff" ||
+          roleRow?.role === "pos_user" ||
+          roleRow?.role === "manager" ||
+          profile?.is_admin === true
+        ) {
+          isAuthorized = true;
+        }
+      }
+    } catch {
+      isAuthorized = false;
+    }
+  }
+
+  if (!isAuthorized) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+    });
+  }
+
   try {
     const payload = await req.json().catch(() => ({}));
     const {

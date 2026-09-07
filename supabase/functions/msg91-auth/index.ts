@@ -36,14 +36,18 @@ serve(async (req) => {
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
     const msg91TemplateId = Deno.env.get("MSG91_OTP_TEMPLATE_ID");
-    // Use a stable fallback secret so deterministic passwords are consistent
-    // even if MSG91_AUTH_SECRET is not set. IMPORTANT: Set this env var in
-    // Supabase Dashboard → Project Settings → Edge Functions → Secrets.
-    const authSecret = Deno.env.get("MSG91_AUTH_SECRET") || "zerah_baby_otp_secret_2024_stable_v1";
+    // Securely derive authSecret from private environment or fallback to service role key
+    const authSecret =
+      (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() ||
+      (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+
+    if (!authSecret) {
+      throw new Error("Authentication secret not configured on server");
+    }
 
     if (!msg91AuthKey) {
       console.warn(
-        "MSG91_AUTH_KEY not configured. Falling back to mock implementation for development.",
+        "MSG91_AUTH_KEY not configured.",
       );
     }
 
@@ -93,7 +97,11 @@ serve(async (req) => {
         const result = await response.json();
         if (result.type === "error") throw new Error(result.message);
       } else {
-        // Mock verification for development if no key is provided
+        const isDev = (Deno.env.get("ENVIRONMENT") || "").toLowerCase() === "development";
+        if (!isDev) {
+          throw new Error("SMS verification gateway is currently unconfigured or unavailable.");
+        }
+        // Mock verification only allowed in explicit dev environment
         if (otp !== "123456") throw new Error("Invalid OTP (Dev mock: use 123456)");
       }
 

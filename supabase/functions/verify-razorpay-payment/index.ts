@@ -163,7 +163,62 @@ serve(async (req) => {
             .eq("id", legacyOrder.id);
         }
       } else {
-        throw new Error(finalErr.message || "Failed to finalize paid order");
+        // Stock exhaustion or finalization error after successful payment capture!
+        // Automatically issue an immediate refund via Razorpay to prevent customer funds in limbo
+        let autoRefundIssued = false;
+        if (razorpayKeyId && razorpayKeySecret) {
+          try {
+            const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
+            const refundRes = await fetch(
+              `https://api.razorpay.com/v1/payments/${razorpay_payment_id}/refund`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Basic ${credentials}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  notes: {
+                    reason: "Order finalization failed / Stock exhausted",
+                    error: finalErr.message,
+                    razorpay_order_id,
+                  },
+                }),
+              },
+            );
+
+            if (refundRes.ok) {
+              const refundData = await refundRes.json();
+              autoRefundIssued = true;
+              console.log("[verify-razorpay-payment] Auto-refund successful:", refundData.id);
+            } else {
+              const errBody = await refundRes.text();
+              console.error("[verify-razorpay-payment] Auto-refund API error:", errBody);
+            }
+          } catch (refErr: unknown) {
+            console.error("[verify-razorpay-payment] Auto-refund request failed:", refErr);
+          }
+        }
+
+        // Record failure status on payment_attempts
+        try {
+          await adminClient
+            .from("payment_attempts")
+            .update({
+              status: autoRefundIssued ? "refunded_stock_exhausted" : "failed_finalization",
+              razorpay_payment_id,
+              error_message: finalErr.message || "Finalize order failed",
+            })
+            .eq("razorpay_order_id", razorpay_order_id);
+        } catch {
+          // Non-blocking log
+        }
+
+        const userMsg = autoRefundIssued
+          ? `Stock was exhausted while completing payment. A full refund has been automatically initiated to your payment method.`
+          : (finalErr.message || "Failed to finalize paid order. Please contact support.");
+
+        throw new Error(userMsg);
       }
     } else {
       orderId = finalRes.order_id;
