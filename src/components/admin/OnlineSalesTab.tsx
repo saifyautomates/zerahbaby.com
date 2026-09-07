@@ -37,6 +37,7 @@ import {
   Send,
 } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
+import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 
 export function OnlineSalesTab() {
   const qc = useQueryClient();
@@ -558,6 +559,10 @@ export function OnlineSalesTab() {
                       <strong>Note:</strong> “{order.notes}”
                     </div>
                   )}
+
+                  {/* Complete Order Items & Financial Breakdown */}
+                  <AdminOrderItemsList order={order as unknown as Order} products={products} />
+
                   <div className="mt-5 border-t border-gray-100 pt-5 flex flex-wrap items-center justify-between gap-3">
                     <InvoiceBox order={order as unknown as Order} />
 

@@ -15,11 +15,18 @@ export type OrderItem = {
   sku_snapshot?: string | null;
   barcode_snapshot?: string | null;
   color?: string | null;
+  color_snapshot?: string | null;
   size?: string | null;
+  size_snapshot?: string | null;
+  pack?: string | null;
+  pack_snapshot?: string | null;
   price: number;
   price_at_time?: number;
+  mrp?: number | null;
   qty: number;
+  quantity?: number;
   subtotal?: number;
+  buying_price?: number;
 };
 
 export type Order = {
