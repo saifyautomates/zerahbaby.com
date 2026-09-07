@@ -20,6 +20,7 @@ import { OnboardingModal } from "@/components/site/OnboardingModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Suspense } from "react";
 import { safeLazy, isChunkLoadError } from "@/lib/safe-lazy";
+import { useSession, useIsAdmin } from "@/lib/auth";
 
 const GlobalRealtimeSyncHost = safeLazy(() =>
   import("@/lib/realtime-sync").then((m) => ({ default: m.GlobalRealtimeSyncHost })),
@@ -307,14 +308,15 @@ function MaintenanceGuard({
   return <>{children}</>;
 }
 
-function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+function AdminHosts({ isAdminRoute }: { isAdminRoute: boolean }) {
+  const { user } = useSession();
+  const { data: isAdmin } = useIsAdmin(user?.id);
   const router = useRouter();
   const location = router.state.location;
-  const isAdminRoute = location.pathname.startsWith("/admin");
 
   useEffect(() => {
-    // Global barcode scanner listener: navigate to admin POS if scanned anywhere on the website
+    // Only admins scanning barcodes should auto-redirect to POS
+    if (!isAdmin) return;
     const unbindScanner = initGlobalBarcodeScanner((_code) => {
       localStorage.setItem("zerah_admin_active_tab", "billing");
       localStorage.setItem("zerah_admin_active_subtab", "pos");
@@ -323,7 +325,23 @@ function RootComponent() {
       }
     });
     return unbindScanner;
-  }, [location.pathname, router]);
+  }, [location.pathname, router, isAdmin]);
+
+  if (!isAdminRoute || !isAdmin) return null;
+
+  return (
+    <>
+      <DirectLabelPrintHost />
+      <OfflineSyncHost />
+    </>
+  );
+}
+
+function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const location = router.state.location;
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   // Live real-time page browsing tracking for non-admin storefront visits
   useEffect(() => {
@@ -467,8 +485,7 @@ function RootComponent() {
         <Toaster />
         <Suspense fallback={null}>
           <GlobalRealtimeSyncHost />
-          {isAdminRoute && <DirectLabelPrintHost />}
-          {isAdminRoute && <OfflineSyncHost />}
+          <AdminHosts isAdminRoute={isAdminRoute} />
         </Suspense>
         <OnboardingModal />
       </CartProvider>

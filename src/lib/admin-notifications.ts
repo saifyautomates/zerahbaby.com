@@ -40,12 +40,14 @@ interface RawAdminNotificationRow {
   created_at: string;
 }
 
-export function useAdminNotifications() {
+export function useAdminNotifications(options?: { enabled?: boolean }) {
   const qc = useQueryClient();
+  const enabled = options?.enabled ?? true;
 
   // 1. Authoritative Database Fetch (Single Query, Zero Client-Side Heuristics)
   const { data: rawRows = [], isLoading } = useQuery<RawAdminNotificationRow[]>({
     queryKey: ["admin-database-notifications"],
+    enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("admin_notifications")
@@ -68,6 +70,8 @@ export function useAdminNotifications() {
 
   // 2. Realtime Synchronization — Single Authoritative Channel
   useEffect(() => {
+    if (!enabled) return;
+
     const channel = supabase
       .channel("admin-notifications-stream")
       .on(
@@ -82,7 +86,7 @@ export function useAdminNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, enabled]);
 
   // 3. Mark Single Notification as Read
   const markAsReadMutation = useMutation({

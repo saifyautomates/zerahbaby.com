@@ -1,5 +1,5 @@
 //
-import { createFileRoute, Link, useNavigate, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,7 +57,7 @@ import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { useIsAdmin, useSession } from "@/lib/auth";
+import { useIsAdmin, useSession, ensureAdminSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
@@ -142,6 +142,44 @@ import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  beforeLoad: async ({ location }) => {
+    // SSR guard
+    if (typeof window === "undefined") {
+      return {};
+    }
+
+    const { user, isAdmin } = await ensureAdminSession();
+
+    if (!user) {
+      const searchStr =
+        location.searchStr ||
+        (typeof location.search === "string"
+          ? location.search
+          : typeof window !== "undefined"
+            ? window.location.search
+            : "");
+      const targetUrl =
+        location.pathname +
+        (searchStr ? (searchStr.startsWith("?") ? searchStr : `?${searchStr}`) : "");
+
+      throw redirect({
+        to: "/auth",
+        search:
+          targetUrl && targetUrl !== "/" && !targetUrl.startsWith("/auth")
+            ? { redirect: targetUrl }
+            : undefined,
+      });
+    }
+
+    if (!isAdmin) {
+      throw redirect({
+        to: "/",
+        search: { unauthorized: "admin_required" },
+      });
+    }
+
+    return { user, isAdmin: true };
+  },
   head: () => ({
     meta: [
       { title: "Store Admin — Zerah Baby And Kid's" },
@@ -260,13 +298,14 @@ export function AdminPage() {
   // If a hardware barcode is scanned while on ANY admin view (dashboard, orders, products, etc.),
   // safely navigate to the "billing" tab (which routes to POS Terminal) and automatically add the scanned product.
   useEffect(() => {
+    if (!isAdmin) return;
     const unbind = initGlobalBarcodeScanner((_code) => {
       if (tab !== "billing") {
         setTab("billing");
       }
     });
     return unbind;
-  }, [tab, setTab]);
+  }, [tab, setTab, isAdmin]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -281,7 +320,7 @@ export function AdminPage() {
     markAllAsRead,
     deleteNotification,
     clearAllNotifications,
-  } = useAdminNotifications();
+  } = useAdminNotifications({ enabled: Boolean(isAdmin) });
 
   // Detect OS for shortcut badge
   const isMac = useMemo(() => {
@@ -332,6 +371,7 @@ export function AdminPage() {
 
   // Global hardware barcode scanner logic: instantly switches to POS from any admin page
   useEffect(() => {
+    if (!isAdmin) return;
     if (hasPendingScans() && tab !== "billing") {
       localStorage.setItem("zerah_admin_active_subtab", "pos");
       setTab("billing");
@@ -344,7 +384,7 @@ export function AdminPage() {
       }
     });
     return unbind;
-  }, [tab, setTab]);
+  }, [tab, setTab, isAdmin]);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -363,6 +403,7 @@ export function AdminPage() {
   // Real data for Orders badge - Lightweight queries with staleTime
   const { data: onlineOrdersSummary = [] } = useQuery({
     queryKey: ["admin-orders-badge-summary"],
+    enabled: Boolean(isAdmin),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
@@ -377,6 +418,7 @@ export function AdminPage() {
 
   const { data: posSales = [] } = useQuery({
     queryKey: ["offline-sales-badge-count"],
+    enabled: Boolean(isAdmin),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_sales")
@@ -421,6 +463,7 @@ export function AdminPage() {
 
   const { data: newQueriesCount = 0 } = useQuery({
     queryKey: ["admin-new-queries-count"],
+    enabled: Boolean(isAdmin),
     queryFn: async () => {
       const { count, error } = await supabase
         .from("contact_messages")

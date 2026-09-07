@@ -1,7 +1,43 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { ensureAdminSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/$")({
-  beforeLoad: ({ params, search, location }) => {
+  beforeLoad: async ({ params, search, location }) => {
+    // SSR guard
+    if (typeof window === "undefined") {
+      return {};
+    }
+
+    const { user, isAdmin } = await ensureAdminSession();
+
+    if (!user) {
+      const searchStr =
+        location.searchStr ||
+        (typeof location.search === "string"
+          ? location.search
+          : typeof window !== "undefined"
+            ? window.location.search
+            : "");
+      const targetUrl =
+        location.pathname +
+        (searchStr ? (searchStr.startsWith("?") ? searchStr : `?${searchStr}`) : "");
+
+      throw redirect({
+        to: "/auth",
+        search:
+          targetUrl && targetUrl !== "/" && !targetUrl.startsWith("/auth")
+            ? { redirect: targetUrl }
+            : undefined,
+      });
+    }
+
+    if (!isAdmin) {
+      throw redirect({
+        to: "/",
+        search: { unauthorized: "admin_required" },
+      });
+    }
+
     const splat = params._splat || "";
     const parts = splat.split("/").filter(Boolean);
     const sub = parts[0]?.toLowerCase();

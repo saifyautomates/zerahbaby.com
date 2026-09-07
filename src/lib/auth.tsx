@@ -96,6 +96,72 @@ export async function ensureAuthSession(): Promise<Session | null> {
   });
 }
 
+/**
+ * Authoritatively verifies whether the current user is an authenticated administrator.
+ * Used by TanStack Router beforeLoad guards on /admin routes.
+ */
+export async function ensureAdminSession(): Promise<{ user: User | null; isAdmin: boolean }> {
+  if (typeof window === "undefined") {
+    return { user: null, isAdmin: false };
+  }
+
+  // Dev bypass for local testing
+  if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
+    const session = await ensureAuthSession();
+    return {
+      user: session?.user ?? ({
+        id: "00000000-0000-0000-0000-000000000001",
+        email: "sameer@zerahkids.com",
+        role: "authenticated",
+        aud: "authenticated",
+        app_metadata: {},
+        user_metadata: { full_name: "Sameer" },
+        created_at: new Date().toISOString(),
+      } as unknown as User),
+      isAdmin: true,
+    };
+  }
+
+  const session = await ensureAuthSession();
+  const user = session?.user ?? null;
+
+  if (!user) {
+    return { user: null, isAdmin: false };
+  }
+
+  // Check cached role in localStorage
+  const cachedRole = localStorage.getItem(`zerah_is_admin_${user.id}`);
+  if (cachedRole === "true") {
+    // Background verify to prevent privilege revocation lag
+    Promise.resolve(
+      (supabase.rpc as unknown as (fn: string) => Promise<{ data: boolean | null; error: unknown }>)(
+        "check_is_admin",
+      ),
+    )
+      .then(({ data }) => {
+        if (typeof data === "boolean") {
+          localStorage.setItem(`zerah_is_admin_${user.id}`, String(data));
+        }
+      })
+      .catch(() => {});
+    return { user, isAdmin: true };
+  }
+
+  // Query authoritative check_is_admin RPC
+  try {
+    const { data: rpcAdmin, error } = await (
+      supabase.rpc as unknown as (fn: string) => Promise<{ data: boolean | null; error: unknown }>
+    )("check_is_admin");
+
+    const isAdmin = !error && Boolean(rpcAdmin);
+    localStorage.setItem(`zerah_is_admin_${user.id}`, String(isAdmin));
+    return { user, isAdmin };
+  } catch (err) {
+    console.warn("[Auth] Failed to verify admin role:", err);
+    return { user, isAdmin: false };
+  }
+}
+
 export function useSession() {
   const [session, setSession] = useState<Session | null>(() => globalSession);
   const [loading, setLoading] = useState<boolean>(() => !globalInitialized);
