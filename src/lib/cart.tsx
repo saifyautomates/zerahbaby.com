@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { useProducts, getColorSwatchImage, type Product, type ProductVariant } from "@/lib/store";
 import { useSession } from "@/lib/auth";
@@ -145,7 +153,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [lines, setLines] = useState<CartLine[]>([]);
   const { data: products, isLoading: productsLoading } = useProducts();
-  const prevUserIdRef = useState<{ id?: string }>({ id: undefined })[0];
+  const prevUserIdRef = useRef<{ id?: string }>({ id: undefined });
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
 
   const { data: settingsData } = useQuery({
@@ -181,10 +189,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Handle user authentication transitions & storage scoping
   useEffect(() => {
     const currentUserId = user?.id;
-    const prevUserId = prevUserIdRef.id;
+    const prevUserId = prevUserIdRef.current.id;
 
     if (currentUserId !== prevUserId) {
-      prevUserIdRef.id = currentUserId;
+      prevUserIdRef.current.id = currentUserId;
       setHasLoadedFromDb(false);
 
       if (!currentUserId) {

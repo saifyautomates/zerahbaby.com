@@ -69,7 +69,10 @@ async function compressImage(file: File): Promise<File> {
         0.9,
       );
     };
-    img.onerror = () => resolve(file); // fallback
+    img.onerror = () => {
+      URL.revokeObjectURL(url); // prevent memory leak on failed loads
+      resolve(file); // fallback to original file
+    };
     img.src = url;
   });
 }

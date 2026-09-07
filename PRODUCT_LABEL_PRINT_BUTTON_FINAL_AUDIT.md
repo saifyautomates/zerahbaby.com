@@ -1,4 +1,5 @@
 # PRODUCT LABEL PRINT BUTTON FINAL AUDIT & ARCHITECTURAL RESOLUTION
+
 **Zérah Baby & Kids** — Production Label Printing Pipeline Audit
 
 ---
@@ -6,6 +7,7 @@
 ## 1. Executive Summary & Problem Statement
 
 ### Reported Issue
+
 1. When navigating to the Admin Products tab and selecting 2 products (e.g. `dangri` qty 1, `saify` qty 1), clicking the table-level **“Print Selected (2)”** button did nothing (silent no-op).
 2. When opening the **“Print Product Labels”** modal and clicking the maroon **“Print Labels”** button, the button text changed to `"Opening Print..."` / `"Opening Print Dialog..."` and became disabled, but the browser native print dialog never appeared.
 3. No error was displayed to the administrator, resulting in a completely blocked label printing workflow.
@@ -17,6 +19,7 @@
 Through codebase auditing and event-lifecycle tracing, **two distinct root causes** were identified behind the failure of both buttons:
 
 ### Root Cause 1: "Print Selected (2)" Button on the Products Table
+
 - **Location**: [`src/routes/_authenticated/admin.tsx:1641-1658`](file:///d:/final%20products/zerah%20baby/src/routes/_authenticated/admin.tsx#L1641-L1658)
 - **Call Chain**:
   ```
@@ -38,6 +41,7 @@ Through codebase auditing and event-lifecycle tracing, **two distinct root cause
   Because `triggerDirectLabelPrint` awaited multiple asynchronous network promises (Supabase RPC + QZ WebSocket connection timeout), Chromium determined that user activation had expired. Consequently, Chromium **silently suppressed `window.print()` as an untrusted script call**. Nothing happened on screen.
 
 ### Root Cause 2: "Print Labels" Button Inside the Modal
+
 - **Location**: [`src/components/admin/PrintLabelsModal.tsx:120-142`](file:///d:/final%20products/zerah%20baby/src/components/admin/PrintLabelsModal.tsx#L120-L142)
 - **Mechanism**:
   1. `PrintLabelsModal` is rendered via React Portal directly into `document.body` (`createPortal(..., document.body)`).
@@ -99,6 +103,7 @@ Through codebase auditing and event-lifecycle tracing, **two distinct root cause
 ## 4. Approved Retail Product Sticker Specification
 
 Per the official Zérah Baby & Kids production specification, apparel and retail stickers must strictly follow standard Indian retail apparel conventions:
+
 1. **Brand Header**: `ZÉRAH BABY & KIDS` (Centered, bold uppercase, 7pt)
 2. **Product Title**: Product Name (Left-aligned, crisp, 7pt)
 3. **MRP**: `MRP: ₹...` (Right-aligned, bold, 7pt)
@@ -107,6 +112,7 @@ Per the official Zérah Baby & Kids production specification, apparel and retail
 6. **NO SELLING PRICE**: Garment stickers never display discounted selling price or dynamic discount badges; retail customers only see MRP and barcode. (Selling prices are handled dynamically at the POS terminal or online checkout).
 
 ### On-Screen Preview Synchronization
+
 [`src/components/admin/LabelPrintEngine.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/LabelPrintEngine.tsx) was updated to match this exact layout in `SingleStickerPreview`, eliminating outdated selling price and discount badges from the preview screen.
 
 ---
@@ -148,6 +154,7 @@ ALL PRINT CANONICAL TESTS PASSED SUCCESSFULLY! 100%
 ```
 
 ### TypeScript & Production Compilation
+
 - **`npx tsc --noEmit`**: Exited with code 0 (zero errors).
 - **`npm run build`**: Built both Client and SSR environments cleanly in 6.88s and 6.24s respectively with zero build errors.
 
@@ -155,13 +162,13 @@ ALL PRINT CANONICAL TESTS PASSED SUCCESSFULLY! 100%
 
 ## 6. Files Changed
 
-| File | Change Description |
-|---|---|
-| [`src/lib/label-printer.ts`](file:///d:/final%20products/zerah%20baby/src/lib/label-printer.ts) | Implemented canonical `printProductLabels`, eliminated asynchronous network/socket delays before browser print, enforced approved retail sticker specification (no sell price), added robust iframe lifecycle and `afterprint` cleanup. |
-| [`src/components/admin/PrintLabelsModal.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/PrintLabelsModal.tsx) | Updated `handlePrint` to call canonical `printProductLabels` with explicit `type="button"` attributes and instant button unlocking. |
-| [`src/components/admin/LabelPrintEngine.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/LabelPrintEngine.tsx) | Updated `SingleStickerPreview` to align on-screen visual representation with approved retail sticker layout (Brand, Name, MRP, Barcode, SKU). |
-| [`src/routes/_authenticated/admin.tsx`](file:///d:/final%20products/zerah%20baby/src/routes/_authenticated/admin.tsx) | Rewired "Print Selected" button to directly invoke `printLabel` with explicit `type="button"` and empty product selection guard. |
-| [`scratch/test_print_canonical.mjs`](file:///d:/final%20products/zerah%20baby/scratch/test_print_canonical.mjs) | Created automated test verifying 1-label, 2-label, multi-quantity expansions, retail specifications, and page dimensions. |
+| File                                                                                                                              | Change Description                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/lib/label-printer.ts`](file:///d:/final%20products/zerah%20baby/src/lib/label-printer.ts)                                   | Implemented canonical `printProductLabels`, eliminated asynchronous network/socket delays before browser print, enforced approved retail sticker specification (no sell price), added robust iframe lifecycle and `afterprint` cleanup. |
+| [`src/components/admin/PrintLabelsModal.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/PrintLabelsModal.tsx) | Updated `handlePrint` to call canonical `printProductLabels` with explicit `type="button"` attributes and instant button unlocking.                                                                                                     |
+| [`src/components/admin/LabelPrintEngine.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/LabelPrintEngine.tsx) | Updated `SingleStickerPreview` to align on-screen visual representation with approved retail sticker layout (Brand, Name, MRP, Barcode, SKU).                                                                                           |
+| [`src/routes/_authenticated/admin.tsx`](file:///d:/final%20products/zerah%20baby/src/routes/_authenticated/admin.tsx)             | Rewired "Print Selected" button to directly invoke `printLabel` with explicit `type="button"` and empty product selection guard.                                                                                                        |
+| [`scratch/test_print_canonical.mjs`](file:///d:/final%20products/zerah%20baby/scratch/test_print_canonical.mjs)                   | Created automated test verifying 1-label, 2-label, multi-quantity expansions, retail specifications, and page dimensions.                                                                                                               |
 
 ---
 

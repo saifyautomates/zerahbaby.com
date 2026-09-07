@@ -18,8 +18,8 @@
  */
 
 @theme inline {
-  --font-display: "Baloo 2", ui-rounded, system-ui, sans-serif;
-  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-rounded, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -258,6 +258,7 @@
 
   p {
     text-wrap: pretty;
+    line-height: 1.625;
   }
 
   /* Clear, consistent keyboard focus everywhere. */
@@ -318,7 +319,7 @@
 
 /* Translucent material header — content scrolls underneath */
 @utility glass-header {
-  background: color-mix(in oklab, var(--color-background) 85%, transparent);
+  background: color-mix(in oklab, var(--color-background) 95%, transparent);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }

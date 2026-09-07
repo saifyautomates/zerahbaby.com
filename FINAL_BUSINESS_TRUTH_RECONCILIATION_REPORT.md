@@ -3,7 +3,7 @@
 **Document ID**: `ZE-REC-20260902-FINAL`  
 **Application**: Zérah Baby & Kids (Production Full-Stack Store & POS)  
 **Date of Audit**: September 2, 2026 (IST)  
-**Status**: **PASS (Canonical Harmony Established & Verified)**  
+**Status**: **PASS (Canonical Harmony Established & Verified)**
 
 ---
 
@@ -21,14 +21,14 @@ The Zérah Baby & Kids platform is built on an omnichannel architecture with an 
 
 ## 2. Source of Truth Map
 
-| Entity / Metric | Primary Source of Truth | Secondary / Sync Mechanism | Cache Invalidation Trigger |
-|---|---|---|---|
-| **Online Orders** | `public.orders` + `public.order_items` | Supabase Realtime Channel | `orders`, `order_items` postgres_changes |
-| **Offline POS Sales** | `public.offline_sales` + `public.offline_sale_items` | Supabase Realtime Channel | `offline_sales`, `offline_sale_items` postgres_changes |
-| **Customer Returns & Vouchers** | `public.offline_returns` + `public.offline_return_items` | Realtime sync channel | `offline_returns` postgres_changes |
-| **Store Credit Balances** | `public.store_credit_ledger` | Canonical token validator | `process_offline_return`, `place_offline_sale` |
-| **Inventory Stock** | `public.products.stock` | `public.inventory_transactions` | Atomic RPC row locks (`FOR UPDATE`) |
-| **Financial Formulas** | `src/lib/financial-reporting.ts` | Shared client & server metric calculator | Centralized export |
+| Entity / Metric                 | Primary Source of Truth                                  | Secondary / Sync Mechanism               | Cache Invalidation Trigger                             |
+| ------------------------------- | -------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| **Online Orders**               | `public.orders` + `public.order_items`                   | Supabase Realtime Channel                | `orders`, `order_items` postgres_changes               |
+| **Offline POS Sales**           | `public.offline_sales` + `public.offline_sale_items`     | Supabase Realtime Channel                | `offline_sales`, `offline_sale_items` postgres_changes |
+| **Customer Returns & Vouchers** | `public.offline_returns` + `public.offline_return_items` | Realtime sync channel                    | `offline_returns` postgres_changes                     |
+| **Store Credit Balances**       | `public.store_credit_ledger`                             | Canonical token validator                | `process_offline_return`, `place_offline_sale`         |
+| **Inventory Stock**             | `public.products.stock`                                  | `public.inventory_transactions`          | Atomic RPC row locks (`FOR UPDATE`)                    |
+| **Financial Formulas**          | `src/lib/financial-reporting.ts`                         | Shared client & server metric calculator | Centralized export                                     |
 
 ---
 
@@ -68,17 +68,19 @@ To permanently prevent divergent calculations across the application, the follow
 ## 4. Revenue Root Cause & Exact Reason for ₹10,376 vs ₹20,826
 
 ### The Discrepancy Observed by User:
+
 - **Top Green Card**: `Total Revenue ₹10,376`
 - **Drill-Down Screen**: `Offline Sales Revenue ₹20,826`
 - **Sales by Channel Donut Chart**: Center showed `₹10,376 Total`, but legend showed `POS: ₹20,826`.
 
 ### Root Cause Analysis:
+
 1. **Actual Store Gross Sales**: ₹20,826.05 (18 valid POS transactions in `public.offline_sales`).
 2. **Automated Audit Returns**: During automated test runs of the POS return engine earlier today, 22 test returns totaling ₹12,050.00 (earlier ₹10,450.00) were inserted into `public.offline_returns`.
 3. **The Accounting Computation**:
    $$\text{Net Revenue} = \text{Gross Sales (₹20,826.05)} - \text{Returns (₹10,450.00)} = \mathbf{₹10,376.05}$$
 4. **The UI Inconsistency**:
-   - The Top Card displayed **Net Revenue (₹10,376)** but was labeled ambiguously as *"Total Revenue"*.
+   - The Top Card displayed **Net Revenue (₹10,376)** but was labeled ambiguously as _"Total Revenue"_.
    - The Drill-down detail displayed the **Gross Sales (₹20,826)**.
    - The Sales by Channel donut chart set its center text to **Net Revenue (₹10,376)** while the POS slice was set to **Gross Sales (₹20,826)**.
 
@@ -87,30 +89,31 @@ To permanently prevent divergent calculations across the application, the follow
 ## 5. Exact Transaction Records Involved (Aug 27 – Sep 02, 2026)
 
 ### Authoritative POS Sales (Gross Revenue = ₹20,826.05):
-| # | Sale Number | Date / Time (IST) | Payment Mode | Customer | Amount | Status |
-|---|---|---|---|---|---|---|
-| 1 | `POS-2609-00028` | 2026-09-02 19:10 | Cash | Rajesh Sharma | ₹800.00 | Completed |
-| 2 | `POS-2609-00027` | 2026-09-02 19:10 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 3 | `POS-2609-00026` | 2026-09-02 19:00 | Cash | Rajesh Sharma | ₹800.00 | Completed |
-| 4 | `POS-2609-00025` | 2026-09-02 19:00 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 5 | `POS-2609-00024` | 2026-09-02 18:57 | Cash | Rajesh Sharma | ₹800.00 | Completed |
-| 6 | `POS-2609-00023` | 2026-09-02 18:57 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 7 | `POS-2609-00022` | 2026-09-02 18:57 | Cash | Rajesh Sharma | ₹800.00 | Completed |
-| 8 | `POS-2609-00021` | 2026-09-02 18:57 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 9 | `POS-2609-00020` | 2026-09-02 18:56 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 10 | `POS-2609-00019` | 2026-09-02 18:56 | Cash | Rajesh Sharma | ₹900.00 | Completed |
-| 11 | `POS-2609-00015` | 2026-09-02 17:50 | Cash | Walk-in Customer | ₹699.00 | Completed |
-| 12 | `POS-2609-00014` | 2026-09-02 04:28 | Cash | Walk-in Customer | ₹999.00 | Completed |
-| 13 | `POS-2609-00013` | 2026-09-02 04:09 | Cash | kittu | ₹2,170.05 | Completed |
-| 14 | `POS-2609-00012` | 2026-09-02 04:07 | Cash | kittu | ₹2,170.05 | Completed |
-| 15 | `POS-2609-00011` | 2026-09-02 04:07 | Cash | kittu | ₹2,170.05 | Completed |
-| 16 | `POS-2609-00010` | 2026-09-02 04:06 | Cash | kittu | ₹1,320.90 | Completed |
-| 17 | `POS-2609-00009` | 2026-09-02 00:32 | Cash | Jack Sparrow | ₹999.00 | Completed |
-| 18 | `POS-2609-00008` | 2026-09-02 00:26 | Cash | Walk-in Customer | ₹1,698.00 | Completed |
+
+| #   | Sale Number      | Date / Time (IST) | Payment Mode | Customer         | Amount    | Status    |
+| --- | ---------------- | ----------------- | ------------ | ---------------- | --------- | --------- |
+| 1   | `POS-2609-00028` | 2026-09-02 19:10  | Cash         | Rajesh Sharma    | ₹800.00   | Completed |
+| 2   | `POS-2609-00027` | 2026-09-02 19:10  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 3   | `POS-2609-00026` | 2026-09-02 19:00  | Cash         | Rajesh Sharma    | ₹800.00   | Completed |
+| 4   | `POS-2609-00025` | 2026-09-02 19:00  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 5   | `POS-2609-00024` | 2026-09-02 18:57  | Cash         | Rajesh Sharma    | ₹800.00   | Completed |
+| 6   | `POS-2609-00023` | 2026-09-02 18:57  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 7   | `POS-2609-00022` | 2026-09-02 18:57  | Cash         | Rajesh Sharma    | ₹800.00   | Completed |
+| 8   | `POS-2609-00021` | 2026-09-02 18:57  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 9   | `POS-2609-00020` | 2026-09-02 18:56  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 10  | `POS-2609-00019` | 2026-09-02 18:56  | Cash         | Rajesh Sharma    | ₹900.00   | Completed |
+| 11  | `POS-2609-00015` | 2026-09-02 17:50  | Cash         | Walk-in Customer | ₹699.00   | Completed |
+| 12  | `POS-2609-00014` | 2026-09-02 04:28  | Cash         | Walk-in Customer | ₹999.00   | Completed |
+| 13  | `POS-2609-00013` | 2026-09-02 04:09  | Cash         | kittu            | ₹2,170.05 | Completed |
+| 14  | `POS-2609-00012` | 2026-09-02 04:07  | Cash         | kittu            | ₹2,170.05 | Completed |
+| 15  | `POS-2609-00011` | 2026-09-02 04:07  | Cash         | kittu            | ₹2,170.05 | Completed |
+| 16  | `POS-2609-00010` | 2026-09-02 04:06  | Cash         | kittu            | ₹1,320.90 | Completed |
+| 17  | `POS-2609-00009` | 2026-09-02 00:32  | Cash         | Jack Sparrow     | ₹999.00   | Completed |
+| 18  | `POS-2609-00008` | 2026-09-02 00:26  | Cash         | Walk-in Customer | ₹1,698.00 | Completed |
 
 **Total POS Gross Sales**: **₹20,826.05**  
 **Total Valid Orders Count**: **18**  
-**Total Online Orders**: **0** (₹0.00)  
+**Total Online Orders**: **0** (₹0.00)
 
 ---
 
@@ -152,13 +155,17 @@ To permanently prevent divergent calculations across the application, the follow
 ## 10. Thermal Receipt Print Engine Upgrade (HPRT HT300 Blank Fix)
 
 ### Symptom:
+
 Clicking "Print Slip" on an Exchange Credit Voucher opened a Chrome print preview showing a blank white sheet on HPRT HT300 thermal printers.
 
 ### Root Cause:
+
 `POSReturnReceipt.tsx` called `window.print()` directly. The modal was wrapped in a fixed-position container with `@media print { body * { visibility: hidden } }` CSS overrides. The browser's thermal print driver failed to render fixed-position elements inside hidden ancestors.
 
 ### Fix Implemented:
+
 Upgraded `POSReturnReceipt.tsx` to use the **isolated hidden iframe architecture**:
+
 1. Generates clean, standalone, semantic HTML (`buildThermalReturnHTML`).
 2. Creates an off-screen iframe, writes the HTML document, and executes `iframe.contentWindow.print()`.
 3. Tested and verified to print dark, crisp, perfectly centered 80mm receipts with zero blank sheets.
@@ -168,11 +175,13 @@ Upgraded `POSReturnReceipt.tsx` to use the **isolated hidden iframe architecture
 ## 11. Dashboard & Drill-Down 1-to-1 Harmony (Verified)
 
 ### Before Fix:
+
 - Top Card: ₹10,376
 - Drill-Down: ₹20,826
 - Sales by Channel Center: ₹10,376 | Legend: POS ₹20,826
 
 ### After Fix:
+
 - **Top Green Card**: **₹20,826** (Total Revenue Gross) with subtitle `Net ₹8,776 · Returns -₹12,050`.
 - **Secondary Metric Strip**:
   - Gross Revenue: **₹20,826**

@@ -3,11 +3,12 @@
 ## 1. Executive Summary
 
 In prior sessions, the omnichannel dashboard displayed:
+
 - **Total Sales = ₹0**
 - **My Cost = ₹0**
 - **Total Profit = ₹0**
 
-Even while transactions appeared inside **Sales Details** and **POS History**. 
+Even while transactions appeared inside **Sales Details** and **POS History**.
 
 This document certifies the complete root-cause audit, architectural reconciliation, cache invalidation unification, and real database verification performed across **Zérah Baby & Kids** (https://zerahkids.com).
 
@@ -16,6 +17,7 @@ This document certifies the complete root-cause audit, architectural reconciliat
 ## 2. Complete Reporting Trace & Root Cause Analysis
 
 ### End-to-End Trace of Reporting Path
+
 ```
 Database (`offline_sales`, `orders`, `product_costs`)
   ↓
@@ -78,6 +80,7 @@ $$\text{Total Profit} = \text{Total Sales} - \text{My Cost}$$
 A live transaction test was conducted using canonical RPC `place_offline_sale`:
 
 ### Test Transaction Details:
+
 - **Product**: `saify` (ID: `32f01744-8589-4902-a016-8f1a1b9fd6aa`)
 - **Selling Price**: ₹699.00
 - **Quantity**: 2
@@ -89,16 +92,18 @@ A live transaction test was conducted using canonical RPC `place_offline_sale`:
   - `status`: `completed`
 
 ### Verification Results:
-| Metric | Calculated Value | Expected Value | Status |
-| :--- | :--- | :--- | :--- |
-| **Total Sales** | ₹1,398.00 | ₹1,398.00 | **MATCH [PASSED]** |
-| **Sales Details Total Sales** | ₹1,398.00 | ₹1,398.00 | **MATCH [PASSED]** |
-| **Sum of Valid Transaction Totals** | ₹1,398.00 | ₹1,398.00 | **MATCH [PASSED]** |
-| **My Cost (COGS)** | ₹398.00 (₹199 × 2) | ₹398.00 | **MATCH [PASSED]** |
-| **Total Profit** | ₹1,000.00 | ₹1,000.00 (₹1,398 − ₹398) | **MATCH [PASSED]** |
-| **Formula Check** | ₹1,000.00 === ₹1,398.00 − ₹398.00 | True | **MATCH [PASSED]** |
+
+| Metric                              | Calculated Value                  | Expected Value            | Status             |
+| :---------------------------------- | :-------------------------------- | :------------------------ | :----------------- |
+| **Total Sales**                     | ₹1,398.00                         | ₹1,398.00                 | **MATCH [PASSED]** |
+| **Sales Details Total Sales**       | ₹1,398.00                         | ₹1,398.00                 | **MATCH [PASSED]** |
+| **Sum of Valid Transaction Totals** | ₹1,398.00                         | ₹1,398.00                 | **MATCH [PASSED]** |
+| **My Cost (COGS)**                  | ₹398.00 (₹199 × 2)                | ₹398.00                   | **MATCH [PASSED]** |
+| **Total Profit**                    | ₹1,000.00                         | ₹1,000.00 (₹1,398 − ₹398) | **MATCH [PASSED]** |
+| **Formula Check**                   | ₹1,000.00 === ₹1,398.00 − ₹398.00 | True                      | **MATCH [PASSED]** |
 
 ### Rollback & Cleanup Verification:
+
 - Executed `admin_delete_offline_sale` for `POS-2609-54724`.
 - Verified `offline_sales` row deleted, `offline_sale_items` deleted, stock restored.
 - Final `offline_sales` count in database: `0` (clean state).

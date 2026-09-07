@@ -5,7 +5,7 @@
  * - Barcode preview in form
  * - Post-creation print prompt (label + invoice)
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
@@ -493,9 +493,19 @@ export function ProductForm({
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  // The barcode/sku to preview (shows auto-generated values)
-  const previewSKU = draft.sku || generateSKU(draft.category);
-  const previewBarcode = draft.barcode || generateBarcode();
+  // The barcode/sku to preview (shows auto-generated values).
+  // Memoized so Math.random() is not called on every render — preventing preview values from
+  // flickering while the admin types in other fields.
+  const previewSKU = useMemo(
+    () => draft.sku || generateSKU(draft.category),
+
+    [draft.sku, draft.category],
+  );
+  const previewBarcode = useMemo(
+    () => draft.barcode || generateBarcode(),
+
+    [draft.barcode],
+  );
 
   const addFiles = useCallback(
     async (files: FileList | null) => {

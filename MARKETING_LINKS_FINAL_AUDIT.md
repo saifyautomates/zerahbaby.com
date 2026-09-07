@@ -13,6 +13,7 @@
 This audit verifies that the **Marketing & Social Links** settings system for **Zérah Baby & Kids** is 100% functional, strictly validated, secure against malicious protocols, and integrated with the live storefront without hardcoding.
 
 ### Key Architectural Improvements:
+
 1. **Authoritative Validation & Normalization Engine (`src/lib/marketing-links.ts`)**:
    - Single canonical source of truth for validating, sanitizing, and formatting Instagram, Facebook, WhatsApp, and announcement target links.
    - Used identically in the Admin Panel (`MarketingTab`) for pre-save validation and in the Storefront Hook (`useSettings`) for runtime resilience.
@@ -32,12 +33,12 @@ This audit verifies that the **Marketing & Social Links** settings system for **
 
 ## 2. Field-by-Field Verification & Normalization Matrix
 
-| Setting Field | Accepted Input Formats | Canonical Normalization | Rejection / Security Checks | Test Chat / Destination Link Behavior |
-| :--- | :--- | :--- | :--- | :--- |
-| **Instagram Profile URL** | • Full URL (`https://www.instagram.com/zerah_kids/`)<br>• Handle with @ (`@zerah_kids`)<br>• Bare username (`zerah_kids`)<br>• Domain path (`instagram.com/zerah_kids`) | `https://www.instagram.com/zerah_kids/` | • Rejects unsafe protocols (`javascript:`, `data:`, etc.)<br>• Rejects non-Instagram hostnames (e.g. `phishing.com/zerah_kids`)<br>• Rejects links without a profile path | Opens exact normalized profile URL in new tab (`target="_blank"`, `rel="noopener noreferrer"`). Shows real-time destination preview chip. |
-| **Facebook Page URL** | • Full Page URL (`https://facebook.com/zerahbaby`)<br>• Shortlink (`https://fb.com/zerahbaby`, `fb.me/...`)<br>• Page handle (`zerahbaby`, `@zerahbaby`) | `https://www.facebook.com/zerahbaby` | • Rejects non-Facebook hostnames<br>• Rejects unsafe protocols<br>• Rejects empty page paths | Opens exact normalized page URL in new tab. Shows real-time destination preview chip. |
-| **WhatsApp Chat Link / Phone** | • 10-digit Indian mobile (`9057074777`)<br>• Formatted number (`+91 90570 74777`)<br>• Number with leading zero (`09057074777`)<br>• Full country code (`919057074777`)<br>• Direct wa.me URL (`https://wa.me/919057074777`)<br>• API link (`https://api.whatsapp.com/send?phone=...`) | `https://wa.me/919057074777` | • Rejects invalid phone lengths (<10 digits)<br>• Rejects non-WhatsApp domains<br>• Rejects unsafe protocols | **Test Chat Link** opens exact WhatsApp chat URL in new tab. Real-time destination preview chip displays `→ https://wa.me/919057074777`. |
-| **Announcement Target Link** | • Internal route (`/shop`, `/categories/clothing`)<br>• Full external URL (`https://zerahkids.com/sale`) | Preserves clean path or HTTPS link | • Rejects `javascript:`, `data:`, etc.<br>• Rejects invalid protocols | **Test Link** button allows instant destination verification. |
+| Setting Field                  | Accepted Input Formats                                                                                                                                                                                                                                                                 | Canonical Normalization                 | Rejection / Security Checks                                                                                                                                               | Test Chat / Destination Link Behavior                                                                                                     |
+| :----------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Instagram Profile URL**      | • Full URL (`https://www.instagram.com/zerah_kids/`)<br>• Handle with @ (`@zerah_kids`)<br>• Bare username (`zerah_kids`)<br>• Domain path (`instagram.com/zerah_kids`)                                                                                                                | `https://www.instagram.com/zerah_kids/` | • Rejects unsafe protocols (`javascript:`, `data:`, etc.)<br>• Rejects non-Instagram hostnames (e.g. `phishing.com/zerah_kids`)<br>• Rejects links without a profile path | Opens exact normalized profile URL in new tab (`target="_blank"`, `rel="noopener noreferrer"`). Shows real-time destination preview chip. |
+| **Facebook Page URL**          | • Full Page URL (`https://facebook.com/zerahbaby`)<br>• Shortlink (`https://fb.com/zerahbaby`, `fb.me/...`)<br>• Page handle (`zerahbaby`, `@zerahbaby`)                                                                                                                               | `https://www.facebook.com/zerahbaby`    | • Rejects non-Facebook hostnames<br>• Rejects unsafe protocols<br>• Rejects empty page paths                                                                              | Opens exact normalized page URL in new tab. Shows real-time destination preview chip.                                                     |
+| **WhatsApp Chat Link / Phone** | • 10-digit Indian mobile (`9057074777`)<br>• Formatted number (`+91 90570 74777`)<br>• Number with leading zero (`09057074777`)<br>• Full country code (`919057074777`)<br>• Direct wa.me URL (`https://wa.me/919057074777`)<br>• API link (`https://api.whatsapp.com/send?phone=...`) | `https://wa.me/919057074777`            | • Rejects invalid phone lengths (<10 digits)<br>• Rejects non-WhatsApp domains<br>• Rejects unsafe protocols                                                              | **Test Chat Link** opens exact WhatsApp chat URL in new tab. Real-time destination preview chip displays `→ https://wa.me/919057074777`.  |
+| **Announcement Target Link**   | • Internal route (`/shop`, `/categories/clothing`)<br>• Full external URL (`https://zerahkids.com/sale`)                                                                                                                                                                               | Preserves clean path or HTTPS link      | • Rejects `javascript:`, `data:`, etc.<br>• Rejects invalid protocols                                                                                                     | **Test Link** button allows instant destination verification.                                                                             |
 
 ---
 
@@ -74,6 +75,7 @@ sequenceDiagram
 ```
 
 ### Safety & Resilience Invariants:
+
 1. **Failure Preserves Previous Valid Settings**: If a user enters an invalid URL or malicious string, validation throws an error before reaching the database. Supabase is never updated with invalid data, and existing valid values are preserved.
 2. **Zero False Success**: Success toasts and confirmation badges are rendered only after Supabase confirms the upsert and the query cache is invalidated.
 3. **Optimistic & Safe Fallback**: If a setting is empty in the database, `useSettings()` provides official defaults (e.g. `https://www.instagram.com/zerah_kids/` for Instagram, or formats `contactPhone` to `wa.me/91...` for WhatsApp).
@@ -83,6 +85,7 @@ sequenceDiagram
 ## 4. Frontend & Storefront Touchpoint Audit
 
 ### 1. Admin Marketing Tab (`src/routes/_authenticated/admin.tsx`)
+
 - **Top Quick Bar**:
   - Title: "Marketing & Promotions".
   - Quick action: "Save & Publish All" with loading spinner and green "Published to Store" status badge.
@@ -102,11 +105,13 @@ sequenceDiagram
   - Validation error indicator if fields require attention.
 
 ### 2. Live Storefront Footer (`src/components/site/Footer.tsx`)
+
 - Consumes `instagramUrl`, `facebookUrl`, and `whatsappUrl` from `useSettings()`.
 - Renders branded gradient social icons with external link attributes (`target="_blank"`, `rel="noopener noreferrer"`).
 - Automatically hides any social channel that is intentionally left blank.
 
 ### 3. Contact Us Page (`src/routes/contact.tsx`)
+
 - Displays direct clickable channels:
   - Phone: Call triggers with formatted numbers.
   - Store Location: Google Maps link.
@@ -120,6 +125,7 @@ sequenceDiagram
 ## 5. Automated Verification & Test Results
 
 ### Test Suite: `tests/marketing-social-links.spec.ts`
+
 Ran across **Desktop Chrome**, **Tablet (iPad)**, and **Mobile Chrome (390px)**:
 
 ```
@@ -128,6 +134,7 @@ Running 72 tests using 4 workers
 ```
 
 #### Test Scenarios Covered (100% Pass Rate):
+
 1. `Instagram: Accepts valid full HTTPS URL`
 2. `Instagram: Accepts username with @ prefix and normalizes to canonical URL`
 3. `Instagram: Accepts bare username without @ and normalizes`
@@ -154,6 +161,7 @@ Running 72 tests using 4 workers
 24. `containsDangerousProtocol detects obfuscated javascript protocols`
 
 ### Regression & Build Verification:
+
 - Regression test suites (`tests/pos-exchange-credit-flow.spec.ts`, `tests/reporting-date-range.spec.ts`, `tests/pos-sale-void-reversal.spec.ts`): **108/108 tests passed**.
 - TypeScript type-checking (`npx tsc --noEmit`): **0 errors**.
 - Full production build (`npm run build`): **Client (5.11s) and SSR (3.69s) bundled cleanly with 0 errors**.

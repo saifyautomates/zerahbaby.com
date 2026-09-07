@@ -9,17 +9,17 @@
 
 ## 1. Current Pricing Architecture & Authoritative Sources
 
-| Domain | Authoritative Calculation Source | Storage Type | Rounding Strategy |
-|---|---|---|---|
-| **Catalog Pricing** | `public.products.price`, `public.product_variants.price_override` | `numeric` (PostgreSQL) | Exact Decimal |
-| **MRP** | `public.products.mrp`, `public.product_variants.mrp_override` | `numeric` (PostgreSQL) | Exact Decimal |
-| **Cart & Line Totals** | [`src/lib/pricing-engine.ts`](file:///d:/final%20products/zerah%20baby/src/lib/pricing-engine.ts) (`calculateCartFinancials`) | Pure Memory / State | Integer-Safe (`roundMoney`) |
-| **Coupon Validation** | `public.validate_coupon` (SQL) + `calculateCouponDiscount` | PostgreSQL SECURITY DEFINER | Integer Rounding for INR |
-| **Online Order Placement** | `public.place_order` (SQL) | `public.orders` | Server-Side Computed |
-| **Payment Gateway** | `supabase/functions/create-razorpay-order` | Razorpay API | Single-Point $\times 100$ Paise |
-| **POS Sales & Billing** | `public.place_offline_sale` (SQL) + `calculatePOSFinancials` | `public.offline_sales` | Server-Side Computed |
-| **POS Returns & Refunds** | `public.process_offline_return` (SQL) | `public.offline_returns` | Historical Sold Price Snapshot |
-| **Financial Reporting** | [`src/lib/financial-reporting.ts`](file:///d:/final%20products/zerah%20baby/src/lib/financial-reporting.ts) (`calculateFinancialMetrics`) | Live Transaction Ledger | Exact Arithmetic |
+| Domain                     | Authoritative Calculation Source                                                                                                          | Storage Type                | Rounding Strategy               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------- |
+| **Catalog Pricing**        | `public.products.price`, `public.product_variants.price_override`                                                                         | `numeric` (PostgreSQL)      | Exact Decimal                   |
+| **MRP**                    | `public.products.mrp`, `public.product_variants.mrp_override`                                                                             | `numeric` (PostgreSQL)      | Exact Decimal                   |
+| **Cart & Line Totals**     | [`src/lib/pricing-engine.ts`](file:///d:/final%20products/zerah%20baby/src/lib/pricing-engine.ts) (`calculateCartFinancials`)             | Pure Memory / State         | Integer-Safe (`roundMoney`)     |
+| **Coupon Validation**      | `public.validate_coupon` (SQL) + `calculateCouponDiscount`                                                                                | PostgreSQL SECURITY DEFINER | Integer Rounding for INR        |
+| **Online Order Placement** | `public.place_order` (SQL)                                                                                                                | `public.orders`             | Server-Side Computed            |
+| **Payment Gateway**        | `supabase/functions/create-razorpay-order`                                                                                                | Razorpay API                | Single-Point $\times 100$ Paise |
+| **POS Sales & Billing**    | `public.place_offline_sale` (SQL) + `calculatePOSFinancials`                                                                              | `public.offline_sales`      | Server-Side Computed            |
+| **POS Returns & Refunds**  | `public.process_offline_return` (SQL)                                                                                                     | `public.offline_returns`    | Historical Sold Price Snapshot  |
+| **Financial Reporting**    | [`src/lib/financial-reporting.ts`](file:///d:/final%20products/zerah%20baby/src/lib/financial-reporting.ts) (`calculateFinancialMetrics`) | Live Transaction Ledger     | Exact Arithmetic                |
 
 ---
 
@@ -55,6 +55,7 @@ flowchart TD
 ```
 
 ### Core Invariants Enforced:
+
 1. **Line Subtotal**: $\text{Selling Price} \times \text{Quantity}$
 2. **Product Savings (MRP vs Selling)**: $\max(0, \text{MRP} - \text{Selling Price}) \times \text{Quantity}$
 3. **Coupon Discount Stacking**:
@@ -73,13 +74,13 @@ flowchart TD
 
 ## 3. Forensic Vulnerabilities Identified & Remediated
 
-| # | Vulnerability | Root Cause | Permanent Resolution |
-|---|---|---|---|
-| **1** | **Free Delivery Boundary Mismatch** | `cart.tsx` checked `eligibleSubtotal > 999` (strictly greater), while `place_order` checked `>= 999`. A ₹999 cart was charged ₹79 shipping on frontend but ₹0 on backend. | Standardized all threshold checks to `netSubtotal >= threshold` via `calculateCartFinancials` in [`src/lib/pricing-engine.ts`](file:///d:/final%20products/zerah%20baby/src/lib/pricing-engine.ts). |
-| **2** | **Free Delivery Coupon Base Divergence** | `cart.tsx` evaluated shipping on post-coupon subtotal, whereas legacy SQL evaluated on pre-coupon subtotal. | Unified `place_order` in migration `20260928000004` to evaluate `(computed_subtotal - computed_discount) >= fd_threshold`. |
-| **3** | **Dispersed Floating-Point Calculations** | Floating-point calculations with random `Math.round` were scattered across components. | Centralized all financial math in `pricing-engine.ts` with integer-safe rounding (`roundMoney`, `roundCurrencyInt`). |
-| **4** | **Buy Now & Checkout Divergence** | `product.$id.tsx` had custom hardcoded shipping checks (`subtotal >= 999 ? 0 : 79`). | Refactored `product.$id.tsx` to use `calculateCartFinancials`. |
-| **5** | **POS Calculation Parity** | POS manual discounts had potential float drift on percentage calculation. | Unified POS math in `calculatePOSFinancials`. |
+| #     | Vulnerability                             | Root Cause                                                                                                                                                                | Permanent Resolution                                                                                                                                                                                |
+| ----- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Free Delivery Boundary Mismatch**       | `cart.tsx` checked `eligibleSubtotal > 999` (strictly greater), while `place_order` checked `>= 999`. A ₹999 cart was charged ₹79 shipping on frontend but ₹0 on backend. | Standardized all threshold checks to `netSubtotal >= threshold` via `calculateCartFinancials` in [`src/lib/pricing-engine.ts`](file:///d:/final%20products/zerah%20baby/src/lib/pricing-engine.ts). |
+| **2** | **Free Delivery Coupon Base Divergence**  | `cart.tsx` evaluated shipping on post-coupon subtotal, whereas legacy SQL evaluated on pre-coupon subtotal.                                                               | Unified `place_order` in migration `20260928000004` to evaluate `(computed_subtotal - computed_discount) >= fd_threshold`.                                                                          |
+| **3** | **Dispersed Floating-Point Calculations** | Floating-point calculations with random `Math.round` were scattered across components.                                                                                    | Centralized all financial math in `pricing-engine.ts` with integer-safe rounding (`roundMoney`, `roundCurrencyInt`).                                                                                |
+| **4** | **Buy Now & Checkout Divergence**         | `product.$id.tsx` had custom hardcoded shipping checks (`subtotal >= 999 ? 0 : 79`).                                                                                      | Refactored `product.$id.tsx` to use `calculateCartFinancials`.                                                                                                                                      |
+| **5** | **POS Calculation Parity**                | POS manual discounts had potential float drift on percentage calculation.                                                                                                 | Unified POS math in `calculatePOSFinancials`.                                                                                                                                                       |
 
 ---
 
@@ -94,13 +95,13 @@ $$\text{Net Profit} = \text{Net Revenue} - \text{COGS} \equiv \text{Gross Profit
 
 ### Reconciliation Table (Live Database Verification):
 
-| Metric | Dashboard Value | Revenue DrillDown | Profit DrillDown | Formula Equivalence | Reconciled? |
-|---|---|---|---|---|---|
-| **Gross Sales Revenue** | ₹11,527 | ₹11,527 | ₹11,527 | Online Gross + POS Gross | **100% MATCH** |
-| **Customer Returns** | ₹1,199 | ₹1,199 | ₹1,199 | Completed Return Refunds | **100% MATCH** |
-| **Total Net Revenue** | ₹10,328 | ₹10,328 | ₹10,328 | Gross Sales - Returns | **100% MATCH** |
-| **Total COGS** | ₹6,148 | ₹6,148 | ₹6,148 | $\sum (\text{Buying Price} \times \text{Qty})$ | **100% MATCH** |
-| **Period Net Profit** | ₹4,179 | ₹4,179 | ₹4,179 | Net Revenue - COGS | **100% MATCH** |
+| Metric                  | Dashboard Value | Revenue DrillDown | Profit DrillDown | Formula Equivalence                            | Reconciled?    |
+| ----------------------- | --------------- | ----------------- | ---------------- | ---------------------------------------------- | -------------- |
+| **Gross Sales Revenue** | ₹11,527         | ₹11,527           | ₹11,527          | Online Gross + POS Gross                       | **100% MATCH** |
+| **Customer Returns**    | ₹1,199          | ₹1,199            | ₹1,199           | Completed Return Refunds                       | **100% MATCH** |
+| **Total Net Revenue**   | ₹10,328         | ₹10,328           | ₹10,328          | Gross Sales - Returns                          | **100% MATCH** |
+| **Total COGS**          | ₹6,148          | ₹6,148            | ₹6,148           | $\sum (\text{Buying Price} \times \text{Qty})$ | **100% MATCH** |
+| **Period Net Profit**   | ₹4,179          | ₹4,179            | ₹4,179           | Net Revenue - COGS                             | **100% MATCH** |
 
 ---
 

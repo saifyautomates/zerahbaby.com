@@ -3,7 +3,7 @@
 **Domain**: Offline Billing / POS Exchange & Store Credit Model  
 **Store URL**: [zerahkids.com](https://zerahkids.com)  
 **Status**: 🟢 **Production-Ready & Fully Reconciled**  
-**Date**: September 2, 2026  
+**Date**: September 2, 2026
 
 ---
 
@@ -16,6 +16,7 @@ $$\text{Cash Refund} = ₹0 \quad\big|\quad \text{UPI Refund} = ₹0 \quad\big|\
 $$\text{Return Amount} = 100\% \text{ Store Credit / Exchange Credit}$$
 
 ### Verified Invariants
+
 1. **Zero Cash Payout**: Neither cash, UPI, nor card refunds are permitted for offline returns.
 2. **Permanent Validity (No Expiry)**: Store credit never expires (`Expiry: NEVER / NO EXPIRY`).
 3. **Customer Account & Walk-in Voucher Linking**: Store credit is linked permanently to customer identity (`pos_customers` / `profiles`) or tracked via unique Walk-in Credit Token (`CR-YYMM-XXXXX`).
@@ -28,6 +29,7 @@ $$\text{Return Amount} = 100\% \text{ Store Credit / Exchange Credit}$$
 ## 2. Technical Architecture & Database Canonical Flow
 
 ### 2.1 Forward Migration (`supabase/migrations/20260928000005_pos_store_credit_and_exchange_rebuild.sql`)
+
 ```sql
 -- 1. Immutable Audit Ledger for All Store Credit Activity
 CREATE TABLE IF NOT EXISTS public.store_credit_ledger (
@@ -48,10 +50,12 @@ CREATE TABLE IF NOT EXISTS public.store_credit_ledger (
 ```
 
 ### 2.2 Sequence & Voucher Generator (`generate_credit_token()`)
+
 Generates standardized format tokens:
 $$\text{CR-YYMM-XXXXX} \quad (\text{e.g. } \mathbf{CR-2609-01001})$$
 
 ### 2.3 Canonical Return RPC (`public.process_offline_return`)
+
 - Enforces `refund_method = 'exchange_credit'`.
 - Generates `credit_token` for walk-in customers or adds credit directly to `pos_customers.store_credit_balance`.
 - Inserts an immutable row in `public.store_credit_ledger` (`CREDIT_ISSUED`).
@@ -59,6 +63,7 @@ $$\text{CR-YYMM-XXXXX} \quad (\text{e.g. } \mathbf{CR-2609-01001})$$
 - Logs `inventory_transactions` with `type = 'return'`.
 
 ### 2.4 Canonical Sale RPC (`public.place_offline_sale`)
+
 - Accepts `_store_credit_used` and `_credit_token`.
 - Locks customer record (`FOR UPDATE`) to prevent race conditions.
 - Validates that `_store_credit_used <= available_credit`.
@@ -100,11 +105,11 @@ sequenceDiagram
 
 ### Scenario Breakdown
 
-| Scenario | Cart Value | Available Credit | Credit Tender Applied | Customer Pays (Cash/UPI) | Customer Retained Credit | Invariant Check |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Full Credit Cover** | ₹300 | ₹500 | ₹300 | **₹0** | **₹200** *(Retained indefinitely)* | 🟢 PASS |
-| **Partial Credit Cover** | ₹800 | ₹500 | ₹500 | **₹300** | **₹0** | 🟢 PASS |
-| **Direct Cash Refund** | ₹500 | — | — | **₹0 (Blocked)** | **₹500 Credit Issued** | 🟢 PASS |
+| Scenario                 | Cart Value | Available Credit | Credit Tender Applied | Customer Pays (Cash/UPI) | Customer Retained Credit           | Invariant Check |
+| :----------------------- | :--------- | :--------------- | :-------------------- | :----------------------- | :--------------------------------- | :-------------- |
+| **Full Credit Cover**    | ₹300       | ₹500             | ₹300                  | **₹0**                   | **₹200** _(Retained indefinitely)_ | 🟢 PASS         |
+| **Partial Credit Cover** | ₹800       | ₹500             | ₹500                  | **₹300**                 | **₹0**                             | 🟢 PASS         |
+| **Direct Cash Refund**   | ₹500       | —                | —                     | **₹0 (Blocked)**         | **₹500 Credit Issued**             | 🟢 PASS         |
 
 ---
 

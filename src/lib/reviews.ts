@@ -68,7 +68,7 @@ export function useProductReviews(productId: string | undefined) {
 
       const { data, error } = await supabase
         .from("reviews")
-        .select("*")
+        .select("*, profiles:user_id(full_name)")
         .eq("product_id", canonicalId)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
@@ -332,7 +332,7 @@ export function useAllReviews(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reviews")
-        .select("*, products:product_id(name, slug)")
+        .select("*, products:product_id(name, slug), profiles:user_id(full_name, phone)")
         .order("created_at", { ascending: false });
 
       if (error) throw error;

@@ -11,6 +11,7 @@
 A comprehensive architectural audit was conducted across the admin selection system to resolve duplicate `SELECTED: 2` chips, remove ambiguous metrics, ensure strict mathematical definitions for all values, and eliminate filter leakage where hidden or unselected records contributed to aggregated totals.
 
 ### Key Outcomes:
+
 1. **Zero Duplicate "Selected" Chips**: Completely eliminated duplicate `SELECTED: 2` badges across all views by isolating the primary entity record count badge from summary calculation chips and filtering out any redundant metrics.
 2. **Mathematically Unambiguous Labels**:
    - **`Selected Products`**: Count of distinct product entity records currently selected.
@@ -27,6 +28,7 @@ A comprehensive architectural audit was conducted across the admin selection sys
 ## 2. Root Cause Analysis
 
 ### Issue A: Duplicate `SELECTED: 2` Chips
+
 - **Root Cause**:
   1. `SmartSelectionSummary.tsx` previously hardcoded a leading primary badge:
      ```tsx
@@ -42,6 +44,7 @@ A comprehensive architectural audit was conducted across the admin selection sys
   3. Consequently, whenever items were selected, the UI rendered two identical badges: `Selected: 2` followed by `Selected: 2`.
 
 ### Issue B: Filter Scope Leakage in Admin Products View
+
 - **Root Cause**:
   In `src/routes/_authenticated/admin.tsx`:
   ```ts
@@ -54,6 +57,7 @@ A comprehensive architectural audit was conducted across the admin selection sys
   If a user selected 2 products, then filtered by a category that excluded one of them, the excluded product remained in `selectedProducts` and its units still contributed to `Total Stock Units` and `Stock Value`.
 
 ### Issue C: Metric Label Ambiguity
+
 - Physical stock quantity was previously labeled generically as "Total Stock" or "Items / Qty", creating confusion with the product record count.
 
 ---
@@ -61,6 +65,7 @@ A comprehensive architectural audit was conducted across the admin selection sys
 ## 3. Implemented Architectural Solutions
 
 ### 3.1 `SmartSelectionSummary.tsx` Overhaul
+
 - Added `selectedLabel?: string` prop (defaults to `"Selected"`).
 - Implemented automatic deduplication filter:
   ```tsx
@@ -73,6 +78,7 @@ A comprehensive architectural audit was conducted across the admin selection sys
 - Renders the primary badge with entity-specific labeling: `{selectedLabel}: {selectedCount}`.
 
 ### 3.2 Canonical Adapter Overhaul (`table-selection.ts`)
+
 - **`getProductsSelectionMetrics`**:
   - Removed redundant `Selected` item.
   - Set `Total Stock Units` for physical inventory quantity.
@@ -89,14 +95,18 @@ A comprehensive architectural audit was conducted across the admin selection sys
 - **`useTableSelection`**: Returns `selectedCount: selectedItems.length`, guaranteeing that filtered-out items never inflate visible selection counts.
 
 ### 3.3 Scope Rectification in Admin Products (`admin.tsx`)
+
 Scoped selection directly to `list` (the active filtered/searched list):
+
 ```tsx
 const selectedProducts = useMemo(
   () => list.filter((p) => selectedIds.has(p.uuid)),
   [list, selectedIds],
 );
 ```
+
 Passed explicit context to the summary toolbar:
+
 ```tsx
 <SmartSelectionSummary
   selectedCount={selectedProducts.length}
@@ -109,21 +119,22 @@ Passed explicit context to the summary toolbar:
 
 ### 3.4 Admin Pages Reconciliation Matrix
 
-| Page / Component | `selectedLabel` | Metric 1 | Metric 2 | Metric 3 / Contextual |
-| :--- | :--- | :--- | :--- | :--- |
-| **Admin Products** | `Selected Products` | Total Stock Units | Stock Value (₹) | Store Cost, Margin, Low Stock Products |
-| **Admin Customers** | `Selected Customers`| Total Orders | Combined Spend (₹) | — |
-| **Admin Coupons** | `Selected Coupons` | Active | Total Uses | Min Order Sum (₹) |
-| **Online Orders Tab** | `Selected Orders` | Items Ordered | Gross Total (₹) | Discount, Paid, Est. Profit |
-| **POS Sales Tab** | `Selected Sales` | Items Sold | Subtotal (₹) | Discount, Total Sales, Gross Profit |
-| **Dashboard Revenue Drilldown** | `Selected Transactions`| Items Sold | Gross Revenue (₹) | Discounts, Net Revenue, Net Profit |
-| **Dashboard Stock Drilldown** | `Selected Products` | Total Stock Units | Stock Value (₹) | Store Cost, Low Stock Products |
+| Page / Component                | `selectedLabel`         | Metric 1          | Metric 2           | Metric 3 / Contextual                  |
+| :------------------------------ | :---------------------- | :---------------- | :----------------- | :------------------------------------- |
+| **Admin Products**              | `Selected Products`     | Total Stock Units | Stock Value (₹)    | Store Cost, Margin, Low Stock Products |
+| **Admin Customers**             | `Selected Customers`    | Total Orders      | Combined Spend (₹) | —                                      |
+| **Admin Coupons**               | `Selected Coupons`      | Active            | Total Uses         | Min Order Sum (₹)                      |
+| **Online Orders Tab**           | `Selected Orders`       | Items Ordered     | Gross Total (₹)    | Discount, Paid, Est. Profit            |
+| **POS Sales Tab**               | `Selected Sales`        | Items Sold        | Subtotal (₹)       | Discount, Total Sales, Gross Profit    |
+| **Dashboard Revenue Drilldown** | `Selected Transactions` | Items Sold        | Gross Revenue (₹)  | Discounts, Net Revenue, Net Profit     |
+| **Dashboard Stock Drilldown**   | `Selected Products`     | Total Stock Units | Stock Value (₹)    | Store Cost, Low Stock Products         |
 
 ---
 
 ## 4. Verification & Validation
 
 ### Automated Checks Executed:
+
 1. **TypeScript Static Typecheck**:
    ```bash
    npx tsc --noEmit

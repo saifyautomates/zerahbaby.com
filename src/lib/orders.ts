@@ -270,9 +270,11 @@ export function usePlaceOrder() {
         qty: number;
       }[];
     }) => {
-      // Build items payload for the RPC (only variant_id + qty needed; server fetches prices)
+      // Build items payload for the RPC (sanitizes empty variant_id to avoid PostgreSQL 22P02 UUID syntax error and passes product_slug as authoritative fallback)
       const rpcItems = input.items.map((item) => ({
-        variant_id: item.variant_id,
+        variant_id:
+          item.variant_id && item.variant_id.trim() !== "" ? item.variant_id.trim() : undefined,
+        product_slug: item.product_slug || undefined,
         qty: item.qty,
       }));
 

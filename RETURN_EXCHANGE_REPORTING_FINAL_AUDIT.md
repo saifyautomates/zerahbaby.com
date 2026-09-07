@@ -2,7 +2,7 @@
 
 **Date of Audit & Implementation**: September 2, 2026  
 **Status**: APPROVED & APPLIED IN PRODUCTION  
-**Canonical Reporting Standard**: Omnichannel Retail GAAP — Store Credit / Exchange Accounting Model  
+**Canonical Reporting Standard**: Omnichannel Retail GAAP — Store Credit / Exchange Accounting Model
 
 ---
 
@@ -13,7 +13,9 @@ $$\text{“Returns \& Refunds } -₹12,605 \text{ Deductions”}$$
 accompanied by destructive crimson/red badge styling, as though customer returns represented an outright **cash loss** or direct bank payout from the register.
 
 ### Why This Presentation Was Misleading for Zérah Baby & Kids
+
 In the physical retail operations of Zérah Baby & Kids, normal customer returns **do not** pay out Cash, UPI, or Card refunds to customers. Instead:
+
 1. When a return occurs, the merchandise is inspected and returned to stock ($+1$ inventory unit).
 2. The customer is issued a **100% Exchange / Store Credit Voucher**.
 3. The customer subsequent purchases replacement items using the store credit as a **tender/settlement method**.
@@ -23,12 +25,12 @@ In the physical retail operations of Zérah Baby & Kids, normal customer returns
 
 ## 2. Root Cause Analysis
 
-| # | System Area | Old Symptom / Behavior | Root Cause |
-|---|---|---|---|
-| 1 | **KPI Dashboard Card** | Showed "Returns & Refunds -₹X Deductions" in red. | Conflated non-cash store credit issuance with direct cash outflows. |
-| 2 | **Revenue Drill-Down** | Section 3 labeled "3. Returns & Refunds" with negative red line totals. | Treated credit vouchers as negative sales rather than an authoritative non-sales balance-sheet adjustment. |
-| 3 | **Donut Chart & Strip** | Mixed Gross vs Net sales definitions without explicit bridge. | Secondary strip displayed redundant "Gross Revenue" and "Net Revenue" with "-₹X Deductions" in between. |
-| 4 | **Replacement Sale Accounting** | Risk of subtracting store credit twice. | If a system subtracts the return ($-₹500$) and then discounts the replacement sale by store credit ($-₹500$), a single return is subtracted twice. |
+| #   | System Area                     | Old Symptom / Behavior                                                  | Root Cause                                                                                                                                         |
+| --- | ------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **KPI Dashboard Card**          | Showed "Returns & Refunds -₹X Deductions" in red.                       | Conflated non-cash store credit issuance with direct cash outflows.                                                                                |
+| 2   | **Revenue Drill-Down**          | Section 3 labeled "3. Returns & Refunds" with negative red line totals. | Treated credit vouchers as negative sales rather than an authoritative non-sales balance-sheet adjustment.                                         |
+| 3   | **Donut Chart & Strip**         | Mixed Gross vs Net sales definitions without explicit bridge.           | Secondary strip displayed redundant "Gross Revenue" and "Net Revenue" with "-₹X Deductions" in between.                                            |
+| 4   | **Replacement Sale Accounting** | Risk of subtracting store credit twice.                                 | If a system subtracts the return ($-₹500$) and then discounts the replacement sale by store credit ($-₹500$), a single return is subtracted twice. |
 
 ---
 
@@ -40,12 +42,12 @@ graph TD
     B --> C[Inventory Restocked: +1 Unit]
     B --> D[Store Credit Voucher Issued: ₹500]
     B --> E[Cash / UPI / Card Refund: ₹0]
-    
+
     D -->|Customer Purchases Replacement Item: ₹800| F[Replacement Sale: ₹800]
     F --> G[Tender: Store Credit Used: ₹500]
     F --> H[Tender: Cash / UPI / Card Paid: ₹300]
     F --> I[Inventory Decremented: -1 Unit]
-    
+
     subgraph Financial Accounting Truth
         J[Gross Sales: ₹500 + ₹800 = ₹1300]
         K[Returns & Exchange Credit: ₹500]
@@ -56,6 +58,7 @@ graph TD
 ```
 
 ### Core Accounting Axioms:
+
 1. **Store Credit is NOT a discount**: It is stored monetary value held by the customer (deferred revenue liability).
 2. **Store Credit is NOT additional revenue**: Redeeming credit does not increase sales revenue beyond the selling price of the replacement goods.
 3. **Store Credit Used is NOT a second return**: It is purely a settlement/tender method (like cash or card).
@@ -65,28 +68,28 @@ graph TD
 
 ## 4. Canonical Mathematical Formulas
 
-| Metric | Formula | Semantic Meaning |
-|---|---|---|
-| **Gross Sales** | $\sum \text{Valid Online Sales} + \sum \text{Valid POS Sales}$ | Total value of all completed sales agreements. |
-| **Returns & Exchange Credit** | $\sum \text{Valid Customer Returns}$ | Total value of credit vouchers issued and inventory restocked. |
-| **Net Sales** | $\max(0, \text{Gross Sales} - \text{Returns \& Exchange Credit})$ | True recognized business revenue from sold goods. |
-| **Store Credit Issued** | $\sum \text{Credit Ledger [CREDIT\_ISSUED]}$ | Cumulative balance of store credit granted. |
-| **Store Credit Used** | $\sum \text{Credit Ledger [CREDIT\_USED]}$ | Cumulative balance of store credit redeemed as tender. |
-| **Store Credit Outstanding** | $\max(0, \text{Store Credit Issued} - \text{Store Credit Used})$ | Outstanding liability balance owed to customers. |
-| **Total COGS** | $\sum (\text{Buying Price} \times \text{Sold Qty})$ | Cost of goods sold for all active sale items. |
-| **Net Profit** | $\text{Net Sales} - \text{Total COGS}$ | Realized store operating profit. |
+| Metric                        | Formula                                                           | Semantic Meaning                                               |
+| ----------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Gross Sales**               | $\sum \text{Valid Online Sales} + \sum \text{Valid POS Sales}$    | Total value of all completed sales agreements.                 |
+| **Returns & Exchange Credit** | $\sum \text{Valid Customer Returns}$                              | Total value of credit vouchers issued and inventory restocked. |
+| **Net Sales**                 | $\max(0, \text{Gross Sales} - \text{Returns \& Exchange Credit})$ | True recognized business revenue from sold goods.              |
+| **Store Credit Issued**       | $\sum \text{Credit Ledger [CREDIT\_ISSUED]}$                      | Cumulative balance of store credit granted.                    |
+| **Store Credit Used**         | $\sum \text{Credit Ledger [CREDIT\_USED]}$                        | Cumulative balance of store credit redeemed as tender.         |
+| **Store Credit Outstanding**  | $\max(0, \text{Store Credit Issued} - \text{Store Credit Used})$  | Outstanding liability balance owed to customers.               |
+| **Total COGS**                | $\sum (\text{Buying Price} \times \text{Sold Qty})$               | Cost of goods sold for all active sale items.                  |
+| **Net Profit**                | $\text{Net Sales} - \text{Total COGS}$                            | Realized store operating profit.                               |
 
 ---
 
 ## 5. Store Credit Treatment vs Cash Refunds
 
-| Dimension | Normal Offline POS Return (Zérah Standard) | Cash / Bank Refund (Special Workflow) |
-|---|---|---|
-| **Customer Payout** | ₹0 (No register cash leaves store) | Cash / Bank transfer disbursed |
-| **Voucher Generated** | 100% Store Credit Voucher Issued | No store credit issued |
-| **Reporting Treatment** | Returns & Exchange Credit (Neutral Balance) | Cash Outflow Deduction |
-| **Replacement Flow** | Redeemed as tender during checkout | None |
-| **Store Liability** | Outstanding until spent | Resolved immediately upon cash exit |
+| Dimension               | Normal Offline POS Return (Zérah Standard)  | Cash / Bank Refund (Special Workflow) |
+| ----------------------- | ------------------------------------------- | ------------------------------------- |
+| **Customer Payout**     | ₹0 (No register cash leaves store)          | Cash / Bank transfer disbursed        |
+| **Voucher Generated**   | 100% Store Credit Voucher Issued            | No store credit issued                |
+| **Reporting Treatment** | Returns & Exchange Credit (Neutral Balance) | Cash Outflow Deduction                |
+| **Replacement Flow**    | Redeemed as tender during checkout          | None                                  |
+| **Store Liability**     | Outstanding until spent                     | Resolved immediately upon cash exit   |
 
 ---
 
@@ -105,6 +108,7 @@ graph TD
 ## 7. Reporting & UI Changes Implemented
 
 ### 1. Main Dashboard (`src/components/admin/DashboardTab.tsx`)
+
 - **Top Green KPI Card**:
   - Main Headline: **`Gross Sales: ₹X`**
   - Subtitle: **`Net Sales: ₹Y · Returns & Exchange: ₹Z`**
@@ -120,6 +124,7 @@ graph TD
   - Legend: POS Gross Sales + Online Gross Sales.
 
 ### 2. Revenue Details Drill-Down (`src/components/admin/DashboardDrillDown.tsx`)
+
 - **Section 1**: `1. Online Gross Sales`
 - **Section 2**: `2. Offline POS Gross Sales`
 - **Section 3**: `3. Returns & Exchange Credit` (with `{N} Returned Items (Restocked)` badge and `Store Credit Issued` indicator).
@@ -128,6 +133,7 @@ graph TD
   $$\text{Net Recognized Sales: } ₹Z$$
 
 ### 3. Offline Analytics (`src/components/admin/OfflineAnalyticsTab.tsx`)
+
 - Updated Net Revenue card to **`Net Sales`** with explicit `Gross Sales: ₹X` and `Returns & Exchange: ₹Y`.
 
 ---
@@ -135,6 +141,7 @@ graph TD
 ## 8. Database Aggregation & SQL Joins Audit
 
 We audited all queries and table schemas across `offline_sales`, `offline_sale_items`, `offline_returns`, `offline_return_items`, and `store_credit_ledger`:
+
 1. **No Cartesian Products**: Item-level calculations use strict group-by on parent transaction IDs or iterate children collections directly without cross-joining sales and returns.
 2. **Distinct Lifecycles**: `offline_sales` records sales; `offline_returns` records returns. They link through `original_sale_id` without merging totals into a single ambiguous column.
 3. **Timezone Uniformity**: All period filters use consistent calendar boundaries in Asia/Kolkata (IST) timezone.

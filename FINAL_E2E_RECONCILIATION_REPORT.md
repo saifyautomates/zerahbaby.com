@@ -14,6 +14,7 @@
 ## 1. EXECUTIVE SUMMARY
 
 An exhaustive end-to-end audit and real-data reconciliation was performed across the entire Zérah Baby & Kids production architecture:
+
 1. **Catalog & Variants**: Verified that every active product (`saify`, `dangri`, `saifyyy`) has a matching, authoritative default variant with 100% stock equality between parent and variant records.
 2. **Product Channels**: Verified that `ONLINE_AND_OFFLINE` (`saify`) is publicly visible and purchasable online, while `OFFLINE_ONLY` products (`dangri`, `saifyyy`) are strictly restricted to Admin, POS, and Returns, and blocked by server-side RPC validation in `place_order`.
 3. **Canonical Mutation Paths & Idempotency**: Verified atomic stock mutations and idempotency key protections across `place_order`, `place_offline_sale`, `process_offline_return`, and `cancel_customer_order`.
@@ -27,44 +28,44 @@ An exhaustive end-to-end audit and real-data reconciliation was performed across
 
 ### A. Product $\leftrightarrow$ Variant Inventory Audit
 
-| Product Name | Slug | Sales Channel | Parent Stock | Variant Name | Variant Stock | Variant SKU | Sync Status |
-| :--- | :--- | :--- | :---: | :--- | :---: | :--- | :---: |
-| **saify** | `saify` | `ONLINE_AND_OFFLINE` | 2 | Default | 2 | `ZR-CL-685751` | **PASS** |
-| **dangri** | `dangri` | `OFFLINE_ONLY` | 7 | Default | 7 | `ZR-CL-825985` | **PASS** |
-| **saifyyy** | `saifyyy` | `OFFLINE_ONLY` | 10 | Default | 10 | `ZR-CL-6509` | **PASS** |
+| Product Name | Slug      | Sales Channel        | Parent Stock | Variant Name | Variant Stock | Variant SKU    | Sync Status |
+| :----------- | :-------- | :------------------- | :----------: | :----------- | :-----------: | :------------- | :---------: |
+| **saify**    | `saify`   | `ONLINE_AND_OFFLINE` |      2       | Default      |       2       | `ZR-CL-685751` |  **PASS**   |
+| **dangri**   | `dangri`  | `OFFLINE_ONLY`       |      7       | Default      |       7       | `ZR-CL-825985` |  **PASS**   |
+| **saifyyy**  | `saifyyy` | `OFFLINE_ONLY`       |      10      | Default      |      10       | `ZR-CL-6509`   |  **PASS**   |
 
-* **Total Active Products**: 3
-* **Total Product Variants**: 3
-* **Orphaned Variants**: 0
-* **Parent-Variant Stock Mismatches**: 0
+- **Total Active Products**: 3
+- **Total Product Variants**: 3
+- **Orphaned Variants**: 0
+- **Parent-Variant Stock Mismatches**: 0
 
 ---
 
 ## 3. REAL REPORTING RECONCILIATION
 
-| Metric | Authoritative Data Source | Reconciled Value | Match Status | Verification Method |
-| :--- | :--- | :---: | :---: | :--- |
-| **Active Catalog Products** | `public.products` (`is_active = true`) | 3 | **MATCH** | Live Supabase query |
-| **Online Visible Products** | `public.products` (`sales_channel = 'ONLINE_AND_OFFLINE'`) | 1 (`saify`) | **MATCH** | Storefront query filter |
-| **POS / Offline-Only Products** | `public.products` (`sales_channel = 'OFFLINE_ONLY'`) | 2 (`dangri`, `saifyyy`) | **MATCH** | POS catalog query |
-| **Total Variants** | `public.product_variants` | 3 | **MATCH** | Live Supabase query |
-| **Inventory Transactions Ledger** | `public.inventory_transactions` | Intact | **MATCH** | Schema & trigger audit |
-| **POS Sales Ledger** | `public.offline_sales` | Intact | **MATCH** | Query verification |
-| **POS Returns Ledger** | `public.offline_returns` | Intact | **MATCH** | Query verification |
-| **Owner Notification Outbox** | `public.owner_notification_logs` | Intact | **MATCH** | Function audit |
+| Metric                            | Authoritative Data Source                                  |    Reconciled Value     | Match Status | Verification Method     |
+| :-------------------------------- | :--------------------------------------------------------- | :---------------------: | :----------: | :---------------------- |
+| **Active Catalog Products**       | `public.products` (`is_active = true`)                     |            3            |  **MATCH**   | Live Supabase query     |
+| **Online Visible Products**       | `public.products` (`sales_channel = 'ONLINE_AND_OFFLINE'`) |       1 (`saify`)       |  **MATCH**   | Storefront query filter |
+| **POS / Offline-Only Products**   | `public.products` (`sales_channel = 'OFFLINE_ONLY'`)       | 2 (`dangri`, `saifyyy`) |  **MATCH**   | POS catalog query       |
+| **Total Variants**                | `public.product_variants`                                  |            3            |  **MATCH**   | Live Supabase query     |
+| **Inventory Transactions Ledger** | `public.inventory_transactions`                            |         Intact          |  **MATCH**   | Schema & trigger audit  |
+| **POS Sales Ledger**              | `public.offline_sales`                                     |         Intact          |  **MATCH**   | Query verification      |
+| **POS Returns Ledger**            | `public.offline_returns`                                   |         Intact          |  **MATCH**   | Query verification      |
+| **Owner Notification Outbox**     | `public.owner_notification_logs`                           |         Intact          |  **MATCH**   | Function audit          |
 
 ---
 
 ## 4. CANONICAL MUTATION PATHS & IDEMPOTENCY
 
-| Business Action | Canonical Mutation Path | Mutation Mechanism | Idempotency Protection | Double-Mutation Risk | Status |
-| :--- | :--- | :--- | :--- | :---: | :---: |
-| **Online Order Placement** | `public.place_order` (RPC) | Server-side RPC with `FOR UPDATE` | Unique Order & Invoice numbers | None | **PASS** |
-| **Online Order Cancellation** | `public.cancel_customer_order` (RPC) | Security Definer RPC | State guard (`status != 'cancelled'`) | None | **PASS** |
-| **POS Offline Sale** | `public.place_offline_sale` (RPC) | Security Definer RPC + atomic update | `_idempotency_key` parameter | None | **PASS** |
-| **POS Offline Return** | `public.process_offline_return` (RPC) | Security Definer RPC + atomic increment | `_idempotency_key` parameter | None | **PASS** |
-| **Razorpay Verification** | `verify-razorpay-payment` (Edge) | HMAC-SHA256 + DB update | `payment_status != 'paid'` guard | None | **PASS** |
-| **Razorpay Webhook** | `razorpay-webhook` (Edge) | HMAC-SHA256 + raw body | `webhook_events` table deduplication | None | **PASS** |
+| Business Action               | Canonical Mutation Path               | Mutation Mechanism                      | Idempotency Protection                | Double-Mutation Risk |  Status  |
+| :---------------------------- | :------------------------------------ | :-------------------------------------- | :------------------------------------ | :------------------: | :------: |
+| **Online Order Placement**    | `public.place_order` (RPC)            | Server-side RPC with `FOR UPDATE`       | Unique Order & Invoice numbers        |         None         | **PASS** |
+| **Online Order Cancellation** | `public.cancel_customer_order` (RPC)  | Security Definer RPC                    | State guard (`status != 'cancelled'`) |         None         | **PASS** |
+| **POS Offline Sale**          | `public.place_offline_sale` (RPC)     | Security Definer RPC + atomic update    | `_idempotency_key` parameter          |         None         | **PASS** |
+| **POS Offline Return**        | `public.process_offline_return` (RPC) | Security Definer RPC + atomic increment | `_idempotency_key` parameter          |         None         | **PASS** |
+| **Razorpay Verification**     | `verify-razorpay-payment` (Edge)      | HMAC-SHA256 + DB update                 | `payment_status != 'paid'` guard      |         None         | **PASS** |
+| **Razorpay Webhook**          | `razorpay-webhook` (Edge)             | HMAC-SHA256 + raw body                  | `webhook_events` table deduplication  |         None         | **PASS** |
 
 ---
 
@@ -79,17 +80,17 @@ An exhaustive end-to-end audit and real-data reconciliation was performed across
 
 ## 6. ROUTING & REFRESH VERIFICATION
 
-| Route | Direct Access Target | Refresh (F5) Behavior | Query State Retention | Status |
-| :--- | :--- | :--- | :--- | :---: |
-| `/admin` / `/admin/` | Admin Dashboard | Remains on Dashboard | Clean URL maintained | **PASS** |
-| `/admin/orders` | Online Orders tab | Remains on Online Orders | Preserved | **PASS** |
-| `/admin/products` | Products catalog tab | Remains on Products | Preserved | **PASS** |
+| Route                              | Direct Access Target      | Refresh (F5) Behavior            | Query State Retention        |  Status  |
+| :--------------------------------- | :------------------------ | :------------------------------- | :--------------------------- | :------: |
+| `/admin` / `/admin/`               | Admin Dashboard           | Remains on Dashboard             | Clean URL maintained         | **PASS** |
+| `/admin/orders`                    | Online Orders tab         | Remains on Online Orders         | Preserved                    | **PASS** |
+| `/admin/products`                  | Products catalog tab      | Remains on Products              | Preserved                    | **PASS** |
 | `/admin/products?channel=pos-only` | Products tab (POS filter) | Remains on Products (POS filter) | `channel=pos-only` preserved | **PASS** |
-| `/admin/pos` | Offline Billing (POS) tab | Remains on Offline Billing | Preserved | **PASS** |
-| `/admin/pos/returns` | POS Returns subtab | Remains on Returns subtab | Preserved | **PASS** |
-| `/admin/media` | Media Library tab | Remains on Media Library | Preserved | **PASS** |
-| `/admin/analytics` | Dashboard Analytics | Remains on Dashboard Analytics | Drilldown state preserved | **PASS** |
-| `/admin/settings` | Settings tab | Remains on Settings | Preserved | **PASS** |
+| `/admin/pos`                       | Offline Billing (POS) tab | Remains on Offline Billing       | Preserved                    | **PASS** |
+| `/admin/pos/returns`               | POS Returns subtab        | Remains on Returns subtab        | Preserved                    | **PASS** |
+| `/admin/media`                     | Media Library tab         | Remains on Media Library         | Preserved                    | **PASS** |
+| `/admin/analytics`                 | Dashboard Analytics       | Remains on Dashboard Analytics   | Drilldown state preserved    | **PASS** |
+| `/admin/settings`                  | Settings tab              | Remains on Settings              | Preserved                    | **PASS** |
 
 ---
 
@@ -115,7 +116,7 @@ An exhaustive end-to-end audit and real-data reconciliation was performed across
 
 ## 9. FINAL VERIFICATION SUMMARY
 
-* **VERIFIED**:
+- **VERIFIED**:
   - [x] Product $\leftrightarrow$ Variant stock synchronization (`products.stock == product_variants.stock`).
   - [x] Product channel visibility separation (`ONLINE_AND_OFFLINE` vs `OFFLINE_ONLY`).
   - [x] POS barcode scanning and stock validation.
@@ -125,5 +126,5 @@ An exhaustive end-to-end audit and real-data reconciliation was performed across
   - [x] Razorpay server-side security and webhook HMAC validation.
   - [x] SSR hydration safety in modals and media library.
   - [x] Clean git working tree with zero exposed secrets.
-* **NOT VERIFIED**: None.
-* **BLOCKED**: None.
+- **NOT VERIFIED**: None.
+- **BLOCKED**: None.

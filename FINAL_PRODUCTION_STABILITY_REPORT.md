@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-This report documents the final master production stabilization pass for **Zérah Baby & Kids**. The application was audited across all layers—from PostgreSQL triggers, RLS policies, and atomic RPCs to TanStack Router route contextualization, Deno edge functions, dynamic module chunk loaders, and the physical POS hardware scanner engine. 
+This report documents the final master production stabilization pass for **Zérah Baby & Kids**. The application was audited across all layers—from PostgreSQL triggers, RLS policies, and atomic RPCs to TanStack Router route contextualization, Deno edge functions, dynamic module chunk loaders, and the physical POS hardware scanner engine.
 
 All identified defects—including the router contextualization `TypeError`, the "Module Loading Exception", channel vs. availability drift, and potential deployment chunk mismatches—have been permanently eliminated at the root cause. The platform operates as **ONE unified, connected, synchronized, and resilient system** with real-time end-to-end data integrity.
 
@@ -55,20 +55,20 @@ flowchart TD
 
 ## 3. Source of Truth Map
 
-| Business Concept | Authoritative DB Table | Authoritative Columns | Mutation Path / RPC | Triggers / Constraints | Frontend Consumer |
-|---|---|---|---|---|---|
-| **Product** | `public.products` | `id, name, slug, price, mrp, stock, is_active, sales_channel, category` | `admin_save_product` | `trigger_sync_default_variant` | Storefront, Admin Catalog, POS |
-| **Variant** | `public.product_variants` | `id, product_id, sku, barcode, size, color, stock, price_override, is_active` | `admin_save_product` / `ensure_default_variant` | `fk_product_variants_product`, `uq_variant_barcode` | POS Scanner, Product Detail, Cart |
-| **Stock** | `public.product_variants` & `public.products` | `stock` ($\ge 0$) | Canonical RPCs with `FOR UPDATE` | `chk_product_stock_non_negative`, `chk_variant_stock_non_negative` | POS Terminal, Storefront Catalog, Inventory Table |
-| **Inventory Ledger** | `public.inventory_transactions` | `id, product_id, variant_id, type, quantity, previous_quantity, new_quantity, reference_type, reference_id` | Created atomically inside sales/return RPCs | `fk_inventory_tx_product`, `enum_tx_type` | Inventory Audit, Product Movement Logs |
-| **Product Availability** | `public.products` | `sales_channel` (`ONLINE_AND_OFFLINE` \| `OFFLINE_ONLY`) | `admin_save_product` | Checked server-side in `place_order` | Shop filters, Category filters, Search |
-| **Transaction Channel** | `public.orders` / `public.offline_sales` | `orders` (ONLINE) vs `offline_sales` (OFFLINE_POS) | Generated per transaction endpoint | Separated tables by architecture | Admin Sales History, Analytics, COGS Reports |
-| **Online Order** | `public.orders` | `id, order_number, invoice_no, subtotal, shipping, discount, total, status, payment_status, payment_method` | `place_order` (atomic RPC) | `status` (`placed`, `confirmed`, `shipped`, `delivered`, `cancelled`) | Customer Orders, Admin Orders, Invoice Engine |
-| **POS Offline Sale** | `public.offline_sales` | `id, sale_number, subtotal, discount, total, payment_method, status, pos_token_number` | `place_offline_sale` (canonical RPC) | `idempotency_key` unique check | POS Cashier, Thermal Receipt, Sales History |
-| **Return & Refund** | `public.offline_returns` | `id, return_number, total_refund_amount, refund_method, status, items` | `process_offline_return` (canonical RPC) | `idempotency_key` check | Returns Subtab, POS Cashier, Reports |
-| **Reportable Revenue** | Database aggregated sum | `SUM(orders.total) + SUM(offline_sales.total) - SUM(offline_returns.total_refund_amount)` | Calculated from uncancelled sales minus refunds | Excludes cancelled/failed orders | Executive Dashboard, Analytics Reports |
-| **Cost of Goods (COGS)** | `public.product_costs` | `buying_price` joined on sale items | Query joined on `order_items` / `offline_sale_items` | `buying_price numeric >= 0` | Admin Net Profit Reports |
-| **Admin Notifications** | `public.admin_notifications` | `id, type, title, message, reference_id, reference_type, is_read` | Created atomically on order/sale/return/cancellation | `check_unread_count` | Header Bell, Notification Drawer |
+| Business Concept         | Authoritative DB Table                        | Authoritative Columns                                                                                       | Mutation Path / RPC                                  | Triggers / Constraints                                                | Frontend Consumer                                 |
+| ------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| **Product**              | `public.products`                             | `id, name, slug, price, mrp, stock, is_active, sales_channel, category`                                     | `admin_save_product`                                 | `trigger_sync_default_variant`                                        | Storefront, Admin Catalog, POS                    |
+| **Variant**              | `public.product_variants`                     | `id, product_id, sku, barcode, size, color, stock, price_override, is_active`                               | `admin_save_product` / `ensure_default_variant`      | `fk_product_variants_product`, `uq_variant_barcode`                   | POS Scanner, Product Detail, Cart                 |
+| **Stock**                | `public.product_variants` & `public.products` | `stock` ($\ge 0$)                                                                                           | Canonical RPCs with `FOR UPDATE`                     | `chk_product_stock_non_negative`, `chk_variant_stock_non_negative`    | POS Terminal, Storefront Catalog, Inventory Table |
+| **Inventory Ledger**     | `public.inventory_transactions`               | `id, product_id, variant_id, type, quantity, previous_quantity, new_quantity, reference_type, reference_id` | Created atomically inside sales/return RPCs          | `fk_inventory_tx_product`, `enum_tx_type`                             | Inventory Audit, Product Movement Logs            |
+| **Product Availability** | `public.products`                             | `sales_channel` (`ONLINE_AND_OFFLINE` \| `OFFLINE_ONLY`)                                                    | `admin_save_product`                                 | Checked server-side in `place_order`                                  | Shop filters, Category filters, Search            |
+| **Transaction Channel**  | `public.orders` / `public.offline_sales`      | `orders` (ONLINE) vs `offline_sales` (OFFLINE_POS)                                                          | Generated per transaction endpoint                   | Separated tables by architecture                                      | Admin Sales History, Analytics, COGS Reports      |
+| **Online Order**         | `public.orders`                               | `id, order_number, invoice_no, subtotal, shipping, discount, total, status, payment_status, payment_method` | `place_order` (atomic RPC)                           | `status` (`placed`, `confirmed`, `shipped`, `delivered`, `cancelled`) | Customer Orders, Admin Orders, Invoice Engine     |
+| **POS Offline Sale**     | `public.offline_sales`                        | `id, sale_number, subtotal, discount, total, payment_method, status, pos_token_number`                      | `place_offline_sale` (canonical RPC)                 | `idempotency_key` unique check                                        | POS Cashier, Thermal Receipt, Sales History       |
+| **Return & Refund**      | `public.offline_returns`                      | `id, return_number, total_refund_amount, refund_method, status, items`                                      | `process_offline_return` (canonical RPC)             | `idempotency_key` check                                               | Returns Subtab, POS Cashier, Reports              |
+| **Reportable Revenue**   | Database aggregated sum                       | `SUM(orders.total) + SUM(offline_sales.total) - SUM(offline_returns.total_refund_amount)`                   | Calculated from uncancelled sales minus refunds      | Excludes cancelled/failed orders                                      | Executive Dashboard, Analytics Reports            |
+| **Cost of Goods (COGS)** | `public.product_costs`                        | `buying_price` joined on sale items                                                                         | Query joined on `order_items` / `offline_sale_items` | `buying_price numeric >= 0`                                           | Admin Net Profit Reports                          |
+| **Admin Notifications**  | `public.admin_notifications`                  | `id, type, title, message, reference_id, reference_type, is_read`                                           | Created atomically on order/sale/return/cancellation | `check_unread_count`                                                  | Header Bell, Notification Drawer                  |
 
 ---
 
@@ -213,14 +213,14 @@ flowchart TD
 
 ## 23. Real Data Reconciliation
 
-| Entity / Dimension | Source Table | Expected State | Live Verified Value | Match Status |
-|---|---|---|---|---|
-| **Active Catalog Products** | `public.products` | 3 live items | 3 items (`dangri`, `white-shoes`, `baby-blanket`) | **MATCH** |
-| **Product Variants** | `public.product_variants` | 1:1 default variant match | 3 variants (zero orphaned/missing) | **MATCH** |
-| **Stock Consistency** | `products.stock` vs `product_variants.stock` | Exact equality | `dangri`: 7/7, `white-shoes`: 12/12, `baby-blanket`: 5/5 | **MATCH** |
-| **Inventory Ledger Integrity** | `public.inventory_transactions` | Signed delta history | All logged transitions match stock counts | **MATCH** |
-| **Admin Route Deep-Links** | `/admin?tab=dashboard&subtab=pos` | Clean redirect when unauthenticated, full render when authenticated | Verified in Vite preview & live production | **MATCH** |
-| **Module Loading Exception** | Client Router & Suspense | 0 uncaught exceptions | Verified 0 errors on route switches | **MATCH** |
+| Entity / Dimension             | Source Table                                 | Expected State                                                      | Live Verified Value                                      | Match Status |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- | ------------ |
+| **Active Catalog Products**    | `public.products`                            | 3 live items                                                        | 3 items (`dangri`, `white-shoes`, `baby-blanket`)        | **MATCH**    |
+| **Product Variants**           | `public.product_variants`                    | 1:1 default variant match                                           | 3 variants (zero orphaned/missing)                       | **MATCH**    |
+| **Stock Consistency**          | `products.stock` vs `product_variants.stock` | Exact equality                                                      | `dangri`: 7/7, `white-shoes`: 12/12, `baby-blanket`: 5/5 | **MATCH**    |
+| **Inventory Ledger Integrity** | `public.inventory_transactions`              | Signed delta history                                                | All logged transitions match stock counts                | **MATCH**    |
+| **Admin Route Deep-Links**     | `/admin?tab=dashboard&subtab=pos`            | Clean redirect when unauthenticated, full render when authenticated | Verified in Vite preview & live production               | **MATCH**    |
+| **Module Loading Exception**   | Client Router & Suspense                     | 0 uncaught exceptions                                               | Verified 0 errors on route switches                      | **MATCH**    |
 
 ---
 
@@ -272,19 +272,19 @@ All schema migrations under `supabase/migrations/` (total 92 migrations) remain 
 
 ## 29. Final Subsystem Status Table
 
-| Subsystem | Scope | Status |
-|---|---|---|
-| **Public Storefront** | Catalog, Categories, Search, Cart | **PASS** |
-| **Authentication** | Phone OTP, Email OTP, Admin Authorization | **PASS** |
-| **Checkout & Payments** | Trusted Amount Calculation, Razorpay HMAC | **PASS** |
-| **POS Terminal** | Hardware Scanner, Cart Lines, Offline Sale RPC | **PASS** |
-| **Offline Returns** | Direct Barcode Returns, Stock Increment | **PASS** |
-| **Order Cancellation** | Eligibility Check, Atomic Restock | **PASS** |
-| **Inventory Ledger** | Atomic Deductions, Audit Transactions | **PASS** |
-| **Executive Dashboard** | Real-time Metrics, Date Ranges, Profit Calculation | **PASS** |
-| **Physical Printing** | Horizontal Product Stickers, Thermal Geometry | **PASS** |
-| **Routing & Deep-Links** | URL State Authority, Splat Redirects | **PASS** |
-| **SSR & Hydration** | Browser Guarding, Zero Hydration Mismatches | **PASS** |
-| **Security & RLS** | Zero Secrets in Client, Disabled Debug Function | **PASS** |
+| Subsystem                | Scope                                              | Status   |
+| ------------------------ | -------------------------------------------------- | -------- |
+| **Public Storefront**    | Catalog, Categories, Search, Cart                  | **PASS** |
+| **Authentication**       | Phone OTP, Email OTP, Admin Authorization          | **PASS** |
+| **Checkout & Payments**  | Trusted Amount Calculation, Razorpay HMAC          | **PASS** |
+| **POS Terminal**         | Hardware Scanner, Cart Lines, Offline Sale RPC     | **PASS** |
+| **Offline Returns**      | Direct Barcode Returns, Stock Increment            | **PASS** |
+| **Order Cancellation**   | Eligibility Check, Atomic Restock                  | **PASS** |
+| **Inventory Ledger**     | Atomic Deductions, Audit Transactions              | **PASS** |
+| **Executive Dashboard**  | Real-time Metrics, Date Ranges, Profit Calculation | **PASS** |
+| **Physical Printing**    | Horizontal Product Stickers, Thermal Geometry      | **PASS** |
+| **Routing & Deep-Links** | URL State Authority, Splat Redirects               | **PASS** |
+| **SSR & Hydration**      | Browser Guarding, Zero Hydration Mismatches        | **PASS** |
+| **Security & RLS**       | Zero Secrets in Client, Disabled Debug Function    | **PASS** |
 
 # **OVERALL SYSTEM STATUS: PASS**

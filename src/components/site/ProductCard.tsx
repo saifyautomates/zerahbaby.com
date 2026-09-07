@@ -170,7 +170,7 @@ export function ProductCard({ product }: { product: Product }) {
             toast.success("Added to bag", { description: product.name });
             setTimeout(() => setIsAdding(false), 500);
           }}
-          className={`focus-ring press mt-auto mt-3.5 w-full rounded-full py-2.5 sm:py-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 ${
+          className={`focus-ring press mt-auto w-full rounded-full py-2.5 sm:py-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 ${
             isAdding
               ? "bg-primary/80 text-primary-foreground/90 scale-95"
               : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-premium-sm hover:shadow-premium-md"

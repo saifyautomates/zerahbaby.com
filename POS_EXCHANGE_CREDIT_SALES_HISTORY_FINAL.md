@@ -54,32 +54,34 @@ sequenceDiagram
 
 ## 2. Strict Financial & Accounting Invariants
 
-| Concept | Requirement | Implemented Reality | Verification |
-| :--- | :--- | :--- | :--- |
-| **Store Credit Tender** | Store credit is a **payment/tender method**, NEVER a discount. | Replacement sale records `total = 800`, `store_credit_used = 500`. Discount remains `0`. | Verified in `place_offline_sale`, `ThermalReceipt`, `A4Invoice`, and `POSTab`. |
-| **Sales History Record** | Sale #1002 must show as an **₹800 sale** in Sales History. | Offline sales table displays `₹800` total with tender breakdown: `Credit: ₹500 • Paid: ₹300`. | Verified in `OfflineAnalyticsTab.tsx`. |
-| **Original Sale Immutability** | Original sale is **never deleted** on return. | Historical sale record remains permanently. Status transitions to `Returned` or `Partially Returned`. | Checked in `process_offline_return` & `OfflineAnalyticsTab.tsx`. |
-| **Net Revenue Reconciled** | Revenue across #1001 (₹500), Return #R001 (₹500), and #1002 (₹800) must equal ₹800. | $\text{Net Revenue} = ₹500 (\text{orig}) - ₹500 (\text{ret}) + ₹800 (\text{repl}) = ₹800$. Credit is never deducted a second time. | Verified in `calculateFinancialMetrics` & Playwright Test 19. |
-| **Surplus Credit Rule** | If sale is ₹300 and available credit is ₹500: credit used = ₹300, remaining credit = ₹200. | Zero cash refund given. Remaining ₹200 stays intact as active credit for future visits. | Verified in Playwright Test 3. |
-| **Concurrent Double-Spend** | Two terminals cannot spend the same credit token concurrently. | Row-level locking (`FOR UPDATE`) on `pos_customers` and `offline_returns` serializes transactions. | Enforced in SQL RPC & Verified in Playwright Test 12. |
+| Concept                        | Requirement                                                                                | Implemented Reality                                                                                                                | Verification                                                                   |
+| :----------------------------- | :----------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| **Store Credit Tender**        | Store credit is a **payment/tender method**, NEVER a discount.                             | Replacement sale records `total = 800`, `store_credit_used = 500`. Discount remains `0`.                                           | Verified in `place_offline_sale`, `ThermalReceipt`, `A4Invoice`, and `POSTab`. |
+| **Sales History Record**       | Sale #1002 must show as an **₹800 sale** in Sales History.                                 | Offline sales table displays `₹800` total with tender breakdown: `Credit: ₹500 • Paid: ₹300`.                                      | Verified in `OfflineAnalyticsTab.tsx`.                                         |
+| **Original Sale Immutability** | Original sale is **never deleted** on return.                                              | Historical sale record remains permanently. Status transitions to `Returned` or `Partially Returned`.                              | Checked in `process_offline_return` & `OfflineAnalyticsTab.tsx`.               |
+| **Net Revenue Reconciled**     | Revenue across #1001 (₹500), Return #R001 (₹500), and #1002 (₹800) must equal ₹800.        | $\text{Net Revenue} = ₹500 (\text{orig}) - ₹500 (\text{ret}) + ₹800 (\text{repl}) = ₹800$. Credit is never deducted a second time. | Verified in `calculateFinancialMetrics` & Playwright Test 19.                  |
+| **Surplus Credit Rule**        | If sale is ₹300 and available credit is ₹500: credit used = ₹300, remaining credit = ₹200. | Zero cash refund given. Remaining ₹200 stays intact as active credit for future visits.                                            | Verified in Playwright Test 3.                                                 |
+| **Concurrent Double-Spend**    | Two terminals cannot spend the same credit token concurrently.                             | Row-level locking (`FOR UPDATE`) on `pos_customers` and `offline_returns` serializes transactions.                                 | Enforced in SQL RPC & Verified in Playwright Test 12.                          |
 
 ---
 
 ## 3. Database Schema Extensions
 
 ### A. `offline_sales` Table Enhancements
+
 ```sql
 ALTER TABLE public.offline_sales
-  ADD COLUMN IF NOT EXISTS return_status text NOT NULL DEFAULT 'none' 
+  ADD COLUMN IF NOT EXISTS return_status text NOT NULL DEFAULT 'none'
     CHECK (return_status IN ('none', 'partially_returned', 'returned')),
   ADD COLUMN IF NOT EXISTS returned_amount numeric NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS returned_units int NOT NULL DEFAULT 0;
 
-CREATE INDEX IF NOT EXISTS idx_offline_sales_return_status 
+CREATE INDEX IF NOT EXISTS idx_offline_sales_return_status
   ON public.offline_sales(return_status);
 ```
 
 ### B. `offline_returns` Table Enhancements
+
 ```sql
 ALTER TABLE public.offline_returns
   ADD COLUMN IF NOT EXISTS credit_used numeric NOT NULL DEFAULT 0,
@@ -93,6 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_offline_returns_credit_token ON public.offline_re
 ```
 
 ### C. `process_offline_return` RPC
+
 - **Strict Returnable Quantity Validation**: If `_original_sale_id` is supplied:
   $$\text{returnable\_qty} = \text{original\_qty} - \text{already\_returned\_qty}$$
   If requested quantity exceeds `returnable_qty`, transaction aborts with a descriptive exception.
@@ -102,6 +105,7 @@ CREATE INDEX IF NOT EXISTS idx_offline_returns_credit_token ON public.offline_re
 - **Token Generation**: Generates sequential credit token (e.g. `CR-2609-01001`), appends to `store_credit_ledger` (`type = 'CREDIT_ISSUED'`), and updates `pos_customers.store_credit_balance`.
 
 ### D. `place_offline_sale` RPC
+
 - **Row-Level Locking**: `SELECT ... FOR UPDATE` locks customer and voucher balance before deduction.
 - **Tender Allocation**:
   $$\text{actual\_credit\_applied} = \min(\text{requested\_credit}, \text{available\_credit}, \text{sale\_total})$$
@@ -114,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_offline_returns_credit_token ON public.offline_re
 ## 4. Frontend & POS Interface Reconciliation
 
 ### 1. POS Checkout Billing Center (`POSTab.tsx`)
+
 - **Store Credit / Voucher Section**:
   - Scan or enter credit token (e.g. `CR-2609-01001`).
   - Cashier sees available balance and one-click "Apply ₹500".
@@ -125,6 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_offline_returns_credit_token ON public.offline_re
 - **Zero Confusion**: Discount remains ₹0 (unless cashier explicitly applies a promotion).
 
 ### 2. Receipt & Invoice Printing (`ThermalReceipt.tsx` & `A4Invoice.tsx`)
+
 - Printed slips strictly display:
   - Total: ₹800
   - **Payment Breakdown:**
@@ -134,7 +140,9 @@ CREATE INDEX IF NOT EXISTS idx_offline_returns_credit_token ON public.offline_re
 - Does NOT print Exchange Credit with a negative discount sign (`−₹500`).
 
 ### 3. Return / Exchange History Table (`POSReturnsTab.tsx`)
+
 Rendered with all 12 requested audit columns:
+
 1. **Return ID** (`RET-2609-0001`)
 2. **Original Sale** (`POS-2609-1001`)
 3. **Customer** (Name & Phone)
@@ -149,6 +157,7 @@ Rendered with all 12 requested audit columns:
 12. **Action** (Print Exchange Credit Voucher)
 
 ### 4. Sales History Table (`OfflineAnalyticsTab.tsx`)
+
 - Status badges:
   - `Returned` (purple) for 100% returned original sales.
   - `Partially Returned` (blue) for partially returned original sales.
@@ -173,6 +182,7 @@ Running 69 tests using 4 workers
 ```
 
 ### Coverage of the 23 Business Scenarios:
+
 1. `₹500 sale → ₹500 return → ₹500 credit issued`: PASSED
 2. `₹500 credit → ₹800 purchase → ₹500 credit + ₹300 payment`: PASSED
 3. `₹500 credit → ₹300 purchase → ₹200 remaining credit`: PASSED
@@ -198,6 +208,7 @@ Running 69 tests using 4 workers
 23. `Customer history reflects linked original sale, return voucher, and replacement sale`: PASSED
 
 ### Regression Verification:
+
 - `tests/reporting-date-range.spec.ts` + `tests/pos-sale-void-reversal.spec.ts`: **39 passed**.
 - `npx tsc --noEmit`: **0 errors**.
 - `npm run build`: **Client (3.54s) and SSR (2.38s) built cleanly**.

@@ -797,14 +797,7 @@ export function Header() {
           )}
         >
           {/* Drawer Top Dismiss Bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border/50">
-            <button
-              type="button"
-              onClick={closeDrawer}
-              className="flex items-center gap-1 text-xs font-bold text-foreground/80 hover:text-foreground active:scale-95 transition-all py-1 px-2.5 rounded-lg hover:bg-muted cursor-pointer"
-            >
-              <ChevronLeft className="size-4 text-primary" /> Back
-            </button>
+          <div className="flex items-center justify-end px-4 py-2.5 bg-muted/40 border-b border-border/50">
             <button
               type="button"
               onClick={closeDrawer}
@@ -866,7 +859,7 @@ export function Header() {
           </div>
 
           {/* Links */}
-          <div className="flex-1 overflow-y-auto py-2">
+          <div className="flex-1 overflow-y-auto pt-2 pb-10 sm:pb-8">
             {isAdmin && (
               <>
                 <div className="bg-primary/5 rounded-2xl p-3 mx-4 my-2 border border-primary/15">
@@ -940,7 +933,7 @@ export function Header() {
                       to="/shop"
                       search={{ category: c.slug }}
                       onClick={() => setOpen(false)}
-                      className="rounded-full bg-muted/70 px-3 py-1 text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all"
+                      className="rounded-full bg-muted/70 px-3 py-1 text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all whitespace-nowrap"
                     >
                       {c.name}
                     </Link>

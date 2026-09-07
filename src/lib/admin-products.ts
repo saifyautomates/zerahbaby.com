@@ -301,14 +301,20 @@ export function useSaveProduct() {
             if (insErr) throw insErr;
           }
 
-          // Cleanup deleted variants
-          const keepIds = draft.variants.map((v) => v.id).filter(Boolean);
-          if (keepIds.length > 0) {
+          // Cleanup deleted variants.
+          // CRITICAL: allSavedVariantIds must include BOTH existing IDs AND the newly
+          // generated UUIDs for brand-new variants.
+          const allSavedVariantIds: string[] = [
+            ...existingVariants.map((v) => v.id as string),
+            ...newVariants.map((v) => v.id as string),
+          ].filter(Boolean);
+
+          if (allSavedVariantIds.length > 0) {
             await (supabase
               .from("product_variants" as any)
               .delete()
               .eq("product_id", productId)
-              .not("id", "in", `(${keepIds.join(",")})`) as any);
+              .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`) as any);
           }
         }
 

@@ -49,3 +49,8 @@ tests/e2e-debug.spec.ts
 .agent/
 .agents/
 scratch/
+
+# Security & Audit Logs
+admin-token.json
+audit_*.json
+build_output.log

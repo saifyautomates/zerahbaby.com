@@ -1,20 +1,16 @@
 import { FIRSTCRY_IMAGE_MAP } from "@/lib/firstcry-catalog";
 
-import clothing from "@/assets/cat-clothing.jpg";
-import toys from "@/assets/cat-toys.jpg";
-import care from "@/assets/cat-care.jpg";
-import gear from "@/assets/cat-gear.jpg";
-
 export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
-  clothing,
-  toys,
-  care,
-  gear,
+  clothing:
+    "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&auto=format&fit=crop&q=80",
+  toys: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+  care: "https://images.unsplash.com/photo-1584824486539-53bb4646bdbc?w=800&auto=format&fit=crop&q=80",
+  gear: "https://images.unsplash.com/photo-1522771930-78848d92fa1d?w=800&auto=format&fit=crop&q=80",
   feeding:
-    "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1555252834-3dd48d28c946?w=800&auto=format&fit=crop&q=80",
   diapering:
     "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
-  bath: "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
+  bath: "https://images.unsplash.com/photo-1629198688000-71f23e745b6e?w=800&auto=format&fit=crop&q=80",
   footwear:
     "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80",
 };

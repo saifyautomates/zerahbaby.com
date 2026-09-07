@@ -15,6 +15,7 @@
 The Offline Billing / POS (Point of Sale) system at **Zérah Baby & Kids** (https://zerahkids.com) has undergone a comprehensive end-to-end audit, architectural stabilization, and mathematical synchronization.
 
 The POS is not merely visually polished; it is strictly synchronized across:
+
 - **Canonical Inventory Locking:** Strict `SELECT ... FOR UPDATE` row-locking preventing silent overselling or race conditions.
 - **Authoritative Master Pricing Engine:** Single source of truth for Subtotal, MRP Total, Product Savings, Promotional Coupons, Manual Discounts, Store Credit Tenders, and Customer Payables.
 - **Store Credit as Tender, NOT Discount:** Preserves the canonical accounting rule where replacement sales recognize full gross revenue while applying store credit as a payment tender.
@@ -27,20 +28,22 @@ The POS is not merely visually polished; it is strictly synchronized across:
 
 ## 2. Root Cause Analysis & Resolution
 
-| # | Component | Root Cause Identified | Engineering Fix Applied |
-|---|---|---|---|
-| **1** | **Database Inventory Concurrency** | `place_offline_sale` used `GREATEST(0, stock - qty)` to decrement stock. If stock was 2 and two simultaneous requests for 2 items arrived, the second sale silently completed with stock remaining at 0, masking an oversell. | Hardened RPC with row-level locks (`SELECT stock FROM products WHERE id = v_item.product_id FOR UPDATE`). If `v_prod_stock < v_item.qty`, it immediately raises an exception: `Insufficient stock for product "%": requested %, available %`. |
-| **2** | **Coupon & Promotion Engine** | POS lacked server-side coupon validation, column storage, and UI controls, forcing cashiers to use ad-hoc manual discounts. | Added `coupon_code` and `coupon_discount` columns to `offline_sales`. Built server-side validation in `place_offline_sale` (verifying active status, validity window, minimum cart value, and usage limits) and added coupon UI with instant feedback. |
-| **3** | **Global Hardware Scanner Navigation** | When cashiers scanned barcodes from admin pages other than POS (e.g., Dashboard or Products), scans were ignored or typed into unrelated search fields. | Added global hardware burst listener in `admin.tsx` that detects scanner keybursts (<75ms), automatically switches the active tab to `billing`, and drains the scanned barcode into the cart without requiring rescanning. |
-| **4** | **Customer Search Scope** | Customer lookup in POS was restricted to exact phone and name matching, failing when cashiers entered customer UUIDs or emails. | Upgraded `search_pos_customers` RPC to search across `name`, `phone`, `email`, and `id::text` with case-insensitive pattern matching. |
-| **5** | **Checkout Queue Bottlenecks** | When a customer stepped away to pick an additional size or fetch cash, cashiers had to cancel the cart or stall the checkout queue. | Created `zerah_pos_held_orders_v1` LocalStorage-backed Hold & Resume architecture. Cashiers can place carts on hold with a single click, serve subsequent customers, and resume held carts with all lines, discounts, and customer details intact. |
+| #     | Component                              | Root Cause Identified                                                                                                                                                                                                         | Engineering Fix Applied                                                                                                                                                                                                                                |
+| ----- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1** | **Database Inventory Concurrency**     | `place_offline_sale` used `GREATEST(0, stock - qty)` to decrement stock. If stock was 2 and two simultaneous requests for 2 items arrived, the second sale silently completed with stock remaining at 0, masking an oversell. | Hardened RPC with row-level locks (`SELECT stock FROM products WHERE id = v_item.product_id FOR UPDATE`). If `v_prod_stock < v_item.qty`, it immediately raises an exception: `Insufficient stock for product "%": requested %, available %`.          |
+| **2** | **Coupon & Promotion Engine**          | POS lacked server-side coupon validation, column storage, and UI controls, forcing cashiers to use ad-hoc manual discounts.                                                                                                   | Added `coupon_code` and `coupon_discount` columns to `offline_sales`. Built server-side validation in `place_offline_sale` (verifying active status, validity window, minimum cart value, and usage limits) and added coupon UI with instant feedback. |
+| **3** | **Global Hardware Scanner Navigation** | When cashiers scanned barcodes from admin pages other than POS (e.g., Dashboard or Products), scans were ignored or typed into unrelated search fields.                                                                       | Added global hardware burst listener in `admin.tsx` that detects scanner keybursts (<75ms), automatically switches the active tab to `billing`, and drains the scanned barcode into the cart without requiring rescanning.                             |
+| **4** | **Customer Search Scope**              | Customer lookup in POS was restricted to exact phone and name matching, failing when cashiers entered customer UUIDs or emails.                                                                                               | Upgraded `search_pos_customers` RPC to search across `name`, `phone`, `email`, and `id::text` with case-insensitive pattern matching.                                                                                                                  |
+| **5** | **Checkout Queue Bottlenecks**         | When a customer stepped away to pick an additional size or fetch cash, cashiers had to cancel the cart or stall the checkout queue.                                                                                           | Created `zerah_pos_held_orders_v1` LocalStorage-backed Hold & Resume architecture. Cashiers can place carts on hold with a single click, serve subsequent customers, and resume held carts with all lines, discounts, and customer details intact.     |
 
 ---
 
 ## 3. Core Architectural Modules
 
 ### 3.1 Master Pricing & Calculation Engine (`src/lib/pricing-engine.ts`)
+
 The calculation follows a strict sequence:
+
 1. **Subtotal:** Sum of line items `roundMoney(price * qty)`.
 2. **MRP Total:** Sum of line items `roundMoney(mrp * qty)`.
 3. **Product Savings:** `max(0, mrpTotal - subtotal)`.
@@ -55,6 +58,7 @@ The calculation follows a strict sequence:
 All calculations are protected by `isFinite` and `isNaN` sanitization, ensuring that corrupted inputs never result in `NaN` or negative payable totals.
 
 ### 3.2 Concurrency & Inventory Row-Locking (`supabase/migrations/20260928000045_pos_production_hardening_and_coupons.sql`)
+
 ```sql
 -- Atomic row locking on product
 SELECT stock, name INTO v_prod_stock, v_prod_name
@@ -75,7 +79,9 @@ WHERE id = v_item.product_id;
 ```
 
 ### 3.3 Strict Accounting Invariant: Store Credit as Tender
+
 Store credit issued during a return is an exchange voucher, **never** a revenue discount.
+
 ```
 Scenario:
 1. Customer buys Dress for ₹500 (Cash).
@@ -88,9 +94,11 @@ Scenario:
    -> Total Cash Collected in Till = ₹500 - ₹0 + ₹300 = ₹800.
    -> Net Revenue = ₹500 + ₹800 - ₹500 (Return) = ₹800.
 ```
+
 Store credit used is **never** subtracted from Gross Sales; doing so would falsely report the business revenue as ₹300 instead of the true ₹800.
 
 ### 3.4 Hold / Resume Cart Architecture (`src/components/admin/POSTab.tsx`)
+
 - Held carts are persisted in LocalStorage (`zerah_pos_held_orders_v1`).
 - Cashier can hold active cart via **Hold Cart** button in cart footer.
 - The **Held Carts (N)** button appears in the terminal header with a badge indicator.
@@ -102,16 +110,18 @@ Store credit used is **never** subtracted from Gross Sales; doing so would false
 ## 4. Verification & Testing Matrix
 
 ### 4.1 Automated Test Suite Results
-| Suite | Scope | Tests Run | Result |
-|---|---|---|---|
-| `tests/pos-production-worldclass.spec.ts` | Complete POS Production & Synchronization | **72 tests** | **72 / 72 PASSED** |
-| `tests/pos-exchange-credit-flow.spec.ts` | 23 Exchange Credit & Sales History Rules | **69 tests** | **69 / 69 PASSED** |
-| `tests/pos-sale-void-reversal.spec.ts` | Sale Voiding & Stock Reversal Safety | **39 tests** | **39 / 39 PASSED** |
-| `tests/reporting-date-range.spec.ts` | IST Canonical Date Range & Reporting | **24 tests** | **24 / 24 PASSED** |
-| `tests/marketing-social-links.spec.ts` | Social Links & Marketing Normalization | **72 tests** | **72 / 72 PASSED** |
-| **Total Automated Coverage** | **All Critical E-Commerce / POS Flows** | **276 tests** | **276 / 276 PASSED** |
+
+| Suite                                     | Scope                                     | Tests Run     | Result               |
+| ----------------------------------------- | ----------------------------------------- | ------------- | -------------------- |
+| `tests/pos-production-worldclass.spec.ts` | Complete POS Production & Synchronization | **72 tests**  | **72 / 72 PASSED**   |
+| `tests/pos-exchange-credit-flow.spec.ts`  | 23 Exchange Credit & Sales History Rules  | **69 tests**  | **69 / 69 PASSED**   |
+| `tests/pos-sale-void-reversal.spec.ts`    | Sale Voiding & Stock Reversal Safety      | **39 tests**  | **39 / 39 PASSED**   |
+| `tests/reporting-date-range.spec.ts`      | IST Canonical Date Range & Reporting      | **24 tests**  | **24 / 24 PASSED**   |
+| `tests/marketing-social-links.spec.ts`    | Social Links & Marketing Normalization    | **72 tests**  | **72 / 72 PASSED**   |
+| **Total Automated Coverage**              | **All Critical E-Commerce / POS Flows**   | **276 tests** | **276 / 276 PASSED** |
 
 ### 4.2 Build & Type-Safety Verification
+
 - `npx tsc --noEmit`: Exited with code 0 (Zero TypeScript errors).
 - `npm run build`: Bundled client and SSR server in 3.94 seconds with zero build warnings.
 

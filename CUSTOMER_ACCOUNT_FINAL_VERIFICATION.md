@@ -10,6 +10,7 @@
 ## 1. Auth Identity Architecture
 
 Customer authentication and ownership are strictly anchored to the Supabase internal UUID (`auth.users.id`):
+
 - **Identity Anchor**: `auth.users.id` (UUID generated on account creation).
 - **Session Resolution**: Resolved securely via `supabase.auth.getSession()` and `auth.uid()` in database functions.
 - **Strict Prohibition**: Neither email, phone, browser ID, localStorage keys, nor IP addresses are used as the primary ownership key.
@@ -33,15 +34,15 @@ flowchart TD
 
 ## 2. Customer-Owned Tables Audit
 
-| Table | Owner Column | Read Query Pattern | Write Query Pattern | RLS Policy | Scoped Cache Key |
-|---|---|---|---|---|---|
-| **`public.profiles`** | `id` (UUID) | `.select('*').eq('id', user.id)` | `.update(values).eq('id', user.id)` | `auth.uid() = id` (SELECT, UPDATE) | `['profile', userId]` |
-| **`public.wishlists`** | `user_id` (UUID) | `.select('id').eq('user_id', user.id)` | `.insert({ user_id: user.id })` | `auth.uid() = user_id` (ALL) | `['wishlist', userId]` |
-| **`public.wishlist_items`** | `wishlist_id` (FK) | `.select('*').eq('wishlist_id', wl.id)` | `.insert(...)` / `.delete(...)` | Joined on `wishlists.user_id = auth.uid()` | `['wishlist', userId]` |
-| **`public.carts`** | `user_id` (UUID) | `.select('id').eq('user_id', user.id)` | `.insert({ user_id: user.id })` | `auth.uid() = user_id` (ALL) | `getCartStorageKey(userId)` |
-| **`public.cart_items`** | `cart_id` (FK) | `.select('*').eq('cart_id', cart.id)` | `.insert(...)` / `.delete(...)` | Joined on `carts.user_id = auth.uid()` | `getCartStorageKey(userId)` |
-| **`public.orders`** | `user_id` (UUID) | `.select('*').eq('user_id', user.id)` | Created via `place_order` (sets `user_id = auth.uid()`) | `auth.uid() = user_id` (SELECT) | `['my-orders', userId]` |
-| **`public.order_items`** | `order_id` (FK) | `.select('*').eq('order_id', order.id)` | Created atomically inside `place_order` | Joined on `orders.user_id = auth.uid()` | `['my-orders', userId]` |
+| Table                       | Owner Column       | Read Query Pattern                      | Write Query Pattern                                     | RLS Policy                                 | Scoped Cache Key            |
+| --------------------------- | ------------------ | --------------------------------------- | ------------------------------------------------------- | ------------------------------------------ | --------------------------- |
+| **`public.profiles`**       | `id` (UUID)        | `.select('*').eq('id', user.id)`        | `.update(values).eq('id', user.id)`                     | `auth.uid() = id` (SELECT, UPDATE)         | `['profile', userId]`       |
+| **`public.wishlists`**      | `user_id` (UUID)   | `.select('id').eq('user_id', user.id)`  | `.insert({ user_id: user.id })`                         | `auth.uid() = user_id` (ALL)               | `['wishlist', userId]`      |
+| **`public.wishlist_items`** | `wishlist_id` (FK) | `.select('*').eq('wishlist_id', wl.id)` | `.insert(...)` / `.delete(...)`                         | Joined on `wishlists.user_id = auth.uid()` | `['wishlist', userId]`      |
+| **`public.carts`**          | `user_id` (UUID)   | `.select('id').eq('user_id', user.id)`  | `.insert({ user_id: user.id })`                         | `auth.uid() = user_id` (ALL)               | `getCartStorageKey(userId)` |
+| **`public.cart_items`**     | `cart_id` (FK)     | `.select('*').eq('cart_id', cart.id)`   | `.insert(...)` / `.delete(...)`                         | Joined on `carts.user_id = auth.uid()`     | `getCartStorageKey(userId)` |
+| **`public.orders`**         | `user_id` (UUID)   | `.select('*').eq('user_id', user.id)`   | Created via `place_order` (sets `user_id = auth.uid()`) | `auth.uid() = user_id` (SELECT)            | `['my-orders', userId]`     |
+| **`public.order_items`**    | `order_id` (FK)    | `.select('*').eq('order_id', order.id)` | Created atomically inside `place_order`                 | Joined on `orders.user_id = auth.uid()`    | `['my-orders', userId]`     |
 
 ---
 
@@ -99,13 +100,13 @@ flowchart TD
 
 ## 9. RLS Verification
 
-| Operation | Table | RLS Policy Definition | Test Result |
-|---|---|---|---|
-| **SELECT** | `orders` | `(auth.uid() = user_id) OR is_admin()` | **ENFORCED** (Other users' orders blocked) |
-| **SELECT** | `order_items` | `EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid()) OR is_admin()` | **ENFORCED** |
-| **SELECT / MUTATE** | `wishlists` | `auth.uid() = user_id` | **ENFORCED** |
-| **SELECT / MUTATE** | `carts` | `auth.uid() = user_id` | **ENFORCED** |
-| **SELECT / MUTATE** | `profiles` | `(auth.uid() = id) OR is_admin()` | **ENFORCED** |
+| Operation           | Table         | RLS Policy Definition                                                                                                | Test Result                                |
+| ------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **SELECT**          | `orders`      | `(auth.uid() = user_id) OR is_admin()`                                                                               | **ENFORCED** (Other users' orders blocked) |
+| **SELECT**          | `order_items` | `EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid()) OR is_admin()` | **ENFORCED**                               |
+| **SELECT / MUTATE** | `wishlists`   | `auth.uid() = user_id`                                                                                               | **ENFORCED**                               |
+| **SELECT / MUTATE** | `carts`       | `auth.uid() = user_id`                                                                                               | **ENFORCED**                               |
+| **SELECT / MUTATE** | `profiles`    | `(auth.uid() = id) OR is_admin()`                                                                                    | **ENFORCED**                               |
 
 ---
 
@@ -154,16 +155,16 @@ Scenario: Cross-Device Customer Workflow
 
 ## 14. Verification & Test Matrix
 
-| Test Scenario | Expected Outcome | Live Verified Result | Status |
-|---|---|---|---|
-| **Same-Account Cross-Device** | Identical wishlist, cart, and order history across devices | Verified via Supabase DB sync | **PASS** |
-| **Same-Account Cross-Browser** | Data rehydrates from DB on fresh browser session | Verified | **PASS** |
-| **Browser Cache Clear** | Profile, orders, cart, wishlist persist upon re-login | Verified (Database authoritative) | **PASS** |
-| **Logout Isolation** | Active cart, wishlist, and query cache purged on logout | Verified in `CartProvider` and `auth.tsx` | **PASS** |
-| **Multi-User Isolation** | User B sees zero items from User A | Verified via scoped keys | **PASS** |
-| **IDOR Protection** | Unauthorized order/profile access blocked by RLS | Enforced by PostgreSQL RLS | **PASS** |
-| **Static Compilation** | `npx tsc --noEmit` | 0 errors | **PASS** |
-| **Production Build** | `npm run build` | Client and SSR bundles compiled cleanly | **PASS** |
+| Test Scenario                  | Expected Outcome                                           | Live Verified Result                      | Status   |
+| ------------------------------ | ---------------------------------------------------------- | ----------------------------------------- | -------- |
+| **Same-Account Cross-Device**  | Identical wishlist, cart, and order history across devices | Verified via Supabase DB sync             | **PASS** |
+| **Same-Account Cross-Browser** | Data rehydrates from DB on fresh browser session           | Verified                                  | **PASS** |
+| **Browser Cache Clear**        | Profile, orders, cart, wishlist persist upon re-login      | Verified (Database authoritative)         | **PASS** |
+| **Logout Isolation**           | Active cart, wishlist, and query cache purged on logout    | Verified in `CartProvider` and `auth.tsx` | **PASS** |
+| **Multi-User Isolation**       | User B sees zero items from User A                         | Verified via scoped keys                  | **PASS** |
+| **IDOR Protection**            | Unauthorized order/profile access blocked by RLS           | Enforced by PostgreSQL RLS                | **PASS** |
+| **Static Compilation**         | `npx tsc --noEmit`                                         | 0 errors                                  | **PASS** |
+| **Production Build**           | `npm run build`                                            | Client and SSR bundles compiled cleanly   | **PASS** |
 
 ---
 

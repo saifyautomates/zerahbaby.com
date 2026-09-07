@@ -19,6 +19,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Heart,
 } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon } from "@/components/ui/BrandIcons";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
+import { useWishlist } from "@/lib/wishlist";
 import {
   useProductReviews,
   useCanUserReviewProduct,
@@ -218,6 +220,7 @@ function ProductPage() {
 
   const { add, items } = useCart();
   const { user } = useSession();
+  const { isWishlisted, toggle: toggleWishlist } = useWishlist();
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -257,6 +260,8 @@ function ProductPage() {
     );
     return match ?? null;
   }, [singleResult, loaderData?.product, list, id, decodedId]);
+
+  const wishlisted = user && product ? isWishlisted(product.uuid) : false;
 
   const isLoading = (singleLoading || productsLoading) && !product;
   const isNetworkError = (singleQueryError || singleResult?.isError) && !product;
@@ -1027,11 +1032,11 @@ function ProductPage() {
                   const maxed = remaining <= 0;
 
                   return (
-                    <div className="flex w-full md:w-auto flex-1 gap-2 sm:gap-3">
+                    <div className="flex w-full md:w-auto flex-1 gap-2 sm:gap-3 items-center">
                       <button
                         disabled={soldOut || maxed || qty > remaining}
                         onClick={handleAddToCart}
-                        className="focus-ring flex-1 rounded-full bg-primary px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                        className="focus-ring flex-1 rounded-full bg-primary px-2 py-3 sm:px-4 sm:py-3.5 text-[13px] sm:text-base font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none whitespace-nowrap"
                       >
                         {soldOut ? "Out of stock" : maxed ? "Added to bag" : "Add to bag"}
                       </button>
@@ -1063,11 +1068,42 @@ function ProductPage() {
                             });
                             setShowBuyNowModal(true);
                           }}
-                          className="focus-ring flex-1 rounded-full border-2 border-primary bg-background px-4 py-3 sm:py-3.5 text-sm sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="focus-ring flex-1 rounded-full border-2 border-primary bg-background px-2 py-3 sm:px-4 sm:py-3.5 text-[13px] sm:text-base font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                           Buy now
                         </button>
                       )}
+                      <button
+                        type="button"
+                        aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                        onClick={() => {
+                          if (!user) {
+                            toast.info("Please log in to save items to your wishlist");
+                            navigate({
+                              to: "/auth",
+                              search: { redirect: getProductUrl(product) },
+                            });
+                            return;
+                          }
+                          toggleWishlist(product.uuid);
+                          trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", {
+                            productId: product.uuid,
+                          });
+                          toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
+                        }}
+                        className={`press size-12 shrink-0 rounded-full border grid place-items-center transition-all duration-300 ${
+                          wishlisted
+                            ? "border-red-200 bg-red-50 text-red-500 shadow-sm"
+                            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-muted/40"
+                        }`}
+                        title={wishlisted ? "Saved in wishlist" : "Save to wishlist"}
+                      >
+                        <Heart
+                          className={`size-5 transition-transform duration-200 ${
+                            wishlisted ? "fill-red-500 scale-110" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                   );
                 })()}
@@ -1958,6 +1994,17 @@ function BuyNowModal({
         modal: {
           ondismiss: async () => {
             setSubmitting(false);
+            if (orderId) {
+              try {
+                await (
+                  supabase as unknown as {
+                    rpc: (name: string, args: { order_id: string }) => Promise<void>;
+                  }
+                ).rpc("cancel_abandoned_order", { order_id: orderId });
+              } catch (cancelErr) {
+                console.warn("[BuyNow] Failed to cancel order after dismiss:", cancelErr);
+              }
+            }
             toast.error("Payment window closed. You can retry payment anytime.");
           },
         },

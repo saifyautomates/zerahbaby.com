@@ -10,6 +10,7 @@
 ## 1. Overview of Delivered Systems
 
 ### A. Universal Smart Selection Summary System
+
 - **Single Hook & Domain Adapters**: [`src/lib/table-selection.ts`](file:///d:/final%20products/zerah%20baby/src/lib/table-selection.ts) provides an unconstrained generic hook `useTableSelection<T>` and 8 domain metric adapter functions (`calculateOrdersSelectionMetrics`, `calculateRevenueSelectionMetrics`, `calculatePOSSalesSelectionMetrics`, `calculateReturnsSelectionMetrics`, `calculateProductsSelectionMetrics`, `calculateInventorySelectionMetrics`, `calculateCustomersSelectionMetrics`, `calculateCouponsSelectionMetrics`).
 - **Sticky Floating Summary Component**: [`src/components/admin/SmartSelectionSummary.tsx`](file:///d:/final%20products/zerah%20baby/src/components/admin/SmartSelectionSummary.tsx) renders a sticky, responsive summary bar at the top of list/table views when $\ge 1$ records are checked, disappearing automatically when the selection is cleared.
 - **Wired Admin Pages**:
