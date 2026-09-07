@@ -35,6 +35,7 @@ import {
   Truck,
   PackageCheck,
   Send,
+  Ban,
 } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
@@ -48,6 +49,12 @@ export function OnlineSalesTab() {
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+
+  // Bulk Cancel Orders State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelTargetMode, setCancelTargetMode] = useState<"selected" | "visible" | "all">("selected");
+  const [bulkCancelReason, setBulkCancelReason] = useState("Bulk cancelled by Admin");
+  const [isBulkCancelling, setIsBulkCancelling] = useState(false);
 
   const retryNotification = useRetryOrderNotification();
   const deleteOrder = useDeleteCancelledOrder();
@@ -216,6 +223,75 @@ export function OnlineSalesTab() {
     [selection.selectedItems, products],
   );
 
+  const activeOrdersToCancel = useMemo(() => {
+    let pool: UnifiedTransaction[] = [];
+    if (cancelTargetMode === "selected") {
+      pool = (selection.selectedItems as unknown as UnifiedTransaction[]) || [];
+    } else if (cancelTargetMode === "visible") {
+      pool = visibleOrders;
+    } else {
+      pool = orders;
+    }
+    return pool.filter((o) => o.status !== "cancelled");
+  }, [cancelTargetMode, selection.selectedItems, visibleOrders, orders]);
+
+  function handleOpenCancelModal(mode: "selected" | "visible" | "all") {
+    setCancelTargetMode(mode);
+    setBulkCancelReason("Bulk cancelled by Admin");
+    setIsCancelModalOpen(true);
+  }
+
+  async function handleExecuteBulkCancel() {
+    if (activeOrdersToCancel.length === 0) {
+      toast.error("No active orders found to cancel.");
+      setIsCancelModalOpen(false);
+      return;
+    }
+
+    setIsBulkCancelling(true);
+    try {
+      const orderIds = activeOrdersToCancel.map((o) => o.id);
+      const reasonText = bulkCancelReason.trim() || "Bulk cancelled by Admin";
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: reasonText,
+        })
+        .in("id", orderIds);
+
+      if (error) throw error;
+
+      // Non-blocking auto refund notice trigger for online paid orders
+      activeOrdersToCancel.forEach((o) => {
+        if (o.payment_status === "paid") {
+          supabase.functions
+            .invoke("process-order-cancellation-refund", {
+              body: {
+                order_id: o.id,
+                reason: reasonText,
+              },
+            })
+            .catch((err) => console.warn(`Refund notification notice for order ${o.id}:`, err));
+        }
+      });
+
+      toast.success(`Successfully cancelled ${orderIds.length} orders and restored stock.`);
+      selection.clearSelection();
+      setIsCancelModalOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      invalidateCanonicalReportingQueries(qc);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || "Failed to cancel orders");
+    } finally {
+      setIsBulkCancelling(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -381,21 +457,58 @@ export function OnlineSalesTab() {
               )}
             </button>
           ))}
+
+          {/* Dedicated Cancel Orders Pill / Tab */}
+          {orders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "all")}
+              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition cursor-pointer shadow-2xs"
+              title="Cancel multiple or all orders in view"
+            >
+              <Ban className="size-3 text-rose-600 dark:text-rose-400" />
+              <span>
+                {selection.selectedCount > 0
+                  ? `Cancel Selected (${selection.selectedCount})`
+                  : "Cancel All Orders"}
+              </span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {orders.length > 0 && (
-            <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer bg-muted/50 hover:bg-muted px-3 py-1.5 rounded-xl border border-border transition-colors">
-              <input
-                type="checkbox"
-                checked={selection.isAllVisibleSelected(visibleOrders)}
-                ref={(el) => {
-                  if (el) el.indeterminate = selection.isIndeterminate(visibleOrders);
-                }}
-                onChange={() => selection.toggleAllVisible(visibleOrders)}
-                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
-              />
-              <span>Select Page ({visibleOrders.length})</span>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer bg-muted/50 hover:bg-muted px-3 py-1.5 rounded-xl border border-border transition-colors">
+                <input
+                  type="checkbox"
+                  checked={selection.isAllVisibleSelected(visibleOrders)}
+                  ref={(el) => {
+                    if (el) el.indeterminate = selection.isIndeterminate(visibleOrders);
+                  }}
+                  onChange={() => selection.toggleAllVisible(visibleOrders)}
+                  className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                />
+                <span>Select Page ({visibleOrders.length})</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "visible")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer shadow-2xs"
+                title={
+                  selection.selectedCount > 0
+                    ? `Cancel ${selection.selectedCount} selected orders`
+                    : `Cancel all ${visibleOrders.filter((o) => o.status !== "cancelled").length} visible orders on this page`
+                }
+              >
+                <Ban className="size-3.5" />
+                <span>
+                  {selection.selectedCount > 0
+                    ? `Cancel Selected (${selection.selectedCount})`
+                    : `Cancel Visible (${visibleOrders.filter((o) => o.status !== "cancelled").length})`}
+                </span>
+              </button>
+            </div>
           )}
 
           <p className="text-xs font-medium text-muted-foreground">
@@ -413,6 +526,17 @@ export function OnlineSalesTab() {
         selectedLabel="Selected Orders"
         metrics={selectionMetrics}
         onClear={selection.clearSelection}
+        actions={
+          <button
+            type="button"
+            onClick={() => handleOpenCancelModal("selected")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+            title="Cancel all selected orders and restore stock"
+          >
+            <Ban className="size-3.5" />
+            <span>Cancel All Selected ({selection.selectedCount})</span>
+          </button>
+        }
       />
 
       {isLoading && <AdminTableSkeleton rows={5} />}
@@ -913,6 +1037,172 @@ export function OnlineSalesTab() {
                   <>
                     <Trash2 className="size-4" />
                     Delete Permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Cancel Orders Modal */}
+      {isCancelModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !isBulkCancelling && setIsCancelModalOpen(false)}
+        >
+          <div
+            className="flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20">
+                  <Ban className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Cancel Orders
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {activeOrdersToCancel.length} active{" "}
+                    {activeOrdersToCancel.length === 1 ? "order" : "orders"} selected for cancellation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isBulkCancelling}
+                onClick={() => setIsCancelModalOpen(false)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
+              {/* Summary Card */}
+              <div className="rounded-2xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">Orders to Cancel:</span>
+                  <span className="font-bold text-foreground">{activeOrdersToCancel.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">Total Value:</span>
+                  <span className="font-black text-rose-900 dark:text-rose-200 text-sm">
+                    {formatPrice(activeOrdersToCancel.reduce((sum, o) => sum + Number(o.total || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-800 dark:text-rose-300">Stock Restoration:</span>
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    Automatic (catalog stock restored)
+                  </span>
+                </div>
+              </div>
+
+              {/* Target Orders Preview */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Target Orders ({activeOrdersToCancel.length})
+                </label>
+                <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-background p-2.5 flex flex-wrap gap-1.5">
+                  {activeOrdersToCancel.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      No active (non-cancelled) orders selected.
+                    </span>
+                  ) : (
+                    activeOrdersToCancel.map((o) => (
+                      <span
+                        key={o.id}
+                        className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-foreground border border-border"
+                      >
+                        #{o.id.slice(0, 8).toUpperCase()}
+                        <span className="text-[10px] text-muted-foreground font-sans">
+                          ({formatPrice(Number(o.total))})
+                        </span>
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Reason Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Cancellation Reason
+                </label>
+                <input
+                  type="text"
+                  value={bulkCancelReason}
+                  onChange={(e) => setBulkCancelReason(e.target.value)}
+                  placeholder="e.g. Bulk cancelled by Store Admin"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 transition shadow-2xs"
+                />
+
+                {/* Quick preset chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    "Bulk cancelled by Admin",
+                    "Customer requested cancellation",
+                    "Out of stock / Inventory correction",
+                    "Test order cleanup",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setBulkCancelReason(preset)}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-medium border transition cursor-pointer ${
+                        bulkCancelReason === preset
+                          ? "bg-rose-50 dark:bg-rose-950 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200"
+                          : "bg-muted/50 border-border hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <span>
+                  Cancelling will mark each order as cancelled, record audit logs, and automatically
+                  restore inventory for each product item back into live store stock.
+                </span>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-border bg-muted/20">
+              <button
+                type="button"
+                disabled={isBulkCancelling}
+                onClick={() => setIsCancelModalOpen(false)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
+              >
+                Nevermind, Keep Orders
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkCancelling || activeOrdersToCancel.length === 0}
+                onClick={handleExecuteBulkCancel}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {isBulkCancelling ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Cancelling {activeOrdersToCancel.length} Orders…</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="size-3.5" />
+                    <span>Yes, Cancel {activeOrdersToCancel.length} Orders</span>
                   </>
                 )}
               </button>
