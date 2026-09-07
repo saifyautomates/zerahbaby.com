@@ -46,36 +46,12 @@ serve(async (req) => {
 
     // 2. Parse request body
     const body = await req.json().catch(() => ({}));
-    const { orderId } = body;
-    if (!orderId) {
-      throw new Error("Missing orderId in request payload");
+    const { orderId, sessionId } = body;
+    if (!orderId && !sessionId) {
+      throw new Error("Missing sessionId or orderId in request payload");
     }
 
-    // 3. Fetch authoritative order details
-    const { data: order, error: orderError } = await adminClient
-      .from("orders")
-      .select("id, user_id, total, status, payment_status, payment_method, razorpay_order_id")
-      .eq("id", orderId)
-      .single();
-
-    if (orderError || !order) {
-      throw new Error("Order not found in store records");
-    }
-
-    // 4. Validate permissions: User owns the order, or user is admin, or order was placed in current session
-    if (order.user_id && authenticatedUserId && order.user_id !== authenticatedUserId && !isAdmin) {
-      throw new Error("Unauthorized access to this order");
-    }
-
-    if (
-      order.payment_status === "paid" ||
-      order.status === "processing" ||
-      order.status === "confirmed"
-    ) {
-      throw new Error("This order has already been paid and confirmed");
-    }
-
-    // 5. Resolve Razorpay API Credentials
+    // Resolve Razorpay API Credentials
     const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
     const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
     const razorpayKeyId = rawKeyId.trim();
@@ -85,16 +61,71 @@ serve(async (req) => {
       throw new Error("Razorpay credentials not configured on server");
     }
 
-    // 6. Calculate total in paise (INR 1 = 100 paise)
-    const amountInPaise = Math.round(Number(order.total) * 100);
-    if (isNaN(amountInPaise) || amountInPaise <= 0) {
-      throw new Error(`Invalid order total: ₹${order.total}`);
+    let amountInPaise = 0;
+    let receipt = "";
+    let notes: Record<string, string> = { store: "Zerah Baby & Kids" };
+    let targetSessionId: string | null = null;
+    let targetOrderId: string | null = null;
+
+    if (sessionId) {
+      // 3A. Primary flow: Checkout Session based
+      const { data: session, error: sessError } = await adminClient
+        .from("checkout_sessions")
+        .select("id, session_id, user_id, total, status, payment_method")
+        .eq("session_id", sessionId)
+        .single();
+
+      if (sessError || !session) {
+        throw new Error("Checkout session not found or expired");
+      }
+
+      if (session.status === "converted") {
+        throw new Error("This checkout session has already been completed");
+      }
+
+      if (session.user_id && authenticatedUserId && session.user_id !== authenticatedUserId && !isAdmin) {
+        throw new Error("Unauthorized access to this checkout session");
+      }
+
+      amountInPaise = Math.round(Number(session.total) * 100);
+      receipt = `cs_${String(sessionId).replace(/[^a-zA-Z0-9]/g, "").substring(0, 30)}`;
+      notes.session_id = session.session_id;
+      targetSessionId = session.session_id;
+    } else {
+      // 3B. Backward compatibility: Order based
+      const { data: order, error: orderError } = await adminClient
+        .from("orders")
+        .select("id, user_id, total, status, payment_status, payment_method, razorpay_order_id")
+        .eq("id", orderId)
+        .single();
+
+      if (orderError || !order) {
+        throw new Error("Order not found in store records");
+      }
+
+      if (order.user_id && authenticatedUserId && order.user_id !== authenticatedUserId && !isAdmin) {
+        throw new Error("Unauthorized access to this order");
+      }
+
+      if (
+        order.payment_status === "paid" ||
+        order.status === "processing" ||
+        order.status === "confirmed"
+      ) {
+        throw new Error("This order has already been paid and confirmed");
+      }
+
+      amountInPaise = Math.round(Number(order.total) * 100);
+      receipt = `rcpt_${String(orderId).replace(/-/g, "").substring(0, 16)}`;
+      notes.order_id = order.id;
+      targetOrderId = order.id;
     }
 
-    // Generate safe receipt identifier (max 40 chars)
-    const receipt = `rcpt_${String(orderId).replace(/-/g, "").substring(0, 16)}`;
+    if (isNaN(amountInPaise) || amountInPaise <= 0) {
+      throw new Error(`Invalid amount calculation: ${amountInPaise}`);
+    }
 
-    // 7. Create Razorpay Order via Official API
+    // 4. Create Razorpay Order via Official API
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -106,10 +137,7 @@ serve(async (req) => {
         amount: amountInPaise,
         currency: "INR",
         receipt,
-        notes: {
-          store: "Zerah Baby & Kids",
-          order_id: order.id,
-        },
+        notes,
       }),
     });
 
@@ -128,23 +156,30 @@ serve(async (req) => {
       throw new Error(description);
     }
 
-    // 8. Update order with Razorpay Order ID
-    const { error: updateError } = await adminClient
-      .from("orders")
-      .update({
-        razorpay_order_id: razorpayOrder.id,
-        payment_method: "razorpay",
-      })
-      .eq("id", orderId);
-
-    if (updateError) {
-      console.error(
-        "[create-razorpay-order] Failed to update order with razorpay_order_id:",
-        updateError,
-      );
+    // 5. Track attempt in database
+    if (targetSessionId) {
+      const { error: rpcErr } = await adminClient.rpc("record_payment_attempt", {
+        _session_id: targetSessionId,
+        _razorpay_order_id: razorpayOrder.id,
+        _amount: (amountInPaise / 100),
+        _currency: "INR",
+      });
+      if (rpcErr) {
+        console.error("[create-razorpay-order] record_payment_attempt error:", rpcErr);
+      }
     }
 
-    // 9. Return safe response including public key and Razorpay order ID
+    if (targetOrderId) {
+      await adminClient
+        .from("orders")
+        .update({
+          razorpay_order_id: razorpayOrder.id,
+          payment_method: "razorpay",
+        })
+        .eq("id", targetOrderId);
+    }
+
+    // 6. Return safe response including public key and Razorpay order ID
     return new Response(
       JSON.stringify({
         rzp_order_id: razorpayOrder.id,

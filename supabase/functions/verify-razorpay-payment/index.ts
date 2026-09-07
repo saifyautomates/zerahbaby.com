@@ -47,14 +47,16 @@ serve(async (req) => {
 
     // 2. Parse verification payload
     const body = await req.json().catch(() => ({}));
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, session_id } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       throw new Error("Missing required Razorpay payment verification parameters");
     }
 
     // 3. Resolve Secret & Compute HMAC SHA-256 Signature
+    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
     const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+    const razorpayKeyId = rawKeyId.trim();
     const razorpayKeySecret = rawKeySecret.trim();
 
     if (!razorpayKeySecret) {
@@ -72,122 +74,159 @@ serve(async (req) => {
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
       });
+
+      // Track verification failure
+      await adminClient.rpc("update_payment_attempt_status", {
+        _razorpay_order_id: razorpay_order_id,
+        _status: "verification_failed",
+        _error_message: "Invalid payment verification signature",
+      }).catch((e: unknown) => console.warn("Failed to record failure status:", e));
+
       throw new Error("Invalid payment verification signature");
     }
 
-    // 4. Fetch the order from the database
-    const { data: order, error: orderError } = await adminClient
-      .from("orders")
-      .select("id, user_id, status, payment_status, total")
-      .eq("razorpay_order_id", razorpay_order_id)
-      .single();
-
-    if (orderError || !order) {
-      throw new Error("Order not found for the given Razorpay order reference");
+    // 4. Optionally query Razorpay API to independently verify payment status & amount
+    let verifiedAmountInPaise = 0;
+    if (razorpayKeyId && razorpayKeySecret) {
+      try {
+        const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
+        const rzpPayRes = await fetch(`https://api.razorpay.com/v1/payments/${razorpay_payment_id}`, {
+          headers: { Authorization: `Basic ${credentials}` },
+        });
+        if (rzpPayRes.ok) {
+          const payData = await rzpPayRes.json();
+          if (payData.currency !== "INR") {
+            throw new Error(`Unsupported currency: ${payData.currency}`);
+          }
+          if (payData.order_id && payData.order_id !== razorpay_order_id) {
+            throw new Error("Razorpay payment order mismatch");
+          }
+          verifiedAmountInPaise = payData.amount;
+        }
+      } catch (err: unknown) {
+        console.warn("[verify-razorpay-payment] Razorpay API payment check notice:", (err as Error).message);
+      }
     }
 
-    // 5. Validate ownership if user is authenticated
-    if (order.user_id && authenticatedUserId && order.user_id !== authenticatedUserId && !isAdmin) {
-      throw new Error("Unauthorized access to this order");
+    // 5. Call authoritative canonical RPC to finalize paid order atomically
+    const { data: finalRes, error: finalErr } = await adminClient.rpc("finalize_paid_order", {
+      _session_id: session_id || null,
+      _razorpay_order_id,
+      _razorpay_payment_id,
+      _razorpay_signature,
+      _verified_amount: verifiedAmountInPaise > 0 ? verifiedAmountInPaise : null,
+    });
+
+    let orderId: string | null = null;
+    let orderNumber: string | null = null;
+    let invoiceNo: string | null = null;
+    let isDuplicate = false;
+
+    if (finalErr) {
+      console.warn("[verify-razorpay-payment] finalize_paid_order error, checking legacy order:", finalErr);
+
+      // Fallback for pre-session legacy orders
+      const { data: legacyOrder } = await adminClient
+        .from("orders")
+        .select("id, order_number, invoice_no, user_id, status, payment_status")
+        .eq("razorpay_order_id", razorpay_order_id)
+        .maybeSingle();
+
+      if (legacyOrder) {
+        orderId = legacyOrder.id;
+        orderNumber = legacyOrder.order_number;
+        invoiceNo = legacyOrder.invoice_no;
+        isDuplicate = legacyOrder.payment_status === "paid";
+
+        if (!isDuplicate) {
+          await adminClient
+            .from("orders")
+            .update({
+              status: "processing",
+              payment_status: "paid",
+              razorpay_payment_id,
+              razorpay_signature,
+            })
+            .eq("id", legacyOrder.id);
+        }
+      } else {
+        throw new Error(finalErr.message || "Failed to finalize paid order");
+      }
+    } else {
+      orderId = finalRes.order_id;
+      orderNumber = finalRes.order_number;
+      invoiceNo = finalRes.invoice_no;
+      isDuplicate = Boolean(finalRes.duplicate);
     }
 
-    // 6. Handle Idempotency — If already marked paid, return success immediately
-    if (
-      order.payment_status === "paid" ||
-      order.status === "processing" ||
-      order.status === "confirmed"
-    ) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          already_paid: true,
-          order_id: order.id,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        },
-      );
-    }
+    // 6. Trigger notifications & shipment creation EXACTLY ONCE (skip if duplicate)
+    if (orderId && !isDuplicate) {
+      // Trigger Owner Sale Notification Email (non-blocking)
+      try {
+        fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            type: "online_order",
+            order_id: orderId,
+          }),
+        }).catch((notifyErr) => {
+          console.warn("[verify-razorpay-payment] Owner notification error:", notifyErr);
+        });
+      } catch {
+        // Non-blocking
+      }
 
-    // 7. Update order status to paid / processing
-    const { error: updateError } = await adminClient
-      .from("orders")
-      .update({
-        status: "processing",
-        payment_status: "paid",
-        razorpay_payment_id,
-        razorpay_signature,
-      })
-      .eq("id", order.id);
+      // Trigger Transactional SMS for Online Order (Customer + Owner) (non-blocking)
+      try {
+        fetch(`${supabaseUrl}/functions/v1/msg91-transactional`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            event_type: "online_sale",
+            notify_owner: true,
+          }),
+        }).catch((smsErr) => {
+          console.warn("[verify-razorpay-payment] SMS dispatch non-blocking error:", smsErr);
+        });
+      } catch {
+        // Non-blocking
+      }
 
-    if (updateError) {
-      console.error("[verify-razorpay-payment] Failed to update order status:", updateError);
-      throw updateError;
-    }
-
-    // 8. Trigger Owner Sale Notification Email (non-blocking)
-    try {
-      fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseServiceKey}`,
-        },
-        body: JSON.stringify({
-          type: "online_order",
-          order_id: order.id,
-        }),
-      }).catch((notifyErr) => {
-        console.warn("[verify-razorpay-payment] Owner notification error:", notifyErr);
-      });
-    } catch {
-      // Non-blocking
-    }
-
-    // 9. Trigger Transactional SMS for Online Order (Customer + Owner) (non-blocking)
-    try {
-      fetch(`${supabaseUrl}/functions/v1/msg91-transactional`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseServiceKey}`,
-        },
-        body: JSON.stringify({
-          order_id: order.id,
-          event_type: "online_sale",
-          notify_owner: true,
-        }),
-      }).catch((smsErr) => {
-        console.warn("[verify-razorpay-payment] SMS dispatch non-blocking error:", smsErr);
-      });
-    } catch {
-      // Non-blocking
-    }
-
-    // 10. Automatically trigger Shiprocket Shipment Creation (non-blocking)
-    try {
-      fetch(`${supabaseUrl}/functions/v1/shiprocket-api`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseServiceKey}`,
-        },
-        body: JSON.stringify({
-          action: "create_shipment",
-          orderId: order.id,
-        }),
-      }).catch((srErr) => {
-        console.warn("[verify-razorpay-payment] Shiprocket auto sync non-blocking error:", srErr);
-      });
-    } catch {
-      // Non-blocking
+      // Automatically trigger Shiprocket Shipment Creation (non-blocking)
+      try {
+        fetch(`${supabaseUrl}/functions/v1/shiprocket-api`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            action: "create_shipment",
+            orderId: orderId,
+          }),
+        }).catch((srErr) => {
+          console.warn("[verify-razorpay-payment] Shiprocket auto sync non-blocking error:", srErr);
+        });
+      } catch {
+        // Non-blocking
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        order_id: order.id,
+        order_id: orderId,
+        order_number: orderNumber,
+        invoice_no: invoiceNo,
+        already_paid: isDuplicate,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

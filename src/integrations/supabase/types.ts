@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -376,6 +376,83 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checkout_sessions: {
+        Row: {
+          cod_fee: number
+          coupon_code: string | null
+          created_at: string
+          currency: string
+          customer_details: Json
+          discount: number
+          expires_at: string
+          id: string
+          idempotency_key: string | null
+          items: Json
+          order_id: string | null
+          payment_method: string
+          pricing_breakdown: Json
+          session_id: string
+          shipping_fee: number
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cod_fee?: number
+          coupon_code?: string | null
+          created_at?: string
+          currency?: string
+          customer_details?: Json
+          discount?: number
+          expires_at?: string
+          id?: string
+          idempotency_key?: string | null
+          items?: Json
+          order_id?: string | null
+          payment_method?: string
+          pricing_breakdown?: Json
+          session_id?: string
+          shipping_fee?: number
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cod_fee?: number
+          coupon_code?: string | null
+          created_at?: string
+          currency?: string
+          customer_details?: Json
+          discount?: number
+          expires_at?: string
+          id?: string
+          idempotency_key?: string | null
+          items?: Json
+          order_id?: string | null
+          payment_method?: string
+          pricing_breakdown?: Json
+          session_id?: string
+          shipping_fee?: number
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_sessions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -1714,6 +1791,92 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_attempts: {
+        Row: {
+          amount: number
+          checkout_session_id: string
+          created_at: string
+          currency: string
+          failure_reason: string | null
+          gateway_response: Json | null
+          id: string
+          razorpay_order_id: string
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          amount: number
+          checkout_session_id: string
+          created_at?: string
+          currency?: string
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          razorpay_order_id: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          amount?: number
+          checkout_session_id?: string
+          created_at?: string
+          currency?: string
+          failure_reason?: string | null
+          gateway_response?: Json | null
+          id?: string
+          razorpay_order_id?: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_attempts_checkout_session_id_fkey"
+            columns: ["checkout_session_id"]
+            isOneToOne: false
+            referencedRelation: "checkout_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_settings: {
+        Row: {
+          cod_enabled: boolean
+          cod_fee: number
+          cod_max_order_value: number
+          cod_min_order_value: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cod_enabled?: boolean
+          cod_fee?: number
+          cod_max_order_value?: number
+          cod_min_order_value?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cod_enabled?: boolean
+          cod_fee?: number
+          cod_max_order_value?: number
+          cod_min_order_value?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -1728,7 +1891,7 @@ export type Database = {
           provider: string
           status: Database["public"]["Enums"]["payment_status"]
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           amount?: number
@@ -1743,7 +1906,7 @@ export type Database = {
           provider?: string
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
@@ -1758,7 +1921,7 @@ export type Database = {
           provider?: string
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2837,6 +3000,10 @@ export type Database = {
         Returns: Json
       }
       cancel_abandoned_order: { Args: { order_id: string }; Returns: undefined }
+      cancel_checkout_session: {
+        Args: { _reason?: string; _session_id: string }
+        Returns: Json
+      }
       cancel_customer_order: {
         Args: { order_id: string; reason?: string }
         Returns: Json
@@ -2859,6 +3026,26 @@ export type Database = {
         }
         Returns: string
       }
+      create_checkout_session: {
+        Args: {
+          _address: string
+          _address_line2?: string
+          _alt_phone?: string
+          _city: string
+          _coupon_code?: string
+          _email: string
+          _full_name: string
+          _idempotency_key?: string
+          _items: Json
+          _landmark?: string
+          _notes?: string
+          _payment_method?: string
+          _phone: string
+          _pincode: string
+          _state: string
+        }
+        Returns: Json
+      }
       current_ist_date: { Args: never; Returns: string }
       delete_cancelled_order: { Args: { _order_id: string }; Returns: Json }
       delete_storage_object: {
@@ -2866,6 +3053,16 @@ export type Database = {
         Returns: undefined
       }
       ensure_profile: { Args: never; Returns: undefined }
+      finalize_paid_order: {
+        Args: {
+          _razorpay_order_id: string
+          _razorpay_payment_id: string
+          _razorpay_signature: string
+          _session_id: string
+          _verified_amount: number
+        }
+        Returns: Json
+      }
       generate_credit_token: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_online_return_number: { Args: never; Returns: string }
@@ -2957,6 +3154,7 @@ export type Database = {
           token_date: string
         }[]
       }
+      get_payment_settings: { Args: never; Returns: Json }
       get_related_products: {
         Args: { p_limit?: number; p_product_id: string }
         Returns: {
@@ -3030,6 +3228,7 @@ export type Database = {
         }[]
       }
       lookup_barcode: { Args: { _code: string }; Returns: Json }
+      place_cod_order: { Args: { _session_id: string }; Returns: Json }
       place_offline_sale: {
         Args: {
           _coupon_code?: string
@@ -3091,6 +3290,15 @@ export type Database = {
           _order_id: string
           _rejection_notes?: string
           _rejection_reason?: string
+        }
+        Returns: Json
+      }
+      record_payment_attempt: {
+        Args: {
+          _amount: number
+          _currency?: string
+          _razorpay_order_id: string
+          _session_id: string
         }
         Returns: Json
       }
@@ -3157,6 +3365,24 @@ export type Database = {
       sync_product_relations: {
         Args: { p_product_id: string; p_related_ids: string[] }
         Returns: undefined
+      }
+      update_payment_attempt_status: {
+        Args: {
+          _failure_reason?: string
+          _gateway_response?: Json
+          _razorpay_order_id: string
+          _status: string
+        }
+        Returns: Json
+      }
+      update_payment_settings: {
+        Args: {
+          _cod_enabled: boolean
+          _cod_fee?: number
+          _cod_max_order_value?: number
+          _cod_min_order_value?: number
+        }
+        Returns: Json
       }
       update_query_status: {
         Args: {

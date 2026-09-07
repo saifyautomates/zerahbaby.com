@@ -105,10 +105,26 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Payment Method
               </p>
-              <p className="mt-2 text-base font-bold uppercase text-slate-900">
-                {order.payment_method || "cod"}
+              <p className="mt-1 text-base font-bold text-slate-900">
+                {order.payment_method?.toLowerCase() === "cod"
+                  ? "Cash on Delivery"
+                  : order.payment_method?.toLowerCase() === "razorpay" || order.payment_method?.toLowerCase() === "online"
+                    ? "Online (Razorpay)"
+                    : order.payment_method?.toUpperCase() || "COD"}
               </p>
-              <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Payment Status
+              </p>
+              <p
+                className={`mt-1 text-sm font-bold uppercase ${
+                  order.payment_status?.toLowerCase() === "paid"
+                    ? "text-emerald-700"
+                    : "text-amber-700"
+                }`}
+              >
+                {order.payment_status?.toLowerCase() === "paid" ? "PAID" : "UNPAID / PENDING"}
+              </p>
+              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-500">
                 Order Status
               </p>
               <p className="mt-1 text-base font-bold capitalize text-slate-900">{order.status}</p>

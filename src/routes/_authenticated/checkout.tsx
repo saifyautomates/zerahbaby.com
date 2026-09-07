@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -8,8 +8,10 @@ import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/o
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
-import { Sparkles, TicketPercent, Truck } from "lucide-react";
+import { Sparkles, TicketPercent, Truck, AlertCircle, Banknote, CreditCard } from "lucide-react";
 import { CartPageSkeleton } from "@/components/ui/Skeletons";
+import { usePaymentSettings } from "@/lib/payment-settings";
+import { createCheckoutSession, cancelCheckoutSession, placeCodOrder } from "@/lib/checkout-session";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -55,11 +57,10 @@ function CheckoutPage() {
   // Local state for the input field
   const [couponInput, setCouponInput] = useState(couponCode);
   const [couponLoading, setCouponLoading] = useState(false);
-  const finalTotal = total;
 
-  useEffect(() => {
-    trackEvent("checkout_started");
-  }, []);
+  // Payment settings & cancellation state
+  const { data: paymentSettings } = usePaymentSettings();
+  const [paymentCancelled, setPaymentCancelled] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -74,6 +75,33 @@ function CheckoutPage() {
     payment_method: "online",
     notes: "",
   });
+
+  const codEnabled = Boolean(paymentSettings?.cod_enabled);
+  const codFee = form.payment_method === "cod" ? Number(paymentSettings?.cod_fee || 0) : 0;
+
+  const isCodEligible = useMemo(() => {
+    if (!codEnabled) return false;
+    if (paymentSettings?.cod_min_order_value && subtotal < paymentSettings.cod_min_order_value) {
+      return false;
+    }
+    if (paymentSettings?.cod_max_order_value && subtotal > paymentSettings.cod_max_order_value) {
+      return false;
+    }
+    return true;
+  }, [codEnabled, paymentSettings, subtotal]);
+
+  // If COD is not eligible or disabled, reset payment_method to 'online'
+  useEffect(() => {
+    if (!isCodEligible && form.payment_method === "cod") {
+      setForm((f) => ({ ...f, payment_method: "online" }));
+    }
+  }, [isCodEligible, form.payment_method]);
+
+  const finalTotal = total + codFee;
+
+  useEffect(() => {
+    trackEvent("checkout_started");
+  }, []);
 
   const hasSavedAddress = Boolean(
     profile &&
@@ -131,6 +159,7 @@ function CheckoutPage() {
     e.preventDefault();
     if (!user || submitting) return;
     setSubmitting(true);
+    setPaymentCancelled(false);
 
     if (addressMode === "new") {
       if (!/^\d{6}$/.test(form.pincode.trim())) {
@@ -162,12 +191,11 @@ function CheckoutPage() {
           ? crypto.randomUUID()
           : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-      const orderPayload =
+      const customerInfo =
         addressMode === "saved" && profile
           ? {
-              userId: user.id,
-              email: user.email ?? "",
               full_name: profile.full_name ?? "",
+              email: user.email ?? "",
               phone: profile.phone ?? "",
               alt_phone: "",
               address: profile.address ?? "",
@@ -176,26 +204,10 @@ function CheckoutPage() {
               city: profile.city || "",
               state: profile.state || "",
               pincode: profile.pincode || "",
-              payment_method: form.payment_method,
-              notes: form.notes.trim(),
-              subtotal,
-              shipping,
-              discount: couponDiscount,
-              coupon_code: couponApplied ? couponCode : undefined,
-              idempotency_key: generatedIdempotencyKey,
-              items: items.map(({ product, qty, variantId, price, image }) => ({
-                variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
-                product_slug: product.id,
-                name: product.name,
-                image_url: image || product.imageUrl || product.image,
-                price: price,
-                qty,
-              })),
             }
           : {
-              userId: user.id,
-              email: user.email ?? "",
               full_name: form.full_name.trim(),
+              email: user.email ?? "",
               phone: form.phone.trim(),
               alt_phone: form.alt_phone.trim(),
               address: form.address.trim(),
@@ -204,251 +216,243 @@ function CheckoutPage() {
               city: form.city.trim(),
               state: form.state.trim(),
               pincode: form.pincode.trim(),
-              payment_method: form.payment_method,
-              notes: form.notes.trim(),
-              subtotal,
-              shipping,
-              discount: couponDiscount,
-              coupon_code: couponApplied ? couponCode : undefined,
-              idempotency_key: generatedIdempotencyKey,
-              items: items.map(({ product, qty, variantId, price, image }) => ({
-                variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
-                product_slug: product.id,
-                name: product.name,
-                image_url: image || product.imageUrl || product.image,
-                price: price,
-                qty,
-              })),
             };
 
-      const orderId = await placeOrder.mutateAsync(orderPayload);
+      const sessionItems = items.map(({ product, qty, variantId }) => ({
+        variant_id: variantId || (product.variants?.length ? product.variants[0].id : ""),
+        qty,
+      }));
 
-      if (form.payment_method === "online") {
-        setSubmitting(true);
-        try {
-          // Load Razorpay Script
-          await new Promise((resolve, reject) => {
-            if (document.getElementById("razorpay-script")) return resolve(true);
-            const script = document.createElement("script");
-            script.id = "razorpay-script";
-            script.src = "https://checkout.razorpay.com/v1/checkout.js";
-            script.onload = resolve;
-            script.onerror = () =>
-              reject(new Error("Failed to load Razorpay SDK. Please check your connection."));
-            document.body.appendChild(script);
-          });
-
-          // Strict server-side Razorpay Order creation via Edge Function
-          const { data: createData, error: createError } = await supabase.functions.invoke(
-            "create-razorpay-order",
-            {
-              body: { orderId },
-            },
-          );
-
-          if (createError) {
-            throw new Error(createError.message || "Failed to initialize payment gateway order");
-          }
-          if (createData?.error) {
-            throw new Error(createData.error);
-          }
-          if (!createData?.rzp_order_id) {
-            throw new Error(
-              "Payment gateway did not return a valid order identifier. Please retry.",
-            );
-          }
-
-          const rzpOrderId: string = createData.rzp_order_id;
-          const rzpKeyId: string =
-            createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
-          const rzpAmount: number = createData.amount || Math.round(finalTotal * 100);
-
-          // Open Razorpay Standard Checkout Modal with authoritative server order ID
-          const options: Record<string, unknown> = {
-            key: rzpKeyId,
-            amount: rzpAmount,
-            currency: "INR",
-            name: "Zerah Baby And Kid's",
-            description: `Order Payment (${formatPrice(finalTotal)})`,
-            order_id: rzpOrderId,
-            prefill: {
-              name: orderPayload.full_name,
-              email: orderPayload.email,
-              contact: orderPayload.phone,
-            },
-            notes: {
-              order_id: orderId,
-              store: "Zerah Baby And Kid's Kota",
-            },
-            handler: async (response: {
-              razorpay_order_id?: string;
-              razorpay_payment_id: string;
-              razorpay_signature?: string;
-            }) => {
-              try {
-                toast.loading("Verifying payment with bank...", { id: "payment-verify" });
-                const orderRef = response.razorpay_order_id || rzpOrderId;
-                if (!response.razorpay_signature || !orderRef) {
-                  throw new Error(
-                    "Payment signature or order reference missing from gateway response",
-                  );
-                }
-
-                const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-                  "verify-razorpay-payment",
-                  {
-                    body: {
-                      razorpay_order_id: orderRef,
-                      razorpay_payment_id: response.razorpay_payment_id,
-                      razorpay_signature: response.razorpay_signature,
-                    },
-                  },
-                );
-
-                if (verifyError || !verifyData?.success) {
-                  throw new Error(
-                    verifyError?.message ||
-                      verifyData?.error ||
-                      "Cryptographic signature verification failed",
-                  );
-                }
-
-                trackEvent("order_created", {
-                  metadata: {
-                    orderId,
-                    total: finalTotal,
-                    coupon: couponCode || null,
-                    payment: "online",
-                    razorpay_payment_id: response.razorpay_payment_id,
-                  },
-                });
-                await clear();
-                toast.success("Payment verified! Your order is placed.", {
-                  id: "payment-verify",
-                });
-                navigate({ to: "/orders" });
-              } catch (verifyErr: unknown) {
-                console.error("[Checkout] Payment verification failure:", verifyErr);
-                toast.error(
-                  verifyErr instanceof Error
-                    ? verifyErr.message
-                    : "Payment verification failed. Please contact support.",
-                  { id: "payment-verify", duration: 6000 },
-                );
-                navigate({ to: "/orders" });
-              }
-            },
-            modal: {
-              ondismiss: async () => {
-                setSubmitting(false);
-                if (orderId) {
-                  try {
-                    await (
-                      supabase as unknown as {
-                        rpc: (name: string, args: { order_id: string }) => Promise<void>;
-                      }
-                    ).rpc("cancel_abandoned_order", { order_id: orderId });
-                  } catch (cancelErr) {
-                    console.warn("[Checkout] Failed to cancel order after dismiss:", cancelErr);
-                  }
-                }
-                toast.error(
-                  "Payment window closed. You can click 'Place order' to retry payment anytime.",
-                );
-              },
-            },
-            theme: {
-              color: "#883a3a", // Brand Primary Crimson Maroon
-            },
-          };
-
-          type RazorpayInstance = {
-            on: (event: string, cb: (res: { error: { description: string } }) => void) => void;
-            open: () => void;
-          };
-          const rzp = new (
-            window as unknown as {
-              Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
-            }
-          ).Razorpay(options);
-          rzp.on("payment.failed", (response: { error: { description: string } }) => {
-            toast.error(response.error?.description || "Payment failed at gateway");
-          });
-          rzp.open();
-          return; // Do not proceed to standard COD success
-        } catch (paymentErr: unknown) {
-          setSubmitting(false);
-          const rawMessage = (paymentErr as Error).message || "Could not start payment";
-          console.error("[Checkout] Online payment initialization error:", rawMessage);
-
-          // Restore stock and mark order cancelled so inventory is not drained
-          try {
-            await (
-              supabase as unknown as {
-                rpc: (name: string, args: { order_id: string }) => Promise<void>;
-              }
-            ).rpc("cancel_abandoned_order", { order_id: orderId });
-          } catch (cancelErr) {
-            console.warn("[Checkout] Failed to cancel order after init failure:", cancelErr);
-          }
-
-          toast.error(
-            rawMessage.includes("credentials") ||
-              rawMessage.includes("Authentication") ||
-              rawMessage.includes("status 401")
-              ? "Payment gateway is currently unavailable. Please try again shortly or contact support."
-              : `Payment initialization error: ${rawMessage}. Please retry.`,
-          );
-          return;
-        }
-      }
-
-      trackEvent("order_created", {
-        metadata: {
-          orderId,
-          total: finalTotal,
-          coupon: couponCode || null,
-          payment: form.payment_method,
-        },
+      // 1. Create temporary checkout session (authoritative validation & total calculation on server)
+      const sessionResult = await createCheckoutSession({
+        items: sessionItems,
+        coupon_code: couponApplied ? couponCode : undefined,
+        ...customerInfo,
+        notes: form.notes.trim(),
+        idempotency_key: generatedIdempotencyKey,
+        payment_method: form.payment_method as "online" | "cod",
       });
 
-      // Trigger transactional SMS for finalized COD order (non-blocking)
-      const customerContactPhone = (orderPayload.phone || form.phone || "").trim();
-      const customerContactName = (orderPayload.full_name || form.full_name || "Customer").trim();
+      const currentSessionId = sessionResult.session_id;
 
-      supabase.functions
-        .invoke("msg91-transactional", {
-          body: {
-            order_id: orderId,
-            event_type: "online_sale",
-            phone: customerContactPhone || undefined,
-            name: customerContactName,
-            total: finalTotal,
-            payment_method: "COD",
-            notify_owner: true,
+      // ─── COD FLOW ──────────────────────────────────────────────────
+      if (form.payment_method === "cod") {
+        const codResult = await placeCodOrder(currentSessionId);
+
+        trackEvent("order_created", {
+          metadata: {
+            orderId: codResult.order_id,
+            orderNumber: codResult.order_number,
+            total: codResult.total,
+            coupon: couponCode || null,
+            payment: "cod",
           },
-        })
-        .catch((smsErr) => {
-          console.warn("[Checkout] COD SMS dispatch non-blocking error:", smsErr);
         });
 
-      // Dispatch order notification & customer invoice email
-      supabase.functions
-        .invoke("send-owner-sale-notification", {
-          body: {
-            type: "online_order",
-            order_id: orderId,
-          },
-        })
-        .catch((emailErr) => {
-          console.warn("[Checkout] COD email notification non-blocking error:", emailErr);
-        });
+        // Trigger transactional SMS for finalized COD order (non-blocking)
+        const customerContactPhone = (customerInfo.phone || "").trim();
+        const customerContactName = (customerInfo.full_name || "Customer").trim();
 
-      await clear();
-      toast.success("Order placed! Your invoice is ready in My orders.");
-      navigate({ to: "/orders" });
+        supabase.functions
+          .invoke("msg91-transactional", {
+            body: {
+              order_id: codResult.order_id,
+              event_type: "online_sale",
+              phone: customerContactPhone || undefined,
+              name: customerContactName,
+              total: codResult.total,
+              payment_method: "COD",
+              notify_owner: true,
+            },
+          })
+          .catch((smsErr) => {
+            console.warn("[Checkout] COD SMS dispatch non-blocking error:", smsErr);
+          });
+
+        // Dispatch order notification & customer invoice email (non-blocking)
+        supabase.functions
+          .invoke("send-owner-sale-notification", {
+            body: {
+              type: "online_order",
+              order_id: codResult.order_id,
+            },
+          })
+          .catch((emailErr) => {
+            console.warn("[Checkout] COD email notification non-blocking error:", emailErr);
+          });
+
+        // Automatically trigger Shiprocket Shipment Creation (non-blocking)
+        supabase.functions
+          .invoke("shiprocket-api", {
+            body: {
+              action: "create_shipment",
+              orderId: codResult.order_id,
+            },
+          })
+          .catch((srErr) => {
+            console.warn("[Checkout] Shiprocket auto sync non-blocking error:", srErr);
+          });
+
+        await clear();
+        toast.success("Order placed successfully via Cash on Delivery!");
+        navigate({ to: "/orders" });
+        return;
+      }
+
+      // ─── ONLINE PAYMENT FLOW (RAZORPAY) ────────────────────────────
+      // Load Razorpay Script
+      await new Promise((resolve, reject) => {
+        if (document.getElementById("razorpay-script")) return resolve(true);
+        const script = document.createElement("script");
+        script.id = "razorpay-script";
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = resolve;
+        script.onerror = () =>
+          reject(new Error("Failed to load Razorpay SDK. Please check your connection."));
+        document.body.appendChild(script);
+      });
+
+      // Strict server-side Razorpay Order creation via Edge Function using sessionId
+      const { data: createData, error: createError } = await supabase.functions.invoke(
+        "create-razorpay-order",
+        {
+          body: { sessionId: currentSessionId },
+        },
+      );
+
+      if (createError) {
+        throw new Error(createError.message || "Failed to initialize payment gateway order");
+      }
+      if (createData?.error) {
+        throw new Error(createData.error);
+      }
+      if (!createData?.rzp_order_id) {
+        throw new Error(
+          "Payment gateway did not return a valid order identifier. Please retry.",
+        );
+      }
+
+      const rzpOrderId: string = createData.rzp_order_id;
+      const rzpKeyId: string =
+        createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
+      const rzpAmount: number = createData.amount || Math.round(sessionResult.total * 100);
+
+      // Open Razorpay Standard Checkout Modal with authoritative server order ID
+      const options: Record<string, unknown> = {
+        key: rzpKeyId,
+        amount: rzpAmount,
+        currency: "INR",
+        name: "Zerah Baby And Kid's",
+        description: `Order Payment (${formatPrice(sessionResult.total)})`,
+        order_id: rzpOrderId,
+        prefill: {
+          name: customerInfo.full_name,
+          email: customerInfo.email,
+          contact: customerInfo.phone,
+        },
+        notes: {
+          session_id: currentSessionId,
+          store: "Zerah Baby And Kid's Kota",
+        },
+        handler: async (response: {
+          razorpay_order_id?: string;
+          razorpay_payment_id: string;
+          razorpay_signature?: string;
+        }) => {
+          try {
+            toast.loading("Verifying payment with bank...", { id: "payment-verify" });
+            const orderRef = response.razorpay_order_id || rzpOrderId;
+            if (!response.razorpay_signature || !orderRef) {
+              throw new Error(
+                "Payment signature or order reference missing from gateway response",
+              );
+            }
+
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+              "verify-razorpay-payment",
+              {
+                body: {
+                  session_id: currentSessionId,
+                  razorpay_order_id: orderRef,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                },
+              },
+            );
+
+            if (verifyError || !verifyData?.success) {
+              throw new Error(
+                verifyError?.message ||
+                  verifyData?.error ||
+                  "Cryptographic signature verification failed",
+              );
+            }
+
+            trackEvent("order_created", {
+              metadata: {
+                orderId: verifyData.order_id,
+                total: sessionResult.total,
+                coupon: couponCode || null,
+                payment: "online",
+                razorpay_payment_id: response.razorpay_payment_id,
+              },
+            });
+
+            await clear();
+            toast.success("Payment verified! Your order is placed.", {
+              id: "payment-verify",
+            });
+            navigate({ to: "/orders" });
+          } catch (verifyErr: unknown) {
+            console.error("[Checkout] Payment verification failure:", verifyErr);
+            toast.error(
+              verifyErr instanceof Error
+                ? verifyErr.message
+                : "Payment verification failed. Please contact support.",
+              { id: "payment-verify", duration: 6000 },
+            );
+            navigate({ to: "/orders" });
+          }
+        },
+        modal: {
+          ondismiss: async () => {
+            setSubmitting(false);
+            setPaymentCancelled(true);
+            await cancelCheckoutSession(currentSessionId, "Customer closed payment modal");
+            toast.error("Payment cancelled. Your order has not been placed.");
+          },
+        },
+        theme: {
+          color: "#883a3a",
+        },
+      };
+
+      type RazorpayInstance = {
+        on: (event: string, cb: (res: { error: { description: string } }) => void) => void;
+        open: () => void;
+      };
+      const rzp = new (
+        window as unknown as {
+          Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
+        }
+      ).Razorpay(options);
+
+      rzp.on("payment.failed", async (response: { error: { description: string } }) => {
+        setSubmitting(false);
+        setPaymentCancelled(true);
+        await cancelCheckoutSession(
+          currentSessionId,
+          response.error?.description || "Gateway payment failure",
+        );
+        toast.error(
+          response.error?.description ||
+            "Payment failed at gateway. Your order has not been placed.",
+        );
+      });
+
+      rzp.open();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not place the order");
+      toast.error(err instanceof Error ? err.message : "Could not initialize payment");
       setSubmitting(false);
     }
   }
@@ -465,6 +469,43 @@ function CheckoutPage() {
     <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
+
+      {paymentCancelled && (
+        <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="size-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <AlertCircle className="size-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-foreground text-sm">
+                Payment cancelled. Your order has not been placed.
+              </h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your cart items and delivery details have been preserved. You can retry payment anytime.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setPaymentCancelled(false);
+                const submitBtn = document.getElementById("place-order-submit-btn");
+                submitBtn?.click();
+              }}
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition shadow-sm cursor-pointer"
+            >
+              Retry Payment
+            </button>
+            <Link
+              to="/shop"
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-border bg-card text-foreground font-semibold text-xs hover:bg-muted transition text-center shadow-xs"
+            >
+              Back to Cart
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div
         className={`mt-8 grid gap-8 lg:grid-cols-[1fr_360px] transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
@@ -592,14 +633,88 @@ function CheckoutPage() {
           )}
 
           <div className="mt-8 border-t border-border pt-6">
-            <h2 className="text-lg font-bold">Payment & Notes</h2>
+            <h2 className="text-lg font-bold">Payment &amp; Notes</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-semibold sm:col-span-2">
-                Payment method
-                <div className={`mt-1 bg-muted text-muted-foreground ${field} cursor-not-allowed`}>
-                  Pay Online (UPI/Cards/NetBanking)
-                </div>
-              </label>
+              <div className="sm:col-span-2 space-y-3">
+                <span className="text-sm font-semibold block">Payment Method</span>
+
+                {isCodEligible ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label
+                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition ${
+                        form.payment_method === "online"
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:bg-muted/30"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_method"
+                        value="online"
+                        checked={form.payment_method === "online"}
+                        onChange={() => setForm({ ...form, payment_method: "online" })}
+                        className="mt-0.5 size-4 accent-primary cursor-pointer"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="size-4 text-primary" />
+                          <span className="font-bold text-sm text-foreground">Online Payment</span>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                            Instant
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Pay securely with UPI, Credit / Debit Cards, or NetBanking.
+                        </p>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition ${
+                        form.payment_method === "cod"
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:bg-muted/30"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_method"
+                        value="cod"
+                        checked={form.payment_method === "cod"}
+                        onChange={() => setForm({ ...form, payment_method: "cod" })}
+                        className="mt-0.5 size-4 accent-primary cursor-pointer"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Banknote className="size-4 text-primary" />
+                          <span className="font-bold text-sm text-foreground">Cash on Delivery</span>
+                          {codFee > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                              +₹{codFee} fee
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Pay with cash or UPI upon delivery at your doorstep.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-muted/20">
+                    <CreditCard className="size-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground">Online Payment (UPI / Cards / NetBanking)</p>
+                      <p className="text-xs text-muted-foreground">
+                        {codEnabled
+                          ? `Cash on Delivery requires an order between ₹${paymentSettings?.cod_min_order_value || 0} and ₹${paymentSettings?.cod_max_order_value || "∞"}.`
+                          : "Cash on Delivery is currently unavailable."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <label className="text-sm font-semibold sm:col-span-2">
                 Delivery notes (optional)
                 <textarea
@@ -613,10 +728,13 @@ function CheckoutPage() {
             </div>
           </div>
           <button
+            id="place-order-submit-btn"
             disabled={busy}
-            className="focus-ring press mt-4 w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none"
+            className="focus-ring press mt-4 w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none cursor-pointer"
           >
-            {busy ? "Placing order…" : `Place order · ${formatPrice(finalTotal)}`}
+            {busy
+              ? "Placing order…"
+              : `${form.payment_method === "cod" ? "Confirm COD Order" : "Pay & Place Order"} · ${formatPrice(finalTotal)}`}
           </button>
         </form>
         <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
@@ -705,6 +823,17 @@ function CheckoutPage() {
                 {shipping === 0 ? "FREE" : `+ ${formatPrice(shipping)}`}
               </span>
             </div>
+            {codFee > 0 && (
+              <div className="flex justify-between items-center text-foreground">
+                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Banknote className="size-4 text-primary" />
+                  COD Handling Fee
+                </span>
+                <span className="font-bold tabular-nums text-right text-primary">
+                  + {formatPrice(codFee)}
+                </span>
+              </div>
+            )}
             <div className="border-t border-dashed border-border/80 my-3" />
             <div className="flex items-center justify-between pt-1">
               <div className="space-y-0.5">

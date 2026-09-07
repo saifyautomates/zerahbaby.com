@@ -78,34 +78,60 @@ serve(async (req) => {
     if (payload.event === "payment.captured" || payload.event === "order.paid") {
       let rzpOrderId: string | undefined;
       let paymentId: string | undefined;
+      let amountInPaise: number | undefined;
 
       if (payload.event === "payment.captured") {
         paymentId = payload.payload?.payment?.entity?.id;
         rzpOrderId = payload.payload?.payment?.entity?.order_id;
+        amountInPaise = payload.payload?.payment?.entity?.amount;
       } else {
         paymentId = payload.payload?.order?.entity?.payments?.at(0)?.id;
         rzpOrderId = payload.payload?.order?.entity?.id;
+        amountInPaise = payload.payload?.order?.entity?.amount_paid || payload.payload?.order?.entity?.amount;
       }
 
       if (rzpOrderId) {
-        const { data: updatedOrder, error } = await supabaseClient
-          .from("orders")
-          .update({
-            payment_status: "paid",
-            status: "processing",
-            razorpay_payment_id: paymentId,
-          })
-          .eq("razorpay_order_id", rzpOrderId)
-          .neq("payment_status", "paid")
-          .select("id")
-          .maybeSingle();
+        // Call authoritative finalize_paid_order RPC
+        const { data: finalRes, error: finalErr } = await supabaseClient.rpc("finalize_paid_order", {
+          _session_id: null,
+          _razorpay_order_id: rzpOrderId,
+          _razorpay_payment_id: paymentId,
+          _razorpay_signature: null,
+          _verified_amount: amountInPaise || null,
+        });
 
-        if (error) {
-          console.error("[razorpay-webhook] Error updating order to paid:", error);
+        let targetOrderId: string | null = null;
+        let isDuplicate = false;
+
+        if (finalErr) {
+          console.warn("[razorpay-webhook] finalize_paid_order notice, checking legacy orders:", finalErr);
+          const { data: legacyOrder } = await supabaseClient
+            .from("orders")
+            .select("id, payment_status")
+            .eq("razorpay_order_id", rzpOrderId)
+            .maybeSingle();
+
+          if (legacyOrder) {
+            targetOrderId = legacyOrder.id;
+            isDuplicate = legacyOrder.payment_status === "paid";
+            if (!isDuplicate) {
+              await supabaseClient
+                .from("orders")
+                .update({
+                  payment_status: "paid",
+                  status: "processing",
+                  razorpay_payment_id: paymentId,
+                })
+                .eq("id", legacyOrder.id);
+            }
+          }
+        } else if (finalRes) {
+          targetOrderId = finalRes.order_id;
+          isDuplicate = Boolean(finalRes.duplicate);
         }
 
-        if (updatedOrder?.id) {
-          // Trigger owner notification email
+        if (targetOrderId && !isDuplicate) {
+          // Trigger owner notification email (non-blocking)
           try {
             fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {
               method: "POST",
@@ -115,7 +141,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 type: "online_order",
-                order_id: updatedOrder.id,
+                order_id: targetOrderId,
               }),
             }).catch((e) => console.warn("[razorpay-webhook] Notification error:", e));
           } catch {
@@ -132,7 +158,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 action: "create_shipment",
-                orderId: updatedOrder.id,
+                orderId: targetOrderId,
               }),
             }).catch((srErr) => {
               console.warn("[razorpay-webhook] Shiprocket auto sync error:", srErr);
@@ -145,8 +171,18 @@ serve(async (req) => {
     } else if (payload.event === "payment.failed") {
       const paymentId = payload.payload?.payment?.entity?.id;
       const rzpOrderId = payload.payload?.payment?.entity?.order_id;
+      const errorDescription =
+        payload.payload?.payment?.entity?.error_description || "Payment failed at gateway";
 
       if (rzpOrderId) {
+        // Record payment attempt failure
+        await supabaseClient.rpc("update_payment_attempt_status", {
+          _razorpay_order_id: rzpOrderId,
+          _status: "failed",
+          _error_message: errorDescription,
+        }).catch((e: unknown) => console.warn("Failed to record failure status:", e));
+
+        // Legacy order update if exists
         await supabaseClient
           .from("orders")
           .update({
