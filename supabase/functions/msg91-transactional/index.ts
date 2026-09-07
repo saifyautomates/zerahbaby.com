@@ -117,26 +117,50 @@ serve(async (req) => {
       notify_owner = true,
     } = payload;
 
-    // If not already authorized as service_role or staff/admin, allow if referencing a real DB order
-    if (!isAuthorized) {
-      if (order_id) {
-        const { data: ord } = await adminClient
-          .from("orders")
-          .select("id")
-          .eq("id", order_id)
-          .maybeSingle();
-
-        if (ord) {
-          isAuthorized = true;
-        }
+    // Action: RETRY an existing failed SMS log strictly requires staff/admin or service_role
+    if (action === "retry") {
+      if (!isAuthorized) {
+        return new Response(JSON.stringify({ error: "Unauthorized: Staff or Admin privileges required to retry SMS logs." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
       }
-    }
+    } else {
+      // Transactional SMS Dispatches:
+      // Must have valid API key or Bearer token, and provide either order_id or offline_sale_id
+      const hasApiKeyOrToken = Boolean(token || req.headers.get("apikey"));
+      if (!hasApiKeyOrToken) {
+        return new Response(JSON.stringify({ error: "Unauthorized: Missing API key or bearer token" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
 
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
+      if (!order_id && !offline_sale_id) {
+        return new Response(JSON.stringify({ error: "Missing required order_id or offline_sale_id" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+
+      const ALLOWED_EVENTS = [
+        "online_sale",
+        "offline_pos_sale",
+        "order_placed",
+        "order_confirmed",
+        "order_cancelled",
+        "order_shipped",
+        "order_out_for_delivery",
+        "order_delivered",
+        "pos_return",
+        "pos_return_credit",
+      ];
+      if (event_type && !ALLOWED_EVENTS.includes(event_type)) {
+        return new Response(JSON.stringify({ error: `Unsupported event type: ${event_type}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
     }
 
     /* ------------------------------------------------------------------ */
