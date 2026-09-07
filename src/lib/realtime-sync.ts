@@ -191,11 +191,7 @@ export function useGlobalRealtimeSync() {
         { event: "*", schema: "public", table: "contact_messages" },
         (payload) => {
           notifyListeners("contact_messages", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["admin-queries"],
-            ["contact-messages"],
-            ["customer-queries"],
-          ]);
+          debouncedInvalidate(qc, [["admin-queries"], ["contact-messages"], ["customer-queries"]]);
         },
       )
       .subscribe((status) => {

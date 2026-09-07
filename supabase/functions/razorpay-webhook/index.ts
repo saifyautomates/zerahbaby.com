@@ -87,24 +87,31 @@ serve(async (req) => {
       } else {
         paymentId = payload.payload?.order?.entity?.payments?.at(0)?.id;
         rzpOrderId = payload.payload?.order?.entity?.id;
-        amountInPaise = payload.payload?.order?.entity?.amount_paid || payload.payload?.order?.entity?.amount;
+        amountInPaise =
+          payload.payload?.order?.entity?.amount_paid || payload.payload?.order?.entity?.amount;
       }
 
       if (rzpOrderId) {
         // Call authoritative finalize_paid_order RPC
-        const { data: finalRes, error: finalErr } = await supabaseClient.rpc("finalize_paid_order", {
-          _session_id: null,
-          _razorpay_order_id: rzpOrderId,
-          _razorpay_payment_id: paymentId,
-          _razorpay_signature: null,
-          _verified_amount: amountInPaise || null,
-        });
+        const { data: finalRes, error: finalErr } = await supabaseClient.rpc(
+          "finalize_paid_order",
+          {
+            _session_id: null,
+            _razorpay_order_id: rzpOrderId,
+            _razorpay_payment_id: paymentId,
+            _razorpay_signature: null,
+            _verified_amount: amountInPaise || null,
+          },
+        );
 
         let targetOrderId: string | null = null;
         let isDuplicate = false;
 
         if (finalErr) {
-          console.warn("[razorpay-webhook] finalize_paid_order notice, checking legacy orders:", finalErr);
+          console.warn(
+            "[razorpay-webhook] finalize_paid_order notice, checking legacy orders:",
+            finalErr,
+          );
           const { data: legacyOrder } = await supabaseClient
             .from("orders")
             .select("id, payment_status")
@@ -176,11 +183,13 @@ serve(async (req) => {
 
       if (rzpOrderId) {
         // Record payment attempt failure
-        await supabaseClient.rpc("update_payment_attempt_status", {
-          _razorpay_order_id: rzpOrderId,
-          _status: "failed",
-          _error_message: errorDescription,
-        }).catch((e: unknown) => console.warn("Failed to record failure status:", e));
+        await supabaseClient
+          .rpc("update_payment_attempt_status", {
+            _razorpay_order_id: rzpOrderId,
+            _status: "failed",
+            _error_message: errorDescription,
+          })
+          .catch((e: unknown) => console.warn("Failed to record failure status:", e));
 
         // Legacy order update if exists
         await supabaseClient

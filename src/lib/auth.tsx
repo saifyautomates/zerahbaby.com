@@ -109,15 +109,17 @@ export async function ensureAdminSession(): Promise<{ user: User | null; isAdmin
   if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
     const session = await ensureAuthSession();
     return {
-      user: session?.user ?? ({
-        id: "00000000-0000-0000-0000-000000000001",
-        email: "sameer@zerahkids.com",
-        role: "authenticated",
-        aud: "authenticated",
-        app_metadata: {},
-        user_metadata: { full_name: "Sameer" },
-        created_at: new Date().toISOString(),
-      } as unknown as User),
+      user:
+        session?.user ??
+        ({
+          id: "00000000-0000-0000-0000-000000000001",
+          email: "sameer@zerahkids.com",
+          role: "authenticated",
+          aud: "authenticated",
+          app_metadata: {},
+          user_metadata: { full_name: "Sameer" },
+          created_at: new Date().toISOString(),
+        } as unknown as User),
       isAdmin: true,
     };
   }
@@ -134,9 +136,9 @@ export async function ensureAdminSession(): Promise<{ user: User | null; isAdmin
   if (cachedRole === "true") {
     // Background verify to prevent privilege revocation lag
     Promise.resolve(
-      (supabase.rpc as unknown as (fn: string) => Promise<{ data: boolean | null; error: unknown }>)(
-        "check_is_admin",
-      ),
+      (
+        supabase.rpc as unknown as (fn: string) => Promise<{ data: boolean | null; error: unknown }>
+      )("check_is_admin"),
     )
       .then(({ data }) => {
         if (typeof data === "boolean") {

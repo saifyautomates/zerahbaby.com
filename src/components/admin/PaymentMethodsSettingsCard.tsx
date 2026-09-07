@@ -210,7 +210,10 @@ export function PaymentMethodsSettingsCard() {
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                       COD Fee (₹)
                     </span>
-                    <span className="text-[10px] text-muted-foreground" title="Optional flat fee added to cart">
+                    <span
+                      className="text-[10px] text-muted-foreground"
+                      title="Optional flat fee added to cart"
+                    >
                       (Optional)
                     </span>
                   </div>

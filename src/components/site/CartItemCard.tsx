@@ -86,19 +86,13 @@ export function CartItemCard({
             </div>
           )}
 
-          {sku && (
-            <p className="text-xs font-mono text-muted-foreground mt-0.5">
-              SKU: {sku}
-            </p>
-          )}
+          {sku && <p className="text-xs font-mono text-muted-foreground mt-0.5">SKU: {sku}</p>}
 
           {/* Price, MRP, and Savings */}
           <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
             <span className="text-sm font-bold text-foreground">{formatPrice(price)}</span>
             {hasDiscount && (
-              <span className="text-xs text-muted-foreground line-through">
-                {formatPrice(mrp)}
-              </span>
+              <span className="text-xs text-muted-foreground line-through">{formatPrice(mrp)}</span>
             )}
             {hasDiscount && (
               <span className="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-950/40 dark:text-green-400 px-1.5 py-0.5 rounded">

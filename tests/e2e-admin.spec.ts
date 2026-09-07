@@ -30,43 +30,64 @@ test.describe("Zerah Baby And Kids - Admin Security & Functionality Tests", () =
     const { data, error, status } = await anonClient.from("offline_sales").select("*").limit(5);
 
     // Must be blocked by RLS / permissions
-    const isBlocked = error !== null || status === 401 || status === 403 || !data || data.length === 0;
+    const isBlocked =
+      error !== null || status === 401 || status === 403 || !data || data.length === 0;
     expect(isBlocked).toBe(true);
     if (error) {
-      expect(error.message).toMatch(/permission denied|not authorized|violates row-level security/i);
+      expect(error.message).toMatch(
+        /permission denied|not authorized|violates row-level security/i,
+      );
     }
   });
 
   test("4. Database RLS: Anonymous access to store_credit_ledger is strictly blocked", async () => {
     const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data, error, status } = await anonClient.from("store_credit_ledger").select("*").limit(5);
+    const { data, error, status } = await anonClient
+      .from("store_credit_ledger")
+      .select("*")
+      .limit(5);
 
-    const isBlocked = error !== null || status === 401 || status === 403 || !data || data.length === 0;
+    const isBlocked =
+      error !== null || status === 401 || status === 403 || !data || data.length === 0;
     expect(isBlocked).toBe(true);
     if (error) {
-      expect(error.message).toMatch(/permission denied|not authorized|violates row-level security/i);
+      expect(error.message).toMatch(
+        /permission denied|not authorized|violates row-level security/i,
+      );
     }
   });
 
   test("5. Database RLS: Anonymous access to admin_notifications is strictly blocked", async () => {
     const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data, error, status } = await anonClient.from("admin_notifications").select("*").limit(5);
+    const { data, error, status } = await anonClient
+      .from("admin_notifications")
+      .select("*")
+      .limit(5);
 
-    const isBlocked = error !== null || status === 401 || status === 403 || !data || data.length === 0;
+    const isBlocked =
+      error !== null || status === 401 || status === 403 || !data || data.length === 0;
     expect(isBlocked).toBe(true);
     if (error) {
-      expect(error.message).toMatch(/permission denied|not authorized|violates row-level security/i);
+      expect(error.message).toMatch(
+        /permission denied|not authorized|violates row-level security/i,
+      );
     }
   });
 
   test("6. Database RLS: Anonymous access to offline_sale_items is strictly blocked", async () => {
     const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data, error, status } = await anonClient.from("offline_sale_items").select("*").limit(5);
+    const { data, error, status } = await anonClient
+      .from("offline_sale_items")
+      .select("*")
+      .limit(5);
 
-    const isBlocked = error !== null || status === 401 || status === 403 || !data || data.length === 0;
+    const isBlocked =
+      error !== null || status === 401 || status === 403 || !data || data.length === 0;
     expect(isBlocked).toBe(true);
     if (error) {
-      expect(error.message).toMatch(/permission denied|not authorized|violates row-level security/i);
+      expect(error.message).toMatch(
+        /permission denied|not authorized|violates row-level security/i,
+      );
     }
   });
 

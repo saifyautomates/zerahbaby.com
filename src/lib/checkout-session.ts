@@ -53,29 +53,28 @@ export interface PlaceCodOrderResult {
 export async function createCheckoutSession(
   input: CreateCheckoutSessionInput,
 ): Promise<CheckoutSessionResult> {
-  const { data, error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: CheckoutSessionResult | null; error: { message: string } | null }>)(
-    "create_checkout_session",
-    {
-      _items: input.items,
-      _coupon_code: input.coupon_code || null,
-      _full_name: input.full_name,
-      _email: input.email,
-      _phone: input.phone,
-      _alt_phone: input.alt_phone || null,
-      _address: input.address,
-      _address_line2: input.address_line2 || null,
-      _landmark: input.landmark || null,
-      _city: input.city,
-      _state: input.state,
-      _pincode: input.pincode,
-      _notes: input.notes || null,
-      _idempotency_key: input.idempotency_key || null,
-      _payment_method: input.payment_method || "online",
-    },
-  );
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: CheckoutSessionResult | null; error: { message: string } | null }>
+  )("create_checkout_session", {
+    _items: input.items,
+    _coupon_code: input.coupon_code || null,
+    _full_name: input.full_name,
+    _email: input.email,
+    _phone: input.phone,
+    _alt_phone: input.alt_phone || null,
+    _address: input.address,
+    _address_line2: input.address_line2 || null,
+    _landmark: input.landmark || null,
+    _city: input.city,
+    _state: input.state,
+    _pincode: input.pincode,
+    _notes: input.notes || null,
+    _idempotency_key: input.idempotency_key || null,
+    _payment_method: input.payment_method || "online",
+  });
 
   if (error) {
     throw new Error(error.message || "Failed to initialize checkout session");
@@ -97,10 +96,12 @@ export async function cancelCheckoutSession(
   reason: string = "Customer closed payment modal",
 ): Promise<void> {
   try {
-    await (supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ error: { message: string } | null }>)("cancel_checkout_session", {
+    await (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ error: { message: string } | null }>
+    )("cancel_checkout_session", {
       _session_id: sessionId,
       _reason: reason,
     });
@@ -113,15 +114,14 @@ export async function cancelCheckoutSession(
  * Places a Cash on Delivery order authoritatively from an existing valid checkout session.
  */
 export async function placeCodOrder(sessionId: string): Promise<PlaceCodOrderResult> {
-  const { data, error } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: PlaceCodOrderResult | null; error: { message: string } | null }>)(
-    "place_cod_order",
-    {
-      _session_id: sessionId,
-    },
-  );
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: PlaceCodOrderResult | null; error: { message: string } | null }>
+  )("place_cod_order", {
+    _session_id: sessionId,
+  });
 
   if (error) {
     throw new Error(error.message || "Failed to place COD order");

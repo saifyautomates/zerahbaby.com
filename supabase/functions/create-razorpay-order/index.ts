@@ -63,7 +63,7 @@ serve(async (req) => {
 
     let amountInPaise = 0;
     let receipt = "";
-    let notes: Record<string, string> = { store: "Zerah Baby & Kids" };
+    const notes: Record<string, string> = { store: "Zerah Baby & Kids" };
     let targetSessionId: string | null = null;
     let targetOrderId: string | null = null;
 
@@ -83,12 +83,19 @@ serve(async (req) => {
         throw new Error("This checkout session has already been completed");
       }
 
-      if (session.user_id && authenticatedUserId && session.user_id !== authenticatedUserId && !isAdmin) {
+      if (
+        session.user_id &&
+        authenticatedUserId &&
+        session.user_id !== authenticatedUserId &&
+        !isAdmin
+      ) {
         throw new Error("Unauthorized access to this checkout session");
       }
 
       amountInPaise = Math.round(Number(session.total) * 100);
-      receipt = `cs_${String(sessionId).replace(/[^a-zA-Z0-9]/g, "").substring(0, 30)}`;
+      receipt = `cs_${String(sessionId)
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .substring(0, 30)}`;
       notes.session_id = session.session_id;
       targetSessionId = session.session_id;
     } else {
@@ -103,7 +110,12 @@ serve(async (req) => {
         throw new Error("Order not found in store records");
       }
 
-      if (order.user_id && authenticatedUserId && order.user_id !== authenticatedUserId && !isAdmin) {
+      if (
+        order.user_id &&
+        authenticatedUserId &&
+        order.user_id !== authenticatedUserId &&
+        !isAdmin
+      ) {
         throw new Error("Unauthorized access to this order");
       }
 
@@ -161,7 +173,7 @@ serve(async (req) => {
       const { error: rpcErr } = await adminClient.rpc("record_payment_attempt", {
         _session_id: targetSessionId,
         _razorpay_order_id: razorpayOrder.id,
-        _amount: (amountInPaise / 100),
+        _amount: amountInPaise / 100,
         _currency: "INR",
       });
       if (rpcErr) {

@@ -11,7 +11,11 @@ import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import { Sparkles, TicketPercent, Truck, AlertCircle, Banknote, CreditCard } from "lucide-react";
 import { CartPageSkeleton } from "@/components/ui/Skeletons";
 import { usePaymentSettings } from "@/lib/payment-settings";
-import { createCheckoutSession, cancelCheckoutSession, placeCodOrder } from "@/lib/checkout-session";
+import {
+  createCheckoutSession,
+  cancelCheckoutSession,
+  placeCodOrder,
+} from "@/lib/checkout-session";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -327,9 +331,7 @@ function CheckoutPage() {
         throw new Error(createData.error);
       }
       if (!createData?.rzp_order_id) {
-        throw new Error(
-          "Payment gateway did not return a valid order identifier. Please retry.",
-        );
+        throw new Error("Payment gateway did not return a valid order identifier. Please retry.");
       }
 
       const rzpOrderId: string = createData.rzp_order_id;
@@ -363,9 +365,7 @@ function CheckoutPage() {
             toast.loading("Verifying payment with bank...", { id: "payment-verify" });
             const orderRef = response.razorpay_order_id || rzpOrderId;
             if (!response.razorpay_signature || !orderRef) {
-              throw new Error(
-                "Payment signature or order reference missing from gateway response",
-              );
+              throw new Error("Payment signature or order reference missing from gateway response");
             }
 
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
@@ -481,7 +481,8 @@ function CheckoutPage() {
                 Payment cancelled. Your order has not been placed.
               </h4>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your cart items and delivery details have been preserved. You can retry payment anytime.
+                Your cart items and delivery details have been preserved. You can retry payment
+                anytime.
               </p>
             </div>
           </div>
@@ -687,7 +688,9 @@ function CheckoutPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <Banknote className="size-4 text-primary" />
-                          <span className="font-bold text-sm text-foreground">Cash on Delivery</span>
+                          <span className="font-bold text-sm text-foreground">
+                            Cash on Delivery
+                          </span>
                           {codFee > 0 && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                               +₹{codFee} fee
@@ -704,7 +707,9 @@ function CheckoutPage() {
                   <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-muted/20">
                     <CreditCard className="size-4 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground">Online Payment (UPI / Cards / NetBanking)</p>
+                      <p className="text-sm font-bold text-foreground">
+                        Online Payment (UPI / Cards / NetBanking)
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {codEnabled
                           ? `Cash on Delivery requires an order between ₹${paymentSettings?.cod_min_order_value || 0} and ₹${paymentSettings?.cod_max_order_value || "∞"}.`

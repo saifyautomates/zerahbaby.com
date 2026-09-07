@@ -1526,7 +1526,8 @@ export function OfflineAnalyticsTab() {
                                 {Number(sale.discount) > 0 && (
                                   <p className="text-emerald-600 dark:text-emerald-400 font-semibold">
                                     Discount (
-                                    {sale.discount_type === "percentage" || sale.discount_type === "percent"
+                                    {sale.discount_type === "percentage" ||
+                                    sale.discount_type === "percent"
                                       ? `${sale.discount_value}%`
                                       : sale.discount_type === "fixed"
                                         ? `₹${sale.discount_value}`

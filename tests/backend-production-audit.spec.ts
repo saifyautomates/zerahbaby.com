@@ -367,4 +367,3 @@ test.describe("Backend Production Audit & Security Hardening Suite", () => {
     expect(discount5).toBe(300);
   });
 });
-

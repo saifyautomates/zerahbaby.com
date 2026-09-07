@@ -436,13 +436,13 @@ function ProductPage() {
 
     const hasDistinctVariants = Boolean(
       product.variants &&
-        product.variants.length > 1 &&
-        product.variants.some(
-          (v) =>
-            (v.color && v.color.trim()) ||
-            (v.size && v.size.trim()) ||
-            (v.name && v.name !== "Default"),
-        ),
+      product.variants.length > 1 &&
+      product.variants.some(
+        (v) =>
+          (v.color && v.color.trim()) ||
+          (v.size && v.size.trim()) ||
+          (v.name && v.name !== "Default"),
+      ),
     );
 
     if (hasDistinctVariants && !selectedVariantId) {
@@ -1234,8 +1234,7 @@ function ProductPage() {
                       onSetQty={setCartQty}
                       onRemove={removeFromCart}
                       isHighlighted={
-                        lastAddedKey ===
-                        `${cartItem.product.id}-${cartItem.variantId || "default"}`
+                        lastAddedKey === `${cartItem.product.id}-${cartItem.variantId || "default"}`
                       }
                       compact
                     />

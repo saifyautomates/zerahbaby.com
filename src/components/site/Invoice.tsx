@@ -8,7 +8,13 @@ import { useSession, useIsAdmin } from "@/lib/auth";
 import logo from "@/assets/zerah-logo-official.png";
 
 /** Small clickable invoice chip — opens the full printable invoice (strictly restricted to administrators). */
-export function InvoiceBox({ order, requireAdmin = true }: { order: Order; requireAdmin?: boolean }) {
+export function InvoiceBox({
+  order,
+  requireAdmin = true,
+}: {
+  order: Order;
+  requireAdmin?: boolean;
+}) {
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
   const [open, setOpen] = useState(false);
@@ -115,7 +121,8 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               <p className="mt-1 text-base font-bold text-slate-900">
                 {order.payment_method?.toLowerCase() === "cod"
                   ? "Cash on Delivery"
-                  : order.payment_method?.toLowerCase() === "razorpay" || order.payment_method?.toLowerCase() === "online"
+                  : order.payment_method?.toLowerCase() === "razorpay" ||
+                      order.payment_method?.toLowerCase() === "online"
                     ? "Online (Razorpay)"
                     : order.payment_method?.toUpperCase() || "COD"}
               </p>

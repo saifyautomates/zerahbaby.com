@@ -76,11 +76,13 @@ serve(async (req) => {
       });
 
       // Track verification failure
-      await adminClient.rpc("update_payment_attempt_status", {
-        _razorpay_order_id: razorpay_order_id,
-        _status: "verification_failed",
-        _error_message: "Invalid payment verification signature",
-      }).catch((e: unknown) => console.warn("Failed to record failure status:", e));
+      await adminClient
+        .rpc("update_payment_attempt_status", {
+          _razorpay_order_id: razorpay_order_id,
+          _status: "verification_failed",
+          _error_message: "Invalid payment verification signature",
+        })
+        .catch((e: unknown) => console.warn("Failed to record failure status:", e));
 
       throw new Error("Invalid payment verification signature");
     }
@@ -90,9 +92,12 @@ serve(async (req) => {
     if (razorpayKeyId && razorpayKeySecret) {
       try {
         const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
-        const rzpPayRes = await fetch(`https://api.razorpay.com/v1/payments/${razorpay_payment_id}`, {
-          headers: { Authorization: `Basic ${credentials}` },
-        });
+        const rzpPayRes = await fetch(
+          `https://api.razorpay.com/v1/payments/${razorpay_payment_id}`,
+          {
+            headers: { Authorization: `Basic ${credentials}` },
+          },
+        );
         if (rzpPayRes.ok) {
           const payData = await rzpPayRes.json();
           if (payData.currency !== "INR") {
@@ -104,7 +109,10 @@ serve(async (req) => {
           verifiedAmountInPaise = payData.amount;
         }
       } catch (err: unknown) {
-        console.warn("[verify-razorpay-payment] Razorpay API payment check notice:", (err as Error).message);
+        console.warn(
+          "[verify-razorpay-payment] Razorpay API payment check notice:",
+          (err as Error).message,
+        );
       }
     }
 
@@ -123,7 +131,10 @@ serve(async (req) => {
     let isDuplicate = false;
 
     if (finalErr) {
-      console.warn("[verify-razorpay-payment] finalize_paid_order error, checking legacy order:", finalErr);
+      console.warn(
+        "[verify-razorpay-payment] finalize_paid_order error, checking legacy order:",
+        finalErr,
+      );
 
       // Fallback for pre-session legacy orders
       const { data: legacyOrder } = await adminClient

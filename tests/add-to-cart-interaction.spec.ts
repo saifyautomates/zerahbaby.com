@@ -20,7 +20,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     await expect(page.locator("#cart-section")).toHaveCount(0);
 
     // Primary product action button
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await expect(addToBagBtn).toBeVisible();
     await addToBagBtn.click();
 
@@ -52,7 +55,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   }) => {
     await page.goto("/product/dangri", { waitUntil: "networkidle" });
 
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await expect(addToBagBtn).toBeVisible();
 
     // Add once
@@ -82,7 +88,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   }) => {
     await page.goto("/product/dangri", { waitUntil: "networkidle" });
 
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await expect(addToBagBtn).toBeVisible();
     await addToBagBtn.click();
 
@@ -106,7 +115,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   }) => {
     await page.goto("/product/dangri", { waitUntil: "networkidle" });
 
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await addToBagBtn.click();
 
     const cartSection = page.locator("#cart-section");
@@ -137,7 +149,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("5. Persistence: Cart items persist across full page refresh", async ({ page }) => {
     await page.goto("/product/dangri", { waitUntil: "networkidle" });
 
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await addToBagBtn.click();
 
     const cartSection = page.locator("#cart-section");
@@ -157,7 +172,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("6. Main /cart page uses the exact same CartItemCard design", async ({ page }) => {
     await page.goto("/product/dangri", { waitUntil: "networkidle" });
 
-    const addToBagBtn = page.locator("main").getByRole("button", { name: /^Add to bag$/i }).first();
+    const addToBagBtn = page
+      .locator("main")
+      .getByRole("button", { name: /^Add to bag$/i })
+      .first();
     await addToBagBtn.click();
 
     // Wait for cart section to appear
