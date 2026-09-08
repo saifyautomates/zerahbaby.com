@@ -98,7 +98,7 @@ function CheckoutPage() {
   // Determine why COD is unavailable (if applicable)
   const codUnavailableReason = useMemo(() => {
     if (!codEnabled) {
-      return "Cash on Delivery is currently unavailable (disabled by store admin).";
+      return "COD unavailable right now";
     }
     if (paymentSettings?.cod_min_order_value && subtotal < paymentSettings.cod_min_order_value) {
       return `Cash on Delivery requires an order between ₹${paymentSettings.cod_min_order_value} and ₹${paymentSettings?.cod_max_order_value || "∞"}.`;
@@ -384,6 +384,39 @@ function CheckoutPage() {
           name: customerInfo.full_name,
           email: customerInfo.email,
           contact: customerInfo.phone,
+          method: "upi",
+        },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI (PhonePe, GPay, Paytm)",
+                instruments: [
+                  {
+                    method: "upi",
+                  },
+                ],
+              },
+              other: {
+                name: "Other Payment Modes",
+                instruments: [
+                  {
+                    method: "card",
+                  },
+                  {
+                    method: "netbanking",
+                  },
+                  {
+                    method: "wallet",
+                  },
+                ],
+              },
+            },
+            sequence: ["block.upi", "block.other"],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
         },
         notes: {
           session_id: currentSessionId,
@@ -817,7 +850,7 @@ function CheckoutPage() {
                       <div
                         id="payment-tab-cod-disabled"
                         className="w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none"
-                        title={codUnavailableReason || "Cash on Delivery is unavailable"}
+                        title={codUnavailableReason || "COD unavailable right now"}
                       >
                         <div className="mt-0.5 shrink-0">
                           <div className="size-4 rounded-full border border-muted-foreground/30 bg-muted flex items-center justify-center" />
