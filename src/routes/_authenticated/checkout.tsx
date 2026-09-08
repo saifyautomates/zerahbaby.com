@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -17,6 +17,7 @@ import {
   CreditCard,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { CartPageSkeleton } from "@/components/ui/Skeletons";
 import { usePaymentSettings } from "@/lib/payment-settings";
@@ -25,6 +26,14 @@ import {
   cancelCheckoutSession,
   placeCodOrder,
 } from "@/lib/checkout-session";
+import {
+  savePendingPayment,
+  getPendingPayment,
+  clearPendingPayment,
+  getPaymentParamsFromUrl,
+  stripPaymentParamsFromUrl,
+  isMobileDevice,
+} from "@/lib/payment-recovery";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
   head: () => ({
@@ -46,6 +55,9 @@ export const Route = createFileRoute("/_authenticated/checkout")({
 
 function CheckoutPage() {
   const navigate = useNavigate();
+  // Tracks whether we are currently verifying a payment (app-switch recovery or callback)
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const recoveryAttemptedRef = useRef(false);
   const { user } = useSession();
   const {
     items,
@@ -123,6 +135,101 @@ function CheckoutPage() {
   useEffect(() => {
     trackEvent("checkout_started");
   }, []);
+
+  /**
+   * App-Switch Recovery: On page mount, check if there is a pending payment from a UPI app switch.
+   * This covers: browser backgrounded during app switch, manual browser refresh, redirect-based
+   * Razorpay callbacks on some Android devices.
+   */
+  const verifyPendingPayment = useCallback(
+    async (opts: {
+      session_id: string;
+      razorpay_payment_id?: string;
+      razorpay_order_id?: string;
+      razorpay_signature?: string;
+    }) => {
+      setVerifyingPayment(true);
+      toast.loading("Verifying your payment…", { id: "payment-verify" });
+      try {
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+          "verify-razorpay-payment",
+          {
+            body: {
+              session_id: opts.session_id,
+              razorpay_order_id: opts.razorpay_order_id,
+              razorpay_payment_id: opts.razorpay_payment_id,
+              razorpay_signature: opts.razorpay_signature,
+            },
+          },
+        );
+
+        if (verifyError || !verifyData?.success) {
+          let msg = verifyError?.message;
+          try {
+            const errCtx = (verifyError as { context?: Response }).context;
+            if (errCtx && typeof errCtx.json === "function") {
+              const body = await errCtx.json();
+              if (body?.error) msg = body.error;
+            }
+          } catch { /* fallback */ }
+          throw new Error(msg || verifyData?.error || "Payment verification failed");
+        }
+
+        clearPendingPayment();
+        stripPaymentParamsFromUrl();
+        trackEvent("order_created", {
+          metadata: {
+            orderId: verifyData.order_id,
+            payment: "online",
+            razorpay_payment_id: opts.razorpay_payment_id,
+          },
+        });
+        await clear();
+        toast.success("Payment verified! Your order is placed.", { id: "payment-verify" });
+        navigate({ to: "/orders" });
+      } catch (err: unknown) {
+        clearPendingPayment();
+        stripPaymentParamsFromUrl();
+        setVerifyingPayment(false);
+        const msg = err instanceof Error ? err.message : "Payment verification failed";
+        toast.error(msg, { id: "payment-verify", duration: 6000 });
+        setPaymentCancelled(true);
+      }
+    },
+    [clear, navigate],
+  );
+
+  useEffect(() => {
+    if (recoveryAttemptedRef.current) return;
+    recoveryAttemptedRef.current = true;
+
+    // 1. Check URL params (redirect-based Razorpay callback on some Android devices)
+    const urlParams = getPaymentParamsFromUrl();
+    if (urlParams?.razorpay_payment_id) {
+      const pending = getPendingPayment();
+      if (pending) {
+        verifyPendingPayment({
+          session_id: pending.session_id,
+          razorpay_payment_id: urlParams.razorpay_payment_id,
+          razorpay_order_id: urlParams.razorpay_order_id || pending.rzp_order_id,
+          razorpay_signature: urlParams.razorpay_signature,
+        });
+        return;
+      }
+      stripPaymentParamsFromUrl();
+    }
+
+    // 2. Check sessionStorage for a pending payment (browser backgrounded during app switch)
+    const pending = getPendingPayment();
+    if (pending) {
+      // A pending session exists — could be: user returned without completing, or just opened app.
+      // We show a recovery prompt rather than auto-verifying (no payment ID available yet).
+      // The webhook will reconcile if payment actually went through.
+      // Clear stale state so user can retry cleanly.
+      clearPendingPayment();
+      setPaymentCancelled(true);
+    }
+  }, [verifyPendingPayment]);
 
   const hasSavedAddress = Boolean(
     profile &&
@@ -327,7 +434,7 @@ function CheckoutPage() {
       }
 
       // ─── ONLINE PAYMENT FLOW (RAZORPAY) ────────────────────────────
-      // Load Razorpay Script
+      // Load Razorpay Standard Checkout SDK
       await new Promise((resolve, reject) => {
         if (document.getElementById("razorpay-script")) return resolve(true);
         const script = document.createElement("script");
@@ -335,16 +442,14 @@ function CheckoutPage() {
         script.src = "https://checkout.razorpay.com/v1/checkout.js";
         script.onload = resolve;
         script.onerror = () =>
-          reject(new Error("Failed to load Razorpay SDK. Please check your connection."));
+          reject(new Error("Failed to load payment SDK. Please check your connection."));
         document.body.appendChild(script);
       });
 
-      // Strict server-side Razorpay Order creation via Edge Function using sessionId
+      // Create authoritative Razorpay order on the server using the checkout session
       const { data: createData, error: createError } = await supabase.functions.invoke(
         "create-razorpay-order",
-        {
-          body: { sessionId: currentSessionId },
-        },
+        { body: { sessionId: currentSessionId } },
       );
 
       if (createError) {
@@ -355,24 +460,35 @@ function CheckoutPage() {
             const body = await errCtx.json();
             if (body?.error) msg = body.error;
           }
-        } catch {
-          // fallback to message
-        }
+        } catch { /* fallback */ }
         throw new Error(msg || "Failed to initialize payment gateway order");
       }
-      if (createData?.error) {
-        throw new Error(createData.error);
-      }
+      if (createData?.error) throw new Error(createData.error);
       if (!createData?.rzp_order_id) {
-        throw new Error("Payment gateway did not return a valid order identifier. Please retry.");
+        throw new Error("Payment gateway did not return a valid order ID. Please retry.");
       }
 
       const rzpOrderId: string = createData.rzp_order_id;
       const rzpKeyId: string =
         createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
-      const rzpAmount: number = createData.amount || Math.round(sessionResult.total * 100);
+      // Use ONLY the server-authoritative amount — never trust any client-calculated amount
+      const rzpAmount: number = createData.amount;
 
-      // Open Razorpay Standard Checkout Modal with authoritative server order ID
+      // ── Save pending payment to sessionStorage BEFORE opening Razorpay ──
+      // This is critical for UPI app-switch recovery: if the browser is backgrounded
+      // during the switch and killed, we can recover on the next page load.
+      savePendingPayment({
+        session_id: currentSessionId,
+        rzp_order_id: rzpOrderId,
+        amount_paise: rzpAmount,
+        idempotency_key: generatedIdempotencyKey,
+      });
+
+      const mobile = isMobileDevice();
+
+      // ── Build Razorpay options ──
+      // Mobile: let Razorpay handle UPI Intent natively (prefill method + no custom blocks)
+      // Desktop: show UPI QR / UPI ID input first, then cards/netbanking
       const options: Record<string, unknown> = {
         key: rzpKeyId,
         amount: rzpAmount,
@@ -384,121 +500,62 @@ function CheckoutPage() {
           name: customerInfo.full_name,
           email: customerInfo.email,
           contact: customerInfo.phone,
-          method: "upi",
-        },
-        config: {
-          display: {
-            blocks: {
-              upi: {
-                name: "Pay via UPI (PhonePe, GPay, Paytm)",
-                instruments: [
-                  {
-                    method: "upi",
-                  },
-                ],
-              },
-              other: {
-                name: "Other Payment Modes",
-                instruments: [
-                  {
-                    method: "card",
-                  },
-                  {
-                    method: "netbanking",
-                  },
-                  {
-                    method: "wallet",
-                  },
-                ],
-              },
-            },
-            sequence: ["block.upi", "block.other"],
-            preferences: {
-              show_default_blocks: true,
-            },
-          },
+          // On mobile, pre-select UPI so the UPI Intent screen appears first
+          method: mobile ? "upi" : undefined,
         },
         notes: {
           session_id: currentSessionId,
           store: "Zerah Baby And Kid's Kota",
         },
+        // Desktop: configure display sequence to show UPI first, then other methods
+        ...(!mobile && {
+          config: {
+            display: {
+              blocks: {
+                upi: {
+                  name: "Pay via UPI (PhonePe, GPay, Paytm)",
+                  instruments: [{ method: "upi" }],
+                },
+                other: {
+                  name: "Other Payment Modes",
+                  instruments: [
+                    { method: "card" },
+                    { method: "netbanking" },
+                    { method: "wallet" },
+                  ],
+                },
+              },
+              sequence: ["block.upi", "block.other"],
+              preferences: { show_default_blocks: true },
+            },
+          },
+        }),
         handler: async (response: {
           razorpay_order_id?: string;
           razorpay_payment_id: string;
           razorpay_signature?: string;
         }) => {
-          try {
-            toast.loading("Verifying payment with bank...", { id: "payment-verify" });
-            const orderRef = response.razorpay_order_id || rzpOrderId;
-            if (!response.razorpay_signature || !orderRef) {
-              throw new Error("Payment signature or order reference missing from gateway response");
-            }
-
-            const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-              "verify-razorpay-payment",
-              {
-                body: {
-                  session_id: currentSessionId,
-                  razorpay_order_id: orderRef,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                },
-              },
-            );
-
-            if (verifyError || !verifyData?.success) {
-              let msg = verifyError?.message;
-              try {
-                const errCtx = (verifyError as { context?: Response }).context;
-                if (errCtx && typeof errCtx.json === "function") {
-                  const body = await errCtx.json();
-                  if (body?.error) msg = body.error;
-                }
-              } catch {
-                // fallback
-              }
-              throw new Error(
-                msg || verifyData?.error || "Cryptographic signature verification failed",
-              );
-            }
-
-            trackEvent("order_created", {
-              metadata: {
-                orderId: verifyData.order_id,
-                total: sessionResult.total,
-                coupon: couponCode || null,
-                payment: "online",
-                razorpay_payment_id: response.razorpay_payment_id,
-              },
-            });
-
-            await clear();
-            toast.success("Payment verified! Your order is placed.", {
-              id: "payment-verify",
-            });
-            navigate({ to: "/orders" });
-          } catch (verifyErr: unknown) {
-            console.error("[Checkout] Payment verification failure:", verifyErr);
-            toast.error(
-              verifyErr instanceof Error
-                ? verifyErr.message
-                : "Payment verification failed. Please contact support.",
-              { id: "payment-verify", duration: 6000 },
-            );
-            navigate({ to: "/orders" });
-          }
+          // Payment callback — verify server-side before creating any order
+          setVerifyingPayment(true);
+          await verifyPendingPayment({
+            session_id: currentSessionId,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id || rzpOrderId,
+            razorpay_signature: response.razorpay_signature,
+          });
         },
         modal: {
           ondismiss: async () => {
+            clearPendingPayment();
             setSubmitting(false);
             setPaymentCancelled(true);
             await cancelCheckoutSession(currentSessionId, "Customer closed payment modal");
             toast.error("Payment cancelled. Your order has not been placed.");
           },
+          // Escape key should also cancel
+          escape: true,
         },
-        theme: {
-          color: "#883a3a",
-        },
+        theme: { color: "#883a3a" },
       };
 
       type RazorpayInstance = {
@@ -512,6 +569,7 @@ function CheckoutPage() {
       ).Razorpay(options);
 
       rzp.on("payment.failed", async (response: { error: { description: string } }) => {
+        clearPendingPayment();
         setSubmitting(false);
         setPaymentCancelled(true);
         await cancelCheckoutSession(
@@ -525,7 +583,10 @@ function CheckoutPage() {
       });
 
       rzp.open();
+      // Note: setSubmitting(false) is intentionally NOT called here.
+      // It stays true until the handler/ondismiss resolves, preventing double-submit.
     } catch (err) {
+      clearPendingPayment();
       toast.error(err instanceof Error ? err.message : "Could not initialize payment");
       setSubmitting(false);
     }
@@ -537,6 +598,33 @@ function CheckoutPage() {
 
   if (cartLoading) {
     return <CartPageSkeleton />;
+  }
+
+  // ── Verifying Payment Overlay ──────────────────────────────────────────────
+  // Shown while server-side payment verification is in progress.
+  // Prevents double-submit, shows feedback during UPI app-switch return.
+  if (verifyingPayment) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-5 px-6 text-center max-w-sm">
+          <div className="relative">
+            <div className="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Loader2 className="size-10 text-primary animate-spin" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-foreground">Verifying your payment&hellip;</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Please wait while we confirm your payment with the bank. Do not close this page.
+            </p>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full w-1/2 bg-primary rounded-full splash-loader" />
+          </div>
+          <p className="text-xs text-muted-foreground">Secured by Razorpay</p>
+        </div>
+      </div>
+    );
   }
 
   return (

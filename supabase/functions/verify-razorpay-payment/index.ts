@@ -121,9 +121,9 @@ serve(async (req) => {
     // 5. Call authoritative canonical RPC to finalize paid order atomically
     const { data: finalRes, error: finalErr } = await adminClient.rpc("finalize_paid_order", {
       _session_id: session_id || null,
-      _razorpay_order_id,
-      _razorpay_payment_id,
-      _razorpay_signature,
+      _razorpay_order_id: razorpay_order_id,
+      _razorpay_payment_id: razorpay_payment_id,
+      _razorpay_signature: razorpay_signature,
       _verified_amount: verifiedAmountInPaise > 0 ? verifiedAmountInPaise : null,
     });
 
