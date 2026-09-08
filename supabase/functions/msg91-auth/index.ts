@@ -46,9 +46,7 @@ serve(async (req) => {
     }
 
     if (!msg91AuthKey) {
-      console.warn(
-        "MSG91_AUTH_KEY not configured.",
-      );
+      console.warn("MSG91_AUTH_KEY not configured.");
     }
 
     const cleanPhone = phone.replace("+", ""); // MSG91 typically expects number without +

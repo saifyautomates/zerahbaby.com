@@ -49,8 +49,7 @@ serve(async (req) => {
       return new Response("Webhook secret not configured", { status: 500, headers: corsHeaders });
     }
 
-    const providedToken =
-      req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
+    const providedToken = req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
     if (!providedToken || providedToken.replace(/^Bearer\s+/i, "").trim() !== webhookSecret) {
       console.warn(`[shiprocket-webhook] Unauthorized attempt for AWB: ${awbCode}`);
       return new Response("Unauthorized", { status: 401, headers: corsHeaders });

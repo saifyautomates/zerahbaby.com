@@ -216,7 +216,7 @@ serve(async (req) => {
 
         const userMsg = autoRefundIssued
           ? `Stock was exhausted while completing payment. A full refund has been automatically initiated to your payment method.`
-          : (finalErr.message || "Failed to finalize paid order. Please contact support.");
+          : finalErr.message || "Failed to finalize paid order. Please contact support.";
 
         throw new Error(userMsg);
       }

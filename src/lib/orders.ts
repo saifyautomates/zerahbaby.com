@@ -636,7 +636,11 @@ async function invokeShiprocketApi(body: Record<string, unknown>) {
   if (error) {
     let detailedMessage = error.message;
     try {
-      if ("context" in error && (error as any).context && typeof (error as any).context.json === "function") {
+      if (
+        "context" in error &&
+        (error as any).context &&
+        typeof (error as any).context.json === "function"
+      ) {
         const errJson = await (error as any).context.json();
         if (errJson?.error) detailedMessage = errJson.error;
         else if (errJson?.message) detailedMessage = errJson.message;

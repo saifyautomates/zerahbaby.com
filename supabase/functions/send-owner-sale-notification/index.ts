@@ -948,7 +948,9 @@ serve(async (req) => {
 
   if (!isAuthorized && token) {
     try {
-      const { data: { user } } = await adminClient.auth.getUser(token);
+      const {
+        data: { user },
+      } = await adminClient.auth.getUser(token);
       if (user) {
         const { data: roleRow } = await adminClient
           .from("user_roles")

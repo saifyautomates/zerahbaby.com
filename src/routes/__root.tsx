@@ -29,7 +29,7 @@ const OfflineSyncHost = safeLazy(() =>
   import("@/lib/offline-sync-engine").then((m) => ({ default: m.OfflineSyncHost })),
 );
 
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { FallbackRecoveryPage } from "@/components/site/FallbackRecoveryPage";
 
 function NotFoundComponent() {

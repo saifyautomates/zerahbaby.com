@@ -74,7 +74,9 @@ serve(async (req) => {
 
   if (!isAuthorized && token) {
     try {
-      const { data: { user } } = await adminClient.auth.getUser(token);
+      const {
+        data: { user },
+      } = await adminClient.auth.getUser(token);
       if (user) {
         const { data: roleRow } = await adminClient
           .from("user_roles")
@@ -120,27 +122,38 @@ serve(async (req) => {
     // Action: RETRY an existing failed SMS log strictly requires staff/admin or service_role
     if (action === "retry") {
       if (!isAuthorized) {
-        return new Response(JSON.stringify({ error: "Unauthorized: Staff or Admin privileges required to retry SMS logs." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
-        });
+        return new Response(
+          JSON.stringify({
+            error: "Unauthorized: Staff or Admin privileges required to retry SMS logs.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 401,
+          },
+        );
       }
     } else {
       // Transactional SMS Dispatches:
       // Must have valid API key or Bearer token, and provide either order_id or offline_sale_id
       const hasApiKeyOrToken = Boolean(token || req.headers.get("apikey"));
       if (!hasApiKeyOrToken) {
-        return new Response(JSON.stringify({ error: "Unauthorized: Missing API key or bearer token" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
-        });
+        return new Response(
+          JSON.stringify({ error: "Unauthorized: Missing API key or bearer token" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 401,
+          },
+        );
       }
 
       if (!order_id && !offline_sale_id) {
-        return new Response(JSON.stringify({ error: "Missing required order_id or offline_sale_id" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        });
+        return new Response(
+          JSON.stringify({ error: "Missing required order_id or offline_sale_id" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          },
+        );
       }
 
       const ALLOWED_EVENTS = [

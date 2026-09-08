@@ -63,10 +63,12 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       const publicUrl = await uploadMedia(job.file, prefix);
       updateJob(job.id, { progress: 100 });
 
-      const uploadDuration = performance.now() - startTime;
-      console.log(
-        `[Upload Performance] ${job.file.name} uploaded in ${Math.round(uploadDuration)}ms`,
-      );
+      if (import.meta.env.DEV) {
+        const uploadDuration = performance.now() - startTime;
+        console.log(
+          `[Upload Performance] ${job.file.name} uploaded in ${Math.round(uploadDuration)}ms`,
+        );
+      }
 
       if (onSuccess) {
         updateJob(job.id, { state: "SAVING", publicUrl });
@@ -77,10 +79,12 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
           progress: 100,
         };
         await onSuccess(latestJob);
-        const dbSaveDuration = performance.now() - dbSaveStart;
-        console.log(
-          `[Upload Performance] DB Save for ${job.file.name} completed in ${Math.round(dbSaveDuration)}ms`,
-        );
+        if (import.meta.env.DEV) {
+          const dbSaveDuration = performance.now() - dbSaveStart;
+          console.log(
+            `[Upload Performance] DB Save for ${job.file.name} completed in ${Math.round(dbSaveDuration)}ms`,
+          );
+        }
       }
 
       updateJob(job.id, { state: "SAVED", publicUrl, progress: 100 });

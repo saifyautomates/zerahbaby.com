@@ -159,8 +159,7 @@ serve(async (req) => {
         if (res.ok) {
           const json = await res.json();
           const addresses = json?.data?.shipping_address || [];
-          const primary =
-            addresses.find((a: any) => a.is_primary_location === 1) || addresses[0];
+          const primary = addresses.find((a: any) => a.is_primary_location === 1) || addresses[0];
           if (primary?.pickup_location) {
             return primary.pickup_location;
           }
@@ -406,10 +405,7 @@ serve(async (req) => {
       });
 
       const srData = await res.json().catch(() => ({}));
-      if (
-        !res.ok ||
-        (srData.status_code !== 1 && srData.status_code !== 200 && !srData.order_id)
-      ) {
+      if (!res.ok || (srData.status_code !== 1 && srData.status_code !== 200 && !srData.order_id)) {
         console.error("Shiprocket Create Order Error:", srData);
         const errMsg =
           srData.message ||

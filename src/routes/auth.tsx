@@ -2,6 +2,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Sparkles, Mail, Phone, X } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,11 +37,35 @@ function AuthPage() {
   // Auth resolution and redirects take place cleanly after hydration.
   const [isHydrated, setIsHydrated] = useState(false);
   const [isOAuthRedirect, setIsOAuthRedirect] = useState(false);
+  const [suggestion, setSuggestion] = useState<{
+    from: "phone" | "email" | "google";
+    title: string;
+    text: string;
+    preferredAlternative: "phone" | "email" | "google";
+  } | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
-    if (window.location.hash.includes("access_token")) {
-      setIsOAuthRedirect(true);
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const errorDesc =
+        searchParams.get("error_description") ||
+        hashParams.get("error_description") ||
+        searchParams.get("error") ||
+        hashParams.get("error");
+      if (errorDesc) {
+        toast.error(`Sign in failed: ${decodeURIComponent(errorDesc.replace(/\+/g, " "))}`);
+        setSuggestion({
+          from: "google",
+          title: "Google sign-in was interrupted or unavailable",
+          text: "No worries! You can sign in right away using your Mobile Number (SMS) or Email OTP.",
+          preferredAlternative: "phone",
+        });
+      }
+      if (searchParams.has("code") || window.location.hash.includes("access_token")) {
+        setIsOAuthRedirect(true);
+      }
     }
   }, []);
 
@@ -191,6 +216,14 @@ function AuthPage() {
       );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
+      setSuggestion({
+        from: isRawEmail ? "email" : "phone",
+        title: isRawEmail ? "Email verification issue?" : "SMS delivery issue?",
+        text: isRawEmail
+          ? "Email delivery might be experiencing delays. You can instantly sign in using your 10-digit Mobile Number or Google 1-Click."
+          : "SMS network service may be experiencing delays. You can sign in using your Email address or Google 1-Click.",
+        preferredAlternative: isRawEmail ? "phone" : "email",
+      });
     } finally {
       setBusy(false);
     }
@@ -232,6 +265,15 @@ function AuthPage() {
       toast.success("New 6-digit OTP sent!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
+      const isContactEmail = contact.includes("@");
+      setSuggestion({
+        from: isContactEmail ? "email" : "phone",
+        title: isContactEmail ? "Still waiting for the email code?" : "Still waiting for SMS?",
+        text: isContactEmail
+          ? "Switch to your Mobile Number for an instant SMS OTP, or continue with Google."
+          : "Switch to your Email Address for an instant OTP, or continue with Google.",
+        preferredAlternative: isContactEmail ? "phone" : "email",
+      });
     } finally {
       // Always unblock, even on error — so user can retry
       setBusy(false);
@@ -315,6 +357,17 @@ function AuthPage() {
       toast.success("Signed in successfully! Welcome to Zerah 🎉");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Invalid OTP. Please try again.");
+      const isContactEmail = contact.includes("@");
+      setSuggestion({
+        from: isContactEmail ? "email" : "phone",
+        title: isContactEmail
+          ? "Trouble with email verification?"
+          : "Trouble with SMS verification?",
+        text: isContactEmail
+          ? "You can also receive an OTP on your Mobile Number, or sign in directly with Google."
+          : "You can also receive an OTP on your Email address, or sign in directly with Google.",
+        preferredAlternative: isContactEmail ? "phone" : "email",
+      });
     } finally {
       setBusy(false);
     }
@@ -336,6 +389,40 @@ function AuthPage() {
     // Keep `contact` so user can edit rather than retype
   }
 
+  function switchToPhone() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    cooldownRef.current = 0;
+    setSuggestion(null);
+    setMode("input");
+    setContact("");
+    setOtp("");
+    setCooldown(0);
+    setOtpExpired(false);
+    setTimeout(() => {
+      contactInputRef.current?.focus();
+    }, 50);
+  }
+
+  function switchToEmail() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    cooldownRef.current = 0;
+    setSuggestion(null);
+    setMode("input");
+    setContact("");
+    setOtp("");
+    setCooldown(0);
+    setOtpExpired(false);
+    setTimeout(() => {
+      contactInputRef.current?.focus();
+    }, 50);
+  }
+
   // ─── GOOGLE SIGN-IN ───────────────────────────────────────────────────────────
   async function onGoogleSignIn() {
     if (busy) return;
@@ -352,6 +439,12 @@ function AuthPage() {
       setBusy(false);
       setSuccess(false);
       toast.error("Google sign-in failed: " + error.message);
+      setSuggestion({
+        from: "google",
+        title: "Google sign-in unavailable?",
+        text: "You can sign in right away using your 10-digit Mobile Number (SMS) or Email OTP.",
+        preferredAlternative: "phone",
+      });
     }
     // Google will redirect — no further action needed
   }
@@ -395,6 +488,81 @@ function AuthPage() {
             ? "Enter your email or mobile number to continue"
             : `We sent a 6-digit code to ${contact}`}
         </p>
+
+        {/* ── INTELLIGENT ALTERNATIVE AUTH SUGGESTION ── */}
+        {suggestion && (
+          <div className="mt-5 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-left transition-all duration-300 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                <Sparkles className="size-4 text-primary shrink-0" />
+                <span>{suggestion.title}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSuggestion(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                aria-label="Dismiss suggestion"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+              {suggestion.text}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {suggestion.preferredAlternative === "phone" ? (
+                <button
+                  type="button"
+                  id="auth-suggest-phone-btn"
+                  onClick={switchToPhone}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
+                >
+                  <Phone className="size-3.5 text-primary" />
+                  Use Mobile Number
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  id="auth-suggest-email-btn"
+                  onClick={switchToEmail}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
+                >
+                  <Mail className="size-3.5 text-primary" />
+                  Use Email Address
+                </button>
+              )}
+              {suggestion.from !== "google" && (
+                <button
+                  type="button"
+                  id="auth-suggest-google-btn"
+                  onClick={onGoogleSignIn}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
+                >
+                  <svg viewBox="0 0 24 24" className="size-3.5" aria-hidden="true">
+                    <path
+                      d="M12.0003 4.75C13.7703 4.75 15.3553 5.36002 16.6053 6.54998L20.0303 3.125C17.9502 1.19 15.2353 0 12.0003 0C7.31028 0 3.25527 2.69 1.28027 6.60998L5.27028 9.70498C6.21525 6.86002 8.87028 4.75 12.0003 4.75Z"
+                      fill="#EA4335"
+                    />
+                    <path
+                      d="M23.49 12.275C23.49 11.49 23.415 10.73 23.3 10H12V14.51H18.47C18.18 15.99 17.34 17.25 16.08 18.1L19.945 21.1C22.2 19.01 23.49 15.92 23.49 12.275Z"
+                      fill="#4285F4"
+                    />
+                    <path
+                      d="M5.26498 14.2949C5.02498 13.5699 4.88501 12.7999 4.88501 11.9999C4.88501 11.1999 5.01998 10.4299 5.26498 9.7049L1.275 6.60986C0.46 8.22986 0 10.0599 0 11.9999C0 13.9399 0.46 15.7699 1.28 17.3899L5.26498 14.2949Z"
+                      fill="#FBBC05"
+                    />
+                    <path
+                      d="M12.0004 24.0001C15.2404 24.0001 17.9654 22.935 19.9454 21.095L16.0804 18.095C15.0054 18.82 13.6204 19.245 12.0004 19.245C8.8704 19.245 6.21537 17.135 5.26538 14.29L1.27539 17.385C3.25539 21.31 7.3104 24.0001 12.0004 24.0001Z"
+                      fill="#34A853"
+                    />
+                  </svg>
+                  Google 1-Click
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── INPUT MODE ── */}
         {mode === "input" ? (
@@ -503,6 +671,19 @@ function AuthPage() {
                 className="font-medium text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
               >
                 {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
+              </button>
+            </div>
+
+            {/* Quick alternative switch hint in verify mode */}
+            <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <span>Didn&apos;t receive the code?</span>
+              <button
+                type="button"
+                id="auth-verify-switch-alt-btn"
+                onClick={isEmail ? switchToPhone : switchToEmail}
+                className="font-semibold text-primary hover:underline"
+              >
+                Try {isEmail ? "Mobile SMS" : "Email"} instead
               </button>
             </div>
           </form>

@@ -185,7 +185,9 @@ serve(async (req) => {
       !/^pay_[a-zA-Z0-9]+$/.test(paymentId);
 
     if (isLiveKey && isMockToken) {
-      throw new Error(`Cannot refund: Payment ID '${paymentId}' is a mock token and does not exist on live Razorpay.`);
+      throw new Error(
+        `Cannot refund: Payment ID '${paymentId}' is a mock token and does not exist on live Razorpay.`,
+      );
     }
 
     const credentials = btoa(`${rawKeyId}:${rawKeySecret}`);
@@ -244,7 +246,9 @@ serve(async (req) => {
     }
 
     if (paymentData.status !== "captured") {
-      throw new Error(`Cannot refund payment: Razorpay payment status is '${paymentData.status}'. Only captured payments can be refunded.`);
+      throw new Error(
+        `Cannot refund payment: Razorpay payment status is '${paymentData.status}'. Only captured payments can be refunded.`,
+      );
     }
 
     const amountInPaise = Math.round(finalAmount * 100);
