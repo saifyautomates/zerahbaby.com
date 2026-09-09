@@ -35,7 +35,9 @@ serve(async (req) => {
     if (!action) throw new Error("Missing action (send, verify, resend)");
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
-    const msg91TemplateId = Deno.env.get("MSG91_OTP_TEMPLATE_ID");
+    const msg91TemplateId =
+      (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim() || "6aa1c8937992a371950d6052";
+    const sender = (Deno.env.get("MSG91_SENDER_ID") || "").trim() || "ZERAHH";
     // Securely derive authSecret from private environment or fallback to service role key
     const authSecret =
       (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() ||
@@ -53,7 +55,7 @@ serve(async (req) => {
 
     if (action === "send") {
       if (msg91AuthKey) {
-        const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}`;
+        const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}`;
         const response = await fetch(url, {
           method: "POST",
           headers: { authkey: msg91AuthKey },

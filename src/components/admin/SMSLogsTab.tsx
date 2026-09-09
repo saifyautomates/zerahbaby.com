@@ -44,6 +44,18 @@ export type SMSLogRecord = {
   created_at: string;
 };
 
+export function maskPhoneNumber(raw: string): string {
+  if (!raw) return "-";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `${digits.slice(0, 2)}••••••${digits.slice(-2)}`;
+  }
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+91 ${digits.slice(2, 4)}••••••${digits.slice(-2)}`;
+  }
+  return raw.length > 5 ? `${raw.slice(0, 3)}••••${raw.slice(-2)}` : raw;
+}
+
 export function SMSLogsTab() {
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,6 +64,7 @@ export function SMSLogsTab() {
   const [selectedLogs, setSelectedLogs] = useState<string[]>([]);
   const [selectedLog, setSelectedLog] = useState<SMSLogRecord | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
 
   const handleCopy = useCallback((text: string, label: string) => {
     if (!text) return;
@@ -416,8 +429,23 @@ export function SMSLogsTab() {
                         )}
                       </td>
 
-                      {/* Phone */}
-                      <td className="px-4 py-3.5 font-mono text-xs font-medium">{log.phone}</td>
+                      {/* Phone (Masked for customer privacy) */}
+                      <td className="px-4 py-3.5 font-mono text-xs font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <span>{revealedPhones[log.id] ? log.phone : maskPhoneNumber(log.phone)}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRevealedPhones((prev) => ({ ...prev, [log.id]: !prev[log.id] }));
+                            }}
+                            className="text-muted-foreground/60 hover:text-foreground p-0.5 rounded transition"
+                            title={revealedPhones[log.id] ? "Mask phone number" : "Reveal full number"}
+                          >
+                            <Eye className="size-3" />
+                          </button>
+                        </div>
+                      </td>
 
                       {/* Event Type */}
                       <td className="px-4 py-3.5 whitespace-nowrap">

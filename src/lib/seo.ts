@@ -72,7 +72,7 @@ export function buildMetaTags(config: MetaConfig) {
   const image = config.image && config.image.startsWith("http") ? config.image : DEFAULT_OG_IMAGE;
   const canonicalUrl = config.canonicalUrl || SITE_URL;
 
-  const meta: Array<{ name?: string; property?: string; content: string }> = [
+  const meta: Array<{ name?: string; property?: string; content?: string; title?: string }> = [
     { title },
     { name: "description", content: description },
     { property: "og:site_name", content: BRAND_NAME },

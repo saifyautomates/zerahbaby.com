@@ -103,6 +103,29 @@ serve(async (req) => {
           throw new Error(`Failed to update order: ${updateError.message}`);
         }
         console.log(`Order ${order.id} updated to ${statusUpper} (${newStoreStatus})`);
+
+        // Dispatch order_delivered SMS when status changes to delivered (non-blocking)
+        if (newStoreStatus === "delivered") {
+          try {
+            fetch(`${supabaseUrl}/functions/v1/msg91-transactional`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                order_id: order.id,
+                event_type: "order_delivered",
+                notify_owner: false,
+              }),
+            }).catch((smsErr) => {
+              console.warn("[shiprocket-webhook] Delivered SMS dispatch error:", smsErr);
+            });
+          } catch {
+            // Non-blocking — never fail the webhook response due to SMS
+          }
+        }
+
       } else {
         console.log(`Order ${order.id} status unchanged`);
       }
