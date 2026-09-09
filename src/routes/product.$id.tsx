@@ -58,6 +58,7 @@ import { ReviewModal } from "@/components/site/ReviewModal";
 import { SizeGuideDrawer } from "@/components/site/SizeGuideDrawer";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
 import { calculateCartFinancials } from "@/lib/pricing-engine";
+import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -118,12 +119,13 @@ export const Route = createFileRoute("/product/$id")({
     };
   },
   head: (ctx) => {
-    const product = ctx.loaderData?.product;
+    const product = ctx?.loaderData?.product;
     if (!product) {
       return {
         meta: [
           { title: "Product Not Found | Zérah Baby & Kids" },
-          { name: "description", content: "The requested product could not be found." },
+          { name: "description", content: "The requested baby product could not be found." },
+          { name: "robots", content: "noindex, nofollow" },
         ],
       };
     }
@@ -131,73 +133,48 @@ export const Route = createFileRoute("/product/$id")({
     const canonicalUrl = `https://zerahkids.com${getProductUrl(product)}`;
     const description = product.description
       ? product.description.substring(0, 155)
-      : `Buy ${product.name} at Zérah Baby & Kids`;
+      : `Buy ${product.name} at Zérah Baby & Kids. Safe, organic, and parent-tested quality.`;
     const image = /^https?:\/\//.test(product.image)
       ? product.image
-      : `https://zerahkids.com${product.image}`;
+      : `https://zerahkids.com${product.image || "/logo.png"}`;
 
-    const hasVariants = product.variants && product.variants.length > 0;
-    const offers = hasVariants
-      ? product.variants.map((v: ProductVariant) => ({
-          "@type": "Offer",
-          url: canonicalUrl,
-          itemCondition: "https://schema.org/NewCondition",
-          priceCurrency: "INR",
-          price: v.priceOverride ?? product.price,
-          availability:
-            v.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-          sku: v.sku || v.id,
-          seller: { "@type": "Organization", name: "Zérah Baby & Kids" },
-        }))
-      : {
-          "@type": "Offer",
-          url: canonicalUrl,
-          itemCondition: "https://schema.org/NewCondition",
-          priceCurrency: "INR",
-          price: product.price,
-          availability:
-            (product.stock ?? 0) > 0
-              ? "https://schema.org/InStock"
-              : "https://schema.org/OutOfStock",
-          seller: { "@type": "Organization", name: "Zérah Baby & Kids" },
-        };
-
-    const schema: Record<string, unknown> = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: product.name,
-      description,
-      image: [image],
-      brand: { "@type": "Brand", name: product.brand || "Zérah Baby & Kids" },
-      sku: product.sku || product.id,
-      offers,
-    };
-
-    if (product.reviews > 0 && product.rating > 0) {
-      schema.aggregateRating = {
-        "@type": "AggregateRating",
-        ratingValue: product.rating,
-        reviewCount: product.reviews,
-      };
-    }
+    const productSchema = buildProductJsonLd(product, canonicalUrl);
+    const breadcrumbSchema = buildBreadcrumbJsonLd([
+      { name: "Home", url: "https://zerahkids.com" },
+      {
+        name: product.category || "Catalog",
+        url: `https://zerahkids.com/shop?category=${encodeURIComponent(product.category || "clothing")}`,
+      },
+      { name: product.name, url: canonicalUrl },
+    ]);
 
     return {
       meta: [
         { title: `${product.name} | Zérah Baby & Kids` },
         { name: "description", content: description },
+        { property: "og:site_name", content: "Zérah Baby & Kids" },
         { property: "og:title", content: `${product.name} | Zérah Baby & Kids` },
         { property: "og:description", content: description },
         { property: "og:image", content: image },
+        { property: "og:image:secure_url", content: image },
+        { property: "og:image:alt", content: product.name },
         { name: "twitter:image", content: image },
+        { name: "twitter:image:alt", content: product.name },
         { property: "og:url", content: canonicalUrl },
         { property: "og:type", content: "product" },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: `${product.name} | Zérah Baby & Kids` },
+        { name: "twitter:description", content: description },
       ],
       links: [{ rel: "canonical", href: canonicalUrl }],
       scripts: [
         {
           type: "application/ld+json",
-          children: JSON.stringify(schema),
+          children: JSON.stringify(productSchema),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(breadcrumbSchema),
         },
       ],
     };
@@ -639,7 +616,7 @@ function ProductPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 md:py-10 pb-32 md:pb-10">
-      <nav className="text-xs font-semibold tracking-wide text-muted-foreground mb-6">
+      <nav aria-label="Breadcrumb" className="text-xs font-semibold tracking-wide text-muted-foreground mb-6">
         <Link to="/" className="hover:text-primary transition-colors">
           Home
         </Link>{" "}

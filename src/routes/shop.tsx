@@ -34,14 +34,17 @@ export const Route = createFileRoute("/shop")({
     const qParam = ctx.loaderData?.search?.q;
 
     let title = "Shop Baby & Kids Essentials — Zérah Baby & Kids";
-    const desc =
-      "Browse the full Zérah Baby & Kids range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.";
+    let desc =
+      "Browse the full Zérah Baby & Kids range: organic clothing, safe wooden toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.";
     let canonicalUrl = "https://zerahkids.com/shop";
     const robots: Array<{ name: string; content: string }> = [];
+    const scripts: Array<{ type: string; children: string }> = [];
 
     if (qParam) {
-      title = `Search results for "${qParam}" | Zérah Baby & Kids`;
-      canonicalUrl = `https://zerahkids.com/shop?q=${encodeURIComponent(qParam)}`;
+      title = `Search: "${qParam}" | Zérah Baby & Kids`;
+      desc = `Search results for ${qParam} at Zérah Baby & Kids store.`;
+      // Consolidate internal search equity to the root catalog and prevent index bloat
+      canonicalUrl = "https://zerahkids.com/shop";
       robots.push({ name: "robots", content: "noindex, follow" });
     } else if (categoryParam) {
       const cat = ctx.loaderData?.categories?.find(
@@ -51,26 +54,83 @@ export const Route = createFileRoute("/shop")({
         ? cat.name
         : categoryParam
             .split("-")
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
             .join(" ");
-      title = `${catName} | Kids Clothing | Zérah Baby & Kids`;
+      title = `${catName} | Baby & Kids Essentials | Zérah Baby & Kids`;
+      desc = `Explore our curated selection of ${catName} at Zérah Baby & Kids. Safe, organic, and parent-tested quality with fast Pan-India delivery.`;
       canonicalUrl = `https://zerahkids.com/shop?category=${encodeURIComponent(categoryParam)}`;
+
+      scripts.push({
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://zerahkids.com",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Shop",
+              item: "https://zerahkids.com/shop",
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: catName,
+              item: canonicalUrl,
+            },
+          ],
+        }),
+      });
+    } else {
+      scripts.push({
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://zerahkids.com",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Shop",
+              item: "https://zerahkids.com/shop",
+            },
+          ],
+        }),
+      });
     }
 
     const meta = [
       { title },
       { name: "description", content: desc },
+      { property: "og:site_name", content: "Zérah Baby & Kids" },
       { property: "og:title", content: title },
       { property: "og:description", content: desc },
       { property: "og:type", content: "website" },
       { property: "og:url", content: canonicalUrl },
+      { property: "og:image", content: "https://zerahkids.com/logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: desc },
+      { name: "twitter:image", content: "https://zerahkids.com/logo.png" },
       ...robots,
     ];
 
     return {
       meta,
       links: [{ rel: "canonical", href: canonicalUrl }],
+      scripts,
     };
   },
   component: ShopPage,

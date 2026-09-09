@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/orders")({
       { property: "og:description", content: "Track your Zerah Baby And Kid's orders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: OrdersPage,

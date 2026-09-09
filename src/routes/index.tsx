@@ -42,21 +42,33 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Zerah Baby And Kid's — Clothing, Toys, Diapers & Gear" },
+      { title: "Zérah Baby & Kids — Premium Clothing, Wooden Toys, Diapers & Baby Gear" },
       {
         name: "description",
         content:
-          "Shop Baby And Kid's essentials at Zerah Baby And Kid's: organic clothing, wooden toys, diapers, skincare, strollers and car seats. Free delivery over ₹999.",
+          "Shop trusted baby and kids essentials at Zérah Baby & Kids in Kota, Rajasthan. Organic cotton clothing, safe wooden toys, nursery care, strollers and car seats. Free delivery on orders above ₹999.",
       },
-      { property: "og:title", content: "Zerah Baby And Kid's — Everything Your Little One Needs" },
+      { property: "og:site_name", content: "Zérah Baby & Kids" },
+      { property: "og:title", content: "Zérah Baby & Kids — Everything Your Little One Needs" },
       {
         property: "og:description",
         content:
-          "Organic baby clothing, safe toys, nursery care and travel gear, curated by parents.",
+          "Organic baby clothing, safe toys, nursery care and travel gear, curated by parents in Kota, Rajasthan.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://zerahkids.com" },
+      { property: "og:image", content: "https://zerahkids.com/logo.png" },
+      { property: "og:image:secure_url", content: "https://zerahkids.com/logo.png" },
+      { property: "og:image:alt", content: "Zérah Baby & Kids Store" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Zérah Baby & Kids — Everything Your Little One Needs" },
+      {
+        name: "twitter:description",
+        content: "Organic baby clothing, safe toys, nursery care and travel gear.",
+      },
+      { name: "twitter:image", content: "https://zerahkids.com/logo.png" },
     ],
+    links: [{ rel: "canonical", href: "https://zerahkids.com" }],
   }),
   component: Index,
 });

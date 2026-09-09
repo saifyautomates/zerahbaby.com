@@ -12,8 +12,8 @@ export const Route = createFileRoute("/_authenticated/wishlist")({
   head: () => ({
     meta: [
       { title: "My Wishlist — Zerah Baby And Kid's" },
-      { name: "description", content: "Your saved products at Zerah Baby And Kid's." },
-      { name: "robots", content: "noindex" },
+      { name: "description", content: "Your saved products at Zérah Baby & Kids." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: WishlistPage,

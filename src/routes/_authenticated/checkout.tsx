@@ -47,7 +47,7 @@ export const Route = createFileRoute("/_authenticated/checkout")({
       { property: "og:description", content: "Confirm delivery details and place your order." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: CheckoutPage,

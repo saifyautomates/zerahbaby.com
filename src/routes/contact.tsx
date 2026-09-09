@@ -22,8 +22,25 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Questions about sizes, delivery or products? Contact the Zérah team. We're here to help parents with every step.",
+          "Questions about sizes, delivery or products? Contact the Zérah Baby & Kids store in Kota. We're here to help parents with every step.",
       },
+      { property: "og:site_name", content: "Zérah Baby & Kids" },
+      { property: "og:title", content: "Contact Us | Zérah Baby & Kids" },
+      {
+        property: "og:description",
+        content:
+          "Visit our store in Kota, Rajasthan or contact us directly via phone, email or WhatsApp.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://zerahkids.com/contact" },
+      { property: "og:image", content: "https://zerahkids.com/logo.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Contact Us | Zérah Baby & Kids" },
+      {
+        name: "twitter:description",
+        content: "Visit our store in Kota or contact our parenting care team.",
+      },
+      { name: "twitter:image", content: "https://zerahkids.com/logo.png" },
     ],
     links: [{ rel: "canonical", href: "https://zerahkids.com/contact" }],
     scripts: [
@@ -31,11 +48,13 @@ export const Route = createFileRoute("/contact")({
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "LocalBusiness",
-          name: "Zérah Baby And Kid's",
+          "@type": ["Store", "ClothingStore"],
+          name: "Zérah Baby & Kids",
           url: "https://zerahkids.com",
           email: "hello@zerahkids.com",
           telephone: ["+919057074777", "+919667571712"],
+          priceRange: "₹₹",
+          image: "https://zerahkids.com/logo.png",
           address: {
             "@type": "PostalAddress",
             streetAddress: "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura",

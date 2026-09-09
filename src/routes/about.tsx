@@ -21,23 +21,37 @@ import { usePageContent, DEFAULT_ABOUT_CONTENT, type AboutPageContent } from "@/
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About Zerah Baby And Kid's — Gentle Essentials for Little Ones" },
+      { title: "About Zérah Baby & Kids — Gentle Essentials for Little Ones" },
       {
         name: "description",
         content:
-          "Zerah Baby And Kid's is a parent-run baby store curating organic clothing, safe toys and trusted nursery gear. Learn how we test and choose every product.",
+          "Zérah Baby & Kids is a parent-run baby store in Kota, Rajasthan curating organic clothing, safe wooden toys and trusted nursery gear. Learn how we test and choose every product.",
       },
+      { property: "og:site_name", content: "Zérah Baby & Kids" },
       {
         property: "og:title",
-        content: "About Zerah Baby And Kid's — Gentle Essentials for Little Ones",
+        content: "About Zérah Baby & Kids — Gentle Essentials for Little Ones",
       },
       {
         property: "og:description",
-        content: "How a parent-run baby store curates and safety-tests every product.",
+        content:
+          "How a parent-run baby store in Kota curates and safety-tests every organic baby product.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://zerahkids.com/about" },
+      { property: "og:image", content: "https://zerahkids.com/logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      {
+        name: "twitter:title",
+        content: "About Zérah Baby & Kids — Gentle Essentials for Little Ones",
+      },
+      {
+        name: "twitter:description",
+        content: "How a parent-run baby store in Kota curates and safety-tests every product.",
+      },
+      { name: "twitter:image", content: "https://zerahkids.com/logo.png" },
     ],
+    links: [{ rel: "canonical", href: "https://zerahkids.com/about" }],
   }),
   component: AboutPage,
 });

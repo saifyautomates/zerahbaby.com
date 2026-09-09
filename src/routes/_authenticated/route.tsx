@@ -34,6 +34,9 @@ export const Route = createFileRoute("/_authenticated")({
 
     return { user: session.user };
   },
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   component: AuthenticatedLayout,
 });
 

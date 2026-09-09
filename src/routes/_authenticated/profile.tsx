@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
     meta: [
       { title: "My Profile — Zerah Baby And Kid's" },
       { name: "description", content: "Manage your profile, addresses, and preferences." },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   validateSearch: z.object({

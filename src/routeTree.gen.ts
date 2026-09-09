@@ -18,6 +18,7 @@ import { Route as CancellationRefundRouteImport } from './routes/cancellation-re
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as Google9046c9669db277c7DothtmlRouteImport } from './routes/google9046c9669db277c7[.]html'
 import { Route as Googlef2fa4f5b077bfca9DothtmlRouteImport } from './routes/googlef2fa4f5b077bfca9[.]html'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
@@ -77,6 +78,11 @@ const CategoriesRoute = CategoriesRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
+  id: '/feed.xml',
+  path: '/feed.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Google9046c9669db277c7DothtmlRoute =
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/cart': typeof CartRoute
   '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByTo {
   '/cart': typeof CartRoute
   '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/cart': typeof CartRoute
   '/categories': typeof CategoriesRoute
   '/contact': typeof ContactRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/google9046c9669db277c7.html': typeof Google9046c9669db277c7DothtmlRoute
   '/googlef2fa4f5b077bfca9.html': typeof Googlef2fa4f5b077bfca9DothtmlRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -252,6 +261,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/categories'
     | '/contact'
+    | '/feed.xml'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/categories'
     | '/contact'
+    | '/feed.xml'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/categories'
     | '/contact'
+    | '/feed.xml'
     | '/google9046c9669db277c7.html'
     | '/googlef2fa4f5b077bfca9.html'
     | '/privacy-policy'
@@ -332,6 +344,7 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   CategoriesRoute: typeof CategoriesRoute
   ContactRoute: typeof ContactRoute
+  FeedDotxmlRoute: typeof FeedDotxmlRoute
   Google9046c9669db277c7DothtmlRoute: typeof Google9046c9669db277c7DothtmlRoute
   Googlef2fa4f5b077bfca9DothtmlRoute: typeof Googlef2fa4f5b077bfca9DothtmlRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -406,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed.xml': {
+      id: '/feed.xml'
+      path: '/feed.xml'
+      fullPath: '/feed.xml'
+      preLoaderRoute: typeof FeedDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/google9046c9669db277c7.html': {
@@ -565,6 +585,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   CategoriesRoute: CategoriesRoute,
   ContactRoute: ContactRoute,
+  FeedDotxmlRoute: FeedDotxmlRoute,
   Google9046c9669db277c7DothtmlRoute: Google9046c9669db277c7DothtmlRoute,
   Googlef2fa4f5b077bfca9DothtmlRoute: Googlef2fa4f5b077bfca9DothtmlRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,

@@ -4,6 +4,8 @@ Disallow: /admin
 Disallow: /cart
 Disallow: /checkout
 Disallow: /profile
+Disallow: /orders
+Disallow: /wishlist
 Disallow: /auth
 
 User-agent: Googlebot-Image
@@ -16,6 +18,9 @@ Disallow: /admin
 Disallow: /cart
 Disallow: /checkout
 Disallow: /profile
+Disallow: /orders
+Disallow: /wishlist
 Disallow: /auth
 
 Sitemap: https://zerahkids.com/sitemap.xml
+

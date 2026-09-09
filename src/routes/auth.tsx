@@ -21,7 +21,7 @@ export const Route = createFileRoute("/auth")({
       { property: "og:description", content: "Sign in securely with a one-time password." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: AuthPage,
