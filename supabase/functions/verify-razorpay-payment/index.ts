@@ -53,7 +53,7 @@ serve(async (req) => {
       throw new Error("Missing required Razorpay payment verification parameters");
     }
 
-    // 3. Resolve Secret & Compute HMAC SHA-256 Signature
+    // 3. Resolve Secret & Query Server-Stored Payment Attempt (Authoritative Order ID)
     const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
     const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
     const razorpayKeyId = rawKeyId.trim();
@@ -63,7 +63,26 @@ serve(async (req) => {
       throw new Error("Razorpay secret not configured on server");
     }
 
-    const signaturePayload = `${razorpay_order_id}|${razorpay_payment_id}`;
+    // Server-Authoritative Order ID Check: Query payment_attempts for original stored record
+    let authoritativeOrderId = razorpay_order_id;
+    const { data: attemptRecord, error: attemptErr } = await adminClient
+      .from("payment_attempts")
+      .select("id, razorpay_order_id, checkout_session_id, amount, status")
+      .eq("razorpay_order_id", razorpay_order_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (attemptRecord?.razorpay_order_id) {
+      authoritativeOrderId = attemptRecord.razorpay_order_id;
+    } else {
+      console.warn(
+        "[verify-razorpay-payment] Notice: No pre-existing payment attempt row found for",
+        razorpay_order_id,
+      );
+    }
+
+    const signaturePayload = `${authoritativeOrderId}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", razorpayKeySecret)
       .update(signaturePayload)
@@ -71,14 +90,14 @@ serve(async (req) => {
 
     if (expectedSignature !== razorpay_signature) {
       console.error("[verify-razorpay-payment] Signature mismatch:", {
-        orderId: razorpay_order_id,
+        orderId: authoritativeOrderId,
         paymentId: razorpay_payment_id,
       });
 
       // Track verification failure
       try {
         await adminClient.rpc("update_payment_attempt_status", {
-          _razorpay_order_id: razorpay_order_id,
+          _razorpay_order_id: authoritativeOrderId,
           _status: "verification_failed",
           _error_message: "Invalid payment verification signature",
         });

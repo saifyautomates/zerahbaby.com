@@ -10,13 +10,13 @@ export const Route = createFileRoute("/$")({
         throw redirect({
           to: "/product/$id",
           params: resolved.params as { id: string },
-          search: resolved.search as any,
+          search: resolved.search as unknown as Record<string, string>,
           replace: true,
         });
       }
       throw redirect({
-        to: resolved.to as any,
-        search: resolved.search as any,
+        to: resolved.to as string,
+        search: resolved.search as unknown as Record<string, string>,
         replace: true,
       });
     }

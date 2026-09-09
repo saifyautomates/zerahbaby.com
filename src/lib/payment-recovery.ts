@@ -26,7 +26,9 @@ export interface PendingPaymentAttempt {
 }
 
 /** Save a pending payment attempt before opening Razorpay */
-export function savePendingPayment(data: Omit<PendingPaymentAttempt, "saved_at" | "expires_at">): void {
+export function savePendingPayment(
+  data: Omit<PendingPaymentAttempt, "saved_at" | "expires_at">,
+): void {
   try {
     const record: PendingPaymentAttempt = {
       ...data,

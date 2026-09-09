@@ -171,7 +171,9 @@ function CheckoutPage() {
               const body = await errCtx.json();
               if (body?.error) msg = body.error;
             }
-          } catch { /* fallback */ }
+          } catch {
+            /* fallback */
+          }
           throw new Error(msg || verifyData?.error || "Payment verification failed");
         }
 
@@ -304,14 +306,21 @@ function CheckoutPage() {
 
     try {
       if (addressMode === "new") {
-        await saveProfile.mutateAsync({
-          full_name: form.full_name.trim(),
-          phone: form.phone.trim(),
-          address: form.address.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          pincode: form.pincode.trim(),
-        });
+        try {
+          await saveProfile.mutateAsync({
+            full_name: form.full_name.trim(),
+            phone: form.phone.trim(),
+            address: form.address.trim(),
+            city: form.city.trim(),
+            state: form.state.trim(),
+            pincode: form.pincode.trim(),
+          });
+        } catch (profileErr) {
+          console.warn(
+            "[Checkout] Could not persist address to profile (non-blocking):",
+            profileErr,
+          );
+        }
       }
 
       const generatedIdempotencyKey =
@@ -460,7 +469,9 @@ function CheckoutPage() {
             const body = await errCtx.json();
             if (body?.error) msg = body.error;
           }
-        } catch { /* fallback */ }
+        } catch {
+          /* fallback */
+        }
         throw new Error(msg || "Failed to initialize payment gateway order");
       }
       if (createData?.error) throw new Error(createData.error);
@@ -518,11 +529,7 @@ function CheckoutPage() {
                 },
                 other: {
                   name: "Other Payment Modes",
-                  instruments: [
-                    { method: "card" },
-                    { method: "netbanking" },
-                    { method: "wallet" },
-                  ],
+                  instruments: [{ method: "card" }, { method: "netbanking" }, { method: "wallet" }],
                 },
               },
               sequence: ["block.upi", "block.other"],

@@ -88,11 +88,12 @@ export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: U
       }
 
       updateJob(job.id, { state: "SAVED", publicUrl, progress: 100 });
-    } catch (err: any) {
-      if (err.message === "Aborted") {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err || "");
+      if (errMsg === "Aborted") {
         updateJob(job.id, { state: "CANCELLED" });
       } else {
-        updateJob(job.id, { state: "FAILED", error: err.message || "Upload failed" });
+        updateJob(job.id, { state: "FAILED", error: errMsg || "Upload failed" });
       }
     } finally {
       activeCountRef.current--;

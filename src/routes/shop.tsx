@@ -37,7 +37,7 @@ export const Route = createFileRoute("/shop")({
     const desc =
       "Browse the full Zérah Baby & Kids range: clothing, toys, diapers and skincare, strollers, car seats and carriers. Filter by age, brand and price.";
     let canonicalUrl = "https://zerahkids.com/shop";
-    const robots: any[] = [];
+    const robots: Array<{ name: string; content: string }> = [];
 
     if (qParam) {
       title = `Search results for "${qParam}" | Zérah Baby & Kids`;

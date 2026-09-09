@@ -53,7 +53,7 @@ export interface TableSelectionResult<T> {
 /**
  * Universal hook for table row selection with stable UUID tracking
  */
-export function useTableSelection<T = any>({
+export function useTableSelection<T = Record<string, unknown>>({
   items,
   getId = (item: T) =>
     String((item as Record<string, unknown>).id || (item as Record<string, unknown>).uuid || ""),

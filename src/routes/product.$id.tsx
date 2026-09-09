@@ -43,6 +43,7 @@ import {
   getColorGallery,
   getColorSwatchImage,
   type Product,
+  type ProductVariant,
 } from "@/lib/store";
 import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
@@ -137,7 +138,7 @@ export const Route = createFileRoute("/product/$id")({
 
     const hasVariants = product.variants && product.variants.length > 0;
     const offers = hasVariants
-      ? product.variants.map((v: any) => ({
+      ? product.variants.map((v: ProductVariant) => ({
           "@type": "Offer",
           url: canonicalUrl,
           itemCondition: "https://schema.org/NewCondition",
@@ -161,7 +162,7 @@ export const Route = createFileRoute("/product/$id")({
           seller: { "@type": "Organization", name: "Zérah Baby & Kids" },
         };
 
-    const schema: any = {
+    const schema: Record<string, unknown> = {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.name,
@@ -1957,15 +1958,19 @@ function BuyNowModal({
 
     let orderId = "";
     try {
-      // Save profile address changes
-      await saveProfile.mutateAsync({
-        full_name: form.full_name.trim(),
-        phone: form.phone.trim(),
-        address: form.address.trim(),
-        city: form.city.trim(),
-        state: form.state.trim(),
-        pincode: form.pincode.trim(),
-      });
+      // Save profile address changes (non-blocking)
+      try {
+        await saveProfile.mutateAsync({
+          full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+        });
+      } catch (profileErr) {
+        console.warn("[BuyNow] Profile auto-save non-blocking notice:", profileErr);
+      }
 
       // Place single-item order securely via server RPC
       orderId = await placeOrder.mutateAsync({

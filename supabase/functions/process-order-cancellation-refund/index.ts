@@ -68,7 +68,12 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (roleRow?.role === "admin") {
+    if (
+      roleRow?.role === "admin" ||
+      roleRow?.role === "owner" ||
+      roleRow?.role === "manager" ||
+      roleRow?.role === "staff"
+    ) {
       isAdmin = true;
     }
 

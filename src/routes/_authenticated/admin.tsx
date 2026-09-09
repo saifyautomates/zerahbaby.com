@@ -4493,7 +4493,8 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
                     const isExpanded = expandedOrderId === ord.id;
                     const itemsCount =
                       ord.order_items?.reduce(
-                        (acc: number, it: any) => acc + Number(it.quantity || it.qty || 1),
+                        (acc: number, it: { quantity?: number; qty?: number }) =>
+                          acc + Number(it.quantity || it.qty || 1),
                         0,
                       ) || 0;
 

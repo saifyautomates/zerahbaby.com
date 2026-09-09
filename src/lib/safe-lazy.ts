@@ -34,6 +34,7 @@ export function isChunkLoadError(err: unknown): boolean {
  * If a chunk fails to load due to a stale client asset hash, it triggers at most
  * ONE controlled full-page refresh to fetch the latest manifest, without ever infinite-looping.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function safeLazy<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T } | T>,
 ): LazyExoticComponent<T> {

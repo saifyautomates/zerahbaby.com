@@ -98,7 +98,8 @@ export function OnboardingModal() {
     profile.phone?.trim() &&
     profile.address?.trim() &&
     profile.city?.trim() &&
-    profile.state?.trim();
+    profile.state?.trim() &&
+    profile.pincode?.trim();
 
   if (isProfileComplete) {
     return null;

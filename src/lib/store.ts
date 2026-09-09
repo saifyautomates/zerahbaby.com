@@ -29,70 +29,14 @@ export const imageFor = (
   return fallbackImages[category] ?? fallbackImages.clothing;
 };
 
-export type ProductVariant = {
-  id: string;
-  name: string;
-  color?: string | null;
-  size?: string | null;
-  sku: string;
-  barcode?: string | null;
-  stock: number;
-  priceOverride?: number;
-  mrpOverride?: number;
-  imageUrl?: string | null;
-  conflictReconciliationNeeded?: boolean;
-};
+import type {
+  Product,
+  ProductVariant,
+  Category,
+  ProductImage as ProductImageItem,
+} from "@/domain/models";
 
-export type ProductImageItem = {
-  id?: string;
-  public_url: string;
-  is_primary: boolean;
-  sort_order: number;
-  color?: string | null;
-  alt_text?: string | null;
-};
-
-export type Product = {
-  uuid: string;
-  id: string; // slug — used in URLs and the cart
-  name: string;
-  brand: string;
-  category: string;
-  price: number;
-  mrp: number;
-  rating: number;
-  reviews: number;
-  ageGroup: string;
-  image: string;
-  imageUrl: string | null;
-  description: string;
-  highlights: string[];
-  isFeatured: boolean;
-  isActive: boolean;
-  sortOrder: number;
-  stock: number;
-  lowStockAt: number;
-  sku: string;
-  barcode: string;
-  images: string[];
-  product_images?: ProductImageItem[];
-  buyingPrice?: number;
-  deliveryFee?: number;
-  recommendationMode?: "manual" | "auto" | "manual_fallback";
-  salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
-  sales_channel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
-  variants: ProductVariant[];
-};
-
-export type Category = {
-  uuid: string;
-  slug: string;
-  name: string;
-  tagline: string;
-  image: string;
-  imageUrl: string | null;
-  sortOrder: number;
-};
+export type { Product, ProductVariant, Category, ProductImageItem };
 
 type ProductRow = {
   id: string;
@@ -573,7 +517,7 @@ export async function fetchSingleProduct(
       const { getCachedCatalog } = await import("@/lib/offline-sync-engine");
       const cached = await getCachedCatalog();
       if (cached && cached.length > 0) {
-        const match = cached.find((r: any) => {
+        const match = cached.find((r: ProductRow) => {
           const s = (r.slug || "").toLowerCase();
           const u = (r.id || "").toLowerCase();
           const k = (r.sku || "").toLowerCase();

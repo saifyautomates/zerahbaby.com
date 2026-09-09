@@ -14,31 +14,8 @@ import { useSession } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCartFinancials } from "@/lib/pricing-engine";
 
-export type CartLine = { id: string; qty: number; variantId?: string };
-
-export type CartItem = {
-  product: Product;
-  qty: number;
-  variantId?: string;
-  variant?: ProductVariant | null;
-  price: number;
-  mrp: number;
-  stock: number;
-  color?: string | null;
-  size?: string | null;
-  image: string;
-  sku?: string;
-};
-
-export type CartCoupon = {
-  code: string;
-  id: string;
-  discountType: "percentage" | "fixed";
-  discountValue: number;
-  minimumOrderValue: number;
-  maximumDiscount: number;
-  discount: number;
-};
+import type { CartLine, CartItem, CartCoupon } from "@/domain/models";
+export type { CartLine, CartItem, CartCoupon };
 
 type CartContextValue = {
   lines: CartLine[];

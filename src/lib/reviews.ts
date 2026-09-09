@@ -74,15 +74,15 @@ export function useProductReviews(productId: string | undefined) {
         );
 
         if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-          return rpcData.map((r: any) => ({
-            id: r.id,
-            product_id: r.product_id,
-            user_id: r.user_id,
-            order_id: r.order_id,
+          return (rpcData as Array<Record<string, unknown>>).map((r) => ({
+            id: String(r.id || ""),
+            product_id: String(r.product_id || ""),
+            user_id: String(r.user_id || ""),
+            order_id: r.order_id ? String(r.order_id) : null,
             rating: Number(r.rating) || 5,
-            title: (r.title as string) || "",
-            comment: (r.comment as string) || "",
-            images: Array.isArray(r.images) ? r.images : [],
+            title: String(r.title || ""),
+            comment: String(r.comment || ""),
+            images: Array.isArray(r.images) ? (r.images as string[]) : [],
             verified_purchase: Boolean(r.verified_purchase),
             status: r.status,
             created_at: r.created_at,
