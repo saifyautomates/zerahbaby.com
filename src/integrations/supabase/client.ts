@@ -2,6 +2,14 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
+export function isJwtToken(token: unknown): token is string {
+  if (typeof token !== "string") return false;
+  const trimmed = token.trim();
+  if (!trimmed) return false;
+  const parts = trimmed.split(".");
+  return parts.length === 3 && parts[0].length > 0 && parts[1].length > 0 && parts[2].length > 0;
+}
+
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
@@ -16,12 +24,18 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
 
-    // New Supabase API keys are opaque strings, not bearer JWTs.
-    if (
-      isNewSupabaseApiKey(supabaseKey) &&
-      headers.get("Authorization") === `Bearer ${supabaseKey}`
-    ) {
-      headers.delete("Authorization");
+    const authHeader = headers.get("Authorization");
+    if (authHeader) {
+      const match = authHeader.match(/^Bearer\s+(.+)$/i);
+      if (match) {
+        const token = match[1].trim();
+        // If the bearer token is the opaque publishable key or any non-JWT token, strip it
+        if (!isJwtToken(token) || isNewSupabaseApiKey(token) || token === supabaseKey) {
+          headers.delete("Authorization");
+        }
+      } else if (isNewSupabaseApiKey(supabaseKey)) {
+        headers.delete("Authorization");
+      }
     }
 
     headers.set("apikey", supabaseKey);
@@ -60,6 +74,35 @@ function createSupabaseClient() {
       storage: typeof window !== "undefined" ? localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+      accessToken: async () => {
+        if (typeof window === "undefined") return null;
+        try {
+          // 1. Direct check in localStorage for active session token
+          const projectRef = new URL(SUPABASE_URL).hostname.split(".")[0];
+          const storageKey = `sb-${projectRef}-auth-token`;
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const token = parsed?.access_token || parsed?.currentSession?.access_token;
+            if (isJwtToken(token)) return token;
+          }
+
+          // 2. Fallback to active in-memory auth session if client is instantiated
+          if (_supabase?.auth) {
+            const { data } = await _supabase.auth.getSession();
+            const token = data?.session?.access_token;
+            if (isJwtToken(token)) return token;
+          }
+        } catch {
+          // Never throw, return null to prevent malformed JWT errors
+        }
+        return null;
+      },
     },
   });
 }
