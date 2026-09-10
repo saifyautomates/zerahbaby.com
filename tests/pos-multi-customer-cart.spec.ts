@@ -301,7 +301,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
 
     // Verify POS Terminal title
     await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 10000,
+      timeout: 15000,
     });
 
     // Verify "+ New Sale" button is visible

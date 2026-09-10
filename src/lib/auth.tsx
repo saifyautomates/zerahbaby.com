@@ -47,18 +47,34 @@ export async function ensureAuthSession(): Promise<Session | null> {
   if (typeof window === "undefined") return null;
 
   // Test mode bypass for local E2E in-browser audits
-  if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
-    return {
-      user: {
-        id: "00000000-0000-0000-0000-000000000001",
-        email: "sameer@zerahkids.com",
-        role: "authenticated",
-        aud: "authenticated",
-        app_metadata: {},
-        user_metadata: { full_name: "Sameer" },
-        created_at: new Date().toISOString(),
-      },
-    } as unknown as Session;
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    if (localStorage.getItem("zerah_test_admin") === "true") {
+      return {
+        user: {
+          id: "00000000-0000-0000-0000-000000000001",
+          email: "sameer@zerahkids.com",
+          role: "authenticated",
+          aud: "authenticated",
+          app_metadata: {},
+          user_metadata: { full_name: "Sameer" },
+          created_at: new Date().toISOString(),
+        },
+      } as unknown as Session;
+    }
+    if (localStorage.getItem("zerah_test_new_user") === "true") {
+      return {
+        user: {
+          id: "00000000-0000-0000-0000-000000000002",
+          email: "newcustomer@zerahkids.com",
+          phone: "+917014098198",
+          role: "authenticated",
+          aud: "authenticated",
+          app_metadata: {},
+          user_metadata: {},
+          created_at: new Date().toISOString(),
+        },
+      } as unknown as Session;
+    }
   }
 
   if (globalInitialized) {
@@ -214,29 +230,39 @@ export function useSession() {
     };
   }, [queryClient]);
 
-  const testAdminUser = useMemo(() => {
-    if (
-      import.meta.env.DEV &&
-      typeof window !== "undefined" &&
-      localStorage.getItem("zerah_test_admin") === "true"
-    ) {
-      return {
-        id: "00000000-0000-0000-0000-000000000001",
-        email: "sameer@zerahkids.com",
-        role: "authenticated",
-        aud: "authenticated",
-        app_metadata: {},
-        user_metadata: { full_name: "Sameer" },
-        created_at: new Date().toISOString(),
-      } as unknown as User;
+  const testUser = useMemo(() => {
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      if (localStorage.getItem("zerah_test_admin") === "true") {
+        return {
+          id: "00000000-0000-0000-0000-000000000001",
+          email: "sameer@zerahkids.com",
+          role: "authenticated",
+          aud: "authenticated",
+          app_metadata: {},
+          user_metadata: { full_name: "Sameer" },
+          created_at: new Date().toISOString(),
+        } as unknown as User;
+      }
+      if (localStorage.getItem("zerah_test_new_user") === "true") {
+        return {
+          id: "00000000-0000-0000-0000-000000000002",
+          email: "newcustomer@zerahkids.com",
+          phone: "+917014098198",
+          role: "authenticated",
+          aud: "authenticated",
+          app_metadata: {},
+          user_metadata: {},
+          created_at: new Date().toISOString(),
+        } as unknown as User;
+      }
     }
     return null;
   }, []);
 
   return {
     session,
-    user: (testAdminUser || (session?.user ?? null)) as User | null,
-    loading: testAdminUser ? false : loading,
+    user: (testUser || (session?.user ?? null)) as User | null,
+    loading: testUser ? false : loading,
   };
 }
 

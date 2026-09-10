@@ -45,6 +45,7 @@ test.describe("Zerah Baby And Kids - End to End Smoke Tests", () => {
         await page.waitForTimeout(500);
       }
     }
+    await page.waitForLoadState("networkidle");
 
     // Go to cart
     await page.goto("/cart", { waitUntil: "domcontentloaded" });
