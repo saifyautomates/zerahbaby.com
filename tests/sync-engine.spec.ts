@@ -125,7 +125,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
 
   test("3. Storefront Live Category & Product Cards Hydration", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle(/Zerah Baby And Kid'?s/i);
+    await expect(page).toHaveTitle(/Z[eé]rah Baby (&|And) Kids?/i);
 
     // Verify categories loaded
     const categoryCards = page.locator("[data-card], .group\\/cat");

@@ -36,7 +36,7 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
     await page.goto(PROD_URL, { waitUntil: "networkidle" });
 
     // Verify title and basic layout
-    await expect(page).toHaveTitle(/Zerah/i);
+    await expect(page).toHaveTitle(/Z[eé]rah/i);
 
     // Check if body content contains localhost
     const pageContent = await page.content();

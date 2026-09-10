@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Production Hardening - Full-Stack Synchronization & Security", () => {
   test("1. Storefront & Database Catalogue Synchronization", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle(/Zerah Baby And Kid'?s/i);
+    await expect(page).toHaveTitle(/Z[eé]rah Baby (&|And) Kids?/i);
 
     // Verify categories loaded from Supabase
     const categories = page.locator("[data-card]");

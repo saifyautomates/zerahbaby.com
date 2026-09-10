@@ -134,11 +134,23 @@ import { useQuery } from "@tanstack/react-query";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const isHydratedRef = useRef(false);
+  const [lines, setLines] = useState<CartLine[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(GUEST_STORAGE_KEY);
+      if (raw) {
+        isHydratedRef.current = true;
+        return JSON.parse(raw) as CartLine[];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
   const { data: products, isLoading: productsLoading } = useProducts();
   const prevUserIdRef = useRef<{ id?: string }>({ id: undefined });
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
-  const isHydratedRef = useRef(false);
   const [knownProducts, setKnownProducts] = useState<Record<string, Product>>({});
 
   const registerProduct = useCallback((p: Product) => {
@@ -168,13 +180,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return Array.from(new Set(map.values()));
   }, [products, knownProducts]);
 
-  // Load persisted cart from localStorage after client hydration
+  // Load persisted cart from localStorage after client hydration or user change
   useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
       const key = getCartStorageKey(user?.id);
       const raw = window.localStorage.getItem(key);
       if (raw) {
         setLines(JSON.parse(raw) as CartLine[]);
+      } else if (user?.id) {
+        const guestRaw = window.localStorage.getItem(GUEST_STORAGE_KEY);
+        if (guestRaw) {
+          setLines(JSON.parse(guestRaw) as CartLine[]);
+        }
       }
     } catch {
       // Ignore parse error
@@ -250,7 +268,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isHydratedRef.current) {
-      isHydratedRef.current = true;
       return;
     }
     try {
@@ -290,17 +307,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Prune deleted or inactive products from cart lines
   useEffect(() => {
-    if (!products || products.length === 0) return;
+    if (!allProducts || allProducts.length === 0) return;
     const validIds = new Set<string>();
-    for (const p of products) {
+    for (const p of allProducts) {
       validIds.add(p.id);
       validIds.add(p.uuid);
     }
     setLines((prev) => {
       const filtered = prev.filter((l) => validIds.has(l.id));
-      return filtered.length !== prev.length ? filtered : prev;
+      if (filtered.length !== prev.length) {
+        return filtered;
+      }
+      return prev;
     });
-  }, [products]);
+  }, [allProducts]);
 
   // Sync to Supabase (debounced)
   useEffect(() => {

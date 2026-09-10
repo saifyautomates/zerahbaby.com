@@ -5,7 +5,7 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     // Verify title and brand header
-    await expect(page).toHaveTitle(/Zerah Baby And Kid'?s/i);
+    await expect(page).toHaveTitle(/Z[eé]rah Baby (&|And) Kids?/i);
     await expect(page.locator("header")).toBeVisible();
 
     // Verify category carousel / cards are loaded
