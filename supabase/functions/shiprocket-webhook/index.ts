@@ -125,7 +125,6 @@ serve(async (req) => {
             // Non-blocking — never fail the webhook response due to SMS
           }
         }
-
       } else {
         console.log(`Order ${order.id} status unchanged`);
       }

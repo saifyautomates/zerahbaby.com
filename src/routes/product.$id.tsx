@@ -616,7 +616,10 @@ function ProductPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 md:py-10 pb-32 md:pb-10">
-      <nav aria-label="Breadcrumb" className="text-xs font-semibold tracking-wide text-muted-foreground mb-6">
+      <nav
+        aria-label="Breadcrumb"
+        className="text-xs font-semibold tracking-wide text-muted-foreground mb-6"
+      >
         <Link to="/" className="hover:text-primary transition-colors">
           Home
         </Link>{" "}

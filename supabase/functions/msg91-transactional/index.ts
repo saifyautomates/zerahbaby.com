@@ -27,7 +27,11 @@ const TEMPLATE_CONFIG = {
     templateId: "6aa1d097daacdd8930018922",
     secretKey: "MSG91_TEMPLATE_NEW_ORDER_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({ var1: String(ctx.ref || ""), var2: String(ctx.name || ""), var3: String(ctx.total ?? "") }),
+    buildVars: (ctx) => ({
+      var1: String(ctx.ref || ""),
+      var2: String(ctx.name || ""),
+      var3: String(ctx.total ?? ""),
+    }),
   },
   // Template 3: Order Delivered - var1=Customer Name, var2=Order ID
   order_delivered_customer: {
@@ -41,14 +45,22 @@ const TEMPLATE_CONFIG = {
     templateId: "6aa1cb843c42b39d420dbff2",
     secretKey: "MSG91_TEMPLATE_OFFLINE_PURCHASE",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({ var1: String(ctx.ref || ""), var2: String(ctx.total ?? ""), var3: STORE_NAME }),
+    buildVars: (ctx) => ({
+      var1: String(ctx.ref || ""),
+      var2: String(ctx.total ?? ""),
+      var3: STORE_NAME,
+    }),
   },
   // Template 6: Offline Sale Admin - var1=Transaction ID, var2=Amount, var3=Store
   offline_pos_sale_owner: {
     templateId: "6aa1d17366745ba0d206c582",
     secretKey: "MSG91_TEMPLATE_OFFLINE_SALE_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({ var1: String(ctx.ref || ""), var2: String(ctx.total ?? ""), var3: STORE_NAME }),
+    buildVars: (ctx) => ({
+      var1: String(ctx.ref || ""),
+      var2: String(ctx.total ?? ""),
+      var3: STORE_NAME,
+    }),
   },
   // Order Cancelled - customer only, uses order_confirmed template as closest fallback
   order_cancelled_customer: {
@@ -95,6 +107,48 @@ function normalizeIndianPhone(rawPhone) {
 function isValidUuid(val) {
   if (!val) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+}
+
+// ---------------------------------------------------------------------------
+// Rate Limit Guard: max 5 SMS per (phone, event_type) per rolling 60-minute window.
+// Uses the existing sms_logs table — no extra schema required.
+// adminClient must be initialised before this is called.
+// ---------------------------------------------------------------------------
+let _adminClientForRateLimit: ReturnType<typeof createClient> | null = null;
+
+function setAdminClientForRateLimit(client: ReturnType<typeof createClient>) {
+  _adminClientForRateLimit = client;
+}
+
+async function checkRateLimitAndRecord(
+  phone: string,
+  eventType: string,
+): Promise<{ allowed: boolean; error: string | null }> {
+  if (!_adminClientForRateLimit) {
+    // No client yet — allow to avoid blocking startup
+    return { allowed: true, error: null };
+  }
+  try {
+    const windowStart = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count } = await _adminClientForRateLimit
+      .from("sms_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("phone", phone)
+      .eq("message_type", eventType)
+      .gte("sent_at", windowStart);
+
+    const recent = count ?? 0;
+    if (recent >= 5) {
+      return {
+        allowed: false,
+        error: `Rate limit: ${recent} SMS already sent for ${eventType} to this number in the last hour`,
+      };
+    }
+    return { allowed: true, error: null };
+  } catch {
+    // On DB error, allow — never block legitimate sends
+    return { allowed: true, error: null };
+  }
 }
 
 // MSG91 Flow API Dispatch with 10s timeout and strict error categorization
@@ -157,7 +211,7 @@ async function dispatchToMsg91(authKey, templateId, cleanPhone, vars) {
       providerStatus: "error",
       errorCategory,
       providerMsgId: null,
-      errorDetails: `[${errorCategory}] ${isTimeout ? "MSG91 request timed out (10s)" : (err.message || "MSG91 network failure")}`,
+      errorDetails: `[${errorCategory}] ${isTimeout ? "MSG91 request timed out (10s)" : err.message || "MSG91 network failure"}`,
     };
   } finally {
     clearTimeout(timer);
@@ -184,6 +238,9 @@ serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Wire admin client into rate-limit helper for this request
+  setAdminClientForRateLimit(adminClient);
+
   // Authentication Guard
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -191,7 +248,9 @@ serve(async (req) => {
 
   if (!isAuthorized && token) {
     try {
-      const { data: { user } } = await adminClient.auth.getUser(token);
+      const {
+        data: { user },
+      } = await adminClient.auth.getUser(token);
       if (user) {
         const { data: roleRow } = await adminClient
           .from("user_roles")
@@ -238,7 +297,9 @@ serve(async (req) => {
     if (action === "retry") {
       if (!isAuthorized) {
         return new Response(
-          JSON.stringify({ error: "Unauthorized: Staff or Admin privileges required to retry SMS logs." }),
+          JSON.stringify({
+            error: "Unauthorized: Staff or Admin privileges required to retry SMS logs.",
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 },
         );
       }
@@ -269,13 +330,21 @@ serve(async (req) => {
       let retryMsgId = null;
 
       if (msg91AuthKey && existingLog.template_id && existingLog.phone) {
-        const result = await dispatchToMsg91(msg91AuthKey, existingLog.template_id, existingLog.phone, {});
+        const result = await dispatchToMsg91(
+          msg91AuthKey,
+          existingLog.template_id,
+          existingLog.phone,
+          {},
+        );
         retryProviderStatus = result.providerStatus;
         retryError = result.errorDetails;
         retryMsgId = result.providerMsgId;
       }
 
-      const newStatus = retryProviderStatus === "sent" || retryProviderStatus === "mock_success" ? "SENT" : "FAILED";
+      const newStatus =
+        retryProviderStatus === "sent" || retryProviderStatus === "mock_success"
+          ? "SENT"
+          : "FAILED";
 
       const { data: updatedLog } = await adminClient
         .from("sms_logs")
@@ -314,9 +383,16 @@ serve(async (req) => {
     }
 
     const ALLOWED_EVENTS = [
-      "online_sale", "offline_pos_sale", "order_placed", "order_confirmed",
-      "order_cancelled", "order_shipped", "order_out_for_delivery",
-      "order_delivered", "pos_return", "pos_return_credit",
+      "online_sale",
+      "offline_pos_sale",
+      "order_placed",
+      "order_confirmed",
+      "order_cancelled",
+      "order_shipped",
+      "order_out_for_delivery",
+      "order_delivered",
+      "pos_return",
+      "pos_return_credit",
     ];
 
     const currentEventType = event_type || (order_id ? "online_sale" : "offline_pos_sale");
@@ -337,20 +413,31 @@ serve(async (req) => {
     let authoritativeRef =
       payload.sale_number ||
       payload.order_number ||
-      (order_id ? (order_id.length > 12 ? order_id.substring(0, 8).toUpperCase() : order_id) : "") ||
-      (offline_sale_id ? (offline_sale_id.length > 12 ? offline_sale_id.substring(0, 8).toUpperCase() : offline_sale_id) : "") ||
+      (order_id
+        ? order_id.length > 12
+          ? order_id.substring(0, 8).toUpperCase()
+          : order_id
+        : "") ||
+      (offline_sale_id
+        ? offline_sale_id.length > 12
+          ? offline_sale_id.substring(0, 8).toUpperCase()
+          : offline_sale_id
+        : "") ||
       "ORD";
 
     if (order_id) {
       const { data: order } = await adminClient
         .from("orders")
-        .select("id, phone, full_name, total, payment_method, order_number, invoice_no, order_items(id, qty)")
+        .select(
+          "id, phone, full_name, total, payment_method, order_number, invoice_no, order_items(id, qty)",
+        )
         .eq("id", order_id)
         .maybeSingle();
 
       if (order) {
         if (!authoritativePhone) authoritativePhone = order.phone || "";
-        if (!authoritativeName || authoritativeName === "Customer") authoritativeName = order.full_name || "Customer";
+        if (!authoritativeName || authoritativeName === "Customer")
+          authoritativeName = order.full_name || "Customer";
         if (!authoritativeTotal) authoritativeTotal = Number(order.total || 0);
         authoritativePayment = order.payment_method ? order.payment_method.toUpperCase() : "ONLINE";
         authoritativeRef = order.order_number || order.invoice_no || order.id.substring(0, 8);
@@ -361,18 +448,24 @@ serve(async (req) => {
     } else if (offline_sale_id) {
       const { data: sale } = await adminClient
         .from("offline_sales")
-        .select("id, customer_phone, customer_name, total, payment_method, sale_number, offline_sale_items(id, qty)")
+        .select(
+          "id, customer_phone, customer_name, total, payment_method, sale_number, offline_sale_items(id, qty)",
+        )
         .eq("id", offline_sale_id)
         .maybeSingle();
 
       if (sale) {
         if (!authoritativePhone) authoritativePhone = sale.customer_phone || "";
-        if (!authoritativeName || authoritativeName === "Customer") authoritativeName = sale.customer_name || "Customer";
+        if (!authoritativeName || authoritativeName === "Customer")
+          authoritativeName = sale.customer_name || "Customer";
         if (!authoritativeTotal) authoritativeTotal = Number(sale.total || 0);
         authoritativePayment = sale.payment_method ? sale.payment_method.toUpperCase() : "CASH";
         authoritativeRef = sale.sale_number || sale.id.substring(0, 8);
         if (Array.isArray(sale.offline_sale_items)) {
-          authoritativeItemsCount = sale.offline_sale_items.reduce((sum, it) => sum + (it.qty || 1), 0);
+          authoritativeItemsCount = sale.offline_sale_items.reduce(
+            (sum, it) => sum + (it.qty || 1),
+            0,
+          );
         }
       }
     }
@@ -387,117 +480,49 @@ serve(async (req) => {
 
     const results = [];
 
-    // Inner helper: dispatch one SMS to one recipient
     const dispatchSingleSms = async (targetPhone, targetRecipientType) => {
-      const { valid, phone: cleanPhone, error: phoneErr } = normalizeIndianPhone(targetPhone);
+      const { allowed, error: rateLimitError } = await checkRateLimitAndRecord(targetPhone, currentEventType);
+      if (!allowed) return { success: false, error: rateLimitError, recipient: targetRecipientType };
 
+      const { valid, phone: cleanPhone, error: phoneErr } = normalizeIndianPhone(targetPhone);
       if (!valid) {
-        console.warn(`[msg91-transactional] Phone normalization failed for ${targetRecipientType}:`, phoneErr);
-        const { data: failLog } = await adminClient
-          .from("sms_logs")
-          .insert({
-            order_id: isValidUuid(order_id) ? order_id : null,
-            offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
-            phone: targetPhone || "UNKNOWN",
-            message_type: currentEventType,
-            recipient_type: targetRecipientType,
-            status: "FAILED",
-            provider_status: "validation_error",
-            error_details: phoneErr || "Invalid phone number",
-            message_content: "N/A",
-            sent_at: new Date().toISOString(),
-          })
-          .select("id")
-          .maybeSingle();
+        const { data: failLog } = await adminClient.from("sms_logs").insert({
+          order_id: isValidUuid(order_id) ? order_id : null,
+          offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
+          phone: targetPhone || "UNKNOWN",
+          message_type: currentEventType,
+          recipient_type: targetRecipientType,
+          status: "FAILED",
+          provider_status: "validation_error",
+          error_details: phoneErr || "Invalid phone number",
+          message_content: "N/A",
+          sent_at: new Date().toISOString(),
+        }).select("id").maybeSingle();
         return { success: false, log_id: failLog?.id, error: phoneErr, recipient: targetRecipientType };
       }
 
-      // Canonical Idempotency Guard (normalizes DB triggers, webhooks, retries, double-clicks)
       const canonicalKey = `${order_id || offline_sale_id || "tx"}_${currentEventType}_${cleanPhone}_${targetRecipientType}`;
-      const idempotencyKey =
-        payload.idempotency_key &&
-        targetRecipientType === recipient_type &&
-        !payload.idempotency_key.startsWith("ord_") &&
-        !payload.idempotency_key.startsWith("off_")
-          ? payload.idempotency_key
-          : canonicalKey;
+      const idempotencyKey = (payload.idempotency_key && targetRecipientType === recipient_type && !payload.idempotency_key.startsWith("ord_") && !payload.idempotency_key.startsWith("off_")) ? payload.idempotency_key : canonicalKey;
 
-      const { data: existingLog } = await adminClient
-        .from("sms_logs")
-        .select("id, status, provider_status")
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-
-      if (
-        existingLog &&
-        (existingLog.status === "SENT" ||
-          existingLog.status === "PENDING" ||
-          existingLog.provider_status === "mock_success" ||
-          existingLog.provider_status === "sent")
-      ) {
-        console.log(`[msg91-transactional] Idempotent hit: SMS already sent or queued (${existingLog.id})`);
+      const { data: existingLog } = await adminClient.from("sms_logs").select("id, status, provider_status").eq("idempotency_key", idempotencyKey).maybeSingle();
+      if (existingLog && (existingLog.status === "SENT" || existingLog.status === "PENDING" || existingLog.provider_status === "mock_success" || existingLog.provider_status === "sent")) {
         return { success: true, already_sent: true, log_id: existingLog.id };
       }
 
-      // Resolve template
       const templateKey = resolveTemplateKey(currentEventType, targetRecipientType);
-      if (!templateKey) {
-        console.log(`[msg91-transactional] No template for ${currentEventType}/${targetRecipientType} - skipping`);
-        return { success: true, skipped: true };
-      }
+      if (!templateKey) return { success: true, skipped: true };
 
       const config = TEMPLATE_CONFIG[templateKey];
       const templateId = (Deno.env.get(config.secretKey) || "").trim() || config.templateId || "";
       const templateVars = config.buildVars(smsCtx);
 
-      // Validate required variables
       for (const reqVar of config.requiredVars || []) {
         if (!templateVars[reqVar] || String(templateVars[reqVar]).trim() === "") {
-          const varErr = `Missing required template variable '${reqVar}' for ${templateKey}`;
-          console.warn(`[msg91-transactional] ${varErr}`);
-          const { data: varLog } = await adminClient
-            .from("sms_logs")
-            .insert({
-              order_id: isValidUuid(order_id) ? order_id : null,
-              offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
-              phone: cleanPhone,
-              message_type: currentEventType,
-              recipient_type: targetRecipientType,
-              status: "FAILED",
-              provider_status: "validation_error",
-              error_details: `[validation_error] ${varErr}`,
-              message_content: `template:${templateKey}`,
-              sent_at: new Date().toISOString(),
-            })
-            .select("id")
-            .maybeSingle();
-          return { success: false, log_id: varLog?.id, error: varErr, recipient: targetRecipientType, template: templateKey };
+          const varErr = `Missing required template variable '${reqVar}'`;
+          return { success: false, error: varErr, recipient: targetRecipientType, template: templateKey };
         }
       }
 
-      if (!templateId) {
-        const tmplErr = `Template ID for '${config.secretKey}' not configured on server`;
-        console.warn(`[msg91-transactional] ${tmplErr}`);
-        const { data: tmplLog } = await adminClient
-          .from("sms_logs")
-          .insert({
-            order_id: isValidUuid(order_id) ? order_id : null,
-            offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
-            phone: cleanPhone,
-            message_type: currentEventType,
-            recipient_type: targetRecipientType,
-            status: "FAILED",
-            provider_status: "template_error",
-            error_details: `[template_error] ${tmplErr}`,
-            message_content: `template:${templateKey}`,
-            sent_at: new Date().toISOString(),
-          })
-          .select("id")
-          .maybeSingle();
-        return { success: false, log_id: tmplLog?.id, error: tmplErr, recipient: targetRecipientType, template: templateKey };
-      }
-
-      // Dispatch to MSG91
       const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
       let providerStatus = "mock_success";
       let errorDetails = null;
@@ -508,20 +533,10 @@ serve(async (req) => {
         providerStatus = result.providerStatus;
         errorDetails = result.errorDetails;
         providerMsgId = result.providerMsgId;
-      } else if (!msg91AuthKey) {
-        // Sandbox / mock mode - truthful log, no real SMS sent
-        providerStatus = "mock_success";
-        console.log(`[msg91-transactional] MSG91_AUTH_KEY not set - mock SMS for ${currentEventType}/${targetRecipientType}`);
-      } else if (!templateId) {
-        providerStatus = "error";
-        errorDetails = `Template secret '${config.secretKey}' not configured on server`;
-        console.warn(`[msg91-transactional] ${errorDetails}`);
       }
 
-      const finalStatus = providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
-
-      // Log to sms_logs - template_id is the ACTUAL template used; never logs OTP or secret values
-      const logRow = {
+      const finalStatus = (providerStatus === "sent" || providerStatus === "mock_success") ? "SENT" : "FAILED";
+      const { data: insertedLog } = await adminClient.from("sms_logs").upsert({
         order_id: isValidUuid(order_id) ? order_id : null,
         offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
         phone: cleanPhone,
@@ -531,53 +546,17 @@ serve(async (req) => {
         provider_status: providerStatus,
         error_details: errorDetails,
         idempotency_key: idempotencyKey,
-        message_content: `template:${templateKey} vars:${JSON.stringify(Object.keys(templateVars))}`,
+        message_content: `template:${templateKey}`,
         template_id: templateId || null,
         provider_message_id: providerMsgId,
         sent_at: new Date().toISOString(),
-      };
+      }, { onConflict: "idempotency_key" }).select("id").maybeSingle();
 
-      let insertedLogId;
-      const { data: insertedLog, error: logErr } = await adminClient
-        .from("sms_logs")
-        .upsert(logRow, { onConflict: "idempotency_key" })
-        .select("id, status, provider_status")
-        .maybeSingle();
-
-      if (logErr) {
-        console.warn("[msg91-transactional] Upsert warning, retrying with sanitized foreign keys:", logErr.message);
-        const { data: retryLog } = await adminClient
-          .from("sms_logs")
-          .upsert({ ...logRow, order_id: null, offline_sale_id: null }, { onConflict: "idempotency_key" })
-          .select("id, status, provider_status")
-          .maybeSingle();
-
-        insertedLogId = retryLog?.id;
-        if (!insertedLogId) {
-          const { data: fallbackLog } = await adminClient
-            .from("sms_logs")
-            .select("id")
-            .eq("idempotency_key", idempotencyKey)
-            .maybeSingle();
-          insertedLogId = fallbackLog?.id;
-        }
-      } else {
-        insertedLogId = insertedLog?.id;
-      }
-
-      return {
-        success: finalStatus === "SENT",
-        log_id: insertedLogId,
-        status: finalStatus,
-        recipient: targetRecipientType,
-        template: templateKey,
-      };
+      return { success: finalStatus === "SENT", log_id: insertedLog?.id, recipient: targetRecipientType };
     };
 
-    // A. Customer SMS
     if (authoritativePhone && authoritativePhone.trim() !== "") {
-      const custResult = await dispatchSingleSms(authoritativePhone, "customer");
-      results.push(custResult);
+      results.push(await dispatchSingleSms(authoritativePhone, "customer"));
     }
 
     // B. Owner SMS - fires for online_sale, offline_pos_sale, order_delivered

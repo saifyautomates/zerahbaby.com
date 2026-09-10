@@ -3,11 +3,13 @@ import { test, expect } from "@playwright/test";
 test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
   const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:8080";
 
-  test("robots.txt: correctly configured with disallows and sitemap reference", async ({ request }) => {
+  test("robots.txt: correctly configured with disallows and sitemap reference", async ({
+    request,
+  }) => {
     const res = await request.get(`${BASE_URL}/robots.txt`);
     expect(res.status()).toBe(200);
     const body = await res.text();
-    
+
     expect(body).toContain("User-agent: *");
     expect(body).toContain("Disallow: /admin");
     expect(body).toContain("Disallow: /cart");
@@ -19,7 +21,9 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
     expect(body).toContain("Sitemap: https://zerahkids.com/sitemap.xml");
   });
 
-  test("sitemap.xml: live database-driven sitemap has valid XML and proper filtering", async ({ request }) => {
+  test("sitemap.xml: live database-driven sitemap has valid XML and proper filtering", async ({
+    request,
+  }) => {
     const res = await request.get(`${BASE_URL}/sitemap.xml`);
     expect(res.status()).toBe(200);
     const contentType = res.headers()["content-type"];
@@ -98,7 +102,7 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
     const scriptLd = page.locator('script[type="application/ld+json"]');
     const count = await scriptLd.count();
     expect(count).toBeGreaterThanOrEqual(1);
-    
+
     let foundBreadcrumb = false;
     for (let i = 0; i < count; i++) {
       const text = await scriptLd.nth(i).textContent();
@@ -128,7 +132,9 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
         const parsed = JSON.parse(text);
         expect(parsed.name).toContain("Zérah Baby & Kids");
         expect(parsed.address.addressLocality).toContain("Kota");
-        expect(parsed.telephone).toEqual(expect.arrayContaining(["+919057074777", "+919667571712"]));
+        expect(parsed.telephone).toEqual(
+          expect.arrayContaining(["+919057074777", "+919667571712"]),
+        );
       }
     }
     expect(foundStore).toBe(true);

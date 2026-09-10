@@ -49,11 +49,9 @@ export const Route = createFileRoute("/feed.xml")({
                 barcode: (r.barcode as string) || "",
                 images: Array.isArray(r.images) ? (r.images as string[]) : [],
                 salesChannel: ((r.sales_channel as string) || "ONLINE_AND_OFFLINE") as
-                  | "ONLINE_AND_OFFLINE"
-                  | "OFFLINE_ONLY",
+                  "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
                 sales_channel: ((r.sales_channel as string) || "ONLINE_AND_OFFLINE") as
-                  | "ONLINE_AND_OFFLINE"
-                  | "OFFLINE_ONLY",
+                  "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
                 variants: Array.isArray(r.variants)
                   ? r.variants.map((v: Record<string, unknown>) => ({
                       id: (v.id as string) || "",
@@ -63,8 +61,14 @@ export const Route = createFileRoute("/feed.xml")({
                       sku: (v.sku as string) || (v.id as string) || "",
                       barcode: (v.barcode as string) || null,
                       stock: Number(v.stock) || 0,
-                      priceOverride: v.price_override !== undefined && v.price_override !== null ? Number(v.price_override) : undefined,
-                      mrpOverride: v.mrp_override !== undefined && v.mrp_override !== null ? Number(v.mrp_override) : undefined,
+                      priceOverride:
+                        v.price_override !== undefined && v.price_override !== null
+                          ? Number(v.price_override)
+                          : undefined,
+                      mrpOverride:
+                        v.mrp_override !== undefined && v.mrp_override !== null
+                          ? Number(v.mrp_override)
+                          : undefined,
                       imageUrl: (v.image_url as string) || null,
                     }))
                   : [],

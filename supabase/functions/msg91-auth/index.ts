@@ -1,4 +1,4 @@
-﻿import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts";
 
@@ -31,9 +31,10 @@ async function generateDeterministicPassword(phone: string, secret: string) {
 async function callMsg91OtpApi(
   endpoint: string,
   authKey: string,
+  method: "POST" | "GET" = "POST",
 ): Promise<{ type: string; message?: string; request_id?: string }> {
   const response = await fetch(endpoint, {
-    method: "POST",
+    method,
     headers: {
       authkey: authKey,
       accept: "application/json",
@@ -68,10 +69,8 @@ serve(async (req) => {
     if (!action) throw new Error("Missing action (send, verify, resend)");
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
-    // Template ID and sender --- read from Supabase secrets
-    // Fallback to hardcoded DLT-approved values if secret not explicitly set.
-    const msg91TemplateId =
-      (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim() || "6aa1c8937992a371950d6052";
+    // Template ID and sender --- read strictly from Supabase secrets
+    const msg91TemplateId = (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim();
     const sender = (Deno.env.get("MSG91_SENDER_ID") || "").trim() || "ZERAHH";
 
     // Securely derive authSecret from private env or fallback to service role key
@@ -88,14 +87,18 @@ serve(async (req) => {
       throw new Error("SMS gateway is not configured. Please contact support.");
     }
 
+    if (!msg91TemplateId) {
+      throw new Error("MSG91_OTP_TEMPLATE_ID secret is not configured on server.");
+    }
+
     // MSG91 expects the mobile number WITHOUT leading + (e.g., 917014098198)
     const cleanPhone = phone.replace("+", "");
 
     // -- SEND OTP --------------------------------------------------------------
     if (action === "send") {
-      // CORRECT format: query params only, zero body
-      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}`;
-      const providerResult = await callMsg91OtpApi(url, msg91AuthKey);
+      // CORRECT format: query params only, zero body. Explicitly request 4-digit OTP.
+      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}&otp_length=4`;
+      const providerResult = await callMsg91OtpApi(url, msg91AuthKey, "POST");
 
       console.log(
         `[msg91-auth] OTP dispatched: type=${providerResult.type} phone=${cleanPhone.substring(0, 4)}****`,
@@ -109,9 +112,9 @@ serve(async (req) => {
 
     // -- RESEND OTP ------------------------------------------------------------
     if (action === "resend") {
-      // MSG91 retry endpoint --- also query-params only
+      // MSG91 retry endpoint --- query-params only, GET method per official documentation
       const url = `https://control.msg91.com/api/v5/otp/retry?retrytype=text&mobile=${cleanPhone}`;
-      await callMsg91OtpApi(url, msg91AuthKey);
+      await callMsg91OtpApi(url, msg91AuthKey, "GET");
 
       console.log(`[msg91-auth] OTP resent: phone=${cleanPhone.substring(0, 4)}****`);
 
@@ -125,9 +128,15 @@ serve(async (req) => {
     if (action === "verify") {
       if (!otp) throw new Error("Missing OTP");
 
-      // MSG91 OTP verify --- query-params only
-      const url = `https://control.msg91.com/api/v5/otp/verify?otp=${otp}&mobile=${cleanPhone}`;
-      await callMsg91OtpApi(url, msg91AuthKey);
+      // Validate that OTP is strictly 4 digits (preserving leading zeros as string)
+      const cleanOtp = String(otp).trim();
+      if (!/^\d{4}$/.test(cleanOtp)) {
+        throw new Error("OTP must contain exactly 4 digits");
+      }
+
+      // MSG91 OTP verify --- query-params only, GET method per official documentation
+      const url = `https://control.msg91.com/api/v5/otp/verify?otp=${cleanOtp}&mobile=${cleanPhone}`;
+      await callMsg91OtpApi(url, msg91AuthKey, "GET");
 
       console.log(`[msg91-auth] OTP verified: phone=${cleanPhone.substring(0, 4)}****`);
 

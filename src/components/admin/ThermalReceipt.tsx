@@ -134,6 +134,10 @@ function buildThermalHTML(
           <span style="font-weight:600;">−₹${sale.discount.toLocaleString("en-IN")}</span>
          </div>`
       : "";
+  const dateStr = date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeStr = date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  const grossBillTotal = Math.max(sale.total, (sale.subtotal || 0) - (sale.discount || 0) - (sale.coupon_discount || 0));
+  const additionalPaid = Math.max(0, grossBillTotal - (sale.store_credit_used || 0));
 
   return `<!DOCTYPE html>
 <html>
@@ -169,47 +173,49 @@ function buildThermalHTML(
       : `<div style="text-align:center;font-size:10px;font-weight:bold;margin-bottom:6px;letter-spacing:1px;">TAX INVOICE / CASH MEMO</div>`
   }
 
-  <div style="font-size:11px;margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Invoice</span><span style="font-weight:700;">${escHtml(sale.sale_number)}</span></div>
-    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Date</span><span>${date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}</span></div>
-    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Time</span><span>${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span></div>
+  <div style="font-size:10px;margin-top:4px;">
+    <div class="flex"><span>Invoice:</span><span class="bold">${escHtml(sale.sale_number)}</span></div>
+    <div class="flex"><span>Date:</span><span>${escHtml(dateStr)}</span></div>
+    <div class="flex"><span>Time:</span><span>${escHtml(timeStr)}</span></div>
+    <div class="flex"><span>Customer:</span><span class="bold">${escHtml(sale.customer_name || "Walk-in Customer")}</span></div>
+    ${sale.customer_phone ? `<div class="flex"><span>Mobile:</span><span>${escHtml(sale.customer_phone)}</span></div>` : ""}
   </div>
 
   <div class="divider"></div>
-  <div style="font-size:11px;display:flex;justify-content:space-between;margin-bottom:8px;">
-    <span style="color:#555;">Customer</span>
-    <span style="font-weight:600;">${escHtml(sale.customer_name)}</span>
-  </div>
-  ${sale.customer_phone ? `<div style="font-size:10px;display:flex;justify-content:space-between;margin-bottom:8px;"><span style="color:#555;">Mobile</span><span>${escHtml(sale.customer_phone)}</span></div>` : ""}
-  <div class="divider"></div>
-
-  <div style="font-size:11px;margin-bottom:8px;">${itemRows}</div>
+  <div class="bold" style="font-size:10px;margin-bottom:2px;">ITEMS</div>
+  ${itemRows}
 
   <div class="divider"></div>
-  <div style="font-size:11px;margin-bottom:4px;">
+  <div style="font-size:11px;">
     <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Subtotal</span><span>₹${sale.subtotal.toLocaleString("en-IN")}</span></div>
     ${couponRow}
     ${discountRow}
     <div style="display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:4px;margin-top:4px;">
       <span style="font-size:13px;font-weight:900;">TOTAL</span>
-      <span style="font-size:13px;font-weight:900;">₹${sale.total.toLocaleString("en-IN")}</span>
+      <span style="font-size:13px;font-weight:900;">₹${grossBillTotal.toLocaleString("en-IN")}</span>
     </div>
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div style="border-top:1px dashed #000;padding-top:3px;margin-top:3px;">
+        ? `<div style="border-top:1px dashed #666;padding-top:3px;margin-top:3px;font-size:10.5px;">
             <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:2px;">PAYMENT BREAKDOWN</div>
             <div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;">
-              <span>Exchange Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+              <span>Exchange Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:1px;">
-              <span>Additional Paid (${escHtml(sale.payment_method)})</span><span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
-            </div>
+            ${
+              additionalPaid > 0
+                ? `<div style="display:flex;justify-content:space-between;font-weight:700;margin-top:1px;">
+                    <span>Additional Paid (${escHtml((sale.payment_method || "Cash").toUpperCase())})</span><span>₹${additionalPaid.toLocaleString("en-IN")}</span>
+                   </div>`
+                : `<div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;margin-top:1px;">
+                    <span>Settlement</span><span>100% Store Credit</span>
+                   </div>`
+            }
             <div style="display:flex;justify-content:space-between;font-weight:900;margin-top:2px;border-top:1px solid #eee;padding-top:1px;">
-              <span>Total Settled</span><span>₹${sale.total.toLocaleString("en-IN")}</span>
+              <span>Total Settled</span><span>₹${grossBillTotal.toLocaleString("en-IN")}</span>
             </div>
           </div>`
         : `<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
-            <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method)}</span>
+            <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method || "Cash")}</span>
           </div>`
     }
   </div>
@@ -313,6 +319,12 @@ export function ThermalReceipt({
   }, [autoPrint, sale.duplicate]);
 
   const handlePrint = () => doPrint();
+
+  const grossBillTotal = Math.max(
+    sale.total,
+    (sale.subtotal || 0) - (sale.discount || 0) - (sale.coupon_discount || 0),
+  );
+  const additionalPaid = Math.max(0, grossBillTotal - (sale.store_credit_used || 0));
 
   const content = (
     <div
@@ -499,7 +511,7 @@ export function ThermalReceipt({
             )}
             <div className="flex justify-between pt-1 border-t border-gray-900">
               <span className="font-black text-foreground text-sm">TOTAL</span>
-              <span className="font-black text-foreground text-sm">{formatPrice(sale.total)}</span>
+              <span className="font-black text-foreground text-sm">{formatPrice(grossBillTotal)}</span>
             </div>
             {sale.store_credit_used && sale.store_credit_used > 0 ? (
               <div className="pt-1 text-[10px] space-y-0.5 border-t border-dashed border-gray-300">
@@ -509,15 +521,22 @@ export function ThermalReceipt({
                   </span>
                   <span>−{formatPrice(sale.store_credit_used)}</span>
                 </div>
-                <div className="flex justify-between font-bold">
-                  <span>Paid ({sale.payment_method})</span>
-                  <span>{formatPrice(Math.max(0, sale.total - sale.store_credit_used))}</span>
-                </div>
+                {additionalPaid > 0 ? (
+                  <div className="flex justify-between font-bold">
+                    <span>Paid ({sale.payment_method || "Cash"})</span>
+                    <span>{formatPrice(additionalPaid)}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-emerald-700 font-bold">
+                    <span>Settlement</span>
+                    <span>100% Store Credit</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
                 <span>Payment</span>
-                <span className="font-bold uppercase">{sale.payment_method}</span>
+                <span className="font-bold uppercase">{sale.payment_method || "Cash"}</span>
               </div>
             )}
           </div>

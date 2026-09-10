@@ -70,7 +70,9 @@ export const Route = createFileRoute("/sitemap.xml")({
                   const targetSlug = r.slug || r.id;
                   const img = r.image_url || r.image;
                   const hasHttpImg = img && typeof img === "string" && img.startsWith("http");
-                  const lastMod = r.updated_at ? `<lastmod>${new Date(r.updated_at).toISOString().split("T")[0]}</lastmod>` : "";
+                  const lastMod = r.updated_at
+                    ? `<lastmod>${new Date(r.updated_at).toISOString().split("T")[0]}</lastmod>`
+                    : "";
                   const imageXml = hasHttpImg
                     ? `<image:image><image:loc>${img.replace(/&/g, "&amp;")}</image:loc><image:title>${(r.name || "Product").replace(/&/g, "&amp;")}</image:title></image:image>`
                     : "";

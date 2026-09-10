@@ -432,7 +432,9 @@ export function SMSLogsTab() {
                       {/* Phone (Masked for customer privacy) */}
                       <td className="px-4 py-3.5 font-mono text-xs font-medium">
                         <div className="flex items-center gap-1.5">
-                          <span>{revealedPhones[log.id] ? log.phone : maskPhoneNumber(log.phone)}</span>
+                          <span>
+                            {revealedPhones[log.id] ? log.phone : maskPhoneNumber(log.phone)}
+                          </span>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -440,7 +442,9 @@ export function SMSLogsTab() {
                               setRevealedPhones((prev) => ({ ...prev, [log.id]: !prev[log.id] }));
                             }}
                             className="text-muted-foreground/60 hover:text-foreground p-0.5 rounded transition"
-                            title={revealedPhones[log.id] ? "Mask phone number" : "Reveal full number"}
+                            title={
+                              revealedPhones[log.id] ? "Mask phone number" : "Reveal full number"
+                            }
                           >
                             <Eye className="size-3" />
                           </button>

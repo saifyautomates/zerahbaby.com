@@ -15,7 +15,8 @@ export const Route = createFileRoute("/privacy-policy")({
       { property: "og:title", content: "Privacy Policy | Zérah Baby & Kids" },
       {
         property: "og:description",
-        content: "Customer data protection standards and transaction security at Zérah Baby & Kids.",
+        content:
+          "Customer data protection standards and transaction security at Zérah Baby & Kids.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://zerahkids.com/privacy-policy" },

@@ -34,7 +34,10 @@ export const STORE_INFO = {
 /**
  * Normalizes and builds an absolute canonical URL.
  */
-export function buildCanonicalUrl(path: string, params?: Record<string, string | undefined>): string {
+export function buildCanonicalUrl(
+  path: string,
+  params?: Record<string, string | undefined>,
+): string {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   const url = new URL(cleanPath, SITE_URL);
   if (params) {
@@ -181,15 +184,7 @@ export function buildLocalBusinessJsonLd() {
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-          "Sunday",
-        ],
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         opens: "10:30",
         closes: "22:00",
       },
@@ -206,9 +201,10 @@ export function buildProductJsonLd(product: Product, canonicalUrl: string) {
     ? product.description.substring(0, 500)
     : `Buy ${product.name} at Zérah Baby & Kids. Premium quality for babies and children.`;
 
-  const primaryImage = product.image && product.image.startsWith("http")
-    ? product.image
-    : `${SITE_URL}${product.image || "/logo.png"}`;
+  const primaryImage =
+    product.image && product.image.startsWith("http")
+      ? product.image
+      : `${SITE_URL}${product.image || "/logo.png"}`;
 
   const allImages = (product.images || [])
     .filter((img) => img && typeof img === "string" && img.startsWith("http"))
@@ -226,8 +222,7 @@ export function buildProductJsonLd(product: Product, canonicalUrl: string) {
         itemCondition: "https://schema.org/NewCondition",
         priceCurrency: "INR",
         price: v.priceOverride ?? product.price,
-        availability:
-          v.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        availability: v.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
         sku: v.sku || v.id,
         seller: {
           "@type": "Organization",
@@ -313,9 +308,10 @@ export function buildGoogleShoppingXml(products: Product[]): string {
     if (!product.isActive || product.salesChannel === "OFFLINE_ONLY") continue;
 
     const prodUrl = `${SITE_URL}/product/${encodeURIComponent(product.id)}`;
-    const imageLink = product.image && product.image.startsWith("http")
-      ? product.image
-      : `${SITE_URL}${product.image || "/logo.png"}`;
+    const imageLink =
+      product.image && product.image.startsWith("http")
+        ? product.image
+        : `${SITE_URL}${product.image || "/logo.png"}`;
 
     if (product.variants && product.variants.length > 0) {
       for (const variant of product.variants) {

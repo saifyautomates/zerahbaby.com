@@ -900,6 +900,9 @@ export function POSTab() {
       );
       setSaleResult({
         ...result,
+        total: Math.max(result.total || 0, subtotal - discountAmount),
+        payment_method:
+          result.payment_method || (payableAfterCredit === 0 ? "store_credit" : paymentMethod),
         store_credit_used: effectiveCreditUsed,
         credit_token_used: creditTokenInput.trim() || undefined,
       });
