@@ -1,12 +1,14 @@
-//
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { MapPin, Star } from "lucide-react";
 import { WhatsAppIcon, InstagramIcon, FacebookIcon } from "@/components/ui/BrandIcons";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
 import { useCategories, useSettings } from "@/lib/store";
+import { DeveloperContactModal } from "@/components/site/DeveloperContactModal";
 
 export function Footer() {
+  const [isDevModalOpen, setIsDevModalOpen] = useState(false);
   const { data: categories } = useCategories();
   const {
     brandName,
@@ -216,14 +218,23 @@ export function Footer() {
             © {new Date().getFullYear()} {brandName}. All rights reserved.
           </span>
           <span className="hidden sm:inline">·</span>
-          <a
-            href="mailto:saifyautomates@gmail.com?subject=Inquiry%20for%20Premium%20Website%20Development%20Services&body=Hi%20Saify%20Automates%2C%0D%0A%0D%0AI%20came%20across%20your%20work%20on%20the%20Zerah%20website%20and%20was%20very%20impressed%20by%20the%20design%20and%20functionality.%0D%0A%0D%0AI%20am%20interested%20in%20getting%20a%20world-class%20application%20or%20website%20built%20for%20my%20own%20business.%20Could%20you%20please%20share%20more%20details%20about%20your%20services%20and%20how%20we%20can%20collaborate%3F%0D%0A%0D%0ALooking%20forward%20to%20hearing%20from%20you.%0D%0A%0D%0ABest%20regards%2C%0D%0A%5BYour%20Name%5D"
-            className="font-medium transition hover:text-primary"
+          <button
+            type="button"
+            onClick={() => setIsDevModalOpen(true)}
+            id="developed-by-saify-automates-btn"
+            className="font-medium transition hover:text-primary underline-offset-4 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+            aria-haspopup="dialog"
+            aria-expanded={isDevModalOpen}
           >
             Developed by Saify Automates
-          </a>
+          </button>
         </div>
       </div>
+
+      <DeveloperContactModal
+        isOpen={isDevModalOpen}
+        onClose={() => setIsDevModalOpen(false)}
+      />
     </footer>
   );
 }
