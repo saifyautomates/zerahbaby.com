@@ -1,4 +1,4 @@
-﻿import { test, expect } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 test.describe("Login OTP 6-digit Validation Suite", () => {
   const OTP_REGEX = /^\d{6}$/;
@@ -26,7 +26,10 @@ test.describe("Login OTP 6-digit Validation Suite", () => {
     const c = fs.readFileSync("src/routes/auth.tsx", "utf-8");
     expect(c).toContain("maxLength={6}");
     expect(c).toContain("Enter 6-digit OTP");
+    expect(c).toContain("disabled={busy || otp.length !== 6}");
     expect(c).not.toContain("maxLength={4}");
+    expect(c).not.toContain("otp.length !== 4");
+    expect(c).not.toContain("Enter 4-digit OTP");
   });
 
   test("5. SendOTP API parameter format includes otp_length=6", () => {

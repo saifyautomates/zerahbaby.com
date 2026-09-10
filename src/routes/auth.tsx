@@ -654,7 +654,7 @@ function AuthPage() {
             <button
               id="auth-verify-otp-btn"
               type="submit"
-              disabled={busy || otp.length !== 4}
+              disabled={busy || otp.length !== 6}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {busy ? "Verifying…" : "Verify & Sign In"}

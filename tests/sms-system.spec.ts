@@ -144,7 +144,7 @@ test.describe("Complete Sales SMS System Test Suite", () => {
         body: {
           offline_sale_id: `fail_test_${Date.now()}`,
           event_type: "offline_pos_sale",
-          phone: "00000", // Invalid phone
+          phone: `00000${Math.floor(Math.random() * 90000 + 10000)}`, // Invalid phone (unique to avoid rate limit collision)
           name: "Faulty Phone User",
           total: 449,
           notify_owner: false,
