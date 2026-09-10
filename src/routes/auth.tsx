@@ -349,6 +349,31 @@ function AuthPage() {
         });
 
         if (error) {
+          let serverMsg = "";
+          try {
+            if ("context" in error && typeof (error as any).context?.json === "function") {
+              const body = await (error as any).context.json();
+              serverMsg = body?.error || body?.message || "";
+            }
+          } catch {
+            // fallback if json parsing fails
+          }
+
+          if (serverMsg) {
+            const m = serverMsg.toLowerCase();
+            if (m.includes("expired")) {
+              setOtpExpired(true);
+              setOtp("");
+              throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
+            }
+            if (m.includes("incorrect") || m.includes("invalid") || m.includes("double-check")) {
+              throw new Error("Incorrect OTP. Please double-check and try again.");
+            }
+            if (m.includes("too many")) {
+              throw new Error("Too many incorrect attempts. Please request a new OTP.");
+            }
+            throw new Error(serverMsg);
+          }
           throw new Error("Failed to verify OTP with server. Please try again.");
         }
 
@@ -359,7 +384,7 @@ function AuthPage() {
             setOtp("");
             throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
           }
-          if (m.includes("invalid") || m.includes("incorrect")) {
+          if (m.includes("invalid") || m.includes("incorrect") || m.includes("double-check")) {
             throw new Error("Incorrect OTP. Please double-check and try again.");
           }
           throw new Error(data?.error || data?.message || "Failed to verify OTP.");

@@ -221,72 +221,76 @@ serve(async (req) => {
         throw new Error("Incorrect OTP. Please double-check and try again.");
       }
 
-      // OTP Verified! Delete record immediately to prevent replay
-      await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
-
       console.log(`[msg91-auth] OTP verified successfully: phone=${cleanPhone.substring(0, 4)}****`);
 
       // ── SUPABASE AUTH SESSION ─────────────────────────────────────────────
       const derivedPassword = await generateDeterministicPassword(formattedPhone, authSecret);
 
-      // Attempt to sign in first
+      // Attempt initial sign in
       let signInResult = await adminClient.auth.signInWithPassword({
         phone: formattedPhone,
         password: derivedPassword,
       });
 
-      // If invalid credentials, user might not exist yet OR password changed
-      if (signInResult.error && signInResult.error.message.includes("Invalid login credentials")) {
-        // Create the user
-        const createResult = await adminClient.auth.admin.createUser({
-          phone: formattedPhone,
-          password: derivedPassword,
-          phone_confirm: true,
-        });
+      // If sign in fails for ANY reason (e.g. Phone not confirmed, Invalid login credentials, user not created yet)
+      if (signInResult.error) {
+        console.log(`[msg91-auth] Initial signInWithPassword failed (${signInResult.error.message}). Resolving user state in Supabase Auth...`);
 
-        if (createResult.error) {
-          if (createResult.error.message.includes("already registered")) {
-            // User exists with a different password --- find by phone and update
-            let existingUser: any = null;
-            let page = 1;
-            while (!existingUser) {
-              const { data: pageData } = await adminClient.auth.admin.listUsers({
-                page,
-                perPage: 1000,
-              });
-              const users = pageData?.users || [];
-              if (users.length === 0) break;
-              existingUser = users.find((u: { phone?: string }) => {
-                if (!u.phone) return false;
-                const uDigits = u.phone.replace(/\D/g, "");
-                return (
-                  u.phone === cleanPhone ||
-                  u.phone === formattedPhone ||
-                  uDigits.slice(-10) === tenDigits
-                );
-              });
-              if (users.length < 1000) break;
-              page++;
-            }
-
-            if (existingUser) {
-              await adminClient.auth.admin.updateUserById(existingUser.id, {
-                password: derivedPassword,
-              });
-              if (existingUser.phone && existingUser.phone !== formattedPhone) {
-                signInResult = await adminClient.auth.signInWithPassword({
-                  phone: existingUser.phone,
-                  password: derivedPassword,
-                });
-              }
-            }
-          } else {
-            throw createResult.error;
+        // Search for user in Supabase Auth by phone number
+        let existingUser: any = null;
+        let page = 1;
+        while (!existingUser) {
+          const { data: pageData, error: listErr } = await adminClient.auth.admin.listUsers({
+            page,
+            perPage: 1000,
+          });
+          if (listErr) {
+            console.error("[msg91-auth] listUsers error:", listErr);
+            break;
           }
+          const users = pageData?.users || [];
+          if (users.length === 0) break;
+          existingUser = users.find((u: { phone?: string }) => {
+            if (!u.phone) return false;
+            const uDigits = u.phone.replace(/\D/g, "");
+            return (
+              u.phone === cleanPhone ||
+              u.phone === formattedPhone ||
+              uDigits.slice(-10) === tenDigits
+            );
+          });
+          if (users.length < 1000) break;
+          page++;
         }
 
-        // Sign in after creation/update if not already done
-        if (!signInResult.data?.session) {
+        if (existingUser) {
+          console.log(`[msg91-auth] Found existing user ${existingUser.id}, confirming phone and updating password...`);
+          const { error: updateErr } = await adminClient.auth.admin.updateUserById(existingUser.id, {
+            phone_confirm: true,
+            password: derivedPassword,
+          });
+          if (updateErr) {
+            console.error("[msg91-auth] updateUserById error:", updateErr);
+          }
+
+          const targetPhone = existingUser.phone || formattedPhone;
+          signInResult = await adminClient.auth.signInWithPassword({
+            phone: targetPhone,
+            password: derivedPassword,
+          });
+        } else {
+          // User doesn't exist yet, create user with phone_confirm: true
+          console.log(`[msg91-auth] Creating new Supabase user for ${formattedPhone}...`);
+          const createResult = await adminClient.auth.admin.createUser({
+            phone: formattedPhone,
+            password: derivedPassword,
+            phone_confirm: true,
+          });
+
+          if (createResult.error) {
+            console.error("[msg91-auth] createUser error:", createResult.error);
+          }
+
           signInResult = await adminClient.auth.signInWithPassword({
             phone: formattedPhone,
             password: derivedPassword,
@@ -294,7 +298,18 @@ serve(async (req) => {
         }
       }
 
-      if (signInResult.error) throw signInResult.error;
+      if (signInResult.error) {
+        console.error("[msg91-auth] Final signInWithPassword failed:", signInResult.error);
+        throw signInResult.error;
+      }
+
+      if (!signInResult.data?.session) {
+        throw new Error("Failed to establish user session. Please try again.");
+      }
+
+      // OTP verified AND session established successfully!
+      // Delete record from auth_otps to prevent replay
+      await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
 
       return new Response(
         JSON.stringify({ success: true, session: signInResult.data.session }),
