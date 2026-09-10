@@ -20,41 +20,25 @@ async function generateDeterministicPassword(phone: string, secret: string) {
 }
 
 /**
- * Call MSG91 OTP API --- query-params only, NO JSON body.
- *
- * ROOT CAUSE FIX: MSG91 v5 OTP endpoint (/api/v5/otp, /api/v5/otp/retry,
- * /api/v5/otp/verify) uses ONLY query-parameters. Passing a JSON body alongside
- * query params causes MSG91 to ignore the query params and use internal defaults,
- * which means the template_id, mobile, and sender are silently ignored.
- * This results in MSG91 returning type:"success" but never dispatching the SMS.
+ * Compute SHA-256 hash of an OTP bound to phone and server secret.
+ * Plaintext OTPs are NEVER stored anywhere.
  */
-async function callMsg91OtpApi(
-  endpoint: string,
-  authKey: string,
-  method: "POST" | "GET" = "POST",
-): Promise<{ type: string; message?: string; request_id?: string }> {
-  const response = await fetch(endpoint, {
-    method,
-    headers: {
-      authkey: authKey,
-      accept: "application/json",
-      // NO Content-Type header, NO body --- MSG91 OTP API is query-param-only
-    },
-  });
+async function hashOtp(phone: string, otp: string, secret: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${phone}:${otp}:${secret}`);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  return new TextDecoder().decode(hexEncode(hashArray));
+}
 
-  const result = await response
-    .json()
-    .catch(() => ({ type: "error", message: "MSG91 returned unparseable response" }));
-
-  if (!response.ok) {
-    throw new Error(`MSG91 HTTP ${response.status}: ${result?.message || "Unknown error"}`);
-  }
-
-  if (result.type === "error") {
-    throw new Error(`MSG91 error: ${result.message || "Unknown MSG91 error"}`);
-  }
-
-  return result;
+/**
+ * Generate a cryptographically secure 4-digit numeric OTP (1000 to 9999).
+ */
+function generate4DigitOtp(): string {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const num = (buf[0] % 9000) + 1000;
+  return num.toString();
 }
 
 serve(async (req) => {
@@ -71,21 +55,22 @@ serve(async (req) => {
     }
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
-    // Template ID and sender --- read strictly from Supabase secrets
+    // Template ID for Zerah_Login_OTP (6aa1c8937992a371950d6052)
     const msg91TemplateId = (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim();
     const sender = (Deno.env.get("MSG91_SENDER_ID") || "").trim() || "ZERAHH";
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     // Securely derive authSecret from private env or fallback to service role key
     const authSecret =
-      (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() ||
-      (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+      (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() || supabaseServiceKey;
 
     if (!authSecret) {
       throw new Error("Authentication secret not configured on server");
     }
 
     if (!msg91AuthKey) {
-      // Hard error --- do NOT silently fall through to mock mode in production
       throw new Error("SMS gateway is not configured. Please contact support.");
     }
 
@@ -93,92 +78,167 @@ serve(async (req) => {
       throw new Error("MSG91_OTP_TEMPLATE_ID secret is not configured on server.");
     }
 
-    // MSG91 expects the mobile number WITHOUT leading + (e.g., 917014098198)
-    const cleanPhone = phone.replace("+", "");
+    // Normalise phone to 10 Indian digits + format for Supabase Auth
+    const rawDigits = String(phone).replace(/\D/g, "");
+    const tenDigits = rawDigits.slice(-10);
+    if (tenDigits.length !== 10) {
+      throw new Error("Please enter a valid 10-digit Indian mobile number.");
+    }
+    const cleanPhone = "91" + tenDigits;      // Format for MSG91: 91XXXXXXXXXX
+    const formattedPhone = "+91" + tenDigits;  // Format for Supabase Auth: +91XXXXXXXXXX
 
-    // -- SEND OTP --------------------------------------------------------------
-    if (action === "send") {
-      // MSG91 SendOTP endpoint: query params only, zero body. Exactly 4-digit OTP.
-      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}&otp_length=4`;
-      const providerResult = await callMsg91OtpApi(url, msg91AuthKey, "POST");
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
-      // Log full response so Supabase function logs show request_id for traceability
-      console.log(
-        `[msg91-auth] OTP dispatch response: type=${providerResult.type} request_id=${providerResult.request_id || "NONE"} phone=${cleanPhone.substring(0, 4)}****`,
-      );
+    // ── SEND / RESEND OTP ───────────────────────────────────────────────────
+    if (action === "send" || action === "resend") {
+      // Cooldown protection: if recently requested within 20s, reject rapid spam
+      const { data: existingOtp } = await adminClient
+        .from("auth_otps")
+        .select("created_at")
+        .eq("phone", cleanPhone)
+        .maybeSingle();
 
-      // Truthful delivery verification: require successful acceptance with request_id
-      if (!providerResult.request_id || providerResult.type !== "success") {
-        throw new Error(
-          providerResult.message || "SMS provider rejected OTP dispatch. Please verify template configuration."
-        );
+      if (existingOtp && existingOtp.created_at) {
+        const elapsedSec = (Date.now() - new Date(existingOtp.created_at).getTime()) / 1000;
+        if (elapsedSec < 15 && action === "send") {
+          throw new Error("Please wait a few seconds before requesting another code.");
+        }
       }
+
+      // Generate 4-digit code & compute hash
+      const otpCode = generate4DigitOtp();
+      const otpHash = await hashOtp(cleanPhone, otpCode, authSecret);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+
+      // Store in auth_otps table
+      const { error: dbError } = await adminClient
+        .from("auth_otps")
+        .upsert(
+          {
+            phone: cleanPhone,
+            otp_hash: otpHash,
+            attempts: 0,
+            expires_at: expiresAt,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "phone" },
+        );
+
+      if (dbError) {
+        console.error("[msg91-auth] DB upsert error:", dbError.message, dbError.code, dbError.details);
+        throw new Error("Could not initialize authentication session. Please try again.");
+      }
+
+      // Dispatch via MSG91 Flow API using approved Zerah_Login_OTP template
+      // Matches DLT ID: 1777178887911531588, Sender: ZERAHH, variable: ##var##
+      const flowPayload = {
+        template_id: msg91TemplateId,
+        sender: sender,
+        short_url: "0",
+        recipients: [
+          {
+            mobiles: cleanPhone,
+            var: otpCode,
+          },
+        ],
+      };
+
+      const resp = await fetch("https://control.msg91.com/api/v5/flow/", {
+        method: "POST",
+        headers: {
+          authkey: msg91AuthKey,
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify(flowPayload),
+      });
+
+      const resData = await resp.json().catch(() => ({}));
+
+      if (!resp.ok || resData.type === "error") {
+        // Rollback un-dispatched OTP to prevent dangling unusable state
+        await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
+        console.error("[msg91-auth] MSG91 Flow dispatch error:", resData.message || resp.statusText);
+        throw new Error(resData.message || "Failed to dispatch OTP SMS via gateway.");
+      }
+
+      const requestId = resData.message || resData.request_id || "dispatched";
+      console.log(`[msg91-auth] 4-digit OTP dispatched: phone=${cleanPhone.substring(0, 4)}**** request_id=${requestId}`);
 
       return new Response(
         JSON.stringify({
           success: true,
           message: "OTP sent",
-          request_id: providerResult.request_id,
+          request_id: requestId,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
-    // -- RESEND OTP ------------------------------------------------------------
-    if (action === "resend") {
-      // MSG91 retry endpoint --- query-params only, GET method per official documentation
-      const url = `https://control.msg91.com/api/v5/otp/retry?retrytype=text&mobile=${cleanPhone}`;
-      const providerResult = await callMsg91OtpApi(url, msg91AuthKey, "GET");
-
-      console.log(`[msg91-auth] OTP resent: phone=${cleanPhone.substring(0, 4)}****`);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "OTP resent",
-          request_id: providerResult.request_id || "resent",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
-    }
-
-    // -- VERIFY OTP ------------------------------------------------------------
+    // ── VERIFY OTP ──────────────────────────────────────────────────────────
     if (action === "verify") {
       if (!otp) throw new Error("Missing OTP");
 
-      // Validate that OTP is strictly 4 digits (preserving leading zeros as string)
+      // Validate that OTP is strictly 4 digits
       const cleanOtp = String(otp).trim();
       if (!/^\d{4}$/.test(cleanOtp)) {
-        throw new Error("OTP must contain exactly 4 digits");
+        throw new Error("Please enter the 4-digit code.");
       }
 
-      // MSG91 OTP verify --- query-params only, GET method per official documentation
-      const url = `https://control.msg91.com/api/v5/otp/verify?otp=${cleanOtp}&mobile=${cleanPhone}`;
-      await callMsg91OtpApi(url, msg91AuthKey, "GET");
+      // Fetch active OTP record from auth_otps table
+      const { data: record, error: fetchErr } = await adminClient
+        .from("auth_otps")
+        .select("*")
+        .eq("phone", cleanPhone)
+        .maybeSingle();
 
-      console.log(`[msg91-auth] OTP verified: phone=${cleanPhone.substring(0, 4)}****`);
+      if (fetchErr || !record) {
+        throw new Error("No active OTP found. Tap “Resend OTP” to get a new code.");
+      }
 
-      // OTP Verified --- create or sign in to Supabase session
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      // Check expiry (10 minutes)
+      if (new Date(record.expires_at).getTime() < Date.now()) {
+        await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
+        throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
+      }
 
-      const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+      // Check brute force attempts
+      if (record.attempts >= 5) {
+        await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
+        throw new Error("Too many incorrect attempts. Please request a new OTP.");
+      }
 
-      const derivedPassword = await generateDeterministicPassword(phone, authSecret);
+      // Verify cryptographic hash
+      const expectedHash = await hashOtp(cleanPhone, cleanOtp, authSecret);
+      if (expectedHash !== record.otp_hash) {
+        await adminClient
+          .from("auth_otps")
+          .update({ attempts: record.attempts + 1 })
+          .eq("phone", cleanPhone);
+        throw new Error("Incorrect OTP. Please double-check and try again.");
+      }
+
+      // OTP Verified! Delete record immediately to prevent replay
+      await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
+
+      console.log(`[msg91-auth] OTP verified successfully: phone=${cleanPhone.substring(0, 4)}****`);
+
+      // ── SUPABASE AUTH SESSION ─────────────────────────────────────────────
+      const derivedPassword = await generateDeterministicPassword(formattedPhone, authSecret);
 
       // Attempt to sign in first
       let signInResult = await adminClient.auth.signInWithPassword({
-        phone: phone,
+        phone: formattedPhone,
         password: derivedPassword,
       });
 
       // If invalid credentials, user might not exist yet OR password changed
       if (signInResult.error && signInResult.error.message.includes("Invalid login credentials")) {
-        // Try to create the user
+        // Create the user
         const createResult = await adminClient.auth.admin.createUser({
-          phone: phone,
+          phone: formattedPhone,
           password: derivedPassword,
           phone_confirm: true,
         });
@@ -186,7 +246,6 @@ serve(async (req) => {
         if (createResult.error) {
           if (createResult.error.message.includes("already registered")) {
             // User exists with a different password --- find by phone and update
-            const tenDigit = cleanPhone.replace(/\D/g, "").slice(-10);
             let existingUser: any = null;
             let page = 1;
             while (!existingUser) {
@@ -201,20 +260,19 @@ serve(async (req) => {
                 const uDigits = u.phone.replace(/\D/g, "");
                 return (
                   u.phone === cleanPhone ||
-                  u.phone === phone ||
-                  u.phone === `+${cleanPhone}` ||
-                  (tenDigit.length === 10 && uDigits.slice(-10) === tenDigit)
+                  u.phone === formattedPhone ||
+                  uDigits.slice(-10) === tenDigits
                 );
               });
               if (users.length < 1000) break;
               page++;
             }
+
             if (existingUser) {
               await adminClient.auth.admin.updateUserById(existingUser.id, {
                 password: derivedPassword,
               });
-              // Use the existing user's exact registered phone format for signInWithPassword
-              if (existingUser.phone && existingUser.phone !== phone) {
+              if (existingUser.phone && existingUser.phone !== formattedPhone) {
                 signInResult = await adminClient.auth.signInWithPassword({
                   phone: existingUser.phone,
                   password: derivedPassword,
@@ -229,7 +287,7 @@ serve(async (req) => {
         // Sign in after creation/update if not already done
         if (!signInResult.data?.session) {
           signInResult = await adminClient.auth.signInWithPassword({
-            phone: phone,
+            phone: formattedPhone,
             password: derivedPassword,
           });
         }
@@ -245,7 +303,6 @@ serve(async (req) => {
 
     throw new Error("Invalid action");
   } catch (error: unknown) {
-    // Never log full error objects --- they may contain phone/OTP in stack traces
     const safeMsg = error instanceof Error ? error.message : String(error);
     console.error("[msg91-auth] Error:", safeMsg);
     return new Response(
