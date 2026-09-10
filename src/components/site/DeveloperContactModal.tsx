@@ -9,7 +9,8 @@ interface DeveloperContactModalProps {
 }
 
 const WHATSAPP_NUMBER = "919928010786";
-const WHATSAPP_MESSAGE = "Hi Saify Automates, I am interested in your website development services.";
+const WHATSAPP_MESSAGE =
+  "Hi Saify Automates, I am interested in your website development services.";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
 const EMAIL_ADDRESS = "saifyautomates@gmail.com";
@@ -90,7 +91,10 @@ export function DeveloperContactModal({ isOpen, onClose }: DeveloperContactModal
             <Sparkles className="size-3" />
             <span>Developer Contact</span>
           </div>
-          <h3 id="developer-contact-title" className="font-display text-lg font-bold text-foreground">
+          <h3
+            id="developer-contact-title"
+            className="font-display text-lg font-bold text-foreground"
+          >
             Saify Automates
           </h3>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
@@ -138,7 +142,9 @@ export function DeveloperContactModal({ isOpen, onClose }: DeveloperContactModal
                   Compose →
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground truncate mt-0.5">saifyautomates@gmail.com</p>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                saifyautomates@gmail.com
+              </p>
             </div>
           </a>
         </div>
@@ -149,6 +155,6 @@ export function DeveloperContactModal({ isOpen, onClose }: DeveloperContactModal
         </p>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

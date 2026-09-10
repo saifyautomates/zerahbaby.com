@@ -6,6 +6,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
 
     const evalResult = await page.evaluate(async () => {
       try {
+        const syncEnginePath = "/src/lib/offline-sync-engine.ts";
         const {
           getNextOfflineToken,
           getTodayISTDateString,
@@ -13,7 +14,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
           getAllQueuedSales,
           cacheFullCatalog,
           findOfflineProductByCode,
-        } = await import("/src/lib/offline-sync-engine.ts");
+        } = await import(/* @vite-ignore */ syncEnginePath);
 
         // 1. Test IST Date string
         const todayIST = getTodayISTDateString();
@@ -63,7 +64,7 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
         });
 
         const allSales = await getAllQueuedSales();
-        const queuedItem = allSales.find((s) => s.operation_id === opId);
+        const queuedItem = allSales.find((s: any) => s.operation_id === opId);
 
         return {
           success: true,
@@ -94,11 +95,12 @@ test.describe("Global Auto-Sync & Realtime Engine Test Suite", () => {
 
     const busResult = await page.evaluate(async () => {
       try {
-        const { subscribeToRealtimeSync } = await import("/src/lib/realtime-sync.ts");
+        const realtimeSyncPath = "/src/lib/realtime-sync.ts";
+        const { subscribeToRealtimeSync } = await import(/* @vite-ignore */ realtimeSyncPath);
         let eventReceived = false;
         let receivedTable = "";
 
-        const unsubscribe = subscribeToRealtimeSync((table) => {
+        const unsubscribe = subscribeToRealtimeSync((table: string) => {
           eventReceived = true;
           receivedTable = table;
         });

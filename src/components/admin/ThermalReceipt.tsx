@@ -134,9 +134,16 @@ function buildThermalHTML(
           <span style="font-weight:600;">−₹${sale.discount.toLocaleString("en-IN")}</span>
          </div>`
       : "";
-  const dateStr = date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const dateStr = date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
   const timeStr = date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-  const grossBillTotal = Math.max(sale.total, (sale.subtotal || 0) - (sale.discount || 0) - (sale.coupon_discount || 0));
+  const grossBillTotal = Math.max(
+    sale.total,
+    (sale.subtotal || 0) - (sale.discount || 0) - (sale.coupon_discount || 0),
+  );
   const additionalPaid = Math.max(0, grossBillTotal - (sale.store_credit_used || 0));
 
   return `<!DOCTYPE html>
@@ -511,7 +518,9 @@ export function ThermalReceipt({
             )}
             <div className="flex justify-between pt-1 border-t border-gray-900">
               <span className="font-black text-foreground text-sm">TOTAL</span>
-              <span className="font-black text-foreground text-sm">{formatPrice(grossBillTotal)}</span>
+              <span className="font-black text-foreground text-sm">
+                {formatPrice(grossBillTotal)}
+              </span>
             </div>
             {sale.store_credit_used && sale.store_credit_used > 0 ? (
               <div className="pt-1 text-[10px] space-y-0.5 border-t border-dashed border-gray-300">

@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -82,7 +81,11 @@ serve(async (req) => {
     }
 
     // 2. Parse request body
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      return_id?: string;
+      override_amount?: number;
+      notes?: string;
+    };
     const { return_id, override_amount, notes } = body;
 
     if (!return_id) {
@@ -208,14 +211,14 @@ serve(async (req) => {
     });
 
     if (!payCheckRes.ok) {
-      const errBody = await payCheckRes.json().catch(() => ({}));
+      const errBody = (await payCheckRes.json().catch(() => ({}))) as Record<string, any>;
       const rzpErrDesc =
         errBody.error?.description ||
         `Razorpay payment lookup failed with status ${payCheckRes.status}`;
       throw new Error(rzpErrDesc);
     }
 
-    const paymentData = await payCheckRes.json();
+    const paymentData = (await payCheckRes.json()) as Record<string, any>;
 
     // Check if payment was already refunded directly on Razorpay
     if (
@@ -226,7 +229,7 @@ serve(async (req) => {
         method: "GET",
         headers: rzpAuthHeader,
       });
-      const refundsData = await refundsRes.json().catch(() => ({}));
+      const refundsData = (await refundsRes.json().catch(() => ({}))) as Record<string, any>;
       const existingRefund = refundsData.items?.[0] || {};
       const existingRefundId = existingRefund.id || ret.razorpay_refund_id || "EXT_REFUND";
 
@@ -272,7 +275,7 @@ serve(async (req) => {
       }),
     });
 
-    const rzpData = await rzpRes.json();
+    const rzpData = (await rzpRes.json()) as Record<string, any>;
 
     if (!rzpRes.ok) {
       console.error("[process-online-refund] Razorpay Refund Error:", rzpData);

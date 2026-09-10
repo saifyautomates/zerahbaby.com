@@ -246,7 +246,8 @@ export function POSTab() {
     const local = loadStoredSessionsLocal();
     const savedId = loadActiveSessionIdLocal();
     const active = savedId ? local.find((s) => s.id === savedId) : local[0];
-    if (active) return active.customer_name === "Walk-in Customer" ? "" : active.customer_name || "";
+    if (active)
+      return active.customer_name === "Walk-in Customer" ? "" : active.customer_name || "";
     const draft = loadPOSDraft();
     return draft?.customerName || "";
   });
@@ -620,7 +621,8 @@ export function POSTab() {
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
-        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_name:
+          customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
         customer_phone: customerPhone,
         customer_email: customerEmail,
         customer_id: customerId,
@@ -665,7 +667,8 @@ export function POSTab() {
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
-        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_name:
+          customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
         customer_phone: customerPhone,
         customer_email: customerEmail,
         customer_id: customerId,
@@ -718,10 +721,15 @@ export function POSTab() {
 
     const current = sessions.find((s) => s.id === activeSessionId);
     const sessionNum = current?.session_number || generateSessionNumber();
-    const custName = customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
+    const custName =
+      customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
 
     const heldSession: POSSession = {
-      id: activeSessionId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}`),
+      id:
+        activeSessionId ||
+        (typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `sess_${Date.now()}`),
       session_number: sessionNum,
       customer_mode: customerMode,
       customer_name: custName,
@@ -776,7 +784,9 @@ export function POSTab() {
       handleSwitchSession(otherDraft.id);
     } else {
       const newSess = createDefaultSession();
-      const updatedSessions = sessions.map((s) => (s.id === activeSessionId ? heldSession : s)).concat(newSess);
+      const updatedSessions = sessions
+        .map((s) => (s.id === activeSessionId ? heldSession : s))
+        .concat(newSess);
       setSessions(updatedSessions);
       saveStoredSessionsLocal(updatedSessions);
       setActiveSessionId(newSess.id);
@@ -813,7 +823,8 @@ export function POSTab() {
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
-        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_name:
+          customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
         customer_phone: customerPhone,
         customer_email: customerEmail,
         customer_id: customerId,
@@ -878,7 +889,11 @@ export function POSTab() {
     if (!sess) return;
     const hasItems = (sess.id === activeSessionId ? cart.length : sess.items?.length || 0) > 0;
     if (hasItems) {
-      if (!window.confirm(`Discard sale session ${sess.session_number}? Any unbilled items will be cleared.`)) {
+      if (
+        !window.confirm(
+          `Discard sale session ${sess.session_number}? Any unbilled items will be cleared.`,
+        )
+      ) {
         return;
       }
     }
@@ -1285,7 +1300,11 @@ export function POSTab() {
       setTxState("FAILED");
       setIdempotencyKey(generateIdempotencyKey());
       const errMsg = e instanceof Error ? e.message : "Sale failed to process";
-      if (errMsg.toLowerCase().includes("voucher") || errMsg.toLowerCase().includes("redeemed") || errMsg.toLowerCase().includes("token")) {
+      if (
+        errMsg.toLowerCase().includes("voucher") ||
+        errMsg.toLowerCase().includes("redeemed") ||
+        errMsg.toLowerCase().includes("token")
+      ) {
         setStoreCreditApplied(0);
         setCreditTokenInput("");
         qc.invalidateQueries({ queryKey: ["pos_voucher"] });
@@ -1568,11 +1587,17 @@ export function POSTab() {
             {sessions.map((sess) => {
               const isActive = sess.id === activeSessionId;
               const isHeld = sess.status === "held";
-              const itemCount = isActive ? totalItems : (sess.items?.reduce((a, b) => a + (b.qty || 1), 0) || 0);
-              const displayTotal = isActive ? total : (sess.total || 0);
+              const itemCount = isActive
+                ? totalItems
+                : sess.items?.reduce((a, b) => a + (b.qty || 1), 0) || 0;
+              const displayTotal = isActive ? total : sess.total || 0;
               const custName = isActive
-                ? (customerMode === "walkin" ? "Walk-in" : customerName || "Walk-in")
-                : (sess.customer_mode === "walkin" ? "Walk-in" : sess.customer_name || "Walk-in");
+                ? customerMode === "walkin"
+                  ? "Walk-in"
+                  : customerName || "Walk-in"
+                : sess.customer_mode === "walkin"
+                  ? "Walk-in"
+                  : sess.customer_name || "Walk-in";
 
               return (
                 <div
@@ -1582,8 +1607,8 @@ export function POSTab() {
                     isActive
                       ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary/30"
                       : isHeld
-                      ? "bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
-                      : "bg-card text-foreground border-border hover:bg-muted/60"
+                        ? "bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
+                        : "bg-card text-foreground border-border hover:bg-muted/60",
                   )}
                   onClick={() => {
                     if (isHeld) {
@@ -1597,19 +1622,29 @@ export function POSTab() {
                 >
                   <div className="flex items-center gap-1.5 px-3 py-1.5">
                     {isHeld && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-200" data-testid="pos-held-indicator">
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-200"
+                        data-testid="pos-held-indicator"
+                      >
                         <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
                         Held
                       </span>
                     )}
                     <span className="font-bold">{sess.session_number}</span>
-                    <span className={cn("max-w-[90px] truncate font-medium", isActive ? "text-primary-foreground/90" : "text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "max-w-[90px] truncate font-medium",
+                        isActive ? "text-primary-foreground/90" : "text-muted-foreground",
+                      )}
+                    >
                       {custName}
                     </span>
                     <span
                       className={cn(
                         "px-1.5 py-0.2 rounded-full text-[10px] font-bold",
-                        isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                        isActive
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted text-muted-foreground",
                       )}
                     >
                       {itemCount}
@@ -1623,7 +1658,7 @@ export function POSTab() {
                       type="button"
                       className={cn(
                         "p-1 mr-1 rounded-md opacity-60 hover:opacity-100 transition cursor-pointer",
-                        isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted"
+                        isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted",
                       )}
                       title="Discard this sale session"
                       onClick={(e) => {

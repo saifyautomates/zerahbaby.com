@@ -73,7 +73,7 @@ export function OnboardingModal() {
     profile?.address?.trim() &&
     profile?.city?.trim() &&
     profile?.state?.trim() &&
-    profile?.pincode?.trim()
+    profile?.pincode?.trim(),
   );
 
   // Listen to manual triggers (e.g. from /auth upon fresh login)
@@ -109,11 +109,7 @@ export function OnboardingModal() {
         user.user_metadata?.full_name ||
         user.user_metadata?.name ||
         "";
-      const defaultPhone =
-        profile.phone?.trim() ||
-        user.phone ||
-        user.user_metadata?.phone ||
-        "";
+      const defaultPhone = profile.phone?.trim() || user.phone || user.user_metadata?.phone || "";
 
       setForm({
         full_name: defaultName,
@@ -131,7 +127,7 @@ export function OnboardingModal() {
         profile.address?.trim() &&
         profile.city?.trim() &&
         profile.state?.trim() &&
-        profile.pincode?.trim()
+        profile.pincode?.trim(),
       );
 
       if (!complete) {
@@ -196,22 +192,20 @@ export function OnboardingModal() {
     setBusy(true);
     try {
       // Upsert profile record to ensure creation even if row was not yet created
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            id: user.id,
-            full_name: form.full_name.trim(),
-            phone: form.phone.trim(),
-            address: form.address.trim(),
-            city: form.city.trim(),
-            state: form.state.trim(),
-            pincode: form.pincode.trim(),
-            email: profile?.email || user.email || "",
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          email: profile?.email || user.email || "",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
 
       if (error) throw error;
 
@@ -258,11 +252,15 @@ export function OnboardingModal() {
               <Sparkles className="size-3.5" />
               <span>Complete Your Profile</span>
             </div>
-            <h2 id="onboarding-modal-title" className="font-display text-2xl font-bold text-foreground">
+            <h2
+              id="onboarding-modal-title"
+              className="font-display text-2xl font-bold text-foreground"
+            >
               Welcome to <BrandName size="lg" className="inline-block" />!
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Please provide your delivery details so we can deliver your orders quickly and smoothly.
+              Please provide your delivery details so we can deliver your orders quickly and
+              smoothly.
             </p>
           </div>
 
@@ -415,6 +413,6 @@ export function OnboardingModal() {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -13,7 +12,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -115,7 +114,12 @@ serve(async (req) => {
     }
 
     // 3. Parse Request Payload
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      order_id?: string;
+      orderId?: string;
+      reason?: string;
+      amount?: number;
+    };
     const orderId = body.order_id || body.orderId;
     const reason = (body.reason || "Admin initiated cancellation refund").trim();
     const requestedOverrideAmount =
@@ -268,7 +272,7 @@ serve(async (req) => {
     });
 
     if (!payCheckRes.ok) {
-      const errBody = await payCheckRes.json().catch(() => ({}));
+      const errBody = (await payCheckRes.json().catch(() => ({}))) as Record<string, any>;
       const rzpErrDesc =
         errBody.error?.description ||
         errBody.error?.reason ||
@@ -293,7 +297,7 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: userFacingMsg }, 400);
     }
 
-    const paymentData = await payCheckRes.json();
+    const paymentData = (await payCheckRes.json()) as Record<string, any>;
 
     // 11. Validate Payment Gateway State
     // Check if payment was already refunded directly on Razorpay
@@ -310,7 +314,7 @@ serve(async (req) => {
         method: "GET",
         headers: rzpAuthHeader,
       });
-      const refundsData = await refundsRes.json().catch(() => ({}));
+      const refundsData = (await refundsRes.json().catch(() => ({}))) as Record<string, any>;
       const existingRefund = refundsData.items?.[0] || {};
       const existingRefundId = existingRefund.id || order.razorpay_refund_id || "EXT_REFUND";
       const refundedRupees = (paymentData.amount_refunded || paymentData.amount) / 100;
@@ -412,7 +416,7 @@ serve(async (req) => {
       }),
     });
 
-    const rzpRefundData = await rzpRefundRes.json().catch(() => ({}));
+    const rzpRefundData = (await rzpRefundRes.json().catch(() => ({}))) as Record<string, any>;
 
     // 14. Handle Razorpay API Failure
     if (!rzpRefundRes.ok) {

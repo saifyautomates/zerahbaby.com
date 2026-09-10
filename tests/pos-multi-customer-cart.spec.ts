@@ -357,7 +357,10 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
     await page.waitForTimeout(500);
 
     // 3. Verify held tab indicator appears
-    const heldBadge = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: /Held/i }).first();
+    const heldBadge = page
+      .locator('[data-testid^="pos-sale-tab-"]')
+      .filter({ hasText: /Held/i })
+      .first();
     await expect(heldBadge).toBeVisible({ timeout: 5000 });
 
     // 4. Current active cart is clean for Sale B

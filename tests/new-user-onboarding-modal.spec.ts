@@ -8,7 +8,9 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
     });
   });
 
-  test("1. Onboarding modal opens when triggered and displays all required customer fields", async ({ page }) => {
+  test("1. Onboarding modal opens when triggered and displays all required customer fields", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 

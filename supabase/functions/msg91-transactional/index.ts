@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -176,7 +175,7 @@ async function dispatchToMsg91(authKey, templateId, cleanPhone, vars) {
       signal: controller.signal,
     });
 
-    const resData = await resp.json().catch(() => ({}));
+    const resData = (await resp.json().catch(() => ({}))) as Record<string, any>;
 
     if (!resp.ok || resData.type === "error") {
       let errorCategory = "provider_error";
@@ -218,7 +217,7 @@ async function dispatchToMsg91(authKey, templateId, cleanPhone, vars) {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -281,7 +280,23 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json().catch(() => ({}));
+    const payload = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      log_id?: string;
+      order_id?: string;
+      offline_sale_id?: string;
+      event_type?: string;
+      name?: string;
+      recipient_type?: string;
+      notify_owner?: boolean;
+      phone?: string;
+      total?: number;
+      item_count?: number;
+      payment_method?: string;
+      sale_number?: string;
+      order_number?: string;
+      idempotency_key?: string;
+    };
     const {
       action,
       log_id,
@@ -481,31 +496,60 @@ serve(async (req) => {
     const results = [];
 
     const dispatchSingleSms = async (targetPhone, targetRecipientType) => {
-      const { allowed, error: rateLimitError } = await checkRateLimitAndRecord(targetPhone, currentEventType);
-      if (!allowed) return { success: false, error: rateLimitError, recipient: targetRecipientType };
+      const { allowed, error: rateLimitError } = await checkRateLimitAndRecord(
+        targetPhone,
+        currentEventType,
+      );
+      if (!allowed)
+        return { success: false, error: rateLimitError, recipient: targetRecipientType };
 
       const { valid, phone: cleanPhone, error: phoneErr } = normalizeIndianPhone(targetPhone);
       if (!valid) {
-        const { data: failLog } = await adminClient.from("sms_logs").insert({
-          order_id: isValidUuid(order_id) ? order_id : null,
-          offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
-          phone: targetPhone || "UNKNOWN",
-          message_type: currentEventType,
-          recipient_type: targetRecipientType,
-          status: "FAILED",
-          provider_status: "validation_error",
-          error_details: phoneErr || "Invalid phone number",
-          message_content: "N/A",
-          sent_at: new Date().toISOString(),
-        }).select("id").maybeSingle();
-        return { success: false, log_id: failLog?.id, error: phoneErr, recipient: targetRecipientType };
+        const { data: failLog } = await adminClient
+          .from("sms_logs")
+          .insert({
+            order_id: isValidUuid(order_id) ? order_id : null,
+            offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
+            phone: targetPhone || "UNKNOWN",
+            message_type: currentEventType,
+            recipient_type: targetRecipientType,
+            status: "FAILED",
+            provider_status: "validation_error",
+            error_details: phoneErr || "Invalid phone number",
+            message_content: "N/A",
+            sent_at: new Date().toISOString(),
+          })
+          .select("id")
+          .maybeSingle();
+        return {
+          success: false,
+          log_id: failLog?.id,
+          error: phoneErr,
+          recipient: targetRecipientType,
+        };
       }
 
       const canonicalKey = `${order_id || offline_sale_id || "tx"}_${currentEventType}_${cleanPhone}_${targetRecipientType}`;
-      const idempotencyKey = (payload.idempotency_key && targetRecipientType === recipient_type && !payload.idempotency_key.startsWith("ord_") && !payload.idempotency_key.startsWith("off_")) ? payload.idempotency_key : canonicalKey;
+      const idempotencyKey =
+        payload.idempotency_key &&
+        targetRecipientType === recipient_type &&
+        !payload.idempotency_key.startsWith("ord_") &&
+        !payload.idempotency_key.startsWith("off_")
+          ? payload.idempotency_key
+          : canonicalKey;
 
-      const { data: existingLog } = await adminClient.from("sms_logs").select("id, status, provider_status").eq("idempotency_key", idempotencyKey).maybeSingle();
-      if (existingLog && (existingLog.status === "SENT" || existingLog.status === "PENDING" || existingLog.provider_status === "mock_success" || existingLog.provider_status === "sent")) {
+      const { data: existingLog } = await adminClient
+        .from("sms_logs")
+        .select("id, status, provider_status")
+        .eq("idempotency_key", idempotencyKey)
+        .maybeSingle();
+      if (
+        existingLog &&
+        (existingLog.status === "SENT" ||
+          existingLog.status === "PENDING" ||
+          existingLog.provider_status === "mock_success" ||
+          existingLog.provider_status === "sent")
+      ) {
         return { success: true, already_sent: true, log_id: existingLog.id };
       }
 
@@ -519,7 +563,12 @@ serve(async (req) => {
       for (const reqVar of config.requiredVars || []) {
         if (!templateVars[reqVar] || String(templateVars[reqVar]).trim() === "") {
           const varErr = `Missing required template variable '${reqVar}'`;
-          return { success: false, error: varErr, recipient: targetRecipientType, template: templateKey };
+          return {
+            success: false,
+            error: varErr,
+            recipient: targetRecipientType,
+            template: templateKey,
+          };
         }
       }
 
@@ -535,24 +584,36 @@ serve(async (req) => {
         providerMsgId = result.providerMsgId;
       }
 
-      const finalStatus = (providerStatus === "sent" || providerStatus === "mock_success") ? "SENT" : "FAILED";
-      const { data: insertedLog } = await adminClient.from("sms_logs").upsert({
-        order_id: isValidUuid(order_id) ? order_id : null,
-        offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
-        phone: cleanPhone,
-        message_type: currentEventType,
-        recipient_type: targetRecipientType,
-        status: finalStatus,
-        provider_status: providerStatus,
-        error_details: errorDetails,
-        idempotency_key: idempotencyKey,
-        message_content: `template:${templateKey}`,
-        template_id: templateId || null,
-        provider_message_id: providerMsgId,
-        sent_at: new Date().toISOString(),
-      }, { onConflict: "idempotency_key" }).select("id").maybeSingle();
+      const finalStatus =
+        providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
+      const { data: insertedLog } = await adminClient
+        .from("sms_logs")
+        .upsert(
+          {
+            order_id: isValidUuid(order_id) ? order_id : null,
+            offline_sale_id: isValidUuid(offline_sale_id) ? offline_sale_id : null,
+            phone: cleanPhone,
+            message_type: currentEventType,
+            recipient_type: targetRecipientType,
+            status: finalStatus,
+            provider_status: providerStatus,
+            error_details: errorDetails,
+            idempotency_key: idempotencyKey,
+            message_content: `template:${templateKey}`,
+            template_id: templateId || null,
+            provider_message_id: providerMsgId,
+            sent_at: new Date().toISOString(),
+          },
+          { onConflict: "idempotency_key" },
+        )
+        .select("id")
+        .maybeSingle();
 
-      return { success: finalStatus === "SENT", log_id: insertedLog?.id, recipient: targetRecipientType };
+      return {
+        success: finalStatus === "SENT",
+        log_id: insertedLog?.id,
+        recipient: targetRecipientType,
+      };
     };
 
     if (authoritativePhone && authoritativePhone.trim() !== "") {

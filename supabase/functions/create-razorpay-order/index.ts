@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -45,7 +44,10 @@ serve(async (req) => {
     }
 
     // 2. Parse request body
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      orderId?: string;
+      sessionId?: string;
+    };
     const { orderId, sessionId } = body;
     if (!orderId && !sessionId) {
       throw new Error("Missing sessionId or orderId in request payload");
@@ -163,7 +165,16 @@ serve(async (req) => {
       }),
     });
 
-    const razorpayOrder = await response.json();
+    const razorpayOrder = (await response.json()) as {
+      id?: string;
+      error?: {
+        description?: string;
+        reason?: string;
+        code?: string;
+        source?: string;
+        step?: string;
+      };
+    };
 
     if (!response.ok) {
       console.error("[create-razorpay-order] Razorpay API error:", {

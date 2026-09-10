@@ -44,7 +44,10 @@ export function generateSessionNumber(): string {
 }
 
 export function createDefaultSession(sessionNumber?: string): POSSession {
-  const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const id =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const now = new Date().toISOString();
   return {
     id,
@@ -120,11 +123,16 @@ export function saveActiveSessionIdLocal(id: string): void {
 export async function fetchActivePOSSessions(): Promise<POSSession[]> {
   try {
     const { data, error } = await (
-      supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown; error: { message: string } | null }>
+      supabase.rpc as unknown as (
+        fn: string,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>
     )("get_active_pos_sessions");
 
     if (error) {
-      console.warn("[POSSessionEngine] get_active_pos_sessions error, using local fallback:", error.message);
+      console.warn(
+        "[POSSessionEngine] get_active_pos_sessions error, using local fallback:",
+        error.message,
+      );
       const local = loadStoredSessionsLocal();
       return local.length > 0 ? local : [createDefaultSession()];
     }
@@ -189,7 +197,9 @@ export async function savePOSSession(session: POSSession): Promise<void> {
   saveStoredSessionsLocal(updatedLocal);
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(session.id);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      session.id,
+    );
     const payloadSession = {
       id: isUuid ? session.id : undefined,
       session_number: session.session_number,
@@ -212,8 +222,12 @@ export async function savePOSSession(session: POSSession): Promise<void> {
     };
 
     const payloadItems = session.items.map((item) => {
-      const isProdUuid = Boolean(item.product_id) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.product_id);
-      const isVarUuid = Boolean(item.variant_id) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variant_id);
+      const isProdUuid =
+        Boolean(item.product_id) &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.product_id);
+      const isVarUuid =
+        Boolean(item.variant_id) &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variant_id);
       return {
         product_id: isProdUuid ? item.product_id : undefined,
         variant_id: isVarUuid ? item.variant_id : undefined,
@@ -255,7 +269,9 @@ export async function closePOSSession(sessionId: string): Promise<void> {
   saveStoredSessionsLocal(local);
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      sessionId,
+    );
     if (isUuid) {
       await (
         supabase.rpc as unknown as (

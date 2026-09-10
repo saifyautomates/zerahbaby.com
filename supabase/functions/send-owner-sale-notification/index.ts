@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -921,7 +920,7 @@ function renderCustomerQueryEmail(
 /*  Main Edge Function Handler                                        */
 /* ------------------------------------------------------------------ */
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -980,7 +979,7 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json().catch(() => ({}));
+    const payload = (await req.json().catch(() => ({}))) as Record<string, any>;
     let type = payload.type;
     let order_id = payload.order_id;
     let sale_id = payload.sale_id;
@@ -1236,7 +1235,7 @@ serve(async (req) => {
               }),
             });
 
-            let custData = await custRes.json();
+            let custData = (await custRes.json()) as Record<string, any>;
 
             // Automatic fallback to onboarding@resend.dev if custom domain is not yet verified on Resend
             if (
@@ -1260,7 +1259,7 @@ serve(async (req) => {
                   html: customerRendered.html,
                 }),
               });
-              custData = await custRes.json();
+              custData = (await custRes.json()) as Record<string, any>;
             }
 
             if (custRes.ok) {
@@ -1441,7 +1440,7 @@ serve(async (req) => {
           }),
         });
 
-        let resendData = await resendRes.json();
+        let resendData = (await resendRes.json()) as Record<string, any>;
         if (
           !resendRes.ok &&
           (resendData.message?.includes("domain") || resendData.message?.includes("not verified"))
@@ -1463,7 +1462,7 @@ serve(async (req) => {
               html: emailHtml,
             }),
           });
-          resendData = await retryRes.json();
+          resendData = (await retryRes.json()) as Record<string, any>;
           if (retryRes.ok) {
             resendMessageId = resendData.id;
             dispatchError = null;

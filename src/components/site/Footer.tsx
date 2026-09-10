@@ -231,10 +231,7 @@ export function Footer() {
         </div>
       </div>
 
-      <DeveloperContactModal
-        isOpen={isDevModalOpen}
-        onClose={() => setIsDevModalOpen(false)}
-      />
+      <DeveloperContactModal isOpen={isDevModalOpen} onClose={() => setIsDevModalOpen(false)} />
     </footer>
   );
 }

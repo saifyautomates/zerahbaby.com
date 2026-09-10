@@ -139,7 +139,9 @@ function AuthPage() {
         if (user.id) {
           sessionStorage.removeItem(`onboarding_dismissed_${user.id}`);
         }
-      } catch {}
+      } catch {
+        // Storage access error ignored in restricted contexts
+      }
 
       // Signal onboarding modal to appear if details are incomplete
       if (typeof window !== "undefined") {
@@ -218,7 +220,11 @@ function AuthPage() {
         }
 
         if (!data?.success || !data?.request_id) {
-          throw new Error(data?.error || data?.message || "SMS delivery could not be confirmed by provider. Please try again.");
+          throw new Error(
+            data?.error ||
+              data?.message ||
+              "SMS delivery could not be confirmed by provider. Please try again.",
+          );
         }
       }
       // Success: transition to verify screen
@@ -226,9 +232,7 @@ function AuthPage() {
       setOtpExpired(false);
       setMode("verify");
       startCooldown(60);
-      toast.success(
-        isRawEmail ? "OTP sent to your email!" : "4-digit code sent to your mobile!",
-      );
+      toast.success(isRawEmail ? "OTP sent to your email!" : "4-digit code sent to your mobile!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
       setSuggestion({
@@ -333,9 +337,7 @@ function AuthPage() {
             m.includes("does not match") ||
             m.includes("token")
           ) {
-            throw new Error(
-              "Incorrect OTP. Please check your verification code and try again.",
-            );
+            throw new Error("Incorrect OTP. Please check your verification code and try again.");
           }
           if (m.includes("attempts") || m.includes("too many")) {
             throw new Error("Too many incorrect attempts. Please request a new OTP.");

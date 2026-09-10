@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import crypto from "node:crypto";
 
@@ -7,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -46,7 +45,12 @@ serve(async (req) => {
     }
 
     // 2. Parse verification payload
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      razorpay_order_id?: string;
+      razorpay_payment_id?: string;
+      razorpay_signature?: string;
+      session_id?: string;
+    };
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, session_id } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -120,7 +124,7 @@ serve(async (req) => {
           },
         );
         if (rzpPayRes.ok) {
-          const payData = await rzpPayRes.json();
+          const payData = (await rzpPayRes.json()) as Record<string, any>;
           if (payData.currency !== "INR") {
             throw new Error(`Unsupported currency: ${payData.currency}`);
           }
@@ -207,7 +211,7 @@ serve(async (req) => {
             );
 
             if (refundRes.ok) {
-              const refundData = await refundRes.json();
+              const refundData = (await refundRes.json()) as Record<string, any>;
               autoRefundIssued = true;
               console.log("[verify-razorpay-payment] Auto-refund successful:", refundData.id);
             } else {

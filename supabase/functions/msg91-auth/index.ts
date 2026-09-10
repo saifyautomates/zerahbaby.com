@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -45,13 +44,18 @@ function generate4DigitOtp(): string {
   return num.toString();
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { action, phone, otp } = await req.json();
+    const body = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      phone?: string;
+      otp?: string;
+    };
+    const { action, phone, otp } = body;
 
     if (!phone) throw new Error("Missing phone number");
     if (!action || !["send", "resend", "verify"].includes(action)) {
@@ -68,8 +72,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Securely derive authSecret from private env or fallback to service role key
-    const authSecret =
-      (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() || supabaseServiceKey;
+    const authSecret = (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() || supabaseServiceKey;
 
     if (!authSecret) {
       throw new Error("Authentication secret not configured on server");
@@ -89,8 +92,8 @@ serve(async (req) => {
     if (tenDigits.length !== 10) {
       throw new Error("Please enter a valid 10-digit Indian mobile number.");
     }
-    const cleanPhone = "91" + tenDigits;      // Format for MSG91: 91XXXXXXXXXX
-    const formattedPhone = "+91" + tenDigits;  // Format for Supabase Auth: +91XXXXXXXXXX
+    const cleanPhone = "91" + tenDigits; // Format for MSG91: 91XXXXXXXXXX
+    const formattedPhone = "+91" + tenDigits; // Format for Supabase Auth: +91XXXXXXXXXX
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -118,21 +121,24 @@ serve(async (req) => {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
       // Store in auth_otps table
-      const { error: dbError } = await adminClient
-        .from("auth_otps")
-        .upsert(
-          {
-            phone: cleanPhone,
-            otp_hash: otpHash,
-            attempts: 0,
-            expires_at: expiresAt,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: "phone" },
-        );
+      const { error: dbError } = await adminClient.from("auth_otps").upsert(
+        {
+          phone: cleanPhone,
+          otp_hash: otpHash,
+          attempts: 0,
+          expires_at: expiresAt,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "phone" },
+      );
 
       if (dbError) {
-        console.error("[msg91-auth] DB upsert error:", dbError.message, dbError.code, dbError.details);
+        console.error(
+          "[msg91-auth] DB upsert error:",
+          dbError.message,
+          dbError.code,
+          dbError.details,
+        );
         throw new Error("Could not initialize authentication session. Please try again.");
       }
 
@@ -160,17 +166,22 @@ serve(async (req) => {
         body: JSON.stringify(flowPayload),
       });
 
-      const resData = await resp.json().catch(() => ({}));
+      const resData = (await resp.json().catch(() => ({}))) as Record<string, any>;
 
       if (!resp.ok || resData.type === "error") {
         // Rollback un-dispatched OTP to prevent dangling unusable state
         await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
-        console.error("[msg91-auth] MSG91 Flow dispatch error:", resData.message || resp.statusText);
+        console.error(
+          "[msg91-auth] MSG91 Flow dispatch error:",
+          resData.message || resp.statusText,
+        );
         throw new Error(resData.message || "Failed to dispatch OTP SMS via gateway.");
       }
 
       const requestId = resData.message || resData.request_id || "dispatched";
-      console.log(`[msg91-auth] 4-digit OTP dispatched: phone=${cleanPhone.substring(0, 4)}**** request_id=${requestId}`);
+      console.log(
+        `[msg91-auth] 4-digit OTP dispatched: phone=${cleanPhone.substring(0, 4)}**** request_id=${requestId}`,
+      );
 
       return new Response(
         JSON.stringify({
@@ -225,7 +236,9 @@ serve(async (req) => {
         throw new Error("Incorrect OTP. Please double-check and try again.");
       }
 
-      console.log(`[msg91-auth] OTP verified successfully: phone=${cleanPhone.substring(0, 4)}****`);
+      console.log(
+        `[msg91-auth] OTP verified successfully: phone=${cleanPhone.substring(0, 4)}****`,
+      );
 
       // ── SUPABASE AUTH SESSION ─────────────────────────────────────────────
       const derivedPassword = await generateDeterministicPassword(formattedPhone, authSecret);
@@ -238,7 +251,9 @@ serve(async (req) => {
 
       // If sign in fails for ANY reason (e.g. Phone not confirmed, Invalid login credentials, user not created yet)
       if (signInResult.error) {
-        console.log(`[msg91-auth] Initial signInWithPassword failed (${signInResult.error.message}). Resolving user state in Supabase Auth...`);
+        console.log(
+          `[msg91-auth] Initial signInWithPassword failed (${signInResult.error.message}). Resolving user state in Supabase Auth...`,
+        );
 
         // Search for user in Supabase Auth by phone number
         let existingUser: any = null;
@@ -268,11 +283,16 @@ serve(async (req) => {
         }
 
         if (existingUser) {
-          console.log(`[msg91-auth] Found existing user ${existingUser.id}, confirming phone and updating password...`);
-          const { error: updateErr } = await adminClient.auth.admin.updateUserById(existingUser.id, {
-            phone_confirm: true,
-            password: derivedPassword,
-          });
+          console.log(
+            `[msg91-auth] Found existing user ${existingUser.id}, confirming phone and updating password...`,
+          );
+          const { error: updateErr } = await adminClient.auth.admin.updateUserById(
+            existingUser.id,
+            {
+              phone_confirm: true,
+              password: derivedPassword,
+            },
+          );
           if (updateErr) {
             console.error("[msg91-auth] updateUserById error:", updateErr);
           }
@@ -315,19 +335,19 @@ serve(async (req) => {
       // Delete record from auth_otps to prevent replay
       await adminClient.from("auth_otps").delete().eq("phone", cleanPhone);
 
-      return new Response(
-        JSON.stringify({ success: true, session: signInResult.data.session }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
+      return new Response(JSON.stringify({ success: true, session: signInResult.data.session }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
     throw new Error("Invalid action");
   } catch (error: unknown) {
     const safeMsg = error instanceof Error ? error.message : String(error);
     console.error("[msg91-auth] Error:", safeMsg);
-    return new Response(
-      JSON.stringify({ error: safeMsg }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
-    );
+    return new Response(JSON.stringify({ error: safeMsg }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
   }
 });

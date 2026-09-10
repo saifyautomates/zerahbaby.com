@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -85,7 +84,13 @@ serve(async (req) => {
     }
 
     // 2. Parse request payload
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      orderId?: string;
+      returnId?: string;
+      return_id?: string;
+      courierId?: string;
+    };
     const { action, orderId, returnId } = body;
 
     if (!action || (!orderId && !returnId)) {
@@ -121,7 +126,7 @@ serve(async (req) => {
         body: JSON.stringify({ email: srEmail, password: srPassword }),
       });
 
-      const authData = await authRes.json().catch(() => ({}));
+      const authData = (await authRes.json().catch(() => ({}))) as Record<string, any>;
       if (!authRes.ok || !authData.token) {
         const err =
           authData.message ||
@@ -157,7 +162,7 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${srToken}` },
         });
         if (res.ok) {
-          const json = await res.json();
+          const json = (await res.json()) as Record<string, any>;
           const addresses = json?.data?.shipping_address || [];
           const primary = addresses.find((a: any) => a.is_primary_location === 1) || addresses[0];
           if (primary?.pickup_location) {
@@ -250,7 +255,7 @@ serve(async (req) => {
         body: JSON.stringify(returnPayload),
       });
 
-      const srData = await res.json().catch(() => ({}));
+      const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || srData.status_code !== 1) {
         console.error("Shiprocket Create Return Error:", srData);
         const errMsg =
@@ -404,7 +409,7 @@ serve(async (req) => {
         body: JSON.stringify(payload),
       });
 
-      const srData = await res.json().catch(() => ({}));
+      const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || (srData.status_code !== 1 && srData.status_code !== 200 && !srData.order_id)) {
         console.error("Shiprocket Create Order Error:", srData);
         const errMsg =
@@ -448,7 +453,7 @@ serve(async (req) => {
         }),
       });
 
-      const srData = await res.json().catch(() => ({}));
+      const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || !srData.awb_assign_status) {
         console.error("Shiprocket AWB Error:", srData);
         const errMsg =
@@ -491,7 +496,7 @@ serve(async (req) => {
         }),
       });
 
-      const srData = await res.json().catch(() => ({}));
+      const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || (srData.status !== 1 && srData.pickup_status !== 1 && !srData.response)) {
         console.error("Shiprocket Pickup Error:", srData);
         const errMsg =
