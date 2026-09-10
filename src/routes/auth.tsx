@@ -212,7 +212,7 @@ function AuthPage() {
       setMode("verify");
       startCooldown(60);
       toast.success(
-        isRawEmail ? "OTP sent to your email!" : "4-digit OTP sent to your mobile!",
+        isRawEmail ? "OTP sent to your email!" : "6-digit OTP sent to your mobile!",
       );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
@@ -262,7 +262,7 @@ function AuthPage() {
       setOtp("");
       setOtpExpired(false);
       startCooldown(60);
-      toast.success(isContactEmail ? "New OTP sent!" : "New 4-digit OTP sent!");
+      toast.success(isContactEmail ? "New OTP sent!" : "New 6-digit OTP sent!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
       const isContactEmail = contact.includes("@");
@@ -284,9 +284,9 @@ function AuthPage() {
   async function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     const token = otp.trim();
-    if (!/^\d{4}$/.test(token) || busy) {
-      if (token.length > 0 && token.length !== 4) {
-        toast.error("Please enter the 4-digit OTP.");
+    if (!/^\d{6}$/.test(token) || busy) {
+      if (token.length > 0 && token.length !== 6) {
+        toast.error("Please enter the 6-digit OTP.");
       }
       return;
     }
@@ -486,12 +486,12 @@ function AuthPage() {
           <BrandName size="lg" align="center" />
         </div>
         <h1 className="text-center font-display text-xl font-bold">
-          {mode === "input" ? "Sign In to Your Account" : "Enter 4-digit OTP"}
+          {mode === "input" ? "Sign In to Your Account" : "Enter 6-digit OTP"}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"
             ? "Enter your email or mobile number to continue"
-            : `Enter 4-digit OTP sent to ${contact}`}
+            : `Enter 6-digit OTP sent to ${contact}`}
         </p>
 
         {/* ── INTELLIGENT ALTERNATIVE AUTH SUGGESTION ── */}
@@ -639,14 +639,14 @@ function AuthPage() {
               inputMode="numeric"
               pattern="[0-9]*"
               required
-              maxLength={4}
+              maxLength={6}
               value={otp}
               onChange={(e) => {
                 setOtpExpired(false); // typing dismisses the banner
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 4));
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
               }}
-              placeholder="Enter 4-digit OTP"
-              aria-label="Enter 4-digit OTP"
+              placeholder="Enter 6-digit OTP"
+              aria-label="Enter 6-digit OTP"
               autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
             />

@@ -96,16 +96,27 @@ serve(async (req) => {
 
     // -- SEND OTP --------------------------------------------------------------
     if (action === "send") {
-      // CORRECT format: query params only, zero body. Explicitly request 4-digit OTP.
-      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}&otp_length=4`;
+      // CORRECT format: query params only, zero body. Explicitly request 6-digit OTP.
+      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}&otp_length=6`;
       const providerResult = await callMsg91OtpApi(url, msg91AuthKey, "POST");
 
+      // Log full response so Supabase function logs show request_id for traceability
       console.log(
-        `[msg91-auth] OTP dispatched: type=${providerResult.type} phone=${cleanPhone.substring(0, 4)}****`,
+        `[msg91-auth] OTP dispatch response: type=${providerResult.type} request_id=${providerResult.request_id || "NONE"} phone=${cleanPhone.substring(0, 4)}****`,
       );
 
+      // If MSG91 returns success without a request_id, something is wrong (DLT/template issue)
+      if (!providerResult.request_id) {
+        console.warn(`[msg91-auth] WARNING: MSG91 returned success but NO request_id — SMS may not have been dispatched. Check template_id, sender_id, and DLT approval. type=${providerResult.type} message=${providerResult.message || ""}`);
+      }
+
       return new Response(
-        JSON.stringify({ success: true, message: "OTP sent" }),
+        JSON.stringify({
+          success: true,
+          message: "OTP sent",
+          request_id: providerResult.request_id || null,
+          _debug_msg91_type: providerResult.type,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
@@ -128,10 +139,10 @@ serve(async (req) => {
     if (action === "verify") {
       if (!otp) throw new Error("Missing OTP");
 
-      // Validate that OTP is strictly 4 digits (preserving leading zeros as string)
+      // Validate that OTP is strictly 6 digits (preserving leading zeros as string)
       const cleanOtp = String(otp).trim();
-      if (!/^\d{4}$/.test(cleanOtp)) {
-        throw new Error("OTP must contain exactly 4 digits");
+      if (!/^\d{6}$/.test(cleanOtp)) {
+        throw new Error("OTP must contain exactly 6 digits");
       }
 
       // MSG91 OTP verify --- query-params only, GET method per official documentation
