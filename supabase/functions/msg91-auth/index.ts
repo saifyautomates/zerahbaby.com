@@ -56,7 +56,8 @@ serve(async (req) => {
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
     // Template ID for Zerah_Login_OTP (6aa1c8937992a371950d6052)
-    const msg91TemplateId = (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim();
+    const msg91TemplateId =
+      (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim() || "6aa1c8937992a371950d6052";
     const sender = (Deno.env.get("MSG91_SENDER_ID") || "").trim() || "ZERAHH";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
