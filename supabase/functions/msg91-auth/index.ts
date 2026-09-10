@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+﻿import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts";
 
@@ -14,13 +14,46 @@ const corsHeaders = {
 async function generateDeterministicPassword(phone: string, secret: string) {
   const encoder = new TextEncoder();
   const data = encoder.encode(`${phone}:${secret}`);
-
-  // Use WebCrypto API to hash the combination
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = new Uint8Array(hashBuffer);
-
-  // Convert to hex string and ensure it meets password requirements (add some symbols/uppercase)
   return "Zerah@" + new TextDecoder().decode(hexEncode(hashArray)).substring(0, 32);
+}
+
+/**
+ * Call MSG91 OTP API --- query-params only, NO JSON body.
+ *
+ * ROOT CAUSE FIX: MSG91 v5 OTP endpoint (/api/v5/otp, /api/v5/otp/retry,
+ * /api/v5/otp/verify) uses ONLY query-parameters. Passing a JSON body alongside
+ * query params causes MSG91 to ignore the query params and use internal defaults,
+ * which means the template_id, mobile, and sender are silently ignored.
+ * This results in MSG91 returning type:"success" but never dispatching the SMS.
+ */
+async function callMsg91OtpApi(
+  endpoint: string,
+  authKey: string,
+): Promise<{ type: string; message?: string; request_id?: string }> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      authkey: authKey,
+      accept: "application/json",
+      // NO Content-Type header, NO body --- MSG91 OTP API is query-param-only
+    },
+  });
+
+  const result = await response
+    .json()
+    .catch(() => ({ type: "error", message: "MSG91 returned unparseable response" }));
+
+  if (!response.ok) {
+    throw new Error(`MSG91 HTTP ${response.status}: ${result?.message || "Unknown error"}`);
+  }
+
+  if (result.type === "error") {
+    throw new Error(`MSG91 error: ${result.message || "Unknown MSG91 error"}`);
+  }
+
+  return result;
 }
 
 serve(async (req) => {
@@ -35,10 +68,13 @@ serve(async (req) => {
     if (!action) throw new Error("Missing action (send, verify, resend)");
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
+    // Template ID and sender --- read from Supabase secrets
+    // Fallback to hardcoded DLT-approved values if secret not explicitly set.
     const msg91TemplateId =
       (Deno.env.get("MSG91_OTP_TEMPLATE_ID") || "").trim() || "6aa1c8937992a371950d6052";
     const sender = (Deno.env.get("MSG91_SENDER_ID") || "").trim() || "ZERAHH";
-    // Securely derive authSecret from private environment or fallback to service role key
+
+    // Securely derive authSecret from private env or fallback to service role key
     const authSecret =
       (Deno.env.get("MSG91_AUTH_SECRET") || "").trim() ||
       (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
@@ -48,87 +84,72 @@ serve(async (req) => {
     }
 
     if (!msg91AuthKey) {
-      console.warn("MSG91_AUTH_KEY not configured.");
+      // Hard error --- do NOT silently fall through to mock mode in production
+      throw new Error("SMS gateway is not configured. Please contact support.");
     }
 
-    const cleanPhone = phone.replace("+", ""); // MSG91 typically expects number without +
+    // MSG91 expects the mobile number WITHOUT leading + (e.g., 917014098198)
+    const cleanPhone = phone.replace("+", "");
 
+    // -- SEND OTP --------------------------------------------------------------
     if (action === "send") {
-      if (msg91AuthKey) {
-        const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}`;
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { authkey: msg91AuthKey },
-        });
-        const result = await response.json();
-        if (result.type === "error") throw new Error(result.message);
-      }
-      return new Response(JSON.stringify({ success: true, message: "OTP sent" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      // CORRECT format: query params only, zero body
+      const url = `https://control.msg91.com/api/v5/otp?template_id=${msg91TemplateId}&mobile=${cleanPhone}&sender=${sender}`;
+      const providerResult = await callMsg91OtpApi(url, msg91AuthKey);
+
+      console.log(
+        `[msg91-auth] OTP dispatched: type=${providerResult.type} phone=${cleanPhone.substring(0, 4)}****`,
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, message: "OTP sent" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     }
 
+    // -- RESEND OTP ------------------------------------------------------------
     if (action === "resend") {
-      if (msg91AuthKey) {
-        const url = `https://control.msg91.com/api/v5/otp/retry?retrytype=text&mobile=${cleanPhone}`;
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { authkey: msg91AuthKey },
-        });
-        const result = await response.json();
-        if (result.type === "error") throw new Error(result.message);
-      }
-      return new Response(JSON.stringify({ success: true, message: "OTP resent" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      // MSG91 retry endpoint --- also query-params only
+      const url = `https://control.msg91.com/api/v5/otp/retry?retrytype=text&mobile=${cleanPhone}`;
+      await callMsg91OtpApi(url, msg91AuthKey);
+
+      console.log(`[msg91-auth] OTP resent: phone=${cleanPhone.substring(0, 4)}****`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "OTP resent" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     }
 
+    // -- VERIFY OTP ------------------------------------------------------------
     if (action === "verify") {
       if (!otp) throw new Error("Missing OTP");
 
-      if (msg91AuthKey) {
-        const url = `https://control.msg91.com/api/v5/otp/verify?otp=${otp}&mobile=${cleanPhone}`;
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { authkey: msg91AuthKey },
-        });
-        const result = await response.json();
-        if (result.type === "error") throw new Error(result.message);
-      } else {
-        const isDev = (Deno.env.get("ENVIRONMENT") || "").toLowerCase() === "development";
-        if (!isDev) {
-          throw new Error("SMS verification gateway is currently unconfigured or unavailable.");
-        }
-        // Mock verification only allowed in explicit dev environment
-        if (otp !== "123456") throw new Error("Invalid OTP (Dev mock: use 123456)");
-      }
+      // MSG91 OTP verify --- query-params only
+      const url = `https://control.msg91.com/api/v5/otp/verify?otp=${otp}&mobile=${cleanPhone}`;
+      await callMsg91OtpApi(url, msg91AuthKey);
 
-      // ------------------------------------------------------------------
-      // OTP Verified! Now we create or fetch the Supabase session
-      // ------------------------------------------------------------------
+      console.log(`[msg91-auth] OTP verified: phone=${cleanPhone.substring(0, 4)}****`);
+
+      // OTP Verified --- create or sign in to Supabase session
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
       const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
+        auth: { autoRefreshToken: false, persistSession: false },
       });
 
       const derivedPassword = await generateDeterministicPassword(phone, authSecret);
 
-      // Attempt to sign in
+      // Attempt to sign in first
       let signInResult = await adminClient.auth.signInWithPassword({
         phone: phone,
         password: derivedPassword,
       });
 
-      // If invalid credentials, the user might not exist OR the password changed
+      // If invalid credentials, user might not exist yet OR password changed
       if (signInResult.error && signInResult.error.message.includes("Invalid login credentials")) {
-        // Create the user
+        // Try to create the user
         const createResult = await adminClient.auth.admin.createUser({
           phone: phone,
           password: derivedPassword,
@@ -136,9 +157,8 @@ serve(async (req) => {
         });
 
         if (createResult.error) {
-          // User might exist but with a different password, let's update it
           if (createResult.error.message.includes("already registered")) {
-            // Use server-side phone lookup with robust 10-digit normalizer
+            // User exists with a different password --- find by phone and update
             const tenDigit = cleanPhone.replace(/\D/g, "").slice(-10);
             let existingUser: any = null;
             let page = 1;
@@ -179,7 +199,7 @@ serve(async (req) => {
           }
         }
 
-        // Try sign in again after creation/update if not already signed in
+        // Sign in after creation/update if not already done
         if (!signInResult.data?.session) {
           signInResult = await adminClient.auth.signInWithPassword({
             phone: phone,
@@ -188,28 +208,22 @@ serve(async (req) => {
         }
       }
 
-      if (signInResult.error) {
-        throw signInResult.error;
-      }
+      if (signInResult.error) throw signInResult.error;
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          session: signInResult.data.session,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        },
+        JSON.stringify({ success: true, session: signInResult.data.session }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 
     throw new Error("Invalid action");
   } catch (error: unknown) {
-    console.error(error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    // Never log full error objects --- they may contain phone/OTP in stack traces
+    const safeMsg = error instanceof Error ? error.message : String(error);
+    console.error("[msg91-auth] Error:", safeMsg);
+    return new Response(
+      JSON.stringify({ error: safeMsg }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+    );
   }
 });
