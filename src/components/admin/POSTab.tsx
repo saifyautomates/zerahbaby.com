@@ -84,6 +84,19 @@ import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
 import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
 import { POSTerminalSkeleton } from "@/components/ui/Skeletons";
+import { cn } from "@/lib/utils";
+import {
+  useActivePOSSessions,
+  savePOSSession,
+  closePOSSession,
+  createDefaultSession,
+  loadStoredSessionsLocal,
+  saveStoredSessionsLocal,
+  loadActiveSessionIdLocal,
+  saveActiveSessionIdLocal,
+  generateSessionNumber,
+  type POSSession,
+} from "@/lib/pos-sessions";
 
 type POSStep = "cart" | "checkout" | "success";
 
@@ -158,17 +171,33 @@ export function POSTab() {
   const { user } = useSession();
   const syncStatus = useOfflineSyncStatus();
   const scanInputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<POSStep>(() => {
-    const draft = loadPOSDraft();
-    return draft?.step === "checkout" && (draft.cart?.length || 0) > 0 ? "checkout" : "cart";
-  });
+  const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
 
-  // Persistent Cart state
+  // Multi-Customer POS Session Engine State
+  const { data: remoteSessions } = useActivePOSSessions();
+  const [sessions, setSessions] = useState<POSSession[]>(() => {
+    const local = loadStoredSessionsLocal();
+    if (local.length > 0) return local;
+    return [createDefaultSession()];
+  });
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    const saved = loadActiveSessionIdLocal();
+    const local = loadStoredSessionsLocal();
+    if (saved && local.some((s) => s.id === saved)) return saved;
+    return local[0]?.id || "";
+  });
+
+  // Persistent Cart state initialized from active session or fallback draft
   const [cart, setCart] = useState<POSCartItem[]>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active?.items && active.items.length > 0) return active.items;
     const draft = loadPOSDraft();
     return draft?.cart || [];
   });
+
   // Unified Universal POS Scan & Search State
   const [searchQuery, setSearchQuery] = useState("");
   const productSearch = searchQuery;
@@ -188,32 +217,60 @@ export function POSTab() {
 
   // Discount state
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.discount_type || "none";
     const draft = loadPOSDraft();
     return draft?.discountType || "none";
   });
   const [discountValue, setDiscountValue] = useState<number>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.discount_value || 0;
     const draft = loadPOSDraft();
     return draft?.discountValue || 0;
   });
 
   // Customer state
   const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.customer_mode || "walkin";
     const draft = loadPOSDraft();
     return draft?.customerMode || "walkin";
   });
   const [customerName, setCustomerName] = useState(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.customer_name === "Walk-in Customer" ? "" : active.customer_name || "";
     const draft = loadPOSDraft();
     return draft?.customerName || "";
   });
   const [customerPhone, setCustomerPhone] = useState(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.customer_phone || "";
     const draft = loadPOSDraft();
     return draft?.customerPhone || "";
   });
   const [customerEmail, setCustomerEmail] = useState(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.customer_email || "";
     const draft = loadPOSDraft();
     return draft?.customerEmail || "";
   });
   const [customerId, setCustomerId] = useState<string | null>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.customer_id || null;
     const draft = loadPOSDraft();
     return draft?.customerId || null;
   });
@@ -221,6 +278,10 @@ export function POSTab() {
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<string>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.payment_method || "cash";
     const draft = loadPOSDraft();
     return draft?.paymentMethod || "cash";
   });
@@ -232,13 +293,52 @@ export function POSTab() {
 
   // Store Credit / Exchange Tender State
   const [storeCreditApplied, setStoreCreditApplied] = useState<number>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.store_credit_applied || 0;
     const draft = loadPOSDraft();
     return draft?.storeCreditApplied || 0;
   });
   const [creditTokenInput, setCreditTokenInput] = useState<string>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active) return active.credit_token_input || "";
     const draft = loadPOSDraft();
     return draft?.creditTokenInput || "";
   });
+
+  // Keep sessions synchronized with remote Supabase sessions
+  useEffect(() => {
+    if (remoteSessions && remoteSessions.length > 0) {
+      setSessions((prev) => {
+        const map = new Map<string, POSSession>();
+        for (const s of remoteSessions) {
+          map.set(s.id, s);
+        }
+        for (const s of prev) {
+          if (!map.has(s.id)) {
+            map.set(s.id, s);
+          }
+        }
+        const merged = Array.from(map.values());
+        saveStoredSessionsLocal(merged);
+        return merged;
+      });
+    }
+  }, [remoteSessions]);
+
+  // Ensure activeSessionId points to an existing session
+  useEffect(() => {
+    if (sessions.length > 0) {
+      if (!activeSessionId || !sessions.some((s) => s.id === activeSessionId)) {
+        const nextId = sessions[0].id;
+        setActiveSessionId(nextId);
+        saveActiveSessionIdLocal(nextId);
+      }
+    }
+  }, [sessions, activeSessionId]);
 
   // Auto-save active POS cart and cashier state to localStorage
   useEffect(() => {
@@ -508,18 +608,149 @@ export function POSTab() {
     return true;
   };
 
-  // Hold / Resume Cart handlers
+  // Multi-Customer POS Session Handlers
+  const handleSwitchSession = (targetSessionId: string) => {
+    if (targetSessionId === activeSessionId) return;
+    const target = sessions.find((s) => s.id === targetSessionId);
+    if (!target) return;
+
+    // Save outgoing active session first
+    const current = sessions.find((s) => s.id === activeSessionId);
+    if (current) {
+      const updatedCurrent: POSSession = {
+        ...current,
+        customer_mode: customerMode,
+        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        customer_id: customerId,
+        discount_type: discountType,
+        discount_value: discountValue,
+        payment_method: paymentMethod,
+        store_credit_applied: storeCreditApplied,
+        credit_token_input: creditTokenInput,
+        subtotal,
+        discount_total: discountAmount,
+        total,
+        items: [...cart],
+        updated_at: new Date().toISOString(),
+      };
+      savePOSSession(updatedCurrent).catch(() => {});
+    }
+
+    setActiveSessionId(targetSessionId);
+    saveActiveSessionIdLocal(targetSessionId);
+
+    // Hydrate target session state into active editor
+    setCart(target.items || []);
+    setCustomerMode(target.customer_mode || "walkin");
+    setCustomerName(target.customer_name === "Walk-in Customer" ? "" : target.customer_name || "");
+    setCustomerPhone(target.customer_phone || "");
+    setCustomerEmail(target.customer_email || "");
+    setCustomerId(target.customer_id || null);
+    setDiscountType(target.discount_type || "none");
+    setDiscountValue(target.discount_value || 0);
+    setStoreCreditApplied(target.store_credit_applied || 0);
+    setCreditTokenInput(target.credit_token_input || "");
+    setPaymentMethod(target.payment_method || "cash");
+    setStep("cart");
+    setSearchQuery("");
+    setTimeout(() => scanInputRef.current?.focus(), 50);
+  };
+
+  const handleCreateNewSale = () => {
+    // Save current active session
+    const current = sessions.find((s) => s.id === activeSessionId);
+    if (current) {
+      const updatedCurrent: POSSession = {
+        ...current,
+        customer_mode: customerMode,
+        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        customer_id: customerId,
+        discount_type: discountType,
+        discount_value: discountValue,
+        payment_method: paymentMethod,
+        store_credit_applied: storeCreditApplied,
+        credit_token_input: creditTokenInput,
+        subtotal,
+        discount_total: discountAmount,
+        total,
+        items: [...cart],
+        updated_at: new Date().toISOString(),
+      };
+      savePOSSession(updatedCurrent).catch(() => {});
+    }
+
+    const newSess = createDefaultSession();
+    const updatedSessions = [...sessions, newSess];
+    setSessions(updatedSessions);
+    saveStoredSessionsLocal(updatedSessions);
+    setActiveSessionId(newSess.id);
+    saveActiveSessionIdLocal(newSess.id);
+
+    // Reset active state for new sale
+    setCart([]);
+    setCustomerMode("walkin");
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerId(null);
+    setDiscountType("none");
+    setDiscountValue(0);
+    setStoreCreditApplied(0);
+    setCreditTokenInput("");
+    setPaymentMethod("cash");
+    setStep("cart");
+    setSearchQuery("");
+
+    savePOSSession(newSess).catch(() => {});
+    toast.success(`New sale session started (${newSess.session_number})`);
+    setTimeout(() => scanInputRef.current?.focus(), 50);
+  };
+
   const handleHoldCurrentOrder = () => {
     if (cart.length === 0) {
       toast.error("Cannot hold an empty cart");
       return;
     }
-    const orderId = `hold_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const custLabel = customerMode === "walkin" ? "Walk-in" : customerName || "Customer";
-    const newHold: HeldPOSOrder = {
-      id: orderId,
+
+    const current = sessions.find((s) => s.id === activeSessionId);
+    const sessionNum = current?.session_number || generateSessionNumber();
+    const custName = customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
+
+    const heldSession: POSSession = {
+      id: activeSessionId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}`),
+      session_number: sessionNum,
+      customer_mode: customerMode,
+      customer_name: custName,
+      customer_phone: customerPhone,
+      customer_email: customerEmail,
+      customer_id: customerId,
+      status: "held",
+      discount_type: discountType,
+      discount_value: discountValue,
+      payment_method: paymentMethod,
+      notes: "",
+      store_credit_applied: storeCreditApplied,
+      credit_token_input: creditTokenInput,
+      subtotal,
+      discount_total: discountAmount,
+      total,
+      items: [...cart],
+      held_at: new Date().toISOString(),
+      created_at: current?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    savePOSSession(heldSession).catch(() => {});
+
+    // Backward-compatible legacy heldOrders drawer sync
+    const legacyHold: HeldPOSOrder = {
+      id: heldSession.id,
       timestamp: Date.now(),
-      label: `${custLabel} • ${totalItems} item${totalItems > 1 ? "s" : ""} • ${formatPrice(total)}`,
+      label: `${custName} • ${totalItems} item${totalItems > 1 ? "s" : ""} • ${formatPrice(total)}`,
       cart: [...cart],
       discountType,
       discountValue,
@@ -532,46 +763,158 @@ export function POSTab() {
       creditTokenInput,
       totalAmount: total,
     };
-    const updated = [newHold, ...heldOrders];
-    setHeldOrders(updated);
-    saveHeldOrders(updated);
-    resetPOS();
-    toast.success(`Cart placed on Hold (#${updated.length})`, {
-      description: `${newHold.label} saved. Ready for next transaction.`,
+    const updatedHeld = [legacyHold, ...heldOrders.filter((h) => h.id !== heldSession.id)];
+    setHeldOrders(updatedHeld);
+    saveHeldOrders(updatedHeld);
+
+    // Switch to another draft session or create a new one
+    const otherDraft = sessions.find((s) => s.id !== activeSessionId && s.status === "draft");
+    if (otherDraft) {
+      const updatedSessions = sessions.map((s) => (s.id === activeSessionId ? heldSession : s));
+      setSessions(updatedSessions);
+      saveStoredSessionsLocal(updatedSessions);
+      handleSwitchSession(otherDraft.id);
+    } else {
+      const newSess = createDefaultSession();
+      const updatedSessions = sessions.map((s) => (s.id === activeSessionId ? heldSession : s)).concat(newSess);
+      setSessions(updatedSessions);
+      saveStoredSessionsLocal(updatedSessions);
+      setActiveSessionId(newSess.id);
+      saveActiveSessionIdLocal(newSess.id);
+      setCart([]);
+      setCustomerMode("walkin");
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerEmail("");
+      setCustomerId(null);
+      setDiscountType("none");
+      setDiscountValue(0);
+      setStoreCreditApplied(0);
+      setCreditTokenInput("");
+      setPaymentMethod("cash");
+      setStep("cart");
+      setSearchQuery("");
+      savePOSSession(newSess).catch(() => {});
+    }
+
+    toast.success(`Cart placed on Hold (${sessionNum})`, {
+      description: `${custName} • ${totalItems} items saved. Ready for next customer.`,
     });
+    setTimeout(() => scanInputRef.current?.focus(), 50);
+  };
+
+  const handleResumeSession = (targetSessionId: string) => {
+    const target = sessions.find((s) => s.id === targetSessionId);
+    if (!target) return;
+
+    // Save current active if has items
+    const current = sessions.find((s) => s.id === activeSessionId);
+    if (current && cart.length > 0) {
+      const updatedCurrent: POSSession = {
+        ...current,
+        customer_mode: customerMode,
+        customer_name: customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer",
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        customer_id: customerId,
+        discount_type: discountType,
+        discount_value: discountValue,
+        payment_method: paymentMethod,
+        store_credit_applied: storeCreditApplied,
+        credit_token_input: creditTokenInput,
+        subtotal,
+        discount_total: discountAmount,
+        total,
+        items: [...cart],
+        updated_at: new Date().toISOString(),
+      };
+      savePOSSession(updatedCurrent).catch(() => {});
+    }
+
+    const resumed: POSSession = {
+      ...target,
+      status: "draft",
+      held_at: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    savePOSSession(resumed).catch(() => {});
+    const updatedSessions = sessions.map((s) => (s.id === targetSessionId ? resumed : s));
+    setSessions(updatedSessions);
+    saveStoredSessionsLocal(updatedSessions);
+
+    // Also remove from legacy heldOrders if present
+    const updatedHeld = heldOrders.filter((h) => h.id !== targetSessionId);
+    setHeldOrders(updatedHeld);
+    saveHeldOrders(updatedHeld);
+
+    setActiveSessionId(targetSessionId);
+    saveActiveSessionIdLocal(targetSessionId);
+
+    setCart(target.items || []);
+    setCustomerMode(target.customer_mode || "walkin");
+    setCustomerName(target.customer_name === "Walk-in Customer" ? "" : target.customer_name || "");
+    setCustomerPhone(target.customer_phone || "");
+    setCustomerEmail(target.customer_email || "");
+    setCustomerId(target.customer_id || null);
+    setDiscountType(target.discount_type || "none");
+    setDiscountValue(target.discount_value || 0);
+    setStoreCreditApplied(target.store_credit_applied || 0);
+    setCreditTokenInput(target.credit_token_input || "");
+    setPaymentMethod(target.payment_method || "cash");
+    setStep("cart");
+    setSearchQuery("");
+    setIsHeldOrdersOpen(false);
+    toast.success(`Resumed sale (${target.session_number})`);
+    setTimeout(() => scanInputRef.current?.focus(), 50);
   };
 
   const handleResumeOrder = (held: HeldPOSOrder) => {
-    if (cart.length > 0) {
-      if (!window.confirm("Active cart has items. Replace active cart with held order?")) {
+    handleResumeSession(held.id);
+  };
+
+  const handleDiscardSession = (sessionId: string) => {
+    const sess = sessions.find((s) => s.id === sessionId);
+    if (!sess) return;
+    const hasItems = (sess.id === activeSessionId ? cart.length : sess.items?.length || 0) > 0;
+    if (hasItems) {
+      if (!window.confirm(`Discard sale session ${sess.session_number}? Any unbilled items will be cleared.`)) {
         return;
       }
     }
-    setCart(held.cart);
-    setDiscountType(held.discountType);
-    setDiscountValue(held.discountValue);
-    setCustomerMode(held.customerMode);
-    setCustomerName(held.customerName);
-    setCustomerPhone(held.customerPhone);
-    setCustomerEmail(held.customerEmail);
-    setCustomerId(held.customerId);
-    setStoreCreditApplied(held.storeCreditApplied);
-    setCreditTokenInput(held.creditTokenInput);
-    setStep("cart");
 
-    // Remove from held orders
-    const updated = heldOrders.filter((o) => o.id !== held.id);
-    setHeldOrders(updated);
-    saveHeldOrders(updated);
-    setIsHeldOrdersOpen(false);
-    toast.success(`Resumed order (${held.cart.length} item${held.cart.length > 1 ? "s" : ""})`);
+    closePOSSession(sessionId).catch(() => {});
+    const updatedSessions = sessions.filter((s) => s.id !== sessionId);
+
+    if (sessionId === activeSessionId) {
+      if (updatedSessions.length > 0) {
+        setSessions(updatedSessions);
+        saveStoredSessionsLocal(updatedSessions);
+        const next = updatedSessions[0];
+        handleSwitchSession(next.id);
+      } else {
+        const fresh = createDefaultSession();
+        setSessions([fresh]);
+        saveStoredSessionsLocal([fresh]);
+        setActiveSessionId(fresh.id);
+        saveActiveSessionIdLocal(fresh.id);
+        resetPOS();
+        savePOSSession(fresh).catch(() => {});
+      }
+    } else {
+      setSessions(updatedSessions);
+      saveStoredSessionsLocal(updatedSessions);
+    }
+
+    const updatedHeld = heldOrders.filter((h) => h.id !== sessionId);
+    setHeldOrders(updatedHeld);
+    saveHeldOrders(updatedHeld);
+
+    toast.info(`Sale ${sess.session_number} discarded`);
   };
 
   const handleDeleteHeldOrder = (id: string) => {
-    const updated = heldOrders.filter((o) => o.id !== id);
-    setHeldOrders(updated);
-    saveHeldOrders(updated);
-    toast.info("Held order discarded");
+    handleDiscardSession(id);
   };
 
   const handleQuickCheckout = () => {
@@ -917,6 +1260,20 @@ export function POSTab() {
       }
       setStep("success");
 
+      // Mark completed session closed in Supabase & local state
+      if (activeSessionId) {
+        closePOSSession(activeSessionId).catch(() => {});
+        const remaining = sessions.filter((s) => s.id !== activeSessionId);
+        if (remaining.length > 0) {
+          setSessions(remaining);
+          saveStoredSessionsLocal(remaining);
+        } else {
+          const fresh = createDefaultSession();
+          setSessions([fresh]);
+          saveStoredSessionsLocal([fresh]);
+        }
+      }
+
       if (result.status === "pending_sync" || result.is_offline_queued) {
         setTxState("PENDING_SYNC");
         toast.info(`Offline sale saved locally — Pending synchronization (#${result.sale_number})`);
@@ -957,6 +1314,21 @@ export function POSTab() {
     setSaleResult(null);
     setSaleItems([]);
     setIdempotencyKey(generateIdempotencyKey());
+
+    // Switch to next remaining active session or create clean fresh session
+    const remaining = sessions.filter((s) => s.id !== activeSessionId);
+    if (remaining.length > 0) {
+      const next = remaining[0];
+      handleSwitchSession(next.id);
+    } else {
+      const fresh = createDefaultSession();
+      setSessions([fresh]);
+      saveStoredSessionsLocal([fresh]);
+      setActiveSessionId(fresh.id);
+      saveActiveSessionIdLocal(fresh.id);
+      savePOSSession(fresh).catch(() => {});
+    }
+
     try {
       localStorage.removeItem(POS_DRAFT_KEY);
     } catch {
@@ -1187,6 +1559,112 @@ export function POSTab() {
               <Scan className="size-4 text-primary animate-pulse" />
               Scanner Active
             </div>
+          </div>
+        </div>
+
+        {/* Multi-Customer / Multi-Cart Active Sale Tabs */}
+        <div className="flex items-center justify-between border-b border-border/50 bg-background/95 px-4 py-2 gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-0 overflow-x-auto py-1">
+            {sessions.map((sess) => {
+              const isActive = sess.id === activeSessionId;
+              const isHeld = sess.status === "held";
+              const itemCount = isActive ? totalItems : (sess.items?.reduce((a, b) => a + (b.qty || 1), 0) || 0);
+              const displayTotal = isActive ? total : (sess.total || 0);
+              const custName = isActive
+                ? (customerMode === "walkin" ? "Walk-in" : customerName || "Walk-in")
+                : (sess.customer_mode === "walkin" ? "Walk-in" : sess.customer_name || "Walk-in");
+
+              return (
+                <div
+                  key={sess.id}
+                  className={cn(
+                    "group relative inline-flex items-center rounded-xl border text-xs font-semibold transition-all shrink-0 cursor-pointer select-none",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary/30"
+                      : isHeld
+                      ? "bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
+                      : "bg-card text-foreground border-border hover:bg-muted/60"
+                  )}
+                  onClick={() => {
+                    if (isHeld) {
+                      handleResumeSession(sess.id);
+                    } else if (!isActive) {
+                      handleSwitchSession(sess.id);
+                    }
+                  }}
+                  data-testid={`pos-sale-tab-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                  data-status={sess.status}
+                >
+                  <div className="flex items-center gap-1.5 px-3 py-1.5">
+                    {isHeld && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-200" data-testid="pos-held-indicator">
+                        <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                        Held
+                      </span>
+                    )}
+                    <span className="font-bold">{sess.session_number}</span>
+                    <span className={cn("max-w-[90px] truncate font-medium", isActive ? "text-primary-foreground/90" : "text-muted-foreground")}>
+                      {custName}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-1.5 py-0.2 rounded-full text-[10px] font-bold",
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {itemCount}
+                    </span>
+                    {displayTotal > 0 && (
+                      <span className="font-bold text-[11px]">{formatPrice(displayTotal)}</span>
+                    )}
+                  </div>
+                  {sessions.length > 1 && (
+                    <button
+                      type="button"
+                      className={cn(
+                        "p-1 mr-1 rounded-md opacity-60 hover:opacity-100 transition cursor-pointer",
+                        isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted"
+                      )}
+                      title="Discard this sale session"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDiscardSession(sess.id);
+                      }}
+                      data-testid={`pos-discard-sale-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* New Sale Action Button */}
+            <button
+              type="button"
+              onClick={handleCreateNewSale}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold transition shrink-0 cursor-pointer"
+              title="Create new independent customer sale"
+              data-testid="pos-new-sale-btn"
+            >
+              <Plus className="size-3.5" />
+              <span>New Sale</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {cart.length > 0 && (
+              <button
+                type="button"
+                onClick={handleHoldCurrentOrder}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/20 transition cursor-pointer"
+                title="Hold current sale and switch to next customer"
+                data-testid="pos-hold-sale-btn"
+              >
+                <PauseCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Hold Sale</span>
+              </button>
+            )}
           </div>
         </div>
 
