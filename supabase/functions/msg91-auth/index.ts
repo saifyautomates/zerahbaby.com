@@ -1,11 +1,17 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
-import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Helper to convert an ArrayBuffer to a hex string without external dependencies
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 /**
  * Generate a deterministic password based on the phone number and a server-side secret.
@@ -15,8 +21,7 @@ async function generateDeterministicPassword(phone: string, secret: string) {
   const encoder = new TextEncoder();
   const data = encoder.encode(`${phone}:${secret}`);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = new Uint8Array(hashBuffer);
-  return "Zerah@" + new TextDecoder().decode(hexEncode(hashArray)).substring(0, 32);
+  return "Zerah@" + toHex(hashBuffer).substring(0, 32);
 }
 
 /**
@@ -27,8 +32,7 @@ async function hashOtp(phone: string, otp: string, secret: string) {
   const encoder = new TextEncoder();
   const data = encoder.encode(`${phone}:${otp}:${secret}`);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = new Uint8Array(hashBuffer);
-  return new TextDecoder().decode(hexEncode(hashArray));
+  return toHex(hashBuffer);
 }
 
 /**
