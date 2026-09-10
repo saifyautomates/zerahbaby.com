@@ -927,7 +927,13 @@ export function POSTab() {
     } catch (e) {
       setTxState("FAILED");
       setIdempotencyKey(generateIdempotencyKey());
-      toast.error(e instanceof Error ? e.message : "Sale failed to process");
+      const errMsg = e instanceof Error ? e.message : "Sale failed to process";
+      if (errMsg.toLowerCase().includes("voucher") || errMsg.toLowerCase().includes("redeemed") || errMsg.toLowerCase().includes("token")) {
+        setStoreCreditApplied(0);
+        setCreditTokenInput("");
+        qc.invalidateQueries({ queryKey: ["pos_voucher"] });
+      }
+      toast.error(errMsg);
     }
   }
 
