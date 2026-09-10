@@ -133,23 +133,6 @@ function AuthPage() {
   useEffect(() => {
     if (!isHydrated) return;
     if (!loading && user) {
-      // Clear past onboarding dismissal flags for this freshly authenticated user
-      try {
-        sessionStorage.removeItem("onboarding_dismissed");
-        if (user.id) {
-          sessionStorage.removeItem(`onboarding_dismissed_${user.id}`);
-        }
-      } catch {
-        // Storage access error ignored in restricted contexts
-      }
-
-      // Signal onboarding modal to appear if details are incomplete
-      if (typeof window !== "undefined") {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent("zerah:open-onboarding"));
-        }, 150);
-      }
-
       const searchParams =
         typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const redirectTarget = searchParams?.get("redirect");

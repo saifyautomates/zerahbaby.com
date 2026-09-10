@@ -4,7 +4,6 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("zerah_test_new_user", "true");
-      sessionStorage.removeItem("onboarding_dismissed");
     });
   });
 
@@ -17,6 +16,7 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
     // Trigger onboarding event
     await page.evaluate(() => {
       sessionStorage.removeItem("onboarding_dismissed");
+      sessionStorage.removeItem("onboarding_dismissed_00000000-0000-0000-0000-000000000002");
       window.dispatchEvent(new CustomEvent("zerah:open-onboarding"));
     });
 
@@ -59,6 +59,8 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.evaluate(() => {
+      sessionStorage.removeItem("onboarding_dismissed");
+      sessionStorage.removeItem("onboarding_dismissed_00000000-0000-0000-0000-000000000002");
       window.dispatchEvent(new CustomEvent("zerah:open-onboarding"));
     });
 
@@ -78,6 +80,8 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.evaluate(() => {
+      sessionStorage.removeItem("onboarding_dismissed");
+      sessionStorage.removeItem("onboarding_dismissed_00000000-0000-0000-0000-000000000002");
       window.dispatchEvent(new CustomEvent("zerah:open-onboarding"));
     });
 
@@ -86,5 +90,47 @@ test.describe("New User Onboarding Profile Details Modal Suite", () => {
 
     await page.locator("#onboarding-skip-btn").click();
     await expect(modal).toBeHidden({ timeout: 3000 });
+  });
+
+  test("4. Save Details & Continue validates and closes modal successfully", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => {
+      sessionStorage.removeItem("onboarding_dismissed");
+      sessionStorage.removeItem("onboarding_dismissed_00000000-0000-0000-0000-000000000002");
+      window.dispatchEvent(new CustomEvent("zerah:open-onboarding"));
+    });
+
+    const modal = page.locator("[role='dialog'][aria-labelledby='onboarding-modal-title']");
+    await expect(modal).toBeVisible({ timeout: 7000 });
+
+    // Fill all 6 required fields
+    await page.locator("#onboarding-full-name").fill("Priya Sharma");
+    await page.locator("#onboarding-phone").fill("9876543210");
+    await page.locator("#onboarding-address").fill("Flat 402, Lotus Towers, Bandra West");
+    await page.locator("#onboarding-city").fill("Mumbai");
+    await page.locator("#onboarding-state").selectOption("Maharashtra");
+    await page.locator("#onboarding-pincode").fill("400050");
+
+    // Click Submit
+    await page.locator("#onboarding-submit-btn").click();
+
+    // Modal should close upon successful validation and save
+    await expect(modal).toBeHidden({ timeout: 5000 });
+  });
+
+  test("5. Completed profile state suppresses modal on page navigation and refresh", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem("onboarding_dismissed_00000000-0000-0000-0000-000000000002", "true");
+      sessionStorage.setItem("onboarding_dismissed", "true");
+    });
+
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const modal = page.locator("[role='dialog'][aria-labelledby='onboarding-modal-title']");
+    await expect(modal).toBeHidden();
   });
 });

@@ -69,6 +69,8 @@ export type Profile = {
   city: string | null;
   state: string | null;
   pincode: string | null;
+  profile_completed?: boolean | null;
+  profile_completed_at?: string | null;
   created_at: string;
   [key: string]: unknown;
 };
@@ -101,12 +103,15 @@ export function useSaveProfile(userId: string | undefined) {
       state?: string;
       pincode?: string;
       avatar_url?: string | null;
+      profile_completed?: boolean;
+      profile_completed_at?: string | null;
     }) => {
       const { error } = await supabase.from("profiles").update(values).eq("id", userId!);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile", userId] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["admin-customers"] });
     },
   });
