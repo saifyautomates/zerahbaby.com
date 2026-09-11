@@ -1355,10 +1355,12 @@ export function POSTab() {
           item.variant_id || "",
         );
 
+      const safeSlug = item.isCustom ? `custom-${Date.now()}` : item.slug || "item";
       return {
         product_id: item.isCustom || !isUuid ? undefined : item.product_id,
         variant_id: isVariantUuid ? item.variant_id : undefined,
-        product_slug: item.isCustom ? `custom-${Date.now()}` : item.slug,
+        product_slug: safeSlug,
+        slug: safeSlug,
         name: item.name,
         sku: item.sku || "",
         qty: item.qty,
