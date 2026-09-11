@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type Product } from "@/lib/store";
 import { toast } from "sonner";
+import type { ThemePresetId, ThemeConfig, SpacingVariant } from "@/lib/homepage-themes";
 
 export type HomepageSectionType = "PRODUCT_GRID" | "PRODUCT_CAROUSEL";
 export type HomepageSectionSource =
@@ -43,6 +44,12 @@ export interface HomepageSection {
   is_visible: boolean;
   sort_order: number;
   display_settings: SectionDisplaySettings;
+  theme_preset: ThemePresetId;
+  theme_config: ThemeConfig;
+  badge_text?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  spacing: SpacingVariant;
   created_at?: string;
   updated_at?: string;
   items?: HomepageSectionItem[];
@@ -60,12 +67,43 @@ export interface SectionUpsertInput {
   is_visible?: boolean;
   sort_order?: number;
   display_settings?: SectionDisplaySettings;
+  theme_preset?: ThemePresetId;
+  theme_config?: ThemeConfig;
+  badge_text?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  spacing?: SpacingVariant;
   product_ids?: string[]; // ordered list of product IDs for MANUAL sections
 }
 
 /**
+ * Helper to compute schedule status for UI indicators.
+ */
+export function getSectionScheduleStatus(section: HomepageSection): "always" | "active" | "upcoming" | "expired" {
+  if (!section.starts_at && !section.ends_at) return "always";
+
+  const now = new Date();
+  if (section.starts_at && new Date(section.starts_at) > now) {
+    return "upcoming";
+  }
+  if (section.ends_at && new Date(section.ends_at) < now) {
+    return "expired";
+  }
+  return "active";
+}
+
+/**
+ * Checks if a section is active for storefront rendering based on current timestamp.
+ */
+export function isSectionCurrentlyActive(section: HomepageSection): boolean {
+  if (!section.is_visible || section.status !== "published") return false;
+  const status = getSectionScheduleStatus(section);
+  return status === "always" || status === "active";
+}
+
+/**
  * Fetch all sections from the database.
- * If isAdmin is false, filters to only published and visible sections.
+ * If isAdmin is false, filters to only published, visible, and currently scheduled sections.
  */
 export async function fetchHomepageSections(isAdmin = false): Promise<HomepageSection[]> {
   let query = supabase
@@ -83,6 +121,12 @@ export async function fetchHomepageSections(isAdmin = false): Promise<HomepageSe
       is_visible,
       sort_order,
       display_settings,
+      theme_preset,
+      theme_config,
+      badge_text,
+      starts_at,
+      ends_at,
+      spacing,
       created_at,
       updated_at,
       homepage_section_items (
@@ -106,7 +150,7 @@ export async function fetchHomepageSections(isAdmin = false): Promise<HomepageSe
     throw error;
   }
 
-  return (data || []).map((row: any) => {
+  const mapped = (data || []).map((row: any) => {
     const rawItems = row.homepage_section_items || [];
     const sortedItems = [...rawItems].sort((a, b) => a.sort_order - b.sort_order);
 
@@ -128,11 +172,24 @@ export async function fetchHomepageSections(isAdmin = false): Promise<HomepageSe
         cta_label: row.display_settings?.cta_label || "View all",
         cta_link: row.display_settings?.cta_link || "/shop",
       },
+      theme_preset: (row.theme_preset as ThemePresetId) || "DEFAULT",
+      theme_config: (row.theme_config as ThemeConfig) || {},
+      badge_text: row.badge_text || null,
+      starts_at: row.starts_at || null,
+      ends_at: row.ends_at || null,
+      spacing: (row.spacing as SpacingVariant) || "normal",
       created_at: row.created_at,
       updated_at: row.updated_at,
       items: sortedItems,
     };
   });
+
+  // If customer view, filter out sections whose schedule is not active
+  if (!isAdmin) {
+    return mapped.filter(isSectionCurrentlyActive);
+  }
+
+  return mapped;
 }
 
 /**
@@ -249,6 +306,12 @@ export function useSaveSection() {
             p_sort_order: input.sort_order ?? 0,
             p_display_settings: displaySettings,
             p_product_ids: input.product_ids || [],
+            p_theme_preset: input.theme_preset || "DEFAULT",
+            p_theme_config: input.theme_config || {},
+            p_badge_text: input.badge_text || null,
+            p_starts_at: input.starts_at || null,
+            p_ends_at: input.ends_at || null,
+            p_spacing: input.spacing || "normal",
           },
         );
 
@@ -274,6 +337,12 @@ export function useSaveSection() {
         status: input.status || "published",
         is_visible: input.is_visible !== false,
         display_settings: displaySettings,
+        theme_preset: input.theme_preset || "DEFAULT",
+        theme_config: input.theme_config || {},
+        badge_text: input.badge_text || null,
+        starts_at: input.starts_at || null,
+        ends_at: input.ends_at || null,
+        spacing: input.spacing || "normal",
         updated_at: new Date().toISOString(),
       };
 

@@ -21,10 +21,17 @@ import { useAdminMode } from "@/lib/admin-mode";
 import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { ProductCardSkeleton, ProductGridSkeleton } from "@/components/ui/Skeletons";
+import type { CardStyle } from "@/lib/homepage-themes";
 
 export { ProductCardSkeleton, ProductGridSkeleton };
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  cardStyle = "default",
+}: {
+  product: Product;
+  cardStyle?: CardStyle;
+}) {
   const qc = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const { add } = useCart();
@@ -179,11 +186,24 @@ export function ProductCard({ product }: { product: Product }) {
     return null;
   }, [activeVariant, product.ageGroup]);
 
+  const cardStyleClasses = useMemo(() => {
+    switch (cardStyle) {
+      case "minimal":
+        return "border border-border/30 bg-card/60 shadow-none hover:-translate-y-0.5 hover:shadow-sm";
+      case "premium":
+        return "border border-amber-200/60 dark:border-amber-500/20 bg-card shadow-md hover:-translate-y-1 hover:shadow-xl ring-1 ring-amber-500/10";
+      case "festive":
+        return "border-2 border-amber-400/90 dark:border-amber-400/60 bg-gradient-to-b from-card via-card to-amber-50/30 dark:to-amber-950/20 shadow-lg shadow-amber-500/10 hover:-translate-y-1 hover:shadow-amber-500/20 hover:border-amber-300 ring-2 ring-amber-300/30";
+      default:
+        return "border border-border/50 bg-card shadow-sm hover:-translate-y-0.5 hover:shadow-premium-md";
+    }
+  }, [cardStyle]);
+
   return (
     <article
       onMouseEnter={handlePrefetch}
       onFocus={handlePrefetch}
-      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-premium-md focus-within:ring-2 focus-within:ring-primary/20"
+      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/20 ${cardStyleClasses}`}
     >
       {/* ── PRODUCT HERO IMAGE (Full-bleed, object-cover) ─────────────────── */}
       <div className="relative aspect-[3/4] sm:aspect-[4/5] w-full overflow-hidden bg-stone-100 dark:bg-stone-900 shrink-0">

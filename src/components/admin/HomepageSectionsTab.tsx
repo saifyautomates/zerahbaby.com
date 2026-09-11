@@ -14,6 +14,8 @@ import {
   Sliders,
   Sparkles,
   Package,
+  Clock,
+  Palette,
 } from "lucide-react";
 import {
   type HomepageSection,
@@ -22,7 +24,9 @@ import {
   useReorderSections,
   useDuplicateSection,
   useDeleteSection,
+  getSectionScheduleStatus,
 } from "@/lib/homepage-sections";
+import { THEME_PRESETS } from "@/lib/homepage-themes";
 import { SectionEditorModal } from "@/components/admin/SectionEditorModal";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Link } from "@tanstack/react-router";
@@ -185,6 +189,55 @@ export function HomepageSectionsTab() {
                         </>
                       )}
                     </span>
+                    {/* Theme Badge */}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-border/60 bg-background flex items-center gap-1.5 shadow-xs">
+                      <span
+                        className="h-2 w-2 rounded-full shrink-0 border border-black/10"
+                        style={{
+                          backgroundColor:
+                            THEME_PRESETS[section.theme_preset]?.defaults.bg_color || "#FAFAF9",
+                        }}
+                      />
+                      {section.theme_preset}
+                    </span>
+                    {/* Card style */}
+                    {section.theme_config?.card_style && section.theme_config.card_style !== "default" && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 capitalize">
+                        {section.theme_config.card_style} Cards
+                      </span>
+                    )}
+                    {/* Badge Pill */}
+                    {section.badge_text && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {section.badge_text}
+                      </span>
+                    )}
+                    {/* Schedule Indicator */}
+                    {(() => {
+                      const sched = getSectionScheduleStatus(section);
+                      if (sched === "upcoming") {
+                        return (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 flex items-center gap-1">
+                            <Clock className="size-2.5" /> Scheduled
+                          </span>
+                        );
+                      }
+                      if (sched === "expired") {
+                        return (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 flex items-center gap-1">
+                            <Clock className="size-2.5" /> Expired
+                          </span>
+                        );
+                      }
+                      if (sched === "active") {
+                        return (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                            <Clock className="size-2.5" /> Campaign Active
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                     {section.status === "draft" && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                         Draft
@@ -206,6 +259,8 @@ export function HomepageSectionsTab() {
                     </span>
                     <span>•</span>
                     <span>CTA: "{section.display_settings.cta_label || "View all"}"</span>
+                    <span>•</span>
+                    <span className="capitalize">{section.spacing || "normal"} spacing</span>
                   </div>
                 </div>
               </div>

@@ -14,6 +14,7 @@ import {
   Plus,
   Layers,
   EyeOff,
+  Clock,
 } from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
@@ -33,8 +34,13 @@ import {
   useHomepageSections,
   resolveSectionProducts,
   fetchHomepageSections,
+  getSectionScheduleStatus,
   type HomepageSection,
 } from "@/lib/homepage-sections";
+import {
+  resolveSectionTheme,
+  getPatternSvgDataUrl,
+} from "@/lib/homepage-themes";
 import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,6 +202,12 @@ function Index() {
         cta_label: "View all",
         cta_link: "/shop",
       },
+      theme_preset: "DEFAULT",
+      theme_config: {},
+      badge_text: null,
+      starts_at: null,
+      ends_at: null,
+      spacing: "normal",
     },
   ];
 
@@ -507,83 +519,170 @@ function Index() {
       {sectionsToRender.map((section) => {
         const sectionProducts = resolveSectionProducts(section, list);
         const isHidden = !section.is_visible;
+        const resolvedTheme = resolveSectionTheme(section.theme_preset, section.theme_config);
+        const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
+        const scheduleStatus = getSectionScheduleStatus(section);
+
+        const spacingClass =
+          section.spacing === "compact"
+            ? "py-8 sm:py-10"
+            : section.spacing === "spacious"
+              ? "py-16 sm:py-24"
+              : "py-12 sm:py-16";
+
+        const isCustomTheme =
+          section.theme_preset !== "DEFAULT" ||
+          Boolean(resolvedTheme.bgGradient || section.theme_config?.bg_color || resolvedTheme.backgroundImageUrl);
 
         return (
-          <section
+          <div
             key={section.id}
             data-section-id={section.id}
-            className={`mx-auto max-w-7xl px-4 py-12 transition-opacity ${
+            className={`relative w-full overflow-hidden transition-colors ${spacingClass} ${
+              isCustomTheme ? "border-y border-border/40" : ""
+            } ${
               isHidden
-                ? "opacity-75 relative rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 p-4 my-4 bg-amber-50/20"
+                ? "opacity-80 relative rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 my-4 bg-amber-50/20"
                 : ""
             }`}
+            style={resolvedTheme.containerStyle}
           >
-            {isHidden && (
-              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 px-3 py-1 text-[11px] font-bold">
-                <EyeOff className="size-3" /> Hidden from customers (Admin preview only)
-              </div>
+            {/* SVG Pattern Texture Overlay */}
+            {patternSvg && (
+              <div
+                className="pointer-events-none absolute inset-0 z-0 opacity-100"
+                style={{ backgroundImage: `url("${patternSvg}")` }}
+              />
             )}
 
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="font-display text-2xl font-bold sm:text-3xl section-title">{section.title}</h2>
-                {section.display_settings?.show_subtitle !== false && section.subtitle && (
-                  <p className="mt-1 text-sm text-muted-foreground section-subtitle">{section.subtitle}</p>
-                )}
+            {/* Background Image Overlay */}
+            {resolvedTheme.backgroundImageUrl && (
+              <div
+                className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url("${resolvedTheme.backgroundImageUrl}")`,
+                  opacity: resolvedTheme.backgroundImageOpacity,
+                }}
+              />
+            )}
+
+            <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              {/* Admin schedule / hidden status tags */}
+              {adminMode && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  {isHidden && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 px-3 py-1 text-[11px] font-bold">
+                      <EyeOff className="size-3" /> Hidden from customers (Admin preview only)
+                    </div>
+                  )}
+                  {scheduleStatus === "upcoming" && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300 px-3 py-1 text-[11px] font-bold">
+                      <Clock className="size-3" /> Scheduled (Starts: {new Date(section.starts_at!).toLocaleDateString()})
+                    </div>
+                  )}
+                  {scheduleStatus === "expired" && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 px-3 py-1 text-[11px] font-bold">
+                      <Clock className="size-3" /> Expired campaign (Admin view only)
+                    </div>
+                  )}
+                  <div className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-mono text-muted-foreground border border-border/40">
+                    Theme: {section.theme_preset} · {resolvedTheme.cardStyle}
+                  </div>
+                </div>
+              )}
+
+              {/* Section Header */}
+              <div className="flex flex-wrap items-end justify-between gap-3 mb-6 sm:mb-8">
+                <div>
+                  {section.badge_text && (
+                    <span
+                      className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-2.5 shadow-xs"
+                      style={{
+                        backgroundColor: resolvedTheme.badgeBg,
+                        color: resolvedTheme.badgeTextColor,
+                      }}
+                    >
+                      {section.badge_text}
+                    </span>
+                  )}
+                  <h2
+                    className="font-display text-2xl font-bold sm:text-3xl section-title tracking-tight"
+                    style={{ color: resolvedTheme.headingColor }}
+                  >
+                    {section.title}
+                  </h2>
+                  {section.display_settings?.show_subtitle !== false && section.subtitle && (
+                    <p
+                      className="mt-1 text-sm section-subtitle"
+                      style={{ color: resolvedTheme.textColor }}
+                    >
+                      {section.subtitle}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {adminMode && (
+                    <button
+                      type="button"
+                      aria-label={`Edit ${section.title} section`}
+                      onClick={() => setEditingSection(section)}
+                      className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
+                    >
+                      <Pencil className="size-3" /> Edit Section
+                    </button>
+                  )}
+                  {section.display_settings?.show_cta !== false && (
+                    <Link
+                      to={section.display_settings?.cta_link || "/shop"}
+                      className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition shadow-xs hover:opacity-90"
+                      style={{
+                        backgroundColor: resolvedTheme.ctaBg,
+                        color: resolvedTheme.ctaText,
+                      }}
+                    >
+                      {section.display_settings?.cta_label || "View all"} →
+                    </Link>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                {adminMode && (
-                  <button
-                    type="button"
-                    aria-label={`Edit ${section.title} section`}
-                    onClick={() => setEditingSection(section)}
-                    className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
-                  >
-                    <Pencil className="size-3" /> Edit Section
-                  </button>
-                )}
-                {section.display_settings?.show_cta !== false && (
-                  <Link
-                    to={section.display_settings?.cta_link || "/shop"}
-                    className="text-sm font-semibold text-primary hover:underline"
-                  >
-                    {section.display_settings?.cta_label || "View all"}
-                  </Link>
-                )}
-              </div>
+              {/* Products Presentation */}
+              {isLoading && list.length === 0 ? (
+                <ProductGridSkeleton />
+              ) : sectionProducts.length === 0 ? (
+                <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border/60 bg-card/40">
+                  <p className="text-base font-semibold text-foreground">No products listed yet</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+                    Our curated collection of baby essentials will be appearing here shortly.
+                  </p>
+                  {adminMode && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingSection(section)}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground cursor-pointer"
+                    >
+                      <Plus className="size-3" /> Add products to this section
+                    </button>
+                  )}
+                </div>
+              ) : section.section_type === "PRODUCT_CAROUSEL" ? (
+                <div className="mt-6">
+                  <ProductCarousel products={sectionProducts} cardStyle={resolvedTheme.cardStyle} />
+                </div>
+              ) : (
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+                  {sectionProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      cardStyle={resolvedTheme.cardStyle}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-
-            {isLoading && list.length === 0 ? (
-              <ProductGridSkeleton />
-            ) : sectionProducts.length === 0 ? (
-              <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">
-                <p className="text-base font-semibold text-foreground">No products listed yet</p>
-                <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
-                  Our curated collection of baby essentials will be appearing here shortly.
-                </p>
-                {adminMode && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingSection(section)}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground cursor-pointer"
-                  >
-                    <Plus className="size-3" /> Add products to this section
-                  </button>
-                )}
-              </div>
-            ) : section.section_type === "PRODUCT_CAROUSEL" ? (
-              <div className="mt-6">
-                <ProductCarousel products={sectionProducts} />
-              </div>
-            ) : (
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-                {sectionProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            )}
-          </section>
+          </div>
         );
       })}
 

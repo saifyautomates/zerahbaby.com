@@ -2,13 +2,15 @@ import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/lib/store";
 import { ProductCard } from "@/components/site/ProductCard";
+import type { CardStyle } from "@/lib/homepage-themes";
 
 interface ProductCarouselProps {
   products: Product[];
   className?: string;
+  cardStyle?: CardStyle;
 }
 
-export function ProductCarousel({ products, className = "" }: ProductCarouselProps) {
+export function ProductCarousel({ products, className = "", cardStyle = "default" }: ProductCarouselProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -116,7 +118,7 @@ export function ProductCarousel({ products, className = "" }: ProductCarouselPro
               }
             }}
           >
-            <ProductCard product={product} />
+            <ProductCard product={product} cardStyle={cardStyle} />
           </div>
         ))}
       </div>

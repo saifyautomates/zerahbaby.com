@@ -254,4 +254,112 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
     const resolved = resolveSectionProducts(bestsellerSection, mockProducts);
     expect(resolved.length).toBe(4);
   });
+
+  // ─── 4. THEME & VISUAL STYLING TESTS ─────────────────────────────
+  test("9. Theme Engine: All 11 presets define valid colors and card treatments", async () => {
+    const { THEME_PRESETS } = await import("../src/lib/homepage-themes");
+    const presetKeys = Object.keys(THEME_PRESETS);
+    expect(presetKeys.length).toBe(11);
+
+    for (const key of presetKeys) {
+      const p = THEME_PRESETS[key as keyof typeof THEME_PRESETS];
+      expect(p.name).toBeTruthy();
+      expect(p.defaults.bg_color).toBeTruthy();
+      expect(p.defaults.heading_color).toBeTruthy();
+      expect(p.defaults.text_color).toBeTruthy();
+      expect(p.defaults.accent_color).toBeTruthy();
+      expect(p.defaults.cta_bg).toBeTruthy();
+      expect(p.defaults.card_style).toMatch(/default|minimal|premium|festive/);
+    }
+  });
+
+  test("10. Theme Engine: isValidSafeColor prevents arbitrary CSS/script injection", async () => {
+    const { isValidSafeColor } = await import("../src/lib/homepage-themes");
+
+    // Valid colors
+    expect(isValidSafeColor("#fff")).toBe(true);
+    expect(isValidSafeColor("#ffffff")).toBe(true);
+    expect(isValidSafeColor("#0F172A")).toBe(true);
+    expect(isValidSafeColor("rgb(255, 0, 0)")).toBe(true);
+    expect(isValidSafeColor("rgba(0, 0, 0, 0.5)")).toBe(true);
+    expect(isValidSafeColor("hsl(210, 50%, 50%)")).toBe(true);
+
+    // Malicious injection attempts MUST be rejected
+    expect(isValidSafeColor("red; background: url(evil.com)")).toBe(false);
+    expect(isValidSafeColor("javascript:alert(1)")).toBe(false);
+    expect(isValidSafeColor("<script>")).toBe(false);
+    expect(isValidSafeColor("expression(alert(1))")).toBe(false);
+    expect(isValidSafeColor("")).toBe(false);
+    expect(isValidSafeColor(undefined)).toBe(false);
+  });
+
+  test("11. Campaign Templates: All templates map to valid theme presets", async () => {
+    const { CAMPAIGN_PRESETS, THEME_PRESETS } = await import("../src/lib/homepage-themes");
+    expect(CAMPAIGN_PRESETS.length).toBeGreaterThanOrEqual(6);
+
+    for (const camp of CAMPAIGN_PRESETS) {
+      expect(camp.suggestedTitle).toBeTruthy();
+      expect(camp.badge).toBeTruthy();
+      expect(THEME_PRESETS[camp.themePreset]).toBeDefined();
+      expect(camp.ctaLabel).toBeTruthy();
+    }
+  });
+
+  test("12. Scheduling: isSectionCurrentlyActive strictly respects starts_at and ends_at boundaries", async () => {
+    const { isSectionCurrentlyActive, getSectionScheduleStatus } = await import(
+      "../src/lib/homepage-sections"
+    );
+
+    const baseSection: any = {
+      id: "sec-sched",
+      title: "Holiday Camp",
+      status: "published",
+      is_visible: true,
+    };
+
+    // 1. Always active (no schedule dates)
+    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: null, ends_at: null })).toBe(true);
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: null, ends_at: null })).toBe("always");
+
+    // 2. Currently active (started yesterday, ends tomorrow)
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    const tomorrow = new Date(Date.now() + 86400000).toISOString();
+    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: yesterday, ends_at: tomorrow })).toBe(true);
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: yesterday, ends_at: tomorrow })).toBe("active");
+
+    // 3. Upcoming campaign (starts tomorrow) -> MUST NOT be active on storefront
+    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe(false);
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe("upcoming");
+
+    // 4. Expired campaign (ended yesterday) -> MUST NOT be active on storefront
+    const twoDaysAgo = new Date(Date.now() - 172800000).toISOString();
+    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday })).toBe(false);
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday })).toBe("expired");
+
+    // 5. Hidden or draft section is never active
+    expect(isSectionCurrentlyActive({ ...baseSection, is_visible: false })).toBe(false);
+    expect(isSectionCurrentlyActive({ ...baseSection, status: "draft" })).toBe(false);
+  });
+
+  test("13. Theme Engine: resolveSectionTheme merges overrides and computes container styles", async () => {
+    const { resolveSectionTheme } = await import("../src/lib/homepage-themes");
+
+    // Standard FESTIVE theme
+    const festive = resolveSectionTheme("FESTIVE", null);
+    expect(festive.headingColor).toBe("#78350F");
+    expect(festive.cardStyle).toBe("festive");
+
+    // Custom override with safe colors
+    const overridden = resolveSectionTheme("DEFAULT", {
+      bg_color: "#FDFBF7",
+      heading_color: "#451A03",
+      card_style: "premium",
+      pattern_overlay: "mandala",
+    });
+    expect(overridden.bgColor).toBe("#FDFBF7");
+    expect(overridden.headingColor).toBe("#451A03");
+    expect(overridden.cardStyle).toBe("premium");
+    expect(overridden.patternOverlay).toBe("mandala");
+    expect(overridden.containerStyle.backgroundColor).toBe("#FDFBF7");
+  });
 });
