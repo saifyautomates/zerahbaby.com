@@ -184,7 +184,7 @@ export function POSTab() {
   const [sessions, setSessions] = useState<POSSession[]>(() => {
     const local = loadStoredSessionsLocal();
     if (local.length > 0) return local;
-    return [createDefaultSession()];
+    return [createDefaultSession("1")];
   });
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
     const saved = loadActiveSessionIdLocal();
@@ -725,7 +725,7 @@ export function POSTab() {
       savePOSSession(updatedCurrent).catch(() => {});
     }
 
-    const newSess = createDefaultSession();
+    const newSess = createDefaultSession(undefined, sessions);
     const updatedSessions = [...sessions, newSess];
     setSessions(updatedSessions);
     saveStoredSessionsLocal(updatedSessions);
@@ -759,7 +759,9 @@ export function POSTab() {
     }
 
     const current = sessions.find((s) => s.id === activeSessionId);
-    const sessionNum = current?.session_number || generateSessionNumber();
+    const sessionNum = current?.session_number
+      ? current.session_number.replace(/^#/, "")
+      : generateSessionNumber(sessions);
     const custName =
       customerMode === "walkin" ? "Walk-in Customer" : customerName || "Walk-in Customer";
 
@@ -822,7 +824,7 @@ export function POSTab() {
       saveStoredSessionsLocal(updatedSessions);
       handleSwitchSession(otherDraft.id);
     } else {
-      const newSess = createDefaultSession();
+      const newSess = createDefaultSession(undefined, sessions);
       const updatedSessions = sessions
         .map((s) => (s.id === activeSessionId ? heldSession : s))
         .concat(newSess);
@@ -947,7 +949,7 @@ export function POSTab() {
         const next = updatedSessions[0];
         handleSwitchSession(next.id);
       } else {
-        const fresh = createDefaultSession();
+        const fresh = createDefaultSession("1");
         setSessions([fresh]);
         saveStoredSessionsLocal([fresh]);
         setActiveSessionId(fresh.id);
@@ -976,7 +978,7 @@ export function POSTab() {
     }
 
     // Create single clean default session
-    const fresh = createDefaultSession();
+    const fresh = createDefaultSession("1");
     setSessions([fresh]);
     saveStoredSessionsLocal([fresh]);
     setActiveSessionId(fresh.id);
@@ -1441,7 +1443,7 @@ export function POSTab() {
           setSessions(remaining);
           saveStoredSessionsLocal(remaining);
         } else {
-          const fresh = createDefaultSession();
+          const fresh = createDefaultSession("1");
           setSessions([fresh]);
           saveStoredSessionsLocal([fresh]);
         }
@@ -1498,7 +1500,7 @@ export function POSTab() {
       const next = remaining[0];
       handleSwitchSession(next.id);
     } else {
-      const fresh = createDefaultSession();
+      const fresh = createDefaultSession("1");
       setSessions([fresh]);
       saveStoredSessionsLocal([fresh]);
       setActiveSessionId(fresh.id);
@@ -1742,7 +1744,7 @@ export function POSTab() {
         {/* Multi-Customer / Multi-Cart Active Sale Tabs */}
         <div className="flex items-center justify-between border-b border-border/50 bg-background/95 px-4 py-2 gap-2 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-0 overflow-x-auto py-1">
-            {sessions.map((sess) => {
+            {sessions.map((sess, idx) => {
               const isActive = sess.id === activeSessionId;
               const isHeld = sess.status === "held";
               const itemCount = isActive
@@ -1756,6 +1758,10 @@ export function POSTab() {
                 : sess.customer_mode === "walkin"
                   ? "Walk-in"
                   : sess.customer_name || "Walk-in";
+
+              const rawNum = String(sess.session_number || "").replace(/^#/, "");
+              const isLegacy = !rawNum || /^\d{4,}$/.test(rawNum);
+              const tabNumber = isLegacy ? String(idx + 1) : rawNum;
 
               const isEditingThis = editingTabId === sess.id;
 
@@ -1887,7 +1893,7 @@ export function POSTab() {
                       setEditTabPhone(currentPhone);
                       setEditingTabId(sess.id);
                     }}
-                    data-testid={`pos-sale-tab-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                    data-testid={`pos-sale-tab-${tabNumber.replace(/[^a-zA-Z0-9]/g, "")}`}
                     data-status={sess.status}
                     title="Double-click to add customer name & phone"
                   >
@@ -1901,7 +1907,7 @@ export function POSTab() {
                           Held
                         </span>
                       )}
-                      <span className="font-bold">{sess.session_number}</span>
+                      <span className="font-bold">{tabNumber}</span>
                       {/* Only show customer name if it's NOT walk-in */}
                       {custName !== "Walk-in" && (
                         <span
@@ -1939,7 +1945,7 @@ export function POSTab() {
                           e.stopPropagation();
                           handleDiscardSession(sess.id);
                         }}
-                        data-testid={`pos-discard-sale-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                        data-testid={`pos-discard-sale-${tabNumber.replace(/[^a-zA-Z0-9]/g, "")}`}
                       >
                         <X className="size-3" />
                       </button>

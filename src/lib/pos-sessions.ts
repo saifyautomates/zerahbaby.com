@@ -38,12 +38,22 @@ export type POSSession = {
 export const POS_MULTI_SESSIONS_STORAGE_KEY = "zerah_pos_multi_sessions_v2";
 export const POS_ACTIVE_SESSION_ID_KEY = "zerah_pos_active_session_id_v2";
 
-export function generateSessionNumber(): string {
-  const num = Math.floor(1000 + Math.random() * 9000);
-  return `#${num}`;
+export function generateSessionNumber(existingSessions: Array<{ session_number?: string }> = []): string {
+  if (!existingSessions || existingSessions.length === 0) return "1";
+  const used = existingSessions
+    .map((s) => {
+      const raw = String(s.session_number || "").replace(/[^0-9]/g, "");
+      const n = parseInt(raw, 10);
+      return !isNaN(n) && n > 0 && n < 1000 ? n : null;
+    })
+    .filter((n): n is number => n !== null);
+  for (let i = 1; i <= 100; i++) {
+    if (!used.includes(i)) return String(i);
+  }
+  return String(existingSessions.length + 1);
 }
 
-export function createDefaultSession(sessionNumber?: string): POSSession {
+export function createDefaultSession(sessionNumber?: string, existingSessions: POSSession[] = []): POSSession {
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -51,7 +61,7 @@ export function createDefaultSession(sessionNumber?: string): POSSession {
   const now = new Date().toISOString();
   return {
     id,
-    session_number: sessionNumber || generateSessionNumber(),
+    session_number: sessionNumber ? sessionNumber.replace(/^#/, "") : generateSessionNumber(existingSessions),
     cashier_id: null,
     customer_id: null,
     customer_mode: "walkin",
@@ -81,7 +91,17 @@ export function loadStoredSessionsLocal(): POSSession[] {
     const raw = localStorage.getItem(POS_MULTI_SESSIONS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Normalize any legacy 4-digit numbers (like #7003) or '#' prefixes to clean numbers (1, 2, 3...)
+        return parsed.map((sess: POSSession, idx: number) => {
+          const rawNum = String(sess.session_number || "").replace(/^#/, "");
+          const isLegacy = !rawNum || /^\d{4,}$/.test(rawNum);
+          return {
+            ...sess,
+            session_number: isLegacy ? String(idx + 1) : rawNum,
+          };
+        });
+      }
     }
   } catch {
     // ignore
@@ -138,9 +158,12 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
     }
 
     if (Array.isArray(data) && data.length > 0) {
-      const mapped: POSSession[] = (data as Record<string, unknown>[]).map((d) => ({
-        id: String(d.id),
-        session_number: String(d.session_number || generateSessionNumber()),
+      const mapped: POSSession[] = (data as Record<string, unknown>[]).map((d, idx) => {
+        const rawNum = String(d.session_number || "").replace(/^#/, "");
+        const isLegacy = !rawNum || /^\d{4,}$/.test(rawNum);
+        return {
+          id: String(d.id),
+          session_number: isLegacy ? String(idx + 1) : rawNum,
         cashier_id: d.cashier_id ? String(d.cashier_id) : null,
         customer_id: d.customer_id ? String(d.customer_id) : null,
         customer_mode: (d.customer_mode as "walkin" | "existing" | "new") || "walkin",
@@ -162,7 +185,8 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
         created_at: String(d.created_at || new Date().toISOString()),
         updated_at: String(d.updated_at || new Date().toISOString()),
         items: Array.isArray(d.items) ? (d.items as POSCartItem[]) : [],
-      }));
+        };
+      });
 
       saveStoredSessionsLocal(mapped);
       return mapped;
