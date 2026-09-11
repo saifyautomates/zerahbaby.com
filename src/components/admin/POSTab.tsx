@@ -1361,11 +1361,15 @@ export function POSTab() {
         variant_id: isVariantUuid ? item.variant_id : undefined,
         product_slug: safeSlug,
         slug: safeSlug,
-        name: item.name,
+        name: item.name || "Item",
         sku: item.sku || "",
-        qty: item.qty,
+        barcode: item.barcode || "",
+        variant_info: item.variant_info || [item.color, item.size].filter(Boolean).join(" / ") || "",
+        qty: item.qty || 1,
         custom_price: item.isCustom ? item.price : undefined,
-        price: item.price,
+        price: item.price || 0,
+        mrp: item.mrp || item.price || 0,
+        cost_price: item.buying_price || 0,
       };
     });
 
