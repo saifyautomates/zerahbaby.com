@@ -34,26 +34,39 @@ export function Skeleton({
 /** 1. Product Card Skeleton */
 export function ProductCardSkeleton() {
   return (
-    <div className="flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-3 shadow-2xs">
-      {/* Image box with identical aspect-square */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-muted/50 animate-pulse">
-        <div className="absolute top-2.5 left-2.5 h-4 w-12 rounded-full bg-muted/80" />
-        <div className="absolute top-2.5 right-2.5 size-7 rounded-full bg-muted/80" />
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-border/60 bg-card">
+      {/* Hero Image Container matching aspect-[4/5] */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted/40 p-2 sm:p-2.5 animate-pulse">
+        <div className="size-full rounded-xl sm:rounded-2xl bg-muted/70" />
+        <div className="absolute top-3 left-3 h-4.5 w-14 rounded-full bg-muted/90" />
+        <div className="absolute top-3 right-3 size-8 rounded-full bg-muted/90" />
       </div>
 
-      {/* Product info lines */}
-      <div className="mt-3.5 flex flex-col space-y-2 px-1 pb-1 flex-1 justify-between">
-        <div className="space-y-1.5">
+      {/* Product Content */}
+      <div className="flex flex-1 flex-col p-3 sm:p-4 justify-between">
+        <div className="space-y-2">
+          {/* Brand line */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-2.5 w-8 rounded-md" />
+          </div>
+          {/* 2-line title */}
+          <div className="space-y-1.5 min-h-[2.5rem] sm:min-h-[2.75rem]">
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-3/4" />
+          </div>
+          {/* Rating */}
           <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-4 w-5/6" />
+          {/* Price */}
+          <div className="flex items-baseline gap-2 pt-1">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-3.5 w-12" />
+          </div>
         </div>
 
-        <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/40">
-          <div className="space-y-1">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-2.5 w-12" />
-          </div>
-          <Skeleton className="h-8 w-20 rounded-full" />
+        {/* CTA Button */}
+        <div className="mt-auto pt-3">
+          <Skeleton className="h-9 sm:h-10 w-full rounded-xl" />
         </div>
       </div>
     </div>
