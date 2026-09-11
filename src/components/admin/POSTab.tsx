@@ -174,6 +174,7 @@ export function POSTab() {
   const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCloseAllConfirm, setShowCloseAllConfirm] = useState(false);
   // Double-click tab rename state
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
@@ -959,6 +960,59 @@ export function POSTab() {
     saveHeldOrders(updatedHeld);
 
     toast.info(`Sale ${sess.session_number} discarded`);
+  };
+
+  const handleDiscardAllSessions = () => {
+    setShowCloseAllConfirm(false);
+    const count = sessions.length;
+    // Close all current sessions on server
+    for (const s of sessions) {
+      closePOSSession(s.id).catch(() => {});
+    }
+
+    // Create single clean default session
+    const fresh = createDefaultSession();
+    setSessions([fresh]);
+    saveStoredSessionsLocal([fresh]);
+    setActiveSessionId(fresh.id);
+    saveActiveSessionIdLocal(fresh.id);
+
+    // Reset all POS inputs & cart state
+    setCart([]);
+    setDiscountType("none");
+    setDiscountValue(0);
+    setCustomerMode("walkin");
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerId(null);
+    setCustomerSearchQuery("");
+    setProductSearch("");
+    setScanValue("");
+    setCashTendered("");
+    setStoreCreditApplied(0);
+    setCreditTokenInput("");
+    setStep("cart");
+    setSaleResult(null);
+    setSaleItems([]);
+    setShowCancelConfirm(false);
+    setIdempotencyKey(generateIdempotencyKey());
+
+    // Clear held orders
+    setHeldOrders([]);
+    saveHeldOrders([]);
+
+    // Clear draft in localStorage
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+
+    savePOSSession(fresh).catch(() => {});
+
+    toast.success(`Deleted all ${count} sale tabs. Fresh sale ready!`);
+    setTimeout(() => scanInputRef.current?.focus(), 50);
   };
 
   const handleDeleteHeldOrder = (id: string) => {
@@ -1842,9 +1896,58 @@ export function POSTab() {
               <Plus className="size-3.5" />
               <span>New Sale</span>
             </button>
+
+            {/* Delete All Tabs Button (inline in tab bar) */}
+            {sessions.length > 1 && !showCloseAllConfirm && (
+              <button
+                type="button"
+                onClick={() => setShowCloseAllConfirm(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-red-500/30 bg-red-500/8 hover:bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-bold transition shrink-0 cursor-pointer"
+                title="Delete all sale tabs together and start fresh"
+                data-testid="pos-delete-all-tabs-inline-btn"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete All</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {sessions.length > 1 && (
+              showCloseAllConfirm ? (
+                <div className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-xs animate-in fade-in">
+                  <span className="text-[11px] font-bold text-red-600 dark:text-red-400 whitespace-nowrap">
+                    Delete all {sessions.length} tabs?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDiscardAllSessions}
+                    className="rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-red-700 transition cursor-pointer whitespace-nowrap"
+                  >
+                    Yes, Delete All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCloseAllConfirm(false)}
+                    className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-bold text-foreground hover:bg-muted transition cursor-pointer whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCloseAllConfirm(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/8 hover:bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-bold transition shrink-0 cursor-pointer"
+                  title="Delete all sale tabs together and start fresh"
+                  data-testid="pos-delete-all-tabs-btn"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete All ({sessions.length})</span>
+                </button>
+              )
+            )}
+
             {cart.length > 0 && (
               <button
                 type="button"
