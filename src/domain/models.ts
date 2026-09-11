@@ -55,6 +55,8 @@ export interface Product {
   images: string[];
   product_images?: ProductImage[];
   buyingPrice?: number;
+  buying_price?: number;
+  product_costs?: Array<{ buying_price?: number | null }> | { buying_price?: number | null } | null;
   deliveryFee?: number;
   recommendationMode?: "manual" | "auto" | "manual_fallback";
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";

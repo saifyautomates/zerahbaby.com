@@ -550,16 +550,37 @@ export function POSTab() {
   // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products"],
-    staleTime: 1000 * 60 * 5, // 5 minutes caching
+    staleTime: 1000 * 30, // 30s caching so freshly updated costs in catalog reflect promptly
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_costs(buying_price), product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
-        )
-        .eq("is_active", true);
-      if (error) throw error;
-      const mapped = (data as never[]).map((r) => mapProduct(r as never));
+      const [productsRes, costsRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+          )
+          .eq("is_active", true),
+        Promise.resolve(
+          supabase.from("product_costs").select("product_id, buying_price"),
+        ).catch(() => ({ data: [] as { product_id: string; buying_price: number }[], error: null })),
+      ]);
+
+      if (productsRes.error) throw productsRes.error;
+
+      const costMap = new Map<string, number>(
+        (
+          (costsRes as { data?: { product_id: string; buying_price: number }[] | null })?.data || []
+        ).map((c) => [c.product_id, Number(c.buying_price || 0)]),
+      );
+
+      const mapped = (productsRes.data || []).map((r) => {
+        const prod = mapProduct(r as never);
+        const cost = costMap.get(prod.uuid) ?? costMap.get(prod.id) ?? 0;
+        prod.buyingPrice = cost;
+        prod.buying_price = cost;
+        prod.product_costs = [{ buying_price: cost }];
+        return prod;
+      });
+
       import("@/lib/offline-sync-engine")
         .then((m) => {
           m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
@@ -581,20 +602,28 @@ export function POSTab() {
     const catalog = Array.isArray(products) ? products : [];
     for (const item of cart) {
       if (!item) continue;
-      let bp = item.buying_price != null ? Number(item.buying_price) : null;
-      // Fallback: look up from locally fetched products catalog (which has product_costs)
-      if ((bp === null || bp === 0) && catalog.length > 0) {
-        const found = catalog.find((p) => p?.uuid === item.product_id || p?.id === item.product_id);
+      let bp = item.buying_price != null ? Number(item.buying_price) : 0;
+      // Fallback: look up from locally fetched products catalog (which has product_costs or buyingPrice)
+      if ((!bp || bp <= 0) && catalog.length > 0) {
+        const found = catalog.find(
+          (p) =>
+            p?.uuid === item.product_id ||
+            p?.id === item.product_id ||
+            p?.uuid === item.slug ||
+            p?.id === item.slug ||
+            (p?.sku && item.sku && p.sku.toLowerCase() === item.sku.toLowerCase()),
+        );
         if (found) {
-          const costs = (found as unknown as Record<string, unknown>)?.product_costs;
-          if (Array.isArray(costs) && costs.length > 0) {
-            bp = Number((costs[0] as { buying_price?: number })?.buying_price || 0);
-          } else if (costs && typeof costs === "object") {
-            bp = Number((costs as { buying_price?: number })?.buying_price || 0);
-          }
+          bp = Number(
+            found.buyingPrice ??
+              found.buying_price ??
+              (found as unknown as { product_costs?: Array<{ buying_price?: number }> })
+                ?.product_costs?.[0]?.buying_price ??
+              0,
+          );
         }
       }
-      if (bp !== null && !isNaN(bp) && bp > 0) {
+      if (bp > 0) {
         hasCostData = true;
         totalCost += bp * (item.qty || 1);
       }
@@ -1085,6 +1114,12 @@ export function POSTab() {
             return;
           }
 
+          const matchedProd = products.find(
+            (p) => p.uuid === result.product_id || p.id === result.product_id || p.id === result.slug,
+          );
+          const scannedBuyingPrice =
+            Number(result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0) || null;
+
           const added = addToCart({
             product_id: result.product_id!,
             variant_id: result.variant_id || "",
@@ -1100,6 +1135,7 @@ export function POSTab() {
             image_url: result.image_url ?? null,
             age_group: result.age_group ?? "",
             qty: 1,
+            buying_price: scannedBuyingPrice,
             sales_channel: (result.sales_channel || "ONLINE_AND_OFFLINE") as
               "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
           });
@@ -1245,6 +1281,8 @@ export function POSTab() {
       sales_channel: (product.sales_channel || product.salesChannel || "ONLINE_AND_OFFLINE") as
         "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
       buying_price: (() => {
+        const bp = product.buyingPrice ?? product.buying_price;
+        if (bp !== undefined && bp !== null && Number(bp) > 0) return Number(bp);
         const costs = (product as unknown as Record<string, unknown>).product_costs;
         if (Array.isArray(costs)) return Number((costs[0] as { buying_price?: number })?.buying_price || 0) || null;
         if (costs && typeof costs === "object") return Number((costs as { buying_price?: number }).buying_price || 0) || null;
@@ -1371,7 +1409,13 @@ export function POSTab() {
         custom_price: item.isCustom ? item.price : undefined,
         price: item.price || 0,
         mrp: item.mrp || item.price || 0,
-        cost_price: item.buying_price || 0,
+        cost_price: (() => {
+          if (item.buying_price && item.buying_price > 0) return item.buying_price;
+          const found = products.find(
+            (p) => p.uuid === item.product_id || p.id === item.product_id || p.id === item.slug,
+          );
+          return Number(found?.buyingPrice ?? found?.buying_price ?? 0);
+        })(),
       };
     });
 
@@ -1640,6 +1684,18 @@ export function POSTab() {
       const itemBarcode = selectedVar?.barcode || product.barcode || "";
       const itemImage = selectedVar?.image_url || product.image_url;
 
+      const matchedProd = products.find(
+        (p) => p.uuid === product.id || p.id === product.id || p.id === product.slug || p.uuid === product.slug,
+      );
+      const resBuyingPrice =
+        Number(
+          (product as unknown as { buying_price?: number; buyingPrice?: number }).buying_price ??
+          (product as unknown as { buying_price?: number; buyingPrice?: number }).buyingPrice ??
+          matchedProd?.buyingPrice ??
+          matchedProd?.buying_price ??
+          0,
+        ) || null;
+
       const added = addToCart({
         product_id: product.id,
         variant_id: selectedVar?.id || "",
@@ -1655,6 +1711,7 @@ export function POSTab() {
         barcode: itemBarcode,
         image_url: itemImage,
         qty: 1,
+        buying_price: resBuyingPrice,
         sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
           "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
       });

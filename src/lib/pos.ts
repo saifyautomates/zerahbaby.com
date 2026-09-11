@@ -151,6 +151,8 @@ export type BarcodeResult = {
   age_group?: string;
   description?: string;
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+  buying_price?: number | null;
+  buyingPrice?: number | null;
 };
 
 import {

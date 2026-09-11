@@ -88,6 +88,12 @@ type ProductRow = {
     | null;
   recommendation_mode?: string;
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+  buying_price?: number | null;
+  buyingPrice?: number | null;
+  product_costs?:
+    | { buying_price?: number | null }
+    | Array<{ buying_price?: number | null }>
+    | null;
 };
 
 /** Get unique list of distinct colors for a product */
@@ -242,6 +248,23 @@ export const mapProduct = (row: ProductRow): Product => {
       imageUrl: v.image_url ?? null,
       conflictReconciliationNeeded: v.conflict_reconciliation_needed,
     })),
+    buyingPrice: (() => {
+      if (row.buyingPrice !== undefined && row.buyingPrice !== null) return Number(row.buyingPrice);
+      if (row.buying_price !== undefined && row.buying_price !== null) return Number(row.buying_price);
+      const costs = row.product_costs;
+      if (Array.isArray(costs) && costs.length > 0) return Number(costs[0]?.buying_price || 0);
+      if (costs && typeof costs === "object" && "buying_price" in costs) return Number(costs.buying_price || 0);
+      return 0;
+    })(),
+    buying_price: (() => {
+      if (row.buyingPrice !== undefined && row.buyingPrice !== null) return Number(row.buyingPrice);
+      if (row.buying_price !== undefined && row.buying_price !== null) return Number(row.buying_price);
+      const costs = row.product_costs;
+      if (Array.isArray(costs) && costs.length > 0) return Number(costs[0]?.buying_price || 0);
+      if (costs && typeof costs === "object" && "buying_price" in costs) return Number(costs.buying_price || 0);
+      return 0;
+    })(),
+    product_costs: row.product_costs,
   };
 };
 
