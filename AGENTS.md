@@ -17,3 +17,5 @@ This repository contains the complete production full-stack application for **ZÃ
 1. **Branch Protection**: Keep `main` branch always buildable, fully type-checked (`tsc --noEmit`), and production-ready.
 2. **Database Migrations**: Add all schema changes as forward SQL migrations under `supabase/migrations/`.
 3. **Data Integrity**: Financial totals, shipping thresholds, and coupons must always be strictly verified server-side through canonical RPCs (`place_order`, `place_offline_sale`).
+4. **Automatic Push on Every Turn**: After completing any fixes, features, or changes in each chat, always run typecheck (`tsc --noEmit`), commit with a descriptive message, and automatically push directly to GitHub (`origin/main`) without waiting for the user to request it.
+
