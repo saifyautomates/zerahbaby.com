@@ -106,6 +106,7 @@ export const Route = createFileRoute("/_authenticated/admin/$")({
       search: {
         ...searchParams,
         tab: targetTab,
+        ...(subTab ? { subtab: subTab } : {}),
       },
       replace: true,
     });

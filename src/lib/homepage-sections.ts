@@ -333,10 +333,11 @@ export async function syncProductHomepageSections(
 /**
  * Hook to query homepage sections.
  */
-export function useHomepageSections(isAdmin = false) {
+export function useHomepageSections(isAdmin = false, initialData?: HomepageSection[]) {
   return useQuery({
     queryKey: ["homepage-sections", isAdmin],
     queryFn: () => fetchHomepageSections(isAdmin),
+    initialData,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

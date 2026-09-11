@@ -61,7 +61,14 @@ export function OnlineSalesTab() {
   const { data: onlineData, isLoading: onlineLoading } = useAllOrders(true);
   const isLoading = onlineLoading;
 
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const s = p.get("status") || p.get("filter");
+      if (s) return s.toLowerCase();
+    }
+    return "all";
+  });
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 25;
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
@@ -75,17 +82,21 @@ export function OnlineSalesTab() {
     return "";
   });
 
-  // Keep search term synchronized when URL changes or navigation occurs
+  // Keep search term and status filter synchronized when URL changes or navigation occurs
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
     const param = p.get("orderId") || p.get("search");
     if (param && param !== searchTerm) {
       setSearchTerm(param);
-      setFilter("all");
       setPage(1);
     }
-  }, []);
+    const statusParam = p.get("status") || p.get("filter");
+    if (statusParam && statusParam.toLowerCase() !== filter) {
+      setFilter(statusParam.toLowerCase());
+      setPage(1);
+    }
+  }, [searchTerm, filter]);
 
   // Bulk Cancel Orders State
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);

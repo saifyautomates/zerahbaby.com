@@ -266,6 +266,10 @@ export function AdminPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const searchTab = urlParams.get("tab") as Tab | null;
+      const subTab = urlParams.get("subtab");
+      if (searchTab === "orders" && subTab === "returns") {
+        return "returns";
+      }
       if (searchTab && VALID_TABS.includes(searchTab)) return searchTab;
 
       const hash = window.location.hash.replace("#", "") as Tab;
@@ -310,9 +314,19 @@ export function AdminPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("zerah_admin_active_tab", tab);
       const url = new URL(window.location.href);
       const currentParam = url.searchParams.get("tab");
+      const currentSub = url.searchParams.get("subtab");
+
+      if (currentParam === "orders" && currentSub === "returns") {
+        setTab("returns");
+        url.searchParams.set("tab", "returns");
+        url.searchParams.delete("subtab");
+        window.history.replaceState({}, "", url.toString());
+        return;
+      }
+
+      localStorage.setItem("zerah_admin_active_tab", tab);
       if (tab === "dashboard" && !currentParam) {
         return;
       }

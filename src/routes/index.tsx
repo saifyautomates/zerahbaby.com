@@ -346,7 +346,10 @@ function Index() {
   const [editingSection, setEditingSection] = useState<HomepageSection | null>(null);
   const [creatingSection, setCreatingSection] = useState(false);
 
-  const { data: dbSections = [], isLoading: sectionsLoading } = useHomepageSections(adminMode);
+  const { data: dbSections = [], isLoading: sectionsLoading } = useHomepageSections(
+    adminMode,
+    adminMode ? undefined : (loaderData?.sections as HomepageSection[] | undefined),
+  );
 
   const { data: realReviews } = useQuery({
     queryKey: ["homepage-reviews"],
@@ -427,7 +430,12 @@ function Index() {
     },
   ];
 
-  const sectionsToRender = dbSections && dbSections.length > 0 ? dbSections : defaultSections;
+  const sectionsToRender =
+    dbSections && dbSections.length > 0
+      ? dbSections
+      : loaderData?.sections && (loaderData.sections as HomepageSection[]).length > 0
+        ? (loaderData.sections as HomepageSection[])
+        : defaultSections;
 
   return (
     <div>
