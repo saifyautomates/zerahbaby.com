@@ -117,6 +117,24 @@ export class ComponentErrorBoundary extends Component<Props, State> {
               <RefreshCw className="size-3.5" />
               Refresh page
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  localStorage.removeItem("zerah_pos_sessions_v1");
+                  localStorage.removeItem("zerah_pos_active_session_v1");
+                  localStorage.removeItem("zerah_pos_draft_v1");
+                  localStorage.removeItem("zerah_held_pos_orders_v1");
+                } catch {
+                  // ignore
+                }
+                window.location.reload();
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground text-xs font-medium transition-all cursor-pointer"
+              title="Clear cached POS sessions if local data is corrupted and reload fresh"
+            >
+              Reset Cache
+            </button>
           </div>
         </div>
       );

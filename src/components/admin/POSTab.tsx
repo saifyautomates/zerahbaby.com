@@ -575,27 +575,33 @@ export function POSTab() {
   const profitCalc = useMemo(() => {
     let totalCost = 0;
     let hasCostData = false;
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return { totalCost: 0, profit: 0, marginPct: null, hasCostData: false };
+    }
+    const catalog = Array.isArray(products) ? products : [];
     for (const item of cart) {
+      if (!item) continue;
       let bp = item.buying_price != null ? Number(item.buying_price) : null;
       // Fallback: look up from locally fetched products catalog (which has product_costs)
-      if ((bp === null || bp === 0) && products.length > 0) {
-        const found = products.find((p) => p.uuid === item.product_id || p.id === item.product_id);
+      if ((bp === null || bp === 0) && catalog.length > 0) {
+        const found = catalog.find((p) => p?.uuid === item.product_id || p?.id === item.product_id);
         if (found) {
-          const costs = (found as unknown as Record<string, unknown>).product_costs;
+          const costs = (found as unknown as Record<string, unknown>)?.product_costs;
           if (Array.isArray(costs) && costs.length > 0) {
             bp = Number((costs[0] as { buying_price?: number })?.buying_price || 0);
           } else if (costs && typeof costs === "object") {
-            bp = Number((costs as { buying_price?: number }).buying_price || 0);
+            bp = Number((costs as { buying_price?: number })?.buying_price || 0);
           }
         }
       }
-      if (bp !== null && bp > 0) {
+      if (bp !== null && !isNaN(bp) && bp > 0) {
         hasCostData = true;
-        totalCost += bp * item.qty;
+        totalCost += bp * (item.qty || 1);
       }
     }
-    const profit = total - totalCost;
-    const marginPct = totalCost > 0 ? (profit / total) * 100 : null;
+    const curTotal = typeof total === "number" ? total : 0;
+    const profit = curTotal - totalCost;
+    const marginPct = totalCost > 0 && curTotal > 0 ? (profit / curTotal) * 100 : null;
     return { totalCost, profit, marginPct, hasCostData };
   }, [cart, total, products]);
 
