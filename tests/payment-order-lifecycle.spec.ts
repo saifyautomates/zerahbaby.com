@@ -464,12 +464,20 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
   });
 
   test("TEST 13: Overselling Protection — Prevents Purchasing When Quantity Exceeds Available Stock", async () => {
-    // Try to create session with stock + 1000 items
+    // Fetch live current stock for the variant
+    const liveStockRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/product_variants?select=stock&id=eq.${inStockVariantId}`,
+      { headers },
+    );
+    const [{ stock: liveStock }] = await liveStockRes.json();
+    const excessiveQty = Number(liveStock || 100) + 99999;
+
+    // Try to create session with stock + excessive items
     const sRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_checkout_session`, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        _items: [{ variant_id: inStockVariantId, qty: baseStock + 99999 }],
+        _items: [{ variant_id: inStockVariantId, qty: excessiveQty }],
         _full_name: "Greedy Customer",
         _email: "greedy@zerahkids.com",
         _phone: "9876543210",
