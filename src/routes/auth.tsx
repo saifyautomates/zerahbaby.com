@@ -70,6 +70,7 @@ function AuthPage() {
   }, []);
 
   // ─── UI State ─────────────────────────────────────────────────────────────────
+  // otpLength: 6 for email (Supabase standard), 4 for phone (MSG91)
   const [mode, setMode] = useState<"input" | "verify">("input");
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
@@ -215,7 +216,7 @@ function AuthPage() {
       setOtpExpired(false);
       setMode("verify");
       startCooldown(60);
-      toast.success(isRawEmail ? "OTP sent to your email!" : "4-digit code sent to your mobile!");
+      toast.success(isRawEmail ? "6-digit OTP sent to your email!" : "4-digit code sent to your mobile!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
       setSuggestion({
@@ -264,7 +265,7 @@ function AuthPage() {
       setOtp("");
       setOtpExpired(false);
       startCooldown(60);
-      toast.success(isContactEmail ? "New OTP sent!" : "New 4-digit code sent!");
+      toast.success(isContactEmail ? "New 6-digit OTP sent to your email!" : "New 4-digit code sent to your mobile!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
       const isContactEmail = contact.includes("@");
@@ -286,16 +287,18 @@ function AuthPage() {
   async function onVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     const token = otp.trim();
-    if (!/^\d{4}$/.test(token) || busy) {
-      if (token.length > 0 && token.length !== 4) {
-        toast.error("Please enter the 4-digit code.");
+    const isContactEmail = contact.includes("@");
+    const expectedLen = isContactEmail ? 6 : 4;
+    const digitRegex = isContactEmail ? /^\d{6}$/ : /^\d{4}$/;
+    if (!digitRegex.test(token) || busy) {
+      if (token.length > 0 && token.length !== expectedLen) {
+        toast.error(`Please enter the ${expectedLen}-digit code.`);
       }
       return;
     }
 
     setBusy(true);
     try {
-      const isContactEmail = contact.includes("@");
       if (isContactEmail) {
         const { error } = await supabase.auth.verifyOtp({
           email: contact.trim(),
@@ -511,12 +514,12 @@ function AuthPage() {
           <BrandName size="lg" align="center" />
         </div>
         <h1 className="text-center font-display text-xl font-bold">
-          {mode === "input" ? "Sign In to Your Account" : "Enter 4-digit code"}
+          {mode === "input" ? "Sign In to Your Account" : `Enter ${isEmail ? "6" : "4"}-digit code`}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"
             ? "Enter your email or mobile number to continue"
-            : `We sent a 4-digit code to ${contact}`}
+            : `We sent a ${isEmail ? "6" : "4"}-digit code to ${contact}`}
         </p>
 
         {/* ── INTELLIGENT ALTERNATIVE AUTH SUGGESTION ── */}
@@ -664,14 +667,15 @@ function AuthPage() {
               inputMode="numeric"
               pattern="[0-9]*"
               required
-              maxLength={4}
+              maxLength={isEmail ? 6 : 4}
               value={otp}
               onChange={(e) => {
                 setOtpExpired(false); // typing dismisses the banner
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 4));
+                const maxLen = isEmail ? 6 : 4;
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, maxLen));
               }}
-              placeholder="Enter 4-digit code"
-              aria-label="Enter 4-digit code"
+              placeholder={`Enter ${isEmail ? "6" : "4"}-digit code`}
+              aria-label={`Enter ${isEmail ? "6" : "4"}-digit code`}
               autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
             />
@@ -679,7 +683,7 @@ function AuthPage() {
             <button
               id="auth-verify-otp-btn"
               type="submit"
-              disabled={busy || otp.length !== 4}
+              disabled={busy || otp.length !== (isEmail ? 6 : 4)}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {busy ? "Verifying…" : "Verify & Sign In"}
