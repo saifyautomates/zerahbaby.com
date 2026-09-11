@@ -216,7 +216,7 @@ function AuthPage() {
       setOtpExpired(false);
       setMode("verify");
       startCooldown(60);
-      toast.success(isRawEmail ? "6-digit OTP sent to your email!" : "4-digit code sent to your mobile!");
+      toast.success("4-digit code sent to your mobile!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
       setSuggestion({
@@ -265,7 +265,7 @@ function AuthPage() {
       setOtp("");
       setOtpExpired(false);
       startCooldown(60);
-      toast.success(isContactEmail ? "New 6-digit OTP sent to your email!" : "New 4-digit code sent to your mobile!");
+      toast.success("New 4-digit code sent to your mobile!");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend OTP. Please try again.");
       const isContactEmail = contact.includes("@");
@@ -288,11 +288,11 @@ function AuthPage() {
     e.preventDefault();
     const token = otp.trim();
     const isContactEmail = contact.includes("@");
-    const expectedLen = isContactEmail ? 6 : 4;
-    const digitRegex = isContactEmail ? /^\d{6}$/ : /^\d{4}$/;
+    const expectedLen = 4;
+    const digitRegex = /^\d{4}$/;
     if (!digitRegex.test(token) || busy) {
       if (token.length > 0 && token.length !== expectedLen) {
-        toast.error(`Please enter the ${expectedLen}-digit code.`);
+        toast.error("Please enter the 4-digit code.");
       }
       return;
     }
@@ -514,12 +514,12 @@ function AuthPage() {
           <BrandName size="lg" align="center" />
         </div>
         <h1 className="text-center font-display text-xl font-bold">
-          {mode === "input" ? "Sign In to Your Account" : `Enter ${isEmail ? "6" : "4"}-digit code`}
+          {mode === "input" ? "Sign In to Your Account" : "Enter 4-digit code"}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"
             ? "Enter your email or mobile number to continue"
-            : `We sent a ${isEmail ? "6" : "4"}-digit code to ${contact}`}
+            : `We sent a 4-digit code to ${contact}`}
         </p>
 
         {/* ── INTELLIGENT ALTERNATIVE AUTH SUGGESTION ── */}
@@ -667,15 +667,14 @@ function AuthPage() {
               inputMode="numeric"
               pattern="[0-9]*"
               required
-              maxLength={isEmail ? 6 : 4}
+              maxLength={4}
               value={otp}
               onChange={(e) => {
                 setOtpExpired(false); // typing dismisses the banner
-                const maxLen = isEmail ? 6 : 4;
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, maxLen));
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 4));
               }}
-              placeholder={`Enter ${isEmail ? "6" : "4"}-digit code`}
-              aria-label={`Enter ${isEmail ? "6" : "4"}-digit code`}
+              placeholder="Enter 4-digit code"
+              aria-label="Enter 4-digit code"
               autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
             />
@@ -683,7 +682,7 @@ function AuthPage() {
             <button
               id="auth-verify-otp-btn"
               type="submit"
-              disabled={busy || otp.length !== (isEmail ? 6 : 4)}
+              disabled={busy || otp.length !== 4}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {busy ? "Verifying…" : "Verify & Sign In"}

@@ -90,7 +90,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
 
     // Verify modal overlay z-index >= 200
     const overlayZIndex = await page.evaluate(() => {
-      const overlay = document.querySelector(".fixed.inset-0.z-\\[200\\]");
+      const overlay = document.querySelector("#section-editor-modal-overlay") || document.querySelector('[role="dialog"]');
       if (!overlay) return 0;
       return parseInt(window.getComputedStyle(overlay).zIndex, 10);
     });

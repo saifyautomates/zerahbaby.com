@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { supabase } from "../src/integrations/supabase/client";
 
 test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
   const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:8080";
@@ -155,21 +156,33 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
   });
 
   test("Product page: dynamic metadata, schema, and open graph", async ({ page }) => {
-    await page.goto(`${BASE_URL}/product/tshirrt`);
+    const { data: prod } = await supabase
+      .from("products")
+      .select("name, slug, brand, price")
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+
+    const slug = prod?.slug || "tshirt";
+    const expectedName = prod?.name || "TSHIRT";
+    const expectedPrice = prod?.price || 500;
+    const expectedBrand = prod?.brand || "Zérah";
+
+    await page.goto(`${BASE_URL}/product/${slug}`);
     await page.waitForLoadState("domcontentloaded");
 
     // Title
     const title = await page.title();
-    expect(title).toContain("tshirrt");
+    expect(title.toLowerCase()).toContain(expectedName.toLowerCase());
     expect(title).toContain("Zérah Baby & Kids");
 
     // Canonical
     const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
-    expect(canonical).toBe("https://zerahkids.com/product/tshirrt");
+    expect(canonical).toBe(`https://zerahkids.com/product/${slug}`);
 
     // OpenGraph
     const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content");
-    expect(ogTitle).toContain("tshirrt");
+    expect(ogTitle?.toLowerCase()).toContain(expectedName.toLowerCase());
 
     // Schema.org
     const scriptLd = page.locator('script[type="application/ld+json"]');
@@ -182,9 +195,10 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
       if (text && text.includes('"@type":"Product"')) {
         foundProductSchema = true;
         const parsed = JSON.parse(text);
-        expect(parsed.name).toBe("tshirrt");
-        expect(parsed.brand.name).toBe("Zérah");
-        expect(parsed.offers.price).toBe(499);
+        expect(parsed.name.toLowerCase()).toBe(expectedName.toLowerCase());
+        expect(parsed.brand.name).toBe(expectedBrand);
+        const offer = Array.isArray(parsed.offers) ? parsed.offers[0] : parsed.offers;
+        expect(Number(offer.price)).toBe(expectedPrice);
       }
     }
     expect(foundProductSchema).toBe(true);

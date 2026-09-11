@@ -170,8 +170,8 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
 
   // Test 3: Supabase Database RPC Multi-Session Persistence & Recovery
   test("3. Supabase RPC: save_pos_session_full & get_active_pos_sessions roundtrip", async () => {
-    const testSessionNumberA = `#${Math.floor(10000 + Math.random() * 90000)}`;
-    const testSessionNumberB = `#${Math.floor(10000 + Math.random() * 90000)}`;
+    const testSessionNumberA = String(Math.floor(10000 + Math.random() * 90000));
+    const testSessionNumberB = String(Math.floor(10000 + Math.random() * 90000));
 
     const sessionAData = {
       session_number: testSessionNumberA,
