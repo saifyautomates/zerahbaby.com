@@ -452,6 +452,34 @@ export function POSTab() {
   const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
 
+  // Live profit calculation: cross-reference buying_price from cart item or from local catalog
+  const profitCalc = useMemo(() => {
+    let totalCost = 0;
+    let hasCostData = false;
+    for (const item of cart) {
+      let bp = item.buying_price != null ? Number(item.buying_price) : null;
+      // Fallback: look up from locally fetched products catalog (which has product_costs)
+      if ((bp === null || bp === 0) && products.length > 0) {
+        const found = products.find((p) => p.uuid === item.product_id || p.id === item.product_id);
+        if (found) {
+          const costs = (found as unknown as Record<string, unknown>).product_costs;
+          if (Array.isArray(costs) && costs.length > 0) {
+            bp = Number((costs[0] as { buying_price?: number })?.buying_price || 0);
+          } else if (costs && typeof costs === "object") {
+            bp = Number((costs as { buying_price?: number }).buying_price || 0);
+          }
+        }
+      }
+      if (bp !== null && bp > 0) {
+        hasCostData = true;
+        totalCost += bp * item.qty;
+      }
+    }
+    const profit = total - totalCost;
+    const marginPct = totalCost > 0 ? (profit / total) * 100 : null;
+    return { totalCost, profit, marginPct, hasCostData };
+  }, [cart, total, products]);
+
   // Dedicated Voucher Instrument Query (4-character token scope)
   const { data: voucherData, isFetching: voucherFetching } = useStoreCreditVoucher({
     token: creditTokenInput,
@@ -555,7 +583,7 @@ export function POSTab() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+          "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_costs(buying_price), product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
         )
         .eq("is_active", true);
       if (error) throw error;
@@ -1156,6 +1184,12 @@ export function POSTab() {
       qty: 1,
       sales_channel: (product.sales_channel || product.salesChannel || "ONLINE_AND_OFFLINE") as
         "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+      buying_price: (() => {
+        const costs = (product as unknown as Record<string, unknown>).product_costs;
+        if (Array.isArray(costs)) return Number((costs[0] as { buying_price?: number })?.buying_price || 0) || null;
+        if (costs && typeof costs === "object") return Number((costs as { buying_price?: number }).buying_price || 0) || null;
+        return null;
+      })(),
     });
     setProductSearch("");
     const isOfflineOnly = (product.sales_channel || product.salesChannel) === "OFFLINE_ONLY";
@@ -3112,6 +3146,58 @@ export function POSTab() {
                         </div>
                       )}
                     </div>
+
+                    {/* ── Admin-only Profit Indicator ── */}
+                    {profitCalc.hasCostData ? (
+                      <div
+                        className={`rounded-xl border p-3 space-y-1.5 ${
+                          profitCalc.profit >= 0
+                            ? "bg-emerald-500/8 border-emerald-500/25"
+                            : "bg-red-500/8 border-red-500/25"
+                        }`}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          📊 Admin Profit View
+                        </p>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Total Cost (COGS)</span>
+                          <span className="font-semibold text-foreground">
+                            {formatPrice(profitCalc.totalCost)}
+                          </span>
+                        </div>
+                        <div
+                          className={`flex justify-between text-sm font-bold ${
+                            profitCalc.profit >= 0
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          <span>
+                            {profitCalc.profit >= 0 ? "✓ Profit" : "⚠ Loss"}
+                          </span>
+                          <span>
+                            {profitCalc.profit >= 0 ? "+" : ""}
+                            {formatPrice(profitCalc.profit)}
+                            {profitCalc.marginPct !== null && (
+                              <span className="ml-1.5 text-[11px] opacity-80">
+                                ({profitCalc.marginPct.toFixed(1)}% margin)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {discountAmount > 0 && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Includes {formatPrice(discountAmount)} discount applied
+                          </p>
+                        )}
+                      </div>
+                    ) : cart.length > 0 ? (
+                      <div className="rounded-xl border border-dashed border-border p-2.5 text-center">
+                        <p className="text-[10px] text-muted-foreground">
+                          💡 Set buying price in product catalog to see profit
+                        </p>
+                      </div>
+                    ) : null}
 
                     {/* Printer Output Target Selector */}
                     <div className="space-y-2 pt-2 border-t border-border/80">

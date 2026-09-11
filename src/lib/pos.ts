@@ -33,6 +33,7 @@ export type POSCartItem = {
   qty: number;
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   isCustom?: boolean;
+  buying_price?: number | null; // Cost price for profit calculation
 };
 
 export type POSCustomer = {
