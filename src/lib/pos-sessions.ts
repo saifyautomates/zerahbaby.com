@@ -164,27 +164,27 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
         return {
           id: String(d.id),
           session_number: isLegacy ? String(idx + 1) : rawNum,
-        cashier_id: d.cashier_id ? String(d.cashier_id) : null,
-        customer_id: d.customer_id ? String(d.customer_id) : null,
-        customer_mode: (d.customer_mode as "walkin" | "existing" | "new") || "walkin",
-        customer_name: String(d.customer_name || "Walk-in Customer"),
-        customer_phone: String(d.customer_phone || ""),
-        customer_email: String(d.customer_email || ""),
-        status: (d.status as POSSessionStatus) || "draft",
-        discount_type: (d.discount_type as "none" | "percentage" | "fixed") || "none",
-        discount_value: Number(d.discount_value || 0),
-        applied_coupon: d.applied_coupon || null,
-        payment_method: String(d.payment_method || "cash"),
-        notes: String(d.notes || ""),
-        store_credit_applied: Number(d.store_credit_applied || 0),
-        credit_token_input: String(d.credit_token_input || ""),
-        subtotal: Number(d.subtotal || 0),
-        discount_total: Number(d.discount_total || 0),
-        total: Number(d.total || 0),
-        held_at: d.held_at ? String(d.held_at) : null,
-        created_at: String(d.created_at || new Date().toISOString()),
-        updated_at: String(d.updated_at || new Date().toISOString()),
-        items: Array.isArray(d.items) ? (d.items as POSCartItem[]) : [],
+          cashier_id: d.cashier_id ? String(d.cashier_id) : null,
+          customer_id: d.customer_id ? String(d.customer_id) : null,
+          customer_mode: (d.customer_mode as "walkin" | "existing" | "new") || "walkin",
+          customer_name: String(d.customer_name || "Walk-in Customer"),
+          customer_phone: String(d.customer_phone || ""),
+          customer_email: String(d.customer_email || ""),
+          status: (d.status as POSSessionStatus) || "draft",
+          discount_type: (d.discount_type as "none" | "percentage" | "fixed") || "none",
+          discount_value: Number(d.discount_value || 0),
+          applied_coupon: d.applied_coupon || null,
+          payment_method: String(d.payment_method || "cash"),
+          notes: String(d.notes || ""),
+          store_credit_applied: Number(d.store_credit_applied || 0),
+          credit_token_input: String(d.credit_token_input || ""),
+          subtotal: Number(d.subtotal || 0),
+          discount_total: Number(d.discount_total || 0),
+          total: Number(d.total || 0),
+          held_at: d.held_at ? String(d.held_at) : null,
+          created_at: String(d.created_at || new Date().toISOString()),
+          updated_at: String(d.updated_at || new Date().toISOString()),
+          items: Array.isArray(d.items) ? (d.items as POSCartItem[]) : [],
         };
       });
 
@@ -198,7 +198,7 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
 
     const initial = createDefaultSession();
     // Fire and forget persist initial session
-    savePOSSession(initial).catch(() => {});
+    savePOSSession(initial).catch(() => { });
     return [initial];
   } catch (err) {
     console.warn("[POSSessionEngine] Network exception, using local fallback:", err);

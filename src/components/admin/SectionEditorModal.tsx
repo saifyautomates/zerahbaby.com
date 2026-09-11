@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -59,6 +59,27 @@ interface SectionEditorModalProps {
 type TabKey = "general" | "theme" | "products" | "display" | "schedule" | "preview";
 
 export function SectionEditorModal({ section, onClose, onSuccess }: SectionEditorModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = origOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const isEditing = Boolean(section);
   const saveSection = useSaveSection();
   const { data: allProducts = [] } = useProducts(false);
@@ -355,16 +376,26 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
   );
 
   const modalContent = (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-y-auto" role="dialog" aria-modal="true">
-      <div className="relative flex flex-col w-full max-w-5xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2.5rem)] my-auto rounded-2xl sm:rounded-3xl bg-background border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-3.5 sm:py-4 bg-muted/30 shrink-0">
+    <div
+      id="section-editor-modal-overlay"
+      className="fixed inset-0 z-[99999] isolate flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 md:p-6 overflow-hidden select-text"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="section-editor-title"
+    >
+      <div
+        id="section-editor-dialog-card"
+        className="relative flex flex-col w-full max-w-5xl h-full max-h-[92dvh] sm:max-h-[90dvh] bg-background rounded-2xl sm:rounded-3xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Fixed & Pinned at Top */}
+        <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-3.5 sm:py-4 bg-muted/40 shrink-0 select-none">
           <div className="min-w-0 pr-2">
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                 <Palette className="h-4 w-4" />
               </span>
-              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
+              <h2 id="section-editor-title" className="text-base sm:text-lg font-bold text-foreground truncate">
                 {isEditing ? `Edit Section: ${section?.title}` : "Create Advanced Homepage Section"}
               </h2>
             </div>
@@ -373,6 +404,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
             </p>
           </div>
           <button
+            type="button"
+            id="section-editor-close-btn"
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition shrink-0 cursor-pointer"
             aria-label="Close"
@@ -381,8 +414,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1 border-b border-border bg-muted/10 px-3 sm:px-6 py-2 overflow-x-auto no-scrollbar shrink-0">
+        {/* Tab Navigation - Fixed & Pinned below Header */}
+        <div className="flex items-center gap-1 border-b border-border bg-muted/20 px-3 sm:px-6 py-2 overflow-x-auto no-scrollbar shrink-0 select-none">
           <button
             onClick={() => setActiveTab("general")}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
@@ -451,8 +484,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
+        {/* Modal Body - Sole Scrollable Viewport */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
           {/* ──────────────── TAB 1: GENERAL ──────────────── */}
           {activeTab === "general" && (
             <div className="space-y-5 max-w-3xl">
@@ -1316,8 +1349,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 sm:px-6 py-3 sm:py-4 bg-muted/20 shrink-0">
+        {/* Footer Actions - Fixed & Pinned at Bottom */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 sm:px-6 py-3 sm:py-4 bg-muted/30 shrink-0 select-none">
           <div className="flex items-center gap-2">
             <span
               className="h-3 w-3 rounded-full border border-black/10 shrink-0"
@@ -1350,7 +1383,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
     </div>
   );
 
-  return typeof document !== "undefined"
-    ? createPortal(modalContent, document.body)
-    : modalContent;
+  if (!mounted || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(modalContent, document.body);
 }
