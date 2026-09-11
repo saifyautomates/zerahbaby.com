@@ -42,6 +42,20 @@ import {
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
 
+function formatShiprocketBadgeStatus(status: string | null | undefined): string {
+  if (!status) return "";
+  const s = status.toUpperCase().trim();
+  if (s === "AWB_GENERATED" || s === "AWB ASSIGNED") return "Courier Assigned / Tracking Ready";
+  if (s === "PICKUP_SCHEDULED" || s === "PICKUP SCHEDULED") return "Pickup Scheduled";
+  if (s === "PICKUP_QUEUED") return "Ready for Pickup";
+  if (s === "IN_TRANSIT" || s === "SHIPPED") return "In Transit / Shipped";
+  if (s === "OUT_FOR_DELIVERY") return "Out for Delivery";
+  if (s === "DELIVERED") return "Delivered";
+  if (s === "CANCELLED" || s === "CANCELED") return "Courier Cancelled";
+  if (s === "RTO_INITIATED") return "Return to Origin";
+  return s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function OnlineSalesTab() {
   const qc = useQueryClient();
   const { data: onlineData, isLoading: onlineLoading } = useAllOrders(true);
@@ -1018,8 +1032,10 @@ export function OnlineSalesTab() {
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-bold text-blue-700">
                               <Truck className="size-3.5" />
                               <span>
-                                SR #{order.shiprocket_order_id}{" "}
-                                {order.shiprocket_status ? `(${order.shiprocket_status})` : ""}
+                                Shiprocket #{order.shiprocket_order_id}{" "}
+                                {order.shiprocket_status
+                                  ? `(${formatShiprocketBadgeStatus(order.shiprocket_status)})`
+                                  : ""}
                               </span>
                             </span>
                             {order.shiprocket_shipment_id && !order.awb_code && (
@@ -1027,12 +1043,13 @@ export function OnlineSalesTab() {
                                 type="button"
                                 onClick={() => generateAwb.mutate(order.id)}
                                 disabled={generateAwb.isPending}
+                                title="Generate courier tracking barcode / AWB"
                                 className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted cursor-pointer shadow-2xs"
                               >
                                 {generateAwb.isPending ? (
                                   <Loader2 className="size-3 animate-spin" />
                                 ) : (
-                                  "Gen AWB"
+                                  "Get Tracking Number"
                                 )}
                               </button>
                             )}
@@ -1105,14 +1122,14 @@ export function OnlineSalesTab() {
                             type="button"
                             onClick={() => generateAwb.mutate(order.id)}
                             disabled={generateAwb.isPending}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60 cursor-pointer"
                           >
                             {generateAwb.isPending ? (
                               <Loader2 className="size-3.5 animate-spin" />
                             ) : (
                               <Send className="size-3.5" />
                             )}
-                            Generate AWB
+                            Assign Courier &amp; Get Tracking #
                           </button>
                         ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
                           order.shiprocket_status !== "SHIPPED" &&
@@ -1121,19 +1138,19 @@ export function OnlineSalesTab() {
                             type="button"
                             onClick={() => requestPickup.mutate(order.id)}
                             disabled={requestPickup.isPending}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60 cursor-pointer"
                           >
                             {requestPickup.isPending ? (
                               <Loader2 className="size-3.5 animate-spin" />
                             ) : (
                               <Truck className="size-3.5" />
                             )}
-                            Request Pickup
+                            Request Courier Pickup
                           </button>
                         ) : (
                           <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                              Shiprocket AWB
+                              Courier Tracking # (AWB)
                             </p>
                             <p className="text-xs font-bold text-foreground mt-0.5">
                               {order.awb_code}
@@ -1142,7 +1159,7 @@ export function OnlineSalesTab() {
                               {order.courier_name}
                             </p>
                             <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
-                              {order.shiprocket_status}
+                              {formatShiprocketBadgeStatus(order.shiprocket_status)}
                             </p>
                           </div>
                         )}

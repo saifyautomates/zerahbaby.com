@@ -741,7 +741,7 @@ function OrderCard({
                   ? "Our delivery executive will contact you for drop-off."
                   : isShipped
                   ? order.awb_code
-                    ? `AWB Tracking: ${order.awb_code}`
+                    ? `Tracking No: ${order.awb_code}`
                     : "In transit with courier partner."
                   : "Estimated delivery within 3–5 business days across India."}
               </p>
@@ -1121,7 +1121,7 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
             </h2>
             <p className="text-xs text-muted-foreground">
               Courier: <strong className="text-foreground">{courier}</strong>
-              {awb && ` · AWB: ${awb}`}
+              {awb && ` · Tracking No: ${awb}`}
             </p>
           </div>
           <button
