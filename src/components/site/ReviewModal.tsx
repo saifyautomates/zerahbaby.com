@@ -144,16 +144,16 @@ export function ReviewModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget && !submitReview.isPending && !isUploading) {
           onClose();
         }
       }}
     >
-      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-card rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="relative w-full max-w-xl max-h-[90vh] my-auto flex flex-col bg-card rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-muted/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-muted/50 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {product.image && (
               <img
@@ -161,7 +161,7 @@ export function ReviewModal({
                 alt={product.name}
                 loading="lazy"
                 decoding="async"
-                className="size-11 rounded-xl object-cover border border-border shrink-0"
+                className="size-11 rounded-xl object-contain bg-white border border-border shrink-0 p-1"
               />
             )}
             <div className="min-w-0">
@@ -175,14 +175,14 @@ export function ReviewModal({
             type="button"
             onClick={onClose}
             aria-label="Close review dialog"
-            className="p-2 text-gray-400 hover:text-muted-foreground rounded-full hover:bg-muted transition cursor-pointer"
+            className="p-2 text-gray-400 hover:text-muted-foreground rounded-full hover:bg-muted transition cursor-pointer shrink-0"
           >
             <X className="size-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
           {isSubmitted ? (
             <div className="py-8 text-center space-y-4">
               <div className="mx-auto size-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-xs animate-in zoom-in-50 duration-300">

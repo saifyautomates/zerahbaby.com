@@ -193,6 +193,8 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
+    max-width: 100%;
   }
 
   body {
@@ -206,6 +208,8 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
+    overflow-x: clip;
+    max-width: 100%;
     -webkit-touch-callout: default;
     user-select: auto;
     -webkit-user-select: auto;
@@ -219,7 +223,8 @@
   img,
   video,
   picture,
-  svg {
+  svg,
+  canvas {
     display: block;
     max-width: 100%;
     height: auto;

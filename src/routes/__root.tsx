@@ -455,7 +455,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CartProvider>
         <MaintenanceGuard isAdminRoute={isAdminRoute}>
-          <div className="flex min-h-[100dvh] w-full flex-col relative">
+          <div className="flex min-h-[100dvh] w-full flex-col relative min-w-0 max-w-full overflow-x-clip">
             {!isAdminRoute && <Header />}
             <main id="main" className="flex-1 fade-in-soft bg-muted/20 min-w-0">
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

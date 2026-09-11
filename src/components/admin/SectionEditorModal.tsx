@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Plus,
@@ -353,27 +354,27 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
     resolvedTheme.accentColor,
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-      <div className="relative flex flex-col w-full max-w-5xl max-h-[92vh] rounded-3xl bg-background border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+  const modalContent = (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-y-auto" role="dialog" aria-modal="true">
+      <div className="relative flex flex-col w-full max-w-5xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2.5rem)] my-auto rounded-2xl sm:rounded-3xl bg-background border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-muted/30 shrink-0">
-          <div>
+        <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-3.5 sm:py-4 bg-muted/30 shrink-0">
+          <div className="min-w-0 pr-2">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                 <Palette className="h-4 w-4" />
               </span>
-              <h2 className="text-lg font-bold text-foreground">
+              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">
                 {isEditing ? `Edit Section: ${section?.title}` : "Create Advanced Homepage Section"}
               </h2>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
               Configure per-section themes, festival campaigns, products, layout & scheduling
             </p>
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition shrink-0 cursor-pointer"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -381,7 +382,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 border-b border-border bg-muted/10 px-6 py-2 overflow-x-auto no-scrollbar shrink-0">
+        <div className="flex items-center gap-1 border-b border-border bg-muted/10 px-3 sm:px-6 py-2 overflow-x-auto no-scrollbar shrink-0">
           <button
             onClick={() => setActiveTab("general")}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
@@ -451,7 +452,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
           {/* ──────────────── TAB 1: GENERAL ──────────────── */}
           {activeTab === "general" && (
             <div className="space-y-5 max-w-3xl">
@@ -598,18 +599,18 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                   </label>
                   <span className="text-[11px] text-muted-foreground">Click to apply full theme, title & badges</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-2.5">
                   {CAMPAIGN_PRESETS.map((camp) => (
                     <button
                       key={camp.id}
                       type="button"
                       onClick={() => applyCampaignPreset(camp)}
-                      className="flex flex-col items-start p-3 rounded-2xl border border-border bg-card hover:border-amber-400/80 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 text-left transition group shadow-sm"
+                      className="flex flex-col items-start p-2.5 sm:p-3 rounded-2xl border border-border bg-card hover:border-amber-400/80 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 text-left transition group shadow-sm min-w-0"
                     >
                       <span className="text-xs font-bold text-foreground group-hover:text-amber-600 transition truncate w-full">
                         {camp.name}
                       </span>
-                      <span className="text-[10px] text-muted-foreground line-clamp-1 mt-1">
+                      <span className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
                         {camp.badge}
                       </span>
                     </button>
@@ -622,7 +623,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                 <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
                   1. Visual Theme Presets
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
                   {Object.values(THEME_PRESETS).map((p) => {
                     const isSelected = themePreset === p.id;
                     return (
@@ -759,7 +760,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
                       Background
@@ -1316,22 +1317,22 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-muted/20 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 sm:px-6 py-3 sm:py-4 bg-muted/20 shrink-0">
           <div className="flex items-center gap-2">
             <span
-              className="h-3 w-3 rounded-full border border-black/10"
+              className="h-3 w-3 rounded-full border border-black/10 shrink-0"
               style={{ backgroundColor: resolvedTheme.bgColor }}
             />
-            <span className="text-xs text-muted-foreground font-medium">
+            <span className="text-xs text-muted-foreground font-medium truncate">
               Theme: <span className="text-foreground font-bold">{themePreset}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted rounded-xl transition"
+              className="px-3.5 sm:px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted rounded-xl transition cursor-pointer"
             >
               Cancel
             </button>
@@ -1339,7 +1340,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
               type="button"
               onClick={handleSave}
               disabled={saveSection.isPending}
-              className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/95 rounded-xl shadow-sm transition disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/95 rounded-xl shadow-sm transition disabled:opacity-50 cursor-pointer min-h-[38px]"
             >
               {saveSection.isPending ? "Saving to Supabase..." : "Save & Publish Changes"}
             </button>
@@ -1348,4 +1349,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 }

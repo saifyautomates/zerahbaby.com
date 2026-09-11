@@ -1055,7 +1055,7 @@ export function AdminPage() {
         </header>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-[1600px]">
             <ComponentErrorBoundary
               fallbackTitle="Module Loading Exception"
@@ -2373,8 +2373,8 @@ function ProductsTab() {
 
       {/* Delete Selected Confirmation Modal */}
       {showDeleteSelectedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] my-auto overflow-y-auto">
             <div className="flex items-center gap-3 text-destructive">
               <div className="flex size-10 items-center justify-center rounded-2xl bg-destructive/10">
                 <AlertTriangle className="size-5" />
@@ -2421,8 +2421,8 @@ function ProductsTab() {
 
       {/* Delete All Products Modal */}
       {showDeleteAllModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] my-auto overflow-y-auto">
             <div className="flex items-center gap-3 text-destructive">
               <div className="flex size-10 items-center justify-center rounded-2xl bg-destructive/10">
                 <AlertTriangle className="size-5" />
@@ -3920,11 +3920,11 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
       {/* Customer Profile Details Modal */}
       {selectedCustomer && (
         <div
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
           onClick={() => setSelectedCustomer(null)}
         >
           <div
-            className="flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            className="flex flex-col w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] my-auto rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header with Banner & DP */}

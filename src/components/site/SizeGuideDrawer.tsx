@@ -51,7 +51,7 @@ export function SizeGuideDrawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8">
           <div>
             <h3 className="font-semibold text-sm mb-3">Measurement Chart (Inches)</h3>
             <div className="overflow-x-auto rounded-xl border border-border">

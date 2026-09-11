@@ -783,13 +783,13 @@ export function ProductForm({
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/40 p-0 sm:p-4 md:p-6"
+        className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-foreground/40 p-0 sm:p-4 md:p-6 overflow-y-auto"
         role="dialog"
         aria-modal="true"
         onClick={onCancel}
       >
         <div
-          className="flex flex-col w-full max-w-3xl max-h-[100dvh] sm:max-h-[95dvh] rounded-t-3xl sm:rounded-3xl border border-border bg-card shadow-2xl overflow-hidden"
+          className="flex flex-col w-full max-w-3xl max-h-[100dvh] sm:max-h-[92dvh] my-auto rounded-t-3xl sm:rounded-3xl border border-border bg-card shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 border-b border-border p-6">

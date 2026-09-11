@@ -205,13 +205,13 @@ export function ProductCard({
       onFocus={handlePrefetch}
       className={`group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/20 ${cardStyleClasses}`}
     >
-      {/* ── PRODUCT HERO IMAGE (Full-bleed, object-cover) ─────────────────── */}
-      <div className="relative aspect-[3/4] sm:aspect-[4/5] w-full overflow-hidden bg-stone-100 dark:bg-stone-900 shrink-0">
+      {/* ── PRODUCT HERO IMAGE (Full product visibility with object-contain) ─────────────────── */}
+      <div className="relative aspect-[3/4] sm:aspect-[4/5] w-full overflow-hidden bg-stone-100/60 dark:bg-stone-900/60 shrink-0 flex items-center justify-center">
         {/* Main image clickable link */}
         <Link
           to="/product/$id"
           params={{ id: product.id }}
-          className="focus-ring block absolute inset-0"
+          className="focus-ring block absolute inset-0 p-1.5 sm:p-2 flex items-center justify-center"
           tabIndex={-1}
           aria-label={product.name}
         >
@@ -219,7 +219,7 @@ export function ProductCard({
             src={displayImage}
             alt={product.name}
             placeholderSrc={imageFor(product.category, null, product)}
-            className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-103"
+            className="h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover:scale-103"
           />
           {/* Subtle hover secondary image swap */}
           {activeSecondaryImage && (
@@ -227,7 +227,7 @@ export function ProductCard({
               src={activeSecondaryImage}
               alt=""
               placeholderSrc={displayImage}
-              className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 pointer-events-none"
+              className="absolute inset-0 h-full w-full object-contain object-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 pointer-events-none p-1.5 sm:p-2"
             />
           )}
         </Link>

@@ -231,7 +231,10 @@ export function useSession() {
   }, [queryClient]);
 
   const testUser = useMemo(() => {
-    if (import.meta.env.DEV && typeof window !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ) {
       if (localStorage.getItem("zerah_test_admin") === "true") {
         return {
           id: "00000000-0000-0000-0000-000000000001",
@@ -269,7 +272,10 @@ export function useSession() {
 export function useIsAdmin(userId: string | undefined) {
   const cachedAdmin = useMemo(() => {
     if (typeof window === "undefined" || !userId) return undefined;
-    if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
+    if (
+      (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      localStorage.getItem("zerah_test_admin") === "true"
+    ) {
       return true;
     }
     const val = localStorage.getItem(`zerah_is_admin_${userId}`);

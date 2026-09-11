@@ -106,7 +106,7 @@ export function QuickVariantStockModal({
 
   return (
     <div
-      className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -115,32 +115,32 @@ export function QuickVariantStockModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="variant-modal-title"
-        className="relative w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto"
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border/60 bg-muted/20 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             {product.image ? (
               <img
                 src={product.image}
                 alt={product.name}
-                className="size-12 rounded-xl object-cover border border-border/80 shadow-2xs shrink-0"
+                className="size-12 rounded-xl object-contain bg-white border border-border/80 shadow-2xs shrink-0 p-1"
               />
             ) : (
               <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
                 <Package className="size-6" />
               </div>
             )}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2
                   id="variant-modal-title"
-                  className="font-display text-base sm:text-lg font-black text-foreground line-clamp-1"
+                  className="font-display text-base sm:text-lg font-black text-foreground truncate"
                 >
                   {product.name}
                 </h2>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 truncate">
                 <span>SKU: {product.sku || "—"}</span>
                 <span>•</span>
                 <span className="capitalize">{product.category}</span>
@@ -152,14 +152,14 @@ export function QuickVariantStockModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="size-8 rounded-full border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+            className="size-8 rounded-full border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer shrink-0 ml-2"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {/* Informational Sub-header with Live Total */}
-        <div className="px-6 py-3 bg-primary/5 border-b border-primary/15 flex items-center justify-between">
+        <div className="px-6 py-3 bg-primary/5 border-b border-primary/15 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary">
             <Layers className="size-3.5 shrink-0" />
             <span>{variants.length} Distinct Variants</span>
@@ -173,7 +173,7 @@ export function QuickVariantStockModal({
         </div>
 
         {/* Variants List */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-3">
           {variants.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               No variants configured for this product.

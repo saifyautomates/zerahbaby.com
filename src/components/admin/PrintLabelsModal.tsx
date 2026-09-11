@@ -157,13 +157,13 @@ export function PrintLabelsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-sm print:block print:bg-white print:p-0"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-sm overflow-y-auto print:block print:bg-white print:p-0"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-2xl max-h-[94vh] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none animate-in fade-in zoom-in-95 duration-200"
+        className="flex w-full max-w-2xl max-h-[calc(100dvh-2rem)] my-auto flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl print:max-h-none print:overflow-visible print:w-full print:rounded-none print:border-0 print:bg-white print:shadow-none animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -402,7 +402,7 @@ export function PrintLabelsModal({
         </div>
 
         {/* Live Sticker Preview Center Area — Full Prominent View */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-900/60 flex flex-col items-center justify-start min-h-[260px] max-h-[50vh]">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-900/60 flex flex-col items-center justify-start max-h-[50vh]">
           <div className="w-full flex flex-col items-center">
             <LabelPrintEngine
               entries={entries}

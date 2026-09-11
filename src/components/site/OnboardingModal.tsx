@@ -135,8 +135,13 @@ export function OnboardingModal() {
     }
   };
 
-  // 1. Never show customer onboarding modal while inside the admin dashboard
-  if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+  // 1. Never show customer onboarding modal while inside the admin dashboard or in admin editing mode
+  if (
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/admin") ||
+      window.localStorage.getItem("zerah-admin-mode") === "on" ||
+      window.localStorage.getItem("zerah_test_admin") === "true")
+  ) {
     return null;
   }
 
@@ -284,14 +289,14 @@ export function OnboardingModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
       onClick={handleDismiss}
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-modal-title"
     >
       <div
-        className="relative flex flex-col w-full max-w-lg max-h-[92vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative flex flex-col w-full max-w-lg max-h-[92vh] my-auto rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Right Close (X) Button */}

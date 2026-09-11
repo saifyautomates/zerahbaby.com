@@ -266,7 +266,7 @@ export function HomepageSectionsTab() {
               </div>
 
               {/* Right Action Controls */}
-              <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap self-stretch justify-end md:self-center md:justify-normal shrink-0">
                 {/* Fast Visibility Toggle */}
                 <button
                   type="button"

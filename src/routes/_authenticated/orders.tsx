@@ -1107,9 +1107,9 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-2xl animate-in zoom-in-95 max-h-[calc(100dvh-2rem)] my-auto flex flex-col overflow-y-auto">
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary mb-1">
@@ -1255,9 +1255,9 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
       role="dialog"
       aria-modal="true"
       aria-labelledby="cancel-modal-title"
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-2xl animate-in zoom-in-95 max-h-[calc(100dvh-2rem)] my-auto flex flex-col overflow-y-auto">
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <h2 id="cancel-modal-title" className="font-display text-xl font-bold text-foreground">

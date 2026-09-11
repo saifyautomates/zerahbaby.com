@@ -104,7 +104,7 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
       aria-modal="true"
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto"
     >
-      <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8 max-h-[92vh] flex flex-col">
+      <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-2xl animate-in zoom-in-95 max-h-[calc(100dvh-2rem)] my-auto flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4 shrink-0">
           <div>
@@ -112,7 +112,7 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
               <span className="flex size-7 items-center justify-center rounded-full bg-[#8B2020]/10 text-[#8B2020]">
                 <RotateCcw className="size-4" />
               </span>
-              <h2 className="font-display text-xl font-bold text-foreground">
+              <h2 className="font-display text-lg sm:text-xl font-bold text-foreground">
                 Request Return — #{order.id.slice(0, 8).toUpperCase()}
               </h2>
             </div>
@@ -131,7 +131,7 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="mt-5 space-y-6 overflow-y-auto pr-1 flex-1">
+        <form onSubmit={handleSubmit} className="mt-4 sm:mt-5 space-y-6 overflow-y-auto pr-1 flex-1 min-h-0">
           {/* Item Selection Section */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-2.5">

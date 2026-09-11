@@ -58,7 +58,7 @@ export function OpenBoxActionModal({ order, onClose }: OpenBoxActionModalProps) 
       aria-modal="true"
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto"
     >
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8">
+      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-2xl animate-in zoom-in-95 max-h-[calc(100dvh-2rem)] my-auto flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>

@@ -41,7 +41,7 @@ export function OnlineReturnDetailsModal({ onlineReturn, onClose }: OnlineReturn
       aria-modal="true"
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in overflow-y-auto"
     >
-      <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 sm:p-8 max-h-[92vh] flex flex-col">
+      <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-4 sm:p-8 shadow-2xl animate-in zoom-in-95 max-h-[calc(100dvh-2rem)] my-auto flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4 shrink-0">
           <div>
@@ -49,7 +49,7 @@ export function OnlineReturnDetailsModal({ onlineReturn, onClose }: OnlineReturn
               <span className="flex size-7 items-center justify-center rounded-full bg-[#8B2020]/10 text-[#8B2020]">
                 <RotateCcw className="size-4" />
               </span>
-              <h2 className="font-display text-xl font-bold text-foreground">
+              <h2 className="font-display text-lg sm:text-xl font-bold text-foreground">
                 Return #{onlineReturn.return_number}
               </h2>
             </div>
@@ -67,7 +67,7 @@ export function OnlineReturnDetailsModal({ onlineReturn, onClose }: OnlineReturn
         </div>
 
         {/* Body */}
-        <div className="mt-5 space-y-6 overflow-y-auto pr-1 flex-1">
+        <div className="mt-4 sm:mt-5 space-y-6 overflow-y-auto pr-1 flex-1 min-h-0">
           {/* Status Chips */}
           <div className="flex flex-wrap items-center gap-2.5">
             <span
