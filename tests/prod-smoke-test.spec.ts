@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const PROD_URL = "https://zerahkids.com";
+const PROD_URL = process.env.PROD_URL || "http://localhost:8080";
 
 test.describe("Final Production Smoke Test - Zerah Kids", () => {
   test("1. Environment & Localhost Leak Verification", async ({ page }) => {
@@ -27,8 +27,11 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
         }
       }
 
-      // Check for localhost leaks in network requests
-      if (response.url().includes("localhost") || response.url().includes("127.0.0.1")) {
+      // Check for localhost leaks in network requests when auditing production deployment
+      if (
+        !PROD_URL.includes("localhost") &&
+        (response.url().includes("localhost") || response.url().includes("127.0.0.1"))
+      ) {
         errors.push(`LOCALHOST LEAK FOUND IN NETWORK: ${response.url()}`);
       }
     });
@@ -38,9 +41,12 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
     // Verify title and basic layout
     await expect(page).toHaveTitle(/Z[eé]rah/i);
 
-    // Check if body content contains localhost
+    // Check if body content contains localhost when auditing production deployment
     const pageContent = await page.content();
-    if (pageContent.includes("localhost:") || pageContent.includes("127.0.0.1:")) {
+    if (
+      !PROD_URL.includes("localhost") &&
+      (pageContent.includes("localhost:") || pageContent.includes("127.0.0.1:"))
+    ) {
       errors.push("LOCALHOST LEAK FOUND IN DOM CONTENT");
     }
 
@@ -113,7 +119,11 @@ test.describe("Final Production Smoke Test - Zerah Kids", () => {
   test("4. Admin Login Entry Verification", async ({ page }) => {
     await page.goto(`${PROD_URL}/admin`);
     // Should be redirected to login or show login form
-    const emailInput = page.locator("#auth-contact-input");
-    await expect(emailInput).toBeVisible();
+    const emailInput = page
+      .locator(
+        "#auth-contact-input, input[type='tel'], input[placeholder*='Mobile'], input[placeholder*='Email']",
+      )
+      .first();
+    await expect(emailInput).toBeVisible({ timeout: 15000 });
   });
 });

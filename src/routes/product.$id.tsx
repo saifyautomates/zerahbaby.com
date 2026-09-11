@@ -876,6 +876,10 @@ function ProductPage() {
             )}
           </div>
 
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            Inclusive of all taxes
+          </p>
+
           {/* Trust Row under Pricing */}
           <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground divide-x divide-border/60">
             <div className="flex items-center gap-1 font-bold text-foreground">
