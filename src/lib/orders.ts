@@ -309,13 +309,13 @@ export function useCancelCustomerOrder() {
         console.warn("[Cancellation] Auto-refund background notice:", refundCatchErr);
       }
 
-      // Trigger order cancellation SMS (non-blocking)
+      // Trigger order cancellation SMS for customer and owner (non-blocking)
       supabase.functions
         .invoke("msg91-transactional", {
           body: {
             order_id: orderId,
             event_type: "order_cancelled",
-            notify_owner: false,
+            notify_owner: true,
           },
         })
         .catch(console.error);

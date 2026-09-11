@@ -13,60 +13,145 @@ const SMS_TIMEOUT_MS = 10_000;
 // Maps each event+recipient pair to the correct MSG91 DLT template
 // and the exact DLT-approved var names (var1, var2, var3).
 
+// Helper to ensure clean customer name and prevent using store name as customer greeting
+function cleanCustomerName(rawName?: string | null): string {
+  if (!rawName) return "Customer";
+  const trimmed = rawName.trim();
+  const lower = trimmed.toLowerCase();
+  // Never allow store name or generic system labels as customer name
+  if (
+    lower.includes("zerah") ||
+    lower.includes("store") ||
+    lower.includes("admin") ||
+    lower === "customer"
+  ) {
+    return "Customer";
+  }
+  // Return the customer's actual first or full name (e.g. "Saif")
+  return trimmed;
+}
+
 const TEMPLATE_CONFIG = {
-  // Template 2: Online Order Confirmed - var1=Order ID, var2=Total
+  // Template 2: Online Order Confirmed - var1=Customer Name ("Hi ##var1##"), var2=Order Details/ID/Amount
   online_sale_customer: {
     templateId: "6aa1cd275f81de31570d50e2",
     secretKey: "MSG91_TEMPLATE_ORDER_CONFIRMED",
     requiredVars: ["var1", "var2"],
-    buildVars: (ctx) => ({ var1: String(ctx.ref || ""), var2: String(ctx.total ?? "") }),
+    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
+      const custName = cleanCustomerName(ctx.name);
+      const isCod = (ctx.payment || "").toLowerCase() === "cod";
+      const orderType = isCod ? "COD order" : "online order";
+      return {
+        var1: custName, // "Hi Saif,"
+        var2: `${orderType} #${ctx.ref} of Rs. ${ctx.total}`,
+        var3: String(ctx.total ?? ""),
+        name: custName,
+        customer_name: custName,
+        order_id: String(ctx.ref || ""),
+        ref: String(ctx.ref || ""),
+        total: String(ctx.total ?? ""),
+        amount: String(ctx.total ?? ""),
+        payment_method: isCod ? "COD" : "Online",
+      };
+    },
   },
-  // Template 4: New Online Order Admin - var1=Order ID, var2=Customer Name, var3=Amount
+  // Template 4: New Online Order Admin - var1=Order ID & Payment Type, var2=Customer Name, var3=Amount
   online_sale_owner: {
     templateId: "6aa1d097daacdd8930018922",
     secretKey: "MSG91_TEMPLATE_NEW_ORDER_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({
-      var1: String(ctx.ref || ""),
-      var2: String(ctx.name || ""),
-      var3: String(ctx.total ?? ""),
-    }),
+    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
+      const custName = cleanCustomerName(ctx.name);
+      const isCod = (ctx.payment || "").toLowerCase() === "cod";
+      return {
+        var1: `${isCod ? "COD" : "Online"} #${ctx.ref}`,
+        var2: custName,
+        var3: String(ctx.total ?? ""),
+        name: custName,
+        order_id: String(ctx.ref || ""),
+        total: String(ctx.total ?? ""),
+        payment_method: isCod ? "COD" : "Online",
+      };
+    },
   },
   // Template 3: Order Delivered - var1=Customer Name, var2=Order ID
   order_delivered_customer: {
     templateId: "6aa1cf5471e712fa250b1732",
     secretKey: "MSG91_TEMPLATE_ORDER_DELIVERED",
     requiredVars: ["var1", "var2"],
-    buildVars: (ctx) => ({ var1: String(ctx.name || ""), var2: String(ctx.ref || "") }),
+    buildVars: (ctx: { name?: string; ref?: string }) => ({
+      var1: cleanCustomerName(ctx.name),
+      var2: String(ctx.ref || ""),
+      name: cleanCustomerName(ctx.name),
+      order_id: String(ctx.ref || ""),
+    }),
   },
-  // Template 5: Offline Purchase - var1=Transaction ID, var2=Amount, var3=Store
+  // Template 5: Offline Purchase - var1=Customer Name/Tx ID, var2=Amount, var3=Store
   offline_pos_sale_customer: {
     templateId: "6aa1cb843c42b39d420dbff2",
     secretKey: "MSG91_TEMPLATE_OFFLINE_PURCHASE",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({
-      var1: String(ctx.ref || ""),
-      var2: String(ctx.total ?? ""),
-      var3: STORE_NAME,
-    }),
+    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => {
+      const custName = cleanCustomerName(ctx.name);
+      return {
+        var1: custName !== "Customer" ? `${custName} (${ctx.ref})` : String(ctx.ref || ""),
+        var2: String(ctx.total ?? ""),
+        var3: STORE_NAME,
+        name: custName,
+      };
+    },
   },
-  // Template 6: Offline Sale Admin - var1=Transaction ID, var2=Amount, var3=Store
+  // Template 6: Offline Sale Admin - var1=Transaction ID, var2=Customer Name, var3=Store
   offline_pos_sale_owner: {
     templateId: "6aa1d17366745ba0d206c582",
     secretKey: "MSG91_TEMPLATE_OFFLINE_SALE_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx) => ({
+    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => ({
       var1: String(ctx.ref || ""),
-      var2: String(ctx.total ?? ""),
+      var2: cleanCustomerName(ctx.name),
       var3: STORE_NAME,
+      name: cleanCustomerName(ctx.name),
     }),
   },
-  // Order Cancelled - customer only, uses order_confirmed template as closest fallback
+  // Order Cancelled - Customer Notification
   order_cancelled_customer: {
     templateId: "6aa1cd275f81de31570d50e2",
-    secretKey: "MSG91_TEMPLATE_ORDER_CONFIRMED",
+    secretKey: "MSG91_TEMPLATE_ORDER_CANCELLED_CUSTOMER",
     requiredVars: ["var1", "var2"],
-    buildVars: (ctx) => ({ var1: String(ctx.ref || ""), var2: String(ctx.total ?? "") }),
+    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
+      const custName = cleanCustomerName(ctx.name);
+      const isCod = (ctx.payment || "").toLowerCase() === "cod";
+      return {
+        var1: custName, // "Hi Saif,"
+        var2: `${isCod ? "COD" : "online"} order #${ctx.ref} (Cancelled, Rs. ${ctx.total})`,
+        var3: String(ctx.total ?? ""),
+        name: custName,
+        order_id: String(ctx.ref || ""),
+        status: "Cancelled",
+        total: String(ctx.total ?? ""),
+        payment_method: isCod ? "COD" : "Online",
+      };
+    },
+  },
+  // Order Cancelled - Admin / Owner Notification
+  order_cancelled_owner: {
+    templateId: "6aa1d097daacdd8930018922",
+    secretKey: "MSG91_TEMPLATE_ORDER_CANCELLED_ADMIN",
+    requiredVars: ["var1", "var2", "var3"],
+    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
+      const custName = cleanCustomerName(ctx.name);
+      const isCod = (ctx.payment || "").toLowerCase() === "cod";
+      return {
+        var1: `CANCELLED: ${ctx.ref} (${isCod ? "COD" : "Online"})`,
+        var2: custName,
+        var3: String(ctx.total ?? ""),
+        name: custName,
+        order_id: String(ctx.ref || ""),
+        total: String(ctx.total ?? ""),
+        status: "Cancelled",
+        payment_method: isCod ? "COD" : "Online",
+      };
+    },
   },
 };
 
@@ -451,8 +536,11 @@ Deno.serve(async (req) => {
 
       if (order) {
         if (!authoritativePhone) authoritativePhone = order.phone || "";
-        if (!authoritativeName || authoritativeName === "Customer")
-          authoritativeName = order.full_name || "Customer";
+        if (order.full_name && order.full_name.trim() !== "") {
+          authoritativeName = cleanCustomerName(order.full_name);
+        } else if (!authoritativeName || authoritativeName === "Customer") {
+          authoritativeName = cleanCustomerName(name);
+        }
         if (!authoritativeTotal) authoritativeTotal = Number(order.total || 0);
         authoritativePayment = order.payment_method ? order.payment_method.toUpperCase() : "ONLINE";
         authoritativeRef = order.order_number || order.invoice_no || order.id.substring(0, 8);
@@ -620,8 +708,13 @@ Deno.serve(async (req) => {
       results.push(await dispatchSingleSms(authoritativePhone, "customer"));
     }
 
-    // B. Owner SMS - fires for online_sale, offline_pos_sale, order_delivered
-    const ownerEvents = ["online_sale", "offline_pos_sale", "order_delivered"];
+    // B. Owner SMS - fires for online_sale, offline_pos_sale, order_delivered, and order_cancelled
+    const ownerEvents = [
+      "online_sale",
+      "offline_pos_sale",
+      "order_delivered",
+      "order_cancelled",
+    ];
     if (notify_owner && ownerEvents.includes(currentEventType)) {
       const { data: ownerSetting } = await adminClient
         .from("site_settings")
