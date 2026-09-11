@@ -173,7 +173,6 @@ export function POSTab() {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCloseAllConfirm, setShowCloseAllConfirm] = useState(false);
   // Double-click tab rename state
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -995,7 +994,6 @@ export function POSTab() {
     setStep("cart");
     setSaleResult(null);
     setSaleItems([]);
-    setShowCancelConfirm(false);
     setIdempotencyKey(generateIdempotencyKey());
 
     // Clear held orders
@@ -1276,6 +1274,61 @@ export function POSTab() {
     );
   }
 
+  function handleCancelCart() {
+    // 1. Immediately empty active cart
+    setCart([]);
+    setDiscountType("none");
+    setDiscountValue(0);
+    setStoreCreditApplied(0);
+    setCreditTokenInput("");
+    setCashTendered("");
+    setCustomerSearchQuery("");
+    setProductSearch("");
+    setScanValue("");
+
+    // 2. Also clear items in active session
+    if (activeSessionId) {
+      setSessions((prev) => {
+        const updated = prev.map((s) =>
+          s.id === activeSessionId
+            ? {
+                ...s,
+                items: [],
+                subtotal: 0,
+                discount_total: 0,
+                total: 0,
+                updated_at: new Date().toISOString(),
+              }
+            : s,
+        );
+        saveStoredSessionsLocal(updated);
+        return updated;
+      });
+
+      const current = sessions.find((s) => s.id === activeSessionId);
+      if (current) {
+        savePOSSession({
+          ...current,
+          items: [],
+          subtotal: 0,
+          discount_total: 0,
+          total: 0,
+          updated_at: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    }
+
+    // 3. Clear draft in localStorage
+    try {
+      localStorage.removeItem(POS_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+
+    toast.success("Cart cleared");
+    setTimeout(() => scanInputRef.current?.focus(), 50);
+  }
+
   // Complete sale
   async function completeSale(overrideCustomerId?: string | null) {
     if (cart.length === 0) {
@@ -1425,7 +1478,6 @@ export function POSTab() {
     setStep("cart");
     setSaleResult(null);
     setSaleItems([]);
-    setShowCancelConfirm(false);
     setIdempotencyKey(generateIdempotencyKey());
 
     // Switch to next remaining active session or create clean fresh session
@@ -2417,38 +2469,16 @@ export function POSTab() {
                 <span className="font-bold text-2xl text-primary">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex items-center gap-3">
-                {showCancelConfirm ? (
-                  <div className="flex items-center gap-1.5 rounded-xl border border-red-300 bg-red-50 px-3 py-2">
-                    <span className="text-xs font-bold text-red-700">Clear cart?</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCancelConfirm(false);
-                        resetPOS();
-                      }}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
-                    >
-                      Yes, Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowCancelConfirm(false)}
-                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs font-bold text-red-700 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Cancel and clear active POS cart"
-                  >
-                    <Trash2 className="size-3.5" />
-                    <span>Cancel Cart</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleCancelCart}
+                  className="rounded-xl border border-red-200 bg-red-50/70 dark:bg-red-950/30 px-4 py-3 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                  title="Cancel and clear active POS cart"
+                  data-testid="pos-cancel-cart-btn"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Cancel Cart</span>
+                </button>
 
                 <button
                   type="button"
