@@ -245,12 +245,16 @@ export const mapProduct = (row: ProductRow): Product => {
   };
 };
 
-export const formatPrice = (n: number) =>
-  new Intl.NumberFormat("en-IN", {
+export const formatPrice = (n: number) => {
+  const num = Number(n) || 0;
+  const hasDecimals = !Number.isInteger(num);
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
+  }).format(num);
+};
 
 export const discountPct = (product: { price: number; mrp: number }) =>
   product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;

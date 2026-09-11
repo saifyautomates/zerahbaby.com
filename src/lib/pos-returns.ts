@@ -336,7 +336,7 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     const { data: recentSaleItem } = await (supabase as any)
       .from("offline_sale_items")
       .select(
-        "price, final_unit_paid_price, unit_mrp, unit_selling_price, allocated_bill_discount, allocated_coupon_discount, created_at",
+        "price, final_unit_paid_price, unit_mrp, unit_selling_price, allocated_bill_discount, allocated_coupon_discount, created_at, offline_sales(subtotal, discount, total)",
       )
       .eq("product_id", product.id)
       .order("created_at", { ascending: false })
@@ -345,24 +345,34 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
 
     if (recentSaleItem) {
       recentSoldPrice = typeof recentSaleItem.price === "number" ? recentSaleItem.price : null;
-      // Prefer final_unit_paid_price (post-migration rows), fallback to price (pre-migration rows)
-      historicalPaidPrice =
-        typeof recentSaleItem.final_unit_paid_price === "number" &&
-        recentSaleItem.final_unit_paid_price > 0
-          ? recentSaleItem.final_unit_paid_price
-          : recentSoldPrice;
+      const unitSell =
+        typeof recentSaleItem.unit_selling_price === "number" && recentSaleItem.unit_selling_price > 0
+          ? recentSaleItem.unit_selling_price
+          : (recentSoldPrice || 0);
+      const parentSale = recentSaleItem.offline_sales;
+      const saleSubtotal = Number(parentSale?.subtotal) || 0;
+      const saleDiscount = Number(parentSale?.discount) || 0;
+
+      let calcPaid = Number(recentSaleItem.final_unit_paid_price) || 0;
+      let allocBill = Number(recentSaleItem.allocated_bill_discount) || 0;
+
+      if (calcPaid <= 0 || (saleDiscount > 0 && Math.abs(calcPaid - unitSell) < 0.001)) {
+        if (saleSubtotal > 0 && saleDiscount > 0) {
+          const propDisc = (saleDiscount * unitSell) / saleSubtotal;
+          calcPaid = Math.max(0, Number((unitSell - propDisc).toFixed(2)));
+          allocBill = Number(propDisc.toFixed(2));
+        } else {
+          calcPaid = unitSell;
+        }
+      }
+
+      historicalPaidPrice = calcPaid;
       historicalUnitMrp =
         typeof recentSaleItem.unit_mrp === "number" && recentSaleItem.unit_mrp > 0
           ? recentSaleItem.unit_mrp
           : null;
-      historicalUnitSellingPrice =
-        typeof recentSaleItem.unit_selling_price === "number"
-          ? recentSaleItem.unit_selling_price
-          : null;
-      historicalAllocatedBill =
-        typeof recentSaleItem.allocated_bill_discount === "number"
-          ? recentSaleItem.allocated_bill_discount
-          : null;
+      historicalUnitSellingPrice = unitSell;
+      historicalAllocatedBill = allocBill;
       historicalAllocatedCoupon =
         typeof recentSaleItem.allocated_coupon_discount === "number"
           ? recentSaleItem.allocated_coupon_discount
@@ -452,7 +462,7 @@ export function useOfflineSalesForReturnsLookup() {
             const dbUnitMrp =
               Number(it.unit_mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0;
             const dbUnitSelling = Number(it.unit_selling_price) || Number(it.price) || 0;
-            const dbAllocBill = Number(it.allocated_bill_discount) || 0;
+            let dbAllocBill = Number(it.allocated_bill_discount) || 0;
             const dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
             const dbQuantitySold = Number(it.quantity_sold) || itemQty;
             const dbQuantityReturned = Number(it.quantity_returned) || alreadyReturned;
@@ -462,6 +472,22 @@ export function useOfflineSalesForReturnsLookup() {
                 ? Number(it.quantity_returnable)
                 : Math.max(0, dbQuantitySold - dbQuantityReturned);
             totalReturnableCount += dbQuantityReturnable;
+
+            const saleSubtotal = Number(s.subtotal) || Number(s.total) || 0;
+            const saleDiscount = Number(s.discount) || 0;
+
+            let finalUnitPaid = dbFinalUnitPaid;
+            if (finalUnitPaid <= 0 || (saleDiscount > 0 && Math.abs(finalUnitPaid - dbUnitSelling) < 0.001)) {
+              if (saleSubtotal > 0 && saleDiscount > 0) {
+                const propDiscount = (saleDiscount * dbUnitSelling) / saleSubtotal;
+                finalUnitPaid = Math.max(0, Number((dbUnitSelling - propDiscount).toFixed(2)));
+                if (dbAllocBill === 0 && dbAllocCoupon === 0) {
+                  dbAllocBill = Number(propDiscount.toFixed(2));
+                }
+              } else {
+                finalUnitPaid = dbUnitSelling;
+              }
+            }
 
             return {
               id: it.id,
@@ -488,7 +514,7 @@ export function useOfflineSalesForReturnsLookup() {
               product_discount_amount: Number(it.product_discount_amount) || 0,
               allocated_bill_discount: dbAllocBill,
               allocated_coupon_discount: dbAllocCoupon,
-              final_unit_paid_price: dbFinalUnitPaid > 0 ? dbFinalUnitPaid : dbUnitSelling,
+              final_unit_paid_price: finalUnitPaid,
               quantity_sold: dbQuantitySold,
               quantity_returned: dbQuantityReturned,
               quantity_returnable: dbQuantityReturnable,
