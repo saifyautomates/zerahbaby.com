@@ -2535,6 +2535,7 @@ const SETTING_LABELS: Record<string, string> = {
   store_hours: "Opening hours",
   maps_url: "Google Maps link",
   owner_notification_email: "Owner Sale Alert Email (Recipient)",
+  owner_notification_phone: "Owner Sale Alert Mobile (Recipient SMS)",
   owner_notify_offline_sales: "Enable Offline POS Sale Alerts (true/false)",
   owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
   // The feature toggles won't be rendered in the text list, so they don't strictly need labels here, but good for completeness
@@ -2561,6 +2562,10 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
     "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
   contact_email: "Website ke footer aur contact page me dikhne wala aapka Email ID.",
   contact_phone: "Website ke footer aur contact page me dikhne wala Phone/Mobile number.",
+  owner_notification_phone:
+    "Is mobile number par admin/owner ko new order aur offline sale ke DLT SMS alerts aayenge (e.g. 9057074777).",
+  owner_notification_email:
+    "Is email address par admin/owner ko new order aur offline sale ke invoice notification emails aayenge (e.g. hello@zerahkids.com).",
   store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
   store_hours: "Dukaan khulne aur band hone ka samay (yeh Footer me dikhta hai).",
   maps_url: "Footer me location icon par click karne se jo Google Maps open hoga, uska link.",
@@ -2585,6 +2590,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
     "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
   contact_email: "hello@zerahkids.com",
   contact_phone: "9057074777, 9667571712",
+  owner_notification_email: "hello@zerahkids.com",
+  owner_notification_phone: "9057074777",
   store_address:
     "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
   store_hours: "Open daily · 10:30 AM – 10:00 PM",
@@ -2646,6 +2653,8 @@ function SettingsTab() {
     onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
   });
 
+  const [testingSms, setTestingSms] = useState(false);
+
   async function onSendTestNotification() {
     setTestingEmail(true);
     try {
@@ -2666,48 +2675,107 @@ function SettingsTab() {
     }
   }
 
+  async function onSendTestSms() {
+    setTestingSms(true);
+    try {
+      const targetPhone = current.owner_notification_phone || "9057074777";
+      const { data, error } = await supabase.functions.invoke("msg91-transactional", {
+        body: {
+          event_type: "online_sale",
+          recipient_type: "owner",
+          phone: targetPhone,
+          name: "Test Customer",
+          order_number: "TEST-ORD-001",
+          total: 999,
+          payment_method: "ONLINE",
+          notify_owner: true,
+        },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
+      toast.success(`Test SMS dispatched to +91 ${targetPhone}! Check the SMS Logs tab.`);
+    } catch (err: unknown) {
+      toast.error(`Test SMS failed: ${(err as Error).message}`);
+    } finally {
+      setTestingSms(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-16">
       {/* ─── PAYMENT METHODS & COD CONTROL CARD ────────────────── */}
       <PaymentMethodsSettingsCard />
 
-      {/* ─── SALE NOTIFICATIONS CARD ──────────────────────────── */}
+      {/* ─── SALE NOTIFICATIONS CARD (SMS + EMAIL) ─────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
-          <div>
-            <h3 className="font-display text-lg font-bold text-foreground">
-              Owner Sale Notifications
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Receive automatic email alerts on every offline POS sale &amp; online paid order via
-              Resend.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onSendTestNotification}
-            disabled={testingEmail}
-            className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer"
-          >
-            {testingEmail ? "Sending Test…" : "Send Test Email"}
-          </button>
+        <div className="border-b border-border pb-4">
+          <h3 className="font-display text-lg font-bold text-foreground">
+            Owner &amp; Admin Alerts (SMS &amp; Email)
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Jab bhi koi naya online order place ho ya offline physical store par sale ho, toh Admin ko instant DLT SMS aur complete invoice email deliver hoga.
+          </p>
         </div>
 
-        <div className="mt-5 space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Recipient Email Address
-            </span>
+        <div className="mt-5 space-y-5">
+          {/* SMS ALERT PHONE */}
+          <div className="space-y-1.5 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Admin Mobile Number (for DLT SMS Alerts)
+              </span>
+              <button
+                type="button"
+                onClick={onSendTestSms}
+                disabled={testingSms}
+                className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
+              >
+                {testingSms ? "Sending SMS…" : "Send Test SMS"}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Is number par DLT approved admin templates (Zerah_New_Online_Order_Admin_ &amp; Zerah_Offline_Sale_Admin_) deliver honge.
+            </p>
+            <input
+              type="tel"
+              value={current.owner_notification_phone ?? ""}
+              onChange={(e) => setValues({ ...current, owner_notification_phone: e.target.value })}
+              placeholder="e.g. 9057074777"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-mono outline-none transition focus:border-primary shadow-2xs mt-2"
+            />
+          </div>
+
+          {/* EMAIL ALERT RECIPIENT */}
+          <div className="space-y-1.5 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Admin Email Address (for Invoice &amp; Order Emails)
+              </span>
+              <button
+                type="button"
+                onClick={onSendTestNotification}
+                disabled={testingEmail}
+                className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
+              >
+                {testingEmail ? "Sending Email…" : "Send Test Email"}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Is email address par new online orders aur counter sales ke itemized invoice details aayenge.
+            </p>
             <input
               type="email"
               value={current.owner_notification_email ?? ""}
               onChange={(e) => setValues({ ...current, owner_notification_email: e.target.value })}
-              placeholder="e.g. owner@zerahkids.com"
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+              placeholder="e.g. hello@zerahkids.com"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs mt-2"
             />
-          </label>
+          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* TOGGLES */}
+          <div className="grid gap-3 sm:grid-cols-2 pt-1">
             <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/20 p-3.5 cursor-pointer hover:bg-muted/40 transition">
               <span className="text-sm font-medium text-foreground">Offline POS Sale Alerts</span>
               <input

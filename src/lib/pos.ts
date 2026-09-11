@@ -445,7 +445,7 @@ export function usePlaceOfflineSale() {
               is_offline_queued: false,
             };
 
-            // Asynchronously trigger transactional SMS (non-blocking)
+            // Asynchronously trigger transactional SMS & Owner Email Notification (non-blocking)
             if (result.sale_id && !result.duplicate) {
               supabase.functions
                 .invoke("msg91-transactional", {
@@ -462,6 +462,17 @@ export function usePlaceOfflineSale() {
                 })
                 .catch((err) => {
                   console.warn("[pos] Transactional SMS trigger error:", err);
+                });
+
+              supabase.functions
+                .invoke("send-owner-sale-notification", {
+                  body: {
+                    type: "offline_sale",
+                    sale_id: result.sale_id,
+                  },
+                })
+                .catch((emailErr) => {
+                  console.warn("[pos] Owner offline sale email notification error:", emailErr);
                 });
             }
 

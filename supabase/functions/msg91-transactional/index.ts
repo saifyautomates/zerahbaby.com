@@ -807,7 +807,24 @@ Deno.serve(async (req) => {
         .eq("key", "owner_notification_phone")
         .maybeSingle();
 
-      const ownerPhone = ownerSetting?.value || Deno.env.get("OWNER_PHONE") || "";
+      let ownerPhone = ownerSetting?.value || Deno.env.get("OWNER_PHONE") || "";
+      if (!ownerPhone) {
+        const { data: contactSetting } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "contact_phone")
+          .maybeSingle();
+        if (contactSetting?.value) {
+          const match = contactSetting.value.replace(/\D/g, "").slice(-10);
+          if (match.length === 10) {
+            ownerPhone = match;
+          }
+        }
+      }
+      if (!ownerPhone) {
+        ownerPhone = "9057074777";
+      }
+
       if (ownerPhone) {
         const ownerResult = await dispatchSingleSms(ownerPhone, "owner");
         results.push(ownerResult);
