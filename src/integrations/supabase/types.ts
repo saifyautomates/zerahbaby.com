@@ -2611,6 +2611,7 @@ export type Database = {
           return_id: string | null
           sale_id: string | null
           source_return_id: string | null
+          source_sale_id: string | null
           type: string
           used_in_sale_id: string | null
           user_id: string | null
@@ -2632,6 +2633,7 @@ export type Database = {
           return_id?: string | null
           sale_id?: string | null
           source_return_id?: string | null
+          source_sale_id?: string | null
           type: string
           used_in_sale_id?: string | null
           user_id?: string | null
@@ -2653,6 +2655,7 @@ export type Database = {
           return_id?: string | null
           sale_id?: string | null
           source_return_id?: string | null
+          source_sale_id?: string | null
           type?: string
           used_in_sale_id?: string | null
           user_id?: string | null
@@ -2890,6 +2893,8 @@ export type Database = {
           notes: string | null
           return_id: string | null
           sale_id: string | null
+          source_sale_id: string | null
+          used_in_sale_id: string | null
           type: string | null
         }
         Insert: {
@@ -2906,6 +2911,8 @@ export type Database = {
           notes?: string | null
           return_id?: string | null
           sale_id?: string | null
+          source_sale_id?: string | null
+          used_in_sale_id?: string | null
           type?: string | null
         }
         Update: {
@@ -2922,6 +2929,8 @@ export type Database = {
           notes?: string | null
           return_id?: string | null
           sale_id?: string | null
+          source_sale_id?: string | null
+          used_in_sale_id?: string | null
           type?: string | null
         }
         Relationships: [
