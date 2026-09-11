@@ -22,7 +22,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   TrendingUp,
   Package,
@@ -121,6 +121,7 @@ export function DashboardTab({
 }: {
   onNavigate?: (tab: string, payload?: string) => void;
 }) {
+  const navigate = useNavigate();
   const [activeDrillDown, setActiveDrillDownState] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -792,9 +793,9 @@ export function DashboardTab({
     if (productSlug) {
       return {
         label: "View Product",
-        tooltip: `Click to open product: /product/${productSlug}`,
-        icon: ExternalLink,
-        isExternal: true,
+        tooltip: `Click to view product: /product/${productSlug}`,
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
@@ -816,8 +817,8 @@ export function DashboardTab({
       return {
         label: "View Cart",
         tooltip: "Click to open storefront cart",
-        icon: ExternalLink,
-        isExternal: true,
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
@@ -828,9 +829,9 @@ export function DashboardTab({
       if (path === "/products" || path === "/products/") path = "/shop";
       return {
         label: path === "/" ? "Visit Store" : "Open Page",
-        tooltip: `Click to visit ${path} in new tab`,
-        icon: ExternalLink,
-        isExternal: true,
+        tooltip: `Click to visit ${path}`,
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
@@ -944,6 +945,26 @@ export function DashboardTab({
       }
     }
 
+    const navigateToLocalPath = (rawPath: string) => {
+      setIsRecentActivityModalOpen(false);
+      let path = rawPath.trim();
+      if (!path.startsWith("/")) path = `/${path}`;
+      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
+      if (path === "/products" || path === "/products/") path = "/shop";
+
+      try {
+        const [pathname, search] = path.split("?");
+        if (search) {
+          const searchObj = Object.fromEntries(new URLSearchParams(search).entries());
+          navigate({ to: pathname as any, search: searchObj as any });
+        } else {
+          navigate({ to: pathname as any });
+        }
+      } catch {
+        window.location.href = path;
+      }
+    };
+
     // 4. Product Page
     const productSlug =
       act.productSlug ||
@@ -953,7 +974,7 @@ export function DashboardTab({
         : null);
 
     if (productSlug) {
-      window.open(`/product/${productSlug}`, "_blank");
+      navigateToLocalPath(`/product/${productSlug}`);
       return;
     }
 
@@ -974,17 +995,14 @@ export function DashboardTab({
 
     // 6. Cart view / add
     if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
-      window.open("/cart", "_blank");
+      navigateToLocalPath("/cart");
       return;
     }
 
     // 7. Generic Page views e.g. "Page viewed: /" or "Page viewed: /shop"
     if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
       let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
-      if (!path.startsWith("/")) path = `/${path}`;
-      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
-      if (path === "/products" || path === "/products/") path = "/shop";
-      window.open(path, "_blank");
+      navigateToLocalPath(path);
       return;
     }
 

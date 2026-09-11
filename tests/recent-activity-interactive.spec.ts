@@ -167,4 +167,59 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
       path: "C:/Users/jackx/.gemini/antigravity-ide/brain/57e4e7f2-4a35-423f-899c-7d8d383295b1/recent_activity_modal_verified.png",
     });
   });
+
+  test("Clicking a page view activity item navigates in the same tab instead of opening a new window", async ({
+    page,
+  }) => {
+    let popupOpened = false;
+    page.on("popup", () => {
+      popupOpened = true;
+    });
+
+    // Mock activities
+    await page.route("**/rest/v1/rpc/get_unified_store_activities*", async (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "act-view-home",
+            source: "analytics",
+            event_type: "view",
+            title: "Page viewed: /",
+            subtitle: "visitor",
+            product_name: null,
+            product_slug: null,
+            product_image: null,
+            customer_name: "visitor",
+            amount: 0,
+            created_at: new Date().toISOString(),
+            metadata: { path: "/" },
+          },
+        ]),
+      });
+    });
+
+    // Admin bypass
+    await page.goto("http://localhost:8080/", { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => {
+      localStorage.setItem("zerah_test_admin", "true");
+      localStorage.setItem("zerah_admin_active_tab", "dashboard");
+    });
+
+    await page.goto("http://localhost:8080/admin?tab=dashboard", { waitUntil: "networkidle" });
+    await page.waitForTimeout(1000);
+
+    const homeItem = page.locator("div[role='button']:has-text('Page viewed: /')").first();
+    await expect(homeItem).toBeVisible();
+
+    await homeItem.click();
+    await page.waitForTimeout(1000);
+
+    // Assert that no new tab/popup opened
+    expect(popupOpened).toBe(false);
+
+    // Assert that we navigated to the storefront in the same tab
+    expect(page.url()).toBe("http://localhost:8080/");
+  });
 });
