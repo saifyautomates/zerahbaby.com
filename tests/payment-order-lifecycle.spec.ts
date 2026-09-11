@@ -400,7 +400,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
       body: JSON.stringify({
         _cod_enabled: true,
         _cod_fee: 40,
-        _cod_min_order_value: 50,
+        _cod_min_order_value: 0,
         _cod_max_order_value: 50000,
       }),
     });
