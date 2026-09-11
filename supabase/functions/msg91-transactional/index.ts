@@ -29,6 +29,8 @@ function cleanCustomerName(rawName?: string | null): string {
   }
   // Return the customer's actual first or full name (e.g. "Saif")
   return trimmed;
+}
+
 // Helper to extract and normalize all 10-digit Indian phone numbers from setting strings (e.g. "9667571712 AND 9057074777")
 function extractIndianPhoneNumbers(raw?: string | null): string[] {
   if (!raw) return [];
