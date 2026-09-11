@@ -452,34 +452,6 @@ export function POSTab() {
   const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
 
-  // Live profit calculation: cross-reference buying_price from cart item or from local catalog
-  const profitCalc = useMemo(() => {
-    let totalCost = 0;
-    let hasCostData = false;
-    for (const item of cart) {
-      let bp = item.buying_price != null ? Number(item.buying_price) : null;
-      // Fallback: look up from locally fetched products catalog (which has product_costs)
-      if ((bp === null || bp === 0) && products.length > 0) {
-        const found = products.find((p) => p.uuid === item.product_id || p.id === item.product_id);
-        if (found) {
-          const costs = (found as unknown as Record<string, unknown>).product_costs;
-          if (Array.isArray(costs) && costs.length > 0) {
-            bp = Number((costs[0] as { buying_price?: number })?.buying_price || 0);
-          } else if (costs && typeof costs === "object") {
-            bp = Number((costs as { buying_price?: number }).buying_price || 0);
-          }
-        }
-      }
-      if (bp !== null && bp > 0) {
-        hasCostData = true;
-        totalCost += bp * item.qty;
-      }
-    }
-    const profit = total - totalCost;
-    const marginPct = totalCost > 0 ? (profit / total) * 100 : null;
-    return { totalCost, profit, marginPct, hasCostData };
-  }, [cart, total, products]);
-
   // Dedicated Voucher Instrument Query (4-character token scope)
   const { data: voucherData, isFetching: voucherFetching } = useStoreCreditVoucher({
     token: creditTokenInput,
@@ -598,6 +570,34 @@ export function POSTab() {
       return mapped;
     },
   });
+
+  // Live profit calculation: cross-reference buying_price from cart item or from local catalog
+  const profitCalc = useMemo(() => {
+    let totalCost = 0;
+    let hasCostData = false;
+    for (const item of cart) {
+      let bp = item.buying_price != null ? Number(item.buying_price) : null;
+      // Fallback: look up from locally fetched products catalog (which has product_costs)
+      if ((bp === null || bp === 0) && products.length > 0) {
+        const found = products.find((p) => p.uuid === item.product_id || p.id === item.product_id);
+        if (found) {
+          const costs = (found as unknown as Record<string, unknown>).product_costs;
+          if (Array.isArray(costs) && costs.length > 0) {
+            bp = Number((costs[0] as { buying_price?: number })?.buying_price || 0);
+          } else if (costs && typeof costs === "object") {
+            bp = Number((costs as { buying_price?: number }).buying_price || 0);
+          }
+        }
+      }
+      if (bp !== null && bp > 0) {
+        hasCostData = true;
+        totalCost += bp * item.qty;
+      }
+    }
+    const profit = total - totalCost;
+    const marginPct = totalCost > 0 ? (profit / total) * 100 : null;
+    return { totalCost, profit, marginPct, hasCostData };
+  }, [cart, total, products]);
 
   // POS customer search
   const searchCustomers = useSearchPOSCustomers();

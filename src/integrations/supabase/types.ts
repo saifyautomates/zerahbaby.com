@@ -1950,6 +1950,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          last_visit: string | null
           last_visit_date: string | null
           name: string
           notes: string
@@ -1961,11 +1962,13 @@ export type Database = {
           total_spent: number | null
           total_visits: number | null
           updated_at: string
+          visits_count: number | null
         }
         Insert: {
           created_at?: string
           email?: string
           id?: string
+          last_visit?: string | null
           last_visit_date?: string | null
           name?: string
           notes?: string
@@ -1977,11 +1980,13 @@ export type Database = {
           total_spent?: number | null
           total_visits?: number | null
           updated_at?: string
+          visits_count?: number | null
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
+          last_visit?: string | null
           last_visit_date?: string | null
           name?: string
           notes?: string
@@ -1993,6 +1998,7 @@ export type Database = {
           total_spent?: number | null
           total_visits?: number | null
           updated_at?: string
+          visits_count?: number | null
         }
         Relationships: []
       }
