@@ -1426,6 +1426,12 @@ Deno.serve(async (req) => {
       dispatchError = null;
     } else {
       try {
+        const ownerRecipients = configuredOwnerEmail
+          .split(/[,;\s]+/)
+          .map((e: string) => e.trim())
+          .filter((e: string) => e.includes("@"));
+        const finalOwnerRecipients = ownerRecipients.length > 0 ? ownerRecipients : ["hello@zerahkids.com"];
+
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -1434,7 +1440,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             from: fromEmail,
-            to: [configuredOwnerEmail],
+            to: finalOwnerRecipients,
             subject: emailSubject,
             html: emailHtml,
           }),
@@ -1456,7 +1462,7 @@ Deno.serve(async (req) => {
             },
             body: JSON.stringify({
               from: "Zérah Baby & Kids <onboarding@resend.dev>",
-              to: [configuredOwnerEmail],
+              to: finalOwnerRecipients,
               reply_to: "hello@zerahkids.com",
               subject: emailSubject,
               html: emailHtml,

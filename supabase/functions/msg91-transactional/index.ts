@@ -29,6 +29,18 @@ function cleanCustomerName(rawName?: string | null): string {
   }
   // Return the customer's actual first or full name (e.g. "Saif")
   return trimmed;
+// Helper to extract and normalize all 10-digit Indian phone numbers from setting strings (e.g. "9667571712 AND 9057074777")
+function extractIndianPhoneNumbers(raw?: string | null): string[] {
+  if (!raw) return [];
+  const matches = raw.match(/(?:\+?91[\s-]?)?[6-9]\d{9}/g) || [];
+  const normalizedSet = new Set<string>();
+  for (const m of matches) {
+    const digits = m.replace(/\D/g, "").slice(-10);
+    if (digits.length === 10) {
+      normalizedSet.add(digits);
+    }
+  }
+  return Array.from(normalizedSet);
 }
 
 const TEMPLATE_CONFIG = {
@@ -807,26 +819,25 @@ Deno.serve(async (req) => {
         .eq("key", "owner_notification_phone")
         .maybeSingle();
 
-      let ownerPhone = ownerSetting?.value || Deno.env.get("OWNER_PHONE") || "";
-      if (!ownerPhone) {
+      const rawOwnerPhones = ownerSetting?.value || Deno.env.get("OWNER_PHONE") || "";
+      let targetOwnerPhones = extractIndianPhoneNumbers(rawOwnerPhones);
+
+      if (targetOwnerPhones.length === 0) {
         const { data: contactSetting } = await adminClient
           .from("site_settings")
           .select("value")
           .eq("key", "contact_phone")
           .maybeSingle();
-        if (contactSetting?.value) {
-          const match = contactSetting.value.replace(/\D/g, "").slice(-10);
-          if (match.length === 10) {
-            ownerPhone = match;
-          }
-        }
-      }
-      if (!ownerPhone) {
-        ownerPhone = "9057074777";
+        targetOwnerPhones = extractIndianPhoneNumbers(contactSetting?.value);
       }
 
-      if (ownerPhone) {
-        const ownerResult = await dispatchSingleSms(ownerPhone, "owner");
+      // Canonical default admin numbers: 9667571712 AND 9057074777
+      if (targetOwnerPhones.length === 0) {
+        targetOwnerPhones = ["9667571712", "9057074777"];
+      }
+
+      for (const phone of targetOwnerPhones) {
+        const ownerResult = await dispatchSingleSms(phone, "owner");
         results.push(ownerResult);
       }
     }
