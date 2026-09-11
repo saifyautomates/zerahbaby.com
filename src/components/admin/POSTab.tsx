@@ -173,6 +173,7 @@ export function POSTab() {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Multi-Customer POS Session Engine State
   const { data: remoteSessions } = useActivePOSSessions();
@@ -1332,6 +1333,7 @@ export function POSTab() {
     setStep("cart");
     setSaleResult(null);
     setSaleItems([]);
+    setShowCancelConfirm(false);
     setIdempotencyKey(generateIdempotencyKey());
 
     // Switch to next remaining active session or create clean fresh session
@@ -2157,23 +2159,38 @@ export function POSTab() {
                 <span className="font-bold text-2xl text-primary">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "Are you sure you want to cancel and clear all items from this POS cart?",
-                      )
-                    ) {
-                      resetPOS();
-                    }
-                  }}
-                  className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs font-bold text-red-700 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5"
-                  title="Cancel and clear active POS cart"
-                >
-                  <Trash2 className="size-3.5" />
-                  <span>Cancel Cart</span>
-                </button>
+                {showCancelConfirm ? (
+                  <div className="flex items-center gap-1.5 rounded-xl border border-red-300 bg-red-50 px-3 py-2">
+                    <span className="text-xs font-bold text-red-700">Clear cart?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCancelConfirm(false);
+                        resetPOS();
+                      }}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
+                    >
+                      Yes, Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelConfirm(false)}
+                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 text-xs font-bold text-red-700 hover:bg-red-100 transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Cancel and clear active POS cart"
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span>Cancel Cart</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
