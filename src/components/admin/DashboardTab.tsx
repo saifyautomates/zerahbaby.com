@@ -363,7 +363,7 @@ export function DashboardTab({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("website_visitors")
-        .select("id, created_at")
+        .select("id, created_at, city, region, country, customer_name")
         .gte("created_at", subDays(new Date(), 60).toISOString())
         .order("created_at", { ascending: false })
         .limit(2000);
@@ -2245,7 +2245,7 @@ export function DashboardTab({
               onClick={() => {
                 if (
                   window.confirm(
-                    "Are you sure you want to permanently wipe all recorded/fake visitor logs?",
+                    "Are you sure you want to permanently clear all visitor logs?",
                   )
                 ) {
                   clearVisitorsMutation.mutate();
@@ -2255,7 +2255,7 @@ export function DashboardTab({
               className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>{clearVisitorsMutation.isPending ? "Clearing..." : "Clear Fake/All Logs"}</span>
+              <span>{clearVisitorsMutation.isPending ? "Clearing..." : "Clear All Logs"}</span>
             </button>
           )}
         </div>
