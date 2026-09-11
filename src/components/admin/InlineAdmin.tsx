@@ -14,8 +14,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { uploadMedia } from "@/lib/uploads";
 import { toast } from "sonner";
 
-/** Edit / delete controls that sit on a product card while admin mode is on. */
-export function AdminProductControls({ product }: { product: Product }) {
+/** Edit / delete controls that sit on a product card while admin mode is on.
+ * @param inline - if true, renders buttons inline (no absolute wrapper). Use this
+ *   when the parent already handles positioning.
+ */
+export function AdminProductControls({
+  product,
+  inline = false,
+}: {
+  product: Product;
+  inline?: boolean;
+}) {
   const { adminMode } = useAdminMode();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -24,34 +33,44 @@ export function AdminProductControls({ product }: { product: Product }) {
 
   if (!adminMode) return null;
 
+  const buttons = (
+    <>
+      <button
+        type="button"
+        aria-label={`Edit ${product.name}`}
+        title="Edit this product"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        className="grid size-9 place-items-center rounded-full bg-white/92 shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white border border-black/5 cursor-pointer text-neutral-700 hover:text-primary"
+      >
+        <Pencil className="size-[15px]" />
+      </button>
+      <button
+        type="button"
+        aria-label={`Delete ${product.name}`}
+        title="Delete this product"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setConfirmDelete(true);
+        }}
+        className="grid size-9 place-items-center rounded-full bg-white/92 shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white border border-black/5 cursor-pointer text-destructive hover:text-destructive"
+      >
+        <Trash2 className="size-[15px]" />
+      </button>
+    </>
+  );
+
   return (
     <>
-      <div className="absolute right-2 top-2 z-10 flex gap-1.5">
-        <button
-          type="button"
-          aria-label={`Edit ${product.name}`}
-          title="Edit this product"
-          onClick={(e) => {
-            e.preventDefault();
-            setEditing(true);
-          }}
-          className="rounded-full bg-background/95 p-2 text-foreground shadow-md transition hover:bg-primary hover:text-primary-foreground cursor-pointer"
-        >
-          <Pencil className="size-4" />
-        </button>
-        <button
-          type="button"
-          aria-label={`Delete ${product.name}`}
-          title="Delete this product"
-          onClick={(e) => {
-            e.preventDefault();
-            setConfirmDelete(true);
-          }}
-          className="rounded-full bg-background/95 p-2 text-destructive shadow-md transition hover:bg-destructive hover:text-destructive-foreground cursor-pointer"
-        >
-          <Trash2 className="size-4" />
-        </button>
-      </div>
+      {inline ? (
+        buttons
+      ) : (
+        <div className="absolute right-2 top-2 z-10 flex gap-1.5">{buttons}</div>
+      )}
 
       {editing && (
         <Suspense

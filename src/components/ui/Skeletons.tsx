@@ -34,39 +34,50 @@ export function Skeleton({
 /** 1. Product Card Skeleton */
 export function ProductCardSkeleton() {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-border/60 bg-card">
-      {/* Hero Image Container matching aspect-[4/5] */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted/40 p-2 sm:p-2.5 animate-pulse">
-        <div className="size-full rounded-xl sm:rounded-2xl bg-muted/70" />
-        <div className="absolute top-3 left-3 h-4.5 w-14 rounded-full bg-muted/90" />
-        <div className="absolute top-3 right-3 size-8 rounded-full bg-muted/90" />
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm">
+      {/* Hero Image — full-bleed aspect-[3/4] matching new card */}
+      <div className="relative aspect-[3/4] sm:aspect-[4/5] w-full overflow-hidden bg-muted/50 animate-pulse shrink-0">
+        {/* Discount badge placeholder */}
+        <div className="absolute top-3 left-3 h-6 w-16 rounded-full bg-muted/80" />
+        {/* Action buttons placeholder */}
+        <div className="absolute top-3 right-3 flex gap-2">
+          <div className="size-9 rounded-full bg-muted/80" />
+          <div className="size-9 rounded-full bg-muted/80" />
+        </div>
+        {/* Gallery dots placeholder */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+          <div className="size-2 rounded-full bg-white/60" />
+          <div className="size-1.5 rounded-full bg-white/40" />
+          <div className="size-1.5 rounded-full bg-white/40" />
+        </div>
+        {/* Expand icon placeholder */}
+        <div className="absolute bottom-3 right-3 size-8 sm:size-9 rounded-full bg-muted/80" />
       </div>
 
       {/* Product Content */}
-      <div className="flex flex-1 flex-col p-3 sm:p-4 justify-between">
+      <div className="flex flex-1 flex-col px-3.5 pt-3.5 pb-3.5 sm:px-4 sm:pt-4 sm:pb-4 justify-between">
         <div className="space-y-2">
-          {/* Brand line */}
+          {/* Brand + size pill row */}
           <div className="flex items-center justify-between">
             <Skeleton className="h-2.5 w-20" />
-            <Skeleton className="h-2.5 w-8 rounded-md" />
+            <Skeleton className="h-5 w-12 rounded-full" />
           </div>
           {/* 2-line title */}
           <div className="space-y-1.5 min-h-[2.5rem] sm:min-h-[2.75rem]">
-            <Skeleton className="h-3.5 w-full" />
-            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
           </div>
-          {/* Rating */}
-          <Skeleton className="h-3 w-16" />
-          {/* Price */}
+          {/* Price row */}
           <div className="flex items-baseline gap-2 pt-1">
-            <Skeleton className="h-5 w-20" />
-            <Skeleton className="h-3.5 w-12" />
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-3.5 w-10" />
+            <Skeleton className="h-5 w-14 rounded-full" />
           </div>
         </div>
 
         {/* CTA Button */}
-        <div className="mt-auto pt-3">
-          <Skeleton className="h-9 sm:h-10 w-full rounded-xl" />
+        <div className="mt-3.5">
+          <Skeleton className="h-11 sm:h-12 w-full rounded-2xl" />
         </div>
       </div>
     </div>
