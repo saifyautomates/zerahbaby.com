@@ -110,19 +110,17 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
     });
 
     // 3. Admin bypass
-    await page.goto("http://localhost:8080/", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
       localStorage.setItem("zerah_admin_active_tab", "dashboard");
     });
 
     // 4. Open dashboard
     await page.goto("http://localhost:8080/admin?tab=dashboard", { waitUntil: "networkidle" });
-    await page.waitForTimeout(1000);
 
     // 5. Verify Recent Activity section has interactive rows
     const recentActivityHeading = page.locator("h3:has-text('Recent Activity')").first();
-    await expect(recentActivityHeading).toBeVisible();
+    await expect(recentActivityHeading).toBeVisible({ timeout: 15000 });
 
     const activityFeedItems = page.locator("div[role='button']:has-text('Page viewed:')");
     await expect(activityFeedItems.first()).toBeVisible();
@@ -201,17 +199,15 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
     });
 
     // Admin bypass
-    await page.goto("http://localhost:8080/", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
       localStorage.setItem("zerah_admin_active_tab", "dashboard");
     });
 
     await page.goto("http://localhost:8080/admin?tab=dashboard", { waitUntil: "networkidle" });
-    await page.waitForTimeout(1000);
 
     const homeItem = page.locator("div[role='button']:has-text('Page viewed: /')").first();
-    await expect(homeItem).toBeVisible();
+    await expect(homeItem).toBeVisible({ timeout: 15000 });
 
     await homeItem.click();
     await page.waitForTimeout(1000);

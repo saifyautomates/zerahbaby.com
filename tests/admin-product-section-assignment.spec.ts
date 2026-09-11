@@ -57,20 +57,18 @@ test.describe("Admin Product Form - Homepage Sections Placement", () => {
       });
     });
 
-    // 2. Set Admin bypass
-    await page.goto("http://localhost:8080/", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() => {
+    // 2. Set Admin bypass with init script before any navigation
+    await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
       localStorage.setItem("zerah_admin_active_tab", "products");
     });
 
     // 3. Open Admin products tab
     await page.goto("http://localhost:8080/admin?tab=products", { waitUntil: "networkidle" });
-    await page.waitForTimeout(1000);
 
     // 4. Click "+ Add Product" button
-    const addProductBtn = page.locator("button:has-text('Add Product')").first();
-    await expect(addProductBtn).toBeVisible();
+    const addProductBtn = page.getByRole("button", { name: /Add product/i }).first();
+    await expect(addProductBtn).toBeVisible({ timeout: 15000 });
     await addProductBtn.click();
     await page.waitForTimeout(600);
 

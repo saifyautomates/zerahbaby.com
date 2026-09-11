@@ -2684,20 +2684,23 @@ function SettingsTab() {
     }
   }
 
-  async function onSendTestSms() {
+  async function onSendTestSms(templateKey: "online_sale_owner" | "offline_pos_sale_owner" = "online_sale_owner") {
     setTestingSms(true);
     try {
       const targetPhone = current.owner_notification_phone || "9667571712, 9057074777";
+      const isOffline = templateKey === "offline_pos_sale_owner";
       const { data, error } = await supabase.functions.invoke("msg91-transactional", {
         body: {
           action: "test",
-          event_type: "online_sale",
+          event_type: isOffline ? "offline_pos_sale" : "online_sale",
+          template_key: templateKey,
           recipient_type: "owner",
           phone: targetPhone,
           name: "Test Customer",
-          order_number: "TEST-ORD-001",
+          order_number: isOffline ? undefined : "TEST-ORD-001",
+          sale_number: isOffline ? "POS-TEST-001" : undefined,
           total: 999,
-          payment_method: "ONLINE",
+          payment_method: isOffline ? "CASH" : "ONLINE",
           notify_owner: true,
         },
       });
@@ -2705,7 +2708,7 @@ function SettingsTab() {
       if (data && !data.success && data.error) {
         throw new Error(data.error);
       }
-      toast.success(data?.message || `Test SMS dispatched to ${targetPhone}! Check the SMS Logs tab.`);
+      toast.success(data?.message || `Test SMS (${isOffline ? "Offline Sale" : "Online Order"}) dispatched to ${targetPhone}! Check the SMS Logs tab.`);
     } catch (err: unknown) {
       toast.error(`Test SMS failed: ${(err as Error).message}`);
     } finally {
@@ -2718,7 +2721,7 @@ function SettingsTab() {
       {/* ─── PAYMENT METHODS & COD CONTROL CARD ────────────────── */}
       <PaymentMethodsSettingsCard />
 
-      {/* ─── SALE NOTIFICATIONS CARD (SMS + EMAIL) ─────────────── */}
+      {/* ─── SALE NOTIFICATIONS CARD (SMS & EMAIL) ─────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <div className="border-b border-border pb-4">
           <h3 className="font-display text-lg font-bold text-foreground">
@@ -2736,14 +2739,26 @@ function SettingsTab() {
               <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                 Admin Mobile Number (for DLT SMS Alerts)
               </span>
-              <button
-                type="button"
-                onClick={onSendTestSms}
-                disabled={testingSms}
-                className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
-              >
-                {testingSms ? "Sending SMS…" : "Send Test SMS"}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSendTestSms("online_sale_owner")}
+                  disabled={testingSms}
+                  className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
+                  title="Test DLT template Zerah_New_Online_Order_Admin_"
+                >
+                  {testingSms ? "Sending…" : "Test Online Order SMS"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSendTestSms("offline_pos_sale_owner")}
+                  disabled={testingSms}
+                  className="inline-flex items-center justify-center rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-xs font-bold text-foreground transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
+                  title="Test DLT template Zerah_Offline_Sale_Admin_"
+                >
+                  {testingSms ? "Sending…" : "Test Offline Sale SMS"}
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
               Is number par DLT approved admin templates (Zerah_New_Online_Order_Admin_ &amp; Zerah_Offline_Sale_Admin_) deliver honge.

@@ -54,9 +54,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await page.waitForLoadState("networkidle");
 
     const article = page.locator("article").first();
-    await article.waitFor({ state: "attached", timeout: 15000 });
-    await article.scrollIntoViewIfNeeded();
-    await expect(article).toBeVisible({ timeout: 10000 });
+    await expect(article).toBeVisible({ timeout: 15000 });
 
     const firstImage = article.locator("img").first();
     await expect(firstImage).toBeVisible({ timeout: 10000 });
@@ -79,9 +77,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
 
     // Open Section Editor via inline Edit Section button or Section Manager bar
     const editBtn = page.locator(".edit-section-btn").first();
-    await editBtn.waitFor({ state: "attached", timeout: 15000 });
-    await editBtn.scrollIntoViewIfNeeded();
-    await expect(editBtn).toBeVisible({ timeout: 10000 });
+    await expect(editBtn).toBeVisible({ timeout: 15000 });
     await editBtn.click();
 
     // Verify modal dialog appears
@@ -138,9 +134,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
 
     // Scroll down to the first section's edit button
     const editBtn = page.locator(".edit-section-btn").first();
-    await editBtn.waitFor({ state: "attached", timeout: 15000 });
-    await editBtn.scrollIntoViewIfNeeded();
-    await expect(editBtn).toBeVisible({ timeout: 10000 });
+    await expect(editBtn).toBeVisible({ timeout: 15000 });
     await editBtn.click();
 
     // Verify modal header fits on mobile
