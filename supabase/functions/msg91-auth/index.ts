@@ -152,6 +152,8 @@ Deno.serve(async (req) => {
           {
             mobiles: cleanPhone,
             var: otpCode,
+            var1: otpCode,
+            otp: otpCode,
           },
         ],
       };

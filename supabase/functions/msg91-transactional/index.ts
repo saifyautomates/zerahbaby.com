@@ -32,98 +32,168 @@ function cleanCustomerName(rawName?: string | null): string {
 }
 
 const TEMPLATE_CONFIG = {
-  // Template 2: Online Order Confirmed - var1=Customer Name ("Hi ##var1##"), var2=Order Details/ID/Amount
+  // 1. Zerah_Online_Order_Confirmed_ (DLT Approved: 6aa1cd275f81de31570d50e2)
+  // DLT Approved Content: "Hi Zerah Baby & Kids! Your order ##var1## is confirmed. Total: ₹##var2##..."
+  // var1: Order Ref (e.g. #ORD-260911-75368 or #ORD-260911-75368 (COD))
+  // var2: Numeric Amount (e.g. 999) - notice '₹' is already part of the template text!
   online_sale_customer: {
     templateId: "6aa1cd275f81de31570d50e2",
+    templateName: "Zerah_Online_Order_Confirmed_",
     secretKey: "MSG91_TEMPLATE_ORDER_CONFIRMED",
     requiredVars: ["var1", "var2"],
+    formatPreview: (v: Record<string, string>) =>
+      `Hi Zerah Baby & Kids! Your order ${v.var1} is confirmed. Total: ₹${v.var2}. Thank you for shopping with us!`,
+    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
+      const isCod = (ctx.payment || "").toLowerCase() === "cod";
+      const totalNum = Math.round(Number(ctx.total || 0));
+      const orderRef = `#${ctx.ref}${isCod ? " (COD)" : ""}`;
+      const custName = cleanCustomerName(ctx.name);
+      return {
+        var1: orderRef,
+        var2: String(totalNum),
+        var: orderRef,
+        order_id: String(ctx.ref || ""),
+        ref: String(ctx.ref || ""),
+        total: String(totalNum),
+        amount: String(totalNum),
+        name: custName,
+        customer_name: custName,
+        payment_method: isCod ? "COD" : "Online",
+      };
+    },
+  },
+
+  // 2. Zerah_New_Online_Order_Admin_ (DLT Approved: 6aa1d097daacdd8930018922)
+  // DLT Approved Content: "Zerah Baby & Kids: New online order received! Order ID:##var1## Customer:##var2## Amount: ₹##var3##..."
+  // var1: Order ID / Type (e.g. COD #ORD-12345 or Online #ORD-12345)
+  // var2: Customer Name (e.g. Saif)
+  // var3: Numeric Amount (e.g. 999) - '₹' is already in template
+  online_sale_owner: {
+    templateId: "6aa1d097daacdd8930018922",
+    templateName: "Zerah_New_Online_Order_Admin_",
+    secretKey: "MSG91_TEMPLATE_NEW_ORDER_ADMIN",
+    requiredVars: ["var1", "var2", "var3"],
+    formatPreview: (v: Record<string, string>) =>
+      `Zerah Baby & Kids: New online order received! Order ID:${v.var1} Customer:${v.var2} Amount: ₹${v.var3}`,
     buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
       const custName = cleanCustomerName(ctx.name);
       const isCod = (ctx.payment || "").toLowerCase() === "cod";
-      const orderType = isCod ? "COD order" : "online order";
+      const totalNum = Math.round(Number(ctx.total || 0));
       return {
-        var1: custName, // "Hi Saif,"
-        var2: `${orderType} #${ctx.ref} of Rs. ${ctx.total}`,
-        var3: String(ctx.total ?? ""),
+        var1: `${isCod ? "COD " : "Online "}#${ctx.ref}`,
+        var2: custName,
+        var3: String(totalNum),
         name: custName,
         customer_name: custName,
         order_id: String(ctx.ref || ""),
         ref: String(ctx.ref || ""),
-        total: String(ctx.total ?? ""),
-        amount: String(ctx.total ?? ""),
+        total: String(totalNum),
+        amount: String(totalNum),
         payment_method: isCod ? "COD" : "Online",
       };
     },
   },
-  // Template 4: New Online Order Admin - var1=Order ID & Payment Type, var2=Customer Name, var3=Amount
-  online_sale_owner: {
-    templateId: "6aa1d097daacdd8930018922",
-    secretKey: "MSG91_TEMPLATE_NEW_ORDER_ADMIN",
-    requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
-      const custName = cleanCustomerName(ctx.name);
-      const isCod = (ctx.payment || "").toLowerCase() === "cod";
-      return {
-        var1: `${isCod ? "COD" : "Online"} #${ctx.ref}`,
-        var2: custName,
-        var3: String(ctx.total ?? ""),
-        name: custName,
-        order_id: String(ctx.ref || ""),
-        total: String(ctx.total ?? ""),
-        payment_method: isCod ? "COD" : "Online",
-      };
-    },
-  },
-  // Template 3: Order Delivered - var1=Customer Name, var2=Order ID
+
+  // 3. Zerah_Order_Delivered_ (DLT Approved: 6aa1cf5471e712fa250b1732)
+  // DLT Approved Content: "Hello ##var1##, your order ##var2## from Zerah Baby & Kids has been delivered..."
+  // var1: Customer Name (e.g. Saif)
+  // var2: Order ID / Ref (e.g. #ORD-260911-75368)
   order_delivered_customer: {
     templateId: "6aa1cf5471e712fa250b1732",
+    templateName: "Zerah_Order_Delivered_",
     secretKey: "MSG91_TEMPLATE_ORDER_DELIVERED",
     requiredVars: ["var1", "var2"],
-    buildVars: (ctx: { name?: string; ref?: string }) => ({
-      var1: cleanCustomerName(ctx.name),
-      var2: String(ctx.ref || ""),
-      name: cleanCustomerName(ctx.name),
-      order_id: String(ctx.ref || ""),
-    }),
-  },
-  // Template 5: Offline Purchase - var1=Customer Name/Tx ID, var2=Amount, var3=Store
-  offline_pos_sale_customer: {
-    templateId: "6aa1cb843c42b39d420dbff2",
-    secretKey: "MSG91_TEMPLATE_OFFLINE_PURCHASE",
-    requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => {
+    formatPreview: (v: Record<string, string>) =>
+      `Hello ${v.var1}, your order ${v.var2} from Zerah Baby & Kids has been delivered. We hope your little one loves it!`,
+    buildVars: (ctx: { name?: string; ref?: string }) => {
       const custName = cleanCustomerName(ctx.name);
+      const orderRef = `#${ctx.ref}`;
       return {
-        var1: custName !== "Customer" ? `${custName} (${ctx.ref})` : String(ctx.ref || ""),
-        var2: String(ctx.total ?? ""),
-        var3: STORE_NAME,
+        var1: custName,
+        var2: orderRef,
         name: custName,
+        customer_name: custName,
+        order_id: String(ctx.ref || ""),
+        ref: String(ctx.ref || ""),
       };
     },
   },
-  // Template 6: Offline Sale Admin - var1=Transaction ID, var2=Customer Name, var3=Store
+
+  // 4. Zerah_Offline_Purchase_ (DLT Approved: 6aa1cb843c42b39d420dbff2)
+  // DLT Approved Content: "Thank you for shopping at Zerah Baby & Kids! Invoice No: ##var1## Total: ₹##var2##..."
+  // var1: Invoice No / Sale Number (e.g. POS-20260911-001)
+  // var2: Numeric Amount (e.g. 450)
+  // var3: Store Name (Zerah Baby & Kids)
+  offline_pos_sale_customer: {
+    templateId: "6aa1cb843c42b39d420dbff2",
+    templateName: "Zerah_Offline_Purchase_",
+    secretKey: "MSG91_TEMPLATE_OFFLINE_PURCHASE",
+    requiredVars: ["var1", "var2"],
+    formatPreview: (v: Record<string, string>) =>
+      `Thank you for shopping at Zerah Baby & Kids! Invoice No: ${v.var1} Total: ₹${v.var2}. Visit us again!`,
+    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => {
+      const totalNum = Math.round(Number(ctx.total || 0));
+      return {
+        var1: String(ctx.ref || "POS-SALE"),
+        var2: String(totalNum),
+        var3: STORE_NAME,
+        invoice_no: String(ctx.ref || "POS-SALE"),
+        sale_number: String(ctx.ref || "POS-SALE"),
+        order_id: String(ctx.ref || ""),
+        ref: String(ctx.ref || ""),
+        total: String(totalNum),
+        amount: String(totalNum),
+        name: cleanCustomerName(ctx.name),
+      };
+    },
+  },
+
+  // 5. Zerah_Offline_Sale_Admin_ (DLT Approved: 6aa1d17366745ba0d206c582)
+  // DLT Approved Content: "Zerah Baby & Kids: Your Offline transaction is recorded successfully. Transaction ID: ##var1## Customer: ##var2## Amount: ₹##var3##..."
+  // var1: Transaction ID / Invoice No (e.g. POS-20260911-001)
+  // var2: Customer Name (e.g. Priya)
+  // var3: Numeric Amount (e.g. 450)
   offline_pos_sale_owner: {
     templateId: "6aa1d17366745ba0d206c582",
+    templateName: "Zerah_Offline_Sale_Admin_",
     secretKey: "MSG91_TEMPLATE_OFFLINE_SALE_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
-    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => ({
-      var1: String(ctx.ref || ""),
-      var2: cleanCustomerName(ctx.name),
-      var3: STORE_NAME,
-      name: cleanCustomerName(ctx.name),
-    }),
+    formatPreview: (v: Record<string, string>) =>
+      `Zerah Baby & Kids: Your Offline transaction is recorded successfully. Transaction ID: ${v.var1} Customer: ${v.var2} Amount: ₹${v.var3}`,
+    buildVars: (ctx: { name?: string; ref?: string; total?: number }) => {
+      const custName = cleanCustomerName(ctx.name);
+      const totalNum = Math.round(Number(ctx.total || 0));
+      return {
+        var1: String(ctx.ref || "POS-SALE"),
+        var2: custName,
+        var3: String(totalNum),
+        store: STORE_NAME,
+        name: custName,
+        customer_name: custName,
+        ref: String(ctx.ref || "POS-SALE"),
+        sale_number: String(ctx.ref || "POS-SALE"),
+        transaction_id: String(ctx.ref || "POS-SALE"),
+        total: String(totalNum),
+        amount: String(totalNum),
+      };
+    },
   },
+
   // Order Cancelled - Customer Notification
+  // Only dispatched if user has configured a custom cancellation template in environment
   order_cancelled_customer: {
-    templateId: "6aa1cd275f81de31570d50e2",
+    templateId: Deno.env.get("MSG91_TEMPLATE_ORDER_CANCELLED_CUSTOMER") || "",
+    templateName: "Zerah_Order_Cancelled_Customer",
     secretKey: "MSG91_TEMPLATE_ORDER_CANCELLED_CUSTOMER",
     requiredVars: ["var1", "var2"],
+    formatPreview: (v: Record<string, string>) =>
+      `Zerah Baby & Kids: Order ${v.var1} has been cancelled. Refund/Status: ${v.var2}`,
     buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
       const custName = cleanCustomerName(ctx.name);
       const isCod = (ctx.payment || "").toLowerCase() === "cod";
       return {
-        var1: custName, // "Hi Saif,"
-        var2: `${isCod ? "COD" : "online"} order #${ctx.ref} (Cancelled, Rs. ${ctx.total})`,
+        var1: `#${ctx.ref}`,
+        var2: `Cancelled (${isCod ? "COD" : "Online"}, Rs. ${ctx.total})`,
         var3: String(ctx.total ?? ""),
         name: custName,
         order_id: String(ctx.ref || ""),
@@ -133,16 +203,20 @@ const TEMPLATE_CONFIG = {
       };
     },
   },
+
   // Order Cancelled - Admin / Owner Notification
   order_cancelled_owner: {
-    templateId: "6aa1d097daacdd8930018922",
+    templateId: Deno.env.get("MSG91_TEMPLATE_ORDER_CANCELLED_ADMIN") || "",
+    templateName: "Zerah_Order_Cancelled_Admin",
     secretKey: "MSG91_TEMPLATE_ORDER_CANCELLED_ADMIN",
     requiredVars: ["var1", "var2", "var3"],
+    formatPreview: (v: Record<string, string>) =>
+      `Zerah Baby & Kids: CANCELLED ${v.var1} Customer: ${v.var2} Amount: ₹${v.var3}`,
     buildVars: (ctx: { name?: string; ref?: string; total?: number; payment?: string }) => {
       const custName = cleanCustomerName(ctx.name);
       const isCod = (ctx.payment || "").toLowerCase() === "cod";
       return {
-        var1: `CANCELLED: ${ctx.ref} (${isCod ? "COD" : "Online"})`,
+        var1: `${ctx.ref} (${isCod ? "COD" : "Online"})`,
         var2: custName,
         var3: String(ctx.total ?? ""),
         name: custName,
@@ -157,8 +231,14 @@ const TEMPLATE_CONFIG = {
 
 // Resolve the template key from (event_type, recipient_type).
 // Returns null when the event has no configured template (skip send silently).
-function resolveTemplateKey(eventType, recipientType) {
-  const key = `${eventType}_${recipientType}`;
+function resolveTemplateKey(eventType: string, recipientType: string): string | null {
+  // Normalize event aliases to exact template keys
+  let normalizedEvent = eventType;
+  if (normalizedEvent === "order_placed" || normalizedEvent === "order_confirmed") {
+    normalizedEvent = "online_sale";
+  }
+
+  const key = `${normalizedEvent}_${recipientType}`;
   if (key in TEMPLATE_CONFIG) return key;
   return null;
 }
@@ -674,6 +754,11 @@ Deno.serve(async (req) => {
 
       const finalStatus =
         providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
+      const messagePreview =
+        typeof config.formatPreview === "function"
+          ? config.formatPreview(templateVars as Record<string, string>)
+          : `[${config.templateName || templateKey}]`;
+
       const { data: insertedLog } = await adminClient
         .from("sms_logs")
         .upsert(
@@ -687,7 +772,7 @@ Deno.serve(async (req) => {
             provider_status: providerStatus,
             error_details: errorDetails,
             idempotency_key: idempotencyKey,
-            message_content: `template:${templateKey}`,
+            message_content: messagePreview,
             template_id: templateId || null,
             provider_message_id: providerMsgId,
             sent_at: new Date().toISOString(),

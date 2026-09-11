@@ -44,6 +44,39 @@ export type SMSLogRecord = {
   created_at: string;
 };
 
+export const DLT_TEMPLATES: Record<string, { name: string; description: string; category: string }> = {
+  "6aa1c8937992a371950d6052": {
+    name: "Zerah_Login_OTP",
+    description: "Customer / Admin 4-Digit Login OTP",
+    category: "Authentication",
+  },
+  "6aa1cd275f81de31570d50e2": {
+    name: "Zerah_Online_Order_Confirmed_",
+    description: "Online Order Confirmation (Customer)",
+    category: "Online Store",
+  },
+  "6aa1d097daacdd8930018922": {
+    name: "Zerah_New_Online_Order_Admin_",
+    description: "New Online Order Alert (Owner / Admin)",
+    category: "Online Store",
+  },
+  "6aa1cf5471e712fa250b1732": {
+    name: "Zerah_Order_Delivered_",
+    description: "Order Delivered Notification (Customer)",
+    category: "Online Store",
+  },
+  "6aa1cb843c42b39d420dbff2": {
+    name: "Zerah_Offline_Purchase_",
+    description: "Offline Store Purchase Receipt (Customer)",
+    category: "POS Store",
+  },
+  "6aa1d17366745ba0d206c582": {
+    name: "Zerah_Offline_Sale_Admin_",
+    description: "Offline Transaction Alert (Owner / Admin)",
+    category: "POS Store",
+  },
+};
+
 export function maskPhoneNumber(raw: string): string {
   if (!raw) return "-";
   const digits = raw.replace(/\D/g, "");
@@ -451,11 +484,18 @@ export function SMSLogsTab() {
                         </div>
                       </td>
 
-                      {/* Event Type */}
+                      {/* Event Type & DLT Template Name */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="inline-flex items-center rounded-lg bg-muted px-2 py-1 text-xs font-medium capitalize">
-                          {log.message_type?.replace(/_/g, " ") || "Sale"}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center rounded-lg bg-muted px-2 py-0.5 text-xs font-medium capitalize w-fit">
+                            {log.message_type?.replace(/_/g, " ") || "Sale"}
+                          </span>
+                          {log.template_id && DLT_TEMPLATES[log.template_id] && (
+                            <span className="text-[10px] font-mono font-medium text-primary">
+                              {DLT_TEMPLATES[log.template_id].name}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Order / Sale Reference */}
@@ -877,14 +917,27 @@ export function SMSLogsTab() {
                       DLT Template / MSG91 Flow ID
                     </span>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="font-mono text-xs font-medium text-foreground truncate max-w-[200px]">
-                        {selectedLog.template_id || "Standard Template"}
-                      </span>
+                      <div>
+                        {selectedLog.template_id && DLT_TEMPLATES[selectedLog.template_id] ? (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-xs text-primary font-mono">
+                              {DLT_TEMPLATES[selectedLog.template_id].name}
+                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {selectedLog.template_id}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-xs font-medium text-foreground truncate max-w-[200px]">
+                            {selectedLog.template_id || "Standard Template"}
+                          </span>
+                        )}
+                      </div>
                       {selectedLog.template_id && (
                         <button
                           type="button"
                           onClick={() => handleCopy(selectedLog.template_id || "", "Template ID")}
-                          className="text-muted-foreground hover:text-foreground transition"
+                          className="text-muted-foreground hover:text-foreground transition shrink-0 ml-2"
                         >
                           {copiedKey === "Template ID" ? (
                             <Check className="size-3 text-emerald-600" />
