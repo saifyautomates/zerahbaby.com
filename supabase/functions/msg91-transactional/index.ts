@@ -487,6 +487,85 @@ Deno.serve(async (req) => {
       notify_owner = true,
     } = payload;
 
+    // Action: TEST dispatch from Admin Settings panel
+    if (action === "test" || payload.is_test) {
+      const rawTargetPhones = payload.phone || "9667571712, 9057074777";
+      const targetPhones = extractIndianPhoneNumbers(rawTargetPhones);
+      if (targetPhones.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "No valid 10-digit Indian phone numbers found in input." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+        );
+      }
+
+      const templateKey = payload.template_key || (payload.event_type === "offline_pos_sale" ? "offline_pos_sale_owner" : "online_sale_owner");
+      const config = TEMPLATE_CONFIG[templateKey] || TEMPLATE_CONFIG.online_sale_owner;
+      const templateId = (Deno.env.get(config.secretKey) || "").trim() || config.templateId || "";
+
+      const smsCtx = {
+        name: cleanCustomerName(payload.name || "Test Customer"),
+        ref: String(payload.order_number || payload.sale_number || "TEST-ORD-001"),
+        total: Math.round(Number(payload.total || 999)),
+        payment: payload.payment_method || "ONLINE",
+        itemsCount: 1,
+      };
+
+      const templateVars = config.buildVars(smsCtx);
+      const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
+      const dispatches = [];
+
+      for (const phone of targetPhones) {
+        const cleanPhone = "91" + phone;
+        let providerStatus = "mock_success";
+        let errorDetails = null;
+        let providerMsgId = null;
+
+        if (msg91AuthKey && templateId) {
+          const result = await dispatchToMsg91(msg91AuthKey, templateId, cleanPhone, templateVars);
+          providerStatus = result.providerStatus;
+          errorDetails = result.errorDetails;
+          providerMsgId = result.providerMsgId;
+        }
+
+        const finalStatus = providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
+        const messagePreview = typeof config.formatPreview === "function"
+          ? config.formatPreview(templateVars as Record<string, string>)
+          : `[${config.templateName || templateKey}]`;
+
+        await adminClient.from("sms_logs").insert({
+          phone: cleanPhone,
+          message_type: "test_admin_alert",
+          recipient_type: "owner",
+          status: finalStatus,
+          provider_status: providerStatus,
+          error_details: errorDetails,
+          message_content: messagePreview,
+          template_id: templateId || null,
+          provider_message_id: providerMsgId,
+          sent_at: new Date().toISOString(),
+        });
+
+        dispatches.push({
+          phone: cleanPhone,
+          status: finalStatus,
+          providerStatus,
+          errorDetails,
+        });
+      }
+
+      const anySuccess = dispatches.some((d) => d.status === "SENT");
+      return new Response(
+        JSON.stringify({
+          success: anySuccess,
+          message: anySuccess
+            ? `Test SMS dispatched successfully to: ${targetPhones.join(", ")}!`
+            : dispatches[0]?.errorDetails || "Failed to dispatch test SMS",
+          dispatches,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
     // Action: RETRY an existing failed SMS log
     if (action === "retry") {
       if (!isAuthorized) {

@@ -2687,9 +2687,10 @@ function SettingsTab() {
   async function onSendTestSms() {
     setTestingSms(true);
     try {
-      const targetPhone = current.owner_notification_phone || "9057074777";
+      const targetPhone = current.owner_notification_phone || "9667571712, 9057074777";
       const { data, error } = await supabase.functions.invoke("msg91-transactional", {
         body: {
+          action: "test",
           event_type: "online_sale",
           recipient_type: "owner",
           phone: targetPhone,
@@ -2704,7 +2705,7 @@ function SettingsTab() {
       if (data && !data.success && data.error) {
         throw new Error(data.error);
       }
-      toast.success(`Test SMS dispatched to +91 ${targetPhone}! Check the SMS Logs tab.`);
+      toast.success(data?.message || `Test SMS dispatched to ${targetPhone}! Check the SMS Logs tab.`);
     } catch (err: unknown) {
       toast.error(`Test SMS failed: ${(err as Error).message}`);
     } finally {
