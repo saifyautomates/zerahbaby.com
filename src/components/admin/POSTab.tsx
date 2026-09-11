@@ -174,6 +174,10 @@ export function POSTab() {
   const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // Double-click tab rename state
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editTabName, setEditTabName] = useState("");
+  const [editTabPhone, setEditTabPhone] = useState("");
 
   // Multi-Customer POS Session Engine State
   const { data: remoteSessions } = useActivePOSSessions();
@@ -1601,77 +1605,194 @@ export function POSTab() {
                   ? "Walk-in"
                   : sess.customer_name || "Walk-in";
 
+              const isEditingThis = editingTabId === sess.id;
+
               return (
-                <div
-                  key={sess.id}
-                  className={cn(
-                    "group relative inline-flex items-center rounded-xl border text-xs font-semibold transition-all shrink-0 cursor-pointer select-none",
-                    isActive
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary/30"
-                      : isHeld
-                        ? "bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
-                        : "bg-card text-foreground border-border hover:bg-muted/60",
+                <div key={sess.id} className="relative shrink-0">
+                  {/* Inline rename popover — appears above tab on double-click */}
+                  {isEditingThis && (
+                    <div
+                      className="absolute bottom-full left-0 mb-1.5 z-50 w-64 rounded-xl border border-primary/30 bg-card shadow-xl p-3 flex flex-col gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Customer Details</p>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editTabName}
+                        onChange={(e) => setEditTabName(e.target.value)}
+                        placeholder="Customer name"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const name = editTabName.trim();
+                            const phone = editTabPhone.trim();
+                            if (sess.id === activeSessionId) {
+                              setCustomerName(name);
+                              setCustomerPhone(phone);
+                              if (name) setCustomerMode("new");
+                            }
+                            setSessions((prev) =>
+                              prev.map((s) =>
+                                s.id === sess.id
+                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  : s,
+                              ),
+                            );
+                            setEditingTabId(null);
+                          }
+                          if (e.key === "Escape") setEditingTabId(null);
+                        }}
+                      />
+                      <input
+                        type="tel"
+                        value={editTabPhone}
+                        onChange={(e) => setEditTabPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        placeholder="Phone (optional)"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const name = editTabName.trim();
+                            const phone = editTabPhone.trim();
+                            if (sess.id === activeSessionId) {
+                              setCustomerName(name);
+                              setCustomerPhone(phone);
+                              if (name) setCustomerMode("new");
+                            }
+                            setSessions((prev) =>
+                              prev.map((s) =>
+                                s.id === sess.id
+                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  : s,
+                              ),
+                            );
+                            setEditingTabId(null);
+                          }
+                          if (e.key === "Escape") setEditingTabId(null);
+                        }}
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg bg-primary py-1.5 text-[11px] font-bold text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
+                          onClick={() => {
+                            const name = editTabName.trim();
+                            const phone = editTabPhone.trim();
+                            if (sess.id === activeSessionId) {
+                              setCustomerName(name);
+                              setCustomerPhone(phone);
+                              if (name) setCustomerMode("new");
+                            }
+                            setSessions((prev) =>
+                              prev.map((s) =>
+                                s.id === sess.id
+                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  : s,
+                              ),
+                            );
+                            setEditingTabId(null);
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-muted transition cursor-pointer"
+                          onClick={() => setEditingTabId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  onClick={() => {
-                    if (isHeld) {
-                      handleResumeSession(sess.id);
-                    } else if (!isActive) {
-                      handleSwitchSession(sess.id);
-                    }
-                  }}
-                  data-testid={`pos-sale-tab-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
-                  data-status={sess.status}
-                >
-                  <div className="flex items-center gap-1.5 px-3 py-1.5">
-                    {isHeld && (
-                      <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-200"
-                        data-testid="pos-held-indicator"
-                      >
-                        <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
-                        Held
-                      </span>
+
+                  <div
+                    className={cn(
+                      "group relative inline-flex items-center rounded-xl border text-xs font-semibold transition-all shrink-0 cursor-pointer select-none",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary/30"
+                        : isHeld
+                          ? "bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
+                          : "bg-card text-foreground border-border hover:bg-muted/60",
                     )}
-                    <span className="font-bold">{sess.session_number}</span>
-                    <span
-                      className={cn(
-                        "max-w-[90px] truncate font-medium",
-                        isActive ? "text-primary-foreground/90" : "text-muted-foreground",
+                    onClick={() => {
+                      if (editingTabId) return;
+                      if (isHeld) {
+                        handleResumeSession(sess.id);
+                      } else if (!isActive) {
+                        handleSwitchSession(sess.id);
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      const currentName =
+                        sess.id === activeSessionId
+                          ? customerMode === "walkin" ? "" : customerName
+                          : sess.customer_mode === "walkin" ? "" : (sess.customer_name === "Walk-in Customer" ? "" : sess.customer_name || "");
+                      const currentPhone =
+                        sess.id === activeSessionId ? customerPhone : "";
+                      setEditTabName(currentName);
+                      setEditTabPhone(currentPhone);
+                      setEditingTabId(sess.id);
+                    }}
+                    data-testid={`pos-sale-tab-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                    data-status={sess.status}
+                    title="Double-click to add customer name & phone"
+                  >
+                    <div className="flex items-center gap-1.5 px-3 py-1.5">
+                      {isHeld && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-200"
+                          data-testid="pos-held-indicator"
+                        >
+                          <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                          Held
+                        </span>
                       )}
-                    >
-                      {custName}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-1.5 py-0.2 rounded-full text-[10px] font-bold",
-                        isActive
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-muted text-muted-foreground",
+                      <span className="font-bold">{sess.session_number}</span>
+                      {/* Only show customer name if it's NOT walk-in */}
+                      {custName !== "Walk-in" && (
+                        <span
+                          className={cn(
+                            "max-w-[90px] truncate font-medium",
+                            isActive ? "text-primary-foreground/90" : "text-muted-foreground",
+                          )}
+                        >
+                          {custName}
+                        </span>
                       )}
-                    >
-                      {itemCount}
-                    </span>
-                    {displayTotal > 0 && (
-                      <span className="font-bold text-[11px]">{formatPrice(displayTotal)}</span>
+                      <span
+                        className={cn(
+                          "px-1.5 py-0.2 rounded-full text-[10px] font-bold",
+                          isActive
+                            ? "bg-primary-foreground/20 text-primary-foreground"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {itemCount}
+                      </span>
+                      {displayTotal > 0 && (
+                        <span className="font-bold text-[11px]">{formatPrice(displayTotal)}</span>
+                      )}
+                    </div>
+                    {sessions.length > 1 && (
+                      <button
+                        type="button"
+                        className={cn(
+                          "p-1 mr-1 rounded-md opacity-60 hover:opacity-100 transition cursor-pointer",
+                          isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted",
+                        )}
+                        title="Discard this sale session"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDiscardSession(sess.id);
+                        }}
+                        data-testid={`pos-discard-sale-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
+                      >
+                        <X className="size-3" />
+                      </button>
                     )}
                   </div>
-                  {sessions.length > 1 && (
-                    <button
-                      type="button"
-                      className={cn(
-                        "p-1 mr-1 rounded-md opacity-60 hover:opacity-100 transition cursor-pointer",
-                        isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted",
-                      )}
-                      title="Discard this sale session"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDiscardSession(sess.id);
-                      }}
-                      data-testid={`pos-discard-sale-${sess.session_number.replace(/[^a-zA-Z0-9]/g, "")}`}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  )}
                 </div>
               );
             })}
