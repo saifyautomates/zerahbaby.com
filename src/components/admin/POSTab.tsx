@@ -314,6 +314,7 @@ export function POSTab() {
     const draft = loadPOSDraft();
     return draft?.creditTokenInput || "";
   });
+  const [creditDismissedManually, setCreditDismissedManually] = useState<boolean>(false);
 
   // Keep sessions synchronized with remote Supabase sessions
   useEffect(() => {
@@ -479,8 +480,14 @@ export function POSTab() {
   }, [creditTokenInput, voucherData, customerCreditData]);
 
   // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
+  // Do NOT re-apply if the cashier explicitly removed/dismissed the credit for this session
   useEffect(() => {
-    if (availableCredit > 0 && total > 0 && storeCreditApplied === 0) {
+    if (
+      availableCredit > 0 &&
+      total > 0 &&
+      storeCreditApplied === 0 &&
+      !creditDismissedManually
+    ) {
       const applyAmount = Math.min(availableCredit, total);
       setStoreCreditApplied(applyAmount);
       if (creditTokenInput.trim()) {
@@ -489,7 +496,7 @@ export function POSTab() {
         );
       }
     }
-  }, [availableCredit, total, storeCreditApplied, creditTokenInput]);
+  }, [availableCredit, total, storeCreditApplied, creditTokenInput, creditDismissedManually]);
 
   // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes)
   useEffect(() => {
@@ -722,6 +729,7 @@ export function POSTab() {
     setDiscountValue(target.discount_value || 0);
     setStoreCreditApplied(target.store_credit_applied || 0);
     setCreditTokenInput(target.credit_token_input || "");
+    setCreditDismissedManually(false);
     setPaymentMethod(target.payment_method || "cash");
     setStep("cart");
     setSearchQuery("");
@@ -772,6 +780,7 @@ export function POSTab() {
     setDiscountValue(0);
     setStoreCreditApplied(0);
     setCreditTokenInput("");
+    setCreditDismissedManually(false);
     setPaymentMethod("cash");
     setStep("cart");
     setSearchQuery("");
@@ -942,6 +951,7 @@ export function POSTab() {
     setDiscountValue(target.discount_value || 0);
     setStoreCreditApplied(target.store_credit_applied || 0);
     setCreditTokenInput(target.credit_token_input || "");
+    setCreditDismissedManually(false);
     setPaymentMethod(target.payment_method || "cash");
     setStep("cart");
     setSearchQuery("");
@@ -1533,6 +1543,7 @@ export function POSTab() {
     setCashTendered("");
     setStoreCreditApplied(0);
     setCreditTokenInput("");
+    setCreditDismissedManually(false);
     setStep("cart");
     setSaleResult(null);
     setSaleItems([]);
@@ -2768,6 +2779,8 @@ export function POSTab() {
                               setCustomerPhone("");
                               setCustomerEmail("");
                               setCustomerId(null);
+                              setStoreCreditApplied(0);
+                              setCreditDismissedManually(false);
                             }
                           }}
                           className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
@@ -2829,6 +2842,7 @@ export function POSTab() {
                                     setCustomerPhone(c.phone);
                                     setCustomerEmail(c.email);
                                     setCustomerId(c.id);
+                                    setCreditDismissedManually(false);
                                     setCustomerSearchQuery("");
                                     toast.success(`Selected customer: ${c.name}`);
                                   }}
@@ -2868,6 +2882,8 @@ export function POSTab() {
                                   setCustomerName("");
                                   setCustomerPhone("");
                                   setCustomerEmail("");
+                                  setStoreCreditApplied(0);
+                                  setCreditDismissedManually(false);
                                 }}
                                 className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-bold text-xs p-1 cursor-pointer"
                               >
@@ -2987,14 +3003,16 @@ export function POSTab() {
                         <input
                           type="text"
                           value={creditTokenInput}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setCreditDismissedManually(false);
                             setCreditTokenInput(
                               e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""),
-                            )
-                          }
+                            );
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
+                              setCreditDismissedManually(false);
                               if (availableCredit > 0) {
                                 setStoreCreditApplied(Math.min(availableCredit, total));
                                 toast.success(
@@ -3010,14 +3028,31 @@ export function POSTab() {
                         />
                       </div>
                       {effectiveCreditUsed > 0 ? (
-                        <span className="px-3.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0 flex items-center gap-1 border border-emerald-500/30">
-                          <Check className="size-3.5" />
-                          Applied
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1 border border-emerald-500/30">
+                            <Check className="size-3.5" />
+                            Applied
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCreditDismissedManually(true);
+                              setStoreCreditApplied(0);
+                              setCreditTokenInput("");
+                              toast.info(
+                                "Voucher removed from this checkout. Balance remains untouched.",
+                              );
+                            }}
+                            className="px-2.5 py-2 rounded-xl bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 text-xs font-bold transition cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => {
+                            setCreditDismissedManually(false);
                             if (availableCredit > 0) {
                               setStoreCreditApplied(Math.min(availableCredit, total));
                               toast.success(
@@ -3093,7 +3128,9 @@ export function POSTab() {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setCreditDismissedManually(true);
                                   setStoreCreditApplied(0);
+                                  setCreditTokenInput("");
                                   toast.info(
                                     "Voucher removed from this checkout. Balance remains untouched.",
                                   );
@@ -3107,6 +3144,7 @@ export function POSTab() {
                             <button
                               type="button"
                               onClick={() => {
+                                setCreditDismissedManually(false);
                                 setStoreCreditApplied(Math.min(availableCredit, total));
                                 toast.success(
                                   `Applied ${formatPrice(Math.min(availableCredit, total))} store credit`,
