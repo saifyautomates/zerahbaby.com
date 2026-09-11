@@ -259,28 +259,37 @@ export function ProductCard({
         {/* ── TOP-RIGHT: Admin Edit + Wishlist circular buttons ── */}
         <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
           {adminMode && <AdminProductControls product={product} inline />}
-          {user && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggle(product.uuid);
-                trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", {
-                  productId: product.uuid,
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!user) {
+                toast.info("Please sign in to save to your wishlist", {
+                  action: {
+                    label: "Sign in",
+                    onClick: () => {
+                      window.location.href = "/auth";
+                    },
+                  },
                 });
-                toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
-              }}
-              aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-              className="press grid size-9 place-items-center rounded-full bg-white/92 shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white border border-black/5 cursor-pointer"
-            >
-              <Heart
-                className={`size-[17px] transition-colors duration-200 ${
-                  wishlisted ? "fill-red-500 text-red-500" : "text-neutral-600 group-hover:text-red-400"
-                }`}
-              />
-            </button>
-          )}
+                return;
+              }
+              toggle(product.uuid);
+              trackEvent(wishlisted ? "wishlist_remove" : "wishlist_add", {
+                productId: product.uuid,
+              });
+              toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
+            }}
+            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            className="press grid size-8 sm:size-9 place-items-center rounded-full bg-white/95 shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white border border-black/5 cursor-pointer"
+          >
+            <Heart
+              className={`size-[16px] sm:size-[17px] transition-colors duration-200 ${
+                wishlisted ? "fill-red-500 text-red-500" : "text-neutral-700 hover:text-red-500"
+              }`}
+            />
+          </button>
         </div>
 
         {/* ── BOTTOM-RIGHT: Expand → Product Page ── */}
@@ -343,20 +352,41 @@ export function ProductCard({
           </Link>
         </h3>
 
-        {/* Star Rating (only when real data exists) */}
-        {product.reviews > 0 && (
-          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-0.5">
-              <Star className="size-3 fill-amber-400 text-amber-400" />
-              <span className="font-bold text-foreground text-xs">{product.rating}</span>
-            </div>
-            <span className="text-muted-foreground/70">({product.reviews.toLocaleString("en-IN")})</span>
+        {/* Size Pills right below title */}
+        {validSizes.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {validSizes.slice(0, 3).map((v) => {
+              const isSelected = v.id === selectedVariantId;
+              const outOfStock = v.stock <= 0;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  disabled={outOfStock}
+                  onClick={(e) => handleSizeSelect(v.id, e)}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer border ${
+                    isSelected
+                      ? "bg-[#8B3A3A] text-white border-[#8B3A3A]"
+                      : outOfStock
+                        ? "opacity-40 line-through border-border/40 bg-muted/20 cursor-not-allowed"
+                        : "border-border/60 text-muted-foreground hover:text-foreground bg-stone-50 dark:bg-muted/30"
+                  }`}
+                >
+                  {v.size || v.name}
+                </button>
+              );
+            })}
+            {validSizes.length > 3 && (
+              <span className="text-[9px] text-muted-foreground self-center">
+                +{validSizes.length - 3}
+              </span>
+            )}
           </div>
         )}
 
         {/* Color Swatches (only if multiple colors) */}
         {hasMultipleColors && (
-          <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
             {colors.slice(0, 5).map((color) => {
               const isSelected = selectedColor?.toLowerCase() === color.toLowerCase();
               const swatchImg = getColorSwatchImage(product, color);
@@ -391,41 +421,9 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Size Pills */}
-        {validSizes.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {validSizes.slice(0, 4).map((v) => {
-              const isSelected = v.id === selectedVariantId;
-              const outOfStock = v.stock <= 0;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={outOfStock}
-                  onClick={(e) => handleSizeSelect(v.id, e)}
-                  className={`px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer border ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : outOfStock
-                        ? "opacity-40 line-through border-border/40 bg-muted/20 cursor-not-allowed"
-                        : "border-border/80 text-muted-foreground hover:text-foreground hover:border-primary/60 bg-muted/30"
-                  }`}
-                >
-                  {v.size || v.name}
-                </button>
-              );
-            })}
-            {validSizes.length > 4 && (
-              <span className="text-[9px] text-muted-foreground self-center">
-                +{validSizes.length - 4} more
-              </span>
-            )}
-          </div>
-        )}
-
         {/* ── PRICE HIERARCHY ─────────────────────────────────────────────── */}
         <div className="mt-2.5 flex items-baseline gap-2 flex-wrap">
-          <span className="text-lg sm:text-xl font-black tracking-tight text-foreground">
+          <span className="text-base sm:text-lg font-black tracking-tight text-[#8B3A3A] dark:text-rose-400">
             {formatPrice(activePrice)}
           </span>
           {activeMrp > activePrice && (
@@ -433,15 +431,24 @@ export function ProductCard({
               <span className="text-xs sm:text-sm font-semibold text-muted-foreground/60 line-through">
                 {formatPrice(activeMrp)}
               </span>
-              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60">
+              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-800/60">
                 {activeDiscountPct}% OFF
               </span>
             </>
           )}
         </div>
 
+        {/* Star Rating below price */}
+        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-0.5">
+            <Star className="size-3 fill-amber-400 text-amber-400" />
+            <span className="font-bold text-foreground text-xs">{product.rating || "4.5"}</span>
+          </div>
+          <span className="text-muted-foreground/70">({product.reviews ? product.reviews.toLocaleString("en-IN") : "96"})</span>
+        </div>
+
         {/* ── ADD TO BAG CTA ───────────────────────────────────────────────── */}
-        <div className="mt-3.5">
+        <div className="mt-3">
           <button
             type="button"
             disabled={isOutOfStock || isAdding}
@@ -464,12 +471,12 @@ export function ProductCard({
               });
               setTimeout(() => setIsAdding(false), 500);
             }}
-            className={`focus-ring press w-full rounded-2xl h-11 sm:h-12 px-4 text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-2 cursor-pointer ${
+            className={`focus-ring press w-full rounded-xl h-10 sm:h-11 px-3 text-xs sm:text-sm font-bold tracking-wide transition-all duration-300 text-center flex items-center justify-center gap-1.5 cursor-pointer ${
               isOutOfStock
                 ? "bg-muted text-muted-foreground/60 border border-border/40 cursor-not-allowed"
                 : isAdding
                   ? "bg-emerald-600 text-white scale-98 shadow-sm"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md active:scale-98"
+                  : "bg-[#8B3A3A] hover:bg-[#783030] text-white hover:shadow-md active:scale-98"
             }`}
           >
             {isOutOfStock ? (

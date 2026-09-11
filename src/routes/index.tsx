@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Truck,
   RotateCcw,
@@ -15,6 +15,7 @@ import {
   Layers,
   EyeOff,
   Clock,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
@@ -112,6 +113,221 @@ const defaultHeroSlides = [
     alt: "Baby essentials from Zerah Baby And Kid's",
   },
 ];
+
+function HomepageSectionItem({
+  section,
+  list,
+  isLoading,
+  adminMode,
+  onEditSection,
+}: {
+  section: HomepageSection;
+  list: any[];
+  isLoading: boolean;
+  adminMode: boolean;
+  onEditSection: (section: HomepageSection) => void;
+}) {
+  const [selectedAge, setSelectedAge] = useState<string>("All");
+  const sectionProducts = resolveSectionProducts(section, list);
+  const isHidden = !section.is_visible;
+  const resolvedTheme = resolveSectionTheme(section.theme_preset, section.theme_config);
+  const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
+  const scheduleStatus = getSectionScheduleStatus(section);
+
+  const spacingClass =
+    section.spacing === "compact"
+      ? "py-8 sm:py-10"
+      : section.spacing === "spacious"
+        ? "py-16 sm:py-24"
+        : "py-10 sm:py-14";
+
+  const isCustomTheme =
+    section.theme_preset !== "DEFAULT" ||
+    Boolean(resolvedTheme.bgGradient || section.theme_config?.bg_color || resolvedTheme.backgroundImageUrl);
+
+  const ageGroups = ["All", "0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y"];
+
+  const filteredProducts = useMemo(() => {
+    if (selectedAge === "All") return sectionProducts;
+    const selNorm = selectedAge.toLowerCase();
+    const matched = sectionProducts.filter((p) => {
+      const ageNorm = (p.ageGroup || "").toLowerCase();
+      if (ageNorm.includes(selNorm)) return true;
+      return (p.variants || []).some((v: any) => (v.size || "").toLowerCase().includes(selNorm));
+    });
+    return matched.length > 0 ? matched : sectionProducts;
+  }, [sectionProducts, selectedAge]);
+
+  return (
+    <div
+      data-section-id={section.id}
+      className={`relative w-full overflow-hidden transition-colors ${spacingClass} ${
+        isCustomTheme ? "border-y border-border/40" : ""
+      } ${
+        isHidden
+          ? "opacity-80 relative rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 my-4 bg-amber-50/20"
+          : ""
+      }`}
+      style={resolvedTheme.containerStyle}
+    >
+      {/* SVG Pattern Texture Overlay */}
+      {patternSvg && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 opacity-100"
+          style={{ backgroundImage: `url("${patternSvg}")` }}
+        />
+      )}
+
+      {/* Background Image Overlay */}
+      {resolvedTheme.backgroundImageUrl && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url("${resolvedTheme.backgroundImageUrl}")`,
+            opacity: resolvedTheme.backgroundImageOpacity,
+          }}
+        />
+      )}
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Admin schedule / hidden status tags */}
+        {adminMode && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {isHidden && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 px-3 py-1 text-[11px] font-bold">
+                <EyeOff className="size-3" /> Hidden from customers (Admin preview only)
+              </div>
+            )}
+            {scheduleStatus === "upcoming" && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300 px-3 py-1 text-[11px] font-bold">
+                <Clock className="size-3" /> Scheduled (Starts: {new Date(section.starts_at!).toLocaleDateString()})
+              </div>
+            )}
+            {scheduleStatus === "expired" && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 px-3 py-1 text-[11px] font-bold">
+                <Clock className="size-3" /> Expired campaign (Admin view only)
+              </div>
+            )}
+            <div className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-mono text-muted-foreground border border-border/40">
+              Theme: {section.theme_preset} · {resolvedTheme.cardStyle}
+            </div>
+          </div>
+        )}
+
+        {/* Curated Section Header Card */}
+        <div className="rounded-3xl bg-[#FFF8F0] dark:bg-card/70 border border-amber-100/80 dark:border-border/40 p-4 sm:p-6 mb-4 sm:mb-6 shadow-xs relative overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+            <div className="flex items-start gap-2.5 sm:gap-3.5">
+              <span className="text-2xl sm:text-3xl select-none" aria-hidden="true">☀️</span>
+              <div>
+                <h2
+                  className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100"
+                  style={{ color: resolvedTheme.headingColor }}
+                >
+                  {section.title}
+                </h2>
+                {section.display_settings?.show_subtitle !== false && section.subtitle && (
+                  <p
+                    className="mt-0.5 text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-medium"
+                    style={{ color: resolvedTheme.textColor }}
+                  >
+                    {section.subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {adminMode && (
+                <button
+                  type="button"
+                  aria-label={`Edit ${section.title} section`}
+                  onClick={() => onEditSection(section)}
+                  className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
+                >
+                  <Pencil className="size-3" /> Edit
+                </button>
+              )}
+              {section.display_settings?.show_cta !== false && (
+                <Link
+                  to={section.display_settings?.cta_link || "/shop"}
+                  className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition shadow-xs hover:opacity-90 bg-[#8B3A3A] text-white"
+                >
+                  {section.display_settings?.cta_label || "View all"} →
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Horizontal Age Filter Pills + Filter Button */}
+        <div className="mb-5 sm:mb-6 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5 px-0.5">
+          <div className="flex items-center gap-2 flex-nowrap shrink-0">
+            {ageGroups.map((age) => {
+              const isSelected = selectedAge === age;
+              return (
+                <button
+                  key={age}
+                  type="button"
+                  onClick={() => setSelectedAge(age)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#8B3A3A] text-white shadow-xs scale-102"
+                      : "bg-[#F5F2EB] dark:bg-muted text-stone-700 dark:text-stone-300 hover:bg-[#EAE5DC]"
+                  }`}
+                >
+                  {age}
+                </button>
+              );
+            })}
+          </div>
+          <Link
+            to="/shop"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-white dark:bg-card px-3.5 py-1.5 text-xs font-bold text-foreground shadow-xs hover:bg-muted/40 transition-colors"
+          >
+            <SlidersHorizontal className="size-3.5 text-muted-foreground" />
+            Filter
+          </Link>
+        </div>
+
+        {/* Products Presentation */}
+        {isLoading && list.length === 0 ? (
+          <ProductGridSkeleton />
+        ) : filteredProducts.length === 0 ? (
+          <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border/60 bg-card/40">
+            <p className="text-base font-semibold text-foreground">No products listed yet</p>
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+              Our curated collection of baby essentials will be appearing here shortly.
+            </p>
+            {adminMode && (
+              <button
+                type="button"
+                onClick={() => onEditSection(section)}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#8B3A3A] px-4 py-1.5 text-xs font-semibold text-white cursor-pointer"
+              >
+                <Plus className="size-3" /> Add products to this section
+              </button>
+            )}
+          </div>
+        ) : section.section_type === "PRODUCT_CAROUSEL" ? (
+          <div className="mt-2">
+            <ProductCarousel products={filteredProducts} cardStyle={resolvedTheme.cardStyle} />
+          </div>
+        ) : (
+          <div className="mt-2 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                cardStyle={resolvedTheme.cardStyle}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Index() {
   const loaderData = Route.useLoaderData();
@@ -516,175 +732,16 @@ function Index() {
       )}
 
       {/* ─── DYNAMIC HOMEPAGE SECTIONS ─────────── */}
-      {sectionsToRender.map((section) => {
-        const sectionProducts = resolveSectionProducts(section, list);
-        const isHidden = !section.is_visible;
-        const resolvedTheme = resolveSectionTheme(section.theme_preset, section.theme_config);
-        const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
-        const scheduleStatus = getSectionScheduleStatus(section);
-
-        const spacingClass =
-          section.spacing === "compact"
-            ? "py-8 sm:py-10"
-            : section.spacing === "spacious"
-              ? "py-16 sm:py-24"
-              : "py-12 sm:py-16";
-
-        const isCustomTheme =
-          section.theme_preset !== "DEFAULT" ||
-          Boolean(resolvedTheme.bgGradient || section.theme_config?.bg_color || resolvedTheme.backgroundImageUrl);
-
-        return (
-          <div
-            key={section.id}
-            data-section-id={section.id}
-            className={`relative w-full overflow-hidden transition-colors ${spacingClass} ${
-              isCustomTheme ? "border-y border-border/40" : ""
-            } ${
-              isHidden
-                ? "opacity-80 relative rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 my-4 bg-amber-50/20"
-                : ""
-            }`}
-            style={resolvedTheme.containerStyle}
-          >
-            {/* SVG Pattern Texture Overlay */}
-            {patternSvg && (
-              <div
-                className="pointer-events-none absolute inset-0 z-0 opacity-100"
-                style={{ backgroundImage: `url("${patternSvg}")` }}
-              />
-            )}
-
-            {/* Background Image Overlay */}
-            {resolvedTheme.backgroundImageUrl && (
-              <div
-                className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center"
-                style={{
-                  backgroundImage: `url("${resolvedTheme.backgroundImageUrl}")`,
-                  opacity: resolvedTheme.backgroundImageOpacity,
-                }}
-              />
-            )}
-
-            <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              {/* Admin schedule / hidden status tags */}
-              {adminMode && (
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  {isHidden && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 px-3 py-1 text-[11px] font-bold">
-                      <EyeOff className="size-3" /> Hidden from customers (Admin preview only)
-                    </div>
-                  )}
-                  {scheduleStatus === "upcoming" && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300 px-3 py-1 text-[11px] font-bold">
-                      <Clock className="size-3" /> Scheduled (Starts: {new Date(section.starts_at!).toLocaleDateString()})
-                    </div>
-                  )}
-                  {scheduleStatus === "expired" && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 px-3 py-1 text-[11px] font-bold">
-                      <Clock className="size-3" /> Expired campaign (Admin view only)
-                    </div>
-                  )}
-                  <div className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-mono text-muted-foreground border border-border/40">
-                    Theme: {section.theme_preset} · {resolvedTheme.cardStyle}
-                  </div>
-                </div>
-              )}
-
-              {/* Section Header */}
-              <div className="flex flex-wrap items-end justify-between gap-3 mb-6 sm:mb-8">
-                <div>
-                  {section.badge_text && (
-                    <span
-                      className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-2.5 shadow-xs"
-                      style={{
-                        backgroundColor: resolvedTheme.badgeBg,
-                        color: resolvedTheme.badgeTextColor,
-                      }}
-                    >
-                      {section.badge_text}
-                    </span>
-                  )}
-                  <h2
-                    className="font-display text-2xl font-bold sm:text-3xl section-title tracking-tight"
-                    style={{ color: resolvedTheme.headingColor }}
-                  >
-                    {section.title}
-                  </h2>
-                  {section.display_settings?.show_subtitle !== false && section.subtitle && (
-                    <p
-                      className="mt-1 text-sm section-subtitle"
-                      style={{ color: resolvedTheme.textColor }}
-                    >
-                      {section.subtitle}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {adminMode && (
-                    <button
-                      type="button"
-                      aria-label={`Edit ${section.title} section`}
-                      onClick={() => setEditingSection(section)}
-                      className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
-                    >
-                      <Pencil className="size-3" /> Edit Section
-                    </button>
-                  )}
-                  {section.display_settings?.show_cta !== false && (
-                    <Link
-                      to={section.display_settings?.cta_link || "/shop"}
-                      className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition shadow-xs hover:opacity-90"
-                      style={{
-                        backgroundColor: resolvedTheme.ctaBg,
-                        color: resolvedTheme.ctaText,
-                      }}
-                    >
-                      {section.display_settings?.cta_label || "View all"} →
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              {/* Products Presentation */}
-              {isLoading && list.length === 0 ? (
-                <ProductGridSkeleton />
-              ) : sectionProducts.length === 0 ? (
-                <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border/60 bg-card/40">
-                  <p className="text-base font-semibold text-foreground">No products listed yet</p>
-                  <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
-                    Our curated collection of baby essentials will be appearing here shortly.
-                  </p>
-                  {adminMode && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingSection(section)}
-                      className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground cursor-pointer"
-                    >
-                      <Plus className="size-3" /> Add products to this section
-                    </button>
-                  )}
-                </div>
-              ) : section.section_type === "PRODUCT_CAROUSEL" ? (
-                <div className="mt-6">
-                  <ProductCarousel products={sectionProducts} cardStyle={resolvedTheme.cardStyle} />
-                </div>
-              ) : (
-                <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-                  {sectionProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      cardStyle={resolvedTheme.cardStyle}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {sectionsToRender.map((section) => (
+        <HomepageSectionItem
+          key={section.id}
+          section={section}
+          list={list}
+          isLoading={isLoading}
+          adminMode={adminMode}
+          onEditSection={setEditingSection}
+        />
+      ))}
 
       {/* ─── MODAL: INLINE HOMEPAGE SECTION EDITOR ─────────── */}
       {(creatingSection || editingSection) && (

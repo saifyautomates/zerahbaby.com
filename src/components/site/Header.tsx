@@ -326,48 +326,16 @@ export function Header() {
         <AnnouncementBanner />
         <div className="glass-header border-b border-border/50 shadow-premium-sm">
           <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-1.5 sm:gap-4 sm:px-4 sm:py-2 relative">
-            {/* Mobile Menu or Back Button */}
-            {isSubPage ? (
-              <button
-                type="button"
-                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden cursor-pointer"
-                aria-label="Go back"
-                onClick={handleBack}
-              >
-                <ChevronLeft className="size-6" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="focus-ring -ml-2 rounded-xl p-3 text-foreground transition hover:bg-muted md:hidden cursor-pointer"
-                aria-label="Toggle menu"
-                aria-expanded={open}
-                onClick={() => setOpen((v) => !v)}
-              >
-                <Menu className="size-6" />
-              </button>
-            )}
-
-            {/* Mobile Page Title */}
-            {isSubPage && (
-              <div className="flex items-center min-w-0 flex-1 ml-1 mr-3 md:hidden">
-                <span className="font-display text-base sm:text-lg font-bold text-foreground truncate block w-full">
-                  {pageTitle || "Back"}
-                </span>
-              </div>
-            )}
-
-            {/* Desktop Back Button */}
-            {isSubPage && (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="hidden md:inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted/80 transition-colors mr-1 cursor-pointer border border-border/50 shadow-2xs"
-                aria-label="Go back"
-              >
-                <ChevronLeft className="size-4" /> Back
-              </button>
-            )}
+            {/* Mobile Menu Button */}
+            <button
+              type="button"
+              className="focus-ring -ml-1 rounded-xl p-2 text-foreground transition hover:bg-muted md:hidden cursor-pointer"
+              aria-label="Toggle menu"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+            >
+              <Menu className="size-6" />
+            </button>
 
             {/* Logo */}
             <Link
@@ -375,15 +343,12 @@ export function Header() {
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className={cn(
-                "focus-ring press min-w-0 items-center gap-2 sm:gap-2.5 rounded-lg transition-transform duration-200 hover:-translate-y-0.5",
-                isSubPage ? "hidden md:flex" : "flex",
-              )}
+              className="focus-ring press flex min-w-0 items-center gap-1.5 sm:gap-2.5 rounded-lg transition-transform duration-200 hover:-translate-y-0.5"
             >
               <img
                 src={logo}
                 alt={`${brandName} logo`}
-                className="size-9 sm:size-10 md:size-11 object-contain drop-shadow-sm flex-shrink-0"
+                className="size-8 sm:size-10 md:size-11 object-contain drop-shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";
                 }}
@@ -625,35 +590,33 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="md:hidden focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                className="md:hidden focus-ring press relative rounded-full p-2 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
                 aria-label="Search"
               >
                 <Search className="size-5" />
               </button>
-              {user && (
-                <Link
-                  to="/wishlist"
-                  className="hidden sm:flex focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
-                  aria-label={`Wishlist with ${wishlistIds.length} items`}
-                >
-                  <Heart
-                    className={`size-5 ${wishlistIds.length > 0 ? "fill-red-500 text-red-500" : ""}`}
-                  />
-                  {wishlistIds.length > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
-                      {wishlistIds.length}
-                    </span>
-                  )}
-                </Link>
-              )}
+              <Link
+                to="/wishlist"
+                className="focus-ring press relative rounded-full p-2 text-foreground transition duration-200 hover:bg-muted hover:text-primary flex items-center justify-center"
+                aria-label={`Wishlist with ${wishlistIds.length} items`}
+              >
+                <Heart
+                  className={`size-5 ${wishlistIds.length > 0 ? "fill-[#8B3A3A] text-[#8B3A3A]" : ""}`}
+                />
+                {wishlistIds.length > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-[#8B3A3A] px-1 text-[10px] font-bold text-white shadow-xs">
+                    {wishlistIds.length}
+                  </span>
+                )}
+              </Link>
               <Link
                 to="/cart"
-                className="focus-ring press relative rounded-full p-2.5 text-foreground transition duration-200 hover:bg-muted hover:text-primary"
+                className="focus-ring press relative rounded-full p-2 text-foreground transition duration-200 hover:bg-muted hover:text-primary flex items-center justify-center"
                 aria-label={`Cart with ${count} items`}
               >
                 <ShoppingCart className="size-5" />
                 {count > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 animate-in zoom-in duration-200 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-[#8B3A3A] px-1 text-[10px] font-bold text-white shadow-xs">
                     {count}
                   </span>
                 )}
