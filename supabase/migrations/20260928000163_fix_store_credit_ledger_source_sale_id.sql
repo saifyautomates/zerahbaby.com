@@ -34,6 +34,7 @@ ALTER TABLE public.store_credit_ledger DROP CONSTRAINT IF EXISTS pos_store_credi
 ALTER TABLE public.store_credit_ledger ADD CONSTRAINT store_credit_ledger_amount_check CHECK (amount != 0);
 
 -- 4. Recreate pos_store_credit_ledger compatibility view
+DROP VIEW IF EXISTS public.pos_store_credit_ledger CASCADE;
 CREATE OR REPLACE VIEW public.pos_store_credit_ledger AS 
 SELECT 
   id,
@@ -54,6 +55,34 @@ SELECT
   created_by,
   created_at
 FROM public.store_credit_ledger;
+
+-- 4b. Ensure pos_exchange_vouchers table exists with proper indexes and permissions
+CREATE TABLE IF NOT EXISTS public.pos_exchange_vouchers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token text NOT NULL,
+  return_id uuid REFERENCES public.offline_returns(id) ON DELETE SET NULL,
+  customer_id uuid REFERENCES public.pos_customers(id) ON DELETE SET NULL,
+  customer_phone text,
+  customer_name text,
+  original_amount numeric NOT NULL DEFAULT 0,
+  remaining_balance numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'active',
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '365 days'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_exchange_vouchers_token 
+  ON public.pos_exchange_vouchers (UPPER(token));
+
+ALTER TABLE public.pos_exchange_vouchers ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.pos_exchange_vouchers TO authenticated;
+GRANT ALL ON public.pos_exchange_vouchers TO service_role;
+GRANT SELECT ON public.pos_exchange_vouchers TO anon;
+
+DROP POLICY IF EXISTS "pos_exchange_vouchers_authenticated_all" ON public.pos_exchange_vouchers;
+CREATE POLICY "pos_exchange_vouchers_authenticated_all" ON public.pos_exchange_vouchers
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 5. Drop any conflicting signatures of place_offline_sale
 DO $$
