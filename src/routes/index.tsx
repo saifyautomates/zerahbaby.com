@@ -10,6 +10,10 @@ import {
   Star,
   ChevronRight,
   Baby,
+  Pencil,
+  Plus,
+  Layers,
+  EyeOff,
 } from "lucide-react";
 import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
@@ -17,12 +21,20 @@ import { useAdminMode } from "@/lib/admin-mode";
 import { HeroMedia } from "@/components/site/HeroMedia";
 import { HeroMediaDialog } from "@/components/admin/HeroMediaManager";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
+import { ProductCarousel } from "@/components/site/ProductCarousel";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
 import {
   AdminAddProduct,
   AdminAddCategory,
   AdminEditableText,
 } from "@/components/admin/InlineAdmin";
+import { SectionEditorModal } from "@/components/admin/SectionEditorModal";
+import {
+  useHomepageSections,
+  resolveSectionProducts,
+  fetchHomepageSections,
+  type HomepageSection,
+} from "@/lib/homepage-sections";
 import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,13 +43,18 @@ import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    const [products, categories] = await Promise.all([
+    const [products, categories, sections] = await Promise.all([
       context.queryClient.ensureQueryData(productsQueryOptions(false)),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
-    ]).catch(() => [[], []]);
+      context.queryClient.ensureQueryData({
+        queryKey: ["homepage-sections", false],
+        queryFn: () => fetchHomepageSections(false),
+      }),
+    ]).catch(() => [[], [], []]);
     return {
       products,
       categories,
+      sections,
     };
   },
   head: () => ({
@@ -104,6 +121,10 @@ function Index() {
   const { data: heroSlides } = useHeroMedia();
   const { adminMode } = useAdminMode();
   const [heroEditor, setHeroEditor] = useState(false);
+  const [editingSection, setEditingSection] = useState<HomepageSection | null>(null);
+  const [creatingSection, setCreatingSection] = useState(false);
+
+  const { data: dbSections = [], isLoading: sectionsLoading } = useHomepageSections(adminMode);
 
   const { data: realReviews } = useQuery({
     queryKey: ["homepage-reviews"],
@@ -155,10 +176,30 @@ function Index() {
   const hasMedia = slides.length > 0;
 
   const list = products ?? [];
-  const bestsellers = [...list].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
-  const deals = [...list]
-    .sort((a, b) => (b.mrp - b.price) / (b.mrp || 1) - (a.mrp - a.price) / (a.mrp || 1))
-    .slice(0, 4);
+
+  // Fallback default sections if database hasn't loaded or is empty
+  const defaultSections: HomepageSection[] = [
+    {
+      id: "default-bestsellers",
+      title: "Bestsellers",
+      subtitle: "Top picks loved by parents across India",
+      slug: "bestsellers",
+      section_type: "PRODUCT_GRID",
+      source_type: "BESTSELLERS",
+      status: "published",
+      is_visible: true,
+      sort_order: 1,
+      display_settings: {
+        max_products: 8,
+        show_subtitle: true,
+        show_cta: true,
+        cta_label: "View all",
+        cta_link: "/shop",
+      },
+    },
+  ];
+
+  const sectionsToRender = dbSections && dbSections.length > 0 ? dbSections : defaultSections;
 
   return (
     <div>
@@ -424,59 +465,137 @@ function Index() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="font-display text-2xl font-bold sm:text-3xl">Bestsellers</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Top picks loved by parents across India
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <AdminAddProduct label="Add product" />
-            <Link to="/shop" className="text-sm font-semibold text-primary hover:underline">
-              View all
-            </Link>
-          </div>
-        </div>
-
-        {isLoading && list.length === 0 ? (
-          <ProductGridSkeleton />
-        ) : bestsellers.length === 0 ? (
-          <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">
-            <p className="text-base font-semibold text-foreground">No products listed yet</p>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
-              Our curated collection of baby essentials will be appearing here shortly.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-            {bestsellers.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {deals.length > 0 && (
-        <section key="deals-section" className="mx-auto max-w-7xl px-4 py-12">
-          <div className="rounded-3xl bg-secondary/40 backdrop-blur-md border border-white/20 shadow-premium-sm p-6 md:p-10 relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 size-64 rounded-full bg-primary/10 blur-3xl" />
-            <div className="relative z-10">
-              <h2 className="font-display text-2xl font-bold">Deals of the week</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Biggest savings across the store, refreshed every Monday.
-              </p>
+      {/* ─── LIVE HOMEPAGE SECTION MANAGER BAR (ADMIN ONLY) ─────────── */}
+      {adminMode && (
+        <section className="mx-auto max-w-7xl px-4 pt-6 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl border border-dashed border-primary/40 bg-primary/5 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-8 place-items-center rounded-2xl bg-primary text-primary-foreground font-bold">
+                <Layers className="size-4" />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  Homepage Section Manager (Admin Mode Active)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Customize titles, subtitles, curated products, and layout directly on the live store.
+                </p>
+              </div>
             </div>
-            <AdminAddProduct label="Add a deal product" className="mt-4" />
-
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-              {deals.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="homepage-add-section-btn"
+                onClick={() => setCreatingSection(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition cursor-pointer"
+              >
+                <Plus className="size-3.5" /> Add New Section
+              </button>
+              <Link
+                to="/admin"
+                search={{ tab: "sections" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition"
+              >
+                Open in Admin Panel
+              </Link>
             </div>
           </div>
         </section>
+      )}
+
+      {/* ─── DYNAMIC HOMEPAGE SECTIONS ─────────── */}
+      {sectionsToRender.map((section) => {
+        const sectionProducts = resolveSectionProducts(section, list);
+        const isHidden = !section.is_visible;
+
+        return (
+          <section
+            key={section.id}
+            data-section-id={section.id}
+            className={`mx-auto max-w-7xl px-4 py-12 transition-opacity ${
+              isHidden
+                ? "opacity-75 relative rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 p-4 my-4 bg-amber-50/20"
+                : ""
+            }`}
+          >
+            {isHidden && (
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 px-3 py-1 text-[11px] font-bold">
+                <EyeOff className="size-3" /> Hidden from customers (Admin preview only)
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="font-display text-2xl font-bold sm:text-3xl section-title">{section.title}</h2>
+                {section.display_settings?.show_subtitle !== false && section.subtitle && (
+                  <p className="mt-1 text-sm text-muted-foreground section-subtitle">{section.subtitle}</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {adminMode && (
+                  <button
+                    type="button"
+                    aria-label={`Edit ${section.title} section`}
+                    onClick={() => setEditingSection(section)}
+                    className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
+                  >
+                    <Pencil className="size-3" /> Edit Section
+                  </button>
+                )}
+                {section.display_settings?.show_cta !== false && (
+                  <Link
+                    to={section.display_settings?.cta_link || "/shop"}
+                    className="text-sm font-semibold text-primary hover:underline"
+                  >
+                    {section.display_settings?.cta_label || "View all"}
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {isLoading && list.length === 0 ? (
+              <ProductGridSkeleton />
+            ) : sectionProducts.length === 0 ? (
+              <div className="mt-8 text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/40">
+                <p className="text-base font-semibold text-foreground">No products listed yet</p>
+                <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+                  Our curated collection of baby essentials will be appearing here shortly.
+                </p>
+                {adminMode && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingSection(section)}
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground cursor-pointer"
+                  >
+                    <Plus className="size-3" /> Add products to this section
+                  </button>
+                )}
+              </div>
+            ) : section.section_type === "PRODUCT_CAROUSEL" ? (
+              <div className="mt-6">
+                <ProductCarousel products={sectionProducts} />
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+                {sectionProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      {/* ─── MODAL: INLINE HOMEPAGE SECTION EDITOR ─────────── */}
+      {(creatingSection || editingSection) && (
+        <SectionEditorModal
+          section={editingSection}
+          onClose={() => {
+            setCreatingSection(false);
+            setEditingSection(null);
+          }}
+        />
       )}
 
       <section key="reviews-section" className="mx-auto max-w-7xl px-4 py-14">

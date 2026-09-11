@@ -128,6 +128,11 @@ const OnlineSalesTab = safeLazy(() =>
 const OnlineReturnsTab = safeLazy(() =>
   import("@/components/admin/OnlineReturnsTab").then((m) => ({ default: m.OnlineReturnsTab })),
 );
+const HomepageSectionsTab = safeLazy(() =>
+  import("@/components/admin/HomepageSectionsTab").then((m) => ({
+    default: m.HomepageSectionsTab,
+  })),
+);
 import { useAllOnlineReturns } from "@/lib/online-returns";
 const AdminGlobalSearch = safeLazy(() =>
   import("@/components/admin/AdminGlobalSearch").then((m) => ({ default: m.AdminGlobalSearch })),
@@ -214,6 +219,7 @@ type Tab =
   | "returns"
   | "customers"
   | "categories"
+  | "sections"
   | "settings"
   | "admins"
   | "coupons"
@@ -233,6 +239,7 @@ const VALID_TABS: Tab[] = [
   "returns",
   "customers",
   "categories",
+  "sections",
   "settings",
   "admins",
   "coupons",
@@ -604,6 +611,7 @@ export function AdminPage() {
     },
     { key: "products", label: "Products", icon: Package },
     { key: "categories", label: "Categories", icon: Layers },
+    { key: "sections", label: "Homepage Sections", icon: Layers },
     { key: "customers", label: "Customers", icon: Users },
     { key: "coupons", label: "Coupons", icon: Tag },
     { key: "reviews", label: "Reviews", icon: Star },
@@ -1073,6 +1081,7 @@ export function AdminPage() {
                 {tab === "returns" && <OnlineReturnsTab />}
                 {tab === "customers" && <CustomersTab currentEmail={user?.email ?? ""} />}
                 {tab === "categories" && <CategoriesTab />}
+                {tab === "sections" && <HomepageSectionsTab />}
                 {tab === "marketing" && <MarketingTab />}
                 {tab === "pages" && <PagesPoliciesTab />}
                 {tab === "settings" && <SettingsTab />}
