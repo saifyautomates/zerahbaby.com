@@ -121,11 +121,21 @@ export function useMyOrders(userId: string | undefined) {
   return useQuery({
     queryKey: ["my-orders", userId],
     enabled: Boolean(userId),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     queryFn: async () => {
+      if (!userId) return [];
+      try {
+        await supabase.rpc("link_my_orders" as any);
+      } catch {
+        // Silently continue if RPC not yet deployed
+      }
+
       const { data, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
-        .eq("user_id", userId!)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Order[];

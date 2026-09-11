@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatPrice, imageFor } from "@/lib/store";
 import { useCart } from "@/lib/cart";
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/_authenticated/checkout")({
 
 function CheckoutPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   // Tracks whether we are currently verifying a payment (app-switch recovery or callback)
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const recoveryAttemptedRef = useRef(false);
@@ -187,6 +189,9 @@ function CheckoutPage() {
           },
         });
         await clear();
+        await qc.invalidateQueries({ queryKey: ["my-orders"] });
+        await qc.invalidateQueries({ queryKey: ["admin-orders"] });
+        await qc.refetchQueries({ queryKey: ["my-orders"] });
         toast.success("Payment verified! Your order is placed.", { id: "payment-verify" });
         navigate({ to: "/orders" });
       } catch (err: unknown) {
@@ -437,6 +442,9 @@ function CheckoutPage() {
           });
 
         await clear();
+        await qc.invalidateQueries({ queryKey: ["my-orders"] });
+        await qc.invalidateQueries({ queryKey: ["admin-orders"] });
+        await qc.refetchQueries({ queryKey: ["my-orders"] });
         toast.success("Order placed successfully via Cash on Delivery!");
         navigate({ to: "/orders" });
         return;

@@ -7,13 +7,15 @@ import { useSettings } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
 import logo from "@/assets/zerah-logo-official.png";
 
-/** Small clickable invoice chip — opens the full printable invoice (strictly restricted to administrators). */
+/** Clickable invoice trigger — opens the full printable invoice for customers and admins. */
 export function InvoiceBox({
   order,
-  requireAdmin = true,
+  requireAdmin = false,
+  variant = "chip",
 }: {
   order: Order;
   requireAdmin?: boolean;
+  variant?: "chip" | "button" | "link";
 }) {
   const { user } = useSession();
   const { data: isAdmin } = useIsAdmin(user?.id);
@@ -23,23 +25,48 @@ export function InvoiceBox({
     return null;
   }
 
+  // Non-admin can only access their own invoice
+  if (!isAdmin && order.user_id && user?.id && order.user_id !== user.id) {
+    return null;
+  }
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="group flex w-fit items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-left shadow-sm transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
-      >
-        <span className="grid size-8 place-items-center rounded-lg bg-background text-primary shadow-sm transition-colors group-hover:text-primary">
-          <Printer className="size-4" />
-        </span>
-        <span>
-          <span className="block text-xs font-bold uppercase tracking-wider">Print Invoice</span>
-          <span className="block text-[11px] opacity-80">
-            {order.invoice_no ?? "—"} • {formatPrice(Number(order.total))}
+      {variant === "button" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-all shadow-2xs cursor-pointer hover:border-primary/40 hover:text-primary"
+        >
+          <Printer className="size-3.5" />
+          <span>View Invoice</span>
+        </button>
+      ) : variant === "link" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+        >
+          <FileText className="size-3.5" />
+          <span>Invoice</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="group flex w-fit items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-left shadow-sm transition-all duration-300 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+        >
+          <span className="grid size-8 place-items-center rounded-lg bg-background text-primary shadow-sm transition-colors group-hover:text-primary">
+            <Printer className="size-4" />
           </span>
-        </span>
-      </button>
+          <span>
+            <span className="block text-xs font-bold uppercase tracking-wider">Print Invoice</span>
+            <span className="block text-[11px] opacity-80">
+              {order.invoice_no ?? "—"} • {formatPrice(Number(order.total))}
+            </span>
+          </span>
+        </button>
+      )}
       {open && <InvoiceModal order={order} onClose={() => setOpen(false)} />}
     </>
   );
