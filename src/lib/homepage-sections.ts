@@ -201,11 +201,8 @@ export function resolveSectionProducts(
 ): Product[] {
   const max = section.display_settings?.max_products ?? 8;
 
-  if (section.source_type === "MANUAL") {
-    if (!section.items || section.items.length === 0) {
-      return [];
-    }
-
+  // 1. If explicit items are curated/assigned to this section, ALWAYS respect them!
+  if (section.items && section.items.length > 0) {
     const productMap = new Map<string, Product>();
     for (const p of allProducts) {
       productMap.set(p.uuid, p);
@@ -220,7 +217,13 @@ export function resolveSectionProducts(
         manualList.push(found);
       }
     }
-    return manualList.slice(0, max);
+    if (manualList.length > 0 || section.source_type === "MANUAL") {
+      return manualList.slice(0, max);
+    }
+  }
+
+  if (section.source_type === "MANUAL") {
+    return [];
   }
 
   if (section.source_type === "BESTSELLERS") {
@@ -252,6 +255,79 @@ export function resolveSectionProducts(
   }
 
   return allProducts.slice(0, max);
+}
+
+/**
+ * Synchronizes a product's assignment across homepage sections.
+ * Guarantees that selected sections display this product, and switches
+ * assigned sections to curated MANUAL mode so other unassigned products don't bleed in.
+ */
+export async function syncProductHomepageSections(
+  productId: string,
+  sectionIds: string[],
+): Promise<void> {
+  if (!productId) return;
+
+  // 1. Try canonical RPC first
+  try {
+    const { error: rpcErr } = await (supabase.rpc as any)(
+      "admin_sync_product_homepage_sections",
+      {
+        p_product_id: productId,
+        p_section_ids: sectionIds,
+      },
+    );
+    if (!rpcErr) return;
+  } catch {
+    // Continue to client-side table sync
+  }
+
+  // 2. Direct table fallback
+  try {
+    if (sectionIds.length === 0) {
+      await supabase
+        .from("homepage_section_items")
+        .delete()
+        .eq("product_id", productId);
+      return;
+    }
+
+    // Fetch existing assignments for this product
+    const { data: currentItems } = await supabase
+      .from("homepage_section_items")
+      .select("id, section_id")
+      .eq("product_id", productId);
+
+    const existingSectionIds = new Set((currentItems || []).map((it: any) => it.section_id));
+
+    // Remove from unselected sections
+    const toDelete = (currentItems || []).filter(
+      (it: any) => !sectionIds.includes(it.section_id),
+    );
+    for (const it of toDelete) {
+      await supabase.from("homepage_section_items").delete().eq("id", it.id);
+    }
+
+    // Insert into newly selected sections
+    for (const sid of sectionIds) {
+      if (!existingSectionIds.has(sid)) {
+        await supabase.from("homepage_section_items").insert({
+          section_id: sid,
+          product_id: productId,
+          sort_order: 999,
+          is_visible: true,
+        } as any);
+      }
+
+      // Ensure section source_type is set to MANUAL so that it strictly respects curated items
+      await supabase
+        .from("homepage_sections")
+        .update({ source_type: "MANUAL", updated_at: new Date().toISOString() } as any)
+        .eq("id", sid);
+    }
+  } catch (err) {
+    console.error("[homepage-sections] Error syncing product sections:", err);
+  }
 }
 
 /**

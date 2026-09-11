@@ -27,6 +27,7 @@ import {
   Layers,
   Sparkles,
   Video,
+  Search,
 } from "lucide-react";
 import {
   ageGroups,
@@ -38,6 +39,10 @@ import {
   getColorSwatchImage,
   type Product,
 } from "@/lib/store";
+import {
+  useHomepageSections,
+  syncProductHomepageSections,
+} from "@/lib/homepage-sections";
 import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
 import { useUploader, type UploadJob } from "@/lib/use-uploader";
@@ -284,6 +289,48 @@ export function ProductForm({
 
   const { data: categories } = useCategories();
   const { data: allProducts } = useProducts();
+  const { data: dbSections = [], isLoading: isSectionsLoading } = useHomepageSections(true);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
+  const [isSectionsPanelOpen, setIsSectionsPanelOpen] = useState(false);
+  const [sectionSearch, setSectionSearch] = useState("");
+
+  // Populate assigned homepage sections when editing a product
+  useEffect(() => {
+    const pId = product?.uuid || product?.id;
+    if (!pId) {
+      setSelectedSectionIds([]);
+      return;
+    }
+    const initialFromSections = dbSections
+      .filter((s) => s.items?.some((it) => it.product_id === pId))
+      .map((s) => s.id);
+    if (initialFromSections.length > 0) {
+      setSelectedSectionIds((prev) => (prev.length === 0 ? initialFromSections : prev));
+    }
+
+    supabase
+      .from("homepage_section_items")
+      .select("section_id")
+      .eq("product_id", pId)
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const ids = data.map((d: any) => d.section_id);
+          setSelectedSectionIds(ids);
+        }
+      });
+  }, [product?.uuid, product?.id, dbSections]);
+
+  const filteredSections = useMemo(() => {
+    if (!sectionSearch.trim()) return dbSections;
+    const q = sectionSearch.toLowerCase();
+    return dbSections.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.subtitle && s.subtitle.toLowerCase().includes(q)) ||
+        (s.badge_text && s.badge_text.toLowerCase().includes(q)),
+    );
+  }, [dbSections, sectionSearch]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -676,9 +723,18 @@ export function ProductForm({
 
     try {
       const res = (await Promise.resolve(onSave(finalDraft))) as any;
+      const savedProductId = res?.productId || product?.uuid || product?.id;
+      if (savedProductId) {
+        try {
+          await syncProductHomepageSections(savedProductId, selectedSectionIds);
+        } catch (secErr) {
+          console.error("Failed to sync homepage sections for product:", secErr);
+        }
+      }
 
       if (keepOpenForNext) {
         toast.success(`🎉 Saved "${finalDraft.name}"! Ready for next product.`);
+        setSelectedSectionIds([]);
         // Reset draft for next product creation
         setDraft({
           slug: "",
@@ -1796,6 +1852,191 @@ export function ProductForm({
                       {draft.isActive && <Check className="size-3.5 stroke-[3]" />}
                     </span>
                   </button>
+                </div>
+              )}
+
+              {/* Homepage Sections Assignment Selector */}
+              {draft.salesChannel !== "OFFLINE_ONLY" && (
+                <div className="sm:col-span-2 rounded-2xl border border-border/80 bg-card p-4 shadow-2xs transition-all">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="size-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <Layers className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-foreground block">
+                          Homepage Sections Placement
+                        </span>
+                        <span className="text-[11px] text-muted-foreground line-clamp-1">
+                          Choose specific sections (Diwali Specials, Summer Essentials, etc.) that feature this product
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      id="toggle-homepage-sections-selector"
+                      onClick={() => setIsSectionsPanelOpen(!isSectionsPanelOpen)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/80 bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition cursor-pointer shrink-0"
+                    >
+                      <span className="rounded-full bg-primary/15 text-primary font-bold px-2 py-0.5 text-[10px]">
+                        {selectedSectionIds.length === 0
+                          ? "None Selected"
+                          : `${selectedSectionIds.length} ${selectedSectionIds.length === 1 ? "Section" : "Sections"}`}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {isSectionsPanelOpen ? "Close ▲" : "Select Sections ▼"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Summary pills when collapsed */}
+                  {!isSectionsPanelOpen && selectedSectionIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-border/50">
+                      <span className="text-[11px] font-medium text-muted-foreground self-center mr-1">
+                        Active in:
+                      </span>
+                      {selectedSectionIds.map((sid) => {
+                        const s = dbSections.find((sec) => sec.id === sid);
+                        if (!s) return null;
+                        return (
+                          <span
+                            key={sid}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/25 shadow-2xs"
+                          >
+                            <span>{s.title}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSectionIds((prev) => prev.filter((id) => id !== sid));
+                              }}
+                              className="hover:text-destructive cursor-pointer ml-0.5 text-primary/70 hover:opacity-100"
+                              title="Remove from section"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Expandable Scrollable Section Picker */}
+                  {isSectionsPanelOpen && (
+                    <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5 animate-in fade-in duration-200">
+                      {/* Search and Bulk actions */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Search sections (e.g. Diwali, Summer)..."
+                            value={sectionSearch}
+                            onChange={(e) => setSectionSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSectionIds(dbSections.map((s) => s.id))}
+                            className="px-2 py-1 rounded-md text-primary hover:bg-primary/10 font-semibold cursor-pointer"
+                          >
+                            Select All
+                          </button>
+                          <span className="text-muted-foreground/40">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSectionIds([])}
+                            className="px-2 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 font-semibold cursor-pointer"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Scrollable list */}
+                      <div className="max-h-56 overflow-y-auto space-y-1.5 p-1 rounded-xl border border-border/60 bg-muted/20">
+                        {filteredSections.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            {isSectionsLoading
+                              ? "Loading sections..."
+                              : "No homepage sections found. Create sections in Homepage Manager."}
+                          </div>
+                        ) : (
+                          filteredSections.map((sec) => {
+                            const isSelected = selectedSectionIds.includes(sec.id);
+                            return (
+                              <div
+                                key={sec.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  setSelectedSectionIds((prev) =>
+                                    isSelected
+                                      ? prev.filter((id) => id !== sec.id)
+                                      : [...prev, sec.id],
+                                  );
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedSectionIds((prev) =>
+                                      isSelected
+                                        ? prev.filter((id) => id !== sec.id)
+                                        : [...prev, sec.id],
+                                    );
+                                  }
+                                }}
+                                className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none text-left ${
+                                  isSelected
+                                    ? "border-primary/50 bg-primary/10 shadow-2xs"
+                                    : "border-border/60 bg-card hover:bg-muted/40"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span
+                                    className={`size-4 rounded flex items-center justify-center border transition shrink-0 ${
+                                      isSelected
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "border-muted-foreground/30 bg-background"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="size-3 stroke-[3]" />}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-xs font-bold text-foreground">
+                                        {sec.title}
+                                      </span>
+                                      {sec.badge_text && (
+                                        <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/30 shrink-0">
+                                          {sec.badge_text}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {sec.subtitle && (
+                                      <p className="text-[10px] text-muted-foreground truncate">
+                                        {sec.subtitle}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                  <span className="text-[9px] font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border/40">
+                                    {sec.section_type === "PRODUCT_CAROUSEL" ? "Carousel" : "Grid"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">
+                        💡 Products appear strictly inside the selected sections. Unselected sections will not display this product.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
