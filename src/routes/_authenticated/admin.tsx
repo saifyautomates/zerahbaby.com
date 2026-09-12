@@ -3019,17 +3019,17 @@ thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px 
                     setValues({
                       ...current,
                       print_label_width_mm: "50",
-                      print_label_height_mm: "25",
+                      print_label_height_mm: "75",
                     })
                   }
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
                     (current["print_label_width_mm"] ?? "50") === "50" &&
-                    (current["print_label_height_mm"] ?? "25") === "25"
+                    (current["print_label_height_mm"] ?? "75") === "75"
                       ? "bg-emerald-600 text-white border-emerald-600"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  50 × 25 mm (default)
+                  50 × 75 mm (Portrait Default)
                 </button>
                 <button
                   type="button"
@@ -3037,35 +3037,35 @@ thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px 
                     setValues({
                       ...current,
                       print_label_width_mm: "60",
-                      print_label_height_mm: "30",
+                      print_label_height_mm: "90",
                     })
                   }
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
                     (current["print_label_width_mm"] ?? "50") === "60" &&
-                    (current["print_label_height_mm"] ?? "25") === "30"
+                    (current["print_label_height_mm"] ?? "75") === "90"
                       ? "bg-emerald-600 text-white border-emerald-600"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  60 × 30 mm
+                  60 × 90 mm
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     setValues({
                       ...current,
-                      print_label_width_mm: "80",
-                      print_label_height_mm: "40",
+                      print_label_width_mm: "75",
+                      print_label_height_mm: "100",
                     })
                   }
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
-                    (current["print_label_width_mm"] ?? "50") === "80" &&
-                    (current["print_label_height_mm"] ?? "25") === "40"
+                    (current["print_label_width_mm"] ?? "50") === "75" &&
+                    (current["print_label_height_mm"] ?? "75") === "100"
                       ? "bg-emerald-600 text-white border-emerald-600"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  80 × 40 mm
+                  75 × 100 mm
                 </button>
               </div>
               <div className="flex items-center gap-3">
@@ -3157,8 +3157,8 @@ thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px 
                 if (doc) {
                   doc.open();
                   doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Test Label Print</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:${wMm}mm ${hMm}mm;margin:1mm;}
-body{font-family:'Courier New',monospace;font-size:8px;width:${wMm - 2}mm;background:#fff;color:#000;}
+<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:portrait;margin:0;}
+body{font-family:'Courier New',monospace;font-size:8px;width:${wMm}mm;min-height:${hMm}mm;background:#fff;color:#000;margin:0 auto;}
 .box{border:1px solid #000;padding:2mm;width:100%;height:${hMm - 2}mm;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;}
 .cross{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
 </style></head><body>

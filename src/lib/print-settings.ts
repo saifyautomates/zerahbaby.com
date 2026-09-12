@@ -58,7 +58,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoicePrintSettings = {
 export const DEFAULT_THERMAL_SETTINGS: ThermalLabelSettings = {
   printerName: "HPRT HT300",
   widthMm: 50,
-  heightMm: 25,
+  heightMm: 75,
   dpi: 203,
   copies: 1,
   labelType: "full",
@@ -241,26 +241,27 @@ export function buildTSPLLabel(params: {
     `GAP 2 mm, 0 mm`,
     `DIRECTION 1`,
     `CLS`,
-    // Row 1: ArtNo
-    `TEXT 12,8,"2",0,1,1,"ArtNo: ${safeArtNo}"`,
+    // Row 1: Art No
+    `TEXT 12,12,"2",0,1,1,"Art No: ${safeArtNo}"`,
     // Row 2: Product Name
-    `TEXT 12,28,"2",0,1,1,"Product: ${safeName}"`,
-    // Row 3: Brand & Size
-    `TEXT 12,48,"2",0,1,1,"Brand: ${safeBrand}"`,
-    `TEXT ${w - 12},48,"2",0,1,1,3,"Size: ${safeSize}"`,
-    // Row 4: M.R.P. & Taxes
+    `TEXT 12,38,"2",0,1,1,"Product: ${safeName}"`,
+    // Row 3: Brand
+    `TEXT 12,64,"2",0,1,1,"Brand: ${safeBrand}"`,
+    // Row 4: Size
+    `TEXT 12,90,"2",0,1,1,"Size: ${safeSize}"`,
+    // Row 5: M.R.P. & Taxes
     showMrp && showSellPrice
-      ? `TEXT 12,68,"2",0,1,1,"M.R.P.: Rs.${mrpVal} Price: Rs.${price}${discStr}"`
+      ? `TEXT 12,116,"2",0,1,1,"M.R.P.: Rs.${mrpVal} Price: Rs.${price}${discStr}"`
       : showSellPrice
-        ? `TEXT 12,68,"2",0,1,1,"Price: Rs.${price}"`
-        : `TEXT 12,68,"2",0,1,1,"M.R.P.: Rs.${mrpVal}${discStr}"`,
-    `TEXT ${w - 12},70,"1",0,1,1,3,"(Inclusive of All taxes)"`,
-    // Row 5: Horizontal Divider Line
-    `BAR 10,88,${w - 20},2`,
-    // Row 6: Barcode centered (Code 128, height 40 dots, readable number below)
-    `BARCODE ${Math.round(w / 2)},94,"128",40,1,0,2,2,"${safeBarcode}"`,
-    // Row 7: Brand Footer centered
-    `TEXT ${Math.round(w / 2)},164,"2",0,1,1,2,"${safeBrand}"`,
+        ? `TEXT 12,116,"2",0,1,1,"Price: Rs.${price}"`
+        : `TEXT 12,116,"2",0,1,1,"M.R.P.: Rs.${mrpVal}${discStr}"`,
+    `TEXT 12,142,"1",0,1,1,"(Inclusive of All Taxes)"`,
+    // Row 6: Horizontal Divider Line
+    `BAR 10,165,${w - 20},2`,
+    // Row 7: Barcode centered (Code 128, height 60 dots, readable number below)
+    `BARCODE ${Math.round(w / 2)},175,"128",60,1,0,2,2,"${safeBarcode}"`,
+    // Row 8: Brand Footer centered
+    `TEXT ${Math.round(w / 2)},270,"2",0,1,1,2,"${safeBrand}"`,
     `PRINT ${copies},1`,
     `END`,
   ];

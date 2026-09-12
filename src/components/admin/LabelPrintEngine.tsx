@@ -92,12 +92,9 @@ function SingleStickerPreview({
   const mrpVal = typeof product.mrp === "number" && product.mrp > 0 ? product.mrp : product.price;
 
   // Screen preview scales ~4.2px per mm for clear representation
-  const SCALE = layout === "thermal-58" ? 4.4 : layout === "a4" ? 4.0 : 4.0;
+  const SCALE = layout === "thermal-58" ? 4.2 : layout === "a4" ? 3.8 : 3.8;
   const previewW = Math.round(cfg.labelWidthMm * SCALE);
   const previewH = Math.round(cfg.labelHeightMm * SCALE);
-
-  const bcHeight =
-    labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.26);
 
   const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
@@ -109,130 +106,139 @@ function SingleStickerPreview({
 
   return (
     <div
-      className="relative flex flex-col justify-between items-center text-left rounded-lg border border-gray-300 bg-white text-black shadow-sm overflow-hidden select-none shrink-0"
-      style={{ width: previewW, height: previewH, padding: "5px 7px 4px" }}
+      className="relative flex flex-col justify-between items-start text-left rounded-xl border border-gray-300 bg-white text-black shadow-md select-none shrink-0"
+      style={{
+        width: previewW,
+        minHeight: previewH,
+        padding: `${Math.round(cfg.paddingTopMm * SCALE)}px ${Math.round(cfg.paddingHorizMm * SCALE)}px ${Math.round(cfg.paddingBottomMm * SCALE)}px`,
+      }}
     >
       {labelType === "barcode-only" ? (
-        <>
-          <div className="w-full flex-1 flex justify-center items-center overflow-hidden">
-            <Barcode
-              value={barcodeVal(product)}
-              format="CODE128"
-              width={cfg.barcodeBarWidthPx * 0.72}
-              height={bcHeight}
-              fontSize={Math.round(cfg.barcodeFontPt * 1.15)}
-              margin={0}
-              displayValue={true}
-              background="transparent"
-              lineColor="#000000"
-            />
-          </div>
+        <div className="w-full flex-1 flex flex-col justify-center items-center py-4">
+          <Barcode
+            value={barcodeVal(product)}
+            format="CODE128"
+            width={cfg.barcodeBarWidthPx * 0.9}
+            height={Math.round(cfg.barcodeHeightMm * 2.8)}
+            fontSize={Math.round(cfg.barcodeFontPt * 1.3)}
+            margin={2}
+            displayValue={true}
+            background="transparent"
+            lineColor="#000000"
+          />
           <p
-            className="w-full truncate font-extrabold uppercase text-black tracking-wider text-center shrink-0"
-            style={{ fontSize: Math.round(cfg.brandFontPt * 1.05) + "px", lineHeight: 1 }}
+            className="w-full truncate font-extrabold uppercase text-black tracking-wider text-center shrink-0 mt-3"
+            style={{ fontSize: Math.round(cfg.brandFontPt * 1.3) + "px", lineHeight: 1.2 }}
           >
             {brandVal}
           </p>
-        </>
+        </div>
       ) : (
-        <>
-          {/* Row 1: ArtNo */}
-          <div
-            className="flex items-baseline w-full overflow-hidden leading-tight text-black"
-            style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-          >
-            <span className="font-extrabold mr-1">ArtNo:</span>
-            <span className="font-bold truncate">{artNoVal}</span>
-          </div>
-
-          {/* Row 2: Product Name */}
-          <div
-            className="flex items-baseline w-full overflow-hidden leading-tight text-black"
-            style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
-          >
-            <span className="font-extrabold mr-1">Product:</span>
-            <span className="font-bold truncate">{productName}</span>
-          </div>
-
-          {/* Row 3: Brand & Size */}
-          <div
-            className="flex items-baseline justify-between w-full overflow-hidden leading-tight text-black"
-            style={{ fontSize: Math.round(cfg.brandFontPt * 1.0) + "px" }}
-          >
-            <div className="flex items-baseline overflow-hidden mr-2">
-              <span className="font-extrabold mr-1">Brand:</span>
-              <span className="font-bold truncate">{brandVal}</span>
+        <div className="w-full h-full flex flex-col justify-between gap-2">
+          {/* Top Metadata Section */}
+          <div className="w-full space-y-1">
+            {/* Row 1: Art No */}
+            <div
+              className="flex items-baseline w-full leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.skuFontPt * 1.2) + "px" }}
+            >
+              <span className="font-extrabold mr-1 shrink-0">Art No:</span>
+              <span className="font-bold break-words">{artNoVal}</span>
             </div>
-            <div className="flex items-baseline shrink-0">
-              <span className="font-extrabold mr-1">Size:</span>
+
+            {/* Row 2: Product Name */}
+            <div
+              className="flex items-baseline w-full leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 1.2) + "px" }}
+            >
+              <span className="font-extrabold mr-1 shrink-0">Product:</span>
+              <span className="font-bold break-words leading-tight">{productName}</span>
+            </div>
+
+            {/* Row 3: Brand */}
+            <div
+              className="flex items-baseline w-full leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.brandFontPt * 1.2) + "px" }}
+            >
+              <span className="font-extrabold mr-1 shrink-0">Brand:</span>
+              <span className="font-bold">{brandVal}</span>
+            </div>
+
+            {/* Row 4: Size */}
+            <div
+              className="flex items-baseline w-full leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.skuFontPt * 1.2) + "px" }}
+            >
+              <span className="font-extrabold mr-1 shrink-0">Size:</span>
               <span className="font-bold">{sizeVal}</span>
             </div>
-          </div>
 
-          {/* Row 4: M.R.P. & Taxes */}
-          <div
-            className="flex items-baseline justify-between w-full overflow-hidden leading-tight text-black"
-            style={{ fontSize: Math.round(cfg.priceFontPt * 1.05) + "px" }}
-          >
-            <div className="flex items-baseline overflow-hidden">
-              <span className="font-extrabold mr-1">M.R.P.:</span>
-              {showMrp && showSellPrice ? (
-                <>
+            {/* Row 5: M.R.P. & Taxes */}
+            <div className="pt-1">
+              <div
+                className="flex items-baseline w-full leading-tight text-black"
+                style={{ fontSize: Math.round(cfg.priceFontPt * 1.3) + "px" }}
+              >
+                <span className="font-extrabold mr-1 shrink-0">M.R.P.:</span>
+                {showMrp && showSellPrice ? (
+                  <>
+                    <span
+                      className="line-through text-gray-500 mr-1.5"
+                      style={{ fontSize: Math.round(cfg.priceFontPt * 1.1) + "px" }}
+                    >
+                      ₹{Math.round(mrpVal)}
+                    </span>
+                    <span className="font-black">₹{Math.round(product.price)}</span>
+                  </>
+                ) : showSellPrice ? (
+                  <span className="font-black">₹{Math.round(product.price)}</span>
+                ) : (
+                  <span className="font-black">₹{Math.round(mrpVal)}</span>
+                )}
+                {showDiscount && hasDiscount && discountPct > 0 && (
                   <span
-                    className="line-through text-gray-500 mr-1.5"
-                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+                    className="font-extrabold text-emerald-800 ml-1.5"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.0) + "px" }}
                   >
-                    ₹ {Math.round(mrpVal)}
+                    (-{discountPct}%)
                   </span>
-                  <span className="font-black">₹ {Math.round(product.price)}</span>
-                </>
-              ) : showSellPrice ? (
-                <span className="font-black">₹ {Math.round(product.price)}</span>
-              ) : (
-                <span className="font-black">₹ {Math.round(mrpVal)}</span>
-              )}
-              {showDiscount && hasDiscount && discountPct > 0 && (
-                <span
-                  className="font-extrabold text-emerald-800 ml-1"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.85) + "px" }}
-                >
-                  (-{discountPct}%)
-                </span>
-              )}
+                )}
+              </div>
+              <p
+                className="font-bold text-black text-left mt-0.5"
+                style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
+              >
+                (Inclusive of All Taxes)
+              </p>
             </div>
-            <span className="text-[9px] font-semibold text-black shrink-0 whitespace-nowrap ml-1">
-              (Inclusive of All taxes)
-            </span>
           </div>
 
-          {/* Row 5: Horizontal Divider */}
-          <div className="w-full border-t border-black my-0.5 shrink-0" />
-
-          {/* Row 6: Barcode */}
-          <div className="w-full flex justify-center items-center overflow-hidden shrink-0">
-            <Barcode
-              value={barcodeVal(product)}
-              format="CODE128"
-              width={cfg.barcodeBarWidthPx * 0.72}
-              height={bcHeight}
-              fontSize={Math.round(cfg.barcodeFontPt * 1.15)}
-              margin={0}
-              marginTop={0}
-              marginBottom={0}
-              displayValue={true}
-              background="transparent"
-              lineColor="#000000"
-            />
+          {/* Divider, Barcode & Footer Brand */}
+          <div className="w-full flex flex-col items-center pt-2">
+            <div className="w-full border-t border-black mb-2 shrink-0" />
+            <div className="w-full flex justify-center items-center overflow-hidden shrink-0">
+              <Barcode
+                value={barcodeVal(product)}
+                format="CODE128"
+                width={cfg.barcodeBarWidthPx * 0.85}
+                height={Math.round(cfg.barcodeHeightMm * 2.6)}
+                fontSize={Math.round(cfg.barcodeFontPt * 1.25)}
+                margin={1}
+                marginTop={1}
+                marginBottom={1}
+                displayValue={true}
+                background="transparent"
+                lineColor="#000000"
+              />
+            </div>
+            <p
+              className="w-full truncate font-extrabold uppercase text-black tracking-wider text-center shrink-0 mt-1.5"
+              style={{ fontSize: Math.round(cfg.brandFontPt * 1.2) + "px", lineHeight: 1.2 }}
+            >
+              {brandVal}
+            </p>
           </div>
-
-          {/* Row 7: Centered Footer Brand */}
-          <p
-            className="w-full truncate font-extrabold uppercase text-black tracking-wider text-center shrink-0"
-            style={{ fontSize: Math.round(cfg.brandFontPt * 1.05) + "px", lineHeight: 1 }}
-          >
-            {brandVal}
-          </p>
-        </>
+        </div>
       )}
     </div>
   );
@@ -258,9 +264,9 @@ export function LabelPrintEngine({
   }
 
   const formatLabel = (() => {
-    if (layout === "thermal-108") return "1-Up 100mm × 25mm Thermal";
-    if (layout === "thermal-58") return "1-Up 50mm × 25mm Thermal";
-    return "A4 Grid (4 columns)";
+    if (layout === "thermal-108") return "1-Up 75mm × 100mm Thermal (Portrait)";
+    if (layout === "thermal-58") return "1-Up 50mm × 75mm Thermal (Portrait)";
+    return "A4 Grid (4-Column Portrait)";
   })();
 
   return (

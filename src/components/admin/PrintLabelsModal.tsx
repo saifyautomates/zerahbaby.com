@@ -191,10 +191,10 @@ export function PrintLabelsModal({
                 </h2>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   {layout === "thermal-58"
-                    ? "Thermal 50×25mm"
+                    ? "Thermal 50×75mm (Portrait)"
                     : layout === "thermal-108"
-                      ? "Thermal 100×25mm"
-                      : "A4 Grid (4-Col)"}
+                      ? "Thermal 75×100mm (Portrait)"
+                      : "A4 Grid (4-Col Portrait)"}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -249,7 +249,7 @@ export function PrintLabelsModal({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                58mm Thermal (50×25mm)
+                58mm (50×75mm Portrait)
               </button>
               <button
                 type="button"
@@ -260,7 +260,7 @@ export function PrintLabelsModal({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                108mm Thermal
+                108mm (75×100mm Portrait)
               </button>
               <button
                 type="button"
@@ -434,9 +434,9 @@ export function PrintLabelsModal({
             <CheckCircle2 className="size-3.5 text-emerald-600" />
             <span>
               {layout === "thermal-58"
-                ? "Exact physical preview (Horizontal 50×25mm sticker)"
+                ? "Exact physical preview (Vertical Portrait 50×75mm sticker)"
                 : layout === "thermal-108"
-                  ? "Exact physical preview (Horizontal 100×25mm sticker)"
+                  ? "Exact physical preview (Vertical Portrait 75×100mm sticker)"
                   : "Exact physical preview (A4 4-Column Grid Sheet)"}
             </span>
           </div>
