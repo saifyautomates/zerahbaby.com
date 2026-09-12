@@ -56,9 +56,14 @@ function AuthenticatedLayout() {
         typeof window !== "undefined"
           ? window.location.pathname + window.location.search
           : undefined;
+      const targetSearch =
+        redirectUrl && redirectUrl !== "/" && !redirectUrl.startsWith("/auth")
+          ? { redirect: redirectUrl }
+          : undefined;
+
       navigate({
         to: "/auth",
-        search: redirectUrl && redirectUrl !== "/" ? { redirect: redirectUrl } : undefined,
+        search: targetSearch,
         replace: true,
       });
     }

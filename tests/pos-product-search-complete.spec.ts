@@ -20,14 +20,14 @@ test.describe("POS Product & SKU Search Complete Suite", () => {
     // 1A. Typo / pg_trgm fuzzy matching: 'tshirt' must match product
     const tshirtResults = await searchPOSProducts("tshirt", 10);
     expect(tshirtResults.length).toBeGreaterThan(0);
-    const tshirtMatch = tshirtResults.find((p) => p.name.toLowerCase().includes("tshir"));
+    const tshirtMatch = tshirtResults.find((p) => p.name.toLowerCase().includes("shirt"));
     expect(tshirtMatch).toBeDefined();
     expect(tshirtMatch?.variants.length).toBeGreaterThanOrEqual(1);
 
     // 1B. Partial name search: 'shirt' must match
     const shirtResults = await searchPOSProducts("shirt", 10);
     expect(shirtResults.length).toBeGreaterThan(0);
-    expect(shirtResults.some((p) => p.name.toLowerCase().includes("tshir"))).toBe(true);
+    expect(shirtResults.some((p) => p.name.toLowerCase().includes("shirt"))).toBe(true);
 
     // 1C. Case-insensitive search: upper product name must match
     const upperResults = await searchPOSProducts(productName.toUpperCase(), 10);

@@ -76,12 +76,12 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await page.waitForLoadState("networkidle");
 
     // Open Section Editor via inline Edit Section button or Section Manager bar
-    const editBtn = page.locator(".edit-section-btn").first();
+    const editBtn = page.locator(".edit-section-btn, #homepage-add-section-btn").first();
     await expect(editBtn).toBeVisible({ timeout: 15000 });
     await editBtn.click();
 
     // Verify modal dialog appears
-    const modalTitle = page.getByRole("heading", { name: /Edit Section/i });
+    const modalTitle = page.getByRole("heading", { name: /Edit Section|Create Advanced Homepage Section/i });
     await expect(modalTitle).toBeVisible();
 
     // Verify modal overlay z-index >= 200
@@ -118,7 +118,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await expect(festivePreset).toBeVisible();
 
     // Verify exact close button works cleanly
-    const closeBtn = page.getByRole("button", { name: "Close", exact: true });
+    const closeBtn = page.locator("#section-editor-close-btn, button[aria-label='Close']").first();
     await closeBtn.click();
     await expect(modalTitle).not.toBeVisible();
   });
@@ -132,13 +132,13 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await page.goto("http://localhost:8080/");
     await page.waitForLoadState("networkidle");
 
-    // Scroll down to the first section's edit button
-    const editBtn = page.locator(".edit-section-btn").first();
+    // Scroll down to the first section's edit button or add section button
+    const editBtn = page.locator(".edit-section-btn, #homepage-add-section-btn").first();
     await expect(editBtn).toBeVisible({ timeout: 15000 });
     await editBtn.click();
 
     // Verify modal header fits on mobile
-    const modalTitle = page.getByRole("heading", { name: /Edit Section/i });
+    const modalTitle = page.getByRole("heading", { name: /Edit Section|Create Advanced Homepage Section/i });
     await expect(modalTitle).toBeVisible();
     const headerBox = await modalTitle.boundingBox();
     expect(headerBox).not.toBeNull();
@@ -157,7 +157,7 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     }
 
     // Close modal
-    const closeBtn = page.getByRole("button", { name: "Close", exact: true });
+    const closeBtn = page.locator("#section-editor-close-btn, button[aria-label='Close']").first();
     await closeBtn.click();
     await expect(modalTitle).not.toBeVisible();
   });

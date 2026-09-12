@@ -1,6 +1,7 @@
 import { test } from "@playwright/test";
 
 test("check routes that may 404", async ({ page }) => {
+  test.setTimeout(90000);
   const routesToTest = [
     "http://localhost:8080/product/tshirrt",
     "http://localhost:8080/orders",

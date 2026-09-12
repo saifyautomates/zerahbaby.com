@@ -110,9 +110,15 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
     await expect(page.getByRole("button", { name: /Get OTP/i })).toBeVisible();
   });
 
-  test("6. Protected Routes Security Redirection", async ({ page }) => {
-    await page.goto("/profile");
-    await expect(page).toHaveURL(/.*\/auth/);
+  test("6. Protected Routes Security Redirection", async ({ page, context }) => {
+    await context.clearCookies();
+    await page.goto("/");
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto("/profile", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
   });
 
   test("7. Static & Informational Pages", async ({ page }) => {
