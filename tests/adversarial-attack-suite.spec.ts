@@ -11,13 +11,22 @@ const supabaseAnonKey =
 const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
 test.describe("Adversarial Attack & Production Invariant Hardening Suite", () => {
+  let activeProductSlug = "cord";
+
+  test.beforeAll(async () => {
+    const { data } = await anonClient.from("products").select("slug").eq("is_active", true).limit(1);
+    if (data && data.length > 0 && data[0].slug) {
+      activeProductSlug = data[0].slug;
+    }
+  });
+
   // ─── ATTACK 1: CLIENT-SIDE PRICE MANIPULATION ───────────────────────
   test("1. Price Manipulation Attack: Server Rejects Tampered Client Unit Prices", async () => {
     // Attack: Attacker crafts a payload claiming a ₹699 item is ₹1
     const hackedPayload = {
       _items: [
         {
-          product_slug: "tshirt",
+          product_slug: activeProductSlug,
           qty: 1,
           price: 1, // Attacker manipulated price!
         },
@@ -54,7 +63,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
     const negativeQtyPayload = {
       _items: [
         {
-          product_slug: "tshirt",
+          product_slug: activeProductSlug,
           qty: -5,
         },
       ],
@@ -77,7 +86,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
     // 2.2 Zero Quantity Attack
     const zeroQtyPayload = {
       ...negativeQtyPayload,
-      _items: [{ product_slug: "tshirt", qty: 0 }],
+      _items: [{ product_slug: activeProductSlug, qty: 0 }],
     };
 
     const { data: zeroData, error: zeroError } = await anonClient.rpc(
@@ -92,7 +101,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
     const excessiveQtyPayload = {
       _items: [
         {
-          product_slug: "tshirt",
+          product_slug: activeProductSlug,
           qty: 999999, // Way higher than warehouse stock
         },
       ],
@@ -117,7 +126,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
   // ─── ATTACK 4: EXPIRED & FORGED COUPON EXPLOITATION ─────────────────
   test("4. Coupon Exploitation Attack: Expired or Nonexistent Codes Ignored/Zeroed", async () => {
     const forgedCouponPayload = {
-      _items: [{ product_slug: "tshirt", qty: 1 }],
+      _items: [{ product_slug: activeProductSlug, qty: 1 }],
       _coupon_code: "HACK_100_PERCENT_OFF_999999",
       _full_name: "Attacker Coupon",
       _email: "attacker_coupon@example.com",
@@ -366,7 +375,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
   test("12. COD Misconfiguration Attack: Reject Online Session for COD Conversion", async () => {
     // 12.1 Create an online session
     const { data: onlineSess } = await anonClient.rpc("create_checkout_session", {
-      _items: [{ product_slug: "tshirt", qty: 1 }],
+      _items: [{ product_slug: activeProductSlug, qty: 1 }],
       _full_name: "Online Buyer",
       _email: "online@example.com",
       _phone: "9999999999",
