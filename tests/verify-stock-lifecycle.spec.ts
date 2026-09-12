@@ -16,45 +16,134 @@ const supabaseAnonKey =
 
 const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
-test.describe("Stock Lifecycle & POS Returns Inventory Engine", () => {
-  test("1. Full Inventory Lifecycle: Product Stock -> Sale Deduction -> Return Replenishment", async () => {
-    // 1. Fetch active products from catalog
+test.describe("Stock Lifecycle & Inventory Precision Engine", () => {
+  test("1. Catalog Stock Summation: 100% Mathematical Precision (Parent === SUM(variants))", async () => {
     const { data: products, error: fetchErr } = await anonClient
       .from("products")
-      .select("id, slug, name, stock, price, sku, barcode")
-      .limit(5);
+      .select("id, slug, name, stock, product_variants(id, name, stock, is_active)")
+      .order("name");
 
     expect(fetchErr).toBeNull();
     expect(products).toBeTruthy();
-    expect(products!.length).toBeGreaterThan(0);
+    expect(products!.length).toBeGreaterThanOrEqual(30);
 
-    const testProduct = products![0];
-    const initialStock = Number(testProduct.stock || 0);
+    let discrepancies = 0;
+    for (const p of products!) {
+      const vars = p.product_variants || [];
+      if (vars.length > 0) {
+        const sum = vars.reduce((acc: number, v: { stock: number | null }) => acc + (v.stock || 0), 0);
+        if (sum !== p.stock) {
+          discrepancies++;
+          console.error(`Discrepancy in ${p.name}: parent=${p.stock}, variants sum=${sum}`);
+        }
+      }
+    }
 
-    console.log(
-      `[Lifecycle Test] Product: ${testProduct.name} (${testProduct.slug}), Initial Stock: ${initialStock}`,
+    expect(discrepancies).toBe(0);
+  });
+
+  test("2. Zero Phantom Variants (No 'Default' variant coexisting with real size variants)", async () => {
+    const { data: products, error } = await anonClient
+      .from("products")
+      .select("name, slug, product_variants(name, size)");
+
+    expect(error).toBeNull();
+    let anomalies = 0;
+
+    for (const p of products || []) {
+      const vars = p.product_variants || [];
+      const sizedVars = vars.filter((v: { size: string | null }) => v.size && v.size.trim().length > 0);
+      const defaultVars = vars.filter((v: { name: string; size: string | null }) => v.name === "Default" || !v.size);
+
+      if (sizedVars.length > 0 && defaultVars.length > 0) {
+        anomalies++;
+        console.error(`Anomaly: ${p.name} has both sized variants and phantom Default variant`);
+      }
+    }
+
+    expect(anomalies).toBe(0);
+  });
+
+  test("3. Real POS Sale -> Deduct Variant & Parent by Exactly 1 (No Double-Deduction)", async () => {
+    const { data: prod } = await anonClient
+      .from("products")
+      .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .eq("slug", "fc-babyhug-pure-muslin-jhabla-5pk")
+      .single();
+
+    expect(prod).toBeTruthy();
+    const targetVariant = prod!.product_variants[0];
+    const initialParentStock = prod!.stock;
+    const initialVarStock = targetVariant.stock;
+
+    // 1. Perform POS sale
+    const { data: saleRes, error: saleErr } = await anonClient.rpc("place_offline_sale", {
+      _customer_name: "Playwright Automated Test",
+      _customer_phone: "9988776655",
+      _payment_method: "cash",
+      _items: [
+        {
+          product_id: prod!.id,
+          variant_id: targetVariant.id,
+          product_slug: prod!.slug,
+          name: prod!.name,
+          variant_info: targetVariant.name,
+          price: 699,
+          qty: 1,
+        },
+      ],
+    });
+
+    expect(saleErr).toBeNull();
+    expect(saleRes.sale_id).toBeTruthy();
+
+    // 2. Verify stock immediately after sale
+    const { data: afterSale } = await anonClient
+      .from("products")
+      .select("stock, product_variants(id, stock)")
+      .eq("id", prod!.id)
+      .single();
+
+    const varAfterSale = afterSale!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
     );
 
-    // 2. Simulate Stock Addition (Inventory Restock)
-    const restockUnits = 10;
-    const stockAfterRestock = initialStock + restockUnits;
-    expect(stockAfterRestock).toBe(initialStock + 10);
-    console.log(`[Lifecycle Test] Stock after restock (+${restockUnits}): ${stockAfterRestock}`);
+    expect(varAfterSale!.stock).toBe(initialVarStock - 1);
+    expect(afterSale!.stock).toBe(initialParentStock - 1); // Strictly 1 unit deducted!
 
-    // 3. Simulate POS Offline Sale (Stock Subtraction)
-    const saleUnits = 3;
-    expect(stockAfterRestock).toBeGreaterThanOrEqual(saleUnits);
-    const stockAfterSale = stockAfterRestock - saleUnits;
-    expect(stockAfterSale).toBe(initialStock + 7);
-    console.log(`[Lifecycle Test] Stock after POS Sale (-${saleUnits}): ${stockAfterSale}`);
+    // 3. Perform POS return to restore stock
+    const { data: retRes, error: retErr } = await anonClient.rpc("process_offline_return", {
+      _original_sale_id: saleRes.sale_id,
+      _customer_name: "Playwright Automated Test",
+      _customer_phone: "9988776655",
+      _items: [
+        {
+          product_id: prod!.id,
+          variant_id: targetVariant.id,
+          name: prod!.name,
+          qty: 1,
+          refund_price: 699,
+        },
+      ],
+      _refund_method: "exchange_credit",
+      _return_reason: "Playwright stock restoration verification",
+    });
 
-    // 4. Simulate POS Return (Atomic Replenishment)
-    const returnedUnits = 3;
-    const stockAfterReturn = stockAfterSale + returnedUnits;
-    expect(stockAfterReturn).toBe(stockAfterRestock);
-    console.log(`[Lifecycle Test] Stock after POS Return (+${returnedUnits}): ${stockAfterReturn}`);
+    expect(retErr).toBeNull();
+    expect(retRes.return_number).toBeTruthy();
 
-    // 5. Verification: Post-return stock matches pre-sale stock exactly
-    expect(stockAfterReturn - initialStock).toBe(restockUnits);
+    // 4. Verify stock restored to exact pre-sale baseline
+    const { data: afterReturn } = await anonClient
+      .from("products")
+      .select("stock, product_variants(id, stock)")
+      .eq("id", prod!.id)
+      .single();
+
+    const varAfterReturn = afterReturn!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
+
+    expect(varAfterReturn!.stock).toBe(initialVarStock);
+    expect(afterReturn!.stock).toBe(initialParentStock);
   });
 });

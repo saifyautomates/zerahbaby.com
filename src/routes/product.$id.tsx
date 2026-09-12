@@ -285,12 +285,17 @@ function ProductPage() {
 
       if (product.variants?.length) {
         if (initialColor) {
-          const matchingVar = product.variants.find(
-            (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase(),
-          );
+          const matchingVar =
+            product.variants.find(
+              (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase() && (v.stock ?? 0) > 0,
+            ) ||
+            product.variants.find(
+              (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase(),
+            );
           setSelectedVariantId(matchingVar ? matchingVar.id : product.variants[0].id);
         } else {
-          setSelectedVariantId(product.variants[0].id);
+          const inStock = product.variants.find((v) => (v.stock ?? 0) > 0) || product.variants[0];
+          setSelectedVariantId(inStock.id);
         }
       } else {
         setSelectedVariantId(null);
@@ -968,6 +973,14 @@ function ProductPage() {
                 v.size.toLowerCase() !== "standard" &&
                 v.name?.toLowerCase() !== "default",
             );
+
+            const isSizedCategory =
+              product.category?.toLowerCase() === "clothing" ||
+              product.category?.toLowerCase() === "footwear";
+
+            if (validSizeVariants.length === 0 && !isSizedCategory) {
+              return null;
+            }
 
             const displaySizes =
               validSizeVariants.length > 0
