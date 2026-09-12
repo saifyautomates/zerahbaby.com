@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Product, ProductVariant } from "@/lib/store";
+import { invalidateCatalogue } from "@/lib/admin-products";
 
 interface QuickVariantStockModalProps {
   product: Product;
@@ -84,12 +85,8 @@ export function QuickVariantStockModal({
 
       if (prodErr) throw prodErr;
 
-      // 4. Invalidate caches
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["pos-products"] });
-      qc.invalidateQueries({ queryKey: ["admin-search-products"] });
+      // 4. Invalidate all dependent surfaces across store, PDP, POS, and Admin
+      invalidateCatalogue(qc);
 
       toast.success(
         `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,

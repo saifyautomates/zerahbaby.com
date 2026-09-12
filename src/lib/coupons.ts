@@ -59,6 +59,7 @@ export function useCreateCoupon() {
     onSuccess: () => {
       toast.success("Coupon created");
       qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      qc.invalidateQueries({ queryKey: ["coupons"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -75,6 +76,7 @@ export function useDeleteCoupon() {
     onSuccess: () => {
       toast.success("Coupon deleted");
       qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      qc.invalidateQueries({ queryKey: ["coupons"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -90,6 +92,7 @@ export function useToggleCoupon() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-coupons"] });
+      qc.invalidateQueries({ queryKey: ["coupons"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -36,17 +36,22 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
   return row;
 };
 
+export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["products"] });
+  qc.invalidateQueries({ queryKey: ["product"] });
+  qc.invalidateQueries({ queryKey: ["admin-products"] });
+  qc.invalidateQueries({ queryKey: ["inventory-products"] });
+  qc.invalidateQueries({ queryKey: ["pos-products"] });
+  qc.invalidateQueries({ queryKey: ["categories"] });
+  qc.invalidateQueries({ queryKey: ["admin-search-products"] });
+  qc.invalidateQueries({ queryKey: ["product-relations"] });
+  qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+  qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+}
+
 function useInvalidateCatalogue() {
   const qc = useQueryClient();
-  return () => {
-    qc.invalidateQueries({ queryKey: ["products"] });
-    qc.invalidateQueries({ queryKey: ["admin-products"] });
-    qc.invalidateQueries({ queryKey: ["inventory-products"] });
-    qc.invalidateQueries({ queryKey: ["pos-products"] });
-    qc.invalidateQueries({ queryKey: ["categories"] });
-    qc.invalidateQueries({ queryKey: ["admin-search-products"] });
-    qc.invalidateQueries({ queryKey: ["product-relations"] });
-  };
+  return () => invalidateCatalogue(qc);
 }
 
 /**

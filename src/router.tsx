@@ -7,10 +7,11 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 1000 * 60 * 2, // 2 minutes before marking stale
+        staleTime: 1000 * 30, // 30 seconds default before marking stale
         gcTime: 1000 * 60 * 10, // 10 minutes cache garbage collection
         retry: 1, // Reduce retries for faster failure feedback
-        refetchOnWindowFocus: false, // Prevent aggressive refetching
+        refetchOnWindowFocus: true, // Automatically synchronize when user switches tabs/windows
+        refetchOnReconnect: true,
       },
     },
   });

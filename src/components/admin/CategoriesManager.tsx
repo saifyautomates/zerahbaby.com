@@ -39,6 +39,11 @@ export function CategoriesTab() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin-categories"] });
     qc.invalidateQueries({ queryKey: ["categories"] });
+    qc.invalidateQueries({ queryKey: ["products"] });
+    qc.invalidateQueries({ queryKey: ["product"] });
+    qc.invalidateQueries({ queryKey: ["admin-products"] });
+    qc.invalidateQueries({ queryKey: ["pos-products"] });
+    qc.invalidateQueries({ queryKey: ["homepage-sections"] });
   };
 
   const update = useMutation({
