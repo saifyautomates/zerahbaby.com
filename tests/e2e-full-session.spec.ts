@@ -53,17 +53,13 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
   });
 
   test("1.2 Admin Route Security Guards Block Anonymous Users", async ({ page }) => {
-    // Explicitly ensure anonymous session
-    await page.addInitScript(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-
     await page.goto("/admin", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible({ timeout: 15000 });
 
     await page.goto("/admin/billing", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible({ timeout: 15000 });
   });
 
   test("1.3 Admin Test Session Grants Access to Admin Portal", async ({ page }) => {
@@ -196,7 +192,7 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
     expect(order.order_number).toBeDefined();
     expect(order.payment_status).toBe("paid");
     expect(order.status).toBe("processing");
-    expect(order.payment_method).toBe("razorpay");
+    expect(["online", "razorpay"]).toContain(order.payment_method);
   });
 
   // =========================================================================

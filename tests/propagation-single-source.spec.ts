@@ -71,16 +71,14 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       expect(Number(verifiedRow?.price)).toBe(targetNewPrice);
 
       // 1D. Navigate to Product Detail Page and verify committed price appears
-      await page.goto(`/product/${testProduct!.slug}`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(1000);
+      await page.goto(`/product/${testProduct!.slug}`, { waitUntil: "networkidle" });
 
       const priceLocator = page.locator(`text=₹${targetNewPrice}`).first();
       await expect(priceLocator).toBeVisible({ timeout: 10000 });
       console.log(`[PASS] PDP displays committed price: ₹${targetNewPrice}`);
 
       // 1E. Verify Storefront Catalog (/shop) displays committed price
-      await page.goto("/shop", { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(1000);
+      await page.goto("/shop", { waitUntil: "networkidle" });
       const shopPriceLocator = page.locator(`text=₹${targetNewPrice}`).first();
       await expect(shopPriceLocator).toBeVisible({ timeout: 10000 });
       console.log(`[PASS] Storefront /shop displays committed price: ₹${targetNewPrice}`);
@@ -130,29 +128,28 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       .from("products")
       .select("id, slug, name, stock")
       .eq("is_active", true)
+      .gt("stock", 0)
       .limit(1)
       .single();
 
     expect(testProduct).toBeTruthy();
 
     // Verify in PDP
-    await page.goto(`/product/${testProduct!.slug}`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
+    await page.goto(`/product/${testProduct!.slug}`, { waitUntil: "networkidle" });
 
     // Add to bag
     const addToBagBtn = page.getByRole("button", { name: /add to cart|add to bag/i }).first();
-    if (await addToBagBtn.isVisible()) {
-      await addToBagBtn.click();
-      await page.waitForTimeout(500);
+    await expect(addToBagBtn).toBeVisible({ timeout: 10000 });
+    await addToBagBtn.click();
 
-      // Open cart page
-      await page.goto("/cart", { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(1000);
+    // Wait for cart confirmation toast or card
+    await page.waitForTimeout(600);
 
-      const cartItem = page.locator(`text=${testProduct!.name}`).first();
-      await expect(cartItem).toBeVisible({ timeout: 8000 });
-      console.log(`[PASS] Cart successfully loaded product: "${testProduct!.name}"`);
-    }
+    // Open cart page
+    await page.goto("/cart", { waitUntil: "domcontentloaded" });
+    const cartItem = page.locator(`text=${testProduct!.name}`).first();
+    await expect(cartItem).toBeVisible({ timeout: 10000 });
+    console.log(`[PASS] Cart successfully loaded product: "${testProduct!.name}"`);
   });
 
   test("3. Category Information Propagation", async ({ page }) => {
@@ -247,10 +244,10 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       const testTitle = `Curated Collection ${Date.now().toString().slice(-4)}`;
 
       try {
-        await supabase
-          .from("homepage_sections")
-          .update({ title: testTitle })
-          .eq("id", section.id);
+        await callAdminRpc("admin_update_homepage_section_title", {
+          _section_id: section.id,
+          _new_title: testTitle,
+        });
 
         await page.goto("/", { waitUntil: "domcontentloaded" });
         await page.waitForTimeout(1500);
@@ -259,10 +256,10 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
         await expect(sectionHeading).toBeVisible({ timeout: 10000 });
         console.log(`[PASS] Homepage reflects committed section title: "${testTitle}"`);
       } finally {
-        await supabase
-          .from("homepage_sections")
-          .update({ title: originalTitle })
-          .eq("id", section.id);
+        await callAdminRpc("admin_update_homepage_section_title", {
+          _section_id: section.id,
+          _new_title: originalTitle,
+        });
       }
     }
   });
