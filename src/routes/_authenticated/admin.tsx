@@ -5022,6 +5022,11 @@ const ANNOUNCEMENT_PRESETS = [
 ];
 
 const ANNOUNCEMENT_COLOR_PALETTES = [
+  {
+    name: "Pink & Blue (Signature)",
+    bg: "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)",
+    text: "#FFFFFF",
+  },
   { name: "Brand Burgundy", bg: "#8B2020", text: "#FFFFFF" },
   { name: "Deep Navy", bg: "#0F172A", text: "#FFFFFF" },
   { name: "Forest Emerald", bg: "#064E3B", text: "#ECFDF5" },
@@ -5297,7 +5302,14 @@ function MarketingTab() {
                 <div
                   className="px-4 py-2.5 text-center transition-all duration-300"
                   style={{
-                    backgroundColor: form.announcement_bg,
+                    background:
+                      form.announcement_bg.toLowerCase() === "#8b2020" ||
+                      form.announcement_bg === "gradient" ||
+                      form.announcement_bg.includes("#e82a82") ||
+                      form.announcement_bg.includes("#d946ef") ||
+                      !form.announcement_bg
+                        ? "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)"
+                        : form.announcement_bg,
                     color: form.announcement_text_color,
                   }}
                 >
@@ -5422,7 +5434,7 @@ function MarketingTab() {
                   >
                     <span
                       className="size-4 rounded-full border border-black/10 shadow-2xs shrink-0"
-                      style={{ backgroundColor: palette.bg }}
+                      style={{ background: palette.bg }}
                     />
                     <span>{palette.name}</span>
                   </button>

@@ -16,19 +16,23 @@ export function AnnouncementBanner() {
     return null;
   }
 
-  const isDefaultBurgundy = bgColor.toLowerCase() === "#8b2020";
-  const isGradient = isDefaultBurgundy || bgColor === "gradient";
+  const isPinkBlueGradient =
+    bgColor.toLowerCase() === "#8b2020" ||
+    bgColor === "gradient" ||
+    bgColor.includes("#e82a82") ||
+    bgColor.includes("#d946ef") ||
+    !bgColor;
 
   const content = (
     <div className="relative z-[3] mx-auto flex w-full max-w-7xl items-center justify-center gap-2 px-2 py-0.5 sm:px-4 sm:py-1 min-h-[26px] sm:min-h-[30px]">
       <div className="flex items-center justify-center gap-2 text-center overflow-hidden">
-        <Truck className="size-3 sm:size-3.5 shrink-0 text-amber-200/90" aria-hidden="true" />
+        <Truck className="size-3 sm:size-3.5 shrink-0 text-white" aria-hidden="true" />
         <p
-          className="font-display text-[9.5px] sm:text-[11px] font-bold uppercase tracking-[0.14em] leading-none whitespace-nowrap text-white"
+          className="font-display text-[9.5px] sm:text-[11px] font-bold uppercase tracking-[0.14em] leading-none whitespace-nowrap text-white drop-shadow-2xs"
         >
           {text}
         </p>
-        <span className="text-[10px] text-amber-200/90 shrink-0 font-display">✦</span>
+        <span className="text-[10px] text-white/90 shrink-0 font-display">✦</span>
       </div>
     </div>
   );
@@ -39,13 +43,13 @@ export function AnnouncementBanner() {
       aria-label="Announcement"
       className="announce-bar w-full transition-all duration-300 relative overflow-hidden h-7 sm:h-8 flex items-center shadow-2xs"
       style={{
-        background: isGradient
-          ? "linear-gradient(90deg, #7A2626 0%, #8B3A3A 50%, #702222 100%)"
+        background: isPinkBlueGradient
+          ? "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)"
           : bgColor,
         color: textColor,
       }}
     >
-      {isDefaultBurgundy && <span className="announce-sheen" aria-hidden="true" />}
+      <span className="announce-sheen" aria-hidden="true" />
       {link ? (
         /^https?:\/\//i.test(link) || link.startsWith("tel:") || link.startsWith("mailto:") ? (
           <a
