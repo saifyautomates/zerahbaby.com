@@ -13,10 +13,10 @@
 import { useMemo } from "react";
 import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
-import type { LabelPrinterProfile, LabelType } from "@/lib/label-printer";
-import { sanitizeBarcode, PRINT_FORMAT_CONFIG } from "@/lib/label-printer";
+import type { LabelPrinterProfile, LabelType, BarcodeOrientation } from "@/lib/label-printer";
+import { sanitizeBarcode, PRINT_FORMAT_CONFIG, getSavedBarcodeOrientation } from "@/lib/label-printer";
 
-export type { LabelType };
+export type { LabelType, BarcodeOrientation };
 export type LabelLayout = LabelPrinterProfile;
 
 export type LabelProduct = {
@@ -45,6 +45,7 @@ type Props = {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
+  barcodeOrientation?: BarcodeOrientation;
   widthMm?: number;
   heightMm?: number;
 };
@@ -78,6 +79,7 @@ function SingleStickerPreview({
   showMrp = true,
   showSellPrice = false,
   separatePriceLine = false,
+  barcodeOrientation = getSavedBarcodeOrientation(),
   layout,
 }: {
   product: LabelProduct;
@@ -86,6 +88,7 @@ function SingleStickerPreview({
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
+  barcodeOrientation?: BarcodeOrientation;
   layout: LabelLayout;
 }) {
   const cfg = PRINT_FORMAT_CONFIG[layout];
@@ -134,6 +137,116 @@ function SingleStickerPreview({
             {brandVal}
           </p>
         </>
+      ) : barcodeOrientation === "vertical" ? (
+        <div className="flex flex-row w-full h-full overflow-hidden items-stretch">
+          {/* Left details column */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between pr-1 overflow-hidden">
+            {/* Row 1: ArtNo */}
+            <div
+              className="flex items-baseline w-full overflow-hidden leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.skuFontPt * 1.0) + "px" }}
+            >
+              <span className="font-extrabold mr-1">ArtNo:</span>
+              <span className="font-bold truncate">{artNoVal}</span>
+            </div>
+
+            {/* Row 2: Product Name */}
+            <div
+              className="flex items-baseline w-full overflow-hidden leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.nameFontPt * 0.95) + "px" }}
+            >
+              <span className="font-extrabold mr-1">Product:</span>
+              <span className="font-bold truncate">{productName}</span>
+            </div>
+
+            {/* Row 3: Brand & Size */}
+            <div
+              className="flex items-baseline justify-between w-full overflow-hidden leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.brandFontPt * 0.95) + "px" }}
+            >
+              <div className="flex items-baseline overflow-hidden mr-1">
+                <span className="font-extrabold mr-1">Brand:</span>
+                <span className="font-bold truncate">{brandVal}</span>
+              </div>
+              <div className="flex items-baseline shrink-0">
+                <span className="font-extrabold mr-1">Size:</span>
+                <span className="font-bold">{sizeVal}</span>
+              </div>
+            </div>
+
+            {/* Row 4: M.R.P. & Sell Price */}
+            <div
+              className="flex items-baseline w-full overflow-hidden leading-tight text-black"
+              style={{ fontSize: Math.round(cfg.priceFontPt * 1.0) + "px" }}
+            >
+              <span className="font-extrabold mr-1">M.R.P.:</span>
+              {showMrp && showSellPrice ? (
+                <>
+                  <span
+                    className="line-through text-gray-500 mr-1"
+                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.85) + "px" }}
+                  >
+                    ₹ {Math.round(mrpVal)}
+                  </span>
+                  <span className="font-black">₹ {Math.round(product.price)}</span>
+                </>
+              ) : showSellPrice ? (
+                <span className="font-black">₹ {Math.round(product.price)}</span>
+              ) : (
+                <span className="font-black">₹ {Math.round(mrpVal)}</span>
+              )}
+              {showDiscount && hasDiscount && discountPct > 0 && (
+                <span
+                  className="font-extrabold text-emerald-800 ml-1"
+                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.8) + "px" }}
+                >
+                  (-{discountPct}%)
+                </span>
+              )}
+            </div>
+
+            {/* Row 5: Taxes note */}
+            <div className="text-[8px] font-semibold text-black leading-tight truncate">
+              (Inclusive of All taxes)
+            </div>
+          </div>
+
+          {/* Vertical divider */}
+          <div className="w-0 border-l border-black my-0.5 mx-1 shrink-0" />
+
+          {/* Right column: rotated vertical barcode */}
+          <div className="w-[66px] shrink-0 flex items-center justify-center overflow-hidden relative">
+            <div
+              className="flex flex-col items-center justify-center"
+              style={{
+                transform: "rotate(-90deg)",
+                transformOrigin: "center center",
+                width: `${previewH - 6}px`,
+                height: "64px",
+              }}
+            >
+              <Barcode
+                value={barcodeVal(product)}
+                format="CODE128"
+                width={0.78}
+                height={20}
+                fontSize={8}
+                margin={0}
+                marginTop={0}
+                marginBottom={0}
+                displayValue={true}
+                background="transparent"
+                lineColor="#000000"
+              />
+              <p
+                className="w-full truncate font-extrabold uppercase text-black tracking-wider text-center shrink-0 mt-0.5"
+                style={{ fontSize: "7.5px", lineHeight: 1 }}
+              >
+                {brandVal}
+              </p>
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           {/* Row 1: ArtNo */}
@@ -250,6 +363,7 @@ export function LabelPrintEngine({
   showMrp = true,
   showSellPrice = false,
   separatePriceLine = false,
+  barcodeOrientation,
 }: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
@@ -286,6 +400,7 @@ export function LabelPrintEngine({
                 showMrp={showMrp}
                 showSellPrice={showSellPrice}
                 separatePriceLine={separatePriceLine}
+                barcodeOrientation={barcodeOrientation}
                 layout={layout}
               />
             </div>
@@ -302,6 +417,7 @@ export function LabelPrintEngine({
               showMrp={showMrp}
               showSellPrice={showSellPrice}
               separatePriceLine={separatePriceLine}
+              barcodeOrientation={barcodeOrientation}
               layout={layout}
             />
           ))}

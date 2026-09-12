@@ -15,6 +15,7 @@ import {
   type LabelEntry,
   type LabelType,
   type LabelLayout,
+  type BarcodeOrientation,
 } from "./LabelPrintEngine";
 import {
   getSavedLabelType,
@@ -27,6 +28,8 @@ import {
   setSavedShowSellPrice,
   getSavedSeparatePrice,
   setSavedSeparatePrice,
+  getSavedBarcodeOrientation,
+  setSavedBarcodeOrientation,
   printProductLabels,
   openLabelPrintInNewTab,
 } from "@/lib/label-printer";
@@ -49,7 +52,15 @@ export function PrintLabelsModal({
   const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() =>
     getSavedSeparatePrice(),
   );
+  const [barcodeOrientation, setBarcodeOrientation] = useState<BarcodeOrientation>(() =>
+    getSavedBarcodeOrientation(),
+  );
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const handleOrientationToggle = (orientation: BarcodeOrientation) => {
+    setBarcodeOrientation(orientation);
+    setSavedBarcodeOrientation(orientation);
+  };
 
   const handleLabelTypeChange = (newType: LabelType) => {
     setLabelType(newType);
@@ -144,6 +155,7 @@ export function PrintLabelsModal({
         showMrp,
         showSellPrice,
         separatePriceLine,
+        barcodeOrientation,
         onDone: () => setIsPrinting(false),
       });
     } catch (err) {
@@ -164,6 +176,7 @@ export function PrintLabelsModal({
       showMrp,
       showSellPrice,
       separatePriceLine,
+      barcodeOrientation,
     });
   };
 
@@ -236,43 +249,77 @@ export function PrintLabelsModal({
 
         {/* Format & Option Controls Bar */}
         <div className="shrink-0 border-b border-border/60 px-4 py-3 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
-          {/* Format selector */}
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-muted-foreground">Format:</span>
-            <div className="flex bg-muted/60 p-0.5 rounded-xl border border-border">
-              <button
-                type="button"
-                onClick={() => setLayout("thermal-58")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "thermal-58"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                58mm Thermal (50×25mm)
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("thermal-108")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "thermal-108"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                108mm Thermal
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("a4")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "a4"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                A4 Grid
-              </button>
+          {/* Format & Barcode Orientation Selectors */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Format selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-muted-foreground">Format:</span>
+              <div className="flex bg-muted/60 p-0.5 rounded-xl border border-border">
+                <button
+                  type="button"
+                  onClick={() => setLayout("thermal-58")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    layout === "thermal-58"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  58mm Thermal (50×25mm)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayout("thermal-108")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    layout === "thermal-108"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  108mm Thermal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayout("a4")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    layout === "a4"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  A4 Grid
+                </button>
+              </div>
+            </div>
+
+            {/* Barcode Orientation selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-muted-foreground">Barcode:</span>
+              <div className="flex bg-muted/60 p-0.5 rounded-xl border border-border">
+                <button
+                  type="button"
+                  onClick={() => handleOrientationToggle("vertical")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    barcodeOrientation === "vertical"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Vertical barcode rotated 90° on the right (side-by-side)"
+                >
+                  Vertical
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOrientationToggle("horizontal")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    barcodeOrientation === "horizontal"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Horizontal barcode stacked at bottom"
+                >
+                  Horizontal
+                </button>
+              </div>
             </div>
           </div>
 
@@ -424,6 +471,7 @@ export function PrintLabelsModal({
               showMrp={showMrp}
               showSellPrice={showSellPrice}
               separatePriceLine={separatePriceLine}
+              barcodeOrientation={barcodeOrientation}
             />
           </div>
         </div>
@@ -434,9 +482,9 @@ export function PrintLabelsModal({
             <CheckCircle2 className="size-3.5 text-emerald-600" />
             <span>
               {layout === "thermal-58"
-                ? "Exact physical preview (Horizontal 50×25mm sticker)"
+                ? `Exact physical preview (${barcodeOrientation === "vertical" ? "Vertical" : "Horizontal"} 50×25mm sticker)`
                 : layout === "thermal-108"
-                  ? "Exact physical preview (Horizontal 100×25mm sticker)"
+                  ? `Exact physical preview (${barcodeOrientation === "vertical" ? "Vertical" : "Horizontal"} 100×25mm sticker)`
                   : "Exact physical preview (A4 4-Column Grid Sheet)"}
             </span>
           </div>
