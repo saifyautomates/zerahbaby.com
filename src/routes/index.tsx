@@ -225,49 +225,44 @@ function HomepageSectionItem({
           </div>
         )}
 
-        {/* Curated Section Header Card */}
-        <div className="rounded-3xl bg-[#FFF8F0] dark:bg-card/70 border border-amber-100/80 dark:border-border/40 p-4 sm:p-6 mb-4 sm:mb-6 shadow-xs relative overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
-            <div className="flex items-start gap-2.5 sm:gap-3.5">
-              <span className="text-2xl sm:text-3xl select-none" aria-hidden="true">☀️</span>
-              <div>
-                <h2
-                  className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100"
-                  style={{ color: resolvedTheme.headingColor }}
-                >
-                  {section.title}
-                </h2>
-                {section.display_settings?.show_subtitle !== false && section.subtitle && (
-                  <p
-                    className="mt-0.5 text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-medium"
-                    style={{ color: resolvedTheme.textColor }}
-                  >
-                    {section.subtitle}
-                  </p>
-                )}
-              </div>
-            </div>
+        {/* Curated Section Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-4 sm:mb-6">
+          <div>
+            <h2
+              className="font-display text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100"
+              style={{ color: resolvedTheme.headingColor }}
+            >
+              {section.title}
+            </h2>
+            {section.display_settings?.show_subtitle !== false && section.subtitle && (
+              <p
+                className="mt-1 text-xs sm:text-sm text-stone-600 dark:text-stone-400 font-medium"
+                style={{ color: resolvedTheme.textColor }}
+              >
+                {section.subtitle}
+              </p>
+            )}
+          </div>
 
-            <div className="flex items-center gap-2">
-              {adminMode && (
-                <button
-                  type="button"
-                  aria-label={`Edit ${section.title} section`}
-                  onClick={() => onEditSection(section)}
-                  className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
-                >
-                  <Pencil className="size-3" /> Edit
-                </button>
-              )}
-              {section.display_settings?.show_cta !== false && (
-                <Link
-                  to={section.display_settings?.cta_link || "/shop"}
-                  className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition shadow-xs hover:opacity-90 bg-[#8B3A3A] text-white"
-                >
-                  {section.display_settings?.cta_label || "View all"} →
-                </Link>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            {adminMode && (
+              <button
+                type="button"
+                aria-label={`Edit ${section.title} section`}
+                onClick={() => onEditSection(section)}
+                className="edit-section-btn inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer"
+              >
+                <Pencil className="size-3" /> Edit
+              </button>
+            )}
+            {section.display_settings?.show_cta !== false && (
+              <Link
+                to={section.display_settings?.cta_link || "/shop"}
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition shadow-xs hover:opacity-90 bg-[#8B3A3A] text-white"
+              >
+                {section.display_settings?.cta_label || "View all"} →
+              </Link>
+            )}
           </div>
         </div>
 
