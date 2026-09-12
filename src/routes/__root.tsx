@@ -41,11 +41,16 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     console.error("[RootErrorComponent] Caught root route error:", error);
 
     if (typeof window !== "undefined" && isChunkLoadError(error)) {
+      const isLocalOrDev =
+        import.meta.env.DEV ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+
       const key = "zerah_chunk_reload_lock";
       const last = parseInt(sessionStorage.getItem(key) || "0", 10);
       const now = Date.now();
 
-      if (now - last > 20_000) {
+      if (!isLocalOrDev && now - last > 20_000) {
         sessionStorage.setItem(key, now.toString());
         console.warn(
           "[RootErrorComponent] Detected stale chunk. Reloading page once for latest deployment...",

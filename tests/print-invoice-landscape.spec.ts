@@ -147,7 +147,7 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
 
   const logoBase64 = `data:image/png;base64,${fs.readFileSync(path.resolve(process.cwd(), "public/logo.png")).toString("base64")}`;
 
-  test("4. Browser Print Preview: A4 POS Invoice renders in landscape, fits on 1 page without clipping", async ({ page }) => {
+  test("4. Browser Print Preview: A4 POS Invoice renders in landscape, fits on 1 page without clipping", async ({ page, browserName }) => {
     const html = buildA4HTML(sampleSale, sampleItems, storeMock as any).replace(/\/logo\.png/g, logoBase64);
 
     // Set viewport to A4 Landscape pixel equivalent at 96 DPI (297mm ≈ 1123px, 210mm ≈ 794px)
@@ -190,14 +190,16 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
     await page.screenshot({ path: path.join(screenshotDir, "a4_invoice_landscape_preview.png"), fullPage: true });
 
-    // Generate real PDF to verify exact single-page rendering
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      landscape: true,
-      printBackground: true,
-      margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
-    });
-    expect(pdfBuffer.length).toBeGreaterThan(1000);
+    // Generate real PDF to verify exact single-page rendering (Chromium only in Playwright)
+    if (browserName === "chromium") {
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        landscape: true,
+        printBackground: true,
+        margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
+      });
+      expect(pdfBuffer.length).toBeGreaterThan(1000);
+    }
   });
 
   test("5. Browser Print Preview: Online Order Invoice renders in landscape and fits 1 page", async ({ page }) => {
@@ -316,7 +318,7 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     await page.screenshot({ path: path.join(screenshotDir, "thermal_receipt_preview.png"), fullPage: true });
   });
 
-  test("7. Multi-item pagination: Table headers repeat and rows don't clip across pages", async ({ page }) => {
+  test("7. Multi-item pagination: Table headers repeat and rows don't clip across pages", async ({ page, browserName }) => {
     // Generate 20 items to genuinely exceed 1 landscape page
     const manyItems: A4InvoiceItem[] = Array.from({ length: 20 }, (_, i) => ({
       name: `Children's Premium Apparel Item #${i + 1}`,
@@ -354,12 +356,15 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     });
     expect(["avoid", "avoid-page"].includes(trBreak)).toBe(true);
 
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      landscape: true,
-      printBackground: true,
-      margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
-    });
-    expect(pdfBuffer.length).toBeGreaterThan(5000);
+    // Generate real PDF to verify pagination rendering (Chromium only in Playwright)
+    if (browserName === "chromium") {
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        landscape: true,
+        printBackground: true,
+        margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
+      });
+      expect(pdfBuffer.length).toBeGreaterThan(5000);
+    }
   });
 });

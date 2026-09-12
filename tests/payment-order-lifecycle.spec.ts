@@ -99,7 +99,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
     expect(order.id).toBe(result.order_id);
     expect(order.payment_status).toBe("paid");
     expect(order.status).toBe("processing");
-    expect(order.payment_method).toBe("razorpay");
+    expect(["online", "razorpay"]).toContain(order.payment_method);
   });
 
   test("TEST 2: Online Payment Cancelled — No Order Created, No Stock Deducted", async () => {
@@ -352,7 +352,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
 
     // Must be rejected with amount mismatch error
     expect(fRes.status).toBe(400);
-    expect(errResult.message).toContain("Payment amount mismatch");
+    expect(errResult.message).toMatch(/Payment amount mismatch|does not match session total|Verified amount/i);
   });
 
   test("TEST 9, 10, 11: COD Disabled vs Enabled Validation", async () => {

@@ -77,6 +77,8 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       await expect(priceLocator).toBeVisible({ timeout: 10000 });
       console.log(`[PASS] PDP displays committed price: ₹${targetNewPrice}`);
 
+      await page.waitForTimeout(500);
+
       // 1E. Verify Storefront Catalog (/shop) displays committed price
       await page.goto("/shop", { waitUntil: "networkidle" });
       const shopPriceLocator = page.locator(`text=₹${targetNewPrice}`).first();

@@ -43,7 +43,13 @@ export function safeLazy<T extends ComponentType<any>>(
       const module = await factory();
       return "default" in module ? module : { default: module };
     } catch (err: unknown) {
-      if (typeof window !== "undefined" && isChunkLoadError(err)) {
+      if (
+        typeof window !== "undefined" &&
+        !import.meta.env.DEV &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1" &&
+        isChunkLoadError(err)
+      ) {
         const lastReload = sessionStorage.getItem(RELOAD_FLAG_KEY);
         const now = Date.now();
 

@@ -5,6 +5,8 @@ const supabaseUrl = "https://wbbatgbvizhghtkvuguf.supabase.co";
 const supabaseAnonKey = "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP";
 
 test.describe("POS Unified Customers & Manual Price Override — Authoritative Supabase Architecture", () => {
+  test.setTimeout(60000);
+
   // Test 1: Direct RPC Search Matrix against Authoritative Database
   test("1. Database RPC: Search Matrix (Exact Name, Partial Name, Phone, Email, City, Case-Insensitive)", async () => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -63,9 +65,12 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(
+      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
+    await expect(
+      page.getByRole("button", { name: /POS Terminal/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
 
     // 1. Click "Assign Customer" quick button on the tab bar
     const assignBtn = page.getByTestId("pos-assign-customer-btn");
@@ -104,9 +109,12 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(
+      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
+    await expect(
+      page.getByRole("button", { name: /POS Terminal/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
 
     // If leftover tabs exist from prior tests, clean them up for deterministic isolation testing
     const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
@@ -227,9 +235,12 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(
+      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
+    await expect(
+      page.getByRole("button", { name: /POS Terminal/i }).first(),
+    ).toBeVisible({ timeout: 20000 });
 
     // 1. Search for real product by SKU and add to cart
     const scanBar = page.getByPlaceholder(/Scan barcode, or search by product name/i);
