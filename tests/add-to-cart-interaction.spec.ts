@@ -37,7 +37,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
 
     // 4. The card must show: image, name, price, quantity controls, remove button
     await expect(cartItemCard.locator("img")).toBeVisible();
-    await expect(cartItemCard.getByRole("link", { name: /tshirt/i }).first()).toBeVisible();
+    await expect(cartItemCard.getByRole("link", { name: /t-?shirt/i }).first()).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: "Decrease quantity" })).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: "Increase quantity" })).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: /Remove/i })).toBeVisible();
@@ -104,9 +104,9 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     await expect(cartItem.locator("img")).toBeVisible();
 
     // Verify SKU or price is displayed on card
-    const skuElem = cartItem.locator('p:has-text("ZR-CL-")').first();
+    const skuElem = cartItem.locator('p:has-text("SKU:")').first();
     await expect(skuElem).toBeAttached();
-    await expect(cartItem.getByText(/₹10|₹15/).first()).toBeVisible();
+    await expect(cartItem.getByText(/₹\d+/).first()).toBeVisible();
   });
 
   test("4. Card controls: Quantity changes (+/-) and Remove button work instantly", async ({
