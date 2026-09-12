@@ -131,8 +131,19 @@ function HomepageSectionItem({
   const sectionProducts = resolveSectionProducts(section, list);
   const isHidden = !section.is_visible;
   const resolvedTheme = resolveSectionTheme(section.theme_preset, section.theme_config);
-  const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
   const scheduleStatus = getSectionScheduleStatus(section);
+
+  // On customer storefront, omit hidden/inactive sections or sections with no products
+  if (!adminMode) {
+    if (isHidden || scheduleStatus === "upcoming" || scheduleStatus === "expired") {
+      return null;
+    }
+    if (sectionProducts.length === 0 && !isLoading) {
+      return null;
+    }
+  }
+
+  const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
 
   const spacingClass =
     section.spacing === "compact"
@@ -402,33 +413,8 @@ function Index() {
 
   const list = products ?? [];
 
-  // Fallback default sections if database hasn't loaded or is empty
-  const defaultSections: HomepageSection[] = [
-    {
-      id: "default-bestsellers",
-      title: "Bestsellers",
-      subtitle: "Top picks loved by parents across India",
-      slug: "bestsellers",
-      section_type: "PRODUCT_GRID",
-      source_type: "BESTSELLERS",
-      status: "published",
-      is_visible: true,
-      sort_order: 1,
-      display_settings: {
-        max_products: 8,
-        show_subtitle: true,
-        show_cta: true,
-        cta_label: "View all",
-        cta_link: "/shop",
-      },
-      theme_preset: "DEFAULT",
-      theme_config: {},
-      badge_text: null,
-      starts_at: null,
-      ends_at: null,
-      spacing: "normal",
-    },
-  ];
+  // Fallback default sections if database hasn't loaded or is empty (empty by default so no unconfigured sections render)
+  const defaultSections: HomepageSection[] = [];
 
   const sectionsToRender =
     dbSections && dbSections.length > 0
