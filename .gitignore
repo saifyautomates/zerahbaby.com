@@ -44,6 +44,7 @@ test-results/
 playwright-report/
 take-screenshots.cjs
 tests/e2e-debug.spec.ts
+tests/artifacts/
 
 # Agent / IDE config
 .agent/

@@ -81,7 +81,7 @@ type Props = {
 /*  HTML Builder (iframe-isolated, no CSS classes needed)              */
 /* ------------------------------------------------------------------ */
 
-function buildThermalHTML(
+export function buildThermalHTML(
   sale: ThermalReceiptSale,
   items: ThermalReceiptItem[],
   date: Date,

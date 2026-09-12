@@ -2932,25 +2932,25 @@ function SettingsTab() {
               onClick={() => {
                 const iframe = document.createElement("iframe");
                 iframe.style.cssText =
-                  "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;visibility:hidden;";
+                  "position:fixed;top:-9999px;left:-9999px;width:297mm;height:210mm;border:none;visibility:hidden;";
                 document.body.appendChild(iframe);
                 const doc = iframe.contentDocument || iframe.contentWindow?.document;
                 if (doc) {
                   doc.open();
                   doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Test Invoice Print</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 portrait;margin:15mm 12mm;}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#000;padding:20px;}
-.header{border-bottom:3px solid #8B2020;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;}
-.brand{font-size:20px;font-weight:900;color:#8B2020;}table{width:100%;border-collapse:collapse;}
-thead tr{background:#8B2020;color:#fff;}th,td{padding:7px 8px;border-bottom:1px solid #eee;}
-.footer{border-top:2px solid #8B2020;padding-top:10px;margin-top:20px;font-size:10px;color:#666;}
+<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:A4 landscape;margin:10mm;}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#000;width:100%;max-width:277mm;margin:0 auto;padding:4px;}
+.header{border-bottom:2.5px solid #8B2020;padding-bottom:8px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.brand{font-size:18px;font-weight:900;color:#8B2020;}table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px solid #eee;font-size:10.5px;}
+.footer{border-top:1.5px solid #8B2020;padding-top:6px;margin-top:12px;font-size:9.5px;color:#666;display:flex;justify-content:space-between;}
 </style></head><body>
-<div class="header"><div><div class="brand" style="display:flex;align-items:center;gap:12px;"><img loading="lazy" decoding="async" src="\${window.location.origin}/logo.png" style="width:60px;height:auto;" alt="Zerah"/><div>ZÉRAH BABY &amp; KIDS</div></div><div style="font-size:10px;color:#666;">Test Invoice Print — Calibration Sheet</div></div>
-<div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#8B2020;">TEST INVOICE</div><div>INV-TEST-001</div></div></div>
-<table><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-<tbody><tr><td>Test Product A</td><td>2</td><td>₹499</td><td>₹998</td></tr>
-<tr><td style="background:#faf8f8;">Test Product B</td><td>1</td><td>₹299</td><td>₹299</td></tr></tbody></table>
-<div style="text-align:right;margin-top:12px;"><div>Subtotal: ₹1,297</div><div style="font-size:15px;font-weight:900;color:#8B2020;">TOTAL: ₹1,297</div></div>
-<div class="footer">TEST PRINT — No business data was created · Zérah Baby &amp; Kids</div>
+<div class="header"><div class="brand" style="display:flex;align-items:center;gap:10px;"><img loading="lazy" decoding="async" src="\${window.location.origin}/logo.png" style="width:40px;height:auto;" alt="Zerah"/><div><div>ZÉRAH BABY &amp; KIDS</div><div style="font-size:9px;color:#666;font-weight:normal;">Test Invoice Print — A4 Landscape Calibration Sheet</div></div></div>
+<div style="text-align:right;"><div style="font-size:12px;font-weight:800;color:#8B2020;background:#fde8e8;padding:2px 8px;border-radius:4px;display:inline-block;">TEST INVOICE (LANDSCAPE)</div><div style="font-size:10px;margin-top:2px;">INV-TEST-001 · 277mm × 190mm</div></div></div>
+<table><thead><tr><th style="text-align:left;">Product Description</th><th style="text-align:center;width:60px;">Qty</th><th style="text-align:right;width:100px;">Price</th><th style="text-align:right;width:100px;">Total</th></tr></thead>
+<tbody><tr><td>Test Product A (Premium Organic Cotton Romper)</td><td style="text-align:center;">2</td><td style="text-align:right;">₹499</td><td style="text-align:right;">₹998</td></tr>
+<tr><td style="background:#faf8f8;">Test Product B (Soft Baby Mittens - 2 Pack)</td><td style="text-align:center;background:#faf8f8;">1</td><td style="text-align:right;background:#faf8f8;">₹299</td><td style="text-align:right;background:#faf8f8;">₹299</td></tr></tbody></table>
+<div style="text-align:right;margin-top:8px;"><div>Subtotal: ₹1,297</div><div style="font-size:14px;font-weight:900;color:#8B2020;">TOTAL: ₹1,297</div></div>
+<div class="footer"><span>TEST PRINT — Calibration Sheet for A4 Landscape</span><span>Zérah Baby &amp; Kids · zerahkids.com</span></div>
 </body></html>`);
                   doc.close();
                   iframe.onload = () => {

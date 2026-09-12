@@ -99,7 +99,7 @@ const STORE = {
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
-function buildA4HTML(
+export function buildA4HTML(
   sale: A4InvoiceSale,
   items: A4InvoiceItem[],
   store: ReturnType<typeof useSettings>,
@@ -108,7 +108,7 @@ function buildA4HTML(
 
   const dateStr = date.toLocaleDateString("en-IN", {
     day: "2-digit",
-    month: "long",
+    month: "short",
     year: "numeric",
   });
   const timeStr = date.toLocaleTimeString("en-IN", {
@@ -116,31 +116,34 @@ function buildA4HTML(
     minute: "2-digit",
   });
 
+  const totalItemsCount = items.reduce((s, it) => s + (it.qty || 1), 0);
+
   const itemRows = items
     .map((item, i) => {
       const lineTotal = item.price * item.qty;
-      const hasMRP = item.mrp && item.mrp > item.price;
+      const hasMRP = typeof item.mrp === "number" && item.mrp > item.price;
+      const totalSavings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
       const variantDetails = [
         item.color ? `Color: ${escapeHtml(item.color)}` : "",
         item.size ? `Size: ${escapeHtml(item.size)}` : "",
         item.sku ? `SKU: ${escapeHtml(item.sku)}` : "",
+        item.barcode ? `Barcode: ${escapeHtml(item.barcode)}` : "",
       ]
         .filter(Boolean)
         .join(" · ");
 
       return `
-    <tr class="${i % 2 === 0 ? "even" : ""}">
-      <td>
+    <tr class="${i % 2 === 1 ? "alt-row" : ""}">
+      <td class="center cell-idx">${i + 1}</td>
+      <td class="cell-desc">
         <div class="item-name">${escapeHtml(item.name)}</div>
-        ${variantDetails ? `<div class="sku" style="font-size: 10px; color: #475569; margin-top: 2px;">${variantDetails}</div>` : ""}
+        ${variantDetails ? `<div class="item-meta">${variantDetails}</div>` : ""}
       </td>
-      <td class="center">${item.qty}</td>
-      <td class="right">
-        ${hasMRP ? `<div class="mrp-col">MRP: ₹${item.mrp!.toLocaleString("en-IN")}</div>` : ""}
-        <div class="bold">₹${item.price.toLocaleString("en-IN")}</div>
-        ${hasMRP ? `<div style="font-size: 9px; color: #15803d; margin-top: 2px;">Save: ₹${(item.mrp! - item.price).toLocaleString("en-IN")}</div>` : ""}
-      </td>
-      <td class="right bold">₹${lineTotal.toLocaleString("en-IN")}</td>
+      <td class="center bold cell-qty">${item.qty}</td>
+      <td class="right cell-mrp">${hasMRP ? `<span class="mrp-strike">₹${item.mrp!.toLocaleString("en-IN")}</span>` : "—"}</td>
+      <td class="right bold cell-rate">₹${item.price.toLocaleString("en-IN")}</td>
+      <td class="right cell-save">${totalSavings > 0 ? `<span class="save-tag">₹${totalSavings.toLocaleString("en-IN")}</span>` : "—"}</td>
+      <td class="right bold cell-total">₹${lineTotal.toLocaleString("en-IN")}</td>
     </tr>`;
     })
     .join("");
@@ -161,340 +164,423 @@ function buildA4HTML(
 <title>Invoice ${escapeHtml(sale.sale_number)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   @page {
-    size: A4 portrait;
-    margin: 15mm 12mm 15mm 12mm;
+    size: A4 landscape;
+    margin: 10mm;
   }
-  body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    font-size: 11px;
-    color: #1a1a1a;
-    background: #fff;
-    line-height: 1.5;
+
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1.35;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  /* ── Header ── */
+
+  .invoice-container {
+    width: 100%;
+    max-width: 277mm;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  /* ── 3-Column Landscape Header (277mm width) ── */
   .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 3px solid #8B2020;
-    padding-bottom: 12px;
-    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    align-items: center;
+    border-bottom: 2.5px solid #8B2020;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    gap: 16px;
   }
   .header-left {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    width: 100%;
-    text-align: center;
+    gap: 10px;
   }
-  .invoice-meta-container {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 16px;
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    flex-shrink: 0;
   }
-  .brand-name {
-    font-size: 26px;
+  .brand-title {
+    font-size: 17px;
     font-weight: 900;
     color: #8B2020;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    line-height: 1.1;
   }
-  .brand-contact {
-    font-size: 11px;
-    color: #555;
-    margin-top: 6px;
-    line-height: 1.6;
+  .brand-tagline {
+    font-size: 9px;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin-top: 1px;
+  }
+  .header-center {
     text-align: center;
+    font-size: 9px;
+    color: #475569;
+    line-height: 1.35;
+    padding: 0 12px;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
   }
-  .invoice-meta {
+  .header-right {
     text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
   }
-  .invoice-title {
-    font-size: 16px;
+  .invoice-badge {
+    background: #8B2020;
+    color: #ffffff;
+    font-size: 11px;
     font-weight: 800;
-    color: #8B2020;
+    padding: 3px 12px;
+    border-radius: 4px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    display: inline-block;
   }
   .invoice-number {
     font-size: 13px;
-    font-weight: 700;
-    margin-top: 4px;
-    color: #1a1a1a;
+    font-weight: 800;
+    color: #0f172a;
+    font-family: monospace;
+    margin-top: 2px;
   }
   .invoice-date {
-    font-size: 10px;
-    color: #555;
-    margin-top: 3px;
+    font-size: 9px;
+    color: #64748b;
   }
-  /* ── Info rows ── */
-  .info-grid {
+
+  /* ── 3-Column Info Bar ── */
+  .info-bar {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
   }
   .info-card {
-    border: 1px solid #e5e5e5;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
-    padding: 10px 12px;
+    padding: 6px 10px;
+    background: #f8fafc;
   }
   .info-card-title {
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 8.5px;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #8B2020;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
   }
   .info-card-value {
     font-size: 11px;
-    font-weight: 600;
-    color: #1a1a1a;
+    font-weight: 700;
+    color: #0f172a;
   }
   .info-card-sub {
-    font-size: 10px;
-    color: #555;
+    font-size: 9px;
+    color: #64748b;
     margin-top: 1px;
   }
-  /* ── Items table ── */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 12px;
-  }
-  thead tr {
-    background: #8B2020;
-    color: #fff;
-  }
-  thead th {
-    padding: 7px 8px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  thead th.right { text-align: right; }
-  thead th.center { text-align: center; }
-  tbody tr.even { background: #faf8f8; }
-  tbody td {
-    padding: 7px 8px;
-    vertical-align: top;
-    border-bottom: 1px solid #efefef;
-  }
-  .item-name { font-weight: 600; }
-  .sku { font-size: 9px; color: #888; font-weight: 400; font-family: monospace; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: 700; }
-  .mrp-col { color: #999; text-decoration: line-through; }
-  /* ── Totals ── */
-  .totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-  }
-  .totals-box {
-    width: 220px;
-    border: 1px solid #e5e5e5;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .totals-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 10px;
-    font-size: 11px;
-  }
-  .totals-row.alt { background: #faf8f8; }
-  .totals-row.discount { color: #15803d; }
-  .totals-row.grand-total {
-    background: #8B2020;
-    color: #fff;
-    font-weight: 800;
-    font-size: 13px;
-    padding: 8px 10px;
-  }
-  /* ── Payment ── */
   .payment-badge {
     display: inline-block;
     background: #f0fdf4;
     border: 1px solid #86efac;
-    border-radius: 20px;
-    padding: 3px 10px;
-    font-size: 10px;
+    border-radius: 12px;
+    padding: 1px 8px;
+    font-size: 9px;
     font-weight: 700;
     color: #15803d;
     text-transform: uppercase;
+    margin-right: 4px;
   }
-  /* ── Footer ── */
-  .footer {
-    border-top: 2px solid #8B2020;
-    padding-top: 10px;
+  .status-badge {
+    display: inline-block;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 1px 8px;
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #047857;
+    text-transform: uppercase;
+  }
+
+  /* ── Wide Line Items Table ── */
+  table.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    page-break-inside: auto;
+  }
+  table.items-table thead {
+    display: table-header-group;
+  }
+  table.items-table thead tr {
+    background: #8B2020;
+    color: #ffffff;
+  }
+  table.items-table th {
+    padding: 6px 8px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border: none;
+  }
+  table.items-table th.col-idx { width: 30px; text-align: center; }
+  table.items-table th.col-desc { text-align: left; }
+  table.items-table th.col-qty { width: 55px; text-align: center; }
+  table.items-table th.col-mrp { width: 85px; text-align: right; }
+  table.items-table th.col-rate { width: 85px; text-align: right; }
+  table.items-table th.col-save { width: 85px; text-align: right; }
+  table.items-table th.col-total { width: 95px; text-align: right; }
+
+  table.items-table tbody tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  table.items-table tbody tr.alt-row {
+    background: #f8fafc;
+  }
+  table.items-table td {
+    padding: 5px 8px;
+    font-size: 9.5px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .item-name { font-weight: 700; color: #0f172a; }
+  .item-meta { font-size: 8.5px; color: #64748b; font-family: monospace; margin-top: 1px; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: 700; }
+  .mrp-strike { color: #94a3b8; text-decoration: line-through; }
+  .save-tag { color: #15803d; font-weight: 700; }
+
+  /* ── 2-Column Bottom Summary Section ── */
+  .bottom-summary {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    align-items: start;
+    margin-top: 2px;
+    margin-bottom: 6px;
+    page-break-inside: avoid;
+  }
+  .summary-left {
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    font-size: 8.5px;
+    color: #475569;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .summary-title {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+  .totals-box {
+    border: 1.5px solid #8B2020;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .totals-row {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-top: 20px;
-  }
-  .footer-policy {
-    font-size: 9px;
-    color: #666;
-    max-width: 300px;
-    line-height: 1.5;
-  }
-  .footer-thanks {
-    text-align: right;
+    padding: 3.5px 10px;
     font-size: 10px;
-    color: #8B2020;
-    font-weight: 700;
+    border-bottom: 1px solid #f1f5f9;
   }
-  .footer-web {
-    font-size: 9px;
-    color: #555;
-    margin-top: 2px;
+  .totals-row.discount { color: #15803d; font-weight: 600; }
+  .totals-row.grand-total {
+    background: #8B2020;
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-bottom: none;
   }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1.5px solid #8B2020;
+    padding-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8.5px;
+    color: #64748b;
+    margin-top: auto;
+    page-break-inside: avoid;
+  }
+  .footer-left { font-weight: 700; color: #8B2020; }
+  .footer-right { font-weight: 600; color: #475569; }
   .no-print { display: none !important; }
 </style>
 </head>
 <body>
 
-<!-- ── HEADER ── -->
-<div class="header">
-  <div class="header-left">
-    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px;">
-      <img loading="lazy" decoding="async" src="${window.location.origin}/logo.png" style="width:54px;height:54px;object-fit:contain;" alt="Zerah Logo"/>
-      <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
+<div class="invoice-container">
+  <!-- ── 3-COLUMN HEADER ── -->
+  <div class="header">
+    <div class="header-left">
+      <img loading="lazy" decoding="async" src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" class="brand-logo" alt="Zerah Logo"/>
+      <div>
+        <div class="brand-title">ZÉRAH BABY &amp; KIDS STORE</div>
+        <div class="brand-tagline">Premium Children's Clothing · Newborn to Pre-Teen</div>
+      </div>
     </div>
-    <div class="brand-contact">
-      In Front of Hanumanji Temple,<br/>
-      Atwal Nagar, Kota, Rajasthan<br/>
-      Ph: ${escapeHtml(store.contactPhone)}<br/>
-      ${escapeHtml(store.contactEmail)}
+    <div class="header-center">
+      <div>In Front of Hanumanji Temple, Atwal Nagar</div>
+      <div>Kota, Rajasthan 324001</div>
+      <div>Ph: ${escapeHtml(store.contactPhone)}</div>
+      <div>${escapeHtml(store.contactEmail)}</div>
+    </div>
+    <div class="header-right">
+      <div class="invoice-badge">${sale.status === "pending_sync" || sale.is_offline_queued ? "OFFLINE VOUCHER" : "TAX INVOICE"}</div>
+      <div class="invoice-number">${escapeHtml(sale.sale_number)}</div>
+      <div class="invoice-date">${dateStr} · ${timeStr}</div>
     </div>
   </div>
-</div>
-<div class="invoice-meta-container">
-  <div>
-    <div class="invoice-title">${sale.status === "pending_sync" || sale.is_offline_queued ? "OFFLINE VOUCHER" : "TAX INVOICE"}</div>
-    <div class="invoice-number">${escapeHtml(sale.sale_number)}</div>
-    <div class="invoice-date">${dateStr}<br/>${timeStr}</div>
-  </div>
-</div>
-${
-  sale.status === "pending_sync" || sale.is_offline_queued
-    ? `<div style="margin: 10px 0; padding: 8px 12px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; text-align: center; color: #b45309; font-weight: 700; font-size: 11px;">
-        ⚡ PENDING CLOUD SYNCHRONIZATION — This sale was recorded offline and will be synchronized automatically.
-       </div>`
-    : ""
-}
 
-<!-- ── BILLED TO / PAYMENT INFO ── -->
-<div class="info-grid">
-  <div class="info-card">
-    <div class="info-card-title">Billed To</div>
-    <div class="info-card-value">${escapeHtml(sale.customer_name)}</div>
-    ${sale.customer_phone ? `<div class="info-card-sub">Ph: ${escapeHtml(sale.customer_phone)}</div>` : ""}
-    ${sale.customer_email ? `<div class="info-card-sub">${escapeHtml(sale.customer_email)}</div>` : ""}
-  </div>
-  <div class="info-card">
-    <div class="info-card-title">Payment Mode</div>
-    <div style="margin-top:2px;"><span class="payment-badge">${escapeHtml(paymentDisplay)}</span></div>
-    ${
-      sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div class="info-card-sub" style="margin-top:4px; font-weight:700; color:#047857;">
-            Store Credit: ₹${sale.store_credit_used.toLocaleString("en-IN")} ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}
-           </div>`
-        : ""
-    }
-    <div class="info-card-sub" style="margin-top:4px;">Status: PAID</div>
-  </div>
-</div>
+  ${
+    sale.status === "pending_sync" || sale.is_offline_queued
+      ? `<div style="margin: 4px 0 8px; padding: 5px 10px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; text-align: center; color: #b45309; font-weight: 700; font-size: 10px;">
+          ⚡ PENDING CLOUD SYNCHRONIZATION — This sale was recorded offline and will be synchronized automatically.
+         </div>`
+      : ""
+  }
 
-<!-- ── ITEMS TABLE ── -->
-<table>
-  <thead>
-    <tr>
-      <th style="text-align:left;">Product</th>
-      <th class="center">Qty</th>
-      <th class="right">Price / Savings</th>
-      <th class="right">Total</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${itemRows}
-  </tbody>
-</table>
-
-<!-- ── TOTALS ── -->
-<div class="totals">
-  <div class="totals-box">
-    <div class="totals-row">
-      <span>Subtotal</span>
-      <span>₹${sale.subtotal.toLocaleString("en-IN")}</span>
+  <!-- ── 3-COLUMN INFO BAR ── -->
+  <div class="info-bar">
+    <div class="info-card">
+      <div class="info-card-title">Billed To</div>
+      <div class="info-card-value">${escapeHtml(sale.customer_name || "Walk-in Customer")}</div>
+      ${sale.customer_phone ? `<div class="info-card-sub">Ph: ${escapeHtml(sale.customer_phone)}</div>` : ""}
+      ${sale.customer_email ? `<div class="info-card-sub">${escapeHtml(sale.customer_email)}</div>` : ""}
     </div>
-    ${
-      sale.coupon_discount && sale.coupon_discount > 0
-        ? `<div class="totals-row alt discount">
-        <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
-        <span>−₹${sale.coupon_discount.toLocaleString("en-IN")}</span>
-      </div>`
-        : ""
-    }
-    ${
-      sale.discount > 0
-        ? `<div class="totals-row alt discount">
-        <span>${escapeHtml(discountLabel)}</span>
-        <span>−₹${sale.discount.toLocaleString("en-IN")}</span>
-      </div>`
-        : ""
-    }
-    <div class="totals-row grand-total">
-      <span>TOTAL</span>
-      <span>₹${sale.total.toLocaleString("en-IN")}</span>
+    <div class="info-card">
+      <div class="info-card-title">Payment Mode &amp; Status</div>
+      <div style="margin-top:2px;">
+        <span class="payment-badge">${escapeHtml(paymentDisplay)}</span>
+        <span class="status-badge">PAID</span>
+      </div>
+      ${
+        sale.store_credit_used && sale.store_credit_used > 0
+          ? `<div class="info-card-sub" style="margin-top:3px; font-weight:700; color:#047857;">
+              Store Credit Tender: ₹${sale.store_credit_used.toLocaleString("en-IN")} ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}
+             </div>`
+          : ""
+      }
     </div>
-    ${
-      sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div class="totals-row alt" style="color:#047857; font-weight:700; margin-top:4px; border-top:1px dashed #ccc; padding-top:4px;">
-            <span>Exchange Credit Tender ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
-            <span>₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
-          </div>
-          <div class="totals-row alt" style="font-weight:700;">
-            <span>Additional Paid (${escapeHtml(paymentDisplay)})</span>
-            <span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
-          </div>
-          <div class="totals-row" style="font-size:10px; color:#555;">
-            <span>Total Settled</span>
-            <span>₹${sale.total.toLocaleString("en-IN")}</span>
-          </div>`
-        : `<div class="totals-row alt" style="font-size:11px; color:#555; margin-top:2px;">
-            <span>Payment Method</span>
-            <span>${escapeHtml(paymentDisplay)}</span>
-          </div>`
-    }
-  </div>
-</div>
-
-${
-  sale.notes
-    ? `<div style="margin-bottom:12px;font-size:10px;color:#555;">
-    <strong>Notes:</strong> ${escapeHtml(sale.notes)}
-  </div>`
-    : ""
-}
-
-<!-- ── FOOTER ── -->
-<div class="footer">
-  <div>
-    <div class="footer-policy">
-      <strong>Return &amp; Exchange Policy:</strong><br/>
-      Exchange/Return within 7 days with original receipt & tags intact.
+    <div class="info-card">
+      <div class="info-card-title">Sale Details</div>
+      <div class="info-card-value">${totalItemsCount} Total Item${totalItemsCount !== 1 ? "s" : ""} (${items.length} Product${items.length !== 1 ? "s" : ""})</div>
+      <div class="info-card-sub">Terminal: ZÉRAH POS · Cashier Counter</div>
     </div>
-    <div style="margin-top:6px;font-size:9px;color:#aaa;">GST: Not Applicable</div>
   </div>
-  <div class="footer-thanks">
-    Thank You For Shopping!
-    <div class="footer-web">zerahkids.com · ${escapeHtml(store.instagramUrl)}</div>
+
+  <!-- ── WIDE ITEMS TABLE ── -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th class="col-idx">#</th>
+        <th class="col-desc">Item Description</th>
+        <th class="col-qty">Qty</th>
+        <th class="col-mrp">MRP</th>
+        <th class="col-rate">Unit Price</th>
+        <th class="col-save">Savings</th>
+        <th class="col-total">Net Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+    </tbody>
+  </table>
+
+  <!-- ── 2-COLUMN BOTTOM SUMMARY ── -->
+  <div class="bottom-summary">
+    <div class="summary-left">
+      <div>
+        <div class="summary-title">Return &amp; Exchange Policy:</div>
+        <div>Exchange or return within 7 days of purchase with original receipt and price tags intact.</div>
+      </div>
+      <div style="font-size: 8.5px; color: #64748b;">
+        GST: Not Applicable (Composition / Exemption Threshold) · Computer Generated Invoice
+      </div>
+      ${
+        sale.notes
+          ? `<div style="font-size: 8.5px; color: #475569; border-top: 1px dashed #cbd5e1; padding-top: 3px; margin-top: 2px;">
+              <strong>Notes:</strong> ${escapeHtml(sale.notes)}
+             </div>`
+          : ""
+      }
+    </div>
+
+    <div class="totals-box">
+      <div class="totals-row">
+        <span>Subtotal</span>
+        <span>₹${sale.subtotal.toLocaleString("en-IN")}</span>
+      </div>
+      ${
+        sale.coupon_discount && sale.coupon_discount > 0
+          ? `<div class="totals-row discount">
+          <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
+          <span>−₹${sale.coupon_discount.toLocaleString("en-IN")}</span>
+        </div>`
+          : ""
+      }
+      ${
+        sale.discount > 0
+          ? `<div class="totals-row discount">
+          <span>${escapeHtml(discountLabel)}</span>
+          <span>−₹${sale.discount.toLocaleString("en-IN")}</span>
+        </div>`
+          : ""
+      }
+      <div class="totals-row grand-total">
+        <span>TOTAL</span>
+        <span>₹${sale.total.toLocaleString("en-IN")}</span>
+      </div>
+      ${
+        sale.store_credit_used && sale.store_credit_used > 0
+          ? `<div class="totals-row" style="color:#047857; font-weight:700; background:#f0fdf4; font-size:9.5px;">
+              <span>Credit Used ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
+              <span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
+            </div>
+            <div class="totals-row" style="font-weight:700; font-size:9.5px;">
+              <span>Additional Paid (${escapeHtml(paymentDisplay)})</span>
+              <span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
+            </div>`
+          : ""
+      }
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="footer">
+    <div class="footer-left">Thank You For Shopping At ZÉRAH BABY &amp; KIDS!</div>
+    <div class="footer-right">zerahkids.com · ${escapeHtml(store.instagramUrl || "@zerah_kids")}</div>
   </div>
 </div>
 
@@ -570,7 +656,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     try {
       const iframe = document.createElement("iframe");
       iframe.style.cssText =
-        "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;visibility:hidden;";
+        "position:fixed;top:-9999px;left:-9999px;width:297mm;height:210mm;border:none;visibility:hidden;";
       document.body.appendChild(iframe);
 
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -581,7 +667,10 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         return;
       }
 
+      let printed = false;
       const triggerPrint = () => {
+        if (printed) return;
+        printed = true;
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
@@ -640,13 +729,18 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-md flex-col rounded-2xl border border-border bg-card shadow-2xl"
+        className="flex w-full max-w-xl flex-col rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Modal Header ── */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-foreground">A4 Invoice</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-foreground">A4 Invoice</h2>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-[#8B2020]/10 text-[#8B2020]">
+                A4 Landscape
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground">{sale.sale_number}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -750,7 +844,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B2020] py-2.5 text-sm font-bold text-white hover:bg-[#7a1c1c] disabled:opacity-60 transition-all"
           >
             <Printer className="h-4 w-4" />
-            {printStatus === "printing" ? "Printing…" : "Print A4 Invoice"}
+            {printStatus === "printing" ? "Printing…" : "Print A4 Invoice (Landscape)"}
           </button>
         </div>
       </div>
