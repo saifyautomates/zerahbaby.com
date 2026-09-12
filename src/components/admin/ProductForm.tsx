@@ -132,6 +132,69 @@ function generateBarcode(): string {
   return Math.floor(100000000000 + Math.random() * 900000000000).toString();
 }
 
+const QUICK_TEMPLATES = [
+  {
+    icon: "🍼",
+    label: "Baby Romper",
+    category: "clothing",
+    ageGroup: "0-6m",
+    price: 399,
+    mrp: 799,
+    highlights:
+      "100% Organic Breathable Cotton\nGentle on Sensitive Skin\nEasy Snap Button Inseam for Fast Changes\nMachine Wash Friendly & Fade Resistant",
+    description:
+      "Ultra-soft organic cotton romper crafted for delicate baby skin. Lightweight, breathable, and designed for maximum comfort during play and naps.",
+  },
+  {
+    icon: "👗",
+    label: "Party Frock",
+    category: "clothing",
+    ageGroup: "1-2Y",
+    price: 599,
+    mrp: 1199,
+    highlights:
+      "Soft Inner Lining for Itch-Free Wear\nCharming Design Perfect for Parties & Birthdays\nComfortable Relaxed Fit\nEasy Zipper / Button Closure",
+    description:
+      "Delightful baby frock made with breathable fabric and a gentle lining to keep your little princess comfortable and stylish all day.",
+  },
+  {
+    icon: "🧸",
+    label: "Soft Toy / Rattle",
+    category: "toys",
+    ageGroup: "0-3m",
+    price: 299,
+    mrp: 599,
+    highlights:
+      "100% BPA-Free & Non-Toxic Baby-Safe Materials\nUltra-Soft Plush Finish with No Sharp Edges\nEasy to Grip for Tiny Hands\nStimulates Sensory & Motor Skills",
+    description:
+      "Cute and cuddly baby toy designed for gentle play and sensory stimulation. Safe for chewing and hugging.",
+  },
+  {
+    icon: "👟",
+    label: "Shoes / Booties",
+    category: "clothing",
+    ageGroup: "6-12m",
+    price: 349,
+    mrp: 699,
+    highlights:
+      "Flexible Anti-Slip Soft Sole\nGentle Elastic Ankle Support for Snug Fit\nBreathable Upper Material\nLightweight First-Walker Protection",
+    description:
+      "Comfortable pre-walker booties that protect little feet while learning to crawl and take their first steps.",
+  },
+  {
+    icon: "👶",
+    label: "Baby Care",
+    category: "care",
+    ageGroup: "All Ages",
+    price: 249,
+    mrp: 499,
+    highlights:
+      "Dermatologically Tested & Hypoallergenic\nFree from Parabens, Sulphates & Harsh Toxins\nNourishing Natural Plant Extracts\nTear-Free Gentle Everyday Care",
+    description:
+      "Gentle baby daily care essential carefully formulated to cleanse, nourish, and protect delicate baby skin.",
+  },
+];
+
 const toDraft = (
   p: Product | null,
   defaultCategory?: string,
@@ -342,7 +405,7 @@ export function ProductForm({
     setInitialJobs,
     isUploading,
   } = useUploader({
-    concurrency: 3,
+    concurrency: 5,
     prefix: product ? product.uuid : "drafts",
     onSuccess: async (job) => {
       // Immediate database save for existing products
@@ -555,19 +618,81 @@ export function ProductForm({
   );
 
   const addFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+    async (files: FileList | File[] | null) => {
+      if (!files) return;
+      const fileList = Array.isArray(files) ? files : Array.from(files);
+      if (fileList.length === 0) return;
       const room = MAX_IMAGES - jobs.length;
       if (room <= 0) {
         toast.error(`Up to ${MAX_IMAGES} images per product`);
         return;
       }
 
-      const filesArray = Array.from(files).slice(0, room);
+      const filesArray = fileList.slice(0, room);
       startUploads(filesArray);
     },
     [jobs.length, startUploads],
   );
+
+  // 1-Click Clipboard Paste (Ctrl+V) anywhere inside the form
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTextInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
+
+      if (!e.clipboardData) return;
+      const files = Array.from(e.clipboardData.files).filter((f) =>
+        f.type.startsWith("image/") || f.type.startsWith("video/"),
+      );
+
+      if (files.length > 0) {
+        e.preventDefault();
+        void addFiles(files);
+        toast.success(`📋 Pasted ${files.length} image${files.length > 1 ? "s" : ""} from clipboard!`);
+        return;
+      }
+
+      if (!isTextInput) {
+        const itemFiles: File[] = [];
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.startsWith("image/")) {
+            const f = item.getAsFile();
+            if (f) itemFiles.push(f);
+          }
+        }
+        if (itemFiles.length > 0) {
+          e.preventDefault();
+          void addFiles(itemFiles);
+          toast.success(`📋 Pasted ${itemFiles.length} image${itemFiles.length > 1 ? "s" : ""} from clipboard!`);
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [addFiles]);
+
+  const canSave = Boolean(draft.name.trim()) && !saving && !isSubmitting && !isUploading;
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S to save product instantly
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (canSave) {
+          void handleSave(false);
+        } else if (!draft.name.trim()) {
+          toast.warning("Please enter a product name first!");
+        } else if (isUploading) {
+          toast.warning("Please wait for images to finish uploading before saving.");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canSave, draft.name, isUploading]);
 
   const handleDragOverContainer = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -617,61 +742,144 @@ export function ProductForm({
       return;
     }
     setIsGeneratingAi(true);
-    setTimeout(() => {
-      const title = draft.name.trim();
-      const lower = title.toLowerCase();
 
-      // Smart baby-focused luxury description
-      const desc = `Crafted with utmost care for your little one, this ${title} blends premium fabric softness with charming everyday style. Perfect for active play, outings, and cozy nap times with effortless breathability.`;
+    const title = draft.name.trim();
+    const lower = title.toLowerCase();
 
-      // Smart baby highlights
-      const hl = [
-        "100% Breathable Ultra-Soft Baby-Safe Fabric",
-        "Gentle on Sensitive Skin with Non-Toxic Dyes",
-        "Reinforced Seams with Easy Snap Closures",
-        "Machine Wash Friendly & Fade Resistant",
+    // Smart baby-focused luxury description
+    const desc = `Crafted with utmost care for your little one, this ${title} blends premium fabric softness with charming everyday comfort. Perfect for active play, outings, and cozy nap times with effortless breathability.`;
+
+    // Smart baby highlights tailored to clothing vs toys vs care
+    let hl = [
+      "100% Breathable Ultra-Soft Baby-Safe Fabric",
+      "Gentle on Sensitive Skin with Non-Toxic Dyes",
+      "Reinforced Seams with Easy Snap Closures",
+      "Machine Wash Friendly & Fade Resistant",
+    ];
+
+    let detectedCat = draft.category;
+    let detectedAge = draft.ageGroup;
+
+    if (
+      lower.includes("romper") ||
+      lower.includes("onesie") ||
+      lower.includes("bodysuit") ||
+      lower.includes("sleepsuit") ||
+      lower.includes("jumpsuit")
+    ) {
+      detectedCat = "clothing";
+      detectedAge = detectedAge || "0-6m";
+      hl = [
+        "100% Organic Breathable Cotton",
+        "Nickel-Free Inseam Snaps for Fast Diaper Changes",
+        "Tagless Labeling to Prevent Sensitive Skin Irritation",
+        "Expandable Lap Shoulders for Easy Dressing",
       ];
+    } else if (
+      lower.includes("dress") ||
+      lower.includes("frock") ||
+      lower.includes("gown") ||
+      lower.includes("skirt")
+    ) {
+      detectedCat = "clothing";
+      detectedAge = detectedAge || "1-2Y";
+      hl = [
+        "Soft Breathable Inner Lining for Itch-Free Wear",
+        "Charming Design Perfect for Parties & Birthdays",
+        "Comfortable Relaxed Fit for Free Movement",
+        "Durable Color-Fast Machine Washable Fabric",
+      ];
+    } else if (
+      lower.includes("toy") ||
+      lower.includes("rattle") ||
+      lower.includes("plush") ||
+      lower.includes("car") ||
+      lower.includes("teether") ||
+      lower.includes("puzzle")
+    ) {
+      detectedCat = "toys";
+      detectedAge = detectedAge || "0-3m";
+      hl = [
+        "100% BPA-Free & Non-Toxic Baby-Safe Materials",
+        "Rounded Smooth Edges with Ultra-Durable Build",
+        "Encourages Sensory Development & Motor Skills",
+        "Easy to Wipe Clean & Sanitize",
+      ];
+    } else if (
+      lower.includes("bootie") ||
+      lower.includes("shoe") ||
+      lower.includes("sandal") ||
+      lower.includes("sock") ||
+      lower.includes("slipper")
+    ) {
+      detectedCat = "footwear";
+      detectedAge = detectedAge || "6-12m";
+      hl = [
+        "Flexible Soft-Sole Design for Pre-Walkers",
+        "Anti-Slip Gripper Bottom for Secure Footing",
+        "Gentle Elastic Ankle Support for Snug Fit",
+        "Breathable Cushioning for Sensitive Feet",
+      ];
+    } else if (
+      lower.includes("bottle") ||
+      lower.includes("feeder") ||
+      lower.includes("sipper") ||
+      lower.includes("cup") ||
+      lower.includes("bib") ||
+      lower.includes("pacifier")
+    ) {
+      detectedCat = "feeding";
+      detectedAge = detectedAge || "0-6m";
+      hl = [
+        "100% Food-Grade BPA-Free Safe Materials",
+        "Anti-Colic Gentle Air Valve System",
+        "Easy to Disassemble, Wash & Sterilize",
+        "Ergonomic Easy-Grip Design for Little Hands",
+      ];
+    } else if (
+      lower.includes("lotion") ||
+      lower.includes("oil") ||
+      lower.includes("wash") ||
+      lower.includes("soap") ||
+      lower.includes("shampoo") ||
+      lower.includes("cream") ||
+      lower.includes("wipes")
+    ) {
+      detectedCat = "care";
+      detectedAge = detectedAge || "All Ages";
+      hl = [
+        "Paediatrician & Dermatologically Tested",
+        "Tear-Free Hypoallergenic Gentle Formula",
+        "Zero Parabens, Sulphates, or Harsh Toxins",
+        "Deeply Hydrating Natural Plant Extracts",
+      ];
+    } else if (
+      lower.includes("stroller") ||
+      lower.includes("pram") ||
+      lower.includes("carrier")
+    ) {
+      detectedCat = "gear";
+      detectedAge = detectedAge || "0-3Y";
+      hl = [
+        "Lightweight Sturdy Aircraft-Grade Frame",
+        "One-Hand Compact Folding Mechanism",
+        "Multi-Position Reclining Seat with 5-Point Safety Harness",
+        "All-Terrain Shock-Absorbing Smooth Wheels",
+      ];
+    }
 
-      // Smart category detection
-      let detectedCat = draft.category;
-      if (
-        lower.includes("romper") ||
-        lower.includes("dress") ||
-        lower.includes("shirt") ||
-        lower.includes("set") ||
-        lower.includes("top") ||
-        lower.includes("pant") ||
-        lower.includes("frock") ||
-        lower.includes("cloth")
-      ) {
-        detectedCat = "clothing";
-      } else if (
-        lower.includes("toy") ||
-        lower.includes("rattle") ||
-        lower.includes("plush") ||
-        lower.includes("car")
-      ) {
-        detectedCat = "toys";
-      } else if (
-        lower.includes("bootie") ||
-        lower.includes("shoe") ||
-        lower.includes("sandal") ||
-        lower.includes("sock")
-      ) {
-        detectedCat = "footwear";
-      }
+    setDraft((prev) => ({
+      ...prev,
+      category: detectedCat || prev.category,
+      ageGroup: detectedAge || prev.ageGroup,
+      description: prev.description ? prev.description : desc,
+      highlights: prev.highlights ? prev.highlights : hl.join("\n"),
+      brand: prev.brand || "Zérah",
+      mrp: prev.mrp > 0 ? prev.mrp : prev.price > 0 ? Math.round(prev.price * 1.5) : prev.mrp,
+    }));
 
-      setDraft((prev) => ({
-        ...prev,
-        category: detectedCat || prev.category,
-        description: prev.description ? prev.description : desc,
-        highlights: prev.highlights ? prev.highlights : hl.join("\n"),
-        brand: prev.brand || "Zérah",
-      }));
-
-      setIsGeneratingAi(false);
-      toast.success("✨ AI Generated Description & Key Highlights!");
-    }, 350);
+    setIsGeneratingAi(false);
+    toast.success("✨ Smart Auto-Filled details from title!");
   };
 
   async function handleSave(keepOpenForNext = false) {
@@ -702,9 +910,29 @@ export function ProductForm({
         !img.public_url.startsWith("data:"),
     );
 
+    // Auto-generate safe slug if empty or blank
+    const rawSlug =
+      draft.slug.trim() ||
+      draft.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    const safeSlug = rawSlug || `product-${Date.now().toString(36)}`;
+
+    // Auto-suggest reasonable MRP if selling price is set but MRP was left 0
+    const finalMrp =
+      Number(draft.mrp) > 0
+        ? Number(draft.mrp)
+        : Number(draft.price) > 0
+          ? Math.round(Number(draft.price) * 1.5)
+          : 0;
+
     // Auto-generate SKU and barcode if empty, sync primary image
     const finalDraft = {
       ...draft,
+      slug: safeSlug,
+      mrp: finalMrp,
       images: validImages,
       imageUrl: validImages[0] || "",
       productImages:
@@ -848,10 +1076,68 @@ export function ProductForm({
           className="flex flex-col w-full max-w-3xl max-h-[100dvh] sm:max-h-[92dvh] my-auto rounded-t-3xl sm:rounded-3xl border border-border bg-card shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="shrink-0 border-b border-border p-6">
-            <h2 className="font-display text-xl font-bold">
-              {product ? "Edit product" : "Add product"}
-            </h2>
+          <div className="shrink-0 border-b border-border px-5 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-muted/20">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-display text-lg sm:text-xl font-bold">
+                  {product ? "Edit product" : "Add product"}
+                </h2>
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                  ⚡ Fast Uploader
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 hidden sm:block">
+                Ctrl+V to paste images · Auto SKU & barcode · Ctrl+S to save
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold hover:bg-muted cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              {!product && (
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={!canSave}
+                  title="Save this product and immediately open a fresh blank form for the next product"
+                  className="hidden sm:inline-flex rounded-full border border-primary/40 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-50 cursor-pointer transition active:scale-95"
+                >
+                  {saving || isSubmitting
+                    ? "Saving…"
+                    : isUploading
+                      ? "Uploading…"
+                      : "+ Save & Next"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={!canSave}
+                className="rounded-full bg-primary px-4 py-1.5 text-xs sm:text-sm font-bold text-primary-foreground disabled:opacity-50 cursor-pointer transition active:scale-95 shadow-premium-sm hover:bg-primary/90 flex items-center gap-1.5"
+              >
+                {saving || isSubmitting ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Saving…</span>
+                  </>
+                ) : isUploading ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Uploading images…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="size-3.5 stroke-[2.5]" />
+                    <span>Save product</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
@@ -941,10 +1227,13 @@ export function ProductForm({
                       ? "Uploading media files…"
                       : isDraggingOver
                         ? "Drop images right here!"
-                        : "Drag & drop images here, or click to browse"}
+                        : "Drag & drop photos, paste from clipboard (Ctrl+V), or click to browse"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Supports JPEG, PNG, WebP, GIF, MP4 (Up to 50 MB each · Max {MAX_IMAGES} files)
+                    Supports JPEG, PNG, WebP, GIF, MP4 (Fast WebP compression · Max {MAX_IMAGES} files)
+                  </p>
+                  <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                    💡 Tip: Copy photos on WhatsApp Web or your browser and press Ctrl+V to paste directly!
                   </p>
                 </div>
               ) : (
@@ -1076,6 +1365,43 @@ export function ProductForm({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* 1-Click Quick Template Presets */}
+            <div className="mt-4 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-amber-500/5 p-3 shadow-2xs">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-amber-500" /> 1-Click Baby Presets:
+                </span>
+                <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                  Select to pre-fill category, age group & highlights in 1 tap
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    type="button"
+                    onClick={() => {
+                      setDraft((prev) => ({
+                        ...prev,
+                        category: tpl.category,
+                        ageGroup: tpl.ageGroup,
+                        highlights: tpl.highlights,
+                        description: prev.description ? prev.description : tpl.description,
+                        price: prev.price > 0 ? prev.price : tpl.price,
+                        mrp: prev.mrp > 0 ? prev.mrp : tpl.mrp,
+                        brand: prev.brand || "Zérah",
+                      }));
+                      toast.success(`✨ Applied ${tpl.label} preset!`);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary hover:bg-primary/10 transition cursor-pointer active:scale-95 shadow-2xs"
+                  >
+                    <span>{tpl.icon}</span>
+                    <span>{tpl.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -2195,12 +2521,17 @@ export function ProductForm({
             >
               Cancel
             </button>
+            {!canSave && !draft.name.trim() && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium self-center mr-auto">
+                ⚠️ Enter product name to save
+              </span>
+            )}
             {!product && (
               <button
                 type="button"
                 onClick={() => handleSave(true)}
-                disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
-                className="rounded-full border border-primary/40 bg-primary/10 px-5 py-2 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-60 cursor-pointer transition-all active:scale-95"
+                disabled={!canSave}
+                className="rounded-full border border-primary/40 bg-primary/10 px-5 py-2 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50 cursor-pointer transition-all active:scale-95"
               >
                 {saving || isSubmitting
                   ? "Saving…"
@@ -2212,14 +2543,25 @@ export function ProductForm({
             <button
               type="button"
               onClick={() => handleSave(false)}
-              disabled={saving || isSubmitting || isUploading || !draft.name || !draft.slug}
-              className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer transition-all active:scale-95 shadow-premium-sm hover:bg-primary/90"
+              disabled={!canSave}
+              className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 cursor-pointer transition-all active:scale-95 shadow-premium-sm hover:bg-primary/90 flex items-center gap-2"
             >
-              {saving || isSubmitting
-                ? "Saving…"
-                : isUploading
-                  ? "Uploading images…"
-                  : "Save product"}
+              {saving || isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Saving…</span>
+                </>
+              ) : isUploading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Uploading images…</span>
+                </>
+              ) : (
+                <>
+                  <Check className="size-4 stroke-[2.5]" />
+                  <span>Save product</span>
+                </>
+              )}
             </button>
           </div>
         </div>

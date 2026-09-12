@@ -44,8 +44,8 @@ async function compressImage(file: File): Promise<File> {
         const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);
-      } else if (file.size < 400 * 1024 && file.type === "image/webp") {
-        return resolve(file); // Already lightweight and webp
+      } else if (file.size < 350 * 1024 && (file.type === "image/webp" || file.type === "image/jpeg")) {
+        return resolve(file); // Already lightweight webp/jpeg, upload immediately!
       }
 
       const canvas = document.createElement("canvas");
@@ -66,7 +66,7 @@ async function compressImage(file: File): Promise<File> {
           resolve(new File([blob], newName, { type: "image/webp" }));
         },
         "image/webp",
-        0.9,
+        0.85,
       );
     };
     img.onerror = () => {

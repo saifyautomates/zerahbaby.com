@@ -21,7 +21,7 @@ type UseUploaderOptions = {
   onSuccess?: (job: UploadJob) => Promise<void>; // Optional callback for immediate DB save
 };
 
-export function useUploader({ concurrency = 3, prefix = "drafts", onSuccess }: UseUploaderOptions) {
+export function useUploader({ concurrency = 5, prefix = "drafts", onSuccess }: UseUploaderOptions) {
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const activeCountRef = useRef(0);
   const queueRef = useRef<string[]>([]);
