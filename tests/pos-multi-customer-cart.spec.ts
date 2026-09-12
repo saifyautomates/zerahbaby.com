@@ -343,12 +343,24 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
       timeout: 10000,
     });
 
+    // Reset leftover tabs for clean test run
+    const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
+    if (await deleteAllBtn.isVisible()) {
+      await deleteAllBtn.click();
+      const confirmBtn = page.getByTestId("pos-confirm-delete-all-btn");
+      if (await confirmBtn.isVisible()) {
+        await confirmBtn.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
     // 1. Initial Sale A - Add item using search input
-    const scanInput = page.locator('input[type="text"]').first();
-    await scanInput.fill("tshirrt");
+    const scanInput = page.getByPlaceholder(/Scan barcode, or search by product name/i);
+    await expect(scanInput).toBeVisible({ timeout: 5000 });
+    await scanInput.fill("ZR-CL-4189");
     await page.waitForTimeout(600);
     await scanInput.press("Enter");
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
     // 2. Put Sale A on Hold (Hold button appears when cart has items)
     const holdSaleBtn = page.getByTestId("pos-hold-sale-btn");
@@ -369,10 +381,10 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
     await page.waitForTimeout(400);
 
     // Add another item for Sale B
-    await scanInput.fill("saify");
+    await scanInput.fill("ZR-CL-4189");
     await page.waitForTimeout(600);
     await scanInput.press("Enter");
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
 
     // 5. Switch back to Sale A (Held tab)
     await heldBadge.click();

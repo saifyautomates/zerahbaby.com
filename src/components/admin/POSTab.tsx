@@ -281,6 +281,7 @@ export function POSTab() {
     return draft?.customerId || null;
   });
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerCity, setCustomerCity] = useState("");
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<string>(() => {
@@ -296,6 +297,8 @@ export function POSTab() {
   // Held Orders State (Local Storage Resilient)
   const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customerModalTab, setCustomerModalTab] = useState<"existing" | "new" | "walkin">("existing");
 
   // Store Credit / Exchange Tender State
   const [storeCreditApplied, setStoreCreditApplied] = useState<number>(() => {
@@ -324,8 +327,21 @@ export function POSTab() {
         for (const s of remoteSessions) {
           map.set(s.id, s);
         }
+        // Local sessions take precedence over remote to preserve active customer and edits
         for (const s of prev) {
-          if (!map.has(s.id)) {
+          const remote = map.get(s.id);
+          if (remote) {
+            map.set(s.id, {
+              ...remote,
+              ...s,
+              items: s.items && s.items.length > 0 ? s.items : remote.items,
+              customer_name: s.customer_name || remote.customer_name,
+              customer_phone: s.customer_phone || remote.customer_phone,
+              customer_email: s.customer_email || remote.customer_email,
+              customer_id: s.customer_id !== undefined ? s.customer_id : remote.customer_id,
+              customer_mode: s.customer_mode || remote.customer_mode,
+            });
+          } else {
             map.set(s.id, s);
           }
         }
@@ -516,36 +532,22 @@ export function POSTab() {
   const payableAfterCredit = Math.max(0, total - effectiveCreditUsed);
   const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
 
-  // Real-time Customer Intelligence Profile (History, Total Spend, Recent Orders)
+  // Real-time Customer Intelligence Profile (Unified Online + Offline History, Total Spend, Recent Orders)
   const { data: customerIntel } = useQuery({
     queryKey: ["pos-customer-intel", customerId],
     enabled: Boolean(customerId),
     queryFn: async () => {
       if (!customerId) return null;
-      const { data: cust } = await supabase
-        .from("pos_customers")
-        .select("id, name, phone, email, total_purchases, total_spend, store_credit_balance")
-        .eq("id", customerId)
-        .maybeSingle();
-
-      const { data: recentSales } = await (supabase.from("offline_sales") as any)
-        .select("id, sale_number, total, payment_method, return_status, created_at")
-        .eq("customer_id", customerId)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      return {
-        ...cust,
-        recentSales:
-          (recentSales as unknown as Array<{
-            id: string;
-            sale_number: string;
-            total: number;
-            payment_method: string;
-            return_status?: string;
-            created_at: string;
-          }>) || [],
-      };
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: any; error: any }>
+      )("get_pos_customer_intel", {
+        p_customer_id: customerId,
+      });
+      if (error || !data) return null;
+      return data;
     },
   });
 
@@ -686,12 +688,12 @@ export function POSTab() {
 
   // Multi-Customer POS Session Handlers
   const handleSwitchSession = (targetSessionId: string) => {
-    if (targetSessionId === activeSessionId) return;
     const target = sessions.find((s) => s.id === targetSessionId);
     if (!target) return;
 
     // Save outgoing active session first
     const current = sessions.find((s) => s.id === activeSessionId);
+    let sessionList = sessions;
     if (current) {
       const updatedCurrent: POSSession = {
         ...current,
@@ -712,25 +714,30 @@ export function POSTab() {
         items: [...cart],
         updated_at: new Date().toISOString(),
       };
+      sessionList = sessions.map((s) => (s.id === current.id ? updatedCurrent : s));
+      setSessions(sessionList);
+      saveStoredSessionsLocal(sessionList);
       savePOSSession(updatedCurrent).catch(() => {});
     }
+
+    const resolvedTarget = sessionList.find((s) => s.id === targetSessionId) || target;
 
     setActiveSessionId(targetSessionId);
     saveActiveSessionIdLocal(targetSessionId);
 
     // Hydrate target session state into active editor
-    setCart(target.items || []);
-    setCustomerMode(target.customer_mode || "walkin");
-    setCustomerName(target.customer_name === "Walk-in Customer" ? "" : target.customer_name || "");
-    setCustomerPhone(target.customer_phone || "");
-    setCustomerEmail(target.customer_email || "");
-    setCustomerId(target.customer_id || null);
-    setDiscountType(target.discount_type || "none");
-    setDiscountValue(target.discount_value || 0);
-    setStoreCreditApplied(target.store_credit_applied || 0);
-    setCreditTokenInput(target.credit_token_input || "");
+    setCart(resolvedTarget.items || []);
+    setCustomerMode(resolvedTarget.customer_mode || "walkin");
+    setCustomerName(resolvedTarget.customer_name === "Walk-in Customer" ? "" : resolvedTarget.customer_name || "");
+    setCustomerPhone(resolvedTarget.customer_phone || "");
+    setCustomerEmail(resolvedTarget.customer_email || "");
+    setCustomerId(resolvedTarget.customer_id || null);
+    setDiscountType(resolvedTarget.discount_type || "none");
+    setDiscountValue(resolvedTarget.discount_value || 0);
+    setStoreCreditApplied(resolvedTarget.store_credit_applied || 0);
+    setCreditTokenInput(resolvedTarget.credit_token_input || "");
     setCreditDismissedManually(false);
-    setPaymentMethod(target.payment_method || "cash");
+    setPaymentMethod(resolvedTarget.payment_method || "cash");
     setStep("cart");
     setSearchQuery("");
     setTimeout(() => scanInputRef.current?.focus(), 50);
@@ -739,6 +746,7 @@ export function POSTab() {
   const handleCreateNewSale = () => {
     // Save current active session
     const current = sessions.find((s) => s.id === activeSessionId);
+    let baseSessions = sessions;
     if (current) {
       const updatedCurrent: POSSession = {
         ...current,
@@ -759,11 +767,12 @@ export function POSTab() {
         items: [...cart],
         updated_at: new Date().toISOString(),
       };
+      baseSessions = sessions.map((s) => (s.id === current.id ? updatedCurrent : s));
       savePOSSession(updatedCurrent).catch(() => {});
     }
 
-    const newSess = createDefaultSession(undefined, sessions);
-    const updatedSessions = [...sessions, newSess];
+    const newSess = createDefaultSession(undefined, baseSessions);
+    const updatedSessions = [...baseSessions, newSess];
     setSessions(updatedSessions);
     saveStoredSessionsLocal(updatedSessions);
     setActiveSessionId(newSess.id);
@@ -860,7 +869,21 @@ export function POSTab() {
       const updatedSessions = sessions.map((s) => (s.id === activeSessionId ? heldSession : s));
       setSessions(updatedSessions);
       saveStoredSessionsLocal(updatedSessions);
-      handleSwitchSession(otherDraft.id);
+      setActiveSessionId(otherDraft.id);
+      saveActiveSessionIdLocal(otherDraft.id);
+      setCart(otherDraft.items || []);
+      setCustomerMode(otherDraft.customer_mode || "walkin");
+      setCustomerName(otherDraft.customer_name === "Walk-in Customer" ? "" : otherDraft.customer_name || "");
+      setCustomerPhone(otherDraft.customer_phone || "");
+      setCustomerEmail(otherDraft.customer_email || "");
+      setCustomerId(otherDraft.customer_id || null);
+      setDiscountType(otherDraft.discount_type || "none");
+      setDiscountValue(otherDraft.discount_value || 0);
+      setStoreCreditApplied(otherDraft.store_credit_applied || 0);
+      setCreditTokenInput(otherDraft.credit_token_input || "");
+      setPaymentMethod(otherDraft.payment_method || "cash");
+      setStep("cart");
+      setSearchQuery("");
     } else {
       const newSess = createDefaultSession(undefined, sessions);
       const updatedSessions = sessions
@@ -1328,6 +1351,122 @@ export function POSTab() {
         (p) => !(p.product_id === productId && (p.variant_id || "") === (variantId || "")),
       ),
     );
+  }
+
+  function updateItemPrice(productId: string, newPrice: number, variantId?: string) {
+    setCart((prev) => {
+      const updated = prev.map((p) => {
+        if (p.product_id === productId && (p.variant_id || "") === (variantId || "")) {
+          const validPrice = Math.max(0, isNaN(newPrice) ? 0 : newPrice);
+          return {
+            ...p,
+            price: validPrice,
+            isCustom: true,
+          };
+        }
+        return p;
+      });
+
+      if (activeSessionId) {
+        setSessions((sPrev) => {
+          const sUpdated = sPrev.map((s) =>
+            s.id === activeSessionId
+              ? {
+                  ...s,
+                  items: [...updated],
+                  subtotal: updated.reduce((acc, item) => acc + item.price * item.qty, 0),
+                  updated_at: new Date().toISOString(),
+                }
+              : s,
+          );
+          saveStoredSessionsLocal(sUpdated);
+          return sUpdated;
+        });
+      }
+
+      return updated;
+    });
+  }
+
+  function handleAssignCustomer(cust: {
+    id?: string | null;
+    name: string;
+    phone?: string;
+    email?: string;
+    city?: string;
+  }) {
+    const cId = cust.id || null;
+    const cName = cust.name.trim();
+    const cPhone = cust.phone ? cust.phone.trim() : "";
+    const cEmail = cust.email ? cust.email.trim() : "";
+
+    setCustomerId(cId);
+    setCustomerName(cName);
+    setCustomerPhone(cPhone);
+    setCustomerEmail(cEmail);
+    const mode: "walkin" | "existing" | "new" = cId ? "existing" : cName ? "new" : "walkin";
+    setCustomerMode(mode);
+
+    if (activeSessionId) {
+      setSessions((prev) => {
+        const targetSession = prev.find((s) => s.id === activeSessionId);
+        const updatedSess = targetSession
+          ? {
+              ...targetSession,
+              customer_id: cId,
+              customer_name: cName || "Walk-in Customer",
+              customer_phone: cPhone,
+              customer_email: cEmail,
+              customer_mode: mode,
+              updated_at: new Date().toISOString(),
+            }
+          : null;
+        if (updatedSess) {
+          savePOSSession(updatedSess).catch(() => {});
+        }
+        const updated = prev.map((s) =>
+          s.id === activeSessionId ? (updatedSess || s) : s,
+        );
+        saveStoredSessionsLocal(updated);
+        return updated;
+      });
+    }
+  }
+
+  function handleSetWalkin() {
+    setCustomerId(null);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerMode("walkin");
+    setStoreCreditApplied(0);
+    setCreditDismissedManually(false);
+
+    if (activeSessionId) {
+      setSessions((prev) => {
+        const targetSession = prev.find((s) => s.id === activeSessionId);
+        const updatedSess = targetSession
+          ? {
+              ...targetSession,
+              customer_id: null,
+              customer_name: "Walk-in Customer",
+              customer_phone: "",
+              customer_email: "",
+              customer_mode: "walkin" as const,
+              store_credit_applied: 0,
+              updated_at: new Date().toISOString(),
+            }
+          : null;
+        if (updatedSess) {
+          savePOSSession(updatedSess).catch(() => {});
+        }
+        const updated = prev.map((s) =>
+          s.id === activeSessionId ? (updatedSess || s) : s,
+        );
+        saveStoredSessionsLocal(updated);
+        return updated;
+      });
+    }
   }
 
   function handleCancelCart() {
@@ -1959,11 +2098,12 @@ export function POSTab() {
                         sess.id === activeSessionId ? customerPhone : "";
                       setEditTabName(currentName);
                       setEditTabPhone(currentPhone);
-                      setEditingTabId(sess.id);
+                      setCustomerModalTab("existing");
+                      setIsCustomerModalOpen(true);
                     }}
                     data-testid={`pos-sale-tab-${tabNumber.replace(/[^a-zA-Z0-9]/g, "")}`}
                     data-status={sess.status}
-                    title="Double-click to add customer name & phone"
+                    title="Click to switch sale, double-click to assign customer from Supabase"
                   >
                     <div className="flex items-center gap-1.5 px-3 py-1.5">
                       {isHeld && (
@@ -2035,6 +2175,40 @@ export function POSTab() {
               <span>New Sale</span>
             </button>
 
+            {/* Direct Customer Assignment Pill */}
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerModalTab("existing");
+                setIsCustomerModalOpen(true);
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shrink-0 cursor-pointer shadow-2xs",
+                (customerId || (customerName && customerName !== "Walk-in Customer"))
+                  ? "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/70"
+              )}
+              title="Click to search and assign customer from Supabase"
+              data-testid="pos-assign-customer-btn"
+            >
+              <User className="size-3.5 text-primary" />
+              <span>
+                {customerId || (customerName && customerName !== "Walk-in Customer")
+                  ? customerName
+                  : "Walk-in Customer"}
+              </span>
+              {customerPhone && (
+                <span className="text-[10px] font-normal opacity-75">
+                  ({customerPhone})
+                </span>
+              )}
+              <span className="text-[10px] font-extrabold text-primary bg-primary/15 px-1.5 py-0.5 rounded-md ml-0.5">
+                {customerId || (customerName && customerName !== "Walk-in Customer")
+                  ? "Change"
+                  : "Assign Customer"}
+              </span>
+            </button>
+
             {/* Delete All Tabs Button (inline in tab bar) */}
             {sessions.length > 1 && !showCloseAllConfirm && (
               <button
@@ -2061,6 +2235,7 @@ export function POSTab() {
                     type="button"
                     onClick={handleDiscardAllSessions}
                     className="rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-red-700 transition cursor-pointer whitespace-nowrap"
+                    data-testid="pos-confirm-delete-all-btn"
                   >
                     Yes, Delete All
                   </button>
@@ -2492,7 +2667,36 @@ export function POSTab() {
                         <td className="py-3 font-mono text-xs text-muted-foreground">
                           {item.sku || "—"}
                         </td>
-                        <td className="py-3 text-right font-semibold">{formatPrice(item.price)}</td>
+                        <td className="py-3 text-right">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="inline-flex items-center gap-1 bg-background border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-lg px-2 py-1 transition-all">
+                              <span className="text-xs font-bold text-muted-foreground">₹</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="1"
+                                value={item.price}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  updateItemPrice(item.product_id, isNaN(val) ? 0 : val, item.variant_id);
+                                }}
+                                className="w-20 text-right font-bold text-sm bg-transparent outline-none text-foreground"
+                                title="Override selling price (e.g. enter ₹350 for ₹500 item)"
+                                data-testid={`pos-item-price-input-${item.sku || item.product_id}`}
+                              />
+                            </div>
+                            {item.isCustom && (
+                              <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                                Custom Price
+                              </span>
+                            )}
+                            {item.mrp && item.mrp !== item.price && !item.isCustom && (
+                              <span className="text-[10px] text-muted-foreground line-through">
+                                MRP: ₹{item.mrp}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3 text-center">
                           <span
                             className={`text-xs font-semibold ${
@@ -2775,12 +2979,7 @@ export function POSTab() {
                           onClick={() => {
                             setCustomerMode(mode);
                             if (mode === "walkin") {
-                              setCustomerName("");
-                              setCustomerPhone("");
-                              setCustomerEmail("");
-                              setCustomerId(null);
-                              setStoreCreditApplied(0);
-                              setCreditDismissedManually(false);
+                              handleSetWalkin();
                             }
                           }}
                           className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
@@ -2814,7 +3013,7 @@ export function POSTab() {
                             type="text"
                             value={customerSearchQuery}
                             onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                            placeholder="Type customer mobile number or name..."
+                            placeholder="Search by name, phone, email, city..."
                             className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
                           />
                           {customerSearchQuery && (
@@ -2830,50 +3029,129 @@ export function POSTab() {
                             </button>
                           )}
                         </div>
-                        {customerSearchQuery.trim().length > 0 &&
-                          (searchCustomers.data ?? []).length > 0 && (
-                            <div className="max-h-36 overflow-y-auto rounded-xl border border-border bg-card shadow-lg divide-y divide-border">
-                              {searchCustomers.data!.map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setCustomerName(c.name);
-                                    setCustomerPhone(c.phone);
-                                    setCustomerEmail(c.email);
-                                    setCustomerId(c.id);
-                                    setCreditDismissedManually(false);
-                                    setCustomerSearchQuery("");
-                                    toast.success(`Selected customer: ${c.name}`);
-                                  }}
-                                  className="flex w-full items-center justify-between px-3 py-2.5 text-sm hover:bg-muted cursor-pointer text-left transition-colors"
-                                >
-                                  <div>
-                                    <p className="font-semibold text-foreground">
-                                      {c.name || "Unnamed Customer"}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground font-mono">
-                                      {c.phone}
-                                    </p>
-                                  </div>
-                                  <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                                    {c.total_purchases} orders
-                                  </span>
-                                </button>
-                              ))}
+
+                        {/* Searching state */}
+                        {searchCustomers.isPending && customerSearchQuery.trim().length >= 2 && (
+                          <div className="p-3 text-center text-xs text-muted-foreground flex items-center justify-center gap-2 border border-border rounded-xl bg-card">
+                            <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <span>Searching customers…</span>
+                          </div>
+                        )}
+
+                        {/* No results empty state */}
+                        {!searchCustomers.isPending &&
+                          customerSearchQuery.trim().length >= 2 &&
+                          (searchCustomers.data ?? []).length === 0 && (
+                            <div className="p-4 text-center rounded-xl border border-border bg-card shadow-sm space-y-2">
+                              <p className="font-bold text-foreground text-xs">No customers found</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                No customer record matching &ldquo;{customerSearchQuery}&rdquo;
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCustomerMode("new");
+                                  setCustomerSearchQuery("");
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                              >
+                                <Plus className="size-3" />
+                                <span>Create New Customer</span>
+                              </button>
                             </div>
                           )}
+
+                        {/* Customer Suggestions Dropdown */}
+                        {customerSearchQuery.trim().length > 0 &&
+                          (searchCustomers.data ?? []).length > 0 && (
+                            <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-card shadow-xl divide-y divide-border/60">
+                              {searchCustomers.data!.map((c) => {
+                                const initials = (c.name || "C")
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .filter(Boolean)
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase();
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      handleAssignCustomer({
+                                        id: c.id,
+                                        name: c.name,
+                                        phone: c.phone,
+                                        email: c.email || "",
+                                        city: c.city,
+                                      });
+                                      setCreditDismissedManually(false);
+                                      setCustomerSearchQuery("");
+                                      toast.success(`Selected customer: ${c.name}`);
+                                    }}
+                                    className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-sm hover:bg-muted/70 cursor-pointer text-left transition-colors group"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-black shrink-0 border border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                        {initials}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-foreground text-xs sm:text-sm truncate">
+                                          {c.name || "Guest Customer"}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                                          {c.phone && <span className="font-mono">{c.phone}</span>}
+                                          {c.city && <span>• {c.city}</span>}
+                                          {c.email && (
+                                            <span className="truncate max-w-[140px]">({c.email})</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full block">
+                                        {c.total_purchases} {c.total_purchases === 1 ? "order" : "orders"}
+                                      </span>
+                                      {Number(c.total_spend || 0) > 0 && (
+                                        <span className="text-[10px] text-muted-foreground font-semibold block mt-0.5">
+                                          {formatPrice(c.total_spend)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                        {/* Selected Customer State */}
                         {customerId && (
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs border border-emerald-200 dark:border-emerald-800">
-                              <Check className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                              <div className="flex-1">
-                                <p className="font-bold text-emerald-900 dark:text-emerald-100">
-                                  {customerName}
-                                </p>
-                                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono">
-                                  {customerPhone}
-                                </p>
+                            <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 p-3 text-xs border border-emerald-500/25">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="size-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-2xs">
+                                  {(customerName || "C")
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .filter(Boolean)
+                                    .slice(0, 2)
+                                    .join("")
+                                    .toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-300 block">
+                                    Customer Linked
+                                  </span>
+                                  <p className="font-bold text-foreground text-sm truncate">
+                                    {customerName}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+                                    {customerPhone && <span className="font-mono">{customerPhone}</span>}
+                                    {customerEmail && (
+                                      <span className="truncate max-w-[140px]">({customerEmail})</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <button
                                 type="button"
@@ -2885,9 +3163,9 @@ export function POSTab() {
                                   setStoreCreditApplied(0);
                                   setCreditDismissedManually(false);
                                 }}
-                                className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-bold text-xs p-1 cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted border border-border cursor-pointer transition-colors shrink-0"
                               >
-                                <X className="size-3.5" />
+                                Change
                               </button>
                             </div>
 
@@ -2965,19 +3243,35 @@ export function POSTab() {
                     )}
 
                     {customerMode === "new" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Customer Full Name"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
-                        />
-                        <input
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="Mobile Number (10 digits)"
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
-                        />
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <input
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="Customer Full Name *"
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
+                          />
+                          <input
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            placeholder="Mobile Number (10 digits) *"
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary transition-all font-medium"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <input
+                            value={customerEmail}
+                            onChange={(e) => setCustomerEmail(e.target.value)}
+                            placeholder="Email Address (Optional)"
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary transition-all font-medium"
+                          />
+                          <input
+                            value={customerCity}
+                            onChange={(e) => setCustomerCity(e.target.value)}
+                            placeholder="City / Region (Optional)"
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary transition-all font-medium"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3487,7 +3781,12 @@ export function POSTab() {
                       onClick={() => {
                         if (customerMode === "new" && customerName && customerPhone) {
                           createCustomer.mutate(
-                            { name: customerName, phone: customerPhone, email: customerEmail },
+                            {
+                              name: customerName,
+                              phone: customerPhone,
+                              email: customerEmail,
+                              city: customerCity,
+                            },
                             {
                               onSuccess: (newCustomer) => {
                                 setCustomerId(newCustomer.id);
@@ -4069,6 +4368,345 @@ export function POSTab() {
                       </div>
                     );
                   })
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ====== Unified Supabase POS Customer Modal ====== */}
+      {isCustomerModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[220] flex items-center justify-center p-4"
+            onClick={() => setIsCustomerModalOpen(false)}
+          >
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" />
+
+            {/* Modal Box */}
+            <div
+              className="relative w-full max-w-xl bg-card rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <User className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">
+                      Assign Customer — {sessions.find((s) => s.id === activeSessionId)?.session_number || "Sale Tab"}
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Search authoritative Supabase records, create new, or bill as walk-in
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerModalOpen(false)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* Mode Selection Tabs */}
+              <div className="flex gap-2 p-4 pb-2 border-b border-border bg-background">
+                {(
+                  [
+                    ["existing", "Search Customers (Supabase)", Search],
+                    ["new", "New Customer", UserPlus],
+                    ["walkin", "Walk-in (Default)", User],
+                  ] as const
+                ).map(([mode, label, Icon]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setCustomerModalTab(mode)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer",
+                      customerModalTab === mode
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="size-3.5" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {customerModalTab === "existing" && (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                      <input
+                        autoFocus
+                        type="text"
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        placeholder="Search by name (e.g. Mirza), phone, email, city..."
+                        className="w-full rounded-xl border border-border bg-background pl-9 pr-9 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                      />
+                      {customerSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomerSearchQuery("");
+                            searchCustomers.reset();
+                          }}
+                          className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Searching spinner */}
+                    {searchCustomers.isPending && customerSearchQuery.trim().length >= 1 && (
+                      <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2 border border-border rounded-xl bg-card">
+                        <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <span>Searching authoritative Supabase records…</span>
+                      </div>
+                    )}
+
+                    {/* Empty Query Prompt */}
+                    {customerSearchQuery.trim().length === 0 && (
+                      <div className="p-6 text-center text-muted-foreground text-xs space-y-1">
+                        <p className="font-bold text-foreground">Type to search customer records</p>
+                        <p className="text-[11px]">
+                          Try searching for &quot;mirza&quot;, &quot;sameer&quot;, &quot;7014098198&quot;, or &quot;kota&quot;.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* No Results */}
+                    {!searchCustomers.isPending &&
+                      customerSearchQuery.trim().length >= 1 &&
+                      (searchCustomers.data ?? []).length === 0 && (
+                        <div className="p-6 text-center rounded-xl border border-border bg-card shadow-2xs space-y-2">
+                          <p className="font-bold text-foreground text-xs">No matching customers</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            No customer found for &ldquo;{customerSearchQuery}&rdquo;
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomerModalTab("new");
+                              setCustomerName(customerSearchQuery.replace(/\d/g, "").trim());
+                              setCustomerPhone(customerSearchQuery.replace(/\D/g, "").slice(0, 10));
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition cursor-pointer"
+                          >
+                            <UserPlus className="size-3.5" />
+                            <span>Create as New Customer</span>
+                          </button>
+                        </div>
+                      )}
+
+                    {/* Results List */}
+                    {(searchCustomers.data ?? []).length > 0 && (
+                      <div className="divide-y divide-border border border-border rounded-xl bg-card overflow-hidden">
+                        {searchCustomers.data!.map((c) => {
+                          const initials = (c.name || "C")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase();
+                          const isCurrentlySelected = customerId === c.id;
+
+                          return (
+                            <div
+                              key={c.id}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 transition-colors",
+                                isCurrentlySelected
+                                  ? "bg-primary/5"
+                                  : "hover:bg-muted/40"
+                              )}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-black shrink-0 border border-primary/20">
+                                  {initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-foreground text-sm truncate">
+                                      {c.name || "Customer"}
+                                    </p>
+                                    {isCurrentlySelected && (
+                                      <span className="text-[9px] font-bold uppercase bg-primary text-primary-foreground px-1.5 py-0.2 rounded">
+                                        Active
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground mt-0.5">
+                                    {c.phone && <span className="font-mono">{c.phone}</span>}
+                                    {c.city && <span>• {c.city}</span>}
+                                    {c.email && <span className="truncate max-w-[130px]">({c.email})</span>}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1 text-[10px] font-semibold text-muted-foreground">
+                                    <span className="bg-muted px-1.5 py-0.5 rounded">
+                                      {c.total_purchases || 0} orders
+                                    </span>
+                                    <span className="bg-muted px-1.5 py-0.5 rounded">
+                                      {formatPrice(c.total_spend || 0)} spend
+                                    </span>
+                                    {Number(c.store_credit_balance || 0) > 0 && (
+                                      <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                        Credit: {formatPrice(Number(c.store_credit_balance))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleAssignCustomer({
+                                    id: c.id,
+                                    name: c.name,
+                                    phone: c.phone,
+                                    email: c.email || "",
+                                    city: c.city,
+                                  });
+                                  setCreditDismissedManually(false);
+                                  setIsCustomerModalOpen(false);
+                                  toast.success(`Customer linked: ${c.name}`);
+                                }}
+                                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-2xs cursor-pointer"
+                                data-testid={`pos-select-customer-${c.id}`}
+                              >
+                                {isCurrentlySelected ? "Re-link" : "Select"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {customerModalTab === "new" && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Creates a permanent customer record in Supabase that is immediately available across Admin, POS, and Online Storefront.
+                    </p>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-foreground block">
+                        Full Name <span className="text-destructive">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="e.g. Mirza Sameer Baig"
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary font-medium"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-foreground block">
+                          Phone Number <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={customerPhone}
+                          onChange={(e) =>
+                            setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+                          }
+                          placeholder="10-digit mobile number"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary font-medium font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-foreground block">Email (Optional)</label>
+                        <input
+                          type="email"
+                          value={customerEmail}
+                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          placeholder="customer@example.com"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary font-medium"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-foreground block">City (Optional)</label>
+                      <input
+                        type="text"
+                        value={customerCity}
+                        onChange={(e) => setCustomerCity(e.target.value)}
+                        placeholder="e.g. Kota, Jaipur"
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary font-medium"
+                      />
+                    </div>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={createCustomer.isPending || !customerName.trim() || !customerPhone.trim()}
+                        onClick={async () => {
+                          if (!customerName.trim() || !customerPhone.trim()) {
+                            toast.error("Please enter both customer name and phone number");
+                            return;
+                          }
+                          try {
+                            const res = await createCustomer.mutateAsync({
+                              name: customerName.trim(),
+                              phone: customerPhone.trim(),
+                              email: customerEmail.trim() || undefined,
+                              city: customerCity.trim() || undefined,
+                            });
+                            handleAssignCustomer({
+                              id: res.id,
+                              name: res.name,
+                              phone: res.phone,
+                              email: res.email || "",
+                              city: res.city,
+                            });
+                            setIsCustomerModalOpen(false);
+                            toast.success(`Customer created and linked: ${res.name}`);
+                          } catch (err: any) {
+                            toast.error(err.message || "Failed to create customer");
+                          }
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition shadow-sm disabled:opacity-50 cursor-pointer"
+                      >
+                        {createCustomer.isPending ? "Creating in Supabase…" : "Save & Assign Customer"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {customerModalTab === "walkin" && (
+                  <div className="p-4 rounded-xl border border-border bg-muted/30 text-center space-y-3">
+                    <div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                      <User className="size-6" />
+                    </div>
+                    <h4 className="font-bold text-sm text-foreground">Walk-in Customer</h4>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      Bill without linking to an authoritative customer profile. Instant token number will be generated automatically.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSetWalkin();
+                        setIsCustomerModalOpen(false);
+                        toast.info("Active sale set to Walk-in Customer");
+                      }}
+                      className="px-4 py-2 rounded-xl bg-foreground text-background font-bold text-xs hover:opacity-90 transition cursor-pointer"
+                    >
+                      Assign as Walk-in
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

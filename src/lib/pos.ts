@@ -44,9 +44,14 @@ export type POSCustomer = {
   name: string;
   phone: string;
   email: string;
-  notes: string;
+  city?: string;
+  address?: string;
+  state?: string;
+  pincode?: string;
+  notes?: string;
   total_purchases: number;
   total_spend: number;
+  store_credit_balance?: number;
   created_at: string;
   updated_at: string;
 };
@@ -578,65 +583,34 @@ export function useCreatePOSCustomer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (customer: {
+      id?: string;
       name: string;
       phone: string;
       email?: string;
+      city?: string;
+      address?: string;
     }): Promise<POSCustomer> => {
       const cleanPhone = customer.phone.trim();
       const cleanName = customer.name.trim();
       const cleanEmail = customer.email?.trim() || "";
+      const cleanCity = customer.city?.trim() || "";
+      const cleanAddress = customer.address?.trim() || "";
 
       const { data, error } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            insert: (r: Record<string, unknown>) => {
-              select: () => {
-                single: () => Promise<{
-                  data: POSCustomer | null;
-                  error: { message: string } | null;
-                }>;
-              };
-            };
-          };
-        }
-      )
-        .from("pos_customers")
-        .insert({
-          name: cleanName,
-          phone: cleanPhone,
-          email: cleanEmail,
-        })
-        .select()
-        .single();
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: POSCustomer | null; error: { message: string } | null }>
+      )("upsert_authoritative_customer", {
+        _id: customer.id || null,
+        _name: cleanName,
+        _phone: cleanPhone,
+        _email: cleanEmail,
+        _city: cleanCity,
+        _address: cleanAddress,
+      });
 
       if (error) {
-        // If customer with phone already exists, look up and return the existing record
-        const { data: existingCust, error: fetchErr } = await (
-          supabase as unknown as {
-            from: (t: string) => {
-              select: (q: string) => {
-                eq: (
-                  col: string,
-                  val: string,
-                ) => {
-                  maybeSingle: () => Promise<{
-                    data: POSCustomer | null;
-                    error: { message: string } | null;
-                  }>;
-                };
-              };
-            };
-          }
-        )
-          .from("pos_customers")
-          .select("*")
-          .eq("phone", cleanPhone)
-          .maybeSingle();
-
-        if (existingCust && !fetchErr) {
-          return existingCust as POSCustomer;
-        }
-
         throw new Error(error.message);
       }
 
@@ -644,6 +618,9 @@ export function useCreatePOSCustomer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pos-customers"] });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-customers-badge"] });
+      qc.invalidateQueries({ queryKey: ["offline-sales-customers-hub"] });
     },
   });
 }
