@@ -7,8 +7,6 @@ import {
   setSavedShowDiscount,
   getSavedLabelType,
   setSavedLabelType,
-  getSavedBarcodeOrientation,
-  setSavedBarcodeOrientation,
   PRINT_FORMAT_CONFIG,
   buildLabelPrintHtml,
   buildLabelPrintParts,
@@ -91,12 +89,6 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(getSavedLabelType()).toBe("barcode-only");
     setSavedLabelType("full");
     expect(getSavedLabelType()).toBe("full");
-
-    // Test barcode orientation setting
-    setSavedBarcodeOrientation("horizontal");
-    expect(getSavedBarcodeOrientation()).toBe("horizontal");
-    setSavedBarcodeOrientation("vertical");
-    expect(getSavedBarcodeOrientation()).toBe("vertical");
   });
 
   test("3. Quantity Expansion & Multi-Product Payload Preparation", () => {
@@ -171,7 +163,6 @@ test.describe("One-Click Product Label Printing Suite", () => {
       quantities: { "ZR-CL-825985": 1 },
       layout: "thermal-58",
       labelType: "full",
-      barcodeOrientation: "horizontal",
       showDiscount: false,
     });
 
@@ -298,54 +289,5 @@ test.describe("One-Click Product Label Printing Suite", () => {
     // Verify :last-child break suppression is declared in CSS
     expect(parts.css).toContain(".print-mode-50x25 .label-page:last-child");
     expect(parts.css).toContain("break-after: auto !important;");
-  });
-
-  test("10. Vertical Barcode Layout (Side-by-Side & 90° Rotated Barcode)", () => {
-    const sampleProduct = {
-      name: "dangri",
-      barcode: "525724465925",
-      sku: "ZR-CL-825985",
-      price: 299,
-      mrp: 799,
-    };
-
-    const parts = buildLabelPrintParts({
-      products: [sampleProduct],
-      quantities: { "ZR-CL-825985": 1 },
-      layout: "thermal-58",
-      labelType: "full",
-      barcodeOrientation: "vertical",
-    });
-
-    // 1. Structure: Vertical container, left column, divider, right column, rotator
-    expect(parts.pagesHtml).toContain('class="lbl-v-container"');
-    expect(parts.pagesHtml).toContain('class="lbl-v-left"');
-    expect(parts.pagesHtml).toContain('class="lbl-v-divider"');
-    expect(parts.pagesHtml).toContain('class="lbl-v-right"');
-    expect(parts.pagesHtml).toContain('class="lbl-v-barcode-rotator"');
-
-    // 2. CSS contains 90-degree rotation rule
-    expect(parts.css).toContain("transform: rotate(-90deg);");
-    expect(parts.css).toContain(".lbl-v-container");
-    expect(parts.css).toContain(".lbl-v-divider");
-
-    // 3. Left details column contains all product information
-    expect(parts.pagesHtml).toContain("ArtNo:");
-    expect(parts.pagesHtml).toContain("ZR-CL-825985");
-    expect(parts.pagesHtml).toContain("DANGRI");
-    expect(parts.pagesHtml).toContain("Brand:");
-    expect(parts.pagesHtml).toContain("ZERAH");
-    expect(parts.pagesHtml).toContain("Size:");
-    expect(parts.pagesHtml).toContain("M.R.P.:");
-    expect(parts.pagesHtml).toContain("₹ 799");
-    expect(parts.pagesHtml).toContain("(Inclusive of All taxes)");
-
-    // 4. Barcode SVG and Brand exist inside vertical rotator
-    expect(parts.pagesHtml).toContain('class="lbl-bc"');
-    expect(parts.pagesHtml).toContain('class="lbl-footer-brand"');
-  });
-
-  test("11. Default Saved Barcode Orientation is Vertical", () => {
-    expect(["vertical", "horizontal"]).toContain(getSavedBarcodeOrientation());
   });
 });

@@ -266,41 +266,11 @@ export function getSavedLabelType(): LabelType {
   }
   return memoryLabelType;
 }
-
 export function setSavedLabelType(type: LabelType): void {
   memoryLabelType = type;
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(LABEL_TYPE_KEY, type);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-export const LABEL_BARCODE_ORIENTATION_KEY = "zerah_label_barcode_orientation";
-
-export type BarcodeOrientation = "horizontal" | "vertical";
-
-let memoryBarcodeOrientation: BarcodeOrientation = "vertical";
-
-export function getSavedBarcodeOrientation(): BarcodeOrientation {
-  if (typeof window !== "undefined") {
-    try {
-      const saved = localStorage.getItem(LABEL_BARCODE_ORIENTATION_KEY);
-      if (saved === "horizontal" || saved === "vertical") return saved;
-    } catch {
-      /* ignore */
-    }
-  }
-  return memoryBarcodeOrientation;
-}
-
-export function setSavedBarcodeOrientation(orientation: BarcodeOrientation): void {
-  memoryBarcodeOrientation = orientation;
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(LABEL_BARCODE_ORIENTATION_KEY, orientation);
     } catch {
       /* ignore */
     }
@@ -342,7 +312,6 @@ export type DirectPrintPayload = {
   layout?: LabelPrinterProfile;
   labelType?: LabelType;
   showDiscount?: boolean;
-  barcodeOrientation?: BarcodeOrientation;
   widthMm?: number;
   heightMm?: number;
 };
@@ -519,7 +488,6 @@ export type BuildLabelPrintOptions = {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
-  barcodeOrientation?: BarcodeOrientation;
   isStandaloneTab?: boolean;
 };
 
@@ -538,7 +506,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     showMrp = true,
     showSellPrice = false,
     separatePriceLine = false,
-    barcodeOrientation = getSavedBarcodeOrientation(),
     isStandaloneTab = false,
   } = params;
 
@@ -589,20 +556,12 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const brandValue = (p.brand || "ZERAH").toString().trim().toUpperCase();
     const sizeValue = (p.size || p.ageGroup || "--").toString().trim();
 
-    const isVertical = barcodeOrientation === "vertical";
-
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
-      barWidthPx: isVertical ? cfg.barcodeBarWidthPx * 0.95 : cfg.barcodeBarWidthPx,
-      heightMm: isVertical
-        ? 4.5
-        : labelType === "barcode-only"
-          ? cfg.barcodeHeightMm * 1.5
-          : cfg.barcodeHeightMm,
-      fontPt: isVertical ? 4.8 : cfg.barcodeFontPt,
+      barWidthPx: cfg.barcodeBarWidthPx,
+      heightMm: labelType === "barcode-only" ? cfg.barcodeHeightMm * 1.5 : cfg.barcodeHeightMm,
+      fontPt: cfg.barcodeFontPt,
       displayValue: true,
-      maxWidthMm: isVertical
-        ? cfg.labelHeightMm - 2.5
-        : cfg.labelWidthMm - cfg.paddingHorizMm * 2,
+      maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
     });
 
     if (labelType === "barcode-only") {
@@ -632,32 +591,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       priceSnippet = `<span class="lbl-bold">M.R.P.:&nbsp;</span><span class="lbl-mrp-bold">${mrpFormatted}</span>${discBadge}`;
     }
 
-    if (isVertical) {
-      // ── Vertical Barcode Mode (Side-by-Side) ────────────────────────
-      return [
-        `<div class="lbl-v-container">`,
-        `  <div class="lbl-v-left">`,
-        `    <div class="lbl-row"><span class="lbl-bold">ArtNo:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span></div>`,
-        `    <div class="lbl-row"><span class="lbl-bold">Product:&nbsp;</span><span class="lbl-val lbl-truncate">${escapeHtml(productName)}</span></div>`,
-        `    <div class="lbl-row lbl-between">`,
-        `      <div class="lbl-inline"><span class="lbl-bold">Brand:&nbsp;</span><span class="lbl-val">${escapeHtml(brandValue)}</span></div>`,
-        `      <div class="lbl-inline"><span class="lbl-bold">Size:&nbsp;</span><span class="lbl-val">${escapeHtml(sizeValue)}</span></div>`,
-        `    </div>`,
-        `    <div class="lbl-row"><div class="lbl-inline">${priceSnippet}</div></div>`,
-        `    <div class="lbl-row"><span class="lbl-tax-note">(Inclusive of All taxes)</span></div>`,
-        `  </div>`,
-        `  <div class="lbl-v-divider"></div>`,
-        `  <div class="lbl-v-right">`,
-        `    <div class="lbl-v-barcode-rotator">`,
-        `      <div class="lbl-bc">${barcodeSvg}</div>`,
-        `      <div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
-        `    </div>`,
-        `  </div>`,
-        `</div>`,
-      ].join("");
-    }
-
-    // ── Horizontal Barcode Mode (Stacked) ───────────────────────────
     return [
       `<div class="lbl-row lbl-artno-row">`,
       `  <span class="lbl-bold">ArtNo:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span>`,
@@ -869,68 +802,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       line-height: 1.05;
       flex-shrink: 0;
       margin-top: 0.1mm;
-    }
-
-    /* ── Vertical Barcode Layout ── */
-    .lbl-v-container {
-      display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      box-sizing: border-box;
-    }
-
-    .lbl-v-left {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding-right: 0.5mm;
-      overflow: hidden;
-    }
-
-    .lbl-v-divider {
-      width: 0;
-      border-left: 0.75pt solid #000000;
-      margin: 0 0.8mm 0 0.5mm;
-      flex-shrink: 0;
-      height: 100%;
-    }
-
-    .lbl-v-right {
-      width: 15mm;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .lbl-v-barcode-rotator {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transform: rotate(-90deg);
-      transform-origin: center center;
-      width: ${cfg.labelHeightMm}mm;
-      height: 15mm;
-      white-space: nowrap;
-    }
-
-    .lbl-v-barcode-rotator .lbl-bc {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .lbl-v-barcode-rotator .lbl-footer-brand {
-      margin-top: 0.2mm;
     }
 
     /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */
@@ -1277,7 +1148,6 @@ export function openLabelPrintInNewTab(params: {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
-  barcodeOrientation?: BarcodeOrientation;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   try {
@@ -1308,7 +1178,6 @@ export function openLabelPrintInNewTab(params: {
       showMrp: params.showMrp ?? true,
       showSellPrice: params.showSellPrice ?? false,
       separatePriceLine: params.separatePriceLine ?? false,
-      barcodeOrientation: params.barcodeOrientation ?? getSavedBarcodeOrientation(),
       isStandaloneTab: true,
     });
 
@@ -1344,7 +1213,6 @@ export function printProductLabels(params: {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
-  barcodeOrientation?: BarcodeOrientation;
   onDone?: () => void;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -1383,7 +1251,6 @@ export function printProductLabels(params: {
     showMrp: params.showMrp ?? true,
     showSellPrice: params.showSellPrice ?? false,
     separatePriceLine: params.separatePriceLine ?? false,
-    barcodeOrientation: params.barcodeOrientation ?? getSavedBarcodeOrientation(),
     isStandaloneTab: false,
   });
 
@@ -1504,7 +1371,6 @@ export async function triggerDirectLabelPrint(
     showMrp?: boolean;
     showSellPrice?: boolean;
     separatePriceLine?: boolean;
-    barcodeOrientation?: BarcodeOrientation;
   },
 ): Promise<boolean> {
   const rawProducts = Array.isArray(target) ? target : [target];
@@ -1525,7 +1391,6 @@ export async function triggerDirectLabelPrint(
     showMrp: options?.showMrp,
     showSellPrice: options?.showSellPrice,
     separatePriceLine: options?.separatePriceLine,
-    barcodeOrientation: options?.barcodeOrientation,
   });
 }
 
@@ -1548,7 +1413,6 @@ export function useDirectLabelPrint() {
         showMrp?: boolean;
         showSellPrice?: boolean;
         separatePriceLine?: boolean;
-        barcodeOrientation?: BarcodeOrientation;
       },
     ) => {
       const rawProducts = Array.isArray(target) ? target : [target];
@@ -1576,7 +1440,6 @@ export function useDirectLabelPrint() {
         showMrp: options?.showMrp,
         showSellPrice: options?.showSellPrice,
         separatePriceLine: options?.separatePriceLine,
-        barcodeOrientation: options?.barcodeOrientation,
         onDone: () => setIsPrinting(false),
       });
     },
