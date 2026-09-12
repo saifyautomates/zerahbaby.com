@@ -601,10 +601,10 @@ export function Header() {
                 aria-label={`Wishlist with ${wishlistIds.length} items`}
               >
                 <Heart
-                  className={`size-5 ${wishlistIds.length > 0 ? "fill-[#8B3A3A] text-[#8B3A3A]" : ""}`}
+                  className={`size-5 transition-colors ${wishlistIds.length > 0 ? "fill-rose-500 text-rose-500" : ""}`}
                 />
                 {wishlistIds.length > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-[#8B3A3A] px-1 text-[10px] font-bold text-white shadow-xs">
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
                     {wishlistIds.length}
                   </span>
                 )}
@@ -616,7 +616,7 @@ export function Header() {
               >
                 <ShoppingCart className="size-5" />
                 {count > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-[#8B3A3A] px-1 text-[10px] font-bold text-white shadow-xs">
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-4.5 h-4.5 animate-in zoom-in duration-200 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-xs">
                     {count}
                   </span>
                 )}

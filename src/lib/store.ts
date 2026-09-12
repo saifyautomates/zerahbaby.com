@@ -693,7 +693,8 @@ export function useSettings() {
     brandName: s["brand_name"] ?? "Zérah Baby & Kids",
     announcement: s["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
     announcementEnabled: s["announcement_enabled"] !== "false",
-    announcementBg: s["announcement_bg"] || "#8B2020",
+    announcementBg:
+      s["announcement_bg"] || "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)",
     announcementTextColor: s["announcement_text_color"] || "#FFFFFF",
     announcementLink: s["announcement_link"] || "",
     heroTitle: s["hero_title"] ?? "Everything little ones need, in one happy place",

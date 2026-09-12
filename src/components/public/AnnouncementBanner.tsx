@@ -7,7 +7,7 @@ export function AnnouncementBanner() {
 
   const enabled = settings["announcement_enabled"] !== "false";
   const text = announcement?.trim();
-  const bgColor = settings["announcement_bg"] || "#8B2020";
+  const rawBg = settings["announcement_bg"]?.trim();
   const textColor = settings["announcement_text_color"] || "#FFFFFF";
   const link = settings["announcement_link"]?.trim();
 
@@ -16,24 +16,69 @@ export function AnnouncementBanner() {
     return null;
   }
 
+  // Treat default burgundy, empty, or explicit gradient as the signature Pink & Blue gradient
   const isPinkBlueGradient =
-    bgColor.toLowerCase() === "#8b2020" ||
-    bgColor === "gradient" ||
-    bgColor.includes("#e82a82") ||
-    bgColor.includes("#d946ef") ||
-    !bgColor;
+    !rawBg ||
+    rawBg.toLowerCase() === "#8b2020" ||
+    rawBg.toLowerCase() === "#7a2626" ||
+    rawBg.toLowerCase() === "gradient" ||
+    rawBg.includes("#e82a82") ||
+    rawBg.includes("#d946ef");
+
+  const effectiveBg = isPinkBlueGradient
+    ? "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)"
+    : rawBg;
 
   const content = (
-    <div className="relative z-[3] mx-auto flex w-full max-w-7xl items-center justify-center gap-2 px-2 py-0.5 sm:px-4 sm:py-1 min-h-[26px] sm:min-h-[30px]">
-      <div className="flex items-center justify-center gap-2 text-center overflow-hidden">
-        <Truck className="size-3 sm:size-3.5 shrink-0 text-white" aria-hidden="true" />
-        <p
-          className="font-display text-[9.5px] sm:text-[11px] font-bold uppercase tracking-[0.14em] leading-none whitespace-nowrap text-white drop-shadow-2xs"
-        >
-          {text}
-        </p>
-        <span className="text-[10px] text-white/90 shrink-0 font-display">✦</span>
+    <div className="relative z-[3] mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-2 py-0.5 sm:px-4 sm:py-1 min-h-[28px] sm:min-h-[32px]">
+      {/* Desktop left trust badge */}
+      <div className="hidden flex-1 items-center gap-2 lg:flex">
+        <span className="announce-pill">
+          <Truck className="size-3 announce-gold-text text-amber-300 shrink-0" aria-hidden="true" />
+          Pan-India Shipping
+        </span>
       </div>
+
+      {/* Desktop Center Announcement (static, single line, perfectly centered) */}
+      <div className="hidden lg:flex flex-1 items-center justify-center overflow-hidden">
+        <div className="flex items-center justify-center gap-2 text-center">
+          <Sparkle
+            className="size-3 shrink-0 announce-gold-text text-amber-300 animate-pulse"
+            aria-hidden="true"
+          />
+          <p className="font-display text-[11px] font-bold uppercase tracking-widest leading-none whitespace-nowrap text-white drop-shadow-xs">
+            {text}
+          </p>
+          <Sparkle
+            className="size-3 shrink-0 announce-gold-text text-amber-300 animate-pulse"
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
+      {/* Mobile Ultra-Slim Marquee (Single line, smooth continuous horizontal scroll, 0 line wrapping) */}
+      <div
+        className="flex flex-1 items-center justify-center overflow-hidden lg:hidden"
+        aria-label="Announcement"
+      >
+        <div className="group relative w-full overflow-hidden whitespace-nowrap">
+          <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap flex items-center">
+            <span className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-bold uppercase tracking-wider whitespace-nowrap leading-none text-white">
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              {text}
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-bold uppercase tracking-wider whitespace-nowrap leading-none text-white">
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              {text}
+              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right spacer for symmetrical centering */}
+      <div className="hidden sm:flex flex-none lg:flex-1 items-center justify-end gap-2" />
     </div>
   );
 
@@ -41,11 +86,9 @@ export function AnnouncementBanner() {
     <div
       role="region"
       aria-label="Announcement"
-      className="announce-bar w-full transition-all duration-300 relative overflow-hidden h-7 sm:h-8 flex items-center shadow-2xs"
+      className="announce-bar w-full transition-all duration-300 relative overflow-hidden h-7 sm:h-8 flex items-center shadow-xs"
       style={{
-        background: isPinkBlueGradient
-          ? "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)"
-          : bgColor,
+        background: effectiveBg,
         color: textColor,
       }}
     >

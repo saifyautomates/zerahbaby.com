@@ -137,7 +137,7 @@
   --sidebar-ring: oklch(0.5 0.11 25);
 
   /* Playful vibrant announcement bar: pink to blue gradient */
-  --announce-surface: linear-gradient(90deg, #d946ef 0%, #a855f7 28%, #3b82f6 65%, #0ea5e9 100%);
+  --announce-surface: linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%);
   --announce-foreground: #ffffff;
   --announce-gold: #fde047;
   --announce-gold-soft: rgba(253, 224, 71, 0.4);
@@ -184,7 +184,7 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 15%);
   --sidebar-ring: oklch(0.66 0.12 30);
-  --announce-surface: linear-gradient(90deg, #c026d3 0%, #9333ea 28%, #2563eb 65%, #0284c7 100%);
+  --announce-surface: linear-gradient(90deg, #d81b7a 0%, #9333ea 50%, #0284c7 100%);
   --announce-foreground: #ffffff;
   --announce-gold: #fde047;
 }

@@ -5041,7 +5041,7 @@ function MarketingTab() {
   const [form, setForm] = useState({
     announcement: "",
     announcement_enabled: true,
-    announcement_bg: "#8B2020",
+    announcement_bg: "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)",
     announcement_text_color: "#FFFFFF",
     announcement_link: "",
     instagram_url: "",
@@ -5064,11 +5064,22 @@ function MarketingTab() {
 
   useEffect(() => {
     if (!isLoading && settings && !hasLoaded) {
+      const storedBg = settings["announcement_bg"];
+      const effectiveStoredBg =
+        !storedBg ||
+        storedBg.toLowerCase() === "#8b2020" ||
+        storedBg.toLowerCase() === "#7a2626" ||
+        storedBg.toLowerCase() === "gradient" ||
+        storedBg.includes("#e82a82") ||
+        storedBg.includes("#d946ef")
+          ? "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)"
+          : storedBg;
+
       setForm({
         announcement:
           settings["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
         announcement_enabled: settings["announcement_enabled"] !== "false",
-        announcement_bg: settings["announcement_bg"] || "#8B2020",
+        announcement_bg: effectiveStoredBg,
         announcement_text_color: settings["announcement_text_color"] || "#FFFFFF",
         announcement_link: settings["announcement_link"] || "",
         instagram_url: settings["instagram_url"] ?? "https://www.instagram.com/zerah_kids/",
