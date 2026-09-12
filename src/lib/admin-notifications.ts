@@ -60,7 +60,11 @@ export function useAdminNotifications(options?: { enabled?: boolean }) {
         .limit(60);
 
       if (error) {
-        console.error("Failed to fetch admin notifications:", error);
+        if ((error as any).code === "42501") {
+          console.warn("[AdminNotifications] Table access restricted by RLS:", error.message);
+        } else {
+          console.error("Failed to fetch admin notifications:", error);
+        }
         return [];
       }
       return (data as unknown as RawAdminNotificationRow[]) || [];
