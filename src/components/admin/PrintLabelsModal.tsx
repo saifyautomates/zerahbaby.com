@@ -103,28 +103,40 @@ export function PrintLabelsModal({
     0,
   );
 
-  const entries: LabelEntry[] = useMemo(() => {
+  const preparedProducts = useMemo(() => {
     return printableProducts.map((p) => ({
+      ...p,
+      brand: p.brand || "ZERAH",
+      artNo: (p as any).artNo || p.sku || p.barcode || "—",
+      size: (p as any).size || (p as any).ageGroup || p.variants?.[0]?.size || "--",
+    }));
+  }, [printableProducts]);
+
+  const entries: LabelEntry[] = useMemo(() => {
+    return preparedProducts.map((p) => ({
       product: {
         uuid: p.uuid || p.id,
         name: p.name,
         sku: p.sku || "",
+        artNo: p.artNo,
         barcode: p.barcode || p.sku || "",
         price: p.price,
         mrp: p.mrp || p.price,
         stock: p.stock ?? 1,
+        brand: p.brand,
+        size: p.size,
       },
       qty: quantities[p.uuid || p.id] ?? 1,
     }));
-  }, [printableProducts, quantities]);
+  }, [preparedProducts, quantities]);
 
   const handlePrint = () => {
-    if (printableProducts.length === 0 || isPrinting) return;
+    if (preparedProducts.length === 0 || isPrinting) return;
     setIsPrinting(true);
 
     try {
       printProductLabels({
-        products: printableProducts,
+        products: preparedProducts,
         quantities,
         layout,
         labelType,
@@ -142,9 +154,9 @@ export function PrintLabelsModal({
   };
 
   const handlePrintNewTab = () => {
-    if (printableProducts.length === 0) return;
+    if (preparedProducts.length === 0) return;
     openLabelPrintInNewTab({
-      products: printableProducts,
+      products: preparedProducts,
       quantities,
       layout,
       labelType,

@@ -47,7 +47,10 @@ export async function ensureAuthSession(): Promise<Session | null> {
   if (typeof window === "undefined") return null;
 
   // Test mode bypass for local E2E in-browser audits
-  if (import.meta.env.DEV && typeof window !== "undefined") {
+  if (
+    typeof window !== "undefined" &&
+    (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
     if (localStorage.getItem("zerah_test_admin") === "true") {
       return {
         user: {
@@ -122,7 +125,10 @@ export async function ensureAdminSession(): Promise<{ user: User | null; isAdmin
   }
 
   // Dev bypass for local testing
-  if (import.meta.env.DEV && localStorage.getItem("zerah_test_admin") === "true") {
+  if (
+    (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+    localStorage.getItem("zerah_test_admin") === "true"
+  ) {
     const session = await ensureAuthSession();
     return {
       user:

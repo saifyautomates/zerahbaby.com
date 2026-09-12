@@ -77,17 +77,17 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageMarginMm: 0,
     labelWidthMm: 96, // 2mm bleed on each side
     labelHeightMm: 23.5, // 0.75mm top+bottom bleed
-    paddingTopMm: 1.0,
+    paddingTopMm: 0.8,
     paddingHorizMm: 2.5,
     paddingBottomMm: 0.6,
     gridColumns: 1,
-    barcodeBarWidthPx: 1.4,
-    barcodeHeightMm: 8.0,
-    barcodeFontPt: 6.5,
+    barcodeBarWidthPx: 1.3,
+    barcodeHeightMm: 5.6,
+    barcodeFontPt: 5.8,
     brandFontPt: 6.5,
-    nameFontPt: 8.0,
-    priceFontPt: 9.0,
-    skuFontPt: 6.0,
+    nameFontPt: 6.8,
+    priceFontPt: 7.2,
+    skuFontPt: 6.8,
     isThermalRoll: true,
   },
   /** ─── 1-UP 58mm THERMAL ROLL (50mm × 25mm Horizontal Landscape) ─── */
@@ -96,18 +96,18 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageHeightMm: 25,
     pageMarginMm: 0,
     labelWidthMm: 48,
-    labelHeightMm: 23.5,
-    paddingTopMm: 0.8,
-    paddingHorizMm: 1.5,
-    paddingBottomMm: 0.6,
+    labelHeightMm: 23.8,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.4,
+    paddingBottomMm: 0.4,
     gridColumns: 1,
     barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 7.2,
-    barcodeFontPt: 6.0,
-    brandFontPt: 5.5,
-    nameFontPt: 6.5,
-    priceFontPt: 7.5,
-    skuFontPt: 5.2,
+    barcodeHeightMm: 4.8,
+    barcodeFontPt: 5.2,
+    brandFontPt: 5.6,
+    nameFontPt: 5.8,
+    priceFontPt: 6.0,
+    skuFontPt: 5.8,
     isThermalRoll: true,
   },
   /** ─── A4 GRID ─── */
@@ -117,17 +117,17 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageMarginMm: 8,
     labelWidthMm: 47,
     labelHeightMm: 26,
-    paddingTopMm: 1.0,
+    paddingTopMm: 0.8,
     paddingHorizMm: 1.5,
-    paddingBottomMm: 0.8,
+    paddingBottomMm: 0.6,
     gridColumns: 4,
     barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 7.5,
-    barcodeFontPt: 6.0,
-    brandFontPt: 5.5,
-    nameFontPt: 6.5,
-    priceFontPt: 7.5,
-    skuFontPt: 5.2,
+    barcodeHeightMm: 5.0,
+    barcodeFontPt: 5.2,
+    brandFontPt: 5.6,
+    nameFontPt: 5.8,
+    priceFontPt: 6.0,
+    skuFontPt: 5.8,
     isThermalRoll: false,
   },
 } as const;
@@ -286,11 +286,24 @@ export type PrintableProduct = {
   id?: string;
   name: string;
   sku?: string;
+  artNo?: string;
   barcode?: string | null;
   price: number;
   mrp?: number;
   stock?: number;
   brand?: string;
+  size?: string | null;
+  ageGroup?: string | null;
+  variants?: Array<{
+    id?: string;
+    name?: string;
+    sku?: string;
+    barcode?: string | null;
+    size?: string | null;
+    priceOverride?: number;
+    mrpOverride?: number;
+    stock?: number;
+  }>;
 };
 
 export type DirectPrintPayload = {
@@ -371,9 +384,9 @@ export function generateBarcodeSvgString(
       width: cfg.barWidthPx,
       height: Math.round(cfg.heightMm * 3.7795), // mm → px at 96dpi
       fontSize: Math.round(cfg.fontPt * 1.333), // pt → px
-      margin: 2,
+      margin: 1,
       marginTop: 0,
-      marginBottom: 1,
+      marginBottom: 0,
       displayValue: cfg.displayValue ?? true,
       font: "Arial, Helvetica, sans-serif",
       fontOptions: "bold",
@@ -388,10 +401,10 @@ export function generateBarcodeSvgString(
     svg.removeAttribute("width");
     svg.removeAttribute("height");
     svg.setAttribute("width", `${cfg.maxWidthMm}mm`);
-    svg.setAttribute("height", `${cfg.heightMm + cfg.fontPt * 0.35 + 1}mm`);
+    svg.setAttribute("height", `${cfg.heightMm + cfg.fontPt * 0.35 + 0.5}mm`);
     svg.setAttribute(
       "style",
-      "display:block;margin:0 auto;shape-rendering:crispEdges;overflow:visible;",
+      "display:block;margin:0 auto;shape-rendering:crispEdges;overflow:visible;max-width:100%;",
     );
     return svg.outerHTML;
   } catch (err) {
@@ -536,12 +549,16 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   const renderLabelContent = (p: PrintableProduct): string => {
     const barcodeValue = sanitizeBarcode(p.barcode, p.sku) || "SKU-" + (p.sku || "NONE");
     const effectiveMrp = typeof p.mrp === "number" && p.mrp > 0 ? p.mrp : p.price;
-    const mrpFormatted = formatINR(effectiveMrp);
-    const priceFormatted = formatINR(p.price);
+    const mrpFormatted = "₹ " + Math.round(effectiveMrp);
+    const priceFormatted = "₹ " + Math.round(p.price);
+    const artNoValue = (p.artNo || p.sku || p.barcode || "—").toString().trim();
+    const productName = (p.name || "").toString().trim().toUpperCase();
+    const brandValue = (p.brand || "ZERAH").toString().trim().toUpperCase();
+    const sizeValue = (p.size || p.ageGroup || "--").toString().trim();
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
-      heightMm: labelType === "barcode-only" ? cfg.barcodeHeightMm * 1.3 : cfg.barcodeHeightMm,
+      heightMm: labelType === "barcode-only" ? cfg.barcodeHeightMm * 1.5 : cfg.barcodeHeightMm,
       fontPt: cfg.barcodeFontPt,
       displayValue: true,
       maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
@@ -549,9 +566,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     if (labelType === "barcode-only") {
       return [
-        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
+        `<div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
       ].join("");
     }
 
@@ -564,38 +580,35 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
         : "";
 
-    // Price rendering according to retail specification
+    // Price rendering according to retail specification (e.g. M.R.P.: ₹ 799   (Inclusive of All taxes))
     let priceSnippet = "";
     if (showMrp && showSellPrice) {
-      // Both enabled: show MRP struck through and bold selling price
-      priceSnippet = `<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span> <span class="lbl-sell-bold">Price: ${priceFormatted}</span>${discBadge}`;
+      priceSnippet = `<span class="lbl-bold">M.R.P.:&nbsp;</span><span class="lbl-mrp-strike">${mrpFormatted}</span>&nbsp;<span class="lbl-bold">Price:&nbsp;</span><span class="lbl-sell-bold">${priceFormatted}</span>${discBadge}`;
     } else if (showSellPrice) {
-      // Selling price only
-      priceSnippet = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
-    } else if (showMrp) {
-      // MRP only (Standard Retail Specification Default - Bold, NOT struck through)
-      priceSnippet = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted}</span>${discBadge}`;
+      priceSnippet = `<span class="lbl-bold">Price:&nbsp;</span><span class="lbl-sell-bold">${priceFormatted}</span>`;
+    } else {
+      // Default: Bold MRP matching retail tag
+      priceSnippet = `<span class="lbl-bold">M.R.P.:&nbsp;</span><span class="lbl-mrp-bold">${mrpFormatted}</span>${discBadge}`;
     }
 
-    if (separatePriceLine && priceSnippet) {
-      return [
-        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-name-standalone">${escapeHtml(p.name)}</div>`,
-        `<div class="lbl-price-row">${priceSnippet}</div>`,
-        `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
-      ].join("");
-    }
-
-    // Default compact horizontal middle row: Name (left) + Price (right)
     return [
-      `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-      `<div class="lbl-row-middle">`,
-      `  <div class="lbl-name">${escapeHtml(p.name)}</div>`,
-      priceSnippet ? `  <div class="lbl-price-cell">${priceSnippet}</div>` : "",
+      `<div class="lbl-row lbl-artno-row">`,
+      `  <span class="lbl-bold">ArtNo:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span>`,
       `</div>`,
+      `<div class="lbl-row lbl-product-row">`,
+      `  <span class="lbl-bold">Product:&nbsp;</span><span class="lbl-val lbl-truncate">${escapeHtml(productName)}</span>`,
+      `</div>`,
+      `<div class="lbl-row lbl-between lbl-brand-size-row">`,
+      `  <div class="lbl-inline"><span class="lbl-bold">Brand:&nbsp;</span><span class="lbl-val">${escapeHtml(brandValue)}</span></div>`,
+      `  <div class="lbl-inline"><span class="lbl-bold">Size:&nbsp;</span><span class="lbl-val">${escapeHtml(sizeValue)}</span></div>`,
+      `</div>`,
+      `<div class="lbl-row lbl-between lbl-price-row">`,
+      `  <div class="lbl-inline">${priceSnippet}</div>`,
+      `  <span class="lbl-tax-note">(Inclusive of All taxes)</span>`,
+      `</div>`,
+      `<div class="lbl-divider"></div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
-      `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
+      `<div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
     ].join("");
   };
 
@@ -658,6 +671,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     }
 
     /* ── Label Typography & Layout Tokens ── */
+    /* ── Label Typography & Layout Tokens ── */
     .label-inner {
       width: 100%;
       height: 100%;
@@ -670,107 +684,94 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       overflow: hidden;
       background: #ffffff;
       box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
-    .lbl-brand {
-      font-size: ${cfg.brandFontPt}pt;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #333333;
-      line-height: 1;
-      width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .lbl-row-middle {
+    .lbl-row {
       display: flex;
       flex-direction: row;
       align-items: baseline;
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      line-height: 1.15;
+      font-size: ${cfg.nameFontPt}pt;
+      color: #000000;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    .lbl-between {
       justify-content: space-between;
-      width: 100%;
-      gap: 1.2mm;
-      overflow: hidden;
-      flex-shrink: 0;
-      margin: 0.2mm 0;
     }
 
-    .lbl-name {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 700;
-      color: #000000;
-      line-height: 1.15;
-      text-align: left;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      text-overflow: ellipsis;
-    }
-
-    .lbl-name-standalone {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 700;
-      color: #000000;
-      line-height: 1.15;
-      width: 100%;
-      text-align: center;
+    .lbl-inline {
+      display: inline-flex;
+      align-items: baseline;
       white-space: nowrap;
       overflow: hidden;
+    }
+
+    .lbl-bold {
+      font-weight: 800;
+      color: #000000;
+      flex-shrink: 0;
+    }
+
+    .lbl-val {
+      font-weight: 700;
+      color: #000000;
+      overflow: hidden;
       text-overflow: ellipsis;
-      flex-shrink: 0;
-      margin: 0.2mm 0;
+      white-space: nowrap;
     }
 
-    .lbl-price-cell {
-      display: flex;
-      align-items: baseline;
-      gap: 1mm;
-      flex-shrink: 0;
-      text-align: right;
-      line-height: 1;
+    .lbl-truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .lbl-price-row {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      gap: 1.5mm;
-      line-height: 1;
-      flex-shrink: 0;
-      margin: 0.2mm 0;
+    .lbl-price-bold,
+    .lbl-mrp-bold,
+    .lbl-sell-bold {
+      font-size: ${cfg.priceFontPt}pt;
+      font-weight: 800;
+      color: #000000;
+      white-space: nowrap;
     }
 
     .lbl-mrp-strike {
-      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+      font-size: ${Math.round(cfg.priceFontPt * 0.88)}pt;
       font-weight: 600;
-      color: #666666;
+      color: #555555;
       text-decoration: line-through;
       white-space: nowrap;
+      margin-right: 0.5mm;
     }
 
-    .lbl-sell-bold,
-    .lbl-mrp-bold {
-      font-size: ${cfg.priceFontPt}pt;
-      font-weight: 900;
+    .lbl-tax-note {
+      font-size: ${Math.round(cfg.priceFontPt * 0.72)}pt;
+      font-weight: 600;
       color: #000000;
       white-space: nowrap;
-      letter-spacing: -0.01em;
+      flex-shrink: 0;
     }
 
     .lbl-disc-pct {
-      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+      font-size: ${Math.round(cfg.priceFontPt * 0.82)}pt;
       font-weight: 800;
       color: #059669;
       margin-left: 0.5mm;
+    }
+
+    .lbl-divider {
+      width: 100%;
+      height: 0;
+      border-top: 0.8pt solid #000000;
+      margin: 0.25mm 0 0.15mm;
+      flex-shrink: 0;
     }
 
     .lbl-bc {
@@ -787,19 +788,20 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       margin: 0 auto;
     }
 
-    .lbl-sku {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 700;
-      color: #444444;
+    .lbl-footer-brand {
+      font-size: ${cfg.brandFontPt}pt;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #000000;
       width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       text-align: center;
-      line-height: 1;
+      line-height: 1.05;
       flex-shrink: 0;
-      letter-spacing: 0.02em;
+      margin-top: 0.1mm;
     }
 
     /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */

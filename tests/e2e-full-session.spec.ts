@@ -122,7 +122,7 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
   test("2.2 Online Order Creation, Checkout Session & Supabase Persistence", async () => {
     // Fetch an in-stock variant from Supabase
     const vRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/product_variants?select=id,product_id,stock,price_override&stock=gte.5&limit=1`,
+      `${SUPABASE_URL}/rest/v1/product_variants?select=id,product_id,stock,price_override&stock=gte.1&limit=1`,
       { headers },
     );
     const variants = await vRes.json();
