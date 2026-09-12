@@ -398,15 +398,15 @@ export function ProductCard({
 
         {/* ── PRICE HIERARCHY ─────────────────────────────────────────────── */}
         <div className="mt-2 flex items-baseline gap-2 sm:gap-2.5 flex-wrap">
-          <span className="text-xl sm:text-2xl font-black tracking-tight text-[#8B3A3A] dark:text-rose-400">
+          <span className="text-xl sm:text-2xl font-black tracking-tight text-[#8B3A3A] dark:text-rose-400 tabular-nums">
             {formatPrice(activePrice)}
           </span>
           {activeMrp > activePrice && (
             <>
-              <span className="text-xs sm:text-sm font-semibold text-muted-foreground/60 line-through">
+              <span className="text-xs sm:text-sm font-semibold text-muted-foreground/60 line-through tabular-nums">
                 {formatPrice(activeMrp)}
               </span>
-              <span className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
+              <span className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60 tabular-nums">
                 {activeDiscountPct}% OFF
               </span>
             </>

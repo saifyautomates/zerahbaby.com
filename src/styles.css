@@ -94,6 +94,10 @@
       transform: translateY(0);
     }
   }
+
+  /* Custom Easing & Physics */
+  --ease-spring: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 :root {
@@ -132,11 +136,11 @@
   --sidebar-border: oklch(0.9 0.012 78);
   --sidebar-ring: oklch(0.5 0.11 25);
 
-  /* Playful vibrant announcement bar: pink to blue gradient */
-  --announce-surface: linear-gradient(90deg, #d946ef 0%, #a855f7 28%, #3b82f6 65%, #0ea5e9 100%);
+  /* Ultra-luxury satin announcement bar: deep terracotta burgundy to antique wine */
+  --announce-surface: linear-gradient(90deg, #7A2626 0%, #8B3A3A 50%, #702222 100%);
   --announce-foreground: #ffffff;
-  --announce-gold: #fde047;
-  --announce-gold-soft: rgba(253, 224, 71, 0.4);
+  --announce-gold: #fde68a;
+  --announce-gold-soft: rgba(253, 230, 138, 0.4);
   --announce-hairline: linear-gradient(
     90deg,
     transparent 0%,
@@ -180,14 +184,26 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 15%);
   --sidebar-ring: oklch(0.66 0.12 30);
-  --announce-surface: linear-gradient(90deg, #c026d3 0%, #9333ea 28%, #2563eb 65%, #0284c7 100%);
+  --announce-surface: linear-gradient(90deg, #451515 0%, #5c1e1e 50%, #3e1212 100%);
   --announce-foreground: #ffffff;
-  --announce-gold: #fde047;
+  --announce-gold: #fde68a;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  /* Brand text selection */
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+    color: var(--foreground);
+  }
+
+  /* Smooth caret */
+  input,
+  textarea {
+    caret-color: var(--primary);
   }
 
   html {
@@ -626,6 +642,11 @@
    GLOBAL RESPONSIVE SAFETY NET
    These utilities fix the most common overflow/clipping issues.
    ================================================================ */
+
+/* Tabular numeric alignment for prices & financial amounts */
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 
 /* Minimum touch target size — WCAG 2.5.5 requires 44x44px */
 @utility min-touch {

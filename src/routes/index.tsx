@@ -528,7 +528,7 @@ function Index() {
           <div className="rise-in delay-3 mt-8 flex w-full flex-row items-center justify-center gap-2.5 sm:mt-10 sm:w-auto sm:flex-wrap px-2">
             <Link
               to="/shop"
-              className="flex-1 sm:flex-none focus-ring press rounded-full bg-primary px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground shadow-premium-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-premium-hover text-center"
+              className="flex-1 sm:flex-none focus-ring press rounded-full bg-primary px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide text-primary-foreground shadow-premium-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-premium-hover active:scale-98 text-center"
             >
               <span className="sm:hidden">Shop all</span>
               <span className="hidden sm:inline">Shop all products</span>
@@ -536,7 +536,7 @@ function Index() {
             <Link
               to="/shop"
               search={{ category: "clothing" }}
-              className={`flex-1 sm:flex-none focus-ring rounded-full border px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide transition duration-300 hover:-translate-y-0.5 text-center ${
+              className={`flex-1 sm:flex-none focus-ring press rounded-full border px-4 sm:px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wide transition duration-300 hover:-translate-y-0.5 active:scale-98 text-center ${
                 hasMedia
                   ? "border-background/50 bg-background/10 text-background backdrop-blur hover:bg-background/25"
                   : "border-border bg-background hover:bg-muted"
@@ -569,7 +569,7 @@ function Index() {
             <button
               type="button"
               onClick={() => setHeroEditor(true)}
-              className="focus-ring mt-9 inline-flex items-center gap-2 rounded-full border border-dashed border-accent bg-background/90 px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+              className="focus-ring mt-9 inline-flex items-center gap-2 rounded-full border border-dashed border-accent bg-background/90 px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground active:scale-98 cursor-pointer"
             >
               <Images className="size-4" /> Manage hero photos & videos
             </button>
@@ -583,7 +583,7 @@ function Index() {
         {/* Mobile App-style Perks */}
         <div className="md:hidden flex items-start justify-between gap-1 border-b border-border/60 pb-8 mb-4 pt-2">
           <div className="flex flex-col items-center gap-2 text-center w-1/3">
-            <Truck className="size-5 text-amber-500" strokeWidth={1.5} />
+            <Truck className="size-5 text-primary" strokeWidth={1.5} />
             <span className="text-[10px] font-semibold leading-tight text-foreground/80">
               Free delivery
               <br />
@@ -592,7 +592,7 @@ function Index() {
           </div>
           <div className="w-[1px] h-10 bg-border/50 self-center"></div>
           <div className="flex flex-col items-center gap-2 text-center w-1/3">
-            <RotateCcw className="size-5 text-amber-700" strokeWidth={1.5} />
+            <RotateCcw className="size-5 text-primary" strokeWidth={1.5} />
             <span className="text-[10px] font-semibold leading-tight text-foreground/80">
               7-day easy
               <br />
@@ -601,7 +601,7 @@ function Index() {
           </div>
           <div className="w-[1px] h-10 bg-border/50 self-center"></div>
           <div className="flex flex-col items-center gap-2 text-center w-1/3">
-            <ShieldCheck className="size-5 text-amber-600" strokeWidth={1.5} />
+            <ShieldCheck className="size-5 text-primary" strokeWidth={1.5} />
             <span className="text-[10px] font-semibold leading-tight text-foreground/80">
               Safe & secure
               <br />
@@ -614,27 +614,27 @@ function Index() {
         <div className="md:hidden w-full pb-6 pt-2">
           <div className="flex items-end justify-between mb-4 px-1">
             <h2 className="font-display text-lg font-bold">Shop by Age</h2>
-            <Link to="/shop" className="text-[11px] font-semibold text-primary">
+            <Link to="/shop" className="text-[11px] font-semibold text-primary hover:underline">
               View all
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: Baby, age: "0-6m", color: "text-indigo-400 bg-indigo-50" },
-              { icon: Baby, age: "6-12m", color: "text-emerald-400 bg-emerald-50" },
-              { icon: Baby, age: "12-24m", color: "text-amber-400 bg-amber-50" },
-              { icon: Baby, age: "2-4y", color: "text-rose-400 bg-rose-50" },
+              { icon: Baby, age: "0-6m", color: "text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50" },
+              { icon: Baby, age: "6-12m", color: "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50" },
+              { icon: Baby, age: "12-24m", color: "text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50" },
+              { icon: Baby, age: "2-4y", color: "text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50" },
             ].map((a) => (
               <Link
                 key={a.age}
                 to="/shop"
                 search={{ age: a.age }}
-                className="flex items-center justify-center gap-3 bg-muted/30 rounded-2xl p-3.5 border border-border/50 hover:bg-muted/50 transition-colors"
+                className="flex items-center justify-center gap-3 bg-muted/40 hover:bg-muted/70 rounded-2xl p-3.5 border border-border/50 hover:border-border transition-all active:scale-98"
               >
-                <div className={`p-1.5 rounded-full ${a.color.split(" ")[1]}`}>
-                  <a.icon className={`size-5 ${a.color.split(" ")[0]}`} />
+                <div className={`p-2 rounded-xl ${a.color}`}>
+                  <a.icon className="size-5" />
                 </div>
-                <span className="text-xs font-bold">{a.age}</span>
+                <span className="text-xs font-bold text-foreground">{a.age}</span>
               </Link>
             ))}
           </div>

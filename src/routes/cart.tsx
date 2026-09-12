@@ -85,18 +85,20 @@ function CartPage() {
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center animate-in fade-in zoom-in-95 duration-500">
-        <div className="mb-6 mx-auto grid size-24 place-items-center rounded-full bg-primary/10">
-          <Trash2 className="size-10 text-primary" />
+        <div className="mb-6 mx-auto grid size-24 place-items-center rounded-full bg-primary/10 border border-primary/20 shadow-xs">
+          <ShoppingBag className="size-10 text-primary/80 stroke-[1.5]" />
         </div>
-        <h1 className="font-display text-3xl font-bold">Your bag is empty</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Add a few essentials and they'll show up here.
+        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+          Your bag is empty
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+          Discover our organic baby clothing, safe wooden toys, and everyday nursery essentials.
         </p>
         <Link
           to="/shop"
-          className="focus-ring press mt-8 inline-block rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover"
+          className="focus-ring press mt-8 inline-block rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-premium-md transition-all hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover active:scale-98"
         >
-          Start shopping
+          Shop Collection
         </Link>
       </div>
     );

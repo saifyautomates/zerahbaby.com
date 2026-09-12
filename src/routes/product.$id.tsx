@@ -861,15 +861,15 @@ function ProductPage() {
 
           {/* Pricing Row */}
           <div className="mt-4 flex items-baseline gap-2.5">
-            <span className="text-3xl font-black text-[#8B3A3A] dark:text-rose-400">
+            <span className="text-3xl font-black text-[#8B3A3A] dark:text-rose-400 tabular-nums">
               {formatPrice(activePrice)}
             </span>
             {product.mrp > activePrice && (
               <>
-                <span className="text-base text-muted-foreground line-through font-medium">
+                <span className="text-base text-muted-foreground line-through font-medium tabular-nums">
                   {formatPrice(product.mrp)}
                 </span>
-                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs px-2.5 py-1">
+                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs px-2.5 py-1 tabular-nums">
                   {discountPct({ price: activePrice, mrp: product.mrp })}% OFF
                 </span>
               </>
@@ -1087,21 +1087,21 @@ function ProductPage() {
             {/* 3 Trust Cards */}
             <div className="mt-4 rounded-2xl bg-[#FBF8F5] dark:bg-card/60 border border-border/40 p-3.5 sm:p-4 grid grid-cols-3 gap-2 divide-x divide-border/40">
               <div className="flex flex-col items-center text-center px-1">
-                <div className="size-7 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mb-1.5">
+                <div className="size-7 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5">
                   <Sparkles className="size-3.5" />
                 </div>
                 <p className="font-bold text-[11px] sm:text-xs text-foreground">Soft & Breathable</p>
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">All-day comfort</p>
               </div>
               <div className="flex flex-col items-center text-center px-1">
-                <div className="size-7 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center mb-1.5">
+                <div className="size-7 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5">
                   <Layers className="size-3.5" />
                 </div>
                 <p className="font-bold text-[11px] sm:text-xs text-foreground">Premium Fabric</p>
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">Gentle on skin</p>
               </div>
               <div className="flex flex-col items-center text-center px-1">
-                <div className="size-7 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center mb-1.5">
+                <div className="size-7 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5">
                   <ShieldCheck className="size-3.5" />
                 </div>
                 <p className="font-bold text-[11px] sm:text-xs text-foreground">Safe for Kids</p>
