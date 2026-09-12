@@ -213,7 +213,63 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const clean = code.trim();
   if (!clean) return { found: false };
 
-  // 1. Try online RPC first if online
+  // 0. Check local offline IndexedDB cache first (< 2ms instant response)
+  try {
+    const offline = await findOfflineProductByCode(clean);
+    if (offline) {
+      const v = (offline.matchedVariant || null) as {
+        id?: string;
+        name?: string;
+        price_override?: number | null;
+        priceOverride?: number | null;
+        mrp_override?: number | null;
+        mrpOverride?: number | null;
+        stock?: number | null;
+        sku?: string | null;
+        barcode?: string | null;
+        image_url?: string | null;
+        imageUrl?: string | null;
+      } | null;
+
+      const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
+      const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+      const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
+      const sku = String(v?.sku || offline.sku || "");
+      const barcode = String(v?.barcode || offline.barcode || clean);
+      const image =
+        v?.image_url ||
+        v?.imageUrl ||
+        (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
+        null;
+
+      return {
+        found: true,
+        archived: offline.is_active === false || offline.isActive === false,
+        product_id: String(offline.uuid || offline.id),
+        variant_id: v?.id || "",
+        slug: String(offline.slug || offline.id),
+        name: String(offline.name || ""),
+        brand: String(offline.brand || "Zérah Baby & Kids"),
+        category: String(offline.category || "clothing"),
+        price,
+        mrp,
+        stock,
+        sku,
+        barcode,
+        image_url: image,
+        age_group: String(offline.age_group || ""),
+        description: String(offline.description || ""),
+        sales_channel: (offline.sales_channel || "ONLINE_AND_OFFLINE") as
+          | "ONLINE_AND_OFFLINE"
+          | "OFFLINE_ONLY",
+        buying_price: Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null,
+      };
+    }
+  } catch {
+    // Continue to online RPC if offline lookup fails
+  }
+
+  // 1. Try online RPC if online
   if (typeof navigator === "undefined" || navigator.onLine) {
     try {
       const { data, error } = await (

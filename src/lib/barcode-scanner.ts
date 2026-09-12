@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 
-// Timing threshold in ms. Physical barcode scanners emit chars with ~10-40ms intervals.
+// Timing threshold in ms. Physical barcode scanners emit chars with ~10-50ms intervals.
 // Humans typing naturally take >= 120-250ms per key.
-const MAX_KEY_INTERVAL_MS = 75;
+// 95ms accommodates slight jitter across wireless 2.4GHz and Bluetooth handheld scanners.
+const MAX_KEY_INTERVAL_MS = 95;
 const MIN_BARCODE_LENGTH = 4;
 
 export const SCANNER_EVENT_NAME = "zerah:barcode-scan";
@@ -71,7 +72,8 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     const interval = now - globalLastKeyTime;
 
     if (code.length >= MIN_BARCODE_LENGTH && interval <= 120) {
-      if (code === lastFiredCode && now - lastFiredTime < 1200) {
+      // 300ms debounce prevents double-enter bounce while permitting rapid scanning of identical units
+      if (code === lastFiredCode && now - lastFiredTime < 300) {
         e.preventDefault();
         e.stopPropagation();
         globalBuffer = "";

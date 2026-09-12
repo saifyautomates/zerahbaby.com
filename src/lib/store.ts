@@ -294,26 +294,13 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       query = query.eq("is_active", true).eq("sales_channel", "ONLINE_AND_OFFLINE");
     }
 
-    const [productsRes, settingsRes] = await Promise.all([
+    const [productsRes, deliveryFees] = await Promise.all([
       query,
-      supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "product_delivery_fees")
-        .maybeSingle(),
+      getDeliveryFeesMap(),
     ]);
 
     if (productsRes.error) throw productsRes.error;
     if (productsRes.data) {
-      let deliveryFees: Record<string, number> = {};
-      if (settingsRes.data?.value) {
-        try {
-          deliveryFees = JSON.parse(settingsRes.data.value);
-        } catch {
-          deliveryFees = {};
-        }
-      }
-
       const mapped = (productsRes.data as unknown as ProductRow[]).map((r) => {
         const prod = mapProduct(r);
         if (deliveryFees[prod.uuid] !== undefined) {

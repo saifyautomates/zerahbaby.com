@@ -57,7 +57,14 @@ import {
   Percent,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { type Product, mapProduct, formatPrice, imageFor, getColorSwatchImage } from "@/lib/store";
+import {
+  type Product,
+  type ProductVariant,
+  mapProduct,
+  formatPrice,
+  imageFor,
+  getColorSwatchImage,
+} from "@/lib/store";
 import { calculatePOSFinancials, type CouponRule } from "@/lib/pricing-engine";
 import {
   invalidateCanonicalReportingQueries,
@@ -82,7 +89,7 @@ import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { useSession } from "@/lib/auth";
-import { useOfflineSyncStatus } from "@/lib/offline-sync-engine";
+import { useOfflineSyncStatus, findOfflineProductByCode } from "@/lib/offline-sync-engine";
 import { POSTerminalSkeleton } from "@/components/ui/Skeletons";
 import { cn } from "@/lib/utils";
 import {
@@ -643,6 +650,49 @@ export function POSTab() {
     return { totalCost, profit, marginPct, hasCostData };
   }, [cart, total, products]);
 
+  // In-Memory O(1) Instant POS Catalog Index (Barcodes, SKUs, IDs, Variants)
+  const productLookupMaps = useMemo(() => {
+    const barcodeMap = new Map<
+      string,
+      { product: Product; variant?: ProductVariant }
+    >();
+    const skuMap = new Map<
+      string,
+      { product: Product; variant?: ProductVariant }
+    >();
+    const idMap = new Map<string, Product>();
+
+    if (Array.isArray(products)) {
+      for (const p of products) {
+        if (!p) continue;
+        if (p.id) idMap.set(p.id.toLowerCase(), p);
+        if (p.uuid) idMap.set(p.uuid.toLowerCase(), p);
+        const pSlug = (p as unknown as { slug?: string }).slug;
+        if (pSlug) idMap.set(String(pSlug).toLowerCase(), p);
+
+        if (p.barcode) {
+          barcodeMap.set(p.barcode.trim().toLowerCase(), { product: p });
+        }
+        if (p.sku) {
+          skuMap.set(p.sku.trim().toLowerCase(), { product: p });
+        }
+
+        if (p.variants && p.variants.length > 0) {
+          for (const v of p.variants) {
+            if (v.barcode) {
+              barcodeMap.set(v.barcode.trim().toLowerCase(), { product: p, variant: v });
+            }
+            if (v.sku) {
+              skuMap.set(v.sku.trim().toLowerCase(), { product: p, variant: v });
+            }
+          }
+        }
+      }
+    }
+
+    return { barcodeMap, skuMap, idMap };
+  }, [products]);
+
   // POS customer search
   const searchCustomers = useSearchPOSCustomers();
   const createCustomer = useCreatePOSCustomer();
@@ -1120,12 +1170,253 @@ export function POSTab() {
     return undefined;
   }, [step]);
 
+  // Dedicated handler to add variant or product from POS search directly into the cart
+  const addPOSResultToCart = useCallback(
+    (product: POSSearchResult, variant?: POSSearchVariant) => {
+      const selectedVar =
+        variant ||
+        (product.matched_variant_id
+          ? product.variants.find((v) => v.id === product.matched_variant_id)
+          : undefined) ||
+        product.variants.find((v) => v.stock > 0) ||
+        product.variants[0];
+
+      const stock = selectedVar ? selectedVar.stock : product.stock;
+
+      if (stock <= 0) {
+        playScanError();
+        toast.error(
+          `"${product.name}${selectedVar?.name && selectedVar.name !== "Default" ? ` (${selectedVar.name})` : ""}" is out of stock`,
+          { description: "Cannot add out-of-stock items to a new POS sale." },
+        );
+        return false;
+      }
+
+      const varName =
+        selectedVar && selectedVar.name && selectedVar.name !== "Default"
+          ? ` - ${selectedVar.name}`
+          : "";
+
+      const itemPrice = selectedVar?.price ?? product.price;
+      const itemMrp = selectedVar?.mrp ?? product.mrp ?? itemPrice;
+      const itemSku = selectedVar?.sku || product.sku;
+      const itemBarcode = selectedVar?.barcode || product.barcode || "";
+      const itemImage = selectedVar?.image_url || product.image_url;
+
+      const matchedProd = products.find(
+        (p) => p.uuid === product.id || p.id === product.id || (p as any).slug === product.id || p.id === product.slug || p.uuid === product.slug,
+      );
+      const resBuyingPrice =
+        Number(
+          (product as unknown as { buying_price?: number; buyingPrice?: number }).buying_price ??
+          (product as unknown as { buying_price?: number; buyingPrice?: number }).buyingPrice ??
+          matchedProd?.buyingPrice ??
+          matchedProd?.buying_price ??
+          0,
+        ) || null;
+
+      const added = addToCart({
+        product_id: product.id,
+        variant_id: selectedVar?.id || "",
+        slug: product.slug || product.id,
+        name: `${product.name}${varName}`,
+        brand: product.brand || "Zérah Baby & Kids",
+        category: product.category || "Clothing",
+        age_group: "All",
+        price: itemPrice,
+        mrp: itemMrp,
+        stock: stock,
+        sku: itemSku,
+        barcode: itemBarcode,
+        image_url: itemImage,
+        qty: 1,
+        buying_price: resBuyingPrice,
+        sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
+          | "ONLINE_AND_OFFLINE"
+          | "OFFLINE_ONLY",
+      });
+
+      if (added) {
+        playScanSuccess();
+        setProductSearch("");
+        setIsSearchDropdownOpen(false);
+        setActiveSuggestionIndex(0);
+        const isOfflineOnly = product.sales_channel === "OFFLINE_ONLY";
+        toast.success(`Added: ${product.name}${varName}`, {
+          description: `${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • ₹${itemPrice} • Stock: ${stock}`,
+        });
+        setTimeout(() => scanInputRef.current?.focus(), 50);
+        return true;
+      }
+      return false;
+    },
+    [products],
+  );
+
   // Scan handler
   const handleScan = useCallback(
     async (code: string) => {
       const cleanCode = code.trim();
       if (!cleanCode) return;
       setScanValue("");
+
+      // ── PRIORITY 1: INSTANT IN-MEMORY LOOKUP (< 1ms, ZERO NETWORK DELAY) ──
+      const q = cleanCode.toLowerCase();
+      const inMemoryMatch =
+        productLookupMaps.barcodeMap.get(q) ||
+        productLookupMaps.skuMap.get(q) ||
+        (productLookupMaps.idMap.has(q)
+          ? { product: productLookupMaps.idMap.get(q)! }
+          : undefined);
+
+      if (inMemoryMatch) {
+        const { product, variant } = inMemoryMatch;
+
+        if (product.isActive === false) {
+          playScanError();
+          toast.error(`"${product.name}" is archived and unavailable for sale`, {
+            duration: 5000,
+          });
+          return;
+        }
+
+        const stock = variant ? (variant.stock ?? 0) : (product.stock ?? 0);
+        if (stock <= 0) {
+          playScanError();
+          toast.error(
+            `"${product.name}${variant?.name && variant.name !== "Default" ? ` (${variant.name})` : ""}" is out of stock!`,
+            {
+              description: "Cannot add out-of-stock items to a new POS sale.",
+            },
+          );
+          return;
+        }
+
+        const price = variant?.priceOverride ?? (variant as any)?.price_override ?? product.price;
+        const mrp = variant?.mrpOverride ?? (variant as any)?.mrp_override ?? product.mrp ?? product.price;
+        const sku = variant?.sku || product.sku || "";
+        const barcode = variant?.barcode || product.barcode || cleanCode;
+        const buyingPrice = Number(product.buyingPrice ?? product.buying_price ?? 0) || null;
+        const image = variant?.imageUrl ?? (variant as any)?.image_url ?? (product.images?.[0] || null);
+        const salesChannel = (product.salesChannel || (product as any).sales_channel || "ONLINE_AND_OFFLINE") as
+          | "ONLINE_AND_OFFLINE"
+          | "OFFLINE_ONLY";
+
+        const added = addToCart({
+          product_id: product.uuid || product.id,
+          variant_id: variant?.id || "",
+          slug: (product as unknown as { slug?: string }).slug || product.id,
+          name: product.name,
+          brand: product.brand ?? "",
+          category: product.category ?? "",
+          price,
+          mrp,
+          stock,
+          sku,
+          barcode,
+          image_url: image,
+          age_group: product.ageGroup ?? "",
+          qty: 1,
+          buying_price: buyingPrice,
+          sales_channel: salesChannel,
+        });
+
+        if (added) {
+          playScanSuccess();
+          const isOfflineOnly = salesChannel === "OFFLINE_ONLY";
+          toast.success(
+            `Scanned: ${product.name}${variant?.name && variant.name !== "Default" ? ` (${variant.name})` : ""}`,
+            {
+              description: `₹${price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${sku || "N/A"} • Stock: ${stock}`,
+            },
+          );
+          setIsSearchDropdownOpen(false);
+          setSearchQuery("");
+        }
+        return;
+      }
+
+      // ── PRIORITY 2: LOCAL INDEXEDDB CACHE LOOKUP (< 3ms) ──
+      try {
+        const offline = await findOfflineProductByCode(cleanCode);
+        if (offline) {
+          const v = (offline.matchedVariant || null) as {
+            id?: string;
+            name?: string;
+            price_override?: number | null;
+            priceOverride?: number | null;
+            mrp_override?: number | null;
+            mrpOverride?: number | null;
+            stock?: number | null;
+            sku?: string | null;
+            barcode?: string | null;
+            image_url?: string | null;
+            imageUrl?: string | null;
+          } | null;
+
+          if (offline.is_active === false || offline.isActive === false) {
+            playScanError();
+            toast.error(`"${offline.name}" is archived and unavailable for sale`, {
+              duration: 5000,
+            });
+            return;
+          }
+
+          const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
+          if (stock <= 0) {
+            playScanError();
+            toast.error(`"${offline.name}" is out of stock!`);
+            return;
+          }
+
+          const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
+          const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+          const sku = String(v?.sku || offline.sku || "");
+          const barcode = String(v?.barcode || offline.barcode || cleanCode);
+          const buyingPrice = Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null;
+          const image =
+            v?.image_url ||
+            v?.imageUrl ||
+            (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
+            null;
+          const salesChannel = (offline.sales_channel || "ONLINE_AND_OFFLINE") as
+            | "ONLINE_AND_OFFLINE"
+            | "OFFLINE_ONLY";
+
+          const added = addToCart({
+            product_id: String(offline.uuid || offline.id),
+            variant_id: v?.id || "",
+            slug: String(offline.slug || offline.id),
+            name: String(offline.name || ""),
+            brand: String(offline.brand || ""),
+            category: String(offline.category || ""),
+            price,
+            mrp,
+            stock,
+            sku,
+            barcode,
+            image_url: image,
+            age_group: String(offline.age_group || ""),
+            qty: 1,
+            buying_price: buyingPrice,
+            sales_channel: salesChannel,
+          });
+
+          if (added) {
+            playScanSuccess();
+            toast.success(`Scanned: ${offline.name}`, {
+              description: `₹${price} • SKU: ${sku || "N/A"} • Stock: ${stock}`,
+            });
+            setIsSearchDropdownOpen(false);
+            setSearchQuery("");
+            return;
+          }
+        }
+      } catch {
+        // Continue to online fallback
+      }
+
+      // ── PRIORITY 3: ONLINE RPC & SERVER SEARCH FALLBACK ──
       setScanLoading(true);
       try {
         const result = await lookupBarcode(cleanCode);
@@ -1179,6 +1470,8 @@ export function POSTab() {
             toast.success(`Scanned: ${result.name}`, {
               description: `₹${result.price} • ${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • SKU: ${result.sku || "N/A"} • Stock: ${result.stock}`,
             });
+            setIsSearchDropdownOpen(false);
+            setSearchQuery("");
           }
           return;
         }
@@ -1194,7 +1487,11 @@ export function POSTab() {
           );
           if (topMatch.match_score >= 80 || exactVar || searchMatches.length === 1) {
             const added = addPOSResultToCart(topMatch, exactVar);
-            if (added) return;
+            if (added) {
+              setIsSearchDropdownOpen(false);
+              setSearchQuery("");
+              return;
+            }
           }
 
           setProductSearch(cleanCode);
@@ -1206,7 +1503,6 @@ export function POSTab() {
         }
 
         // Secondary fallback: search in loaded local products catalog
-        const q = cleanCode.toLowerCase();
         const localMatches = products.filter((p) => {
           return (
             p.sku.toLowerCase() === q ||
@@ -1224,6 +1520,8 @@ export function POSTab() {
           );
           addProductManually(p, matchedVar);
           playScanSuccess();
+          setIsSearchDropdownOpen(false);
+          setSearchQuery("");
           return;
         }
 
@@ -1245,7 +1543,7 @@ export function POSTab() {
         setScanLoading(false);
       }
     },
-    [products, addProductManually],
+    [productLookupMaps, products, addProductManually, addPOSResultToCart],
   );
 
   // Hook into centralized hardware scanner events (also drains queued scans on mount)
@@ -1801,88 +2099,6 @@ export function POSTab() {
     return list;
   }, [searchResults]);
 
-  // Dedicated handler to add variant or product from POS search directly into the cart
-  const addPOSResultToCart = useCallback(
-    (product: POSSearchResult, variant?: POSSearchVariant) => {
-      const selectedVar =
-        variant ||
-        (product.matched_variant_id
-          ? product.variants.find((v) => v.id === product.matched_variant_id)
-          : undefined) ||
-        product.variants.find((v) => v.stock > 0) ||
-        product.variants[0];
-
-      const stock = selectedVar ? selectedVar.stock : product.stock;
-
-      if (stock <= 0) {
-        playScanError();
-        toast.error(
-          `"${product.name}${selectedVar?.name && selectedVar.name !== "Default" ? ` (${selectedVar.name})` : ""}" is out of stock`,
-          { description: "Cannot add out-of-stock items to a new POS sale." },
-        );
-        return false;
-      }
-
-      const varName =
-        selectedVar && selectedVar.name && selectedVar.name !== "Default"
-          ? ` - ${selectedVar.name}`
-          : "";
-
-      const itemPrice = selectedVar?.price ?? product.price;
-      const itemMrp = selectedVar?.mrp ?? product.mrp ?? itemPrice;
-      const itemSku = selectedVar?.sku || product.sku;
-      const itemBarcode = selectedVar?.barcode || product.barcode || "";
-      const itemImage = selectedVar?.image_url || product.image_url;
-
-      const matchedProd = products.find(
-        (p) => p.uuid === product.id || p.id === product.id || p.id === product.slug || p.uuid === product.slug,
-      );
-      const resBuyingPrice =
-        Number(
-          (product as unknown as { buying_price?: number; buyingPrice?: number }).buying_price ??
-          (product as unknown as { buying_price?: number; buyingPrice?: number }).buyingPrice ??
-          matchedProd?.buyingPrice ??
-          matchedProd?.buying_price ??
-          0,
-        ) || null;
-
-      const added = addToCart({
-        product_id: product.id,
-        variant_id: selectedVar?.id || "",
-        slug: product.slug || product.id,
-        name: `${product.name}${varName}`,
-        brand: product.brand || "Zérah Baby & Kids",
-        category: product.category || "Clothing",
-        age_group: "All",
-        price: itemPrice,
-        mrp: itemMrp,
-        stock: stock,
-        sku: itemSku,
-        barcode: itemBarcode,
-        image_url: itemImage,
-        qty: 1,
-        buying_price: resBuyingPrice,
-        sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
-          "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
-      });
-
-      if (added) {
-        playScanSuccess();
-        setProductSearch("");
-        setIsSearchDropdownOpen(false);
-        setActiveSuggestionIndex(0);
-        const isOfflineOnly = product.sales_channel === "OFFLINE_ONLY";
-        toast.success(`Added: ${product.name}${varName}`, {
-          description: `${isOfflineOnly ? "🏪 Offline Only" : "🌐 Online + Store"} • ₹${itemPrice} • Stock: ${stock}`,
-        });
-        setTimeout(() => scanInputRef.current?.focus(), 50);
-        return true;
-      }
-      return false;
-    },
-    [addToCart],
-  );
-
   // Customer search results
   useEffect(() => {
     if (customerSearchQuery.trim().length >= 2) {
@@ -2316,7 +2532,21 @@ export function POSTab() {
                       const clean = searchQuery.trim();
                       if (!clean) return;
 
-                      // 1. If suggestions dropdown is open with suggestions, add highlighted item
+                      // 1. Check exact barcode or SKU match first (priority for scanner burst or exact SKU typing)
+                      const qLower = clean.toLowerCase();
+                      const exactMatch =
+                        productLookupMaps.barcodeMap.get(qLower) ||
+                        productLookupMaps.skuMap.get(qLower) ||
+                        productLookupMaps.idMap.get(qLower);
+
+                      if (exactMatch) {
+                        await handleScan(clean);
+                        setIsSearchDropdownOpen(false);
+                        setSearchQuery("");
+                        return;
+                      }
+
+                      // 2. If suggestions dropdown is open with suggestions, add highlighted item
                       if (isSearchDropdownOpen && selectableItems.length > 0) {
                         const target = selectableItems[activeSuggestionIndex] || selectableItems[0];
                         if (target.isOutOfStock) {
@@ -2327,11 +2557,15 @@ export function POSTab() {
                           return;
                         }
                         addPOSResultToCart(target.product, target.variant);
+                        setIsSearchDropdownOpen(false);
+                        setSearchQuery("");
                         return;
                       }
 
-                      // 2. Barcode scanner fast Enter or direct SKU enter
+                      // 3. Barcode scanner fast Enter or direct SKU enter
                       await handleScan(clean);
+                      setIsSearchDropdownOpen(false);
+                      setSearchQuery("");
                     } else if (e.key === "Escape") {
                       e.preventDefault();
                       setIsSearchDropdownOpen(false);

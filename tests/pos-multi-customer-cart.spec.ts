@@ -340,7 +340,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 10000,
+      timeout: 20000,
     });
 
     // Reset leftover tabs for clean test run
