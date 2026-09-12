@@ -227,18 +227,15 @@ export function resolveProductMedia(product?: ProductMediaRow | null): ResolvedP
     };
   }
 
-  // 4. Safe product-specific deterministic fallback (guarantees NO cross-product contamination)
-  const productSpecificFallback = generateProductFallbackSvg({
-    name: product.name,
-    category: product.category,
-    slug: product.slug,
-    sku: product.sku,
-  });
+  // 4. Guaranteed high-resolution photographic fallback by category
+  const catKey = (product.category || "clothing").toLowerCase().trim();
+  const categoryPhotoFallback =
+    CATEGORY_FALLBACK_IMAGES[catKey] || CATEGORY_FALLBACK_IMAGES.clothing;
 
   return {
-    primaryImage: productSpecificFallback,
-    imageUrl: null,
-    gallery: [productSpecificFallback],
+    primaryImage: categoryPhotoFallback,
+    imageUrl: categoryPhotoFallback,
+    gallery: [categoryPhotoFallback],
     hasCustomUpload: false,
   };
 }

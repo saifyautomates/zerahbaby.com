@@ -25,8 +25,8 @@ export const imageFor = (
   product?: { name?: string; slug?: string; sku?: string },
 ) => {
   if (url && url.trim().length > 0) return url;
-  if (product) return generateProductFallbackSvg({ ...product, category });
-  return fallbackImages[category] ?? fallbackImages.clothing;
+  const cat = (category || "").toLowerCase().trim();
+  return fallbackImages[cat] ?? fallbackImages.clothing;
 };
 
 import type {
@@ -143,16 +143,33 @@ export function getColorGallery(product: Product, color?: string | null): string
     }
   }
 
+  // If rawImages exist, use them in sort_order / primary order
+  if (rawImages.length > 0) {
+    const sorted = [...rawImages]
+      .sort(
+        (a, b) =>
+          (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+          (a.sort_order ?? 0) - (b.sort_order ?? 0),
+      )
+      .map((img) => img.public_url)
+      .filter(Boolean);
+    if (sorted.length > 0) return sorted;
+  }
+
   // Fallback: full product gallery
   const fullGallery = (product.images?.length ? product.images : [product.image]).filter(
     Boolean,
   ) as string[];
-  return fullGallery.length > 0 ? fullGallery : [product.image];
+  if (fullGallery.length > 0) return fullGallery;
+
+  const catFallback = imageFor(product.category || "clothing", null);
+  return [catFallback];
 }
 
 /** Get representative thumbnail/swatch image for a specific color */
 export function getColorSwatchImage(product: Product, color: string): string {
-  if (!product || !color) return product?.image || "";
+  if (!product) return "";
+  if (!color) return product.image || imageFor(product.category || "clothing", null);
 
   const trimmedColor = color.trim().toLowerCase();
 
@@ -181,7 +198,7 @@ export function getColorSwatchImage(product: Product, color: string): string {
     }
   }
 
-  return product.image;
+  return product.image || imageFor(product.category || "clothing", null);
 }
 
 export const mapProduct = (row: ProductRow): Product => {

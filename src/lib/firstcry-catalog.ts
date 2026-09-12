@@ -3287,7 +3287,57 @@ export const FIRSTCRY_IMAGE_MAP: Record<string, { imageUrl: string; images: stri
       if (p.name) acc[p.name.toLowerCase().trim()] = entry;
       return acc;
     },
-    {} as Record<string, { imageUrl: string; images: string[] }>,
+    {
+      tshirt: {
+        imageUrl:
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+      "zr-cl-tshirt": {
+        imageUrl:
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+      "organic cotton baby t-shirt": {
+        imageUrl:
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+      romper: {
+        imageUrl:
+          "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+      "wooden-rattle": {
+        imageUrl:
+          "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+      "baby-wash": {
+        imageUrl:
+          "https://images.unsplash.com/photo-1584824486539-53bb4646bdbc?w=800&auto=format&fit=crop&q=80",
+        images: [
+          "https://images.unsplash.com/photo-1584824486539-53bb4646bdbc?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800&auto=format&fit=crop&q=80",
+        ],
+      },
+    } as Record<string, { imageUrl: string; images: string[] }>,
   );
 
 /**
