@@ -638,3 +638,97 @@ export function useRequestShiprocketPickup() {
     onError: (e: Error) => toast.error(e.message || "Failed to request pickup"),
   });
 }
+
+export function useGenerateShiprocketLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      return invokeShiprocketApi({ action: "generate_label", orderId }) as Promise<{
+        success: boolean;
+        label_url: string;
+      }>;
+    },
+    onSuccess: (data) => {
+      toast.success("Shipping label generated successfully!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      if (data?.label_url && typeof window !== "undefined") {
+        window.open(data.label_url, "_blank", "noopener,noreferrer");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to generate shipping label"),
+  });
+}
+
+export function useGenerateShiprocketManifest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      return invokeShiprocketApi({ action: "generate_manifest", orderId }) as Promise<{
+        success: boolean;
+        manifest_url: string;
+      }>;
+    },
+    onSuccess: (data) => {
+      toast.success("Manifest generated successfully!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      if (data?.manifest_url && typeof window !== "undefined") {
+        window.open(data.manifest_url, "_blank", "noopener,noreferrer");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to generate manifest"),
+  });
+}
+
+export function useSyncShiprocketTracking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      return invokeShiprocketApi({ action: "get_tracking", orderId }) as Promise<{
+        success: boolean;
+        tracking_data: any;
+        scans: any[];
+        status: string;
+      }>;
+    },
+    onSuccess: () => {
+      toast.success("Tracking status refreshed with Shiprocket!");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to sync tracking with Shiprocket"),
+  });
+}
+
+export function useCancelShiprocketOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+      return invokeShiprocketApi({
+        action: "cancel_shipment",
+        orderId,
+        reason: reason || "Admin order cancellation",
+      }) as Promise<{
+        success: boolean;
+        provider_cancelled?: boolean;
+        already_cancelled?: boolean;
+        non_cancellable?: boolean;
+        message?: string;
+        error?: string;
+      }>;
+    },
+    onSuccess: (data) => {
+      if (data.already_cancelled) {
+        toast.info("Order is already cancelled.");
+      } else {
+        toast.success(data.message || "Order and Shiprocket shipment cancelled successfully.");
+      }
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Order cancellation failed");
+    },
+  });
+}
+

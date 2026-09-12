@@ -1100,8 +1100,10 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
   const courier = order.courier_name || "Shiprocket Express";
 
   const trackingUrl = awb
-    ? `https://shiprocket.co//tracking/${awb}`
+    ? `https://shiprocket.co/tracking/${awb}`
     : undefined;
+
+  const scans = Array.isArray(order.shipping_tracking_history) ? order.shipping_tracking_history : [];
 
   const modalContent = (
     <div
@@ -1127,7 +1129,7 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
           >
             ✕
           </button>
@@ -1179,13 +1181,49 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
             </div>
           </div>
 
+          {/* Live Checkpoint Scans from Courier */}
+          {scans.length > 0 && (
+            <div className="rounded-2xl border border-border/80 bg-muted/10 p-4 space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>Courier Checkpoints</span>
+                <span className="text-[10px] font-mono text-muted-foreground">{scans.length} events</span>
+              </h3>
+              <div className="relative pl-5 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                {scans.map((scan: any, i: number) => (
+                  <div key={i} className="relative flex items-start gap-2.5 text-xs">
+                    <span
+                      className={`absolute -left-5 top-1 size-2.5 rounded-full border-2 border-card ${
+                        i === 0 ? "bg-primary ring-2 ring-primary/20" : "bg-muted-foreground"
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-foreground">
+                          {scan.activity || scan.status || "Checkpoint reached"}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {scan.date || scan.time || ""}
+                        </span>
+                      </div>
+                      {scan.location && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          📍 {scan.location}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Direct Shiprocket courier link */}
           {trackingUrl && (
             <a
               href={trackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full rounded-2xl bg-foreground px-4 py-3 text-xs font-bold text-background shadow-sm hover:opacity-90 transition"
+              className="flex items-center justify-center gap-2 w-full rounded-2xl bg-foreground px-4 py-3 text-xs font-bold text-background shadow-sm hover:opacity-90 transition cursor-pointer"
             >
               <span>Track directly on {courier}</span>
               <ExternalLink className="size-3.5" />

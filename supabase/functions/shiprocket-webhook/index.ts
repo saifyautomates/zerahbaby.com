@@ -88,20 +88,41 @@ Deno.serve(async (req) => {
       }
 
       // Only update if changed to avoid unnecessary DB writes (idempotency check)
+      const updateFields: Record<string, any> = {
+        shipping_last_synced_at: new Date().toISOString(),
+      };
+      if (Array.isArray(payload.scans) && payload.scans.length > 0) {
+        updateFields.shipping_tracking_history = payload.scans;
+      }
+
       if (order.shiprocket_status !== statusUpper || order.status !== newStoreStatus) {
+        updateFields.shiprocket_status = statusUpper;
+        updateFields.status = newStoreStatus;
+        updateFields.tracking_number = awbCode;
+
         const { error: updateError } = await adminClient
           .from("orders")
-          .update({
-            shiprocket_status: statusUpper,
-            status: newStoreStatus,
-            tracking_number: awbCode,
-          })
+          .update(updateFields)
           .eq("id", order.id);
 
         if (updateError) {
           throw new Error(`Failed to update order: ${updateError.message}`);
         }
         console.log(`Order ${order.id} updated to ${statusUpper} (${newStoreStatus})`);
+
+        // Record in shipping_events audit trail
+        await adminClient.from("shipping_events").insert({
+          order_id: order.id,
+          event_type: `WEBHOOK_${statusUpper}`,
+          awb_code: awbCode,
+          provider_status: statusUpper,
+          details: {
+            current_status: currentStatus,
+            new_store_status: newStoreStatus,
+            courier_name: payload.courier_name,
+            scans_count: Array.isArray(payload.scans) ? payload.scans.length : 0,
+          },
+        });
 
         // Dispatch order_delivered SMS when status changes to delivered (non-blocking)
         if (newStoreStatus === "delivered") {

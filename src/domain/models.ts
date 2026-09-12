@@ -273,6 +273,21 @@ export interface Order {
   awb_code?: string | null;
   courier_name?: string | null;
   shiprocket_status?: string | null;
+  shiprocket_label_url?: string | null;
+  shiprocket_manifest_url?: string | null;
+  shipping_cancellation_status?: string | null;
+  shipping_cancellation_reason?: string | null;
+  shipping_cancellation_requested_at?: string | null;
+  shipping_cancellation_completed_at?: string | null;
+  shipping_last_synced_at?: string | null;
+  shipping_error?: string | null;
+  shipping_tracking_history?: Array<{
+    date?: string;
+    status?: string;
+    activity?: string;
+    location?: string;
+    "sr-status-label"?: string;
+  }> | null;
   open_box_eligible?: boolean | null;
   open_box_status?: string | null;
   open_box_inspected_at?: string | null;
@@ -286,6 +301,19 @@ export interface Order {
   customer_notification_status?: string | null;
   customer_notified_at?: string | null;
   [key: string]: unknown;
+}
+
+export interface ShippingEvent {
+  id: string;
+  order_id: string;
+  event_type: string;
+  shiprocket_order_id?: number | null;
+  shiprocket_shipment_id?: number | null;
+  awb_code?: string | null;
+  provider_status?: string | null;
+  details?: Record<string, unknown>;
+  actor_id?: string | null;
+  created_at: string;
 }
 
 /* ------------------------------------------------------------------ */

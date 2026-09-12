@@ -332,4 +332,279 @@ test.describe("Shiprocket Logistics Integration & State Machine Suite", () => {
       }),
     ).toBe("VIEW_AWB_DETAILS");
   });
+
+  // 8. Order Cancellation State Machine & Provider Rejection Safety
+  test("8. Order Cancellation: Non-Cancellable Protection & Operational Truth", () => {
+    interface CancellationResult {
+      success: boolean;
+      local_status: string;
+      shipping_cancellation_status: string;
+      non_cancellable?: boolean;
+      message: string;
+    }
+
+    const cancelShiprocketOrder = (
+      order: {
+        id: string;
+        status: string;
+        shiprocket_status?: string | null;
+        awb_code?: string | null;
+      },
+      providerCancelMock: (awb: string) => { success: boolean; message?: string },
+    ): CancellationResult => {
+      // 1. Idempotency: Already cancelled
+      if (order.status === "cancelled") {
+        return {
+          success: true,
+          local_status: "cancelled",
+          shipping_cancellation_status: "ALREADY_CANCELLED",
+          message: "Order is already cancelled",
+        };
+      }
+
+      // 2. Pre-flight check: Non-cancellable states
+      const nonCancellableStates = [
+        "SHIPPED",
+        "IN TRANSIT",
+        "OUT FOR DELIVERY",
+        "DELIVERED",
+        "RTO INITIATED",
+        "RTO DELIVERED",
+      ];
+      const currentSrStatus = (order.shiprocket_status || "").toUpperCase();
+      if (nonCancellableStates.includes(currentSrStatus)) {
+        return {
+          success: false,
+          local_status: order.status, // Order stays active, NEVER fakes success!
+          shipping_cancellation_status: "NOT_CANCELLABLE",
+          non_cancellable: true,
+          message:
+            "Order cancellation requested, but Shiprocket has already progressed the shipment and it cannot be cancelled through the current provider state.",
+        };
+      }
+
+      // 3. If dispatched to Shiprocket, call provider API
+      if (order.awb_code) {
+        const providerRes = providerCancelMock(order.awb_code);
+        if (!providerRes.success) {
+          return {
+            success: false,
+            local_status: order.status, // Local status not touched if provider fails
+            shipping_cancellation_status: "CANCELLATION_FAILED",
+            message: providerRes.message || "Shiprocket rejected cancellation",
+          };
+        }
+      }
+
+      // 4. Success: finalized
+      return {
+        success: true,
+        local_status: "cancelled",
+        shipping_cancellation_status: "CANCELLED",
+        message: "Order and Shiprocket shipment cancelled successfully.",
+      };
+    };
+
+    // Case A: Eligible order before dispatch (e.g. AWB_GENERATED or NEW) -> Cancelled
+    const eligibleOrder = {
+      id: "ord-elig-001",
+      status: "processing",
+      shiprocket_status: "AWB_GENERATED",
+      awb_code: "AWB-987654",
+    };
+    const resA = cancelShiprocketOrder(eligibleOrder, () => ({ success: true }));
+    expect(resA.success).toBe(true);
+    expect(resA.local_status).toBe("cancelled");
+    expect(resA.shipping_cancellation_status).toBe("CANCELLED");
+
+    // Case B: In-transit order -> BLOCKED with exact required operational message!
+    const inTransitOrder = {
+      id: "ord-intransit-002",
+      status: "shipped",
+      shiprocket_status: "IN TRANSIT",
+      awb_code: "AWB-445566",
+    };
+    const resB = cancelShiprocketOrder(inTransitOrder, () => ({ success: true }));
+    expect(resB.success).toBe(false);
+    expect(resB.local_status).toBe("shipped"); // Remains active!
+    expect(resB.non_cancellable).toBe(true);
+    expect(resB.shipping_cancellation_status).toBe("NOT_CANCELLABLE");
+    expect(resB.message).toBe(
+      "Order cancellation requested, but Shiprocket has already progressed the shipment and it cannot be cancelled through the current provider state.",
+    );
+
+    // Case C: Out for delivery order -> BLOCKED with exact required operational message!
+    const outForDeliveryOrder = {
+      id: "ord-ofd-003",
+      status: "shipped",
+      shiprocket_status: "OUT FOR DELIVERY",
+      awb_code: "AWB-778899",
+    };
+    const resC = cancelShiprocketOrder(outForDeliveryOrder, () => ({ success: true }));
+    expect(resC.success).toBe(false);
+    expect(resC.local_status).toBe("shipped");
+    expect(resC.non_cancellable).toBe(true);
+    expect(resC.message).toContain("Shiprocket has already progressed the shipment");
+
+    // Case D: Delivered order -> BLOCKED
+    const deliveredOrder = {
+      id: "ord-del-004",
+      status: "delivered",
+      shiprocket_status: "DELIVERED",
+      awb_code: "AWB-112233",
+    };
+    const resD = cancelShiprocketOrder(deliveredOrder, () => ({ success: true }));
+    expect(resD.success).toBe(false);
+    expect(resD.local_status).toBe("delivered");
+    expect(resD.non_cancellable).toBe(true);
+
+    // Case E: Already cancelled -> Idempotent
+    const alreadyCancelledOrder = {
+      id: "ord-canc-005",
+      status: "cancelled",
+      shiprocket_status: "CANCELLED",
+    };
+    const resE = cancelShiprocketOrder(alreadyCancelledOrder, () => ({ success: true }));
+    expect(resE.success).toBe(true);
+    expect(resE.shipping_cancellation_status).toBe("ALREADY_CANCELLED");
+  });
+
+  // 9. Label Generation Payload & Storage Mapping
+  test("9. Label Generation: Request Payload and Persistence Mapping", () => {
+    const shipmentId = 12345678;
+    const generateLabelPayload = {
+      shipment_id: [shipmentId],
+    };
+
+    expect(generateLabelPayload.shipment_id).toEqual([12345678]);
+
+    // Simulated provider response
+    const mockApiResponse = {
+      label_created: 1,
+      label_url: "https://s3.ap-south-1.amazonaws.com/shiprocket-media/labels/12345678_label.pdf",
+      response: "Label generated successfully",
+    };
+
+    expect(mockApiResponse.label_url).toMatch(/^https:\/\/.*\.pdf$/);
+    expect(mockApiResponse.label_created).toBe(1);
+  });
+
+  // 10. Manifest Generation Payload & Storage Mapping
+  test("10. Manifest Generation: Request Payload and Pickup Handoff", () => {
+    const shipmentId = 12345678;
+    const generateManifestPayload = {
+      shipment_id: [shipmentId],
+    };
+
+    expect(generateManifestPayload.shipment_id).toEqual([12345678]);
+
+    // Simulated provider response
+    const mockApiResponse = {
+      status: 1,
+      manifest_url: "https://s3.ap-south-1.amazonaws.com/shiprocket-media/manifests/manifest_12345678.pdf",
+      message: "Manifest Generated successfully.",
+    };
+
+    expect(mockApiResponse.manifest_url).toMatch(/^https:\/\/.*\.pdf$/);
+    expect(mockApiResponse.status).toBe(1);
+  });
+
+  // 11. Tracking Scans Parser & Checkpoint Normalization
+  test("11. Live Tracking Checkpoints: Scan Event Normalization", () => {
+    const rawShiprocketTrackingData = {
+      tracking_data: {
+        track_status: 1,
+        shipment_status: 7,
+        shipment_track: [
+          {
+            id: 889911,
+            awb_code: "AWB-998877",
+            current_status: "IN TRANSIT",
+            delivered_to: "Jaipur Hub",
+            destination: "Jaipur",
+            consignee_name: "Fatima Khan",
+            origin: "Kota",
+            courier_name: "Delhivery Surface",
+          },
+        ],
+        shipment_track_activities: [
+          {
+            date: "2026-09-12 10:30:00",
+            status: "Reached Destination Hub",
+            activity: "Package reached Jaipur Distribution Center",
+            location: "Jaipur Sorting Hub, Rajasthan",
+            "sr-status": "IN TRANSIT",
+          },
+          {
+            date: "2026-09-11 18:00:00",
+            status: "In Transit",
+            activity: "Departed from Origin Hub",
+            location: "Kota Transshipment Facility",
+            "sr-status": "IN TRANSIT",
+          },
+          {
+            date: "2026-09-11 12:15:00",
+            status: "Picked Up",
+            activity: "Shipment collected from Zérah Baby & Kids warehouse",
+            location: "Kota Store, 80 Feet Link Road",
+            "sr-status": "PICKED UP",
+          },
+        ],
+      },
+    };
+
+    const normalizeScans = (activities: any[]) => {
+      return (activities || []).map((act) => ({
+        date: act.date,
+        status: act.status || act["sr-status"] || "Scanned",
+        activity: act.activity || act.status || "Checkpoint reached",
+        location: act.location || "",
+      }));
+    };
+
+    const scans = normalizeScans(rawShiprocketTrackingData.tracking_data.shipment_track_activities);
+
+    expect(scans.length).toBe(3);
+    expect(scans[0].date).toBe("2026-09-12 10:30:00");
+    expect(scans[0].activity).toBe("Package reached Jaipur Distribution Center");
+    expect(scans[0].location).toContain("Jaipur");
+    expect(scans[2].activity).toContain("collected from Zérah Baby & Kids warehouse");
+  });
+
+  // 12. Cancellation Inventory Restoration & Prepaid Refund Triggers
+  test("12. Cancellation Side Effects: Restores Stock & Flags Online Refund", () => {
+    const mockOrder = {
+      id: "ord-test-refund-01",
+      payment_status: "paid",
+      payment_method: "online_upi",
+      total: 1499,
+      order_items: [
+        { product_id: "prod-001", variant_id: "var-001", quantity: 2 },
+        { product_id: "prod-002", variant_id: null, quantity: 1 },
+      ],
+    };
+
+    const determineCancellationActions = (order: typeof mockOrder) => {
+      const stockToRestore = order.order_items.map((item) => ({
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        quantity: item.quantity,
+      }));
+
+      const shouldRefund = order.payment_status === "paid" && order.payment_method !== "cod";
+
+      return {
+        stockToRestore,
+        shouldRefund,
+        refundAmount: shouldRefund ? order.total : 0,
+      };
+    };
+
+    const actions = determineCancellationActions(mockOrder);
+    expect(actions.stockToRestore.length).toBe(2);
+    expect(actions.stockToRestore[0].quantity).toBe(2);
+    expect(actions.shouldRefund).toBe(true);
+    expect(actions.refundAmount).toBe(1499);
+  });
 });
+

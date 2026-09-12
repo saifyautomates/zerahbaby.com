@@ -23,6 +23,10 @@ import {
   useCreateShiprocketShipment,
   useGenerateShiprocketAWB,
   useRequestShiprocketPickup,
+  useGenerateShiprocketLabel,
+  useGenerateShiprocketManifest,
+  useSyncShiprocketTracking,
+  useCancelShiprocketOrder,
 } from "@/lib/orders";
 import {
   MailCheck,
@@ -38,6 +42,12 @@ import {
   Ban,
   AlertCircle,
   Search,
+  Printer,
+  FileText,
+  RefreshCw,
+  CheckCircle2,
+  ExternalLink,
+  Clock,
 } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
@@ -118,8 +128,16 @@ export function OnlineSalesTab() {
   const createShipment = useCreateShiprocketShipment();
   const generateAwb = useGenerateShiprocketAWB();
   const requestPickup = useRequestShiprocketPickup();
+  const generateLabel = useGenerateShiprocketLabel();
+  const generateManifest = useGenerateShiprocketManifest();
+  const syncTracking = useSyncShiprocketTracking();
+  const cancelShiprocketOrder = useCancelShiprocketOrder();
   const processRefund = useProcessOrderRefund();
   const resendCustomerInvoice = useResendCustomerInvoice();
+
+  const [orderToCancel, setOrderToCancel] = useState<UnifiedTransaction | null>(null);
+  const [cancelReason, setCancelReason] = useState("Admin cancelled order via Zérah Admin Panel");
+  const [trackingOrder, setTrackingOrder] = useState<UnifiedTransaction | null>(null);
 
   type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
 
@@ -186,9 +204,17 @@ export function OnlineSalesTab() {
     cancellation_reason?: string | null;
     payment_status?: string | null;
     shiprocket_order_id?: string | number | null;
+    shiprocket_shipment_id?: string | number | null;
     awb_code?: string | null;
     courier_name?: string | null;
     shiprocket_status?: string | null;
+    shiprocket_label_url?: string | null;
+    shiprocket_manifest_url?: string | null;
+    shipping_cancellation_status?: string | null;
+    shipping_cancellation_reason?: string | null;
+    shipping_last_synced_at?: string | null;
+    shipping_error?: string | null;
+    shipping_tracking_history?: any[] | null;
     customer_name?: string | null;
     customer_phone?: string | null;
     offline_sale_items?: OfflineSale["offline_sale_items"];
@@ -200,9 +226,17 @@ export function OnlineSalesTab() {
     cancellation_reason?: string | null;
     payment_status?: string | null;
     shiprocket_order_id?: string | number | null;
+    shiprocket_shipment_id?: string | number | null;
     awb_code?: string | null;
     courier_name?: string | null;
     shiprocket_status?: string | null;
+    shiprocket_label_url?: string | null;
+    shiprocket_manifest_url?: string | null;
+    shipping_cancellation_status?: string | null;
+    shipping_cancellation_reason?: string | null;
+    shipping_last_synced_at?: string | null;
+    shipping_error?: string | null;
+    shipping_tracking_history?: any[] | null;
     order_items?: Order["order_items"];
     full_name?: string;
     email?: string;
@@ -356,9 +390,19 @@ export function OnlineSalesTab() {
 
       if (error) throw error;
 
-      // Non-blocking auto refund notice trigger for online paid orders
+      // Trigger cancellation on Shiprocket & auto refund for online paid orders
       activeOrdersToCancel.forEach((o) => {
-        if (o.payment_status === "paid") {
+        if (o._type === "online" && (o.shiprocket_order_id || o.awb_code)) {
+          supabase.functions
+            .invoke("shiprocket-api", {
+              body: {
+                action: "cancel_shipment",
+                orderId: o.id,
+                reason: reasonText,
+              },
+            })
+            .catch((err) => console.warn(`Shiprocket bulk cancel notice for order ${o.id}:`, err));
+        } else if (o.payment_status === "paid") {
           supabase.functions
             .invoke("process-order-cancellation-refund", {
               body: {
@@ -1092,12 +1136,17 @@ export function OnlineSalesTab() {
                   </p>
                   <select
                     value={order.status}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: order.id,
-                        status: e.target.value,
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "cancelled") {
+                        setOrderToCancel(order);
+                      } else {
+                        update.mutate({
+                          id: order.id,
+                          status: val,
+                        });
+                      }
+                    }}
                     disabled={update.isPending}
                     aria-label={`Status for order ${order.id}`}
                     className="mt-3 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium capitalize outline-none focus:border-border focus:ring-4 focus:ring-muted transition-all shadow-sm text-foreground disabled:opacity-50"
@@ -1109,73 +1158,178 @@ export function OnlineSalesTab() {
                     ))}
                   </select>
 
-                  {/* Shiprocket Actions */}
-                  {(order.payment_status === "paid" ||
-                    order.payment_method?.toLowerCase() === "cod") &&
-                    order.status !== "cancelled" && (
-                      <div className="mt-4 border-t border-border/50 pt-3 flex flex-col gap-2">
-                        {!order.shiprocket_order_id ? (
+                  {/* Shiprocket Shipping Management */}
+                  {order._type === "online" && (
+                    <div className="mt-3.5 border-t border-border/50 pt-3 flex flex-col gap-2">
+                      {!order.shiprocket_order_id ? (
+                        (order.payment_status === "paid" || order.payment_method?.toLowerCase() === "cod") &&
+                        order.status !== "cancelled" && (
                           <button
                             type="button"
                             onClick={() => createShipment.mutate(order.id)}
                             disabled={createShipment.isPending || order.status === "cancelled"}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-sm disabled:opacity-50"
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-xs disabled:opacity-50 cursor-pointer"
                           >
-                            {createShipment.isPending ? (
+                            {createShipment.isPending && (createShipment.variables as any) === order.id ? (
                               <Loader2 className="size-3.5 animate-spin" />
                             ) : (
                               <PackageCheck className="size-3.5" />
                             )}
                             Push to Shiprocket
                           </button>
-                        ) : !order.awb_code ? (
-                          <button
-                            type="button"
-                            onClick={() => generateAwb.mutate(order.id)}
-                            disabled={generateAwb.isPending}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60 cursor-pointer"
-                          >
-                            {generateAwb.isPending ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Send className="size-3.5" />
-                            )}
-                            Assign Courier &amp; Get Tracking #
-                          </button>
-                        ) : order.shiprocket_status !== "PICKUP_SCHEDULED" &&
-                          order.shiprocket_status !== "SHIPPED" &&
-                          order.shiprocket_status !== "DELIVERED" ? (
-                          <button
-                            type="button"
-                            onClick={() => requestPickup.mutate(order.id)}
-                            disabled={requestPickup.isPending}
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-sm disabled:opacity-60 cursor-pointer"
-                          >
-                            {requestPickup.isPending ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Truck className="size-3.5" />
-                            )}
-                            Request Courier Pickup
-                          </button>
-                        ) : (
-                          <div className="rounded-xl border border-border bg-muted/30 p-2 text-left">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                              Courier Tracking # (AWB)
-                            </p>
-                            <p className="text-xs font-bold text-foreground mt-0.5">
-                              {order.awb_code}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {order.courier_name}
-                            </p>
-                            <p className="mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 inline-block rounded">
+                        )
+                      ) : (
+                        <div className="rounded-xl border border-border bg-muted/30 p-2.5 text-left space-y-2">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                {order.courier_name || "Shiprocket Express"}
+                              </p>
+                              {order.awb_code ? (
+                                <p className="text-xs font-mono font-bold text-foreground mt-0.5">
+                                  AWB: {order.awb_code}
+                                </p>
+                              ) : (
+                                <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+                                  Order #{order.shiprocket_order_id}
+                                </p>
+                              )}
+                            </div>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
                               {formatShiprocketBadgeStatus(order.shiprocket_status)}
-                            </p>
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    )}
+
+                          {order.shipping_error && (
+                            <p className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-1.5 font-medium leading-tight">
+                              {order.shipping_error}
+                            </p>
+                          )}
+
+                          {/* Shipping Lifecycle Actions */}
+                          <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-border/40">
+                            {!order.awb_code ? (
+                              <button
+                                type="button"
+                                onClick={() => generateAwb.mutate(order.id)}
+                                disabled={generateAwb.isPending}
+                                className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-xs disabled:opacity-60 cursor-pointer"
+                              >
+                                {generateAwb.isPending && (generateAwb.variables as any) === order.id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Send className="size-3" />
+                                )}
+                                Assign Courier &amp; AWB
+                              </button>
+                            ) : (
+                              <>
+                                {/* Print Label */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (order.shiprocket_label_url) {
+                                      window.open(order.shiprocket_label_url, "_blank", "noopener,noreferrer");
+                                    } else {
+                                      generateLabel.mutate(order.id);
+                                    }
+                                  }}
+                                  disabled={generateLabel.isPending && (generateLabel.variables as any) === order.id}
+                                  title="Generate and print shipping label"
+                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
+                                >
+                                  {generateLabel.isPending && (generateLabel.variables as any) === order.id ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <Printer className="size-3 text-indigo-600" />
+                                  )}
+                                  <span>Print Label</span>
+                                </button>
+
+                                {/* Track / Refresh */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTrackingOrder(order);
+                                    syncTracking.mutate(order.id);
+                                  }}
+                                  disabled={syncTracking.isPending && (syncTracking.variables as any) === order.id}
+                                  title="View live courier tracking checkpoints"
+                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
+                                >
+                                  {syncTracking.isPending && (syncTracking.variables as any) === order.id ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <Truck className="size-3 text-blue-600" />
+                                  )}
+                                  <span>Track</span>
+                                </button>
+
+                                {/* Pickup Request if not yet scheduled */}
+                                {order.shiprocket_status !== "PICKUP_SCHEDULED" &&
+                                  order.shiprocket_status !== "SHIPPED" &&
+                                  order.shiprocket_status !== "DELIVERED" &&
+                                  order.status !== "cancelled" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => requestPickup.mutate(order.id)}
+                                      disabled={requestPickup.isPending && (requestPickup.variables as any) === order.id}
+                                      title="Schedule courier pickup from warehouse"
+                                      className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 text-xs font-bold text-white transition shadow-xs disabled:opacity-60 cursor-pointer"
+                                    >
+                                      {requestPickup.isPending && (requestPickup.variables as any) === order.id ? (
+                                        <Loader2 className="size-3 animate-spin" />
+                                      ) : (
+                                        <PackageCheck className="size-3" />
+                                      )}
+                                      Request Courier Pickup
+                                    </button>
+                                  )}
+
+                                {/* Print Manifest if pickup scheduled */}
+                                {(order.shiprocket_status === "PICKUP_SCHEDULED" ||
+                                  order.shiprocket_status === "SHIPPED") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (order.shiprocket_manifest_url) {
+                                        window.open(order.shiprocket_manifest_url, "_blank", "noopener,noreferrer");
+                                      } else {
+                                        generateManifest.mutate(order.id);
+                                      }
+                                    }}
+                                    disabled={generateManifest.isPending && (generateManifest.variables as any) === order.id}
+                                    title="Generate and print courier pickup manifest"
+                                    className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
+                                  >
+                                    {generateManifest.isPending && (generateManifest.variables as any) === order.id ? (
+                                      <Loader2 className="size-3 animate-spin" />
+                                    ) : (
+                                      <FileText className="size-3 text-amber-600" />
+                                    )}
+                                    <span>Print Manifest</span>
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dedicated Cancel Order & Shipment button */}
+                      {order.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          onClick={() => setOrderToCancel(order)}
+                          title="Cancel this order and linked Shiprocket shipment"
+                          className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/90 text-rose-700 px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer"
+                        >
+                          <Ban className="size-3 text-rose-600" />
+                          <span>Cancel Order {order.shiprocket_order_id ? "& Shipment" : ""}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Razorpay Refund Action & Status for Cancelled Orders */}
                   {order.status === "cancelled" && (
@@ -1728,6 +1882,331 @@ export function OnlineSalesTab() {
                     <span>Yes, Permanently Delete {ordersToDeletePool.length} Orders</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SHIPROCKET / ORDER CANCELLATION MODAL ───────────── */}
+      {orderToCancel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="flex flex-col w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border bg-rose-50/50 dark:bg-rose-950/20">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-md">
+                  <Ban className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Cancel Order &amp; Shipment</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Order #{orderToCancel.id.slice(0, 8).toUpperCase()} • {formatPrice(Number(orderToCancel.total))}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={cancelShiprocketOrder.isPending}
+                onClick={() => setOrderToCancel(null)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Order & Shipment Status Details */}
+              <div className="rounded-2xl border border-border bg-muted/40 p-4 text-xs space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-muted-foreground">Customer</span>
+                  <span className="font-bold text-foreground">
+                    {orderToCancel._type === "online" ? orderToCancel.full_name : orderToCancel.customer_name || "Customer"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-muted-foreground">Payment Status</span>
+                  <span className="font-bold uppercase text-foreground">
+                    {orderToCancel.payment_status || orderToCancel.payment_method || "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-muted-foreground">Shiprocket Status</span>
+                  {orderToCancel.shiprocket_order_id ? (
+                    <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full text-[11px] border border-indigo-200 dark:border-indigo-800">
+                      <Truck className="size-3" />
+                      {orderToCancel.awb_code ? `AWB: ${orderToCancel.awb_code}` : `Order #${orderToCancel.shiprocket_order_id}`}
+                      {orderToCancel.shiprocket_status ? ` (${orderToCancel.shiprocket_status})` : ""}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground font-medium italic">Not dispatched to Shiprocket</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Operational Safety Alert */}
+              {orderToCancel.shiprocket_order_id ? (
+                <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3.5 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold">Shiprocket Provider Cancellation Rule</p>
+                    <p className="leading-relaxed">
+                      We will invoke the official Shiprocket cancellation API for AWB/Shipment{" "}
+                      <strong>{orderToCancel.awb_code || orderToCancel.shiprocket_order_id}</strong>. If the courier has already picked up or progressed the parcel, cancellation will be rejected and the order will NOT be falsely marked as cancelled.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3.5 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                  <p className="leading-relaxed">
+                    This order has not been dispatched to Shiprocket. It will be cancelled locally and stock will be immediately restored to catalog inventory.
+                  </p>
+                </div>
+              )}
+
+              {/* Cancellation Reason */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Cancellation Reason
+                </label>
+                <input
+                  type="text"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="e.g. Customer requested cancellation before dispatch"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 transition shadow-2xs"
+                />
+
+                {/* Preset Chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    "Customer requested cancellation",
+                    "Customer changed mind / address error",
+                    "Out of stock / inventory issue",
+                    "Test order cleanup",
+                    "Payment dispute / fraud risk",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCancelReason(preset)}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-medium border transition cursor-pointer ${
+                        cancelReason === preset
+                          ? "bg-rose-50 dark:bg-rose-950 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200"
+                          : "bg-muted/50 border-border hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-border bg-muted/20">
+              <button
+                type="button"
+                disabled={cancelShiprocketOrder.isPending}
+                onClick={() => setOrderToCancel(null)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
+              >
+                Nevermind, Keep Order
+              </button>
+
+              <button
+                type="button"
+                disabled={cancelShiprocketOrder.isPending}
+                onClick={async () => {
+                  try {
+                    await cancelShiprocketOrder.mutateAsync({
+                      orderId: orderToCancel.id,
+                      reason: cancelReason,
+                    });
+                    setOrderToCancel(null);
+                  } catch (e: any) {
+                    // Error is toasted automatically by the hook
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {cancelShiprocketOrder.isPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Verifying with Shiprocket…</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban className="size-3.5" />
+                    <span>Confirm Cancellation</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SHIPROCKET LIVE TRACKING MODAL ──────────────────── */}
+      {trackingOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="flex flex-col w-full max-w-lg rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                  <Truck className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Shiprocket Live Tracking</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Order #{trackingOrder.id.slice(0, 8).toUpperCase()} • AWB:{" "}
+                    <span className="font-mono font-bold text-foreground">
+                      {trackingOrder.awb_code || "Pending"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrackingOrder(null)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Courier & Status Summary Banner */}
+              <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/30 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300">
+                    Courier Partner
+                  </p>
+                  <p className="text-sm font-extrabold text-foreground mt-0.5">
+                    {trackingOrder.courier_name || "Shiprocket Express"}
+                  </p>
+                  {trackingOrder.shipping_last_synced_at && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                      <Clock className="size-3" /> Last synced:{" "}
+                      {new Date(trackingOrder.shipping_last_synced_at).toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-3 py-1 text-xs font-bold shadow-xs">
+                    {formatShiprocketBadgeStatus(trackingOrder.shiprocket_status) || "In Transit"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons Row */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await syncTracking.mutateAsync(trackingOrder.id);
+                  }}
+                  disabled={syncTracking.isPending}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted px-3 py-2 text-xs font-bold text-foreground transition cursor-pointer shadow-2xs disabled:opacity-50"
+                >
+                  <RefreshCw className={`size-3.5 text-indigo-600 ${syncTracking.isPending ? "animate-spin" : ""}`} />
+                  <span>{syncTracking.isPending ? "Syncing Checkpoints…" : "Refresh Tracking"}</span>
+                </button>
+
+                {trackingOrder.awb_code && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open(`https://shiprocket.co/tracking/${trackingOrder.awb_code}`, "_blank", "noopener,noreferrer");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 px-3 py-2 text-xs font-bold transition cursor-pointer shadow-2xs"
+                  >
+                    <ExternalLink className="size-3.5" />
+                    <span>Courier Portal</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Scans Timeline */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tracking Checkpoints &amp; Scan History
+                </h4>
+
+                {Array.isArray(trackingOrder.shipping_tracking_history) &&
+                trackingOrder.shipping_tracking_history.length > 0 ? (
+                  <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                    {trackingOrder.shipping_tracking_history.map((scan: any, idx: number) => (
+                      <div key={idx} className="relative flex items-start gap-3">
+                        <div
+                          className={`absolute -left-6 size-5 rounded-full flex items-center justify-center border-2 border-card ${
+                            idx === 0
+                              ? "bg-indigo-600 ring-4 ring-indigo-100 dark:ring-indigo-950 text-white"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <div className="size-1.5 rounded-full bg-white" />
+                        </div>
+                        <div className="flex-1 bg-muted/40 rounded-xl p-3 border border-border/60">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-foreground">
+                              {scan.activity || scan.status || "Checkpoint Passed"}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              {scan.date || scan.time || ""}
+                            </span>
+                          </div>
+                          {scan.location && (
+                            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                              <span>📍</span>
+                              <span>{scan.location}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border p-6 text-center space-y-1 bg-muted/10">
+                    <p className="text-xs font-semibold text-foreground">No scans recorded yet</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Courier has assigned AWB {trackingOrder.awb_code || ""}. First scan checkpoint will appear as soon as the package is handed over to the courier partner.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end p-4 border-t border-border bg-muted/20">
+              <button
+                type="button"
+                onClick={() => setTrackingOrder(null)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
