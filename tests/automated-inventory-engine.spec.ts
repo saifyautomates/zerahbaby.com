@@ -548,6 +548,7 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, is_active, status, product_variants(id, name, stock)")
+      .eq("slug", "cord")
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();

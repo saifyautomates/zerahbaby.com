@@ -385,16 +385,27 @@ export function DashboardTab({
     queryKey: ["admin-products-count"],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, price, stock, name, is_active, slug, category, product_costs(buying_price), product_images(public_url, is_primary, sort_order)",
-        );
-      if (error) {
-        console.error("[dashboard] products query error:", error);
-        throw error;
+      const [prodsRes, costsRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "id, price, stock, name, is_active, slug, category, product_images(public_url, is_primary, sort_order)",
+          ),
+        Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
+          () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
+        ),
+      ]);
+
+      if (prodsRes.error) {
+        console.error("[dashboard] products query error:", prodsRes.error);
+        throw prodsRes.error;
       }
-      return data ?? [];
+
+      const costMap = new Map(((costsRes as { data?: { product_id: string; buying_price: number }[] })?.data || []).map((c) => [c.product_id, c.buying_price]));
+      return (prodsRes.data || []).map((p) => ({
+        ...p,
+        product_costs: costMap.has(p.id) ? [{ buying_price: costMap.get(p.id)! }] : [],
+      }));
     },
   });
 
