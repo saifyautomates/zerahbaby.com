@@ -2482,39 +2482,6 @@ export function POSTab() {
               <span>New Sale</span>
             </button>
 
-            {/* Direct Customer Assignment Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                setCustomerModalTab("existing");
-                setIsCustomerModalOpen(true);
-              }}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shrink-0 cursor-pointer shadow-2xs",
-                (customerId || (customerName && customerName !== "Walk-in Customer"))
-                  ? "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
-                  : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/70"
-              )}
-              title="Click to search and assign customer from Supabase"
-              data-testid="pos-assign-customer-btn"
-            >
-              <User className="size-3.5 text-primary" />
-              <span>
-                {customerId || (customerName && customerName !== "Walk-in Customer")
-                  ? customerName
-                  : "Walk-in Customer"}
-              </span>
-              {customerPhone && (
-                <span className="text-[10px] font-normal opacity-75">
-                  ({customerPhone})
-                </span>
-              )}
-              <span className="text-[10px] font-extrabold text-primary bg-primary/15 px-1.5 py-0.5 rounded-md ml-0.5">
-                {customerId || (customerName && customerName !== "Walk-in Customer")
-                  ? "Change"
-                  : "Assign Customer"}
-              </span>
-            </button>
 
             {/* Delete All Tabs Button (inline in tab bar) */}
             {sessions.length > 1 && !showCloseAllConfirm && (
