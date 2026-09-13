@@ -136,9 +136,12 @@ export function saveActiveSessionIdLocal(id: string): void {
   }
 }
 
+export const ACTIVE_POS_SESSIONS_QUERY_KEY = ["active_pos_sessions"] as const;
+
 /**
  * Fetch active POS sessions from Supabase.
- * Falls back to local storage if offline or during network drop.
+ * Strictly uses Supabase as authoritative source.
+ * Only falls back to local storage if truly offline.
  */
 export async function fetchActivePOSSessions(): Promise<POSSession[]> {
   try {
@@ -150,11 +153,16 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
 
     if (error) {
       console.warn(
-        "[POSSessionEngine] get_active_pos_sessions error, using local fallback:",
+        "[POSSessionEngine] get_active_pos_sessions error, checking offline status:",
         error.message,
       );
-      const local = loadStoredSessionsLocal();
-      return local.length > 0 ? local : [createDefaultSession()];
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const local = loadStoredSessionsLocal();
+        if (local.length > 0) return local;
+      }
+      const fresh = createDefaultSession("1");
+      saveStoredSessionsLocal([fresh]);
+      return [fresh];
     }
 
     if (Array.isArray(data) && data.length > 0) {
@@ -188,22 +196,26 @@ export async function fetchActivePOSSessions(): Promise<POSSession[]> {
         };
       });
 
+      // Synchronize local storage to match authoritative Supabase data
       saveStoredSessionsLocal(mapped);
       return mapped;
     }
 
-    // No remote sessions found — return stored local or fresh default
-    const local = loadStoredSessionsLocal();
-    if (local.length > 0) return local;
-
-    const initial = createDefaultSession();
-    // Fire and forget persist initial session
-    savePOSSession(initial).catch(() => { });
+    // Supabase returned 0 active sessions (all were closed/cancelled).
+    // Authoritatively start clean with a single fresh session #1.
+    const initial = createDefaultSession("1");
+    saveStoredSessionsLocal([initial]);
+    savePOSSession(initial).catch(() => {});
     return [initial];
   } catch (err) {
-    console.warn("[POSSessionEngine] Network exception, using local fallback:", err);
-    const local = loadStoredSessionsLocal();
-    return local.length > 0 ? local : [createDefaultSession()];
+    console.warn("[POSSessionEngine] Network exception, checking offline status:", err);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const local = loadStoredSessionsLocal();
+      if (local.length > 0) return local;
+    }
+    const fresh = createDefaultSession("1");
+    saveStoredSessionsLocal([fresh]);
+    return [fresh];
   }
 }
 
@@ -311,9 +323,61 @@ export async function closePOSSession(sessionId: string): Promise<void> {
   }
 }
 
+/**
+ * Atomically close a batch of sessions in Supabase & remove from local active list.
+ */
+export async function closePOSSessionsBatch(sessionIds: string[]): Promise<void> {
+  const local = loadStoredSessionsLocal().filter((s) => !sessionIds.includes(s.id));
+  saveStoredSessionsLocal(local);
+
+  const validUuids = sessionIds.filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
+  );
+  if (validUuids.length === 0) return;
+
+  try {
+    await (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>
+    )("close_pos_sessions_batch", {
+      p_session_ids: validUuids,
+    });
+  } catch (e) {
+    console.warn("[POSSessionEngine] Failed to close batch on server:", e);
+  }
+}
+
+/**
+ * Atomically close ALL active sessions in Supabase (Delete All operation).
+ * Optionally preserve a fresh session ID.
+ */
+export async function closeAllPOSSessions(exceptSessionId?: string): Promise<void> {
+  saveStoredSessionsLocal([]);
+
+  try {
+    const isUuid =
+      Boolean(exceptSessionId) &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        exceptSessionId || "",
+      );
+    await (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>
+    )("close_all_pos_sessions", {
+      p_except_session_id: isUuid ? exceptSessionId : null,
+    });
+  } catch (e) {
+    console.warn("[POSSessionEngine] Failed to close all sessions on server:", e);
+  }
+}
+
 export function useActivePOSSessions() {
   return useQuery({
-    queryKey: ["active_pos_sessions"],
+    queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY,
     queryFn: fetchActivePOSSessions,
     staleTime: 5000,
   });
@@ -324,7 +388,7 @@ export function useSavePOSSessionMutation() {
   return useMutation({
     mutationFn: savePOSSession,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["active_pos_sessions"] });
+      qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
     },
   });
 }
@@ -334,7 +398,8 @@ export function useClosePOSSessionMutation() {
   return useMutation({
     mutationFn: closePOSSession,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["active_pos_sessions"] });
+      qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
     },
   });
 }
+

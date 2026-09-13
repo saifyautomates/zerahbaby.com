@@ -96,12 +96,15 @@ import {
   useActivePOSSessions,
   savePOSSession,
   closePOSSession,
+  closeAllPOSSessions,
+  closePOSSessionsBatch,
   createDefaultSession,
   loadStoredSessionsLocal,
   saveStoredSessionsLocal,
   loadActiveSessionIdLocal,
   saveActiveSessionIdLocal,
   generateSessionNumber,
+  ACTIVE_POS_SESSIONS_QUERY_KEY,
   type POSSession,
 } from "@/lib/pos-sessions";
 
@@ -181,6 +184,7 @@ export function POSTab() {
   const [step, setStep] = useState<POSStep>("cart");
   const [txState, setTxState] = useState<POSTransactionState>("DRAFT");
   const [showCloseAllConfirm, setShowCloseAllConfirm] = useState(false);
+  const closedSessionIdsRef = useRef<Set<string>>(new Set());
   // Double-click tab rename state
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
@@ -328,14 +332,36 @@ export function POSTab() {
 
   // Keep sessions synchronized with remote Supabase sessions
   useEffect(() => {
-    if (remoteSessions && remoteSessions.length > 0) {
+    if (remoteSessions) {
       setSessions((prev) => {
+        // Exclude any sessions that have been closed/cancelled locally or remotely
+        const validRemote = remoteSessions.filter(
+          (s) =>
+            !closedSessionIdsRef.current.has(s.id) &&
+            s.status !== "cancelled" &&
+            s.status !== "completed",
+        );
+
+        if (validRemote.length === 0) {
+          // If remote has no active sessions, retain only non-closed local sessions or fresh default
+          const nonClosedPrev = prev.filter((s) => !closedSessionIdsRef.current.has(s.id));
+          if (nonClosedPrev.length > 0) {
+            saveStoredSessionsLocal(nonClosedPrev);
+            return nonClosedPrev;
+          }
+          const fresh = createDefaultSession("1");
+          saveStoredSessionsLocal([fresh]);
+          return [fresh];
+        }
+
         const map = new Map<string, POSSession>();
-        for (const s of remoteSessions) {
+        for (const s of validRemote) {
           map.set(s.id, s);
         }
-        // Local sessions take precedence over remote to preserve active customer and edits
+
+        // Local sessions merge into remote sessions, but ONLY if not in closed set
         for (const s of prev) {
+          if (closedSessionIdsRef.current.has(s.id)) continue;
           const remote = map.get(s.id);
           if (remote) {
             map.set(s.id, {
@@ -348,7 +374,8 @@ export function POSTab() {
               customer_id: s.customer_id !== undefined ? s.customer_id : remote.customer_id,
               customer_mode: s.customer_mode || remote.customer_mode,
             });
-          } else {
+          } else if (s.created_at && Date.now() - new Date(s.created_at).getTime() < 15000) {
+            // Newly created locally within 15 seconds, preserve while saving
             map.set(s.id, s);
           }
         }
@@ -741,10 +768,15 @@ export function POSTab() {
     const target = sessions.find((s) => s.id === targetSessionId);
     if (!target) return;
 
-    // Save outgoing active session first
+    // Save outgoing active session first (ONLY if not closed/cancelled)
     const current = sessions.find((s) => s.id === activeSessionId);
     let sessionList = sessions;
-    if (current) {
+    if (
+      current &&
+      !closedSessionIdsRef.current.has(current.id) &&
+      current.status !== "cancelled" &&
+      current.status !== "completed"
+    ) {
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
@@ -794,10 +826,15 @@ export function POSTab() {
   };
 
   const handleCreateNewSale = () => {
-    // Save current active session
+    // Save current active session (ONLY if not closed/cancelled)
     const current = sessions.find((s) => s.id === activeSessionId);
-    let baseSessions = sessions;
-    if (current) {
+    let baseSessions = sessions.filter((s) => !closedSessionIdsRef.current.has(s.id));
+    if (
+      current &&
+      !closedSessionIdsRef.current.has(current.id) &&
+      current.status !== "cancelled" &&
+      current.status !== "completed"
+    ) {
       const updatedCurrent: POSSession = {
         ...current,
         customer_mode: customerMode,
@@ -817,7 +854,7 @@ export function POSTab() {
         items: [...cart],
         updated_at: new Date().toISOString(),
       };
-      baseSessions = sessions.map((s) => (s.id === current.id ? updatedCurrent : s));
+      baseSessions = baseSessions.map((s) => (s.id === current.id ? updatedCurrent : s));
       savePOSSession(updatedCurrent).catch(() => {});
     }
 
@@ -1037,7 +1074,7 @@ export function POSTab() {
     handleResumeSession(held.id);
   };
 
-  const handleDiscardSession = (sessionId: string) => {
+  const handleDiscardSession = async (sessionId: string) => {
     const sess = sessions.find((s) => s.id === sessionId);
     if (!sess) return;
     const hasItems = (sess.id === activeSessionId ? cart.length : sess.items?.length || 0) > 0;
@@ -1051,15 +1088,43 @@ export function POSTab() {
       }
     }
 
+    // 1. Mark session as closed in local memory tracker immediately
+    closedSessionIdsRef.current.add(sessionId);
+
+    // 2. Immediately remove from React Query cache synchronously
+    qc.setQueryData<POSSession[]>(ACTIVE_POS_SESSIONS_QUERY_KEY, (prev) =>
+      prev ? prev.filter((s) => s.id !== sessionId) : [],
+    );
+
+    // 3. Persist terminal status in Supabase
     closePOSSession(sessionId).catch(() => {});
+
+    // 4. Update local sessions list
     const updatedSessions = sessions.filter((s) => s.id !== sessionId);
 
     if (sessionId === activeSessionId) {
       if (updatedSessions.length > 0) {
+        const next = updatedSessions[0];
         setSessions(updatedSessions);
         saveStoredSessionsLocal(updatedSessions);
-        const next = updatedSessions[0];
-        handleSwitchSession(next.id);
+        setActiveSessionId(next.id);
+        saveActiveSessionIdLocal(next.id);
+
+        // Hydrate next session directly WITHOUT calling handleSwitchSession (which would save the closed session!)
+        setCart(next.items || []);
+        setCustomerMode(next.customer_mode || "walkin");
+        setCustomerName(next.customer_name === "Walk-in Customer" ? "" : next.customer_name || "");
+        setCustomerPhone(next.customer_phone || "");
+        setCustomerEmail(next.customer_email || "");
+        setCustomerId(next.customer_id || null);
+        setDiscountType(next.discount_type || "none");
+        setDiscountValue(next.discount_value || 0);
+        setStoreCreditApplied(next.store_credit_applied || 0);
+        setCreditTokenInput(next.credit_token_input || "");
+        setCreditDismissedManually(false);
+        setPaymentMethod(next.payment_method || "cash");
+        setStep("cart");
+        setSearchQuery("");
       } else {
         const fresh = createDefaultSession("1");
         setSessions([fresh]);
@@ -1078,19 +1143,29 @@ export function POSTab() {
     setHeldOrders(updatedHeld);
     saveHeldOrders(updatedHeld);
 
+    // 5. Reconcile with Supabase in background
+    qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
+
     toast.info(`Sale ${sess.session_number} discarded`);
+    setTimeout(() => scanInputRef.current?.focus(), 50);
   };
 
-  const handleDiscardAllSessions = () => {
+  const handleDiscardAllSessions = async () => {
     setShowCloseAllConfirm(false);
     const count = sessions.length;
-    // Close all current sessions on server
+
+    // 1. Mark all existing session IDs as closed in memory tracker
     for (const s of sessions) {
-      closePOSSession(s.id).catch(() => {});
+      closedSessionIdsRef.current.add(s.id);
     }
 
-    // Create single clean default session
+    // 2. Create single clean default session #1
     const fresh = createDefaultSession("1");
+
+    // 3. Immediately set query cache to only the fresh session
+    qc.setQueryData<POSSession[]>(ACTIVE_POS_SESSIONS_QUERY_KEY, [fresh]);
+
+    // 4. Update local React state and storage synchronously
     setSessions([fresh]);
     saveStoredSessionsLocal([fresh]);
     setActiveSessionId(fresh.id);
@@ -1111,6 +1186,7 @@ export function POSTab() {
     setCashTendered("");
     setStoreCreditApplied(0);
     setCreditTokenInput("");
+    setCreditDismissedManually(false);
     setStep("cart");
     setSaleResult(null);
     setSaleItems([]);
@@ -1127,7 +1203,14 @@ export function POSTab() {
       // ignore
     }
 
-    savePOSSession(fresh).catch(() => {});
+    // 5. Execute atomic server-side cancellation of all previous sessions
+    await closeAllPOSSessions(fresh.id);
+
+    // 6. Save the fresh session to Supabase
+    await savePOSSession(fresh);
+
+    // 7. Invalidate query cache to reconcile
+    qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
 
     toast.success(`Deleted all ${count} sale tabs. Fresh sale ready!`);
     setTimeout(() => scanInputRef.current?.focus(), 50);
@@ -1928,8 +2011,14 @@ export function POSTab() {
 
       // Mark completed session closed in Supabase & local state
       if (activeSessionId) {
+        closedSessionIdsRef.current.add(activeSessionId);
         closePOSSession(activeSessionId).catch(() => {});
-        const remaining = sessions.filter((s) => s.id !== activeSessionId);
+        qc.setQueryData<POSSession[]>(ACTIVE_POS_SESSIONS_QUERY_KEY, (prev) =>
+          prev ? prev.filter((s) => s.id !== activeSessionId) : [],
+        );
+        const remaining = sessions.filter(
+          (s) => s.id !== activeSessionId && !closedSessionIdsRef.current.has(s.id),
+        );
         if (remaining.length > 0) {
           setSessions(remaining);
           saveStoredSessionsLocal(remaining);
@@ -1987,7 +2076,9 @@ export function POSTab() {
     setIdempotencyKey(generateIdempotencyKey());
 
     // Switch to next remaining active session or create clean fresh session
-    const remaining = sessions.filter((s) => s.id !== activeSessionId);
+    const remaining = sessions.filter(
+      (s) => s.id !== activeSessionId && !closedSessionIdsRef.current.has(s.id),
+    );
     if (remaining.length > 0) {
       const next = remaining[0];
       handleSwitchSession(next.id);
@@ -3447,7 +3538,15 @@ export function POSTab() {
                                         Recent Invoices
                                       </p>
                                       <div className="space-y-1">
-                                        {customerIntel.recentSales.map((s) => (
+                                        {customerIntel.recentSales.map(
+                                          (s: {
+                                            id: string;
+                                            sale_number: string;
+                                            created_at: string;
+                                            total?: number;
+                                            total_amount?: number;
+                                            subtotal?: number;
+                                          }) => (
                                           <div
                                             key={s.id}
                                             className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40"
@@ -3462,7 +3561,7 @@ export function POSTab() {
                                               })}
                                             </span>
                                             <span className="font-black text-primary">
-                                              {formatPrice(s.total)}
+                                              {formatPrice(s.total || s.total_amount || 0)}
                                             </span>
                                           </div>
                                         ))}
