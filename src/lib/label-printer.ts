@@ -110,17 +110,17 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     skuFontPt: 5.6,
     isThermalRoll: true,
   },
-  /** ─── A4 GRID ─── */
+  /** ─── A4 GRID (Horizontal Landscape) ─── */
   a4: {
-    pageWidthMm: 210,
-    pageHeightMm: 297,
+    pageWidthMm: 297,
+    pageHeightMm: 210,
     pageMarginMm: 8,
-    labelWidthMm: 47,
-    labelHeightMm: 26,
-    paddingTopMm: 0.8,
-    paddingHorizMm: 1.5,
-    paddingBottomMm: 0.6,
-    gridColumns: 4,
+    labelWidthMm: 50,
+    labelHeightMm: 25,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
+    gridColumns: 5,
     barcodeBarWidthPx: 1.0,
     barcodeHeightMm: 7.5,
     barcodeFontPt: 5.8,
@@ -147,8 +147,8 @@ let memoryProfile: LabelPrinterProfile = "thermal-58";
 let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
-let memoryShowSellPrice = false;
-let memorySeparatePrice = false;
+let memoryShowSellPrice = true;
+let memorySeparatePrice = true;
 
 export function getSavedLabelProfile(): LabelPrinterProfile {
   if (typeof window !== "undefined") {
@@ -222,7 +222,7 @@ export function getSavedShowSellPrice(): boolean {
       /* ignore */
     }
   }
-  return memoryShowSellPrice;
+  return true;
 }
 export function setSavedShowSellPrice(show: boolean): void {
   memoryShowSellPrice = show;
@@ -243,7 +243,7 @@ export function getSavedSeparatePrice(): boolean {
       /* ignore */
     }
   }
-  return memorySeparatePrice;
+  return true;
 }
 export function setSavedSeparatePrice(sep: boolean): void {
   memorySeparatePrice = sep;
@@ -504,8 +504,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     labelType = "full",
     showDiscount = false,
     showMrp = true,
-    showSellPrice = false,
-    separatePriceLine = false,
+    showSellPrice = true,
+    separatePriceLine = true,
     isStandaloneTab = false,
   } = params;
 
@@ -549,10 +549,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   const renderLabelContent = (p: PrintableProduct): string => {
     const barcodeValue = sanitizeBarcode(p.barcode, p.sku) || "SKU-" + (p.sku || "NONE");
     const effectiveMrp = typeof p.mrp === "number" && p.mrp > 0 ? p.mrp : p.price;
-    const mrpFormatted = "₹ " + Math.round(effectiveMrp);
-    const priceFormatted = "₹ " + Math.round(p.price);
+    const mrpFormatted = "₹" + Math.round(effectiveMrp);
+    const priceFormatted = "₹" + Math.round(p.price);
     const artNoValue = (p.artNo || p.sku || p.barcode || "—").toString().trim();
-    const productName = (p.name || "").toString().trim().toUpperCase();
+    const productName = (p.name || "").toString().trim();
     const brandValue = (p.brand || "ZERAH").toString().trim().toUpperCase();
     const sizeValue = (p.size || p.ageGroup || "--").toString().trim();
 
@@ -596,13 +596,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       priceSection = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</span>`;
     }
 
-    const sizeSnippet =
-      sizeValue && sizeValue !== "--"
-        ? `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue)}</span>`
-        : "";
+    const sizeSnippet = `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue || "--")}</span>`;
 
     const artNoSnippet =
-      artNoValue && artNoValue !== p.sku ? `Art: ${escapeHtml(artNoValue)} &bull; ` : "";
+      artNoValue && artNoValue !== p.sku && artNoValue !== "—" ? `Art: ${escapeHtml(artNoValue)} &bull; ` : "";
 
     if (separatePriceLine && (showMrp || showSellPrice)) {
       const priceItems: string[] = [];
@@ -678,7 +675,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   }
 
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
-  const pageSizeDecl = `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+  const pageSizeDecl = cfg.isThermalRoll ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm` : "A4 landscape";
   const pageMarginDecl = cfg.isThermalRoll ? "0" : `${cfg.pageMarginMm}mm`;
 
   const css = `
@@ -891,6 +888,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       box-sizing: border-box;
       background: #ffffff;
       overflow: hidden;
+      margin: 0 auto;
     }
 
     .print-mode-108mm .label-page {
@@ -901,13 +899,15 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       box-sizing: border-box;
       background: #ffffff;
       overflow: hidden;
+      margin: 0 auto;
     }
 
     .print-mode-a4 .label-grid {
       display: grid;
       grid-template-columns: repeat(${cfg.gridColumns}, 1fr);
       gap: 1.5mm;
-      width: 194mm;
+      width: 280mm;
+      margin: 0 auto;
       box-sizing: border-box;
     }
 
@@ -1091,7 +1091,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
       .screen-canvas {
         padding: 0 !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         display: block !important;
         background: transparent !important;
         width: auto !important;
@@ -1114,7 +1114,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         overflow: hidden !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         padding: 0 !important;
       }
 
@@ -1254,8 +1254,8 @@ export function openLabelPrintInNewTab(params: {
       labelType: params.labelType || "full",
       showDiscount: params.showDiscount ?? false,
       showMrp: params.showMrp ?? true,
-      showSellPrice: params.showSellPrice ?? false,
-      separatePriceLine: params.separatePriceLine ?? false,
+      showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
+      separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
       isStandaloneTab: true,
     });
 
@@ -1327,8 +1327,8 @@ export function printProductLabels(params: {
     labelType: params.labelType || "full",
     showDiscount: params.showDiscount ?? false,
     showMrp: params.showMrp ?? true,
-    showSellPrice: params.showSellPrice ?? false,
-    separatePriceLine: params.separatePriceLine ?? false,
+    showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
+    separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
     isStandaloneTab: false,
   });
 

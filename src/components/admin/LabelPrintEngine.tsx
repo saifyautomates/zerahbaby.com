@@ -76,8 +76,8 @@ function SingleStickerPreview({
   labelType,
   showDiscount,
   showMrp = true,
-  showSellPrice = false,
-  separatePriceLine = false,
+  showSellPrice = true,
+  separatePriceLine = true,
   layout,
 }: {
   product: LabelProduct;
@@ -237,14 +237,12 @@ function SingleStickerPreview({
         <span className="truncate" style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}>
           {artNoVal && artNoVal !== skuVal ? `Art: ${artNoVal} • ` : ""}SKU: {skuVal}
         </span>
-        {sizeVal && (
-          <span
-            className="shrink-0 ml-1 font-extrabold text-black"
-            style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-          >
-            Size: {sizeVal}
-          </span>
-        )}
+        <span
+          className="shrink-0 ml-1 font-extrabold text-black"
+          style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
+        >
+          Size: {sizeVal || "--"}
+        </span>
       </div>
     </div>
   );
@@ -260,8 +258,8 @@ export function LabelPrintEngine({
   layout,
   showDiscount,
   showMrp = true,
-  showSellPrice = false,
-  separatePriceLine = false,
+  showSellPrice = true,
+  separatePriceLine = true,
 }: Props) {
   const labels = useMemo(() => expand(entries), [entries]);
 
@@ -272,7 +270,7 @@ export function LabelPrintEngine({
   const formatLabel = (() => {
     if (layout === "thermal-108") return "1-Up 100mm × 25mm Thermal";
     if (layout === "thermal-58") return "1-Up 50mm × 25mm Thermal";
-    return "A4 Grid (4 columns)";
+    return "A4 Grid (5 columns, Landscape)";
   })();
 
   return (

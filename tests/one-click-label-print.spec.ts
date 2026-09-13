@@ -166,31 +166,26 @@ test.describe("One-Click Product Label Printing Suite", () => {
       showDiscount: false,
     });
 
-    // Validations matching retail tag photo:
+    // Validations matching physical barcode sticker layout:
     // 1. @page has exact 50mm 25mm dimensions
     expect(html).toContain("size: 50mm 25mm;");
-    // 2. ArtNo exists
-    expect(html).toContain("ArtNo:");
-    expect(html).toContain("ZR-CL-825985");
-    // 3. Product name exists (uppercase)
-    expect(html).toContain("DANGRI");
-    // 4. Brand & Size exist
-    expect(html).toContain("Brand:");
-    expect(html).toContain("ZERAH");
-    expect(html).toContain("Size:");
-    // 5. MRP exists clearly (bold, not struck through by default) with tax note
-    expect(html).toContain('class="lbl-mrp-bold"');
-    expect(html).toContain("M.R.P.:");
-    expect(html).toContain("₹ 799");
-    expect(html).toContain("(Inclusive of All taxes)");
-    expect(html).not.toContain('class="lbl-mrp-strike"');
-    // 6. Divider line exists
-    expect(html).toContain('class="lbl-divider"');
-    // 7. Barcode SVG exists
+    // 2. Brand header exists at top
+    expect(html).toContain("ZÉRAH BABY &amp; KIDS");
+    // 3. Product name exists (casing preserved) and is standalone centered
+    expect(html).toContain("lbl-name-standalone");
+    expect(html).toContain("dangri");
+    // 4. Centered price row with MRP struck through and selling price bold
+    expect(html).toContain("lbl-price-row");
+    expect(html).toContain("lbl-mrp-strike");
+    expect(html).toContain("MRP: ₹799");
+    expect(html).toContain("lbl-sell-bold");
+    expect(html).toContain("Price: ₹299");
+    // 5. Barcode SVG exists
     expect(html).toContain("lbl-bc");
-    // 8. Footer brand exists
-    expect(html).toContain('class="lbl-footer-brand"');
-    expect(html).toContain("ZERAH");
+    // 6. Bottom meta row has SKU and Size
+    expect(html).toContain("lbl-meta-bottom");
+    expect(html).toContain("SKU: ZR-CL-825985");
+    expect(html).toContain("Size: --");
   });
 
   test("7. Exact 2-Label Output on 50×25mm Thermal Roll", () => {
@@ -239,44 +234,45 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(tabParts.css).toContain("display: none !important;");
   });
 
-  test("8. Retail Specification: Bold MRP Only, Selling Price Off by Default", () => {
+  test("8. Retail Specification: Default Centered Layout & Custom Toggle Variations", () => {
     const prod = {
       uuid: "prod-spec",
-      name: "Floral Baby Frock",
-      barcode: "555123456789",
-      sku: "ZR-FBF-01",
-      price: 499,
-      mrp: 999,
+      name: "cord",
+      barcode: "359719719255",
+      sku: "ZR-CL-4189",
+      price: 250,
+      mrp: 499,
     };
 
-    // Default: showMrp=true, showSellPrice=false
+    // Default: centered layout with both MRP and selling price on dedicated line
     const htmlDefault = buildLabelPrintHtml({
+      products: [prod],
+      quantities: { "prod-spec": 1 },
+      layout: "thermal-58",
+      labelType: "full",
+    });
+    expect(htmlDefault).toContain("lbl-name-standalone");
+    expect(htmlDefault).toContain("cord");
+    expect(htmlDefault).toContain("lbl-price-row");
+    expect(htmlDefault).toContain("MRP: ₹499");
+    expect(htmlDefault).toContain("Price: ₹250");
+    expect(htmlDefault).toContain("SKU: ZR-CL-4189");
+    expect(htmlDefault).toContain("Size: --");
+
+    // Custom configuration: single row inline without separate price line and only MRP
+    const htmlMrpOnly = buildLabelPrintHtml({
       products: [prod],
       quantities: { "prod-spec": 1 },
       layout: "thermal-58",
       labelType: "full",
       showMrp: true,
       showSellPrice: false,
+      separatePriceLine: false,
     });
-    expect(htmlDefault).toContain('class="lbl-mrp-bold"');
-    expect(htmlDefault).toContain("M.R.P.:");
-    expect(htmlDefault).toContain("₹ 999");
-    expect(htmlDefault).toContain("(Inclusive of All taxes)");
-    expect(htmlDefault).not.toContain('class="lbl-mrp-strike"');
-    expect(htmlDefault).not.toContain("Price:&nbsp;");
-
-    // When selling price is enabled alongside MRP: MRP is struck through, selling price is bold
-    const htmlBoth = buildLabelPrintHtml({
-      products: [prod],
-      quantities: { "prod-spec": 1 },
-      layout: "thermal-58",
-      labelType: "full",
-      showMrp: true,
-      showSellPrice: true,
-    });
-    expect(htmlBoth).toContain("lbl-mrp-strike");
-    expect(htmlBoth).toContain("lbl-sell-bold");
-    expect(htmlBoth).toContain("₹ 499");
+    expect(htmlMrpOnly).toContain("lbl-row-middle");
+    expect(htmlMrpOnly).toContain('class="lbl-mrp-bold"');
+    expect(htmlMrpOnly).toContain("MRP: ₹499");
+    expect(htmlMrpOnly).not.toContain('class="lbl-mrp-strike"');
   });
 
   test("9. Trailing Page Break Suppression to Prevent Blank Labels", () => {
