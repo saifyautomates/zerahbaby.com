@@ -310,6 +310,7 @@ export function POSTab() {
   const [heldOrders, setHeldOrders] = useState<HeldPOSOrder[]>(loadHeldOrders);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customerModalSessionId, setCustomerModalSessionId] = useState<string | null>(null);
   const [customerModalTab, setCustomerModalTab] = useState<"existing" | "new" | "walkin">("existing");
 
   // Store Credit / Exchange Tender State
@@ -1241,6 +1242,7 @@ export function POSTab() {
     saveHeldOrders(updatedHeld);
 
     // 5. Reconcile with Supabase in background
+    closePOSSession(sessionId).catch(() => {});
     qc.invalidateQueries({ queryKey: ACTIVE_POS_SESSIONS_QUERY_KEY });
 
     toast.info(`Sale ${sess.session_number} discarded`);
@@ -1258,6 +1260,7 @@ export function POSTab() {
 
     // 2. Create single clean default session #1
     const fresh = createDefaultSession("1");
+    closeAllPOSSessions(fresh.id).catch(() => {});
 
     // 3. Immediately set query cache to only the fresh session
     qc.setQueryData<POSSession[]>(ACTIVE_POS_SESSIONS_QUERY_KEY, [fresh]);
@@ -1873,28 +1876,34 @@ export function POSTab() {
     });
   }
 
-  function handleAssignCustomer(cust: {
-    id?: string | null;
-    name: string;
-    phone?: string;
-    email?: string;
-    city?: string;
-  }) {
+  function handleAssignCustomer(
+    cust: {
+      id?: string | null;
+      name: string;
+      phone?: string;
+      email?: string;
+      city?: string;
+    },
+    targetSessionId?: string | null,
+  ) {
     const cId = cust.id || null;
     const cName = cust.name.trim();
     const cPhone = cust.phone ? cust.phone.trim() : "";
     const cEmail = cust.email ? cust.email.trim() : "";
-
-    setCustomerId(cId);
-    setCustomerName(cName);
-    setCustomerPhone(cPhone);
-    setCustomerEmail(cEmail);
+    const effectiveSessionId = targetSessionId || customerModalSessionId || activeSessionId;
     const mode: "walkin" | "existing" | "new" = cId ? "existing" : cName ? "new" : "walkin";
-    setCustomerMode(mode);
 
-    if (activeSessionId) {
+    if (effectiveSessionId === activeSessionId) {
+      setCustomerId(cId);
+      setCustomerName(cName);
+      setCustomerPhone(cPhone);
+      setCustomerEmail(cEmail);
+      setCustomerMode(mode);
+    }
+
+    if (effectiveSessionId) {
       setSessions((prev) => {
-        const targetSession = prev.find((s) => s.id === activeSessionId);
+        const targetSession = prev.find((s) => s.id === effectiveSessionId);
         const updatedSess = targetSession
           ? {
               ...targetSession,
@@ -1910,7 +1919,7 @@ export function POSTab() {
           savePOSSession(updatedSess).catch(() => {});
         }
         const updated = prev.map((s) =>
-          s.id === activeSessionId ? (updatedSess || s) : s,
+          s.id === effectiveSessionId ? (updatedSess || s) : s,
         );
         saveStoredSessionsLocal(updated);
         return updated;
@@ -1918,18 +1927,21 @@ export function POSTab() {
     }
   }
 
-  function handleSetWalkin() {
-    setCustomerId(null);
-    setCustomerName("");
-    setCustomerPhone("");
-    setCustomerEmail("");
-    setCustomerMode("walkin");
-    setStoreCreditApplied(0);
-    setCreditDismissedManually(false);
+  function handleSetWalkin(targetSessionId?: string | null) {
+    const effectiveSessionId = targetSessionId || customerModalSessionId || activeSessionId;
+    if (effectiveSessionId === activeSessionId) {
+      setCustomerId(null);
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerEmail("");
+      setCustomerMode("walkin");
+      setStoreCreditApplied(0);
+      setCreditDismissedManually(false);
+    }
 
-    if (activeSessionId) {
+    if (effectiveSessionId) {
       setSessions((prev) => {
-        const targetSession = prev.find((s) => s.id === activeSessionId);
+        const targetSession = prev.find((s) => s.id === effectiveSessionId);
         const updatedSess = targetSession
           ? {
               ...targetSession,
@@ -1946,7 +1958,7 @@ export function POSTab() {
           savePOSSession(updatedSess).catch(() => {});
         }
         const updated = prev.map((s) =>
-          s.id === activeSessionId ? (updatedSess || s) : s,
+          s.id === effectiveSessionId ? (updatedSess || s) : s,
         );
         saveStoredSessionsLocal(updated);
         return updated;
@@ -2515,6 +2527,10 @@ export function POSTab() {
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
+                      if (!isActive) {
+                        handleSwitchSession(sess.id);
+                      }
+                      setCustomerModalSessionId(sess.id);
                       const currentName =
                         sess.id === activeSessionId
                           ? customerMode === "walkin" ? "" : customerName
@@ -4816,7 +4832,10 @@ export function POSTab() {
         createPortal(
           <div
             className="fixed inset-0 z-[220] flex items-center justify-center p-4"
-            onClick={() => setIsCustomerModalOpen(false)}
+            onClick={() => {
+              setIsCustomerModalOpen(false);
+              setCustomerModalSessionId(null);
+            }}
           >
             {/* Backdrop */}
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" />
@@ -4834,7 +4853,7 @@ export function POSTab() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-foreground">
-                      Assign Customer — {sessions.find((s) => s.id === activeSessionId)?.session_number || "Sale Tab"}
+                      Assign Customer — {sessions.find((s) => s.id === (customerModalSessionId || activeSessionId))?.session_number || "Sale Tab"}
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
                       Search authoritative Supabase records, create new, or bill as walk-in
@@ -4843,7 +4862,10 @@ export function POSTab() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsCustomerModalOpen(false)}
+                  onClick={() => {
+                    setIsCustomerModalOpen(false);
+                    setCustomerModalSessionId(null);
+                  }}
                   className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                 >
                   <X className="size-4" />
@@ -5017,6 +5039,7 @@ export function POSTab() {
                                   });
                                   setCreditDismissedManually(false);
                                   setIsCustomerModalOpen(false);
+                                  setCustomerModalSessionId(null);
                                   toast.success(`Customer linked: ${c.name}`);
                                 }}
                                 className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-2xs cursor-pointer"
@@ -5109,6 +5132,7 @@ export function POSTab() {
                               city: res.city,
                             });
                             setIsCustomerModalOpen(false);
+                            setCustomerModalSessionId(null);
                             toast.success(`Customer created and linked: ${res.name}`);
                           } catch (err: any) {
                             toast.error(err.message || "Failed to create customer");
@@ -5136,6 +5160,7 @@ export function POSTab() {
                       onClick={() => {
                         handleSetWalkin();
                         setIsCustomerModalOpen(false);
+                        setCustomerModalSessionId(null);
                         toast.info("Active sale set to Walk-in Customer");
                       }}
                       className="px-4 py-2 rounded-xl bg-foreground text-background font-bold text-xs hover:opacity-90 transition cursor-pointer"

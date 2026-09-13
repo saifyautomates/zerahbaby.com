@@ -5,6 +5,7 @@ const supabaseUrl = "https://wbbatgbvizhghtkvuguf.supabase.co";
 const supabaseAnonKey = "sb_publishable_WiczJQTx4afGJ02WAiUIUw_8YlWjkSP";
 
 test.describe("POS Unified Customers & Manual Price Override — Authoritative Supabase Architecture", () => {
+  test.describe.configure({ mode: "serial" });
   test.setTimeout(60000);
 
   // Test 1: Direct RPC Search Matrix against Authoritative Database
@@ -28,13 +29,13 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     expect(resPhone && resPhone.length > 0).toBe(true);
     expect(resPhone[0].name.toLowerCase()).toContain("saif");
 
-    // 3. Name search "shahnawaz"
-    const { data: resShah, error: errShah } = await supabase.rpc("search_pos_customers", {
-      _query: "shahnawaz",
+    // 3. Email search "sameermirza"
+    const { data: resEmail, error: errEmail } = await supabase.rpc("search_pos_customers", {
+      _query: "sameermirza2261@gmail.com",
     });
-    expect(errShah).toBeNull();
-    expect(resShah && resShah.length > 0).toBe(true);
-    expect(resShah[0].name.toLowerCase()).toContain("shahnawaz");
+    expect(errEmail).toBeNull();
+    expect(resEmail && resEmail.length > 0).toBe(true);
+    expect(resEmail[0].name.toLowerCase()).toContain("mirza");
 
     // 4. City search "kota"
     const { data: resKota, error: errKota } = await supabase.rpc("search_pos_customers", {
@@ -62,6 +63,8 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
       localStorage.setItem("zerah_is_admin_00000000-0000-0000-0000-000000000001", "true");
       localStorage.setItem("zerah_admin_active_tab", "billing");
       localStorage.setItem("zerah_admin_active_subtab", "pos");
+      localStorage.removeItem("zerah_pos_multi_sessions_v2");
+      localStorage.removeItem("zerah_pos_active_session_id_v2");
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
@@ -72,9 +75,21 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
       page.getByRole("button", { name: /POS Terminal/i }).first(),
     ).toBeVisible({ timeout: 20000 });
 
+    // Clean up leftover tabs if present for clean slate
+    const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
+    if (await deleteAllBtn.isVisible()) {
+      await deleteAllBtn.click();
+      const confirmBtn = page.getByTestId("pos-confirm-delete-all-btn");
+      if (await confirmBtn.isVisible()) {
+        await confirmBtn.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
     // 1. Double click active tab to open Customer Modal
     const activeTab = page.locator('[data-testid^="pos-sale-tab-"]').first();
     await expect(activeTab).toBeVisible({ timeout: 5000 });
+    await activeTab.click();
     await activeTab.dblclick();
     await page.waitForTimeout(400);
 
@@ -89,7 +104,8 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await expect(customerItem).toBeVisible({ timeout: 5000 });
 
     // 4. Click "Select" button on that customer row
-    const selectBtn = page.getByRole("button", { name: /Select|Re-link/i }).first();
+    const selectBtn = page.locator('[data-testid^="pos-select-customer-"]').first();
+    await expect(selectBtn).toBeVisible({ timeout: 5000 });
     await selectBtn.click();
     await page.waitForTimeout(500);
 
@@ -106,6 +122,8 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
       localStorage.setItem("zerah_is_admin_00000000-0000-0000-0000-000000000001", "true");
       localStorage.setItem("zerah_admin_active_tab", "billing");
       localStorage.setItem("zerah_admin_active_subtab", "pos");
+      localStorage.removeItem("zerah_pos_multi_sessions_v2");
+      localStorage.removeItem("zerah_pos_active_session_id_v2");
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
@@ -120,7 +138,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
     if (await deleteAllBtn.isVisible()) {
       await deleteAllBtn.click();
-      const confirmBtn = page.locator("button:has-text('Delete All')").last();
+      const confirmBtn = page.getByTestId("pos-confirm-delete-all-btn");
       if (await confirmBtn.isVisible()) {
         await confirmBtn.click();
         await page.waitForTimeout(500);
@@ -128,7 +146,9 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     }
 
     // Sale A: Assign Mirza Sameer Baig
-    await page.locator('[data-testid^="pos-sale-tab-"]').first().dblclick();
+    const tabA = page.locator('[data-testid^="pos-sale-tab-"]').first();
+    await tabA.click();
+    await tabA.dblclick();
     const searchInputA = page.getByPlaceholder("Search by name (e.g. Mirza), phone, email, city...");
     await searchInputA.fill("mirza");
     await page.waitForTimeout(800);
@@ -225,6 +245,8 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
       localStorage.setItem("zerah_is_admin_00000000-0000-0000-0000-000000000001", "true");
       localStorage.setItem("zerah_admin_active_tab", "billing");
       localStorage.setItem("zerah_admin_active_subtab", "pos");
+      localStorage.removeItem("zerah_pos_multi_sessions_v2");
+      localStorage.removeItem("zerah_pos_active_session_id_v2");
     });
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
