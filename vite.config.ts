@@ -17,6 +17,23 @@ export default defineConfig({
     },
     build: {
       chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          manualChunks: (id: string): string | undefined => {
+            // Supabase client — large, changes rarely → own chunk
+            if (id.includes("@supabase")) return "supabase";
+            // Tanstack query + router — framework, rarely changes
+            if (id.includes("@tanstack")) return "tanstack";
+            // Lucide icons — large icon set
+            if (id.includes("lucide-react")) return "icons";
+            // React core
+            if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/")) return "react";
+            // Radix UI primitives + Sonner toast
+            if (id.includes("@radix-ui") || id.includes("sonner")) return "ui";
+            return undefined;
+          },
+        },
+      },
     },
     resolve: {
       tsconfigPaths: true,

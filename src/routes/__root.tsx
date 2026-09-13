@@ -219,10 +219,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/site.webmanifest?v=5" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://fonts.googleapis.com" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap",
       },
+      // Preconnect to Supabase storage CDN so product images start loading faster
+      { rel: "preconnect", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
+      { rel: "dns-prefetch", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
+
+
     ],
   }),
   shellComponent: RootShell,
@@ -381,76 +387,82 @@ function RootComponent() {
 
   useEffect(() => {
     // Visitor Analytics Tracking (only on production domain, never on localhost/development)
-    const trackVisitor = async () => {
-      // Don't track admin pages, local environments, or if already tracked in this session
-      if (
-        typeof window === "undefined" ||
-        isAdminRoute ||
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        sessionStorage.getItem("visitor_tracked")
-      )
-        return;
+    // Deferred 2s after mount so analytics NEVER compete with LCP / first paint
+    const deferTimer = setTimeout(() => {
+      const trackVisitor = async () => {
+        // Don't track admin pages, local environments, or if already tracked in this session
+        if (
+          typeof window === "undefined" ||
+          isAdminRoute ||
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          sessionStorage.getItem("visitor_tracked")
+        )
+          return;
 
-      try {
-        sessionStorage.setItem("visitor_tracked", "true");
-        const sessionId = sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
-        sessionStorage.setItem("visitor_session_id", sessionId);
-
-        let city = null;
-        let region = null;
-        let country = "India";
-        let customer_name = null;
-
-        // Fetch location data (CORS-safe with 3s timeout)
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
-          const res = await fetch("https://ipwho.is/", {
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success !== false) {
-              city = data.city || null;
-              region = data.region || null;
-              country = data.country || "India";
+          sessionStorage.setItem("visitor_tracked", "true");
+          const sessionId = sessionStorage.getItem("visitor_session_id") ?? crypto.randomUUID();
+          sessionStorage.setItem("visitor_session_id", sessionId);
+
+          let city = null;
+          let region = null;
+          let country = "India";
+          let customer_name = null;
+
+          // Fetch location data (CORS-safe with 2s timeout)
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            const res = await fetch("https://ipwho.is/", {
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success !== false) {
+                city = data.city || null;
+                region = data.region || null;
+                country = data.country || "India";
+              }
             }
+          } catch {
+            // Graceful fallback to default country
           }
-        } catch {
-          // Graceful fallback to default country
-        }
 
-        // Fetch user data if logged in
-        try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (session?.user) {
-            const user = session.user;
-            customer_name =
-              user.user_metadata?.full_name || user.user_metadata?.name || user.email || null;
+          // Fetch user data if logged in
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (session?.user) {
+              const user = session.user;
+              customer_name =
+                user.user_metadata?.full_name || user.user_metadata?.name || user.email || null;
+            }
+          } catch (e) {
+            // ignore auth errors
           }
-        } catch (e) {
-          // ignore auth errors
+
+          // Safely record visitor without throwing on external IP service failure
+          await supabase.from("website_visitors").insert({
+            session_id: sessionId,
+            city,
+            region,
+            country,
+            customer_name,
+          });
+        } catch (error) {
+          // Silent fail for analytics
         }
+      };
 
-        // Safely record visitor without throwing on external IP service failure
-        await supabase.from("website_visitors").insert({
-          session_id: sessionId,
-          city,
-          region,
-          country,
-          customer_name,
-        });
-      } catch (error) {
-        // Silent fail for analytics
-      }
-    };
+      trackVisitor();
+    }, 2000); // 2s defer \u2014 analytics must never block LCP
 
-    trackVisitor();
+    return () => clearTimeout(deferTimer);
   }, [isAdminRoute]);
+
 
   return (
     <QueryClientProvider client={queryClient}>

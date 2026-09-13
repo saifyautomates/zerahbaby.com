@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Star, ShoppingBag, Check, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   formatPrice,
@@ -25,7 +25,23 @@ import type { CardStyle } from "@/lib/homepage-themes";
 
 export { ProductCardSkeleton, ProductGridSkeleton };
 
-export function ProductCard({
+// Module-scope helper — placed outside component to avoid re-creation on every render
+function formatTitle(name: string): string {
+  if (!name) return "";
+  const trimmed = name.trim();
+  if (trimmed.toUpperCase() === "TSHIRT" || trimmed.toUpperCase() === "T-SHIRT") {
+    return "T-Shirt";
+  }
+  if (trimmed === trimmed.toUpperCase() && trimmed.length > 2) {
+    return trimmed
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return trimmed;
+}
+
+function ProductCardInner({
   product,
   cardStyle = "default",
 }: {
@@ -202,21 +218,6 @@ export function ProductCard({
         return "border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-card shadow-xs hover:-translate-y-0.5 hover:shadow-md";
     }
   }, [cardStyle]);
-
-  function formatTitle(name: string): string {
-    if (!name) return "";
-    const trimmed = name.trim();
-    if (trimmed.toUpperCase() === "TSHIRT" || trimmed.toUpperCase() === "T-SHIRT") {
-      return "T-Shirt";
-    }
-    if (trimmed === trimmed.toUpperCase() && trimmed.length > 2) {
-      return trimmed
-        .split(/\s+/)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(" ");
-    }
-    return trimmed;
-  }
 
   return (
     <article
@@ -473,3 +474,8 @@ export function ProductCard({
     </article>
   );
 }
+
+// React.memo: skip re-rendering a card when its product prop hasn't changed.
+// Without this, adding to cart or toggling wishlist for one card re-renders
+// every card in the grid.
+export const ProductCard = memo(ProductCardInner);

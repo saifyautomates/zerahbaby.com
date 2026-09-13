@@ -285,15 +285,24 @@ export const mapProduct = (row: ProductRow): Product => {
   };
 };
 
+// Cache Intl.NumberFormat instances – creating one per call is expensive and
+// unnecessary. We only need two formatters: integers and decimals.
+const _priceFormatterInt = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const _priceFormatterDec = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 export const formatPrice = (n: number) => {
   const num = Number(n) || 0;
-  const hasDecimals = !Number.isInteger(num);
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: hasDecimals ? 2 : 0,
-  }).format(num);
+  return (Number.isInteger(num) ? _priceFormatterInt : _priceFormatterDec).format(num);
 };
 
 export const discountPct = (product: { price: number; mrp: number }) =>

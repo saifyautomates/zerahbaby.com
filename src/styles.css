@@ -250,6 +250,27 @@
     max-width: 100%;
   }
 
+  /* ── Performance: reduce layout thrashing for product image containers ── */
+  /* contain: style + layout limits style recalc scope to the card subtree */
+  article.group {
+    contain: layout style;
+  }
+
+  /* ── Performance: Promote animated elements to their own compositor layer ── */
+  /* Only apply will-change on hover, not by default, to save GPU memory */
+  .group:hover img {
+    will-change: transform;
+  }
+
+  /* ── Performance: content-visibility for off-screen sections ── */
+  /* This is the single highest-impact CSS performance win:
+     sections below the fold skip layout/paint until they scroll into view */
+  [data-section-id] {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 400px;
+  }
+
+
   h1,
   h2,
   h3,

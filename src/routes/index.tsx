@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import {
   Truck,
   RotateCcw,
@@ -114,7 +114,7 @@ const defaultHeroSlides = [
   },
 ];
 
-function HomepageSectionItem({
+function HomepageSectionItemInner({
   section,
   list,
   isLoading,
@@ -154,7 +154,10 @@ function HomepageSectionItem({
     }
   }
 
-  const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
+  const patternSvg = useMemo(
+    () => getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor),
+    [resolvedTheme.patternOverlay, resolvedTheme.accentColor],
+  );
 
   const spacingClass =
     section.spacing === "compact"
@@ -334,6 +337,9 @@ function HomepageSectionItem({
     </div>
   );
 }
+
+// Memoized: prevents re-render when parent Index state changes (e.g. hero editor open)
+const HomepageSectionItem = memo(HomepageSectionItemInner);
 
 function Index() {
   const loaderData = Route.useLoaderData();
