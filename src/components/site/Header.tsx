@@ -111,6 +111,11 @@ export function Header() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -118,6 +123,7 @@ export function Header() {
   const { data: products } = useProducts();
   const { brandName, announcement } = useSettings();
   const { user } = useSession();
+  const hasUser = isMounted && Boolean(user);
   const { data: userProfile } = useProfile(user?.id);
   const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
   const saveProfile = useSaveProfile(user?.id);
@@ -484,7 +490,7 @@ export function Header() {
                 Contact
               </Link>
 
-              {user ? (
+              {hasUser ? (
                 <>
                   <Link
                     to="/orders"
@@ -543,7 +549,7 @@ export function Header() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <div className="px-2 py-1.5 text-sm font-medium truncate">{user.email}</div>
+                        <div className="px-2 py-1.5 text-sm font-medium truncate">{user?.email}</div>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link to="/profile" className="cursor-pointer">
@@ -813,10 +819,10 @@ export function Header() {
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-semibold text-muted-foreground truncate">
-                Hello, {user ? user.user_metadata?.full_name || "Parent" : "Guest"} 👋
+                Hello, {hasUser ? user?.user_metadata?.full_name || "Parent" : "Guest"} 👋
               </span>
               <span className="text-sm font-bold text-foreground truncate">
-                {user ? "Welcome back!" : "Sign in to sync"}
+                {hasUser ? "Welcome back!" : "Sign in to sync"}
               </span>
             </div>
           </div>
@@ -974,7 +980,7 @@ export function Header() {
               <Info className="size-5 text-muted-foreground" /> About Us
             </Link>
 
-            {user ? (
+            {hasUser ? (
               <button
                 onClick={() => {
                   handleSignOut();

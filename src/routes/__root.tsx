@@ -96,11 +96,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             <button
               type="button"
               onClick={() => {
-                try {
-                  reset();
-                } catch {
-                  window.location.reload();
-                }
+                window.location.reload();
               }}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground shadow-premium-sm transition-all hover:bg-primary/90 cursor-pointer"
             >
