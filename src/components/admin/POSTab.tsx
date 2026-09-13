@@ -2430,6 +2430,7 @@ export function POSTab() {
                             "max-w-[90px] truncate font-medium",
                             isActive ? "text-primary-foreground/90" : "text-muted-foreground",
                           )}
+                          data-testid="pos-sale-tab-customer"
                         >
                           {custName}
                         </span>

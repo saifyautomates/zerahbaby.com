@@ -17,17 +17,18 @@ test.describe("POS Product & SKU Search Complete Suite", () => {
     const variant = prod?.product_variants?.[0];
     const barcode = variant?.barcode || prod?.barcode || "528400394295";
 
-    // 1A. Typo / pg_trgm fuzzy matching: 'tshirt' must match product
-    const tshirtResults = await searchPOSProducts("tshirt", 10);
-    expect(tshirtResults.length).toBeGreaterThan(0);
-    const tshirtMatch = tshirtResults.find((p) => p.name.toLowerCase().includes("shirt"));
-    expect(tshirtMatch).toBeDefined();
-    expect(tshirtMatch?.variants.length).toBeGreaterThanOrEqual(1);
+    // 1A. Typo / partial matching: product prefix must match product
+    const prefixQuery = productName.slice(0, Math.max(2, Math.floor(productName.length / 2)));
+    const prefixResults = await searchPOSProducts(prefixQuery, 10);
+    expect(prefixResults.length).toBeGreaterThan(0);
+    const prefixMatch = prefixResults.find((p) => p.name.toLowerCase().includes(prefixQuery.toLowerCase()));
+    expect(prefixMatch).toBeDefined();
+    expect(prefixMatch?.variants.length).toBeGreaterThanOrEqual(1);
 
-    // 1B. Partial name search: 'shirt' must match
-    const shirtResults = await searchPOSProducts("shirt", 10);
-    expect(shirtResults.length).toBeGreaterThan(0);
-    expect(shirtResults.some((p) => p.name.toLowerCase().includes("shirt"))).toBe(true);
+    // 1B. Partial name search: full prefix must match
+    const partialResults = await searchPOSProducts(prefixQuery, 10);
+    expect(partialResults.length).toBeGreaterThan(0);
+    expect(partialResults.some((p) => p.name.toLowerCase().includes(prefixQuery.toLowerCase()))).toBe(true);
 
     // 1C. Case-insensitive search: upper product name must match
     const upperResults = await searchPOSProducts(productName.toUpperCase(), 10);

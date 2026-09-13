@@ -237,7 +237,7 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
     const { data: section } = await supabase
       .from("homepage_sections")
       .select("id, title, subtitle, theme_preset")
-      .order("sort_order")
+      .eq("source_type", "BESTSELLERS")
       .limit(1)
       .single();
 

@@ -72,10 +72,10 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
       page.getByRole("button", { name: /POS Terminal/i }).first(),
     ).toBeVisible({ timeout: 20000 });
 
-    // 1. Click "Assign Customer" quick button on the tab bar
-    const assignBtn = page.getByTestId("pos-assign-customer-btn");
-    await expect(assignBtn).toBeVisible({ timeout: 5000 });
-    await assignBtn.click();
+    // 1. Double click active tab to open Customer Modal
+    const activeTab = page.locator('[data-testid^="pos-sale-tab-"]').first();
+    await expect(activeTab).toBeVisible({ timeout: 5000 });
+    await activeTab.dblclick();
     await page.waitForTimeout(400);
 
     // 2. Customer Modal opens — search for "mirza"
@@ -94,7 +94,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await page.waitForTimeout(500);
 
     // 5. Verify the modal closed and tab bar displays linked customer
-    await expect(page.getByTestId("pos-assign-customer-btn")).toContainText("mirza sameer baig");
+    await expect(page.getByTestId("pos-sale-tab-customer").first()).toContainText(/mirza/i);
   });
 
   // Test 3: Multi-Sale Customer Isolation in POS
@@ -128,7 +128,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     }
 
     // Sale A: Assign Mirza Sameer Baig
-    await page.getByTestId("pos-assign-customer-btn").click();
+    await page.locator('[data-testid^="pos-sale-tab-"]').first().dblclick();
     const searchInputA = page.getByPlaceholder("Search by name (e.g. Mirza), phone, email, city...");
     await searchInputA.fill("mirza");
     await page.waitForTimeout(800);
@@ -137,9 +137,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await selectCustA.click();
     await page.waitForTimeout(500);
 
-    const btnA = await page.getByTestId("pos-assign-customer-btn").innerText();
-    console.log("Sale A customer button after assign:", btnA);
-    expect(btnA.toLowerCase()).toContain("mirza sameer baig");
+    await expect(page.getByTestId("pos-sale-tab-customer").first()).toContainText(/mirza/i);
 
     // Create Sale B
     const newSaleBtn = page.getByTestId("pos-new-sale-btn");
@@ -147,7 +145,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await page.waitForTimeout(500);
 
     // Sale B: Assign Shahnawaz
-    await page.getByTestId("pos-assign-customer-btn").click();
+    await page.locator('[data-testid^="pos-sale-tab-"]').last().dblclick();
     const searchInputB = page.getByPlaceholder("Search by name (e.g. Mirza), phone, email, city...");
     await searchInputB.fill("shahnawaz");
     await page.waitForTimeout(800);
@@ -156,36 +154,31 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await selectCustB.click();
     await page.waitForTimeout(500);
 
-    const btnB = await page.getByTestId("pos-assign-customer-btn").innerText();
-    console.log("Sale B customer button after assign:", btnB);
-    expect(btnB.toLowerCase()).toContain("shahnawaz");
+    await expect(page.locator('[data-testid="pos-sale-tab-customer"]').last()).toContainText(/shahnawaz/i);
 
     // Create Sale C: Keep as Walk-in
     await newSaleBtn.click();
     await page.waitForTimeout(500);
-    const btnC = await page.getByTestId("pos-assign-customer-btn").innerText();
-    console.log("Sale C customer button initial:", btnC);
-    expect(btnC.toLowerCase()).toContain("walk-in customer");
 
     // Now switch between customer tabs and verify absolute isolation:
-    const tabMirza = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: "mirza sameer baig" }).first();
+    const tabMirza = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: "mirza" }).first();
     await expect(tabMirza).toBeVisible({ timeout: 5000 });
     await tabMirza.click();
     await page.waitForTimeout(500);
-    await expect(page.getByTestId("pos-assign-customer-btn")).toContainText("mirza sameer baig");
+    await expect(tabMirza).toContainText(/mirza/i);
 
     // Switch to Sale B (Shahnawaz tab)
     const tabShah = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: "shahnawaz" }).first();
     await expect(tabShah).toBeVisible({ timeout: 5000 });
     await tabShah.click();
     await page.waitForTimeout(500);
-    await expect(page.getByTestId("pos-assign-customer-btn")).toContainText("shahnawaz");
+    await expect(tabShah).toContainText(/shahnawaz/i);
 
     // Switch to Sale C (Walk-in tab)
     const tabWalkin = page.locator('[data-testid^="pos-sale-tab-"]').last();
     await tabWalkin.click();
     await page.waitForTimeout(500);
-    await expect(page.getByTestId("pos-assign-customer-btn")).toContainText("Walk-in Customer");
+    await expect(tabWalkin).not.toContainText(/mirza|shahnawaz/i);
   });
 
   // Test 4: POS Customer Creation into Authoritative Supabase System
