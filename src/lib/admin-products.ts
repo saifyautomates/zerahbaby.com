@@ -23,7 +23,8 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
       .map((h) => h.trim())
       .filter(Boolean),
     is_featured: draft.isFeatured,
-    is_active: draft.isActive,
+    is_active: Number(draft.stock) <= 0 ? false : draft.isActive,
+    status: Number(draft.stock) <= 0 ? "archived" : (draft.isActive ? "active" : "archived"),
     sort_order: Number(draft.sortOrder),
     sales_channel: draft.salesChannel,
   };

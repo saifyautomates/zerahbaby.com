@@ -542,4 +542,83 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
     expect(varStock!.stock).toBe(currentStock);
     expect(varStock!.stock).toBeGreaterThanOrEqual(0);
   });
+
+  // Test 10: Automatic Archiving on Soldout and Automatic Reactivation on Restock
+  test("10. Soldout Auto-Archive: Product automatically archives on zero stock and reactivates on restock", async () => {
+    const { data: prods } = await anonClient
+      .from("products")
+      .select("id, name, slug, stock, is_active, status, product_variants(id, name, stock)")
+      .limit(1);
+
+    expect(prods && prods.length > 0).toBeTruthy();
+    const prod = prods![0];
+    const targetVariant = prod.product_variants[0];
+    const initialStock = prod.stock;
+    const initialVarStock = targetVariant.stock;
+
+    // 1. Deplete all available stock via POS sale
+    const idempotencyKey = `soldout_spec_${Date.now()}`;
+    const { data: saleRes, error: saleErr } = await anonClient.rpc("place_offline_sale", {
+      _customer_name: "Soldout Tester",
+      _customer_phone: "9876543210",
+      _payment_method: "cash",
+      _items: [
+        {
+          product_id: prod.id,
+          variant_id: targetVariant.id,
+          product_slug: prod.slug,
+          name: prod.name,
+          variant_info: targetVariant.name,
+          price: 199,
+          qty: initialVarStock,
+        },
+      ],
+      _idempotency_key: idempotencyKey,
+    });
+
+    expect(saleErr).toBeNull();
+    expect(saleRes?.sale_id).toBeTruthy();
+
+    // 2. Query storefront / anon products: product MUST be hidden from active catalog
+    const { data: activeCatalogCheck } = await anonClient
+      .from("products")
+      .select("id, is_active")
+      .eq("id", prod.id);
+
+    // Inactive/archived products are excluded by RLS for public/anon browsing
+    expect(activeCatalogCheck?.length ?? 0).toBe(0);
+
+    // 3. Process return to replenish stock
+    const { data: retRes, error: retErr } = await anonClient.rpc("process_offline_return", {
+      _original_sale_id: saleRes.sale_id,
+      _customer_name: "Soldout Tester",
+      _customer_phone: "9876543210",
+      _items: [
+        {
+          product_id: prod.id,
+          variant_id: targetVariant.id,
+          name: prod.name,
+          qty: initialVarStock,
+          refund_price: 199,
+        },
+      ],
+      _refund_method: "cash",
+      _return_reason: "Test auto-reactivation on restock",
+    });
+
+    expect(retErr).toBeNull();
+    expect(retRes?.return_number).toBeTruthy();
+
+    // 4. Verify product is back live in active catalog with restored stock
+    const { data: restoredCatalogCheck } = await anonClient
+      .from("products")
+      .select("id, stock, is_active, status")
+      .eq("id", prod.id);
+
+    expect(restoredCatalogCheck && restoredCatalogCheck.length === 1).toBeTruthy();
+    const restored = restoredCatalogCheck![0];
+    expect(restored.stock).toBe(initialStock);
+    expect(restored.is_active).toBe(true);
+    expect(restored.status).toBe("active");
+  });
 });
