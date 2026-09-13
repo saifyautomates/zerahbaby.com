@@ -133,6 +133,17 @@ function HomepageSectionItem({
   const resolvedTheme = resolveSectionTheme(section.theme_preset, section.theme_config);
   const scheduleStatus = getSectionScheduleStatus(section);
 
+  const filteredProducts = useMemo(() => {
+    if (selectedAge === "All") return sectionProducts;
+    const selNorm = selectedAge.toLowerCase();
+    const matched = sectionProducts.filter((p) => {
+      const ageNorm = (p.ageGroup || "").toLowerCase();
+      if (ageNorm.includes(selNorm)) return true;
+      return (p.variants || []).some((v: any) => (v.size || "").toLowerCase().includes(selNorm));
+    });
+    return matched.length > 0 ? matched : sectionProducts;
+  }, [sectionProducts, selectedAge]);
+
   // On customer storefront, omit hidden/inactive sections or sections with no products
   if (!adminMode) {
     if (isHidden || scheduleStatus === "upcoming" || scheduleStatus === "expired") {
@@ -157,17 +168,6 @@ function HomepageSectionItem({
     Boolean(resolvedTheme.bgGradient || section.theme_config?.bg_color || resolvedTheme.backgroundImageUrl);
 
   const ageGroups = ["All", "0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y"];
-
-  const filteredProducts = useMemo(() => {
-    if (selectedAge === "All") return sectionProducts;
-    const selNorm = selectedAge.toLowerCase();
-    const matched = sectionProducts.filter((p) => {
-      const ageNorm = (p.ageGroup || "").toLowerCase();
-      if (ageNorm.includes(selNorm)) return true;
-      return (p.variants || []).some((v: any) => (v.size || "").toLowerCase().includes(selNorm));
-    });
-    return matched.length > 0 ? matched : sectionProducts;
-  }, [sectionProducts, selectedAge]);
 
   return (
     <div
