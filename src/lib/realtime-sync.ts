@@ -130,7 +130,61 @@ export function useGlobalRealtimeSync() {
         { event: "*", schema: "public", table: "site_settings" },
         (payload) => {
           notifyListeners("site_settings", payload.eventType, payload);
-          debouncedInvalidate(qc, [["site_settings"], ["admin-settings"]]);
+          debouncedInvalidate(qc, [
+            ["site_settings"],
+            ["admin-settings"],
+            ["payment-settings"],
+            ["store-info"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_settings" },
+        (payload) => {
+          notifyListeners("payment_settings", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["payment-settings"],
+            ["site_settings"],
+            ["admin-settings"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        (payload) => {
+          notifyListeners("profiles", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["profiles"],
+            ["user-profile"],
+            ["admin-customers"],
+            ["pos-customers"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_relations" },
+        (payload) => {
+          notifyListeners("product_relations", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["product-relations"],
+            ["product"],
+            ["products"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_videos" },
+        (payload) => {
+          notifyListeners("product_videos", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["product-videos"],
+            ["product"],
+            ["products"],
+          ]);
         },
       )
       .on(
@@ -138,7 +192,11 @@ export function useGlobalRealtimeSync() {
         { event: "*", schema: "public", table: "pos_customers" },
         (payload) => {
           notifyListeners("pos_customers", payload.eventType, payload);
-          debouncedInvalidate(qc, [["pos-customers"], ["offline-sales-customers-badge"]]);
+          debouncedInvalidate(qc, [
+            ["pos-customers"],
+            ["offline-sales-customers-badge"],
+            ["offline-sales-customers-hub"],
+          ]);
         },
       )
       .on(
@@ -155,7 +213,7 @@ export function useGlobalRealtimeSync() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "coupons" }, (payload) => {
         notifyListeners("coupons", payload.eventType, payload);
-        debouncedInvalidate(qc, [["coupons"], ["admin-coupons"]]);
+        debouncedInvalidate(qc, [["coupons"], ["admin-coupons"], ["pos-coupons"]]);
       })
       .on(
         "postgres_changes",
@@ -166,6 +224,8 @@ export function useGlobalRealtimeSync() {
             ["products"],
             ["product"],
             ["admin-products"],
+            ["admin-search-products"],
+            ["admin-products-count"],
             ["inventory-products"],
             ["pos-products"],
             ["product-relations"],
