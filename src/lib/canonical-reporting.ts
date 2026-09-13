@@ -213,6 +213,8 @@ export function invalidateCanonicalReportingQueries(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["admin-products"] });
   qc.invalidateQueries({ queryKey: ["admin-products-count"] });
   qc.invalidateQueries({ queryKey: ["products"] });
+  qc.invalidateQueries({ queryKey: ["pos-products"] });
+  qc.invalidateQueries({ queryKey: ["inventory-products"] });
   qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
   qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
   qc.invalidateQueries({ queryKey: ["admin-database-notifications"] });

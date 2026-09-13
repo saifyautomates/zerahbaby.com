@@ -37,6 +37,19 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
   return row;
 };
 
+export function broadcastCatalogueChange() {
+  if (typeof window !== "undefined") {
+    try {
+      const bc = new BroadcastChannel("zerah_catalog_sync");
+      bc.postMessage({ type: "CATALOG_MUTATED", timestamp: Date.now() });
+      bc.close();
+    } catch {
+      // BroadcastChannel unsupported or blocked
+    }
+    window.dispatchEvent(new CustomEvent("zerah:catalog-updated"));
+  }
+}
+
 export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["products"] });
   qc.invalidateQueries({ queryKey: ["product"] });
@@ -48,6 +61,7 @@ export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["product-relations"] });
   qc.invalidateQueries({ queryKey: ["homepage-sections"] });
   qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+  broadcastCatalogueChange();
 }
 
 function useInvalidateCatalogue() {

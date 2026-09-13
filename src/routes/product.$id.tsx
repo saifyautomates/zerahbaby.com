@@ -974,24 +974,11 @@ function ProductPage() {
                 v.name?.toLowerCase() !== "default",
             );
 
-            const isSizedCategory =
-              product.category?.toLowerCase() === "clothing" ||
-              product.category?.toLowerCase() === "footwear";
-
-            if (validSizeVariants.length === 0 && !isSizedCategory) {
+            if (validSizeVariants.length === 0) {
               return null;
             }
 
-            const displaySizes =
-              validSizeVariants.length > 0
-                ? validSizeVariants
-                : [
-                    { id: "s-0-6m", size: product.ageGroup || "0-6M", name: product.ageGroup || "0-6M", stock: 10 },
-                    { id: "s-6-12m", size: "6-12M", name: "6-12M", stock: 10 },
-                    { id: "s-1-2y", size: "1-2Y", name: "1-2Y", stock: 10 },
-                    { id: "s-2-3y", size: "2-3Y", name: "2-3Y", stock: 10 },
-                    { id: "s-3-4y", size: "3-4Y", name: "3-4Y", stock: 10 },
-                  ];
+            const displaySizes = validSizeVariants;
 
             return (
               <div className="mt-6">

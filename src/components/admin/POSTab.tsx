@@ -70,6 +70,7 @@ import {
   invalidateCanonicalReportingQueries,
   notifyPOSSaleChanged,
 } from "@/lib/canonical-reporting";
+import { broadcastCatalogueChange, invalidateCatalogue } from "@/lib/admin-products";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
@@ -593,7 +594,8 @@ export function POSTab() {
   // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products"],
-    staleTime: 1000 * 30, // 30s caching so freshly updated costs in catalog reflect promptly
+    staleTime: 1000 * 5, // 5s fresh window with instant realtime invalidation
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const [productsRes, costsRes] = await Promise.all([
         supabase
@@ -634,6 +636,101 @@ export function POSTab() {
       return mapped;
     },
   });
+
+  // Derive live authoritative stock for any cart item directly from latest catalog query
+  const getLiveItemStock = useCallback(
+    (item: POSCartItem): number => {
+      if (item.isCustom) return 999;
+      const p = products.find(
+        (prod) =>
+          prod.uuid === item.product_id ||
+          prod.id === item.product_id ||
+          prod.id === item.slug ||
+          (item.sku && prod.sku === item.sku),
+      );
+      if (!p) return item.stock ?? 0;
+      if (item.variant_id) {
+        const v = p.variants?.find((varItem) => varItem.id === item.variant_id);
+        if (v) return Number(v.stock ?? 0);
+      }
+      return Number(p.stock ?? 0);
+    },
+    [products],
+  );
+
+  // Realtime & Cross-tab synchronized inventory listening in POS
+  useEffect(() => {
+    // 1. Cross-tab BroadcastChannel
+    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
+    if (bc) {
+      bc.onmessage = (msg) => {
+        if (msg.data?.type === "CATALOG_MUTATED") {
+          qc.invalidateQueries({ queryKey: ["pos-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+        }
+      };
+    }
+
+    // 2. Window event listener
+    const handleCatalogEvent = () => {
+      qc.invalidateQueries({ queryKey: ["pos-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+    };
+    window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
+
+    // 3. Supabase Realtime Postgres Changes
+    const channel = supabase
+      .channel("pos-realtime-catalog-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["pos-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_variants" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["pos-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      bc?.close();
+      window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
+  // Continuous Cart Inventory Reconciliation with live authoritative database catalog
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+    setCart((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        if (item.isCustom) return item;
+        const liveStock = getLiveItemStock(item);
+        const clampedQty = Math.max(0, Math.min(item.qty, liveStock));
+        if (item.stock !== liveStock || (item.qty > liveStock && liveStock > 0)) {
+          changed = true;
+          if (item.qty > liveStock) {
+            toast.warning(`Stock changed for "${item.name}". Quantity adjusted to available stock (${liveStock}).`);
+          }
+          return {
+            ...item,
+            stock: liveStock,
+            qty: clampedQty === 0 && liveStock > 0 ? 1 : clampedQty,
+          };
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [products, getLiveItemStock]);
 
   // Live profit calculation: cross-reference buying_price from cart item or from local catalog
   const profitCalc = useMemo(() => {
@@ -1634,24 +1731,30 @@ export function POSTab() {
 
   function addToCart(item: POSCartItem): boolean {
     let added = true;
+    const currentStock = getLiveItemStock(item);
+    if (currentStock <= 0 && !item.isCustom) {
+      playScanError();
+      toast.error(`Cannot add "${item.name}". Item is out of stock.`);
+      return false;
+    }
     setCart((prev) => {
       const existing = prev.find(
         (p) => p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || ""),
       );
       if (existing) {
-        if (existing.qty >= item.stock) {
+        if (existing.qty >= currentStock && !item.isCustom) {
           playScanError();
-          toast.error(`Cannot add more "${item.name}". Only ${item.stock} in stock.`);
+          toast.error(`Cannot add more "${item.name}". Only ${currentStock} in stock.`);
           added = false;
           return prev;
         }
         return prev.map((p) =>
           p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || "")
-            ? { ...p, qty: p.qty + 1 }
+            ? { ...p, stock: currentStock, qty: p.qty + 1 }
             : p,
         );
       }
-      return [...prev, { ...item, qty: 1 }];
+      return [...prev, { ...item, stock: currentStock, qty: 1 }];
     });
     return added;
   }
@@ -1715,11 +1818,12 @@ export function POSTab() {
     setCart((prev) =>
       prev.map((p) => {
         if (p.product_id === productId && (p.variant_id || "") === (variantId || "")) {
-          const clamped = Math.max(1, Math.min(p.stock, newQty));
-          if (newQty > p.stock) {
-            toast.error(`Only ${p.stock} available for "${p.name}"`);
+          const liveStock = getLiveItemStock(p);
+          const clamped = Math.max(1, Math.min(liveStock, newQty));
+          if (newQty > liveStock && !p.isCustom) {
+            toast.error(`Only ${liveStock} available for "${p.name}"`);
           }
-          return { ...p, qty: clamped };
+          return { ...p, stock: liveStock, qty: clamped };
         }
         return p;
       }),
@@ -1912,6 +2016,18 @@ export function POSTab() {
       return;
     }
 
+    // Strict pre-flight stock validation against live authoritative database catalog
+    for (const item of cart) {
+      if (item.isCustom) continue;
+      const liveStock = getLiveItemStock(item);
+      if (item.qty > liveStock) {
+        toast.error(
+          `Insufficient stock for "${item.name}". Available: ${liveStock}, requested: ${item.qty}. Please adjust quantity before checkout.`,
+        );
+        return;
+      }
+    }
+
     const rpcItems = cart.map((item) => {
       const isUuid =
         Boolean(item.product_id) &&
@@ -1980,6 +2096,8 @@ export function POSTab() {
 
       // Synchronously invalidate and broadcast canonical reporting updates
       invalidateCanonicalReportingQueries(qc);
+      invalidateCatalogue(qc);
+      broadcastCatalogueChange();
       notifyPOSSaleChanged();
 
       if (result.duplicate) {
@@ -2909,131 +3027,148 @@ export function POSTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cart.map((item) => (
-                      <tr
-                        key={`${item.product_id}-${item.variant_id || "def"}`}
-                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="py-3 pr-4">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPOSItem(item)}
-                            className="flex items-center gap-3 text-left cursor-pointer group w-full"
-                            title="Click to view product details"
-                          >
-                            <img
-                              src={imageFor(item.category || "clothing", item.image_url)}
-                              alt={item.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="size-10 rounded-lg object-cover border border-border shrink-0 group-hover:ring-2 group-hover:ring-primary/40 transition-all"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = clothing;
-                              }}
-                            />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors line-clamp-2">
-                                {item.name}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                {item.sales_channel === "OFFLINE_ONLY" ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
-                                    <span>🏪</span> Offline Only
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
-                                    <span>🌐</span> Online + Offline
-                                  </span>
-                                )}
-                                {item.isCustom && (
-                                  <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                    Custom Price
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-muted-foreground">
-                                  {item.brand}
-                                </span>
-                              </div>
-                            </div>
-                          </button>
-                        </td>
-                        <td className="py-3 font-mono text-xs text-muted-foreground">
-                          {item.sku || "—"}
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex flex-col items-end gap-0.5">
-                            <div className="inline-flex items-center gap-1 bg-background border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-lg px-2 py-1 transition-all">
-                              <span className="text-xs font-bold text-muted-foreground">₹</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step="1"
-                                value={item.price}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  updateItemPrice(item.product_id, isNaN(val) ? 0 : val, item.variant_id);
+                    {cart.map((item) => {
+                      const liveStock = getLiveItemStock(item);
+                      const isOverStock = !item.isCustom && item.qty > liveStock;
+
+                      return (
+                        <tr
+                          key={`${item.product_id}-${item.variant_id || "def"}`}
+                          className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="py-3 pr-4">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPOSItem(item)}
+                              className="flex items-center gap-3 text-left cursor-pointer group w-full"
+                              title="Click to view product details"
+                            >
+                              <img
+                                src={imageFor(item.category || "clothing", item.image_url)}
+                                alt={item.name}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-10 rounded-lg object-cover border border-border shrink-0 group-hover:ring-2 group-hover:ring-primary/40 transition-all"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = clothing;
                                 }}
-                                className="w-20 text-right font-bold text-sm bg-transparent outline-none text-foreground"
-                                title="Override selling price (e.g. enter ₹350 for ₹500 item)"
-                                data-testid={`pos-item-price-input-${item.sku || item.product_id}`}
                               />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors line-clamp-2">
+                                  {item.name}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {item.sales_channel === "OFFLINE_ONLY" ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                      <span>🏪</span> Offline Only
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                      <span>🌐</span> Online + Offline
+                                    </span>
+                                  )}
+                                  {item.isCustom && (
+                                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                      Custom Price
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {item.brand}
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          </td>
+                          <td className="py-3 font-mono text-xs text-muted-foreground">
+                            {item.sku || "—"}
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="inline-flex items-center gap-1 bg-background border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-lg px-2 py-1 transition-all">
+                                <span className="text-xs font-bold text-muted-foreground">₹</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="1"
+                                  value={item.price}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    updateItemPrice(item.product_id, isNaN(val) ? 0 : val, item.variant_id);
+                                  }}
+                                  className="w-20 text-right font-bold text-sm bg-transparent outline-none text-foreground"
+                                  title="Override selling price (e.g. enter ₹350 for ₹500 item)"
+                                  data-testid={`pos-item-price-input-${item.sku || item.product_id}`}
+                                />
+                              </div>
+                              {item.isCustom && (
+                                <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                                  Custom Price
+                                </span>
+                              )}
+                              {item.mrp && item.mrp !== item.price && !item.isCustom && (
+                                <span className="text-[10px] text-muted-foreground line-through">
+                                  MRP: ₹{item.mrp}
+                                </span>
+                              )}
                             </div>
-                            {item.isCustom && (
-                              <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
-                                Custom Price
+                          </td>
+                          <td className="py-3 text-center">
+                            <div className="flex flex-col items-center">
+                              <span
+                                className={`text-xs font-bold ${
+                                  liveStock <= 0
+                                    ? "text-red-600 font-extrabold"
+                                    : liveStock <= 5
+                                      ? "text-amber-600 font-bold"
+                                      : "text-muted-foreground"
+                                }`}
+                                title={`Authoritative Database Stock: ${liveStock}`}
+                              >
+                                {liveStock}
                               </span>
-                            )}
-                            {item.mrp && item.mrp !== item.price && !item.isCustom && (
-                              <span className="text-[10px] text-muted-foreground line-through">
-                                MRP: ₹{item.mrp}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 text-center">
-                          <span
-                            className={`text-xs font-semibold ${
-                              item.stock <= 5 ? "text-amber-600" : "text-muted-foreground"
-                            }`}
-                          >
-                            {item.stock}
-                          </span>
-                        </td>
-                        <td className="py-3 text-center">
-                          <div className="inline-flex items-center rounded-lg border border-border bg-background">
+                              {isOverStock && (
+                                <span className="text-[9px] font-extrabold text-red-600 bg-red-50 border border-red-200 px-1 py-0.2 rounded mt-0.5">
+                                  Only {liveStock} left!
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 text-center">
+                            <div className="inline-flex items-center rounded-lg border border-border bg-background">
+                              <button
+                                onClick={() =>
+                                  updateQty(item.product_id, item.qty - 1, item.variant_id)
+                                }
+                                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                              >
+                                <Minus className="size-3" />
+                              </button>
+                              <span className="w-8 text-center text-xs font-bold">{item.qty}</span>
+                              <button
+                                onClick={() =>
+                                  updateQty(item.product_id, item.qty + 1, item.variant_id)
+                                }
+                                disabled={!item.isCustom && item.qty >= liveStock}
+                                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                              >
+                                <Plus className="size-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-3 text-right font-bold text-foreground">
+                            {formatPrice(item.price * item.qty)}
+                          </td>
+                          <td className="py-3 text-right pl-2">
                             <button
-                              onClick={() =>
-                                updateQty(item.product_id, item.qty - 1, item.variant_id)
-                              }
-                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                              onClick={() => removeFromCart(item.product_id, item.variant_id)}
+                              className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50 cursor-pointer"
                             >
-                              <Minus className="size-3" />
+                              <Trash2 className="size-4" />
                             </button>
-                            <span className="w-8 text-center text-xs font-bold">{item.qty}</span>
-                            <button
-                              onClick={() =>
-                                updateQty(item.product_id, item.qty + 1, item.variant_id)
-                              }
-                              disabled={item.qty >= item.stock}
-                              className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                            >
-                              <Plus className="size-3" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-3 text-right font-bold text-foreground">
-                          {formatPrice(item.price * item.qty)}
-                        </td>
-                        <td className="py-3 text-right pl-2">
-                          <button
-                            onClick={() => removeFromCart(item.product_id, item.variant_id)}
-                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50 cursor-pointer"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

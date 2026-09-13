@@ -65,7 +65,7 @@ import { useIsAdmin, useSession, ensureAdminSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-import { useSaveProduct } from "@/lib/admin-products";
+import { useSaveProduct, invalidateCatalogue, broadcastCatalogueChange } from "@/lib/admin-products";
 import { useAllOrders, useCustomers, useProfile, orderStatuses, type Order } from "@/lib/orders";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { InvoiceBox } from "@/components/site/Invoice";
@@ -1142,12 +1142,64 @@ function ProductsTab() {
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
-
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
+  const invalidate = useCallback(() => {
+    invalidateCatalogue(qc);
+  }, [qc]);
+
+  // Realtime & Cross-tab synchronized inventory listening
+  useEffect(() => {
+    // 1. Cross-tab BroadcastChannel
+    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
+    if (bc) {
+      bc.onmessage = (msg) => {
+        if (msg.data?.type === "CATALOG_MUTATED") {
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+        }
+      };
+    }
+
+    // 2. Window event listener
+    const handleCatalogEvent = () => {
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+    };
+    window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
+
+    // 3. Supabase Realtime Postgres Changes
+    const channel = supabase
+      .channel("admin-realtime-catalog-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_variants" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      bc?.close();
+      window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
-    staleTime: 1000 * 60 * 5, // 5 minutes caching for instant tab switching
+    staleTime: 1000 * 5, // 5s fresh window with instant realtime invalidation
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
@@ -1194,17 +1246,6 @@ function ProductsTab() {
       });
     },
   });
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["admin-products"] });
-    qc.invalidateQueries({ queryKey: ["products"] });
-    qc.invalidateQueries({ queryKey: ["inventory-products"] });
-    qc.invalidateQueries({ queryKey: ["pos-products"] });
-    qc.invalidateQueries({ queryKey: ["categories"] });
-    qc.invalidateQueries({ queryKey: ["admin-search-products"] });
-    qc.invalidateQueries({ queryKey: ["product-relations"] });
-    qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-  };
 
   const updateStock = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
