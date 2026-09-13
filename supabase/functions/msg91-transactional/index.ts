@@ -329,6 +329,271 @@ async function checkRateLimitAndRecord(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Authoritative Template Variable Reconstruction for Failed SMS Retries
+// Sources (in priority order):
+// 1. Directly stored template_variables on existingLog (if present)
+// 2. Authoritative database record: orders table (if order_id is present)
+// 3. Authoritative database record: offline_sales table (if offline_sale_id is present)
+// 4. Deterministic extraction from stored message_content (regex parse of approved templates)
+// ---------------------------------------------------------------------------
+async function reconstructTemplateVariables(
+  adminClient: ReturnType<typeof createClient>,
+  existingLog: Record<string, any>,
+  config?: any,
+): Promise<{ vars: Record<string, string> | null; source: string; error?: string }> {
+  // 1. Directly stored template_variables
+  if (
+    existingLog.template_variables &&
+    typeof existingLog.template_variables === "object" &&
+    Object.keys(existingLog.template_variables).length > 0
+  ) {
+    return { vars: existingLog.template_variables, source: "stored_variables" };
+  }
+
+  // 2. Authoritative reconstruction from orders table
+  if (existingLog.order_id && isValidUuid(existingLog.order_id)) {
+    try {
+      const { data: order } = await adminClient
+        .from("orders")
+        .select("id, phone, full_name, total, payment_method, order_number, invoice_no, order_items(id, qty)")
+        .eq("id", existingLog.order_id)
+        .maybeSingle();
+
+      if (order) {
+        const isCod = (order.payment_method || "").toLowerCase() === "cod";
+        const totalNum = Math.round(Number(order.total || 0));
+        const orderRef = order.order_number || order.invoice_no || order.id.substring(0, 8);
+        const custName = cleanCustomerName(order.full_name);
+
+        if (config && typeof config.buildVars === "function") {
+          const built = config.buildVars({
+            name: custName,
+            ref: orderRef,
+            total: totalNum,
+            payment: order.payment_method || "ONLINE",
+          });
+          return { vars: built, source: "orders_table" };
+        }
+
+        return {
+          vars: {
+            var1: `#${orderRef}${isCod ? " (COD)" : ""}`,
+            var2: String(totalNum),
+            var3: custName,
+            order_id: String(orderRef),
+            ref: String(orderRef),
+            total: String(totalNum),
+            amount: String(totalNum),
+            name: custName,
+            customer_name: custName,
+            payment_method: isCod ? "COD" : "Online",
+          },
+          source: "orders_table",
+        };
+      }
+    } catch (e) {
+      console.warn("[msg91-transactional] Failed to query order for retry reconstruction:", e);
+    }
+  }
+
+  // 3. Authoritative reconstruction from offline_sales table
+  if (existingLog.offline_sale_id && isValidUuid(existingLog.offline_sale_id)) {
+    try {
+      const { data: sale } = await adminClient
+        .from("offline_sales")
+        .select("id, customer_phone, customer_name, total, payment_method, sale_number, offline_sale_items(id, qty)")
+        .eq("id", existingLog.offline_sale_id)
+        .maybeSingle();
+
+      if (sale) {
+        const totalNum = Math.round(Number(sale.total || 0));
+        const saleRef = sale.sale_number || sale.id.substring(0, 8);
+        const custName = cleanCustomerName(sale.customer_name);
+
+        if (config && typeof config.buildVars === "function") {
+          const built = config.buildVars({
+            name: custName,
+            ref: saleRef,
+            total: totalNum,
+            payment: sale.payment_method || "CASH",
+          });
+          return { vars: built, source: "offline_sales_table" };
+        }
+
+        return {
+          vars: {
+            var1: String(saleRef),
+            var2: String(totalNum),
+            var3: STORE_NAME,
+            invoice_no: String(saleRef),
+            sale_number: String(saleRef),
+            order_id: String(saleRef),
+            ref: String(saleRef),
+            total: String(totalNum),
+            amount: String(totalNum),
+            name: custName,
+          },
+          source: "offline_sales_table",
+        };
+      }
+    } catch (e) {
+      console.warn("[msg91-transactional] Failed to query offline_sales for retry reconstruction:", e);
+    }
+  }
+
+  // 4. Deterministic reconstruction from stored message_content
+  if (existingLog.message_content && typeof existingLog.message_content === "string") {
+    const content = existingLog.message_content.trim();
+
+    // Pattern A: online_sale_customer ("Hi Zerah Baby & Kids! Your order #... is confirmed. Total: ₹...")
+    const mOnlineCust = content.match(/Your order (.*?) is confirmed\. Total: ₹?(\d+)/i);
+    if (mOnlineCust) {
+      const orderRef = mOnlineCust[1].trim();
+      const amount = mOnlineCust[2].trim();
+      return {
+        vars: {
+          var1: orderRef,
+          var2: amount,
+          order_id: orderRef.replace(/^#/, "").replace(/\s*\(COD\)$/i, ""),
+          ref: orderRef.replace(/^#/, "").replace(/\s*\(COD\)$/i, ""),
+          total: amount,
+          amount: amount,
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern B: online_sale_owner ("Zerah Baby & Kids: New online order received! Order ID:... Customer:... Amount: ₹...")
+    const mOnlineOwner = content.match(/Order ID:(.*?) Customer:(.*?) Amount: ₹?(\d+)/i);
+    if (mOnlineOwner) {
+      const orderId = mOnlineOwner[1].trim();
+      const custName = mOnlineOwner[2].trim();
+      const amount = mOnlineOwner[3].trim();
+      return {
+        vars: {
+          var1: orderId,
+          var2: custName,
+          var3: amount,
+          order_id: orderId,
+          ref: orderId,
+          name: custName,
+          customer_name: custName,
+          total: amount,
+          amount: amount,
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern C: order_delivered_customer ("Hello ..., your order ... from Zerah Baby & Kids has been delivered")
+    const mDelivered = content.match(/Hello (.*?), your order (.*?) from Zerah Baby & Kids has been delivered/i);
+    if (mDelivered) {
+      const custName = mDelivered[1].trim();
+      const orderRef = mDelivered[2].trim();
+      return {
+        vars: {
+          var1: custName,
+          var2: orderRef,
+          name: custName,
+          customer_name: custName,
+          order_id: orderRef.replace(/^#/, ""),
+          ref: orderRef.replace(/^#/, ""),
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern D: offline_pos_sale_customer ("Thank you for shopping at Zerah Baby & Kids! Invoice No: ... Total: ₹...")
+    const mOfflineCust = content.match(/Invoice No: (.*?) Total: ₹?(\d+)/i);
+    if (mOfflineCust) {
+      const invNo = mOfflineCust[1].trim();
+      const amount = mOfflineCust[2].trim();
+      return {
+        vars: {
+          var1: invNo,
+          var2: amount,
+          var3: STORE_NAME,
+          invoice_no: invNo,
+          sale_number: invNo,
+          ref: invNo,
+          total: amount,
+          amount: amount,
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern E: offline_pos_sale_owner ("Zerah Baby & Kids: Your Offline transaction is recorded successfully. Transaction ID: ... Customer: ... Amount: ₹...")
+    const mOfflineOwner = content.match(/Transaction ID: (.*?) Customer: (.*?) Amount: ₹?(\d+)/i);
+    if (mOfflineOwner) {
+      const txId = mOfflineOwner[1].trim();
+      const custName = mOfflineOwner[2].trim();
+      const amount = mOfflineOwner[3].trim();
+      return {
+        vars: {
+          var1: txId,
+          var2: custName,
+          var3: amount,
+          transaction_id: txId,
+          ref: txId,
+          sale_number: txId,
+          name: custName,
+          customer_name: custName,
+          total: amount,
+          amount: amount,
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern F: order_cancelled_customer ("Zerah Baby & Kids: Order ... has been cancelled. Refund/Status: ...")
+    const mCancelCust = content.match(/Order (.*?) has been cancelled\. Refund\/Status: (.*)/i);
+    if (mCancelCust) {
+      const orderRef = mCancelCust[1].trim();
+      const statusText = mCancelCust[2].trim();
+      return {
+        vars: {
+          var1: orderRef,
+          var2: statusText,
+          order_id: orderRef.replace(/^#/, ""),
+          ref: orderRef.replace(/^#/, ""),
+          status: "Cancelled",
+        },
+        source: "message_content_regex",
+      };
+    }
+
+    // Pattern G: order_cancelled_owner ("Zerah Baby & Kids: CANCELLED ... Customer: ... Amount: ₹...")
+    const mCancelOwner = content.match(/CANCELLED (.*?) Customer: (.*?) Amount: ₹?(\d+)/i);
+    if (mCancelOwner) {
+      const orderRef = mCancelOwner[1].trim();
+      const custName = mCancelOwner[2].trim();
+      const amount = mCancelOwner[3].trim();
+      return {
+        vars: {
+          var1: orderRef,
+          var2: custName,
+          var3: amount,
+          order_id: orderRef,
+          ref: orderRef,
+          name: custName,
+          customer_name: custName,
+          total: amount,
+          amount: amount,
+        },
+        source: "message_content_regex",
+      };
+    }
+  }
+
+  return {
+    vars: null,
+    source: "none",
+    error: "Original template data unavailable; SMS cannot be retried safely.",
+  };
+}
+
 // MSG91 Flow API Dispatch with 10s timeout and strict error categorization
 async function dispatchToMsg91(authKey, templateId, cleanPhone, vars) {
   const controller = new AbortController();
@@ -606,17 +871,120 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Idempotency: Prevent duplicate sending if SMS was already successfully sent
+      if (
+        existingLog.status === "SENT" ||
+        existingLog.provider_status === "sent" ||
+        existingLog.provider_status === "mock_success"
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            already_sent: true,
+            message: "SMS has already been sent successfully.",
+            log: existingLog,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // 1. Identify the template config from existing template_id or message_type + recipient_type
+      let matchedKey: string | null = null;
+      for (const [key, cfg] of Object.entries(TEMPLATE_CONFIG)) {
+        const envId = (Deno.env.get(cfg.secretKey) || "").trim();
+        if (
+          existingLog.template_id &&
+          (existingLog.template_id === cfg.templateId || (envId && existingLog.template_id === envId))
+        ) {
+          matchedKey = key;
+          break;
+        }
+      }
+
+      if (!matchedKey && existingLog.message_type) {
+        matchedKey = resolveTemplateKey(existingLog.message_type, existingLog.recipient_type || "customer");
+      }
+
+      if (!matchedKey && existingLog.message_type === "test_admin_alert") {
+        matchedKey = "online_sale_owner";
+      }
+
+      const config = matchedKey ? TEMPLATE_CONFIG[matchedKey] : null;
+      const effectiveTemplateId =
+        existingLog.template_id ||
+        (config ? (Deno.env.get(config.secretKey) || "").trim() || config.templateId : null);
+
+      if (!effectiveTemplateId) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Original template data unavailable; SMS cannot be retried safely.",
+            details: "No valid DLT template ID found for this SMS log.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // 2. Authoritative variable reconstruction
+      const { vars: templateVars, source: reconSource, error: reconError } =
+        await reconstructTemplateVariables(adminClient, existingLog, config);
+
+      if (!templateVars || Object.keys(templateVars).length === 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Original template data unavailable; SMS cannot be retried safely.",
+            details: reconError || "Unable to reconstruct template variables from order, sale, or stored content.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // 3. Strict DLT safety check: all requiredVars must be present, non-empty, and free of unresolved markers
+      const requiredVars = config?.requiredVars || ["var1", "var2"];
+      const missingVars: string[] = [];
+      for (const reqVar of requiredVars) {
+        const val = templateVars[reqVar];
+        if (!val || String(val).trim() === "" || String(val).includes("##") || String(val).includes("{#")) {
+          missingVars.push(reqVar);
+        }
+      }
+
+      if (missingVars.length > 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Original template data unavailable; SMS cannot be retried safely.",
+            details: `Missing required template variable(s): ${missingVars.join(", ")}`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // 4. Validate and normalize phone number
+      const { valid: phoneValid, phone: cleanPhone, error: phoneErr } = normalizeIndianPhone(existingLog.phone);
+      if (!phoneValid) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: phoneErr || `Invalid recipient phone number on log: ${existingLog.phone}`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+
+      // 5. Dispatch via MSG91 with verified templateVars
       const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
       let retryProviderStatus = "mock_success";
       let retryError = null;
       let retryMsgId = null;
 
-      if (msg91AuthKey && existingLog.template_id && existingLog.phone) {
+      if (msg91AuthKey) {
         const result = await dispatchToMsg91(
           msg91AuthKey,
-          existingLog.template_id,
-          existingLog.phone,
-          {},
+          effectiveTemplateId,
+          cleanPhone,
+          templateVars,
         );
         retryProviderStatus = result.providerStatus;
         retryError = result.errorDetails;
@@ -628,13 +996,20 @@ Deno.serve(async (req) => {
           ? "SENT"
           : "FAILED";
 
+      const updatedPreview =
+        config && typeof config.formatPreview === "function"
+          ? config.formatPreview(templateVars as Record<string, string>)
+          : existingLog.message_content;
+
       const { data: updatedLog } = await adminClient
         .from("sms_logs")
         .update({
           status: newStatus,
           provider_status: retryProviderStatus,
           error_details: retryError,
-          provider_message_id: retryMsgId,
+          provider_message_id: retryMsgId || existingLog.provider_message_id,
+          template_id: effectiveTemplateId,
+          message_content: updatedPreview,
           retry_count: (existingLog.retry_count || 0) + 1,
           last_retried_at: new Date().toISOString(),
         })
@@ -642,10 +1017,15 @@ Deno.serve(async (req) => {
         .select("*")
         .single();
 
-      return new Response(JSON.stringify({ success: newStatus === "SENT", log: updatedLog }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify({
+          success: newStatus === "SENT",
+          log: updatedLog,
+          reconstruction_source: reconSource,
+          variables_sent: templateVars,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     }
 
     // Standard Dispatch
