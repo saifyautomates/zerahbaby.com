@@ -213,77 +213,43 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const clean = code.trim();
   if (!clean) return { found: false };
 
-  // 0. Check local offline IndexedDB cache first (< 2ms instant response)
-  try {
-    const offline = await findOfflineProductByCode(clean);
-    if (offline) {
-      const v = (offline.matchedVariant || null) as {
-        id?: string;
-        name?: string;
-        price_override?: number | null;
-        priceOverride?: number | null;
-        mrp_override?: number | null;
-        mrpOverride?: number | null;
-        stock?: number | null;
-        sku?: string | null;
-        barcode?: string | null;
-        image_url?: string | null;
-        imageUrl?: string | null;
-      } | null;
+  const isOnline = typeof navigator === "undefined" || navigator.onLine !== false;
 
-      const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
-      const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
-      const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
-      const sku = String(v?.sku || offline.sku || "");
-      const barcode = String(v?.barcode || offline.barcode || clean);
-      const image =
-        v?.image_url ||
-        v?.imageUrl ||
-        (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
-        null;
-
-      return {
-        found: true,
-        archived: offline.is_active === false || offline.isActive === false,
-        product_id: String(offline.uuid || offline.id),
-        variant_id: v?.id || "",
-        slug: String(offline.slug || offline.id),
-        name: String(offline.name || ""),
-        brand: String(offline.brand || "Zérah Baby & Kids"),
-        category: String(offline.category || "clothing"),
-        price,
-        mrp,
-        stock,
-        sku,
-        barcode,
-        image_url: image,
-        age_group: String(offline.age_group || ""),
-        description: String(offline.description || ""),
-        sales_channel: (offline.sales_channel || "ONLINE_AND_OFFLINE") as
-          | "ONLINE_AND_OFFLINE"
-          | "OFFLINE_ONLY",
-        buying_price: Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null,
-      };
-    }
-  } catch {
-    // Continue to online RPC if offline lookup fails
-  }
-
-  // 1. Try online RPC if online
-  if (typeof navigator === "undefined" || navigator.onLine) {
+  // 1. When online, query authoritative Supabase RPC & database first
+  if (isOnline) {
     try {
       const { data, error } = await (
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
         ) => Promise<{ data: any; error: any }>
-      )("pos_lookup_barcode", { _barcode: clean });
+      )("lookup_barcode", { _code: clean });
 
-      if (!error && data) {
+      if (!error && data && data.found) {
+        // Keep offline IndexedDB cache fresh with authoritative live stock & pricing
+        import("@/lib/offline-sync-engine").then((m) => {
+          m.updateOfflineCatalogProduct({
+            id: data.product_id,
+            uuid: data.product_id,
+            slug: data.slug,
+            name: data.name,
+            brand: data.brand,
+            category: data.category,
+            price: Number(data.price || 0),
+            mrp: Number(data.mrp || data.price || 0),
+            stock: Number(data.stock || 0),
+            sku: data.sku,
+            barcode: data.barcode,
+            sales_channel: data.sales_channel,
+            is_active: !data.archived,
+          }).catch(console.error);
+        }).catch(console.error);
+
         return {
           found: true,
+          archived: !!data.archived,
           product_id: data.product_id,
-          variant_id: data.variant_id,
+          variant_id: data.variant_id || "",
           slug: data.slug,
           name: data.name,
           brand: data.brand || "Zérah Baby & Kids",
@@ -297,14 +263,16 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           age_group: data.age_group || "",
           description: data.description || "",
           sales_channel: (data.sales_channel || "ONLINE_AND_OFFLINE") as
-            "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            | "ONLINE_AND_OFFLINE"
+            | "OFFLINE_ONLY",
+          buying_price: Number(data.buying_price || 0) || null,
         };
       }
     } catch (rpcErr) {
-      console.warn("[pos] Online barcode RPC notice:", rpcErr);
+      console.warn("[pos] Online barcode lookup notice:", rpcErr);
     }
 
-    // 2. Direct online table fallback query
+    // Direct online table fallback query
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
       const orFilter = isUuid
@@ -369,7 +337,8 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           age_group: directProduct.age_group || "",
           description: directProduct.description || "",
           sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as
-            "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            | "ONLINE_AND_OFFLINE"
+            | "OFFLINE_ONLY",
         };
       }
     } catch (directErr) {
@@ -377,36 +346,60 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
     }
   }
 
-  // 3. Fallback to local offline catalog
-  const localMatch = await findOfflineProductByCode(clean);
-  if (localMatch) {
-    const vMatch = localMatch.matchedVariant as unknown as
-      (DirectProductVariant & { id?: string }) | undefined;
-    const vStock = vMatch?.stock != null ? Number(vMatch.stock) : null;
-    const pStock = Number(localMatch.stock) || 0;
-    const effStock = vStock !== null && vStock > 0 ? vStock : Math.max(vStock || 0, pStock || 10);
-    return {
-      found: true,
-      product_id: (localMatch.uuid as string) || (localMatch.id as string),
-      variant_id: vMatch?.id,
-      slug: (localMatch.slug as string) || (localMatch.id as string),
-      name:
-        (localMatch.name as string) ||
-        "" + (vMatch && vMatch.name !== "Default" && vMatch.name ? ` - ${vMatch.name}` : ""),
-      brand: (localMatch.brand as string) || "Zérah Baby & Kids",
-      category: (localMatch.category as string) || "clothing",
-      price: vMatch?.priceOverride ?? (Number(localMatch.price) || 0),
-      mrp: Number(localMatch.mrp) || Number(localMatch.price) || 0,
-      stock: effStock,
-      sku: vMatch?.sku || (localMatch.sku as string) || "",
-      barcode: (localMatch.barcode as string) || clean,
-      image_url: (localMatch.imageUrl as string) || (localMatch.image_url as string) || null,
-      age_group: (localMatch.ageGroup as string) || (localMatch.age_group as string) || "",
-      description: (localMatch.description as string) || "",
-      sales_channel: (localMatch.sales_channel ||
-        localMatch.salesChannel ||
-        "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
-    };
+  // 2. Fallback to local offline catalog
+  try {
+    const offline = await findOfflineProductByCode(clean);
+    if (offline) {
+      const v = (offline.matchedVariant || null) as {
+        id?: string;
+        name?: string;
+        price_override?: number | null;
+        priceOverride?: number | null;
+        mrp_override?: number | null;
+        mrpOverride?: number | null;
+        stock?: number | null;
+        sku?: string | null;
+        barcode?: string | null;
+        image_url?: string | null;
+        imageUrl?: string | null;
+      } | null;
+
+      const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
+      const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+      const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
+      const sku = String(v?.sku || offline.sku || "");
+      const barcode = String(v?.barcode || offline.barcode || clean);
+      const image =
+        v?.image_url ||
+        v?.imageUrl ||
+        (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
+        null;
+
+      return {
+        found: true,
+        archived: offline.is_active === false || offline.isActive === false,
+        product_id: String(offline.uuid || offline.id),
+        variant_id: v?.id || "",
+        slug: String(offline.slug || offline.id),
+        name: String(offline.name || ""),
+        brand: String(offline.brand || "Zérah Baby & Kids"),
+        category: String(offline.category || "clothing"),
+        price,
+        mrp,
+        stock,
+        sku,
+        barcode,
+        image_url: image,
+        age_group: String(offline.age_group || ""),
+        description: String(offline.description || ""),
+        sales_channel: (offline.sales_channel || "ONLINE_AND_OFFLINE") as
+          | "ONLINE_AND_OFFLINE"
+          | "OFFLINE_ONLY",
+        buying_price: Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null,
+      };
+    }
+  } catch {
+    // Local catalog lookup failed
   }
 
   return { found: false, error: `Product not found for barcode/SKU: ${clean}` };

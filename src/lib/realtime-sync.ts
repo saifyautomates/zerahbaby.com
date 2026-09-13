@@ -89,6 +89,21 @@ export function useGlobalRealtimeSync() {
           ["admin-products-count"],
         ]);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, (payload) => {
+        notifyListeners("products", payload.eventType, payload);
+        debouncedInvalidate(qc, [
+          ["products"],
+          ["product"],
+          ["admin-products"],
+          ["inventory-products"],
+          ["pos-products"],
+          ["categories"],
+          ["admin-search-products"],
+          ["product-relations"],
+          ["homepage-sections"],
+          ["admin-products-count"],
+        ]);
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, (payload) => {
         notifyListeners("categories", payload.eventType, payload);
         debouncedInvalidate(qc, [
@@ -107,6 +122,12 @@ export function useGlobalRealtimeSync() {
           ["admin-dashboard"],
           ["my-orders"],
           ["order-history"],
+          ["admin-products"],
+          ["admin-products-count"],
+          ["inventory-products"],
+          ["pos-products"],
+          ["products"],
+          ["product"],
         ]);
       })
       .on(
@@ -119,6 +140,8 @@ export function useGlobalRealtimeSync() {
             ["offline-sales-badge-count"],
             ["admin-dashboard"],
             ["admin-products"],
+            ["admin-products-count"],
+            ["inventory-products"],
             ["products"],
             ["product"],
             ["pos-products"],

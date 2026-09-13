@@ -452,8 +452,15 @@ export async function cacheFullCatalog(products: Array<Record<string, unknown>>)
     store.clear();
     if (products && products.length > 0) {
       products.forEach((p) => {
-        if (p.id && p.is_active !== false && p.isActive !== false) {
-          store.put(p);
+        if (p && p.is_active !== false && p.isActive !== false) {
+          const canonicalId = String(p.uuid || p.id);
+          if (canonicalId) {
+            store.put({
+              ...p,
+              id: canonicalId,
+              uuid: canonicalId,
+            });
+          }
         }
       });
     }
@@ -495,16 +502,56 @@ export async function getCachedCatalog(): Promise<Array<Record<string, unknown>>
 }
 
 export async function updateOfflineCatalogProduct(product: Record<string, unknown>): Promise<void> {
-  if (typeof window === "undefined" || !window.indexedDB || !product?.id) return;
+  if (typeof window === "undefined" || !window.indexedDB || !product) return;
+  const targetId = String(product.uuid || product.id || "");
+  const targetSlug = String(product.slug || "");
+  if (!targetId && !targetSlug) return;
+
   try {
     const db = await openDB();
     const tx = db.transaction(CATALOG_STORE, "readwrite");
     const store = tx.objectStore(CATALOG_STORE);
-    if (product.is_active === false || product.isActive === false) {
-      store.delete(product.id as string);
-    } else {
-      store.put(product);
-    }
+
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const all = getAllReq.result || [];
+      const isDeactivated = product.is_active === false || product.isActive === false;
+
+      // Find any existing record by UUID, id, or slug
+      const existing = all.find(
+        (p: any) =>
+          (targetId && (p.id === targetId || p.uuid === targetId)) ||
+          (targetSlug && (p.slug === targetSlug || p.id === targetSlug)),
+      );
+
+      if (isDeactivated) {
+        if (existing?.id) store.delete(existing.id);
+        if (targetId) store.delete(targetId);
+        if (targetSlug) store.delete(targetSlug);
+        return;
+      }
+
+      // Merge updated product with existing variant details if present
+      const canonicalKey = String(product.uuid || existing?.uuid || product.id || existing?.id);
+      const merged = {
+        ...(existing || {}),
+        ...product,
+        id: canonicalKey,
+        uuid: canonicalKey,
+        slug: targetSlug || existing?.slug || canonicalKey,
+        stock: product.stock !== undefined ? Number(product.stock) : (existing?.stock ?? 0),
+        variants: Array.isArray(product.variants || product.product_variants)
+          ? product.variants || product.product_variants
+          : existing?.variants || [],
+      };
+
+      // If existing key was different from canonicalKey (e.g. legacy slug key), delete it
+      if (existing?.id && existing.id !== canonicalKey) {
+        store.delete(existing.id);
+      }
+
+      store.put(merged);
+    };
   } catch (err) {
     console.warn("[OfflineSync] Catalog product update error:", err);
   }
@@ -512,11 +559,21 @@ export async function updateOfflineCatalogProduct(product: Record<string, unknow
 
 export async function removeOfflineCatalogProduct(productId: string): Promise<void> {
   if (typeof window === "undefined" || !window.indexedDB || !productId) return;
+  const cleanId = String(productId).trim();
   try {
     const db = await openDB();
     const tx = db.transaction(CATALOG_STORE, "readwrite");
     const store = tx.objectStore(CATALOG_STORE);
-    store.delete(productId);
+
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const all = getAllReq.result || [];
+      all.forEach((p: any) => {
+        if (p.id === cleanId || p.uuid === cleanId || p.slug === cleanId) {
+          store.delete(p.id);
+        }
+      });
+    };
   } catch (err) {
     console.warn("[OfflineSync] Catalog product remove error:", err);
   }

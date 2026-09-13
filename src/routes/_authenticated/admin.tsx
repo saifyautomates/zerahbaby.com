@@ -1155,16 +1155,14 @@ function ProductsTab() {
     if (bc) {
       bc.onmessage = (msg) => {
         if (msg.data?.type === "CATALOG_MUTATED") {
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+          invalidate();
         }
       };
     }
 
     // 2. Window event listener
     const handleCatalogEvent = () => {
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+      invalidate();
     };
     window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
 
@@ -1175,16 +1173,14 @@ function ProductsTab() {
         "postgres_changes",
         { event: "*", schema: "public", table: "products" },
         () => {
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+          invalidate();
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "product_variants" },
         () => {
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
+          invalidate();
         },
       )
       .subscribe();
@@ -1286,6 +1282,7 @@ function ProductsTab() {
       toast.success("Stock updated successfully");
       setEditingStockId(null);
       invalidate();
+      broadcastCatalogueChange();
     },
     onError: (e: Error) => toast.error(e.message, { duration: 6000 }),
   });

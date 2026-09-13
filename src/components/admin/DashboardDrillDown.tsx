@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-import { useSaveProduct } from "@/lib/admin-products";
+import { useSaveProduct, broadcastCatalogueChange, invalidateCatalogue } from "@/lib/admin-products";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
 import { safeLazy } from "@/lib/safe-lazy";
@@ -1554,10 +1554,8 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     onSuccess: () => {
       toast.success("Stock updated successfully");
       setEditingStockId(null);
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      invalidateCatalogue(qc);
+      broadcastCatalogueChange();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1569,10 +1567,8 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     },
     onSuccess: () => {
       toast.success("Product deleted");
-      qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-      qc.invalidateQueries({ queryKey: ["inventory-products"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      invalidateCatalogue(qc);
+      broadcastCatalogueChange();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1585,10 +1581,8 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
         onSuccess: () => {
           setEditingProduct(null);
           setIsCreating(false);
-          qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-          qc.invalidateQueries({ queryKey: ["inventory-products"] });
-          qc.invalidateQueries({ queryKey: ["products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
+          invalidateCatalogue(qc);
+          broadcastCatalogueChange();
         },
       });
     },
