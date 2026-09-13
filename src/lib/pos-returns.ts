@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 export type ReturnCartItem = {
   product_id: string | null;
+  variant_id?: string | null;
   product_slug: string;
   name: string;
   sku: string;
@@ -50,6 +51,7 @@ export type OfflineReturnItem = {
   id: string;
   return_id: string;
   product_id: string | null;
+  variant_id?: string | null;
   product_slug: string;
   name: string;
   sku: string;
@@ -120,6 +122,7 @@ export type ProcessReturnInput = {
   original_sale_id?: string | null;
   items: Array<{
     product_id: string | null;
+    variant_id?: string | null;
     product_slug: string;
     name: string;
     sku: string;
@@ -154,6 +157,7 @@ export type OfflineSaleItemWithReturnStatus = {
   id: string;
   sale_id: string;
   product_id: string | null;
+  variant_id?: string | null;
   product_slug?: string;
   name: string;
   sku: string;
@@ -261,6 +265,7 @@ export type ReturnProductLookupResult = {
   found: boolean;
   error?: string;
   product_id?: string;
+  variant_id?: string | null;
   product_slug?: string;
   name?: string;
   sku?: string;
@@ -316,6 +321,55 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
       .eq("slug", trimmed)
       .maybeSingle();
     product = slugProduct;
+  }
+
+  // Also check product_variants table by barcode or SKU
+  let matchedVariant: {
+    id: string;
+    product_id: string | null;
+    name: string;
+    sku?: string | null;
+    barcode?: string | null;
+    color?: string | null;
+    size?: string | null;
+    price_override?: number | null;
+    mrp_override?: number | null;
+    stock?: number | null;
+    image_url?: string | null;
+  } | null = null;
+
+  if (!product && !prodErr) {
+    const { data: varBarcode } = await supabase
+      .from("product_variants")
+      .select(
+        "id, product_id, name, sku, barcode, color, size, price_override, mrp_override, stock, image_url",
+      )
+      .eq("barcode", trimmed)
+      .maybeSingle();
+
+    matchedVariant = varBarcode;
+
+    if (!matchedVariant) {
+      const { data: varSku } = await supabase
+        .from("product_variants")
+        .select(
+          "id, product_id, name, sku, barcode, color, size, price_override, mrp_override, stock, image_url",
+        )
+        .eq("sku", trimmed)
+        .maybeSingle();
+      matchedVariant = varSku;
+    }
+
+    if (matchedVariant?.product_id) {
+      const { data: parentProd } = await supabase
+        .from("products")
+        .select(
+          "id, slug, name, price, mrp, stock, sku, barcode, is_active, age_group, product_images(public_url, is_primary, sort_order)",
+        )
+        .eq("id", matchedVariant.product_id)
+        .maybeSingle();
+      product = parentProd;
+    }
   }
 
   if (!product) {
@@ -383,17 +437,22 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     // Non-fatal, fallback to current_price
   }
 
-  const currentPrice = Number(product.price || 0);
-  const mrp = Number(product.mrp || currentPrice);
+  const currentPrice = Number(matchedVariant?.price_override || product.price || 0);
+  const mrp = Number(matchedVariant?.mrp_override || product.mrp || currentPrice);
+  const variantInfo = matchedVariant
+    ? [matchedVariant.color, matchedVariant.size].filter(Boolean).join(" / ") || matchedVariant.name
+    : product.age_group || "";
 
   return {
     found: true,
     product_id: product.id,
+    variant_id: matchedVariant?.id || null,
     product_slug: product.slug,
     name: product.name,
-    sku: product.sku || "",
-    barcode: product.barcode || trimmed,
+    sku: matchedVariant?.sku || product.sku || "",
+    barcode: matchedVariant?.barcode || product.barcode || trimmed,
     image_url:
+      matchedVariant?.image_url ||
       (product as { product_images?: { public_url: string }[] }).product_images?.[0]?.public_url ||
       null,
     current_price: currentPrice,
@@ -404,8 +463,8 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     historical_allocated_bill_discount: historicalAllocatedBill,
     historical_allocated_coupon_discount: historicalAllocatedCoupon,
     mrp: mrp,
-    stock: Number(product.stock || 0),
-    variant_info: product.age_group || "",
+    stock: Number(matchedVariant ? matchedVariant.stock : product.stock || 0),
+    variant_info: variantInfo,
   };
 }
 
@@ -497,6 +556,7 @@ export function useOfflineSalesForReturnsLookup() {
               id: it.id,
               sale_id: it.sale_id,
               product_id: it.product_id,
+              variant_id: it.variant_id || null,
               product_slug: it.product_slug,
               name: it.name || "Item",
               sku: it.sku || "",

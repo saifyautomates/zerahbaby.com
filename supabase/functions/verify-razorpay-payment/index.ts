@@ -92,7 +92,11 @@ Deno.serve(async (req) => {
       .update(signaturePayload)
       .digest("hex");
 
-    if (expectedSignature !== razorpay_signature) {
+    const expBuf = new TextEncoder().encode(expectedSignature);
+    const sigBuf = new TextEncoder().encode(razorpay_signature);
+    const isSigValid = expBuf.length === sigBuf.length && crypto.timingSafeEqual(expBuf, sigBuf);
+
+    if (!isSigValid) {
       console.error("[verify-razorpay-payment] Signature mismatch:", {
         orderId: authoritativeOrderId,
         paymentId: razorpay_payment_id,

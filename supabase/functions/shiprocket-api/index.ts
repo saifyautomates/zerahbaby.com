@@ -943,48 +943,15 @@ Deno.serve(async (req) => {
         })
         .eq("id", orderId!);
 
-      // Restore inventory atomically for all order items
-      const items = order.order_items || [];
-      for (const item of items) {
-        const qty = Number(item.qty || item.quantity || 1);
-        if (item.product_id && qty > 0) {
-          await adminClient.from("inventory_transactions").insert({
-            product_id: item.product_id,
-            variant_id: item.variant_id || null,
-            transaction_type: "adjustment",
-            quantity: qty,
-            reference_type: "order",
-            reference_id: orderId!,
-            notes: `Stock restored due to order cancellation: ${reason}`,
-            created_by: authUser?.id || null,
-          });
-
-          if (item.variant_id) {
-            const { data: vRow } = await adminClient
-              .from("product_variants")
-              .select("stock")
-              .eq("id", item.variant_id)
-              .single();
-            if (vRow) {
-              await adminClient
-                .from("product_variants")
-                .update({ stock: (vRow.stock || 0) + qty })
-                .eq("id", item.variant_id);
-            }
-          } else {
-            const { data: pRow } = await adminClient
-              .from("products")
-              .select("stock")
-              .eq("id", item.product_id)
-              .single();
-            if (pRow) {
-              await adminClient
-                .from("products")
-                .update({ stock: (pRow.stock || 0) + qty })
-                .eq("id", item.product_id);
-            }
-          }
-        }
+      // Ensure inventory is restored via canonical RPC (idempotent; DB trigger also fires on status = 'cancelled')
+      try {
+        await adminClient.rpc("restore_stock_for_order", {
+          p_order_id: orderId!,
+          p_reason: `Shiprocket cancellation: ${reason}`,
+          p_reference_type: "order",
+        });
+      } catch (restockErr) {
+        console.warn("[shiprocket-api] Canonical restore_stock_for_order notice:", restockErr);
       }
 
       // Log shipping event

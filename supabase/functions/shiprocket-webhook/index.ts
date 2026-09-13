@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
+import crypto from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
@@ -49,7 +50,13 @@ Deno.serve(async (req) => {
     }
 
     const providedToken = req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
-    if (!providedToken || providedToken.replace(/^Bearer\s+/i, "").trim() !== webhookSecret) {
+    const cleanToken = providedToken ? providedToken.replace(/^Bearer\s+/i, "").trim() : "";
+    const provBuf = new TextEncoder().encode(cleanToken);
+    const secBuf = new TextEncoder().encode(webhookSecret);
+    const isTokenValid =
+      provBuf.length === secBuf.length && crypto.timingSafeEqual(provBuf, secBuf);
+
+    if (!isTokenValid) {
       console.warn(`[shiprocket-webhook] Unauthorized attempt for AWB: ${awbCode}`);
       return new Response("Unauthorized", { status: 401, headers: corsHeaders });
     }

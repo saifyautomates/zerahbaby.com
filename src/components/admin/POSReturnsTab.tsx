@@ -347,6 +347,7 @@ export function POSReturnsTab() {
 
         const newItem: ReturnCartItem = {
           product_id: item.product_id,
+          variant_id: item.variant_id || null,
           product_slug: item.product_slug || item.product_id || "",
           name: item.name,
           sku: item.sku,
@@ -432,6 +433,7 @@ export function POSReturnsTab() {
 
         const newItem: ReturnCartItem = {
           product_id: result.product_id ?? null,
+          variant_id: result.variant_id ?? null,
           product_slug: result.product_slug || "",
           name: result.name || "Product",
           sku: result.sku || "",
@@ -633,13 +635,19 @@ export function POSReturnsTab() {
         notes: returnNotes.trim(),
         original_sale_id: originalSaleId,
         items: returnCart.map((i) => {
-          const isUuid =
+          const isProdUuid =
             Boolean(i.product_id) &&
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
               i.product_id || "",
             );
+          const isVarUuid =
+            Boolean(i.variant_id) &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              i.variant_id || "",
+            );
           return {
-            product_id: isUuid ? i.product_id : null,
+            product_id: isProdUuid ? i.product_id : null,
+            variant_id: isVarUuid ? i.variant_id : null,
             product_slug: i.product_slug,
             name: i.name,
             sku: i.sku,

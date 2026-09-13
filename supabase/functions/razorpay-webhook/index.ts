@@ -31,7 +31,11 @@ Deno.serve(async (req) => {
     const bodyText = await req.text();
     const expectedSignature = crypto.createHmac("sha256", secret).update(bodyText).digest("hex");
 
-    if (expectedSignature !== signature) {
+    const expBuf = new TextEncoder().encode(expectedSignature);
+    const sigBuf = new TextEncoder().encode(signature);
+    const isSigValid = expBuf.length === sigBuf.length && crypto.timingSafeEqual(expBuf, sigBuf);
+
+    if (!isSigValid) {
       console.error("[razorpay-webhook] Invalid signature mismatch");
       return new Response(JSON.stringify({ error: "Invalid webhook signature" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -136,6 +140,15 @@ Deno.serve(async (req) => {
           isDuplicate = Boolean(finalRes.duplicate);
         }
 
+        // Backfill razorpay_payment_id if order was converted previously without payment ID
+        if (targetOrderId && paymentId) {
+          await supabaseClient
+            .from("orders")
+            .update({ razorpay_payment_id: paymentId })
+            .eq("id", targetOrderId)
+            .is("razorpay_payment_id", null);
+        }
+
         if (targetOrderId && !isDuplicate) {
           // Trigger owner notification email (non-blocking)
           try {
@@ -195,10 +208,13 @@ Deno.serve(async (req) => {
         }
       }
     } else if (payload.event === "payment.failed") {
-      const paymentId = payload.payload?.payment?.entity?.id;
-      const rzpOrderId = payload.payload?.payment?.entity?.order_id;
-      const errorDescription =
-        payload.payload?.payment?.entity?.error_description || "Payment failed at gateway";
+      const paymentEntity = payload.payload?.payment?.entity;
+      const paymentId = paymentEntity?.id;
+      const rzpOrderId = paymentEntity?.order_id;
+      const orderIdNote = paymentEntity?.notes?.order_id;
+      const errorDescription = paymentEntity?.error_description || "Payment failed at gateway";
+
+      let matchedOrderId: string | null = null;
 
       if (rzpOrderId) {
         // Record payment attempt failure
@@ -210,16 +226,53 @@ Deno.serve(async (req) => {
           })
           .catch((e: unknown) => console.warn("Failed to record failure status:", e));
 
-        // Legacy order update if exists
+        const { data: ordByRzp } = await supabaseClient
+          .from("orders")
+          .select("id, payment_status")
+          .eq("razorpay_order_id", rzpOrderId)
+          .neq("payment_status", "paid")
+          .maybeSingle();
+
+        if (ordByRzp) {
+          matchedOrderId = ordByRzp.id;
+        }
+      }
+
+      if (!matchedOrderId && orderIdNote) {
+        const { data: ordByNote } = await supabaseClient
+          .from("orders")
+          .select("id, payment_status")
+          .eq("id", orderIdNote)
+          .neq("payment_status", "paid")
+          .maybeSingle();
+
+        if (ordByNote) {
+          matchedOrderId = ordByNote.id;
+        }
+      }
+
+      if (matchedOrderId) {
         await supabaseClient
           .from("orders")
           .update({
             payment_status: "failed",
             status: "cancelled",
             razorpay_payment_id: paymentId,
+            cancellation_reason: `Payment failed at gateway: ${errorDescription}`,
+            cancelled_at: new Date().toISOString(),
           })
-          .eq("razorpay_order_id", rzpOrderId)
-          .neq("payment_status", "paid");
+          .eq("id", matchedOrderId);
+
+        // Canonical stock restoration for the cancelled order
+        try {
+          await supabaseClient.rpc("restore_stock_for_order", {
+            p_order_id: matchedOrderId,
+            p_reason: `Payment failed at gateway: ${errorDescription}`,
+            p_reference_type: "order",
+          });
+        } catch (restockErr) {
+          console.warn("[razorpay-webhook] restore_stock_for_order notice:", restockErr);
+        }
       }
     } else if (payload.event === "refund.processed" || payload.event === "refund.created") {
       const refundEntity = payload.payload?.refund?.entity;
