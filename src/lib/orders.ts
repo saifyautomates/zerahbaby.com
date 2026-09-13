@@ -483,29 +483,7 @@ export function useDeleteCancelledOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (orderId: string) => {
-      // 1. Try Supabase Edge Function first
-      try {
-        const { data: edgeData, error: edgeError } = await supabase.functions.invoke(
-          "delete-cancelled-order",
-          {
-            body: { order_id: orderId },
-          },
-        );
-        if (!edgeError && edgeData && !edgeData.error) {
-          return edgeData;
-        }
-        if (edgeError && !edgeError.message?.includes("Failed to send a request")) {
-          // If the Edge function explicitly returned a business rule error (e.g. not cancelled), throw it
-          if (edgeData?.error) throw new Error(edgeData.error);
-        }
-      } catch (err) {
-        const msg = (err as Error).message || "";
-        if (msg.includes("Only cancelled orders") || msg.includes("Unauthorized")) {
-          throw err;
-        }
-      }
-
-      // 2. Try Supabase RPC Function
+      // 1. Try Supabase RPC Function (handles stock restock & cascading deletion)
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc("delete_cancelled_order", {
           _order_id: orderId,
@@ -513,53 +491,59 @@ export function useDeleteCancelledOrder() {
         if (!rpcError && rpcData) {
           return rpcData;
         }
-        if (
-          rpcError &&
-          !rpcError.message?.includes("schema cache") &&
-          !rpcError.message?.includes("42883")
-        ) {
-          throw rpcError;
+        if (rpcError) {
+          console.warn("[deleteOrder] delete_cancelled_order error:", rpcError);
         }
       } catch (rpcErr) {
-        const msg = (rpcErr as Error).message || "";
-        if (msg.includes("Only cancelled") || msg.includes("Unauthorized")) {
-          throw rpcErr;
+        console.warn("[deleteOrder] delete_cancelled_order caught:", rpcErr);
+      }
+
+      // 2. Try admin_delete_order RPC directly
+      try {
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)("admin_delete_order", {
+          _order_id: orderId,
+          _force: true,
+        });
+        if (!rpcError && rpcData) {
+          return rpcData;
         }
+      } catch (rpcErr) {
+        console.warn("[deleteOrder] admin_delete_order caught:", rpcErr);
       }
 
       // 3. Resilient Direct Client Fallback
-      const { data: order, error: fetchErr } = await supabase
-        .from("orders")
-        .select("id, status")
-        .eq("id", orderId)
-        .maybeSingle();
-
-      if (fetchErr || !order) {
-        throw new Error("Order not found or already removed.");
+      try {
+        await (supabase.rpc as any)("restore_stock_for_order", {
+          p_order_id: orderId,
+          p_reason: "Direct order deletion restock",
+          p_reference_type: "order",
+        });
+      } catch {
+        // Stock restoration attempted
       }
 
-      if (order.status !== "cancelled") {
-        throw new Error(
-          `Cannot delete order with status '${order.status}'. Only cancelled orders can be permanently deleted.`,
-        );
+      try {
+        await (supabase.from as any)("shipping_events").delete().eq("order_id", orderId);
+      } catch {}
+      await supabase.from("coupon_usage").delete().eq("order_id", orderId);
+      await supabase.from("order_items").delete().eq("order_id", orderId);
+      await supabase.from("order_status_history").delete().eq("order_id", orderId);
+      await supabase.from("payments").delete().eq("order_id", orderId);
+
+      const { error: delErr } = await supabase.from("orders").delete().eq("id", orderId);
+      if (delErr) {
+        throw new Error(delErr.message || "Failed to delete order.");
       }
 
-      // Use secure RPC to bypass RLS and perform cascading deletion
-      const { error: rpcErr } = await supabase.rpc("delete_cancelled_order", {
-        _order_id: orderId,
-      });
-
-      if (rpcErr) {
-        throw new Error(rpcErr.message || "Failed to delete cancelled order.");
-      }
-
-      return { success: true, message: "Cancelled order deleted successfully." };
+      return { success: true, message: "Order deleted successfully." };
     },
     onSuccess: () => {
-      toast.success("Cancelled order deleted successfully.");
+      toast.success("Order deleted successfully.");
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["offline-sales"] });
       qc.invalidateQueries({ queryKey: ["offline-sales-badge-count"] });
     },

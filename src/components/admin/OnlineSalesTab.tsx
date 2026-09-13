@@ -137,6 +137,7 @@ export function OnlineSalesTab() {
 
   const [orderToCancel, setOrderToCancel] = useState<UnifiedTransaction | null>(null);
   const [cancelReason, setCancelReason] = useState("Admin cancelled order via Zérah Admin Panel");
+  const [isSingleCancelling, setIsSingleCancelling] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<UnifiedTransaction | null>(null);
 
   type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
@@ -379,33 +380,55 @@ export function OnlineSalesTab() {
       const orderIds = activeOrdersToCancel.map((o) => o.id);
       const reasonText = bulkCancelReason.trim() || "Bulk cancelled by Admin";
 
-      // Execute canonical admin order cancellations with atomic restock & ledger audit
-      for (const o of activeOrdersToCancel) {
-        try {
-          const { error: cancelRpcErr } = await (supabase.rpc as any)("admin_cancel_order", {
-            order_id: o.id,
-            reason: reasonText,
-          });
-          if (cancelRpcErr) {
-            // Fallback to cancel_customer_order or direct update if needed
-            await (supabase.rpc as any)("cancel_customer_order", {
+      // 1. Try atomic bulk RPC
+      const { data: bulkData, error: bulkErr } = await (supabase.rpc as any)(
+        "admin_cancel_orders_bulk",
+        {
+          _order_ids: orderIds,
+          _reason: reasonText,
+        },
+      );
+
+      if (bulkErr || !bulkData?.success) {
+        console.warn("[BulkCancel] Bulk RPC fallback:", bulkErr);
+        // Resilient individual fallback
+        for (const o of activeOrdersToCancel) {
+          try {
+            const { error: cancelRpcErr } = await (supabase.rpc as any)("admin_cancel_order", {
               order_id: o.id,
               reason: reasonText,
             });
+            if (cancelRpcErr) {
+              await supabase
+                .from("orders")
+                .update({
+                  status: "cancelled",
+                  cancelled_at: new Date().toISOString(),
+                  cancellation_reason: reasonText,
+                })
+                .eq("id", o.id);
+              try {
+                await (supabase.rpc as any)("restore_stock_for_order", {
+                  p_order_id: o.id,
+                  p_reason: reasonText,
+                  p_reference_type: "order",
+                });
+              } catch {}
+            }
+          } catch {
+            await supabase
+              .from("orders")
+              .update({
+                status: "cancelled",
+                cancelled_at: new Date().toISOString(),
+                cancellation_reason: reasonText,
+              })
+              .eq("id", o.id);
           }
-        } catch {
-          await supabase
-            .from("orders")
-            .update({
-              status: "cancelled",
-              cancelled_at: new Date().toISOString(),
-              cancellation_reason: reasonText,
-            })
-            .eq("id", o.id);
         }
       }
 
-      // Trigger cancellation on Shiprocket & auto refund for online paid orders
+      // Trigger cancellation on Shiprocket in background
       activeOrdersToCancel.forEach((o) => {
         if (o._type === "online" && (o.shiprocket_order_id || o.awb_code)) {
           supabase.functions
@@ -417,15 +440,6 @@ export function OnlineSalesTab() {
               },
             })
             .catch((err) => console.warn(`Shiprocket bulk cancel notice for order ${o.id}:`, err));
-        } else if (o.payment_status === "paid") {
-          supabase.functions
-            .invoke("process-order-cancellation-refund", {
-              body: {
-                order_id: o.id,
-                reason: reasonText,
-              },
-            })
-            .catch((err) => console.warn(`Refund notification notice for order ${o.id}:`, err));
         }
       });
 
@@ -434,6 +448,7 @@ export function OnlineSalesTab() {
       setIsCancelModalOpen(false);
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["all-orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       invalidateCanonicalReportingQueries(qc);
     } catch (err: unknown) {
@@ -443,13 +458,13 @@ export function OnlineSalesTab() {
     }
   }
 
-  // Cancelled orders eligible for permanent deletion
+  // Orders eligible for permanent deletion
   const ordersToDeletePool = useMemo(() => {
     if (deleteTargetMode === "all_cancelled") {
       return (onlineOrdersData || []).filter((o) => o.status === "cancelled");
     }
     const selectedList = (selection.selectedItems as unknown as UnifiedTransaction[]) || [];
-    return selectedList.filter((o) => o.status === "cancelled");
+    return selectedList;
   }, [deleteTargetMode, selection.selectedItems, onlineOrdersData]);
 
   function handleOpenDeleteModal(mode: "selected" | "all_cancelled") {
@@ -459,9 +474,7 @@ export function OnlineSalesTab() {
 
   async function handleExecuteBulkDelete() {
     if (ordersToDeletePool.length === 0) {
-      toast.error(
-        "No cancelled orders found to delete. Only cancelled orders can be permanently deleted.",
-      );
+      toast.error("No orders selected to delete.");
       setIsDeleteBulkModalOpen(false);
       return;
     }
@@ -471,11 +484,14 @@ export function OnlineSalesTab() {
       const orderIds = ordersToDeletePool.map((o) => o.id);
 
       // 1. Try atomic bulk RPC
-      const { error: bulkErr } = await supabase.rpc("delete_cancelled_orders_bulk", {
-        _order_ids: orderIds,
-      });
+      const { data: bulkData, error: bulkErr } = await supabase.rpc(
+        "delete_cancelled_orders_bulk",
+        {
+          _order_ids: orderIds,
+        },
+      );
 
-      if (bulkErr) {
+      if (bulkErr || !(bulkData as any)?.success) {
         console.warn("[BulkDelete] Bulk RPC fallback:", bulkErr);
         // Resilient fallback in chunks of 10
         const CHUNK_SIZE = 10;
@@ -487,26 +503,37 @@ export function OnlineSalesTab() {
                 _order_id: id,
               });
               if (rpcErr) {
+                try {
+                  await (supabase.rpc as any)("restore_stock_for_order", {
+                    p_order_id: id,
+                    p_reason: "Direct delete restock",
+                    p_reference_type: "order",
+                  });
+                } catch {}
+                try {
+                  await (supabase.from as any)("shipping_events").delete().eq("order_id", id);
+                } catch {}
                 await supabase.from("coupon_usage").delete().eq("order_id", id);
                 await supabase.from("order_items").delete().eq("order_id", id);
                 await supabase.from("order_status_history").delete().eq("order_id", id);
                 await supabase.from("payments").delete().eq("order_id", id);
-                await supabase.from("orders").delete().eq("id", id).eq("status", "cancelled");
+                await supabase.from("orders").delete().eq("id", id);
               }
             }),
           );
         }
       }
 
-      toast.success(`Successfully deleted ${orderIds.length} cancelled orders permanently.`);
+      toast.success(`Successfully deleted ${orderIds.length} orders permanently.`);
       selection.clearSelection();
       setIsDeleteBulkModalOpen(false);
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["all-orders"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
       invalidateCanonicalReportingQueries(qc);
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to delete cancelled orders");
+      toast.error((err as Error)?.message || "Failed to delete orders");
     } finally {
       setIsBulkDeleting(false);
     }
@@ -778,7 +805,7 @@ export function OnlineSalesTab() {
                 onClick={() =>
                   handleOpenCancelModal(selection.selectedCount > 0 ? "selected" : "visible")
                 }
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/60 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900 transition cursor-pointer shadow-2xs"
                 title={
                   selection.selectedCount > 0
                     ? `Cancel ${selection.selectedCount} selected orders`
@@ -792,8 +819,31 @@ export function OnlineSalesTab() {
                     : `Cancel Visible (${visibleOrders.filter((o) => o.status !== "cancelled").length})`}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleOpenDeleteModal(selection.selectedCount > 0 ? "selected" : "all_cancelled")
+                }
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/60 px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900 transition cursor-pointer shadow-2xs"
+                title={
+                  selection.selectedCount > 0
+                    ? `Delete ${selection.selectedCount} selected orders permanently`
+                    : "Delete cancelled orders"
+                }
+              >
+                <Trash2 className="size-3.5" />
+                <span>
+                  {selection.selectedCount > 0
+                    ? `Delete Selected (${selection.selectedCount})`
+                    : filter === "cancelled"
+                      ? `Delete All (${cancelledOrdersCount})`
+                      : "Delete"}
+                </span>
+              </button>
+
               {/* If on Cancelled tab, offer Delete All Cancelled */}
-              {filter === "cancelled" && cancelledOrdersCount > 0 && (
+              {filter === "cancelled" && cancelledOrdersCount > 0 && selection.selectedCount === 0 && (
                 <button
                   type="button"
                   onClick={() => handleOpenDeleteModal("all_cancelled")}
@@ -824,26 +874,39 @@ export function OnlineSalesTab() {
         onClear={selection.clearSelection}
         actions={
           <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Delete Selected (only for cancelled orders) */}
+            {/* Cancel Selected (for active orders) */}
             {selection.selectedItems.some(
-              (o) => (o as unknown as Order).status === "cancelled",
+              (o) => (o as unknown as Order).status !== "cancelled",
             ) && (
               <button
                 type="button"
-                onClick={() => handleOpenDeleteModal("selected")}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
-                title="Permanently delete selected cancelled orders"
+                onClick={() => handleOpenCancelModal("selected")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Cancel all active selected orders and restore stock"
               >
-                <Trash2 className="size-3.5" />
+                <Ban className="size-3.5" />
                 <span>
-                  Delete Selected (
+                  Cancel Selected (
                   {
                     selection.selectedItems.filter(
-                      (o) => (o as unknown as Order).status === "cancelled",
+                      (o) => (o as unknown as Order).status !== "cancelled",
                     ).length
                   }
                   )
                 </span>
+              </button>
+            )}
+
+            {/* Delete Selected (available for all selected orders) */}
+            {selection.selectedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => handleOpenDeleteModal("selected")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Permanently delete selected orders"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete Selected ({selection.selectedCount})</span>
               </button>
             )}
 
@@ -857,29 +920,6 @@ export function OnlineSalesTab() {
               >
                 <Trash2 className="size-3.5" />
                 <span>Delete All Cancelled ({cancelledOrdersCount})</span>
-              </button>
-            )}
-
-            {/* Cancel Selected (for active orders) */}
-            {selection.selectedItems.some(
-              (o) => (o as unknown as Order).status !== "cancelled",
-            ) && (
-              <button
-                type="button"
-                onClick={() => handleOpenCancelModal("selected")}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
-                title="Cancel all active selected orders"
-              >
-                <Ban className="size-3.5" />
-                <span>
-                  Cancel Selected (
-                  {
-                    selection.selectedItems.filter(
-                      (o) => (o as unknown as Order).status !== "cancelled",
-                    ).length
-                  }
-                  )
-                </span>
               </button>
             )}
           </div>
@@ -1331,17 +1371,27 @@ export function OnlineSalesTab() {
                         </div>
                       )}
 
-                      {/* Dedicated Cancel Order & Shipment button */}
+                      {/* Dedicated Cancel Order & Delete buttons */}
                       {order.status !== "cancelled" && (
-                        <button
-                          type="button"
-                          onClick={() => setOrderToCancel(order)}
-                          title="Cancel this order and linked Shiprocket shipment"
-                          className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/90 text-rose-700 px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer"
-                        >
-                          <Ban className="size-3 text-rose-600" />
-                          <span>Cancel Order {order.shiprocket_order_id ? "& Shipment" : ""}</span>
-                        </button>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setOrderToCancel(order)}
+                            title="Cancel this order and linked Shiprocket shipment"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/90 text-rose-700 px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer"
+                          >
+                            <Ban className="size-3 text-rose-600" />
+                            <span>Cancel Order {order.shiprocket_order_id ? "& Shipment" : ""}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderToDelete(order as unknown as Order)}
+                            title="Permanently delete this order"
+                            className="inline-flex items-center justify-center gap-1 rounded-xl border border-border bg-muted/60 hover:bg-rose-100 hover:text-rose-800 hover:border-rose-300 text-muted-foreground px-2.5 py-1.5 text-xs font-semibold transition cursor-pointer"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1477,11 +1527,12 @@ export function OnlineSalesTab() {
               </div>
               <div className="flex-1">
                 <h3 className="font-display text-lg font-bold text-foreground">
-                  Delete cancelled order?
+                  {orderToDelete.status === "cancelled" ? "Delete cancelled order?" : "Delete order?"}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                  This permanently removes this cancelled order and its order items from the
-                  database. This action cannot be undone.
+                  {orderToDelete.status === "cancelled"
+                    ? "This permanently removes this cancelled order and its records from the database. This action cannot be undone."
+                    : "This permanently removes this order. Any reserved inventory will be automatically returned to store stock."}
                 </p>
               </div>
             </div>
@@ -2031,7 +2082,7 @@ export function OnlineSalesTab() {
             <div className="flex items-center justify-end gap-3 p-4 border-t border-border bg-muted/20">
               <button
                 type="button"
-                disabled={cancelShiprocketOrder.isPending}
+                disabled={cancelShiprocketOrder.isPending || isSingleCancelling}
                 onClick={() => setOrderToCancel(null)}
                 className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-50"
               >
@@ -2040,24 +2091,57 @@ export function OnlineSalesTab() {
 
               <button
                 type="button"
-                disabled={cancelShiprocketOrder.isPending}
+                disabled={cancelShiprocketOrder.isPending || isSingleCancelling}
                 onClick={async () => {
+                  setIsSingleCancelling(true);
                   try {
-                    await cancelShiprocketOrder.mutateAsync({
-                      orderId: orderToCancel.id,
-                      reason: cancelReason,
-                    });
+                    if (orderToCancel.shiprocket_order_id || orderToCancel.awb_code) {
+                      await cancelShiprocketOrder.mutateAsync({
+                        orderId: orderToCancel.id,
+                        reason: cancelReason,
+                      });
+                    } else {
+                      const { error: rpcErr } = await (supabase.rpc as any)("admin_cancel_order", {
+                        order_id: orderToCancel.id,
+                        reason: cancelReason,
+                      });
+                      if (rpcErr) {
+                        await supabase
+                          .from("orders")
+                          .update({
+                            status: "cancelled",
+                            cancelled_at: new Date().toISOString(),
+                            cancellation_reason: cancelReason,
+                          })
+                          .eq("id", orderToCancel.id);
+                        try {
+                          await (supabase.rpc as any)("restore_stock_for_order", {
+                            p_order_id: orderToCancel.id,
+                            p_reason: cancelReason,
+                            p_reference_type: "order",
+                          });
+                        } catch {}
+                      }
+                      toast.success("Order cancelled and stock restored successfully.");
+                      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+                      qc.invalidateQueries({ queryKey: ["all-orders"] });
+                      qc.invalidateQueries({ queryKey: ["orders"] });
+                      qc.invalidateQueries({ queryKey: ["products"] });
+                      invalidateCanonicalReportingQueries(qc);
+                    }
                     setOrderToCancel(null);
                   } catch (e: any) {
-                    // Error is toasted automatically by the hook
+                    toast.error(e?.message || "Failed to cancel order");
+                  } finally {
+                    setIsSingleCancelling(false);
                   }
                 }}
                 className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
               >
-                {cancelShiprocketOrder.isPending ? (
+                {cancelShiprocketOrder.isPending || isSingleCancelling ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    <span>Verifying with Shiprocket…</span>
+                    <span>Cancelling Order…</span>
                   </>
                 ) : (
                   <>
