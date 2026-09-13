@@ -401,7 +401,11 @@ export function DashboardTab({
         throw prodsRes.error;
       }
 
-      const costMap = new Map(((costsRes as { data?: { product_id: string; buying_price: number }[] })?.data || []).map((c) => [c.product_id, c.buying_price]));
+      const costMap = new Map(
+        ((costsRes as { data?: { product_id: string; buying_price: number }[] })?.data || []).map(
+          (c) => [c.product_id, c.buying_price],
+        ),
+      );
       return (prodsRes.data || []).map((p) => ({
         ...p,
         product_costs: costMap.has(p.id) ? [{ buying_price: costMap.get(p.id)! }] : [],
@@ -1012,7 +1016,7 @@ export function DashboardTab({
 
     // 7. Generic Page views e.g. "Page viewed: /" or "Page viewed: /shop"
     if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
-      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
+      const path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
       navigateToLocalPath(path);
       return;
     }
@@ -2273,9 +2277,7 @@ export function DashboardTab({
               type="button"
               onClick={() => {
                 if (
-                  window.confirm(
-                    "Are you sure you want to permanently clear all visitor logs?",
-                  )
+                  window.confirm("Are you sure you want to permanently clear all visitor logs?")
                 ) {
                   clearVisitorsMutation.mutate();
                 }

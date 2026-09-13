@@ -287,7 +287,10 @@ function ProductPage() {
         if (initialColor) {
           const matchingVar =
             product.variants.find(
-              (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase() && (v.stock ?? 0) > 0,
+              (v) =>
+                v.color &&
+                v.color.toLowerCase() === initialColor.toLowerCase() &&
+                (v.stock ?? 0) > 0,
             ) ||
             product.variants.find(
               (v) => v.color && v.color.toLowerCase() === initialColor.toLowerCase(),
@@ -861,7 +864,9 @@ function ProductPage() {
           </div>
 
           <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            {product.description?.split(".")[0] ? `${product.description.split(".")[0]}.` : "Comfortable, stylish and perfect for everyday adventures."}
+            {product.description?.split(".")[0]
+              ? `${product.description.split(".")[0]}.`
+              : "Comfortable, stylish and perfect for everyday adventures."}
           </p>
 
           {/* Pricing Row */}
@@ -890,7 +895,9 @@ function ProductPage() {
             <div className="flex items-center gap-1 font-bold text-foreground">
               <Star className="size-3.5 fill-amber-400 text-amber-400" />
               <span>{product.rating || "4.5"}</span>
-              <span className="font-normal text-muted-foreground">({product.reviews ? product.reviews.toLocaleString("en-IN") : "128"} reviews)</span>
+              <span className="font-normal text-muted-foreground">
+                ({product.reviews ? product.reviews.toLocaleString("en-IN") : "128"} reviews)
+              </span>
             </div>
             <div className="pl-3 flex items-center gap-1.5 font-medium text-muted-foreground">
               <CheckCircle2 className="size-3.5 text-emerald-600" />
@@ -949,7 +956,9 @@ function ProductPage() {
                           )}
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold text-muted-foreground">{color}</span>
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {color}
+                      </span>
                     </button>
                   );
                 })}
@@ -998,7 +1007,9 @@ function ProductPage() {
                 </div>
                 <div className="flex flex-wrap gap-2.5">
                   {displaySizes.map((v) => {
-                    const isSelected = selectedVariantId === v.id || (!selectedVariantId && v.id === displaySizes[0].id);
+                    const isSelected =
+                      selectedVariantId === v.id ||
+                      (!selectedVariantId && v.id === displaySizes[0].id);
                     const isOutOfStock = v.stock <= 0;
                     const label = v.size || v.name;
 
@@ -1029,10 +1040,7 @@ function ProductPage() {
 
           {/* Stepper + Add to Bag CTA Row */}
           <div className="mt-6 flex flex-col gap-4">
-            <div
-              ref={addToCartRef}
-              className="relative z-0 pt-2"
-            >
+            <div ref={addToCartRef} className="relative z-0 pt-2">
               <div className="flex items-center gap-3">
                 {/* Quantity Stepper */}
                 <div className="flex items-center gap-3.5 rounded-2xl border border-border/80 bg-white dark:bg-card px-3.5 py-3 shadow-xs">
@@ -1090,22 +1098,30 @@ function ProductPage() {
                 <div className="size-7 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-1.5">
                   <Sparkles className="size-3.5" />
                 </div>
-                <p className="font-bold text-[11px] sm:text-xs text-foreground">Soft & Breathable</p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">All-day comfort</p>
+                <p className="font-bold text-[11px] sm:text-xs text-foreground">
+                  Soft & Breathable
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  All-day comfort
+                </p>
               </div>
               <div className="flex flex-col items-center text-center px-1">
                 <div className="size-7 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-1.5">
                   <Layers className="size-3.5" />
                 </div>
                 <p className="font-bold text-[11px] sm:text-xs text-foreground">Premium Fabric</p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">Gentle on skin</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  Gentle on skin
+                </p>
               </div>
               <div className="flex flex-col items-center text-center px-1">
                 <div className="size-7 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-1.5">
                   <ShieldCheck className="size-3.5" />
                 </div>
                 <p className="font-bold text-[11px] sm:text-xs text-foreground">Safe for Kids</p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">Non-toxic dyes</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  Non-toxic dyes
+                </p>
               </div>
             </div>
 

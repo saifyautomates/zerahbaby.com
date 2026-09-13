@@ -16,7 +16,8 @@ const supabaseAnonKey =
 
 const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
-test.describe.serial("Automated Inventory Management Engine (Online + POS + Returns + Exchanges + Cancellations)", () => {
+test.describe
+  .serial("Automated Inventory Management Engine (Online + POS + Returns + Exchanges + Cancellations)", () => {
   // Test 1: POS Sale Atomic Decrement & Variant Isolation
   test("1. POS Sale: Atomic Decrement on Exact Variant, Parent Alignment, Sibling Isolation", async () => {
     const { data: prods } = await anonClient
@@ -60,7 +61,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varAfter = afterSale!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfter = afterSale!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfter!.stock).toBe(initialVarStock - 1);
     expect(afterSale!.stock).toBe(initialParentStock - 1);
 
@@ -92,7 +95,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varRestored = restored!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varRestored = restored!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varRestored!.stock).toBe(initialVarStock);
     expect(restored!.stock).toBe(initialParentStock);
   });
@@ -162,7 +167,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varAfter = afterBoth!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfter = afterBoth!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfter!.stock).toBe(initialVarStock - 1);
     expect(afterBoth!.stock).toBe(initialParentStock - 1);
 
@@ -197,18 +204,21 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
     const initialStock = targetVariant.stock;
 
     // 1. Create a checkout session (intent only)
-    const { data: sessionData, error: sessionErr } = await anonClient.rpc("create_checkout_session", {
-      _items: [{ variant_id: targetVariant.id, qty: 1 }],
-      _full_name: "Payment Cancel User",
-      _email: "canceluser@example.com",
-      _phone: "9876543210",
-      _address: "123 Test St",
-      _city: "Mumbai",
-      _state: "Maharashtra",
-      _pincode: "400001",
-      _idempotency_key: `sess_cancel_${Date.now()}`,
-      _payment_method: "online",
-    });
+    const { data: sessionData, error: sessionErr } = await anonClient.rpc(
+      "create_checkout_session",
+      {
+        _items: [{ variant_id: targetVariant.id, qty: 1 }],
+        _full_name: "Payment Cancel User",
+        _email: "canceluser@example.com",
+        _phone: "9876543210",
+        _address: "123 Test St",
+        _city: "Mumbai",
+        _state: "Maharashtra",
+        _pincode: "400001",
+        _idempotency_key: `sess_cancel_${Date.now()}`,
+        _payment_method: "online",
+      },
+    );
 
     expect(sessionErr).toBeNull();
     expect(sessionData?.session_id).toBeTruthy();
@@ -228,7 +238,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varStock = verifiedProd!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varStock = verifiedProd!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varStock!.stock).toBe(initialStock);
   });
 
@@ -289,7 +301,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varAfter = afterPaid!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfter = afterPaid!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfter!.stock).toBe(initialStock - 1);
 
     // Cancel order via restore_stock_for_order / cancel
@@ -308,7 +322,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varRestored = restored!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varRestored = restored!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varRestored!.stock).toBe(initialStock);
   });
 
@@ -375,7 +391,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .select("product_variants(id, stock)")
       .eq("id", prod.id)
       .single();
-    const varAfterFirst = afterFirst!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfterFirst = afterFirst!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfterFirst!.stock).toBe(initialStock);
 
     // 2nd Restock call: Must detect existing restoration and NOT increment stock again
@@ -394,7 +412,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .select("product_variants(id, stock)")
       .eq("id", prod.id)
       .single();
-    const varAfterSecond = afterSecond!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfterSecond = afterSecond!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfterSecond!.stock).toBe(initialStock);
   });
 
@@ -457,7 +477,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .select("product_variants(id, stock)")
       .eq("id", prod.id)
       .single();
-    const varAfterExchRet = afterExchRet!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varAfterExchRet = afterExchRet!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varAfterExchRet!.stock).toBe(initialStock);
 
     // 3. Purchase Item B using exchange credit token (deducts stock for Item B)
@@ -538,7 +560,9 @@ test.describe.serial("Automated Inventory Management Engine (Online + POS + Retu
       .eq("id", prod.id)
       .single();
 
-    const varStock = afterAttempt!.product_variants.find((v: { id: string }) => v.id === targetVariant.id);
+    const varStock = afterAttempt!.product_variants.find(
+      (v: { id: string }) => v.id === targetVariant.id,
+    );
     expect(varStock!.stock).toBe(currentStock);
     expect(varStock!.stock).toBeGreaterThanOrEqual(0);
   });

@@ -201,11 +201,12 @@ export function HomepageSectionsTab() {
                       {section.theme_preset}
                     </span>
                     {/* Card style */}
-                    {section.theme_config?.card_style && section.theme_config.card_style !== "default" && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 capitalize">
-                        {section.theme_config.card_style} Cards
-                      </span>
-                    )}
+                    {section.theme_config?.card_style &&
+                      section.theme_config.card_style !== "default" && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 capitalize">
+                          {section.theme_config.card_style} Cards
+                        </span>
+                      )}
                     {/* Badge Pill */}
                     {section.badge_text && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">

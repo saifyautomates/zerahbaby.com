@@ -27,7 +27,8 @@ export default defineConfig({
             // Lucide icons — large icon set
             if (id.includes("lucide-react")) return "icons";
             // React core
-            if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/")) return "react";
+            if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/"))
+              return "react";
             // Radix UI primitives + Sonner toast
             if (id.includes("@radix-ui") || id.includes("sonner")) return "ui";
             return undefined;

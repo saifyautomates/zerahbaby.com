@@ -38,7 +38,9 @@ export type POSSession = {
 export const POS_MULTI_SESSIONS_STORAGE_KEY = "zerah_pos_multi_sessions_v2";
 export const POS_ACTIVE_SESSION_ID_KEY = "zerah_pos_active_session_id_v2";
 
-export function generateSessionNumber(existingSessions: Array<{ session_number?: string }> = []): string {
+export function generateSessionNumber(
+  existingSessions: Array<{ session_number?: string }> = [],
+): string {
   if (!existingSessions || existingSessions.length === 0) return "1";
   const used = existingSessions
     .map((s) => {
@@ -53,7 +55,10 @@ export function generateSessionNumber(existingSessions: Array<{ session_number?:
   return String(existingSessions.length + 1);
 }
 
-export function createDefaultSession(sessionNumber?: string, existingSessions: POSSession[] = []): POSSession {
+export function createDefaultSession(
+  sessionNumber?: string,
+  existingSessions: POSSession[] = [],
+): POSSession {
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -61,7 +66,9 @@ export function createDefaultSession(sessionNumber?: string, existingSessions: P
   const now = new Date().toISOString();
   return {
     id,
-    session_number: sessionNumber ? sessionNumber.replace(/^#/, "") : generateSessionNumber(existingSessions),
+    session_number: sessionNumber
+      ? sessionNumber.replace(/^#/, "")
+      : generateSessionNumber(existingSessions),
     cashier_id: null,
     customer_id: null,
     customer_mode: "walkin",
@@ -359,9 +366,7 @@ export async function closeAllPOSSessions(exceptSessionId?: string): Promise<voi
   try {
     const isUuid =
       Boolean(exceptSessionId) &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        exceptSessionId || "",
-      );
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(exceptSessionId || "");
     await (
       supabase.rpc as unknown as (
         fn: string,
@@ -402,4 +407,3 @@ export function useClosePOSSessionMutation() {
     },
   });
 }
-

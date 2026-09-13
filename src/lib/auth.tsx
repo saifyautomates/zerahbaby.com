@@ -49,7 +49,9 @@ export async function ensureAuthSession(): Promise<Session | null> {
   // Test mode bypass for local E2E in-browser audits
   if (
     typeof window !== "undefined" &&
-    (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    (import.meta.env.DEV ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1")
   ) {
     if (localStorage.getItem("zerah_test_admin") === "true") {
       return {
@@ -126,7 +128,9 @@ export async function ensureAdminSession(): Promise<{ user: User | null; isAdmin
 
   // Dev bypass for local testing
   if (
-    (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+    (import.meta.env.DEV ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1") &&
     localStorage.getItem("zerah_test_admin") === "true"
   ) {
     const session = await ensureAuthSession();
@@ -239,7 +243,9 @@ export function useSession() {
   const testUser = useMemo(() => {
     if (
       typeof window !== "undefined" &&
-      (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      (import.meta.env.DEV ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1")
     ) {
       if (localStorage.getItem("zerah_test_admin") === "true") {
         return {
@@ -279,7 +285,9 @@ export function useIsAdmin(userId: string | undefined) {
   const cachedAdmin = useMemo(() => {
     if (typeof window === "undefined" || !userId) return undefined;
     if (
-      (import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      (import.meta.env.DEV ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1") &&
       localStorage.getItem("zerah_test_admin") === "true"
     ) {
       return true;
@@ -301,7 +309,8 @@ export function useIsAdmin(userId: string | undefined) {
       if (
         (import.meta.env.DEV ||
           (typeof window !== "undefined" &&
-            (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))) &&
+            (window.location.hostname === "localhost" ||
+              window.location.hostname === "127.0.0.1"))) &&
         typeof window !== "undefined" &&
         localStorage.getItem("zerah_test_admin") === "true"
       ) {

@@ -47,7 +47,9 @@ test.describe("5 New Products & Homepage Showcase Verification", () => {
     }
   });
 
-  test("2. Storefront Homepage: All 5 new products are visibly rendered on the homepage", async ({ page }) => {
+  test("2. Storefront Homepage: All 5 new products are visibly rendered on the homepage", async ({
+    page,
+  }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
     // Wait for the homepage section to be visible
@@ -69,19 +71,25 @@ test.describe("5 New Products & Homepage Showcase Verification", () => {
     }
   });
 
-  test("3. Product Detail Page & Add to Cart: Verification of 5 inventory limit", async ({ page }) => {
+  test("3. Product Detail Page & Add to Cart: Verification of 5 inventory limit", async ({
+    page,
+  }) => {
     // Visit first new product (Kimono Romper)
     await page.goto("/product/f1000000-0000-4000-8000-000000000001", { waitUntil: "networkidle" });
 
     // Title should be visible
-    await expect(page.locator("h1")).toContainText("Zérah Pure Organic Bamboo Cotton Kimono Romper");
+    await expect(page.locator("h1")).toContainText(
+      "Zérah Pure Organic Bamboo Cotton Kimono Romper",
+    );
 
     // Stock indicator should show in stock (5 items left or in stock)
     const stockText = await page.locator("body").innerText();
     expect(stockText).not.toContain("Out of stock");
 
     // Add to cart / bag
-    const addToCartBtn = page.locator("button", { hasText: /Add to [bB]ag|Add to [cC]art/i }).first();
+    const addToCartBtn = page
+      .locator("button", { hasText: /Add to [bB]ag|Add to [cC]art/i })
+      .first();
     await expect(addToCartBtn).toBeVisible({ timeout: 10000 });
     await addToCartBtn.click();
 
@@ -90,6 +98,8 @@ test.describe("5 New Products & Homepage Showcase Verification", () => {
     await page.goto("/cart", { waitUntil: "networkidle" });
 
     // Ensure item is in cart
-    await expect(page.locator("body")).toContainText("Zérah Pure Organic Bamboo Cotton Kimono Romper");
+    await expect(page.locator("body")).toContainText(
+      "Zérah Pure Organic Bamboo Cotton Kimono Romper",
+    );
   });
 });

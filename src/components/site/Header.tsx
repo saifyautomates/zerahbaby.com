@@ -549,7 +549,9 @@ export function Header() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <div className="px-2 py-1.5 text-sm font-medium truncate">{user?.email}</div>
+                        <div className="px-2 py-1.5 text-sm font-medium truncate">
+                          {user?.email}
+                        </div>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link to="/profile" className="cursor-pointer">

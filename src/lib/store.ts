@@ -90,10 +90,7 @@ type ProductRow = {
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   buying_price?: number | null;
   buyingPrice?: number | null;
-  product_costs?:
-    | { buying_price?: number | null }
-    | Array<{ buying_price?: number | null }>
-    | null;
+  product_costs?: { buying_price?: number | null } | Array<{ buying_price?: number | null }> | null;
 };
 
 /** Get unique list of distinct colors for a product */
@@ -267,18 +264,22 @@ export const mapProduct = (row: ProductRow): Product => {
     })),
     buyingPrice: (() => {
       if (row.buyingPrice !== undefined && row.buyingPrice !== null) return Number(row.buyingPrice);
-      if (row.buying_price !== undefined && row.buying_price !== null) return Number(row.buying_price);
+      if (row.buying_price !== undefined && row.buying_price !== null)
+        return Number(row.buying_price);
       const costs = row.product_costs;
       if (Array.isArray(costs) && costs.length > 0) return Number(costs[0]?.buying_price || 0);
-      if (costs && typeof costs === "object" && "buying_price" in costs) return Number(costs.buying_price || 0);
+      if (costs && typeof costs === "object" && "buying_price" in costs)
+        return Number(costs.buying_price || 0);
       return 0;
     })(),
     buying_price: (() => {
       if (row.buyingPrice !== undefined && row.buyingPrice !== null) return Number(row.buyingPrice);
-      if (row.buying_price !== undefined && row.buying_price !== null) return Number(row.buying_price);
+      if (row.buying_price !== undefined && row.buying_price !== null)
+        return Number(row.buying_price);
       const costs = row.product_costs;
       if (Array.isArray(costs) && costs.length > 0) return Number(costs[0]?.buying_price || 0);
-      if (costs && typeof costs === "object" && "buying_price" in costs) return Number(costs.buying_price || 0);
+      if (costs && typeof costs === "object" && "buying_price" in costs)
+        return Number(costs.buying_price || 0);
       return 0;
     })(),
     product_costs: row.product_costs,
@@ -320,10 +321,7 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       query = query.eq("is_active", true).eq("sales_channel", "ONLINE_AND_OFFLINE");
     }
 
-    const [productsRes, deliveryFees] = await Promise.all([
-      query,
-      getDeliveryFeesMap(),
-    ]);
+    const [productsRes, deliveryFees] = await Promise.all([query, getDeliveryFeesMap()]);
 
     if (productsRes.error) throw productsRes.error;
     if (productsRes.data) {

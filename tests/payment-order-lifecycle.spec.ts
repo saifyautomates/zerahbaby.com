@@ -352,7 +352,9 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
 
     // Must be rejected with amount mismatch error
     expect(fRes.status).toBe(400);
-    expect(errResult.message).toMatch(/Payment amount mismatch|does not match session total|Verified amount/i);
+    expect(errResult.message).toMatch(
+      /Payment amount mismatch|does not match session total|Verified amount/i,
+    );
   });
 
   test("TEST 9, 10, 11: COD Disabled vs Enabled Validation", async () => {

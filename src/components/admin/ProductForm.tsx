@@ -39,10 +39,7 @@ import {
   getColorSwatchImage,
   type Product,
 } from "@/lib/store";
-import {
-  useHomepageSections,
-  syncProductHomepageSections,
-} from "@/lib/homepage-sections";
+import { useHomepageSections, syncProductHomepageSections } from "@/lib/homepage-sections";
 import { generateProductFallbackSvg } from "@/lib/product-media";
 import { uploadMedia } from "@/lib/uploads";
 import { useUploader, type UploadJob } from "@/lib/use-uploader";
@@ -641,14 +638,16 @@ export function ProductForm({
       const isTextInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
 
       if (!e.clipboardData) return;
-      const files = Array.from(e.clipboardData.files).filter((f) =>
-        f.type.startsWith("image/") || f.type.startsWith("video/"),
+      const files = Array.from(e.clipboardData.files).filter(
+        (f) => f.type.startsWith("image/") || f.type.startsWith("video/"),
       );
 
       if (files.length > 0) {
         e.preventDefault();
         void addFiles(files);
-        toast.success(`📋 Pasted ${files.length} image${files.length > 1 ? "s" : ""} from clipboard!`);
+        toast.success(
+          `📋 Pasted ${files.length} image${files.length > 1 ? "s" : ""} from clipboard!`,
+        );
         return;
       }
 
@@ -664,7 +663,9 @@ export function ProductForm({
         if (itemFiles.length > 0) {
           e.preventDefault();
           void addFiles(itemFiles);
-          toast.success(`📋 Pasted ${itemFiles.length} image${itemFiles.length > 1 ? "s" : ""} from clipboard!`);
+          toast.success(
+            `📋 Pasted ${itemFiles.length} image${itemFiles.length > 1 ? "s" : ""} from clipboard!`,
+          );
         }
       }
     };
@@ -853,11 +854,7 @@ export function ProductForm({
         "Zero Parabens, Sulphates, or Harsh Toxins",
         "Deeply Hydrating Natural Plant Extracts",
       ];
-    } else if (
-      lower.includes("stroller") ||
-      lower.includes("pram") ||
-      lower.includes("carrier")
-    ) {
+    } else if (lower.includes("stroller") || lower.includes("pram") || lower.includes("carrier")) {
       detectedCat = "gear";
       detectedAge = detectedAge || "0-3Y";
       hl = [
@@ -1230,10 +1227,12 @@ export function ProductForm({
                         : "Drag & drop photos, paste from clipboard (Ctrl+V), or click to browse"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Supports JPEG, PNG, WebP, GIF, MP4 (Fast WebP compression · Max {MAX_IMAGES} files)
+                    Supports JPEG, PNG, WebP, GIF, MP4 (Fast WebP compression · Max {MAX_IMAGES}{" "}
+                    files)
                   </p>
                   <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-                    💡 Tip: Copy photos on WhatsApp Web or your browser and press Ctrl+V to paste directly!
+                    💡 Tip: Copy photos on WhatsApp Web or your browser and press Ctrl+V to paste
+                    directly!
                   </p>
                 </div>
               ) : (
@@ -2194,7 +2193,8 @@ export function ProductForm({
                           Homepage Sections Placement
                         </span>
                         <span className="text-[11px] text-muted-foreground line-clamp-1">
-                          Choose specific sections (Diwali Specials, Summer Essentials, etc.) that feature this product
+                          Choose specific sections (Diwali Specials, Summer Essentials, etc.) that
+                          feature this product
                         </span>
                       </div>
                     </div>
@@ -2359,7 +2359,8 @@ export function ProductForm({
                         )}
                       </div>
                       <p className="text-[10px] text-muted-foreground italic">
-                        💡 Products appear strictly inside the selected sections. Unselected sections will not display this product.
+                        💡 Products appear strictly inside the selected sections. Unselected
+                        sections will not display this product.
                       </p>
                     </div>
                   )}

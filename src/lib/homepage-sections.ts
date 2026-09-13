@@ -6,11 +6,7 @@ import type { ThemePresetId, ThemeConfig, SpacingVariant } from "@/lib/homepage-
 
 export type HomepageSectionType = "PRODUCT_GRID" | "PRODUCT_CAROUSEL";
 export type HomepageSectionSource =
-  | "MANUAL"
-  | "BESTSELLERS"
-  | "NEW_ARRIVALS"
-  | "DISCOUNTED"
-  | "CATEGORY";
+  "MANUAL" | "BESTSELLERS" | "NEW_ARRIVALS" | "DISCOUNTED" | "CATEGORY";
 export type HomepageSectionStatus = "published" | "draft" | "archived";
 
 export interface SectionDisplaySettings {
@@ -79,7 +75,9 @@ export interface SectionUpsertInput {
 /**
  * Helper to compute schedule status for UI indicators.
  */
-export function getSectionScheduleStatus(section: HomepageSection): "always" | "active" | "upcoming" | "expired" {
+export function getSectionScheduleStatus(
+  section: HomepageSection,
+): "always" | "active" | "upcoming" | "expired" {
   if (!section.starts_at && !section.ends_at) return "always";
 
   const now = new Date();
@@ -227,15 +225,11 @@ export function resolveSectionProducts(
   }
 
   if (section.source_type === "BESTSELLERS") {
-    return [...allProducts]
-      .sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
-      .slice(0, max);
+    return [...allProducts].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, max);
   }
 
   if (section.source_type === "NEW_ARRIVALS") {
-    return [...allProducts]
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-      .slice(0, max);
+    return [...allProducts].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).slice(0, max);
   }
 
   if (section.source_type === "DISCOUNTED") {
@@ -270,13 +264,10 @@ export async function syncProductHomepageSections(
 
   // 1. Try canonical RPC first
   try {
-    const { error: rpcErr } = await (supabase.rpc as any)(
-      "admin_sync_product_homepage_sections",
-      {
-        p_product_id: productId,
-        p_section_ids: sectionIds,
-      },
-    );
+    const { error: rpcErr } = await (supabase.rpc as any)("admin_sync_product_homepage_sections", {
+      p_product_id: productId,
+      p_section_ids: sectionIds,
+    });
     if (!rpcErr) return;
   } catch {
     // Continue to client-side table sync
@@ -285,10 +276,7 @@ export async function syncProductHomepageSections(
   // 2. Direct table fallback
   try {
     if (sectionIds.length === 0) {
-      await supabase
-        .from("homepage_section_items")
-        .delete()
-        .eq("product_id", productId);
+      await supabase.from("homepage_section_items").delete().eq("product_id", productId);
       return;
     }
 
@@ -301,9 +289,7 @@ export async function syncProductHomepageSections(
     const existingSectionIds = new Set((currentItems || []).map((it: any) => it.section_id));
 
     // Remove from unselected sections
-    const toDelete = (currentItems || []).filter(
-      (it: any) => !sectionIds.includes(it.section_id),
-    );
+    const toDelete = (currentItems || []).filter((it: any) => !sectionIds.includes(it.section_id));
     for (const it of toDelete) {
       await supabase.from("homepage_section_items").delete().eq("id", it.id);
     }
@@ -459,10 +445,7 @@ export function useSaveSection() {
 
       // Sync curated items if manual
       if (input.source_type === "MANUAL" && sectionId) {
-        await supabase
-          .from("homepage_section_items")
-          .delete()
-          .eq("section_id", sectionId);
+        await supabase.from("homepage_section_items").delete().eq("section_id", sectionId);
 
         if (input.product_ids && input.product_ids.length > 0) {
           const itemsPayload = input.product_ids.map((prodId, idx) => ({
@@ -529,7 +512,9 @@ export function useToggleSectionVisibility() {
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["homepage-sections"] });
-      toast.success(vars.is_visible ? "Section published to homepage" : "Section hidden from storefront");
+      toast.success(
+        vars.is_visible ? "Section published to homepage" : "Section hidden from storefront",
+      );
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to update section visibility");
@@ -547,12 +532,9 @@ export function useReorderSections() {
     mutationFn: async (orderedSections: { id: string; sort_order: number }[]) => {
       // Try canonical RPC first
       try {
-        const { error: rpcErr } = await (supabase.rpc as any)(
-          "admin_reorder_homepage_sections",
-          {
-            p_section_ids: orderedSections.map((s) => s.id),
-          },
-        );
+        const { error: rpcErr } = await (supabase.rpc as any)("admin_reorder_homepage_sections", {
+          p_section_ids: orderedSections.map((s) => s.id),
+        });
         if (!rpcErr) return true;
         if (rpcErr.message?.includes("Access denied")) throw rpcErr;
       } catch (err: any) {
@@ -660,12 +642,9 @@ export function useDeleteSection() {
     mutationFn: async (sectionId: string) => {
       // Try canonical RPC first
       try {
-        const { error: rpcErr } = await (supabase.rpc as any)(
-          "admin_delete_homepage_section",
-          {
-            p_section_id: sectionId,
-          },
-        );
+        const { error: rpcErr } = await (supabase.rpc as any)("admin_delete_homepage_section", {
+          p_section_id: sectionId,
+        });
         if (!rpcErr) return sectionId;
         if (rpcErr.message?.includes("Access denied")) throw rpcErr;
       } catch (err: any) {
@@ -673,10 +652,7 @@ export function useDeleteSection() {
       }
 
       // Fallback
-      const { error } = await supabase
-        .from("homepage_sections")
-        .delete()
-        .eq("id", sectionId);
+      const { error } = await supabase.from("homepage_sections").delete().eq("id", sectionId);
       if (error) throw error;
       return sectionId;
     },

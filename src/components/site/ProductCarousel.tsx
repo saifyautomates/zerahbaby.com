@@ -10,7 +10,11 @@ interface ProductCarouselProps {
   cardStyle?: CardStyle;
 }
 
-export function ProductCarousel({ products, className = "", cardStyle = "default" }: ProductCarouselProps) {
+export function ProductCarousel({
+  products,
+  className = "",
+  cardStyle = "default",
+}: ProductCarouselProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);

@@ -311,7 +311,9 @@ export function POSTab() {
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerModalSessionId, setCustomerModalSessionId] = useState<string | null>(null);
-  const [customerModalTab, setCustomerModalTab] = useState<"existing" | "new" | "walkin">("existing");
+  const [customerModalTab, setCustomerModalTab] = useState<"existing" | "new" | "walkin">(
+    "existing",
+  );
 
   // Store Credit / Exchange Tender State
   const [storeCreditApplied, setStoreCreditApplied] = useState<number>(() => {
@@ -534,12 +536,7 @@ export function POSTab() {
   // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
   // Do NOT re-apply if the cashier explicitly removed/dismissed the credit for this session
   useEffect(() => {
-    if (
-      availableCredit > 0 &&
-      total > 0 &&
-      storeCreditApplied === 0 &&
-      !creditDismissedManually
-    ) {
+    if (availableCredit > 0 && total > 0 && storeCreditApplied === 0 && !creditDismissedManually) {
       const applyAmount = Math.min(availableCredit, total);
       setStoreCreditApplied(applyAmount);
       if (creditTokenInput.trim()) {
@@ -605,9 +602,9 @@ export function POSTab() {
             "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
           .eq("is_active", true),
-        Promise.resolve(
-          supabase.from("product_costs").select("product_id, buying_price"),
-        ).catch(() => ({ data: [] as { product_id: string; buying_price: number }[], error: null })),
+        Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
+          () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
+        ),
       ]);
 
       if (productsRes.error) throw productsRes.error;
@@ -677,7 +674,8 @@ export function POSTab() {
   // Realtime & Cross-tab synchronized inventory listening in POS
   useEffect(() => {
     // 1. Cross-tab BroadcastChannel
-    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
+    const bc =
+      typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
     if (bc) {
       bc.onmessage = (msg) => {
         if (msg.data?.type === "CATALOG_MUTATED") {
@@ -697,22 +695,14 @@ export function POSTab() {
     // 3. Supabase Realtime Postgres Changes
     const channel = supabase
       .channel("pos-realtime-catalog-sync")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["pos-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "product_variants" },
-        () => {
-          qc.invalidateQueries({ queryKey: ["pos-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        qc.invalidateQueries({ queryKey: ["pos-products"] });
+        qc.invalidateQueries({ queryKey: ["admin-products"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, () => {
+        qc.invalidateQueries({ queryKey: ["pos-products"] });
+        qc.invalidateQueries({ queryKey: ["admin-products"] });
+      })
       .subscribe();
 
     return () => {
@@ -734,7 +724,9 @@ export function POSTab() {
         if (item.stock !== liveStock || (item.qty > liveStock && liveStock > 0)) {
           changed = true;
           if (item.qty > liveStock) {
-            toast.warning(`Stock changed for "${item.name}". Quantity adjusted to available stock (${liveStock}).`);
+            toast.warning(
+              `Stock changed for "${item.name}". Quantity adjusted to available stock (${liveStock}).`,
+            );
           }
           return {
             ...item,
@@ -792,14 +784,8 @@ export function POSTab() {
 
   // In-Memory O(1) Instant POS Catalog Index (Barcodes, SKUs, IDs, Variants)
   const productLookupMaps = useMemo(() => {
-    const barcodeMap = new Map<
-      string,
-      { product: Product; variant?: ProductVariant }
-    >();
-    const skuMap = new Map<
-      string,
-      { product: Product; variant?: ProductVariant }
-    >();
+    const barcodeMap = new Map<string, { product: Product; variant?: ProductVariant }>();
+    const skuMap = new Map<string, { product: Product; variant?: ProductVariant }>();
     const idMap = new Map<string, Product>();
 
     if (Array.isArray(products)) {
@@ -923,7 +909,9 @@ export function POSTab() {
     // Hydrate target session state into active editor
     setCart(resolvedTarget.items || []);
     setCustomerMode(resolvedTarget.customer_mode || "walkin");
-    setCustomerName(resolvedTarget.customer_name === "Walk-in Customer" ? "" : resolvedTarget.customer_name || "");
+    setCustomerName(
+      resolvedTarget.customer_name === "Walk-in Customer" ? "" : resolvedTarget.customer_name || "",
+    );
     setCustomerPhone(resolvedTarget.customer_phone || "");
     setCustomerEmail(resolvedTarget.customer_email || "");
     setCustomerId(resolvedTarget.customer_id || null);
@@ -1073,7 +1061,9 @@ export function POSTab() {
       saveActiveSessionIdLocal(otherDraft.id);
       setCart(otherDraft.items || []);
       setCustomerMode(otherDraft.customer_mode || "walkin");
-      setCustomerName(otherDraft.customer_name === "Walk-in Customer" ? "" : otherDraft.customer_name || "");
+      setCustomerName(
+        otherDraft.customer_name === "Walk-in Customer" ? "" : otherDraft.customer_name || "",
+      );
       setCustomerPhone(otherDraft.customer_phone || "");
       setCustomerEmail(otherDraft.customer_email || "");
       setCustomerId(otherDraft.customer_id || null);
@@ -1402,15 +1392,20 @@ export function POSTab() {
       const itemImage = selectedVar?.image_url || product.image_url;
 
       const matchedProd = products.find(
-        (p) => p.uuid === product.id || p.id === product.id || (p as any).slug === product.id || p.id === product.slug || p.uuid === product.slug,
+        (p) =>
+          p.uuid === product.id ||
+          p.id === product.id ||
+          (p as any).slug === product.id ||
+          p.id === product.slug ||
+          p.uuid === product.slug,
       );
       const resBuyingPrice =
         Number(
           (product as unknown as { buying_price?: number; buyingPrice?: number }).buying_price ??
-          (product as unknown as { buying_price?: number; buyingPrice?: number }).buyingPrice ??
-          matchedProd?.buyingPrice ??
-          matchedProd?.buying_price ??
-          0,
+            (product as unknown as { buying_price?: number; buyingPrice?: number }).buyingPrice ??
+            matchedProd?.buyingPrice ??
+            matchedProd?.buying_price ??
+            0,
         ) || null;
 
       const added = addToCart({
@@ -1430,8 +1425,7 @@ export function POSTab() {
         qty: 1,
         buying_price: resBuyingPrice,
         sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
-          | "ONLINE_AND_OFFLINE"
-          | "OFFLINE_ONLY",
+          "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
       });
 
       if (added) {
@@ -1463,9 +1457,7 @@ export function POSTab() {
       const inMemoryMatch =
         productLookupMaps.barcodeMap.get(q) ||
         productLookupMaps.skuMap.get(q) ||
-        (productLookupMaps.idMap.has(q)
-          ? { product: productLookupMaps.idMap.get(q)! }
-          : undefined);
+        (productLookupMaps.idMap.has(q) ? { product: productLookupMaps.idMap.get(q)! } : undefined);
 
       if (inMemoryMatch) {
         const { product, variant } = inMemoryMatch;
@@ -1491,14 +1483,16 @@ export function POSTab() {
         }
 
         const price = variant?.priceOverride ?? (variant as any)?.price_override ?? product.price;
-        const mrp = variant?.mrpOverride ?? (variant as any)?.mrp_override ?? product.mrp ?? product.price;
+        const mrp =
+          variant?.mrpOverride ?? (variant as any)?.mrp_override ?? product.mrp ?? product.price;
         const sku = variant?.sku || product.sku || "";
         const barcode = variant?.barcode || product.barcode || cleanCode;
         const buyingPrice = Number(product.buyingPrice ?? product.buying_price ?? 0) || null;
-        const image = variant?.imageUrl ?? (variant as any)?.image_url ?? (product.images?.[0] || null);
-        const salesChannel = (product.salesChannel || (product as any).sales_channel || "ONLINE_AND_OFFLINE") as
-          | "ONLINE_AND_OFFLINE"
-          | "OFFLINE_ONLY";
+        const image =
+          variant?.imageUrl ?? (variant as any)?.image_url ?? (product.images?.[0] || null);
+        const salesChannel = (product.salesChannel ||
+          (product as any).sales_channel ||
+          "ONLINE_AND_OFFLINE") as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
 
         const added = addToCart({
           product_id: product.uuid || product.id,
@@ -1558,10 +1552,13 @@ export function POSTab() {
             }
 
             const matchedProd = products.find(
-              (p) => p.uuid === result.product_id || p.id === result.product_id || p.id === result.slug,
+              (p) =>
+                p.uuid === result.product_id || p.id === result.product_id || p.id === result.slug,
             );
             const scannedBuyingPrice =
-              Number(result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0) || null;
+              Number(
+                result.buying_price ?? matchedProd?.buyingPrice ?? matchedProd?.buying_price ?? 0,
+              ) || null;
 
             const added = addToCart({
               product_id: result.product_id!,
@@ -1598,84 +1595,83 @@ export function POSTab() {
         }
 
         // ── PRIORITY 3: LOCAL INDEXEDDB CACHE LOOKUP (OFFLINE RESILIENCE) ──
-      try {
-        const offline = await findOfflineProductByCode(cleanCode);
-        if (offline) {
-          const v = (offline.matchedVariant || null) as {
-            id?: string;
-            name?: string;
-            price_override?: number | null;
-            priceOverride?: number | null;
-            mrp_override?: number | null;
-            mrpOverride?: number | null;
-            stock?: number | null;
-            sku?: string | null;
-            barcode?: string | null;
-            image_url?: string | null;
-            imageUrl?: string | null;
-          } | null;
+        try {
+          const offline = await findOfflineProductByCode(cleanCode);
+          if (offline) {
+            const v = (offline.matchedVariant || null) as {
+              id?: string;
+              name?: string;
+              price_override?: number | null;
+              priceOverride?: number | null;
+              mrp_override?: number | null;
+              mrpOverride?: number | null;
+              stock?: number | null;
+              sku?: string | null;
+              barcode?: string | null;
+              image_url?: string | null;
+              imageUrl?: string | null;
+            } | null;
 
-          if (offline.is_active === false || offline.isActive === false) {
-            playScanError();
-            toast.error(`"${offline.name}" is archived and unavailable for sale`, {
-              duration: 5000,
+            if (offline.is_active === false || offline.isActive === false) {
+              playScanError();
+              toast.error(`"${offline.name}" is archived and unavailable for sale`, {
+                duration: 5000,
+              });
+              return;
+            }
+
+            const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
+            if (stock <= 0) {
+              playScanError();
+              toast.error(`"${offline.name}" is out of stock!`);
+              return;
+            }
+
+            const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
+            const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+            const sku = String(v?.sku || offline.sku || "");
+            const barcode = String(v?.barcode || offline.barcode || cleanCode);
+            const buyingPrice = Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null;
+            const image =
+              v?.image_url ||
+              v?.imageUrl ||
+              (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
+              null;
+            const salesChannel = (offline.sales_channel || "ONLINE_AND_OFFLINE") as
+              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+
+            const added = addToCart({
+              product_id: String(offline.uuid || offline.id),
+              variant_id: v?.id || "",
+              slug: String(offline.slug || offline.id),
+              name: String(offline.name || ""),
+              brand: String(offline.brand || ""),
+              category: String(offline.category || ""),
+              price,
+              mrp,
+              stock,
+              sku,
+              barcode,
+              image_url: image,
+              age_group: String(offline.age_group || ""),
+              qty: 1,
+              buying_price: buyingPrice,
+              sales_channel: salesChannel,
             });
-            return;
+
+            if (added) {
+              playScanSuccess();
+              toast.success(`Scanned: ${offline.name}`, {
+                description: `₹${price} • SKU: ${sku || "N/A"} • Stock: ${stock}`,
+              });
+              setIsSearchDropdownOpen(false);
+              setSearchQuery("");
+              return;
+            }
           }
-
-          const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
-          if (stock <= 0) {
-            playScanError();
-            toast.error(`"${offline.name}" is out of stock!`);
-            return;
-          }
-
-          const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
-          const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
-          const sku = String(v?.sku || offline.sku || "");
-          const barcode = String(v?.barcode || offline.barcode || cleanCode);
-          const buyingPrice = Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null;
-          const image =
-            v?.image_url ||
-            v?.imageUrl ||
-            (Array.isArray(offline.images) ? (offline.images[0] as string) : null) ||
-            null;
-          const salesChannel = (offline.sales_channel || "ONLINE_AND_OFFLINE") as
-            | "ONLINE_AND_OFFLINE"
-            | "OFFLINE_ONLY";
-
-          const added = addToCart({
-            product_id: String(offline.uuid || offline.id),
-            variant_id: v?.id || "",
-            slug: String(offline.slug || offline.id),
-            name: String(offline.name || ""),
-            brand: String(offline.brand || ""),
-            category: String(offline.category || ""),
-            price,
-            mrp,
-            stock,
-            sku,
-            barcode,
-            image_url: image,
-            age_group: String(offline.age_group || ""),
-            qty: 1,
-            buying_price: buyingPrice,
-            sales_channel: salesChannel,
-          });
-
-          if (added) {
-            playScanSuccess();
-            toast.success(`Scanned: ${offline.name}`, {
-              description: `₹${price} • SKU: ${sku || "N/A"} • Stock: ${stock}`,
-            });
-            setIsSearchDropdownOpen(false);
-            setSearchQuery("");
-            return;
-          }
+        } catch {
+          // Both online and offline lookups exhausted
         }
-      } catch {
-        // Both online and offline lookups exhausted
-      }
 
         // Fallback: search via server-side POS search engine (fuzzy, SKU, barcode, variants)
         const searchMatches = await searchPOSProducts(cleanCode, 5);
@@ -1822,8 +1818,10 @@ export function POSTab() {
         const bp = product.buyingPrice ?? product.buying_price;
         if (bp !== undefined && bp !== null && Number(bp) > 0) return Number(bp);
         const costs = (product as unknown as Record<string, unknown>).product_costs;
-        if (Array.isArray(costs)) return Number((costs[0] as { buying_price?: number })?.buying_price || 0) || null;
-        if (costs && typeof costs === "object") return Number((costs as { buying_price?: number }).buying_price || 0) || null;
+        if (Array.isArray(costs))
+          return Number((costs[0] as { buying_price?: number })?.buying_price || 0) || null;
+        if (costs && typeof costs === "object")
+          return Number((costs as { buying_price?: number }).buying_price || 0) || null;
         return null;
       })(),
     });
@@ -1936,9 +1934,7 @@ export function POSTab() {
         if (updatedSess) {
           savePOSSession(updatedSess).catch(() => {});
         }
-        const updated = prev.map((s) =>
-          s.id === effectiveSessionId ? (updatedSess || s) : s,
-        );
+        const updated = prev.map((s) => (s.id === effectiveSessionId ? updatedSess || s : s));
         saveStoredSessionsLocal(updated);
         return updated;
       });
@@ -1975,9 +1971,7 @@ export function POSTab() {
         if (updatedSess) {
           savePOSSession(updatedSess).catch(() => {});
         }
-        const updated = prev.map((s) =>
-          s.id === effectiveSessionId ? (updatedSess || s) : s,
-        );
+        const updated = prev.map((s) => (s.id === effectiveSessionId ? updatedSess || s : s));
         saveStoredSessionsLocal(updated);
         return updated;
       });
@@ -2080,7 +2074,8 @@ export function POSTab() {
         name: item.name || "Item",
         sku: item.sku || "",
         barcode: item.barcode || "",
-        variant_info: item.variant_info || [item.color, item.size].filter(Boolean).join(" / ") || "",
+        variant_info:
+          item.variant_info || [item.color, item.size].filter(Boolean).join(" / ") || "",
         qty: item.qty || 1,
         custom_price: item.isCustom ? item.price : undefined,
         price: item.price || 0,
@@ -2435,7 +2430,9 @@ export function POSTab() {
                       className="absolute bottom-full left-0 mb-1.5 z-50 w-64 rounded-xl border border-primary/30 bg-card shadow-xl p-3 flex flex-col gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Customer Details</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Customer Details
+                      </p>
                       <input
                         autoFocus
                         type="text"
@@ -2455,7 +2452,11 @@ export function POSTab() {
                             setSessions((prev) =>
                               prev.map((s) =>
                                 s.id === sess.id
-                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  ? {
+                                      ...s,
+                                      customer_name: name || "Walk-in Customer",
+                                      customer_mode: name ? "new" : "walkin",
+                                    }
                                   : s,
                               ),
                             );
@@ -2467,7 +2468,9 @@ export function POSTab() {
                       <input
                         type="tel"
                         value={editTabPhone}
-                        onChange={(e) => setEditTabPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        onChange={(e) =>
+                          setEditTabPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+                        }
                         placeholder="Phone (optional)"
                         className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
                         onKeyDown={(e) => {
@@ -2482,7 +2485,11 @@ export function POSTab() {
                             setSessions((prev) =>
                               prev.map((s) =>
                                 s.id === sess.id
-                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  ? {
+                                      ...s,
+                                      customer_name: name || "Walk-in Customer",
+                                      customer_mode: name ? "new" : "walkin",
+                                    }
                                   : s,
                               ),
                             );
@@ -2506,7 +2513,11 @@ export function POSTab() {
                             setSessions((prev) =>
                               prev.map((s) =>
                                 s.id === sess.id
-                                  ? { ...s, customer_name: name || "Walk-in Customer", customer_mode: name ? "new" : "walkin" }
+                                  ? {
+                                      ...s,
+                                      customer_name: name || "Walk-in Customer",
+                                      customer_mode: name ? "new" : "walkin",
+                                    }
                                   : s,
                               ),
                             );
@@ -2551,10 +2562,15 @@ export function POSTab() {
                       setCustomerModalSessionId(sess.id);
                       const currentName =
                         sess.id === activeSessionId
-                          ? customerMode === "walkin" ? "" : customerName
-                          : sess.customer_mode === "walkin" ? "" : (sess.customer_name === "Walk-in Customer" ? "" : sess.customer_name || "");
-                      const currentPhone =
-                        sess.id === activeSessionId ? customerPhone : "";
+                          ? customerMode === "walkin"
+                            ? ""
+                            : customerName
+                          : sess.customer_mode === "walkin"
+                            ? ""
+                            : sess.customer_name === "Walk-in Customer"
+                              ? ""
+                              : sess.customer_name || "";
+                      const currentPhone = sess.id === activeSessionId ? customerPhone : "";
                       setEditTabName(currentName);
                       setEditTabPhone(currentPhone);
                       setCustomerModalTab("existing");
@@ -2635,7 +2651,6 @@ export function POSTab() {
               <span>New Sale</span>
             </button>
 
-
             {/* Delete All Tabs Button (inline in tab bar) */}
             {sessions.length > 1 && !showCloseAllConfirm && (
               <button
@@ -2652,8 +2667,8 @@ export function POSTab() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {sessions.length > 1 && (
-              showCloseAllConfirm ? (
+            {sessions.length > 1 &&
+              (showCloseAllConfirm ? (
                 <div className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-xs animate-in fade-in">
                   <span className="text-[11px] font-bold text-red-600 dark:text-red-400 whitespace-nowrap">
                     Delete all {sessions.length} tabs?
@@ -2685,8 +2700,7 @@ export function POSTab() {
                   <Trash2 className="size-3.5" />
                   <span>Delete All ({sessions.length})</span>
                 </button>
-              )
-            )}
+              ))}
 
             {cart.length > 0 && (
               <button
@@ -3127,7 +3141,11 @@ export function POSTab() {
                                   value={item.price}
                                   onChange={(e) => {
                                     const val = parseFloat(e.target.value);
-                                    updateItemPrice(item.product_id, isNaN(val) ? 0 : val, item.variant_id);
+                                    updateItemPrice(
+                                      item.product_id,
+                                      isNaN(val) ? 0 : val,
+                                      item.variant_id,
+                                    );
                                   }}
                                   className="w-20 text-right font-bold text-sm bg-transparent outline-none text-foreground"
                                   title="Override selling price (e.g. enter ₹350 for ₹500 item)"
@@ -3505,7 +3523,9 @@ export function POSTab() {
                           customerSearchQuery.trim().length >= 2 &&
                           (searchCustomers.data ?? []).length === 0 && (
                             <div className="p-4 text-center rounded-xl border border-border bg-card shadow-sm space-y-2">
-                              <p className="font-bold text-foreground text-xs">No customers found</p>
+                              <p className="font-bold text-foreground text-xs">
+                                No customers found
+                              </p>
                               <p className="text-[11px] text-muted-foreground">
                                 No customer record matching &ldquo;{customerSearchQuery}&rdquo;
                               </p>
@@ -3565,14 +3585,17 @@ export function POSTab() {
                                           {c.phone && <span className="font-mono">{c.phone}</span>}
                                           {c.city && <span>• {c.city}</span>}
                                           {c.email && (
-                                            <span className="truncate max-w-[140px]">({c.email})</span>
+                                            <span className="truncate max-w-[140px]">
+                                              ({c.email})
+                                            </span>
                                           )}
                                         </div>
                                       </div>
                                     </div>
                                     <div className="text-right shrink-0">
                                       <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full block">
-                                        {c.total_purchases} {c.total_purchases === 1 ? "order" : "orders"}
+                                        {c.total_purchases}{" "}
+                                        {c.total_purchases === 1 ? "order" : "orders"}
                                       </span>
                                       {Number(c.total_spend || 0) > 0 && (
                                         <span className="text-[10px] text-muted-foreground font-semibold block mt-0.5">
@@ -3608,9 +3631,13 @@ export function POSTab() {
                                     {customerName}
                                   </p>
                                   <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-                                    {customerPhone && <span className="font-mono">{customerPhone}</span>}
+                                    {customerPhone && (
+                                      <span className="font-mono">{customerPhone}</span>
+                                    )}
                                     {customerEmail && (
-                                      <span className="truncate max-w-[140px]">({customerEmail})</span>
+                                      <span className="truncate max-w-[140px]">
+                                        ({customerEmail})
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -3684,24 +3711,28 @@ export function POSTab() {
                                             total_amount?: number;
                                             subtotal?: number;
                                           }) => (
-                                          <div
-                                            key={s.id}
-                                            className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40"
-                                          >
-                                            <span className="font-mono font-bold text-foreground">
-                                              #{s.sale_number}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                              {new Date(s.created_at).toLocaleDateString("en-IN", {
-                                                month: "short",
-                                                day: "numeric",
-                                              })}
-                                            </span>
-                                            <span className="font-black text-primary">
-                                              {formatPrice(s.total || s.total_amount || 0)}
-                                            </span>
-                                          </div>
-                                        ))}
+                                            <div
+                                              key={s.id}
+                                              className="flex items-center justify-between text-[11px] p-1.5 rounded-md bg-background border border-border/40"
+                                            >
+                                              <span className="font-mono font-bold text-foreground">
+                                                #{s.sale_number}
+                                              </span>
+                                              <span className="text-muted-foreground">
+                                                {new Date(s.created_at).toLocaleDateString(
+                                                  "en-IN",
+                                                  {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                  },
+                                                )}
+                                              </span>
+                                              <span className="font-black text-primary">
+                                                {formatPrice(s.total || s.total_amount || 0)}
+                                              </span>
+                                            </div>
+                                          ),
+                                        )}
                                       </div>
                                     </div>
                                   )}
@@ -4182,9 +4213,7 @@ export function POSTab() {
                               : "text-red-600 dark:text-red-400"
                           }`}
                         >
-                          <span>
-                            {profitCalc.profit >= 0 ? "✓ Profit" : "⚠ Loss"}
-                          </span>
+                          <span>{profitCalc.profit >= 0 ? "✓ Profit" : "⚠ Loss"}</span>
                           <span>
                             {profitCalc.profit >= 0 ? "+" : ""}
                             {formatPrice(profitCalc.profit)}
@@ -4871,7 +4900,9 @@ export function POSTab() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-foreground">
-                      Assign Customer — {sessions.find((s) => s.id === (customerModalSessionId || activeSessionId))?.session_number || "Sale Tab"}
+                      Assign Customer —{" "}
+                      {sessions.find((s) => s.id === (customerModalSessionId || activeSessionId))
+                        ?.session_number || "Sale Tab"}
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
                       Search authoritative Supabase records, create new, or bill as walk-in
@@ -4907,7 +4938,7 @@ export function POSTab() {
                       "flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all cursor-pointer",
                       customerModalTab === mode
                         ? "bg-primary text-primary-foreground shadow-2xs"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                     )}
                   >
                     <Icon className="size-3.5" />
@@ -4957,7 +4988,8 @@ export function POSTab() {
                       <div className="p-6 text-center text-muted-foreground text-xs space-y-1">
                         <p className="font-bold text-foreground">Type to search customer records</p>
                         <p className="text-[11px]">
-                          Try searching for &quot;mirza&quot;, &quot;sameer&quot;, &quot;7014098198&quot;, or &quot;kota&quot;.
+                          Try searching for &quot;mirza&quot;, &quot;sameer&quot;,
+                          &quot;7014098198&quot;, or &quot;kota&quot;.
                         </p>
                       </div>
                     )}
@@ -5004,9 +5036,7 @@ export function POSTab() {
                               key={c.id}
                               className={cn(
                                 "flex items-center justify-between gap-3 p-3 transition-colors",
-                                isCurrentlySelected
-                                  ? "bg-primary/5"
-                                  : "hover:bg-muted/40"
+                                isCurrentlySelected ? "bg-primary/5" : "hover:bg-muted/40",
                               )}
                             >
                               <div className="flex items-center gap-3 min-w-0">
@@ -5027,7 +5057,9 @@ export function POSTab() {
                                   <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground mt-0.5">
                                     {c.phone && <span className="font-mono">{c.phone}</span>}
                                     {c.city && <span>• {c.city}</span>}
-                                    {c.email && <span className="truncate max-w-[130px]">({c.email})</span>}
+                                    {c.email && (
+                                      <span className="truncate max-w-[130px]">({c.email})</span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 mt-1 text-[10px] font-semibold text-muted-foreground">
                                     <span className="bg-muted px-1.5 py-0.5 rounded">
@@ -5048,13 +5080,16 @@ export function POSTab() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  handleAssignCustomer({
-                                    id: c.id,
-                                    name: c.name,
-                                    phone: c.phone,
-                                    email: c.email || "",
-                                    city: c.city,
-                                  });
+                                  handleAssignCustomer(
+                                    {
+                                      id: c.id,
+                                      name: c.name,
+                                      phone: c.phone,
+                                      email: c.email || "",
+                                      city: c.city,
+                                    },
+                                    customerModalSessionId,
+                                  );
                                   setCreditDismissedManually(false);
                                   setIsCustomerModalOpen(false);
                                   setCustomerModalSessionId(null);
@@ -5076,7 +5111,8 @@ export function POSTab() {
                 {customerModalTab === "new" && (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Creates a permanent customer record in Supabase that is immediately available across Admin, POS, and Online Storefront.
+                      Creates a permanent customer record in Supabase that is immediately available
+                      across Admin, POS, and Online Storefront.
                     </p>
                     <div className="space-y-2">
                       <label className="text-[11px] font-bold text-foreground block">
@@ -5106,7 +5142,9 @@ export function POSTab() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-foreground block">Email (Optional)</label>
+                        <label className="text-[11px] font-bold text-foreground block">
+                          Email (Optional)
+                        </label>
                         <input
                           type="email"
                           value={customerEmail}
@@ -5117,7 +5155,9 @@ export function POSTab() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-foreground block">City (Optional)</label>
+                      <label className="text-[11px] font-bold text-foreground block">
+                        City (Optional)
+                      </label>
                       <input
                         type="text"
                         value={customerCity}
@@ -5129,7 +5169,9 @@ export function POSTab() {
                     <div className="pt-2">
                       <button
                         type="button"
-                        disabled={createCustomer.isPending || !customerName.trim() || !customerPhone.trim()}
+                        disabled={
+                          createCustomer.isPending || !customerName.trim() || !customerPhone.trim()
+                        }
                         onClick={async () => {
                           if (!customerName.trim() || !customerPhone.trim()) {
                             toast.error("Please enter both customer name and phone number");
@@ -5142,13 +5184,16 @@ export function POSTab() {
                               email: customerEmail.trim() || undefined,
                               city: customerCity.trim() || undefined,
                             });
-                            handleAssignCustomer({
-                              id: res.id,
-                              name: res.name,
-                              phone: res.phone,
-                              email: res.email || "",
-                              city: res.city,
-                            });
+                            handleAssignCustomer(
+                              {
+                                id: res.id,
+                                name: res.name,
+                                phone: res.phone,
+                                email: res.email || "",
+                                city: res.city,
+                              },
+                              customerModalSessionId,
+                            );
                             setIsCustomerModalOpen(false);
                             setCustomerModalSessionId(null);
                             toast.success(`Customer created and linked: ${res.name}`);
@@ -5158,7 +5203,9 @@ export function POSTab() {
                         }}
                         className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition shadow-sm disabled:opacity-50 cursor-pointer"
                       >
-                        {createCustomer.isPending ? "Creating in Supabase…" : "Save & Assign Customer"}
+                        {createCustomer.isPending
+                          ? "Creating in Supabase…"
+                          : "Save & Assign Customer"}
                       </button>
                     </div>
                   </div>
@@ -5171,12 +5218,13 @@ export function POSTab() {
                     </div>
                     <h4 className="font-bold text-sm text-foreground">Walk-in Customer</h4>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                      Bill without linking to an authoritative customer profile. Instant token number will be generated automatically.
+                      Bill without linking to an authoritative customer profile. Instant token
+                      number will be generated automatically.
                     </p>
                     <button
                       type="button"
                       onClick={() => {
-                        handleSetWalkin();
+                        handleSetWalkin(customerModalSessionId);
                         setIsCustomerModalOpen(false);
                         setCustomerModalSessionId(null);
                         toast.info("Active sale set to Walk-in Customer");

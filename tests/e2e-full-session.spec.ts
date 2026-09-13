@@ -72,7 +72,12 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
     await expect(page).toHaveURL(/\/admin/, { timeout: 15000 });
 
     // Verify Admin Header is present
-    await expect(page.locator("h1").filter({ hasText: /Dashboard/i }).first()).toBeVisible({
+    await expect(
+      page
+        .locator("h1")
+        .filter({ hasText: /Dashboard/i })
+        .first(),
+    ).toBeVisible({
       timeout: 20000,
     });
   });
@@ -208,7 +213,12 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
 
     // Wait for Billing Header
-    await expect(page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first()).toBeVisible({
+    await expect(
+      page
+        .locator("h1")
+        .filter({ hasText: /Offline Billing|Billing/i })
+        .first(),
+    ).toBeVisible({
       timeout: 20000,
     });
 
@@ -218,7 +228,9 @@ test.describe("Zerah Baby & Kids — Full Master End-to-End Testing Session", ()
     });
 
     // Check barcode / item search input
-    const searchInput = page.locator('input[placeholder*="Scan"], input[placeholder*="Search"]').first();
+    const searchInput = page
+      .locator('input[placeholder*="Scan"], input[placeholder*="Search"]')
+      .first();
     await expect(searchInput).toBeVisible({ timeout: 20000 });
   });
 

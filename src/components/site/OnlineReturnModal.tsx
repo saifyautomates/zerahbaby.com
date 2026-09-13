@@ -131,7 +131,10 @@ export function OnlineReturnModal({ order, onClose }: OnlineReturnModalProps) {
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="mt-4 sm:mt-5 space-y-6 overflow-y-auto pr-1 flex-1 min-h-0">
+        <form
+          onSubmit={handleSubmit}
+          className="mt-4 sm:mt-5 space-y-6 overflow-y-auto pr-1 flex-1 min-h-0"
+        >
           {/* Item Selection Section */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-foreground mb-2.5">

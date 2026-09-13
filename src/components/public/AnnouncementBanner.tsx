@@ -64,14 +64,26 @@ export function AnnouncementBanner() {
         <div className="group relative w-full overflow-hidden whitespace-nowrap">
           <div className="announce-marquee group-hover:announce-marquee-pause whitespace-nowrap flex items-center">
             <span className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-bold uppercase tracking-wider whitespace-nowrap leading-none text-white">
-              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              <Sparkle
+                className="size-2.5 shrink-0 announce-gold-text text-amber-300"
+                aria-hidden="true"
+              />
               {text}
-              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              <Sparkle
+                className="size-2.5 shrink-0 announce-gold-text text-amber-300"
+                aria-hidden="true"
+              />
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 font-display text-[10px] font-bold uppercase tracking-wider whitespace-nowrap leading-none text-white">
-              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              <Sparkle
+                className="size-2.5 shrink-0 announce-gold-text text-amber-300"
+                aria-hidden="true"
+              />
               {text}
-              <Sparkle className="size-2.5 shrink-0 announce-gold-text text-amber-300" aria-hidden="true" />
+              <Sparkle
+                className="size-2.5 shrink-0 announce-gold-text text-amber-300"
+                aria-hidden="true"
+              />
             </span>
           </div>
         </div>

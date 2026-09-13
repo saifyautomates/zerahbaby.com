@@ -58,9 +58,15 @@ export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
     meta: [
       { title: "Your Orders — Zérah Baby & Kids" },
-      { name: "description", content: "Track, manage, reorder, and review your Zérah Baby & Kids purchases." },
+      {
+        name: "description",
+        content: "Track, manage, reorder, and review your Zérah Baby & Kids purchases.",
+      },
       { property: "og:title", content: "Your Orders — Zérah Baby & Kids" },
-      { property: "og:description", content: "Track your orders, view invoices, and manage returns." },
+      {
+        property: "og:description",
+        content: "Track your orders, view invoices, and manage returns.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex, nofollow" },
@@ -236,10 +242,7 @@ function OrdersPage() {
           (it.name || it.product_slug || "").toLowerCase().includes(q),
         );
         return (
-          orderNum.includes(q) ||
-          invoiceNum.includes(q) ||
-          customerName.includes(q) ||
-          itemMatch
+          orderNum.includes(q) || invoiceNum.includes(q) || customerName.includes(q) || itemMatch
         );
       });
     }
@@ -250,20 +253,17 @@ function OrdersPage() {
   const handleBuyAgain = useCallback(
     (productSlug: string, variantId?: string | null, productName?: string) => {
       addToCart(productSlug, 1, variantId || undefined);
-      toast.success(
-        `Added “${productName || "Item"}” to bag!`,
-        {
-          description: "Ready to checkout whenever you are.",
-          action: {
-            label: "View Bag",
-            onClick: () => {
-              if (typeof window !== "undefined") {
-                window.location.href = "/cart";
-              }
-            },
+      toast.success(`Added “${productName || "Item"}” to bag!`, {
+        description: "Ready to checkout whenever you are.",
+        action: {
+          label: "View Bag",
+          onClick: () => {
+            if (typeof window !== "undefined") {
+              window.location.href = "/cart";
+            }
           },
         },
-      );
+      });
     },
     [addToCart],
   );
@@ -278,9 +278,13 @@ function OrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/80">
         <div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-            <Link to="/" className="hover:text-foreground transition">Home</Link>
+            <Link to="/" className="hover:text-foreground transition">
+              Home
+            </Link>
             <span>/</span>
-            <Link to="/profile" className="hover:text-foreground transition">Your Account</Link>
+            <Link to="/profile" className="hover:text-foreground transition">
+              Your Account
+            </Link>
             <span>/</span>
             <span className="text-foreground font-semibold">Your Orders</span>
           </div>
@@ -301,7 +305,9 @@ function OrdersPage() {
             aria-label="Refresh orders"
             className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background hover:bg-muted px-3.5 py-1.5 text-xs font-semibold text-foreground transition shadow-2xs cursor-pointer disabled:opacity-60"
           >
-            <RefreshCw className={`size-3.5 text-muted-foreground ${isRefetching ? "animate-spin text-primary" : ""}`} />
+            <RefreshCw
+              className={`size-3.5 text-muted-foreground ${isRefetching ? "animate-spin text-primary" : ""}`}
+            />
             <span>{isRefetching ? "Updating…" : "Refresh"}</span>
           </button>
         </div>
@@ -323,7 +329,9 @@ function OrdersPage() {
             <span>All Orders</span>
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                activeTab === "all" ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
+                activeTab === "all"
+                  ? "bg-background/20 text-background"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {tabCounts.all}
@@ -343,7 +351,9 @@ function OrdersPage() {
             {tabCounts.active > 0 && (
               <span
                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                  activeTab === "active" ? "bg-amber-400 text-stone-900" : "bg-amber-100 text-amber-800"
+                  activeTab === "active"
+                    ? "bg-amber-400 text-stone-900"
+                    : "bg-amber-100 text-amber-800"
                 }`}
               >
                 {tabCounts.active}
@@ -363,7 +373,9 @@ function OrdersPage() {
             <span>Delivered</span>
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                activeTab === "delivered" ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
+                activeTab === "delivered"
+                  ? "bg-background/20 text-background"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {tabCounts.delivered}
@@ -383,7 +395,9 @@ function OrdersPage() {
             {tabCounts.cancelled > 0 && (
               <span
                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                  activeTab === "cancelled" ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
+                  activeTab === "cancelled"
+                    ? "bg-background/20 text-background"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 {tabCounts.cancelled}
@@ -420,9 +434,12 @@ function OrdersPage() {
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
             <ShoppingBag className="size-8 stroke-[1.5]" />
           </div>
-          <h2 className="font-display text-xl font-bold text-foreground">You haven't placed an order yet</h2>
+          <h2 className="font-display text-xl font-bold text-foreground">
+            You haven't placed an order yet
+          </h2>
           <p className="mt-1.5 text-sm text-muted-foreground max-w-md mx-auto">
-            When you purchase handcrafted baby essentials, clothing, or nursery gear, your tracking and order history will appear here.
+            When you purchase handcrafted baby essentials, clothing, or nursery gear, your tracking
+            and order history will appear here.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -439,7 +456,9 @@ function OrdersPage() {
           <p className="text-sm font-semibold text-foreground">
             No orders found {searchQuery ? `matching “${searchQuery}”` : "in this category"}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Try searching for a different product name or order ID.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try searching for a different product name or order ID.
+          </p>
           <button
             type="button"
             onClick={() => {
@@ -528,7 +547,13 @@ interface OrderCardProps {
   onReturn: () => void;
   onViewReturn: (ret: OnlineReturn) => void;
   onOpenBox: () => void;
-  onReview: (product: { id: string; uuid: string; name: string; image?: string; brand?: string }) => void;
+  onReview: (product: {
+    id: string;
+    uuid: string;
+    name: string;
+    image?: string;
+    brand?: string;
+  }) => void;
 }
 
 function OrderCard({
@@ -597,7 +622,9 @@ function OrderCard({
             <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
               Total
             </span>
-            <span className="font-bold text-foreground text-xs">{formatPrice(Number(order.total))}</span>
+            <span className="font-bold text-foreground text-xs">
+              {formatPrice(Number(order.total))}
+            </span>
           </div>
 
           {/* Ship To with Popover */}
@@ -610,7 +637,9 @@ function OrderCard({
               onClick={() => setOpenAddressId(isAddressOpen ? null : order.id)}
               className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer focus:outline-none"
             >
-              <span className="truncate max-w-[130px] sm:max-w-[180px]">{order.full_name || "Customer"}</span>
+              <span className="truncate max-w-[130px] sm:max-w-[180px]">
+                {order.full_name || "Customer"}
+              </span>
               <ChevronDown className="size-3 text-muted-foreground" />
             </button>
 
@@ -723,27 +752,27 @@ function OrderCard({
                 {isDelivered
                   ? "Delivered"
                   : isCancelled
-                  ? "Cancelled"
-                  : order.status === "out_for_delivery"
-                  ? "Out for Delivery Today"
-                  : isShipped
-                  ? `Shipped ${order.courier_name ? `via ${order.courier_name}` : ""}`
-                  : "Order Confirmed & Processing"}
+                    ? "Cancelled"
+                    : order.status === "out_for_delivery"
+                      ? "Out for Delivery Today"
+                      : isShipped
+                        ? `Shipped ${order.courier_name ? `via ${order.courier_name}` : ""}`
+                        : "Order Confirmed & Processing"}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {isDelivered
                   ? "Package was delivered directly to your delivery address."
                   : isCancelled
-                  ? order.cancellation_reason
-                    ? `Reason: “${order.cancellation_reason}”`
-                    : "This order was cancelled."
-                  : order.status === "out_for_delivery"
-                  ? "Our delivery executive will contact you for drop-off."
-                  : isShipped
-                  ? order.awb_code
-                    ? `Tracking No: ${order.awb_code}`
-                    : "In transit with courier partner."
-                  : "Estimated delivery within 3–5 business days across India."}
+                    ? order.cancellation_reason
+                      ? `Reason: “${order.cancellation_reason}”`
+                      : "This order was cancelled."
+                    : order.status === "out_for_delivery"
+                      ? "Our delivery executive will contact you for drop-off."
+                      : isShipped
+                        ? order.awb_code
+                          ? `Tracking No: ${order.awb_code}`
+                          : "In transit with courier partner."
+                        : "Estimated delivery within 3–5 business days across India."}
               </p>
             </div>
           </div>
@@ -811,8 +840,8 @@ function OrderCard({
                         isCurrent
                           ? "text-primary font-bold"
                           : isPassed
-                          ? "text-foreground"
-                          : "text-muted-foreground/70"
+                            ? "text-foreground"
+                            : "text-muted-foreground/70"
                       }`}
                     >
                       {step.label}
@@ -831,7 +860,8 @@ function OrderCard({
               <AlertTriangle className="size-3.5" />
               <span>
                 Order Cancelled
-                {order.cancelled_at && ` on ${new Date(order.cancelled_at).toLocaleDateString("en-IN")}`}
+                {order.cancelled_at &&
+                  ` on ${new Date(order.cancelled_at).toLocaleDateString("en-IN")}`}
               </span>
             </p>
             {(order.payment_status === "paid" || order.payment_status === "refunded") && (
@@ -854,7 +884,8 @@ function OrderCard({
               <div>
                 <p className="font-bold">Open Box Delivery Active</p>
                 <p className="text-[11px] text-indigo-800/90 dark:text-indigo-300">
-                  Inspect your item inside the box alongside the delivery executive before verifying OTP.
+                  Inspect your item inside the box alongside the delivery executive before verifying
+                  OTP.
                 </p>
               </div>
             </div>
@@ -886,11 +917,14 @@ function OrderCard({
                 <RotateCcw className="size-4 text-amber-800 dark:text-amber-300 shrink-0" />
                 <div>
                   <span className="font-bold text-foreground">Return #{ret.return_number}</span>
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold border ${rBadge.bg} ${rBadge.text} ${rBadge.border}`}>
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold border ${rBadge.bg} ${rBadge.text} ${rBadge.border}`}
+                  >
                     {rBadge.label}
                   </span>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {ret.reason_label} · Refund: <strong>{formatPrice(Number(ret.final_refund_amount))}</strong>
+                    {ret.reason_label} · Refund:{" "}
+                    <strong>{formatPrice(Number(ret.final_refund_amount))}</strong>
                   </p>
                 </div>
               </div>
@@ -1099,11 +1133,11 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
   const awb = order.awb_code;
   const courier = order.courier_name || "Shiprocket Express";
 
-  const trackingUrl = awb
-    ? `https://shiprocket.co/tracking/${awb}`
-    : undefined;
+  const trackingUrl = awb ? `https://shiprocket.co/tracking/${awb}` : undefined;
 
-  const scans = Array.isArray(order.shipping_tracking_history) ? order.shipping_tracking_history : [];
+  const scans = Array.isArray(order.shipping_tracking_history)
+    ? order.shipping_tracking_history
+    : [];
 
   const modalContent = (
     <div
@@ -1118,9 +1152,7 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
               <Truck className="size-3.5" />
               <span>Live Shipment Tracking</span>
             </div>
-            <h2 className="font-display text-lg font-bold text-foreground">
-              Order #{orderNum}
-            </h2>
+            <h2 className="font-display text-lg font-bold text-foreground">Order #{orderNum}</h2>
             <p className="text-xs text-muted-foreground">
               Courier: <strong className="text-foreground">{courier}</strong>
               {awb && ` · Tracking No: ${awb}`}
@@ -1160,7 +1192,11 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
                     <div>
                       <p
                         className={`text-xs font-semibold ${
-                          isCurrent ? "text-primary font-bold" : isPassed ? "text-foreground" : "text-muted-foreground"
+                          isCurrent
+                            ? "text-primary font-bold"
+                            : isPassed
+                              ? "text-foreground"
+                              : "text-muted-foreground"
                         }`}
                       >
                         {step.label}
@@ -1169,10 +1205,10 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
                         {idx === 0
                           ? `Placed on ${new Date(order.created_at).toLocaleString("en-IN")}`
                           : idx === 2 && awb
-                          ? `Handed over to ${courier}`
-                          : idx === 3 && order.status === "delivered"
-                          ? "Delivered successfully"
-                          : "Pending fulfillment"}
+                            ? `Handed over to ${courier}`
+                            : idx === 3 && order.status === "delivered"
+                              ? "Delivered successfully"
+                              : "Pending fulfillment"}
                       </p>
                     </div>
                   </div>
@@ -1186,7 +1222,9 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
             <div className="rounded-2xl border border-border/80 bg-muted/10 p-4 space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span>Courier Checkpoints</span>
-                <span className="text-[10px] font-mono text-muted-foreground">{scans.length} events</span>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {scans.length} events
+                </span>
               </h3>
               <div className="relative pl-5 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
                 {scans.map((scan: any, i: number) => (
@@ -1236,8 +1274,12 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
               <MapPin className="size-3.5 text-primary" />
               <span>Delivering To</span>
             </p>
-            <p>{order.full_name} · {order.phone}</p>
-            <p className="truncate">{order.address}, {order.city}, {order.state} – {order.pincode}</p>
+            <p>
+              {order.full_name} · {order.phone}
+            </p>
+            <p className="truncate">
+              {order.address}, {order.city}, {order.state} – {order.pincode}
+            </p>
           </div>
         </div>
 
@@ -1299,7 +1341,8 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <h2 id="cancel-modal-title" className="font-display text-xl font-bold text-foreground">
-              Cancel Order #{order.order_number || order.invoice_no || order.id.slice(0, 8).toUpperCase()}
+              Cancel Order #
+              {order.order_number || order.invoice_no || order.id.slice(0, 8).toUpperCase()}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Orders can be cancelled before shipment. Items will be returned to store stock.
@@ -1361,7 +1404,8 @@ function CancelOrderModal({ order, onClose }: { order: Order; onClose: () => voi
           {order.payment_status === "paid" && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               <strong>Refund Notice:</strong> Since this order was paid online, your full payment of{" "}
-              {formatPrice(Number(order.total))} will be automatically refunded to your original payment method within 5–7 business days.
+              {formatPrice(Number(order.total))} will be automatically refunded to your original
+              payment method within 5–7 business days.
             </div>
           )}
 

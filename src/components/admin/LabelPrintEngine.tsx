@@ -120,8 +120,8 @@ function SingleStickerPreview({
       </p>
 
       {/* Row 2: Product Name & Prices */}
-      {labelType !== "barcode-only" && (
-        separatePriceLine && (showMrp || showSellPrice) ? (
+      {labelType !== "barcode-only" &&
+        (separatePriceLine && (showMrp || showSellPrice) ? (
           <>
             {/* Standalone Product Name */}
             <p
@@ -213,8 +213,7 @@ function SingleStickerPreview({
               )}
             </div>
           </div>
-        )
-      )}
+        ))}
 
       {/* Row 3: Barcode with numbers */}
       <div className="w-full flex-1 flex justify-center items-center overflow-hidden shrink-0 my-0.5">
@@ -235,10 +234,7 @@ function SingleStickerPreview({
 
       {/* Row 4: SKU & Size Bottom */}
       <div className="flex items-baseline justify-between w-full overflow-hidden text-gray-700 font-bold shrink-0 leading-none">
-        <span
-          className="truncate"
-          style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-        >
+        <span className="truncate" style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}>
           {artNoVal && artNoVal !== skuVal ? `Art: ${artNoVal} • ` : ""}SKU: {skuVal}
         </span>
         {sizeVal && (

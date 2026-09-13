@@ -493,12 +493,19 @@ Deno.serve(async (req) => {
       const targetPhones = extractIndianPhoneNumbers(rawTargetPhones);
       if (targetPhones.length === 0) {
         return new Response(
-          JSON.stringify({ success: false, error: "No valid 10-digit Indian phone numbers found in input." }),
+          JSON.stringify({
+            success: false,
+            error: "No valid 10-digit Indian phone numbers found in input.",
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
         );
       }
 
-      const templateKey = payload.template_key || (payload.event_type === "offline_pos_sale" ? "offline_pos_sale_owner" : "online_sale_owner");
+      const templateKey =
+        payload.template_key ||
+        (payload.event_type === "offline_pos_sale"
+          ? "offline_pos_sale_owner"
+          : "online_sale_owner");
       const config = TEMPLATE_CONFIG[templateKey] || TEMPLATE_CONFIG.online_sale_owner;
       const templateId = (Deno.env.get(config.secretKey) || "").trim() || config.templateId || "";
 
@@ -527,10 +534,12 @@ Deno.serve(async (req) => {
           providerMsgId = result.providerMsgId;
         }
 
-        const finalStatus = providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
-        const messagePreview = typeof config.formatPreview === "function"
-          ? config.formatPreview(templateVars as Record<string, string>)
-          : `[${config.templateName || templateKey}]`;
+        const finalStatus =
+          providerStatus === "sent" || providerStatus === "mock_success" ? "SENT" : "FAILED";
+        const messagePreview =
+          typeof config.formatPreview === "function"
+            ? config.formatPreview(templateVars as Record<string, string>)
+            : `[${config.templateName || templateKey}]`;
 
         await adminClient.from("sms_logs").insert({
           phone: cleanPhone,
@@ -887,12 +896,7 @@ Deno.serve(async (req) => {
     }
 
     // B. Owner SMS - fires for online_sale, offline_pos_sale, order_delivered, and order_cancelled
-    const ownerEvents = [
-      "online_sale",
-      "offline_pos_sale",
-      "order_delivered",
-      "order_cancelled",
-    ];
+    const ownerEvents = ["online_sale", "offline_pos_sale", "order_delivered", "order_cancelled"];
     if (notify_owner && ownerEvents.includes(currentEventType)) {
       const { data: ownerSetting } = await adminClient
         .from("site_settings")

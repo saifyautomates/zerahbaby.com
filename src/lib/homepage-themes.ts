@@ -21,13 +21,7 @@ export type ThemePresetId =
 
 export type CardStyle = "default" | "minimal" | "premium" | "festive";
 
-export type PatternOverlay =
-  | "none"
-  | "sparkles"
-  | "dots"
-  | "stars"
-  | "mandala"
-  | "confetti";
+export type PatternOverlay = "none" | "sparkles" | "dots" | "stars" | "mandala" | "confetti";
 
 export type SpacingVariant = "compact" | "normal" | "spacious";
 
@@ -360,7 +354,8 @@ export const CAMPAIGN_PRESETS: CampaignPreset[] = [
     id: "clearance",
     name: "Clearance Sale",
     suggestedTitle: "Clearance & Mega Deals",
-    suggestedSubtitle: "Unbeatable prices on last-chance favorites — grab them before they are gone",
+    suggestedSubtitle:
+      "Unbeatable prices on last-chance favorites — grab them before they are gone",
     badge: "🔥 FLAT 40% OFF",
     themePreset: "SALE",
     cardStyle: "default",
@@ -397,20 +392,30 @@ export function resolveSectionTheme(
   presetId?: ThemePresetId | null,
   customConfig?: ThemeConfig | null,
 ) {
-  const presetKey = (presetId && THEME_PRESETS[presetId]) ? presetId : "DEFAULT";
+  const presetKey = presetId && THEME_PRESETS[presetId] ? presetId : "DEFAULT";
   const preset = THEME_PRESETS[presetKey];
   const conf = customConfig || {};
 
   const bgColor = isValidSafeColor(conf.bg_color) ? conf.bg_color! : preset.defaults.bg_color;
   const bgGradient = conf.bg_gradient || preset.defaults.bg_gradient || "";
-  const headingColor = isValidSafeColor(conf.heading_color) ? conf.heading_color! : preset.defaults.heading_color;
-  const textColor = isValidSafeColor(conf.text_color) ? conf.text_color! : preset.defaults.text_color;
-  const accentColor = isValidSafeColor(conf.accent_color) ? conf.accent_color! : preset.defaults.accent_color;
-  const borderColor = isValidSafeColor(conf.border_color) ? conf.border_color! : preset.defaults.border_color;
+  const headingColor = isValidSafeColor(conf.heading_color)
+    ? conf.heading_color!
+    : preset.defaults.heading_color;
+  const textColor = isValidSafeColor(conf.text_color)
+    ? conf.text_color!
+    : preset.defaults.text_color;
+  const accentColor = isValidSafeColor(conf.accent_color)
+    ? conf.accent_color!
+    : preset.defaults.accent_color;
+  const borderColor = isValidSafeColor(conf.border_color)
+    ? conf.border_color!
+    : preset.defaults.border_color;
   const ctaBg = isValidSafeColor(conf.cta_bg) ? conf.cta_bg! : preset.defaults.cta_bg;
   const ctaText = isValidSafeColor(conf.cta_text) ? conf.cta_text! : preset.defaults.cta_text;
   const badgeBg = isValidSafeColor(conf.badge_bg) ? conf.badge_bg! : preset.defaults.badge_bg;
-  const badgeTextColor = isValidSafeColor(conf.badge_text_color) ? conf.badge_text_color! : preset.defaults.badge_text_color;
+  const badgeTextColor = isValidSafeColor(conf.badge_text_color)
+    ? conf.badge_text_color!
+    : preset.defaults.badge_text_color;
   const cardStyle = conf.card_style || preset.defaults.card_style;
   const patternOverlay = conf.pattern_overlay || preset.defaults.pattern_overlay;
 

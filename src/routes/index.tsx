@@ -38,10 +38,7 @@ import {
   getSectionScheduleStatus,
   type HomepageSection,
 } from "@/lib/homepage-sections";
-import {
-  resolveSectionTheme,
-  getPatternSvgDataUrl,
-} from "@/lib/homepage-themes";
+import { resolveSectionTheme, getPatternSvgDataUrl } from "@/lib/homepage-themes";
 import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -144,6 +141,11 @@ function HomepageSectionItemInner({
     return matched.length > 0 ? matched : sectionProducts;
   }, [sectionProducts, selectedAge]);
 
+  const patternSvg = useMemo(
+    () => getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor),
+    [resolvedTheme.patternOverlay, resolvedTheme.accentColor],
+  );
+
   // On customer storefront, omit hidden/inactive sections or sections with no products
   if (!adminMode) {
     if (isHidden || scheduleStatus === "upcoming" || scheduleStatus === "expired") {
@@ -154,11 +156,6 @@ function HomepageSectionItemInner({
     }
   }
 
-  const patternSvg = useMemo(
-    () => getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor),
-    [resolvedTheme.patternOverlay, resolvedTheme.accentColor],
-  );
-
   const spacingClass =
     section.spacing === "compact"
       ? "py-8 sm:py-10"
@@ -168,7 +165,11 @@ function HomepageSectionItemInner({
 
   const isCustomTheme =
     section.theme_preset !== "DEFAULT" ||
-    Boolean(resolvedTheme.bgGradient || section.theme_config?.bg_color || resolvedTheme.backgroundImageUrl);
+    Boolean(
+      resolvedTheme.bgGradient ||
+      section.theme_config?.bg_color ||
+      resolvedTheme.backgroundImageUrl,
+    );
 
   const ageGroups = ["All", "0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y"];
 
@@ -214,7 +215,8 @@ function HomepageSectionItemInner({
             )}
             {scheduleStatus === "upcoming" && (
               <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300 px-3 py-1 text-[11px] font-bold">
-                <Clock className="size-3" /> Scheduled (Starts: {new Date(section.starts_at!).toLocaleDateString()})
+                <Clock className="size-3" /> Scheduled (Starts:{" "}
+                {new Date(section.starts_at!).toLocaleDateString()})
               </div>
             )}
             {scheduleStatus === "expired" && (
@@ -325,11 +327,7 @@ function HomepageSectionItemInner({
         ) : (
           <div className="mt-2 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
             {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                cardStyle={resolvedTheme.cardStyle}
-              />
+              <ProductCard key={product.id} product={product} cardStyle={resolvedTheme.cardStyle} />
             ))}
           </div>
         )}
@@ -626,10 +624,27 @@ function Index() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: Baby, age: "0-6m", color: "text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50" },
-              { icon: Baby, age: "6-12m", color: "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50" },
-              { icon: Baby, age: "12-24m", color: "text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50" },
-              { icon: Baby, age: "2-4y", color: "text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50" },
+              {
+                icon: Baby,
+                age: "0-6m",
+                color: "text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50",
+              },
+              {
+                icon: Baby,
+                age: "6-12m",
+                color:
+                  "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50",
+              },
+              {
+                icon: Baby,
+                age: "12-24m",
+                color: "text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50",
+              },
+              {
+                icon: Baby,
+                age: "2-4y",
+                color: "text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50",
+              },
             ].map((a) => (
               <Link
                 key={a.age}
@@ -701,7 +716,8 @@ function Index() {
                   Homepage Section Manager (Admin Mode Active)
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Customize titles, subtitles, curated products, and layout directly on the live store.
+                  Customize titles, subtitles, curated products, and layout directly on the live
+                  store.
                 </p>
               </div>
             </div>

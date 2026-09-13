@@ -101,9 +101,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
   );
 
   // Theme & Appearance
-  const [themePreset, setThemePreset] = useState<ThemePresetId>(
-    section?.theme_preset || "DEFAULT",
-  );
+  const [themePreset, setThemePreset] = useState<ThemePresetId>(section?.theme_preset || "DEFAULT");
   const [cardStyle, setCardStyle] = useState<CardStyle>(
     section?.theme_config?.card_style || "default",
   );
@@ -370,10 +368,7 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
     }
   };
 
-  const patternSvg = getPatternSvgDataUrl(
-    resolvedTheme.patternOverlay,
-    resolvedTheme.accentColor,
-  );
+  const patternSvg = getPatternSvgDataUrl(resolvedTheme.patternOverlay, resolvedTheme.accentColor);
 
   const modalContent = (
     <div
@@ -395,7 +390,10 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                 <Palette className="h-4 w-4" />
               </span>
-              <h2 id="section-editor-title" className="text-base sm:text-lg font-bold text-foreground truncate">
+              <h2
+                id="section-editor-title"
+                className="text-base sm:text-lg font-bold text-foreground truncate"
+              >
                 {isEditing ? `Edit Section: ${section?.title}` : "Create Advanced Homepage Section"}
               </h2>
             </div>
@@ -469,7 +467,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
             }`}
           >
             <Calendar className="h-3.5 w-3.5" />
-            Scheduling {enableSchedule && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+            Scheduling{" "}
+            {enableSchedule && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
           </button>
           <button
             onClick={() => setActiveTab("preview")}
@@ -600,8 +599,12 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                     className="h-4 w-4 rounded text-primary focus-ring"
                   />
                   <div>
-                    <span className="text-sm font-semibold text-foreground">Visible on Storefront</span>
-                    <p className="text-xs text-muted-foreground">If unchecked, hidden from public customers</p>
+                    <span className="text-sm font-semibold text-foreground">
+                      Visible on Storefront
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      If unchecked, hidden from public customers
+                    </p>
                   </div>
                 </label>
 
@@ -630,7 +633,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                     <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                     Festival & Campaign Quick Templates
                   </label>
-                  <span className="text-[11px] text-muted-foreground">Click to apply full theme, title & badges</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Click to apply full theme, title & badges
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-2.5">
                   {CAMPAIGN_PRESETS.map((camp) => (
@@ -776,7 +781,11 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     4. Optional Custom Color Overrides
                   </label>
-                  {(customBgColor || customHeadingColor || customTextColor || customAccentColor || customCtaBg) && (
+                  {(customBgColor ||
+                    customHeadingColor ||
+                    customTextColor ||
+                    customAccentColor ||
+                    customCtaBg) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -925,7 +934,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                       onChange={(e) => setBgImageOpacity(parseFloat(e.target.value))}
                       className="w-20"
                     />
-                    <span className="text-xs font-mono w-8">{Math.round(bgImageOpacity * 100)}%</span>
+                    <span className="text-xs font-mono w-8">
+                      {Math.round(bgImageOpacity * 100)}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -945,7 +956,11 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                     { id: "MANUAL", label: "Manual Handpick", desc: "Curate specific products" },
                     { id: "BESTSELLERS", label: "Bestsellers", desc: "Top rated catalog items" },
                     { id: "NEW_ARRIVALS", label: "New Arrivals", desc: "Latest additions" },
-                    { id: "DISCOUNTED", label: "Deals & Offers", desc: "Items with active discount" },
+                    {
+                      id: "DISCOUNTED",
+                      label: "Deals & Offers",
+                      desc: "Items with active discount",
+                    },
                     { id: "CATEGORY", label: "Category Filter", desc: "Filter by single category" },
                   ].map((s) => (
                     <button
@@ -1023,7 +1038,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                                 className="h-8 w-8 rounded-md object-cover bg-muted shrink-0"
                               />
                               <div className="truncate text-left">
-                                <div className="text-xs font-semibold text-foreground truncate">{p.name}</div>
+                                <div className="text-xs font-semibold text-foreground truncate">
+                                  {p.name}
+                                </div>
                                 <div className="text-[10px] text-muted-foreground">
                                   {formatPrice(p.price)} · Stock: {p.stock}
                                 </div>
@@ -1080,7 +1097,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                                 className="h-9 w-9 rounded-lg object-cover bg-muted shrink-0"
                               />
                               <div className="truncate">
-                                <div className="text-xs font-bold text-foreground truncate">{p.name}</div>
+                                <div className="text-xs font-bold text-foreground truncate">
+                                  {p.name}
+                                </div>
                                 <div className="text-[11px] text-muted-foreground">
                                   {formatPrice(p.price)} · SKU: {p.sku}
                                 </div>
@@ -1127,7 +1146,8 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
             <div className="space-y-5 max-w-2xl">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                  Maximum Products Displayed: <span className="font-mono text-primary font-bold">{maxProducts}</span>
+                  Maximum Products Displayed:{" "}
+                  <span className="font-mono text-primary font-bold">{maxProducts}</span>
                 </label>
                 <input
                   type="range"
@@ -1153,7 +1173,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                     onChange={(e) => setShowSubtitle(e.target.checked)}
                     className="h-4 w-4 rounded text-primary focus-ring"
                   />
-                  <span className="text-sm font-medium text-foreground">Render Subtitle on Storefront</span>
+                  <span className="text-sm font-medium text-foreground">
+                    Render Subtitle on Storefront
+                  </span>
                 </label>
 
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -1163,7 +1185,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                     onChange={(e) => setShowCta(e.target.checked)}
                     className="h-4 w-4 rounded text-primary focus-ring"
                   />
-                  <span className="text-sm font-medium text-foreground">Render CTA Button ("View all")</span>
+                  <span className="text-sm font-medium text-foreground">
+                    Render CTA Button ("View all")
+                  </span>
                 </label>
 
                 {showCta && (
@@ -1209,9 +1233,12 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                   className="h-5 w-5 rounded text-primary focus-ring"
                 />
                 <div>
-                  <span className="text-sm font-bold text-foreground">Enable Automated Campaign Scheduling</span>
+                  <span className="text-sm font-bold text-foreground">
+                    Enable Automated Campaign Scheduling
+                  </span>
                   <p className="text-xs text-muted-foreground">
-                    Section automatically appears and vanishes according to configured start & end timestamps.
+                    Section automatically appears and vanishes according to configured start & end
+                    timestamps.
                   </p>
                 </div>
               </label>
@@ -1228,7 +1255,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                       onChange={(e) => setStartsAt(e.target.value)}
                       className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-ring"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">Leave empty to activate immediately</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Leave empty to activate immediately
+                    </p>
                   </div>
 
                   <div>
@@ -1241,7 +1270,9 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                       onChange={(e) => setEndsAt(e.target.value)}
                       className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-ring"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">Leave empty for no automatic expiry</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Leave empty for no automatic expiry
+                    </p>
                   </div>
                 </div>
               )}
@@ -1261,7 +1292,11 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
               {/* Preview Container */}
               <div
                 className={`relative rounded-3xl border border-border/80 overflow-hidden transition-all duration-300 p-6 sm:p-8 ${
-                  spacing === "compact" ? "py-6 sm:py-8" : spacing === "spacious" ? "py-12 sm:py-16" : "py-8 sm:py-10"
+                  spacing === "compact"
+                    ? "py-6 sm:py-8"
+                    : spacing === "spacious"
+                      ? "py-12 sm:py-16"
+                      : "py-8 sm:py-10"
                 }`}
                 style={resolvedTheme.containerStyle}
               >

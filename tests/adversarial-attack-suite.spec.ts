@@ -14,7 +14,11 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
   let activeProductSlug = "cord";
 
   test.beforeAll(async () => {
-    const { data } = await anonClient.from("products").select("slug").eq("is_active", true).limit(1);
+    const { data } = await anonClient
+      .from("products")
+      .select("slug")
+      .eq("is_active", true)
+      .limit(1);
     if (data && data.length > 0 && data[0].slug) {
       activeProductSlug = data[0].slug;
     }

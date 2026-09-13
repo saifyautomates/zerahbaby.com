@@ -63,7 +63,10 @@ function formatShiprocketBadgeStatus(status: string | null | undefined): string 
   if (s === "DELIVERED") return "Delivered";
   if (s === "CANCELLED" || s === "CANCELED") return "Courier Cancelled";
   if (s === "RTO_INITIATED") return "Return to Origin";
-  return s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  return s
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function OnlineSalesTab() {
@@ -413,7 +416,9 @@ export function OnlineSalesTab() {
                   p_reason: reasonText,
                   p_reference_type: "order",
                 });
-              } catch {}
+              } catch {
+                // Stock restoration already handled or non-critical
+              }
             }
           } catch {
             await supabase
@@ -509,10 +514,14 @@ export function OnlineSalesTab() {
                     p_reason: "Direct delete restock",
                     p_reference_type: "order",
                   });
-                } catch {}
+                } catch {
+                  // Stock restoration best-effort
+                }
                 try {
                   await (supabase.from as any)("shipping_events").delete().eq("order_id", id);
-                } catch {}
+                } catch {
+                  // shipping_events table optional
+                }
                 await supabase.from("coupon_usage").delete().eq("order_id", id);
                 await supabase.from("order_items").delete().eq("order_id", id);
                 await supabase.from("order_status_history").delete().eq("order_id", id);
@@ -843,17 +852,19 @@ export function OnlineSalesTab() {
               </button>
 
               {/* If on Cancelled tab, offer Delete All Cancelled */}
-              {filter === "cancelled" && cancelledOrdersCount > 0 && selection.selectedCount === 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenDeleteModal("all_cancelled")}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs"
-                  title="Permanently delete all cancelled orders in database"
-                >
-                  <Trash2 className="size-3.5" />
-                  <span>Delete All Cancelled ({cancelledOrdersCount})</span>
-                </button>
-              )}
+              {filter === "cancelled" &&
+                cancelledOrdersCount > 0 &&
+                selection.selectedCount === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenDeleteModal("all_cancelled")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer shadow-2xs"
+                    title="Permanently delete all cancelled orders in database"
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span>Delete All Cancelled ({cancelledOrdersCount})</span>
+                  </button>
+                )}
             </div>
           )}
 
@@ -1217,7 +1228,8 @@ export function OnlineSalesTab() {
                   {order._type === "online" && (
                     <div className="mt-3.5 border-t border-border/50 pt-3 flex flex-col gap-2">
                       {!order.shiprocket_order_id ? (
-                        (order.payment_status === "paid" || order.payment_method?.toLowerCase() === "cod") &&
+                        (order.payment_status === "paid" ||
+                          order.payment_method?.toLowerCase() === "cod") &&
                         order.status !== "cancelled" && (
                           <button
                             type="button"
@@ -1225,7 +1237,8 @@ export function OnlineSalesTab() {
                             disabled={createShipment.isPending || order.status === "cancelled"}
                             className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 hover:border-indigo-300 shadow-xs disabled:opacity-50 cursor-pointer"
                           >
-                            {createShipment.isPending && (createShipment.variables as any) === order.id ? (
+                            {createShipment.isPending &&
+                            (createShipment.variables as any) === order.id ? (
                               <Loader2 className="size-3.5 animate-spin" />
                             ) : (
                               <PackageCheck className="size-3.5" />
@@ -1270,7 +1283,8 @@ export function OnlineSalesTab() {
                                 disabled={generateAwb.isPending}
                                 className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-xs disabled:opacity-60 cursor-pointer"
                               >
-                                {generateAwb.isPending && (generateAwb.variables as any) === order.id ? (
+                                {generateAwb.isPending &&
+                                (generateAwb.variables as any) === order.id ? (
                                   <Loader2 className="size-3 animate-spin" />
                                 ) : (
                                   <Send className="size-3" />
@@ -1284,16 +1298,24 @@ export function OnlineSalesTab() {
                                   type="button"
                                   onClick={() => {
                                     if (order.shiprocket_label_url) {
-                                      window.open(order.shiprocket_label_url, "_blank", "noopener,noreferrer");
+                                      window.open(
+                                        order.shiprocket_label_url,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                      );
                                     } else {
                                       generateLabel.mutate(order.id);
                                     }
                                   }}
-                                  disabled={generateLabel.isPending && (generateLabel.variables as any) === order.id}
+                                  disabled={
+                                    generateLabel.isPending &&
+                                    (generateLabel.variables as any) === order.id
+                                  }
                                   title="Generate and print shipping label"
                                   className="inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
                                 >
-                                  {generateLabel.isPending && (generateLabel.variables as any) === order.id ? (
+                                  {generateLabel.isPending &&
+                                  (generateLabel.variables as any) === order.id ? (
                                     <Loader2 className="size-3 animate-spin" />
                                   ) : (
                                     <Printer className="size-3 text-indigo-600" />
@@ -1308,11 +1330,15 @@ export function OnlineSalesTab() {
                                     setTrackingOrder(order);
                                     syncTracking.mutate(order.id);
                                   }}
-                                  disabled={syncTracking.isPending && (syncTracking.variables as any) === order.id}
+                                  disabled={
+                                    syncTracking.isPending &&
+                                    (syncTracking.variables as any) === order.id
+                                  }
                                   title="View live courier tracking checkpoints"
                                   className="inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
                                 >
-                                  {syncTracking.isPending && (syncTracking.variables as any) === order.id ? (
+                                  {syncTracking.isPending &&
+                                  (syncTracking.variables as any) === order.id ? (
                                     <Loader2 className="size-3 animate-spin" />
                                   ) : (
                                     <Truck className="size-3 text-blue-600" />
@@ -1328,11 +1354,15 @@ export function OnlineSalesTab() {
                                     <button
                                       type="button"
                                       onClick={() => requestPickup.mutate(order.id)}
-                                      disabled={requestPickup.isPending && (requestPickup.variables as any) === order.id}
+                                      disabled={
+                                        requestPickup.isPending &&
+                                        (requestPickup.variables as any) === order.id
+                                      }
                                       title="Schedule courier pickup from warehouse"
                                       className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 text-xs font-bold text-white transition shadow-xs disabled:opacity-60 cursor-pointer"
                                     >
-                                      {requestPickup.isPending && (requestPickup.variables as any) === order.id ? (
+                                      {requestPickup.isPending &&
+                                      (requestPickup.variables as any) === order.id ? (
                                         <Loader2 className="size-3 animate-spin" />
                                       ) : (
                                         <PackageCheck className="size-3" />
@@ -1348,16 +1378,24 @@ export function OnlineSalesTab() {
                                     type="button"
                                     onClick={() => {
                                       if (order.shiprocket_manifest_url) {
-                                        window.open(order.shiprocket_manifest_url, "_blank", "noopener,noreferrer");
+                                        window.open(
+                                          order.shiprocket_manifest_url,
+                                          "_blank",
+                                          "noopener,noreferrer",
+                                        );
                                       } else {
                                         generateManifest.mutate(order.id);
                                       }
                                     }}
-                                    disabled={generateManifest.isPending && (generateManifest.variables as any) === order.id}
+                                    disabled={
+                                      generateManifest.isPending &&
+                                      (generateManifest.variables as any) === order.id
+                                    }
                                     title="Generate and print courier pickup manifest"
                                     className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-muted transition cursor-pointer shadow-2xs"
                                   >
-                                    {generateManifest.isPending && (generateManifest.variables as any) === order.id ? (
+                                    {generateManifest.isPending &&
+                                    (generateManifest.variables as any) === order.id ? (
                                       <Loader2 className="size-3 animate-spin" />
                                     ) : (
                                       <FileText className="size-3 text-amber-600" />
@@ -1381,7 +1419,9 @@ export function OnlineSalesTab() {
                             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/90 text-rose-700 px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer"
                           >
                             <Ban className="size-3 text-rose-600" />
-                            <span>Cancel Order {order.shiprocket_order_id ? "& Shipment" : ""}</span>
+                            <span>
+                              Cancel Order {order.shiprocket_order_id ? "& Shipment" : ""}
+                            </span>
                           </button>
                           <button
                             type="button"
@@ -1527,7 +1567,9 @@ export function OnlineSalesTab() {
               </div>
               <div className="flex-1">
                 <h3 className="font-display text-lg font-bold text-foreground">
-                  {orderToDelete.status === "cancelled" ? "Delete cancelled order?" : "Delete order?"}
+                  {orderToDelete.status === "cancelled"
+                    ? "Delete cancelled order?"
+                    : "Delete order?"}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                   {orderToDelete.status === "cancelled"
@@ -1972,9 +2014,12 @@ export function OnlineSalesTab() {
                   <Ban className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Cancel Order &amp; Shipment</h3>
+                  <h3 className="text-base font-bold text-foreground">
+                    Cancel Order &amp; Shipment
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    Order #{orderToCancel.id.slice(0, 8).toUpperCase()} • {formatPrice(Number(orderToCancel.total))}
+                    Order #{orderToCancel.id.slice(0, 8).toUpperCase()} •{" "}
+                    {formatPrice(Number(orderToCancel.total))}
                   </p>
                 </div>
               </div>
@@ -1995,7 +2040,9 @@ export function OnlineSalesTab() {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-muted-foreground">Customer</span>
                   <span className="font-bold text-foreground">
-                    {orderToCancel._type === "online" ? orderToCancel.full_name : orderToCancel.customer_name || "Customer"}
+                    {orderToCancel._type === "online"
+                      ? orderToCancel.full_name
+                      : orderToCancel.customer_name || "Customer"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -2009,11 +2056,17 @@ export function OnlineSalesTab() {
                   {orderToCancel.shiprocket_order_id ? (
                     <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full text-[11px] border border-indigo-200 dark:border-indigo-800">
                       <Truck className="size-3" />
-                      {orderToCancel.awb_code ? `AWB: ${orderToCancel.awb_code}` : `Order #${orderToCancel.shiprocket_order_id}`}
-                      {orderToCancel.shiprocket_status ? ` (${orderToCancel.shiprocket_status})` : ""}
+                      {orderToCancel.awb_code
+                        ? `AWB: ${orderToCancel.awb_code}`
+                        : `Order #${orderToCancel.shiprocket_order_id}`}
+                      {orderToCancel.shiprocket_status
+                        ? ` (${orderToCancel.shiprocket_status})`
+                        : ""}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground font-medium italic">Not dispatched to Shiprocket</span>
+                    <span className="text-muted-foreground font-medium italic">
+                      Not dispatched to Shiprocket
+                    </span>
                   )}
                 </div>
               </div>
@@ -2026,7 +2079,9 @@ export function OnlineSalesTab() {
                     <p className="font-bold">Shiprocket Provider Cancellation Rule</p>
                     <p className="leading-relaxed">
                       We will invoke the official Shiprocket cancellation API for AWB/Shipment{" "}
-                      <strong>{orderToCancel.awb_code || orderToCancel.shiprocket_order_id}</strong>. If the courier has already picked up or progressed the parcel, cancellation will be rejected and the order will NOT be falsely marked as cancelled.
+                      <strong>{orderToCancel.awb_code || orderToCancel.shiprocket_order_id}</strong>
+                      . If the courier has already picked up or progressed the parcel, cancellation
+                      will be rejected and the order will NOT be falsely marked as cancelled.
                     </p>
                   </div>
                 </div>
@@ -2034,7 +2089,8 @@ export function OnlineSalesTab() {
                 <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3.5 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                   <p className="leading-relaxed">
-                    This order has not been dispatched to Shiprocket. It will be cancelled locally and stock will be immediately restored to catalog inventory.
+                    This order has not been dispatched to Shiprocket. It will be cancelled locally
+                    and stock will be immediately restored to catalog inventory.
                   </p>
                 </div>
               )}
@@ -2120,7 +2176,9 @@ export function OnlineSalesTab() {
                             p_reason: cancelReason,
                             p_reference_type: "order",
                           });
-                        } catch {}
+                        } catch {
+                          // Stock restoration handled by order status trigger
+                        }
                       }
                       toast.success("Order cancelled and stock restored successfully.");
                       qc.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -2230,15 +2288,23 @@ export function OnlineSalesTab() {
                   disabled={syncTracking.isPending}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted px-3 py-2 text-xs font-bold text-foreground transition cursor-pointer shadow-2xs disabled:opacity-50"
                 >
-                  <RefreshCw className={`size-3.5 text-indigo-600 ${syncTracking.isPending ? "animate-spin" : ""}`} />
-                  <span>{syncTracking.isPending ? "Syncing Checkpoints…" : "Refresh Tracking"}</span>
+                  <RefreshCw
+                    className={`size-3.5 text-indigo-600 ${syncTracking.isPending ? "animate-spin" : ""}`}
+                  />
+                  <span>
+                    {syncTracking.isPending ? "Syncing Checkpoints…" : "Refresh Tracking"}
+                  </span>
                 </button>
 
                 {trackingOrder.awb_code && (
                   <button
                     type="button"
                     onClick={() => {
-                      window.open(`https://shiprocket.co/tracking/${trackingOrder.awb_code}`, "_blank", "noopener,noreferrer");
+                      window.open(
+                        `https://shiprocket.co/tracking/${trackingOrder.awb_code}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 px-3 py-2 text-xs font-bold transition cursor-pointer shadow-2xs"
                   >
@@ -2291,7 +2357,8 @@ export function OnlineSalesTab() {
                   <div className="rounded-2xl border border-dashed border-border p-6 text-center space-y-1 bg-muted/10">
                     <p className="text-xs font-semibold text-foreground">No scans recorded yet</p>
                     <p className="text-[11px] text-muted-foreground">
-                      Courier has assigned AWB {trackingOrder.awb_code || ""}. First scan checkpoint will appear as soon as the package is handed over to the courier partner.
+                      Courier has assigned AWB {trackingOrder.awb_code || ""}. First scan checkpoint
+                      will appear as soon as the package is handed over to the courier partner.
                     </p>
                   </div>
                 )}

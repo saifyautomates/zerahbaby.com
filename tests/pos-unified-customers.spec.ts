@@ -8,6 +8,15 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
   test.describe.configure({ mode: "serial" });
   test.setTimeout(60000);
 
+  test.beforeEach(async () => {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    try {
+      await supabase.rpc("close_all_pos_sessions", { p_except_session_id: null });
+    } catch {
+      // ignore
+    }
+  });
+
   // Test 1: Direct RPC Search Matrix against Authoritative Database
   test("1. Database RPC: Search Matrix (Exact Name, Partial Name, Phone, Email, City, Case-Insensitive)", async () => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -69,11 +78,14 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
     await expect(
-      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+      page
+        .locator("h1")
+        .filter({ hasText: /Offline Billing|Billing/i })
+        .first(),
     ).toBeVisible({ timeout: 20000 });
-    await expect(
-      page.getByRole("button", { name: /POS Terminal/i }).first(),
-    ).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole("button", { name: /POS Terminal/i }).first()).toBeVisible({
+      timeout: 20000,
+    });
 
     // Clean up leftover tabs if present for clean slate
     const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
@@ -100,7 +112,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await page.waitForTimeout(800);
 
     // 3. Verify real customer appears in list
-    const customerItem = page.locator('text=mirza sameer baig').first();
+    const customerItem = page.locator("text=mirza sameer baig").first();
     await expect(customerItem).toBeVisible({ timeout: 5000 });
 
     // 4. Click "Select" button on that customer row
@@ -128,11 +140,14 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
     await expect(
-      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+      page
+        .locator("h1")
+        .filter({ hasText: /Offline Billing|Billing/i })
+        .first(),
     ).toBeVisible({ timeout: 20000 });
-    await expect(
-      page.getByRole("button", { name: /POS Terminal/i }).first(),
-    ).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole("button", { name: /POS Terminal/i }).first()).toBeVisible({
+      timeout: 20000,
+    });
 
     // If leftover tabs exist from prior tests, clean them up for deterministic isolation testing
     const deleteAllBtn = page.getByTestId("pos-delete-all-tabs-inline-btn");
@@ -149,7 +164,9 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     const tabA = page.locator('[data-testid^="pos-sale-tab-"]').first();
     await tabA.click();
     await tabA.dblclick();
-    const searchInputA = page.getByPlaceholder("Search by name (e.g. Mirza), phone, email, city...");
+    const searchInputA = page.getByPlaceholder(
+      "Search by name (e.g. Mirza), phone, email, city...",
+    );
     await searchInputA.fill("mirza");
     await page.waitForTimeout(800);
     const selectCustA = page.locator('[data-testid^="pos-select-customer-"]').first();
@@ -166,7 +183,9 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
 
     // Sale B: Assign Shahnawaz
     await page.locator('[data-testid^="pos-sale-tab-"]').last().dblclick();
-    const searchInputB = page.getByPlaceholder("Search by name (e.g. Mirza), phone, email, city...");
+    const searchInputB = page.getByPlaceholder(
+      "Search by name (e.g. Mirza), phone, email, city...",
+    );
     await searchInputB.fill("shahnawaz");
     await page.waitForTimeout(800);
     const selectCustB = page.locator('[data-testid^="pos-select-customer-"]').first();
@@ -174,21 +193,29 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     await selectCustB.click();
     await page.waitForTimeout(500);
 
-    await expect(page.locator('[data-testid="pos-sale-tab-customer"]').last()).toContainText(/shahnawaz/i);
+    await expect(page.locator('[data-testid="pos-sale-tab-customer"]').last()).toContainText(
+      /shahnawaz/i,
+    );
 
     // Create Sale C: Keep as Walk-in
     await newSaleBtn.click();
     await page.waitForTimeout(500);
 
     // Now switch between customer tabs and verify absolute isolation:
-    const tabMirza = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: "mirza" }).first();
+    const tabMirza = page
+      .locator('[data-testid^="pos-sale-tab-"]')
+      .filter({ hasText: "mirza" })
+      .first();
     await expect(tabMirza).toBeVisible({ timeout: 5000 });
     await tabMirza.click();
     await page.waitForTimeout(500);
     await expect(tabMirza).toContainText(/mirza/i);
 
     // Switch to Sale B (Shahnawaz tab)
-    const tabShah = page.locator('[data-testid^="pos-sale-tab-"]').filter({ hasText: "shahnawaz" }).first();
+    const tabShah = page
+      .locator('[data-testid^="pos-sale-tab-"]')
+      .filter({ hasText: "shahnawaz" })
+      .first();
     await expect(tabShah).toBeVisible({ timeout: 5000 });
     await tabShah.click();
     await page.waitForTimeout(500);
@@ -251,11 +278,14 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
     await expect(
-      page.locator("h1").filter({ hasText: /Offline Billing|Billing/i }).first(),
+      page
+        .locator("h1")
+        .filter({ hasText: /Offline Billing|Billing/i })
+        .first(),
     ).toBeVisible({ timeout: 20000 });
-    await expect(
-      page.getByRole("button", { name: /POS Terminal/i }).first(),
-    ).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole("button", { name: /POS Terminal/i }).first()).toBeVisible({
+      timeout: 20000,
+    });
 
     // 1. Search for real product by SKU and add to cart
     const scanBar = page.getByPlaceholder(/Scan barcode, or search by product name/i);

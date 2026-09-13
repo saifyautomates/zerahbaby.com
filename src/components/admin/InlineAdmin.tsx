@@ -66,11 +66,7 @@ export function AdminProductControls({
 
   return (
     <>
-      {inline ? (
-        buttons
-      ) : (
-        <div className="absolute right-2 top-2 z-10 flex gap-1.5">{buttons}</div>
-      )}
+      {inline ? buttons : <div className="absolute right-2 top-2 z-10 flex gap-1.5">{buttons}</div>}
 
       {editing && (
         <Suspense

@@ -16,7 +16,7 @@ const supabaseAnonKey =
 
 const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
-test.describe("Stock Lifecycle & Inventory Precision Engine", () => {
+test.describe.serial("Stock Lifecycle & Inventory Precision Engine", () => {
   test("1. Catalog Stock Summation: 100% Mathematical Precision (Parent === SUM(variants))", async () => {
     const { data: products, error: fetchErr } = await anonClient
       .from("products")
@@ -31,7 +31,10 @@ test.describe("Stock Lifecycle & Inventory Precision Engine", () => {
     for (const p of products!) {
       const vars = p.product_variants || [];
       if (vars.length > 0) {
-        const sum = vars.reduce((acc: number, v: { stock: number | null }) => acc + (v.stock || 0), 0);
+        const sum = vars.reduce(
+          (acc: number, v: { stock: number | null }) => acc + (v.stock || 0),
+          0,
+        );
         if (sum !== p.stock) {
           discrepancies++;
           console.error(`Discrepancy in ${p.name}: parent=${p.stock}, variants sum=${sum}`);
@@ -52,8 +55,12 @@ test.describe("Stock Lifecycle & Inventory Precision Engine", () => {
 
     for (const p of products || []) {
       const vars = p.product_variants || [];
-      const sizedVars = vars.filter((v: { size: string | null }) => v.size && v.size.trim().length > 0);
-      const defaultVars = vars.filter((v: { name: string; size: string | null }) => v.name === "Default" || !v.size);
+      const sizedVars = vars.filter(
+        (v: { size: string | null }) => v.size && v.size.trim().length > 0,
+      );
+      const defaultVars = vars.filter(
+        (v: { name: string; size: string | null }) => v.name === "Default" || !v.size,
+      );
 
       if (sizedVars.length > 0 && defaultVars.length > 0) {
         anomalies++;

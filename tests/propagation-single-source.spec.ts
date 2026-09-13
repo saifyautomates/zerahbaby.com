@@ -86,22 +86,27 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       console.log(`[PASS] Storefront /shop displays committed price: ₹${targetNewPrice}`);
 
       // 1F. Verify Server Checkout Session RPC calculates using authoritative DB price
-      const { data: sessionData, error: sessionErr } = await supabase.rpc("create_checkout_session", {
-        _items: [{ product_slug: testProduct!.slug, qty: 1 }],
-        _coupon_code: null,
-        _full_name: "Test Customer",
-        _email: "test@zerahkids.com",
-        _phone: "9876543210",
-        _address: "123 Test Street",
-        _city: "Mumbai",
-        _state: "Maharashtra",
-        _pincode: "400001",
-        _payment_method: "online",
-      });
+      const { data: sessionData, error: sessionErr } = await supabase.rpc(
+        "create_checkout_session",
+        {
+          _items: [{ product_slug: testProduct!.slug, qty: 1 }],
+          _coupon_code: null,
+          _full_name: "Test Customer",
+          _email: "test@zerahkids.com",
+          _phone: "9876543210",
+          _address: "123 Test Street",
+          _city: "Mumbai",
+          _state: "Maharashtra",
+          _pincode: "400001",
+          _payment_method: "online",
+        },
+      );
 
       expect(sessionErr).toBeNull();
       expect((sessionData as { success: boolean; subtotal: number }).subtotal).toBe(targetNewPrice);
-      console.log(`[PASS] Server-side create_checkout_session strictly enforces ₹${targetNewPrice}`);
+      console.log(
+        `[PASS] Server-side create_checkout_session strictly enforces ₹${targetNewPrice}`,
+      );
 
       // 1G. Strict Historical Rule: Verify existing historical orders retain their original paid price
       const { data: pastOrders } = await supabase
@@ -113,7 +118,9 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       if (pastOrders && pastOrders.length > 0) {
         for (const item of pastOrders) {
           expect(item.price).toBeGreaterThan(0);
-          console.log(`[PASS] Historical order item #${item.id} remains unchanged at ₹${item.price}`);
+          console.log(
+            `[PASS] Historical order item #${item.id} remains unchanged at ₹${item.price}`,
+          );
         }
       }
     } finally {
@@ -223,7 +230,9 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
 
         expect(freshA?.price_override).toBe(varA.price_override);
         expect(Number(freshB?.price_override)).toBe(newBPrice);
-        console.log(`[PASS] Variant B updated cleanly to ₹${newBPrice}; Variant A remained untouched`);
+        console.log(
+          `[PASS] Variant B updated cleanly to ₹${newBPrice}; Variant A remained untouched`,
+        );
       } finally {
         await callAdminRpc("admin_update_variant_price", {
           _variant_id: varB.id,

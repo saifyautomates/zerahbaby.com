@@ -94,7 +94,8 @@ export function buildOrderA4HTML(
   },
 ): string {
   const brand = store.brandName || "ZÉRAH BABY & KIDS";
-  const address = store.storeAddress || "In Front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan 324001";
+  const address =
+    store.storeAddress || "In Front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan 324001";
   const phone = store.contactPhone || "9057074777";
   const email = store.contactEmail || "support@zerahkids.com";
 
@@ -679,19 +680,27 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                   className="size-14 object-contain shrink-0"
                 />
                 <div>
-                  <p className="font-display text-xl font-black tracking-tight text-[#8B2020] uppercase">{brandName}</p>
-                  <p className="text-[11px] text-slate-500 font-medium">Premium Children's Clothing</p>
+                  <p className="font-display text-xl font-black tracking-tight text-[#8B2020] uppercase">
+                    {brandName}
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Premium Children's Clothing
+                  </p>
                 </div>
               </div>
               <div className="text-left md:text-center text-xs text-slate-600 md:border-x md:border-slate-200 md:px-4">
                 <p>{storeAddress}</p>
-                <p className="mt-0.5 font-medium">{contactPhone} · {contactEmail}</p>
+                <p className="mt-0.5 font-medium">
+                  {contactPhone} · {contactEmail}
+                </p>
               </div>
               <div className="text-left md:text-right">
                 <span className="inline-block bg-[#8B2020] text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-wider">
                   Tax Invoice
                 </span>
-                <p className="mt-1 font-mono text-base font-bold text-slate-900">{order.invoice_no ?? `INV-${order.id.slice(0, 8).toUpperCase()}`}</p>
+                <p className="mt-1 font-mono text-base font-bold text-slate-900">
+                  {order.invoice_no ?? `INV-${order.id.slice(0, 8).toUpperCase()}`}
+                </p>
                 <p className="text-xs text-slate-500">
                   {new Date(order.created_at).toLocaleString("en-IN", {
                     dateStyle: "medium",
@@ -707,18 +716,30 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             {/* Billing / Info details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-xl bg-slate-50 p-4 text-xs border border-slate-200 mb-4 print:bg-transparent">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">Billed &amp; Delivered To</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">
+                  Billed &amp; Delivered To
+                </p>
                 <p className="mt-1 text-sm font-bold text-slate-900">{order.full_name}</p>
                 <p className="mt-0.5 text-slate-600">
-                  {[order.address, order.address_line2, order.landmark ? `near ${order.landmark}` : "", [order.city, order.state, order.pincode].filter(Boolean).join(", ")].filter(Boolean).join(", ")}
+                  {[
+                    order.address,
+                    order.address_line2,
+                    order.landmark ? `near ${order.landmark}` : "",
+                    [order.city, order.state, order.pincode].filter(Boolean).join(", "),
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
                 </p>
                 <p className="mt-1 font-medium text-slate-800">
-                  Ph: {order.phone}{order.alt_phone ? ` / ${order.alt_phone}` : ""}
+                  Ph: {order.phone}
+                  {order.alt_phone ? ` / ${order.alt_phone}` : ""}
                   {order.email ? ` · ${order.email}` : ""}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">Payment Information</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">
+                  Payment Information
+                </p>
                 <p className="mt-1 font-bold text-slate-900">
                   {order.payment_method?.toLowerCase() === "cod"
                     ? "Cash on Delivery"
@@ -739,16 +760,22 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                   </span>
                 </div>
                 <p className="mt-1.5 text-[11px] text-slate-600">
-                  Order Status: <strong className="capitalize text-slate-900">{order.status}</strong>
+                  Order Status:{" "}
+                  <strong className="capitalize text-slate-900">{order.status}</strong>
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">Order Overview</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">
+                  Order Overview
+                </p>
                 <p className="mt-1 text-sm font-bold text-slate-900">
-                  {order.order_items.reduce((s, i) => s + i.qty, 0)} Items ({order.order_items.length} Products)
+                  {order.order_items.reduce((s, i) => s + i.qty, 0)} Items (
+                  {order.order_items.length} Products)
                 </p>
                 <p className="mt-0.5 text-slate-600">Platform: ZÉRAH Online Storefront</p>
-                <p className="mt-0.5 text-slate-600">Waybill: {order.awb_code || "Direct Delivery"}</p>
+                <p className="mt-0.5 text-slate-600">
+                  Waybill: {order.awb_code || "Direct Delivery"}
+                </p>
               </div>
             </div>
 
@@ -766,7 +793,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               <tbody className="divide-y divide-slate-200">
                 {order.order_items.map((item, idx) => (
                   <tr key={item.id} className={idx % 2 === 1 ? "bg-slate-50/70" : ""}>
-                    <td className="py-2.5 px-2 text-center text-slate-500 font-medium">{idx + 1}</td>
+                    <td className="py-2.5 px-2 text-center text-slate-500 font-medium">
+                      {idx + 1}
+                    </td>
                     <td className="py-2.5 px-3">
                       <span className="block font-bold text-slate-900">{item.name}</span>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
@@ -803,9 +832,14 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             {/* Bottom Summary (Policy Left, Totals Right) */}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4 items-start mb-4">
               <div className="rounded-xl border border-dashed border-slate-300 p-3 bg-slate-50 text-[11px] text-slate-600 space-y-1">
-                <p className="font-bold uppercase text-slate-900 text-[10px]">Return &amp; Exchange Policy</p>
+                <p className="font-bold uppercase text-slate-900 text-[10px]">
+                  Return &amp; Exchange Policy
+                </p>
                 <p>Exchange or return within 7 days of delivery with original tags intact.</p>
-                <p className="text-[10px] text-slate-500 pt-1">GST: Not Applicable (Composition / Exemption Threshold) · Computer Generated Tax Invoice</p>
+                <p className="text-[10px] text-slate-500 pt-1">
+                  GST: Not Applicable (Composition / Exemption Threshold) · Computer Generated Tax
+                  Invoice
+                </p>
                 {order.notes && (
                   <div className="mt-2 pt-2 border-t border-dashed border-slate-300 text-amber-900">
                     <strong>Order Note:</strong> “{order.notes}”
@@ -816,7 +850,9 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               <div className="rounded-xl border-2 border-[#8B2020] overflow-hidden text-xs bg-white">
                 <div className="flex justify-between px-3 py-1.5 border-b border-slate-100">
                   <span className="text-slate-600">Subtotal</span>
-                  <span className="font-semibold text-slate-900">{formatPrice(Number(order.subtotal))}</span>
+                  <span className="font-semibold text-slate-900">
+                    {formatPrice(Number(order.subtotal))}
+                  </span>
                 </div>
                 {Number(order.discount) > 0 && (
                   <div className="flex justify-between px-3 py-1.5 border-b border-slate-100 text-emerald-700">

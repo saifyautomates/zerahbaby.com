@@ -25,7 +25,11 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-import { useSaveProduct, broadcastCatalogueChange, invalidateCatalogue } from "@/lib/admin-products";
+import {
+  useSaveProduct,
+  broadcastCatalogueChange,
+  invalidateCatalogue,
+} from "@/lib/admin-products";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
 import { safeLazy } from "@/lib/safe-lazy";
@@ -1547,7 +1551,10 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
             .eq("id", variants[0].id);
         }
 
-        const { error } = await supabase.from("products").update({ stock: cleanStock }).eq("id", id);
+        const { error } = await supabase
+          .from("products")
+          .update({ stock: cleanStock })
+          .eq("id", id);
         if (error) throw error;
       }
     },

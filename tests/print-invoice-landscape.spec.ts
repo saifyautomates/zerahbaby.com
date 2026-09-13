@@ -1,7 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { buildA4HTML, type A4InvoiceSale, type A4InvoiceItem } from "../src/components/admin/A4Invoice";
+import {
+  buildA4HTML,
+  type A4InvoiceSale,
+  type A4InvoiceItem,
+} from "../src/components/admin/A4Invoice";
 import { buildOrderA4HTML } from "../src/components/site/Invoice";
-import { buildThermalHTML, type ThermalReceiptSale, type ThermalReceiptItem } from "../src/components/admin/ThermalReceipt";
+import {
+  buildThermalHTML,
+  type ThermalReceiptSale,
+  type ThermalReceiptItem,
+} from "../src/components/admin/ThermalReceipt";
 import type { Order } from "../src/domain/models";
 import * as path from "path";
 import * as fs from "fs";
@@ -147,8 +155,14 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
 
   const logoBase64 = `data:image/png;base64,${fs.readFileSync(path.resolve(process.cwd(), "public/logo.png")).toString("base64")}`;
 
-  test("4. Browser Print Preview: A4 POS Invoice renders in landscape, fits on 1 page without clipping", async ({ page, browserName }) => {
-    const html = buildA4HTML(sampleSale, sampleItems, storeMock as any).replace(/\/logo\.png/g, logoBase64);
+  test("4. Browser Print Preview: A4 POS Invoice renders in landscape, fits on 1 page without clipping", async ({
+    page,
+    browserName,
+  }) => {
+    const html = buildA4HTML(sampleSale, sampleItems, storeMock as any).replace(
+      /\/logo\.png/g,
+      logoBase64,
+    );
 
     // Set viewport to A4 Landscape pixel equivalent at 96 DPI (297mm ≈ 1123px, 210mm ≈ 794px)
     await page.setViewportSize({ width: 1123, height: 794 });
@@ -173,7 +187,15 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     const ths = page.locator(".items-table th");
     await expect(ths).toHaveCount(7);
     const thTexts = await ths.allInnerTexts();
-    expect(thTexts).toEqual(["#", "ITEM DESCRIPTION", "QTY", "MRP", "UNIT PRICE", "SAVINGS", "NET TOTAL"]);
+    expect(thTexts).toEqual([
+      "#",
+      "ITEM DESCRIPTION",
+      "QTY",
+      "MRP",
+      "UNIT PRICE",
+      "SAVINGS",
+      "NET TOTAL",
+    ]);
 
     // Check no horizontal overflow
     const hasHorizontalScroll = await page.evaluate(() => {
@@ -188,7 +210,10 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     // Capture screenshot of print preview
     const screenshotDir = path.resolve(process.cwd(), "tests/artifacts");
     if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
-    await page.screenshot({ path: path.join(screenshotDir, "a4_invoice_landscape_preview.png"), fullPage: true });
+    await page.screenshot({
+      path: path.join(screenshotDir, "a4_invoice_landscape_preview.png"),
+      fullPage: true,
+    });
 
     // Generate real PDF to verify exact single-page rendering (Chromium only in Playwright)
     if (browserName === "chromium") {
@@ -202,7 +227,9 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     }
   });
 
-  test("5. Browser Print Preview: Online Order Invoice renders in landscape and fits 1 page", async ({ page }) => {
+  test("5. Browser Print Preview: Online Order Invoice renders in landscape and fits 1 page", async ({
+    page,
+  }) => {
     const mockOrder: Order = {
       id: "ord-test-445566",
       user_id: "usr-456",
@@ -273,7 +300,10 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     await expect(page.locator(".footer")).toBeVisible();
 
     const screenshotDir = path.resolve(process.cwd(), "tests/artifacts");
-    await page.screenshot({ path: path.join(screenshotDir, "online_invoice_landscape_preview.png"), fullPage: true });
+    await page.screenshot({
+      path: path.join(screenshotDir, "online_invoice_landscape_preview.png"),
+      fullPage: true,
+    });
   });
 
   test("6. Browser Print Preview: Thermal Receipt retains 80mm roll format", async ({ page }) => {
@@ -315,10 +345,16 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     expect(bodyWidth).toBeLessThanOrEqual(310);
 
     const screenshotDir = path.resolve(process.cwd(), "tests/artifacts");
-    await page.screenshot({ path: path.join(screenshotDir, "thermal_receipt_preview.png"), fullPage: true });
+    await page.screenshot({
+      path: path.join(screenshotDir, "thermal_receipt_preview.png"),
+      fullPage: true,
+    });
   });
 
-  test("7. Multi-item pagination: Table headers repeat and rows don't clip across pages", async ({ page, browserName }) => {
+  test("7. Multi-item pagination: Table headers repeat and rows don't clip across pages", async ({
+    page,
+    browserName,
+  }) => {
     // Generate 20 items to genuinely exceed 1 landscape page
     const manyItems: A4InvoiceItem[] = Array.from({ length: 20 }, (_, i) => ({
       name: `Children's Premium Apparel Item #${i + 1}`,
@@ -352,7 +388,10 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
     // Table rows must have page-break-inside avoid
     const trBreak = await page.evaluate(() => {
       const tr = document.querySelector(".items-table tbody tr");
-      return tr ? window.getComputedStyle(tr).breakInside || (window.getComputedStyle(tr) as any).pageBreakInside : "";
+      return tr
+        ? window.getComputedStyle(tr).breakInside ||
+            (window.getComputedStyle(tr) as any).pageBreakInside
+        : "";
     });
     expect(["avoid", "avoid-page"].includes(trBreak)).toBe(true);
 

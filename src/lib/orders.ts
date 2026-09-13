@@ -500,10 +500,13 @@ export function useDeleteCancelledOrder() {
 
       // 2. Try admin_delete_order RPC directly
       try {
-        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)("admin_delete_order", {
-          _order_id: orderId,
-          _force: true,
-        });
+        const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
+          "admin_delete_order",
+          {
+            _order_id: orderId,
+            _force: true,
+          },
+        );
         if (!rpcError && rpcData) {
           return rpcData;
         }
@@ -524,7 +527,9 @@ export function useDeleteCancelledOrder() {
 
       try {
         await (supabase.from as any)("shipping_events").delete().eq("order_id", orderId);
-      } catch {}
+      } catch {
+        // shipping_events table optional or already cleared
+      }
       await supabase.from("coupon_usage").delete().eq("order_id", orderId);
       await supabase.from("order_items").delete().eq("order_id", orderId);
       await supabase.from("order_status_history").delete().eq("order_id", orderId);
@@ -715,4 +720,3 @@ export function useCancelShiprocketOrder() {
     },
   });
 }
-

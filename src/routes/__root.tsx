@@ -227,8 +227,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // Preconnect to Supabase storage CDN so product images start loading faster
       { rel: "preconnect", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
       { rel: "dns-prefetch", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
-
-
     ],
   }),
   shellComponent: RootShell,
@@ -462,7 +460,6 @@ function RootComponent() {
 
     return () => clearTimeout(deferTimer);
   }, [isAdminRoute]);
-
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -501,7 +501,8 @@ test.describe("Shiprocket Logistics Integration & State Machine Suite", () => {
     // Simulated provider response
     const mockApiResponse = {
       status: 1,
-      manifest_url: "https://s3.ap-south-1.amazonaws.com/shiprocket-media/manifests/manifest_12345678.pdf",
+      manifest_url:
+        "https://s3.ap-south-1.amazonaws.com/shiprocket-media/manifests/manifest_12345678.pdf",
       message: "Manifest Generated successfully.",
     };
 
@@ -607,4 +608,3 @@ test.describe("Shiprocket Logistics Integration & State Machine Suite", () => {
     expect(actions.refundAmount).toBe(1499);
   });
 });
-

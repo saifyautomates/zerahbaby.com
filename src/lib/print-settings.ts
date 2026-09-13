@@ -228,7 +228,10 @@ export function buildTSPLLabel(params: {
   // Sanitize strings for TSPL (no quotes in values)
   const safeArtNo = (artNo || sku || barcode).replace(/"/g, "").substring(0, 24);
   const safeName = productName.replace(/"/g, "").toUpperCase().substring(0, 26);
-  const safeBrand = (brand || storeName || "ZERAH").replace(/"/g, "").toUpperCase().substring(0, 20);
+  const safeBrand = (brand || storeName || "ZERAH")
+    .replace(/"/g, "")
+    .toUpperCase()
+    .substring(0, 20);
   const safeSize = (size || "--").replace(/"/g, "").substring(0, 10);
   const safeBarcode = (barcode || sku).replace(/"/g, "").substring(0, 30);
   const mrpVal = typeof mrp === "number" && mrp > 0 ? mrp : price;

@@ -1432,7 +1432,8 @@ Deno.serve(async (req) => {
           .split(/[,;\s]+/)
           .map((e: string) => e.trim())
           .filter((e: string) => e.includes("@"));
-        const finalOwnerRecipients = ownerRecipients.length > 0 ? ownerRecipients : ["hello@zerahkids.com"];
+        const finalOwnerRecipients =
+          ownerRecipients.length > 0 ? ownerRecipients : ["hello@zerahkids.com"];
 
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",

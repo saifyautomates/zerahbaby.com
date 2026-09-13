@@ -596,18 +596,19 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       priceSection = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</span>`;
     }
 
-    const sizeSnippet = sizeValue && sizeValue !== "--"
-      ? `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue)}</span>`
-      : "";
+    const sizeSnippet =
+      sizeValue && sizeValue !== "--"
+        ? `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue)}</span>`
+        : "";
 
-    const artNoSnippet = artNoValue && artNoValue !== p.sku
-      ? `Art: ${escapeHtml(artNoValue)} &bull; `
-      : "";
+    const artNoSnippet =
+      artNoValue && artNoValue !== p.sku ? `Art: ${escapeHtml(artNoValue)} &bull; ` : "";
 
     if (separatePriceLine && (showMrp || showSellPrice)) {
       const priceItems: string[] = [];
       if (showMrp) priceItems.push(`<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`);
-      if (showSellPrice) priceItems.push(`<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`);
+      if (showSellPrice)
+        priceItems.push(`<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`);
       if (discBadge) priceItems.push(discBadge);
 
       return [

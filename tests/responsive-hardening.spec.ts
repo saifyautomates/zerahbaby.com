@@ -81,12 +81,16 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await editBtn.click();
 
     // Verify modal dialog appears
-    const modalTitle = page.getByRole("heading", { name: /Edit Section|Create Advanced Homepage Section/i });
+    const modalTitle = page.getByRole("heading", {
+      name: /Edit Section|Create Advanced Homepage Section/i,
+    });
     await expect(modalTitle).toBeVisible();
 
     // Verify modal overlay z-index >= 200
     const overlayZIndex = await page.evaluate(() => {
-      const overlay = document.querySelector("#section-editor-modal-overlay") || document.querySelector('[role="dialog"]');
+      const overlay =
+        document.querySelector("#section-editor-modal-overlay") ||
+        document.querySelector('[role="dialog"]');
       if (!overlay) return 0;
       return parseInt(window.getComputedStyle(overlay).zIndex, 10);
     });
@@ -138,7 +142,9 @@ test.describe("Global No-Cropping & Responsive Hardening Suite", () => {
     await editBtn.click();
 
     // Verify modal header fits on mobile
-    const modalTitle = page.getByRole("heading", { name: /Edit Section|Create Advanced Homepage Section/i });
+    const modalTitle = page.getByRole("heading", {
+      name: /Edit Section|Create Advanced Homepage Section/i,
+    });
     await expect(modalTitle).toBeVisible();
     const headerBox = await modalTitle.boundingBox();
     expect(headerBox).not.toBeNull();

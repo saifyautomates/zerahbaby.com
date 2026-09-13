@@ -44,7 +44,10 @@ async function compressImage(file: File): Promise<File> {
         const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);
-      } else if (file.size < 350 * 1024 && (file.type === "image/webp" || file.type === "image/jpeg")) {
+      } else if (
+        file.size < 350 * 1024 &&
+        (file.type === "image/webp" || file.type === "image/jpeg")
+      ) {
         return resolve(file); // Already lightweight webp/jpeg, upload immediately!
       }
 

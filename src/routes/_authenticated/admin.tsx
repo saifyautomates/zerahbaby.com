@@ -65,7 +65,11 @@ import { useIsAdmin, useSession, ensureAdminSession } from "@/lib/auth";
 import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
-import { useSaveProduct, invalidateCatalogue, broadcastCatalogueChange } from "@/lib/admin-products";
+import {
+  useSaveProduct,
+  invalidateCatalogue,
+  broadcastCatalogueChange,
+} from "@/lib/admin-products";
 import { useAllOrders, useCustomers, useProfile, orderStatuses, type Order } from "@/lib/orders";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { InvoiceBox } from "@/components/site/Invoice";
@@ -1151,7 +1155,8 @@ function ProductsTab() {
   // Realtime & Cross-tab synchronized inventory listening
   useEffect(() => {
     // 1. Cross-tab BroadcastChannel
-    const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
+    const bc =
+      typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
     if (bc) {
       bc.onmessage = (msg) => {
         if (msg.data?.type === "CATALOG_MUTATED") {
@@ -1169,20 +1174,12 @@ function ProductsTab() {
     // 3. Supabase Realtime Postgres Changes
     const channel = supabase
       .channel("admin-realtime-catalog-sync")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        () => {
-          invalidate();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "product_variants" },
-        () => {
-          invalidate();
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        invalidate();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, () => {
+        invalidate();
+      })
       .subscribe();
 
     return () => {
@@ -2736,7 +2733,9 @@ function SettingsTab() {
     }
   }
 
-  async function onSendTestSms(templateKey: "online_sale_owner" | "offline_pos_sale_owner" = "online_sale_owner") {
+  async function onSendTestSms(
+    templateKey: "online_sale_owner" | "offline_pos_sale_owner" = "online_sale_owner",
+  ) {
     setTestingSms(true);
     try {
       const targetPhone = current.owner_notification_phone || "9667571712, 9057074777";
@@ -2760,7 +2759,10 @@ function SettingsTab() {
       if (data && !data.success && data.error) {
         throw new Error(data.error);
       }
-      toast.success(data?.message || `Test SMS (${isOffline ? "Offline Sale" : "Online Order"}) dispatched to ${targetPhone}! Check the SMS Logs tab.`);
+      toast.success(
+        data?.message ||
+          `Test SMS (${isOffline ? "Offline Sale" : "Online Order"}) dispatched to ${targetPhone}! Check the SMS Logs tab.`,
+      );
     } catch (err: unknown) {
       toast.error(`Test SMS failed: ${(err as Error).message}`);
     } finally {
@@ -2780,7 +2782,8 @@ function SettingsTab() {
             Owner &amp; Admin Alerts (SMS &amp; Email)
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Jab bhi koi naya online order place ho ya offline physical store par sale ho, toh Admin ko instant DLT SMS aur complete invoice email deliver hoga.
+            Jab bhi koi naya online order place ho ya offline physical store par sale ho, toh Admin
+            ko instant DLT SMS aur complete invoice email deliver hoga.
           </p>
         </div>
 
@@ -2813,7 +2816,8 @@ function SettingsTab() {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Is number par DLT approved admin templates (Zerah_New_Online_Order_Admin_ &amp; Zerah_Offline_Sale_Admin_) deliver honge.
+              Is number par DLT approved admin templates (Zerah_New_Online_Order_Admin_ &amp;
+              Zerah_Offline_Sale_Admin_) deliver honge.
             </p>
             <input
               type="tel"
@@ -2840,7 +2844,8 @@ function SettingsTab() {
               </button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Is email address par new online orders aur counter sales ke itemized invoice details aayenge.
+              Is email address par new online orders aur counter sales ke itemized invoice details
+              aayenge.
             </p>
             <input
               type="email"

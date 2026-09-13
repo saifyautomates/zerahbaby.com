@@ -317,10 +317,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (orderError || !order) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Order not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 },
-      );
+      return new Response(JSON.stringify({ success: false, error: "Order not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
     }
 
     // --- Action: Create Shipment ---
@@ -579,7 +579,8 @@ Deno.serve(async (req) => {
 
     // --- Action: Generate Shipping Label ---
     else if (action === "generate_label") {
-      if (!order.shiprocket_shipment_id) throw new Error("Shipment ID missing for label generation");
+      if (!order.shiprocket_shipment_id)
+        throw new Error("Shipment ID missing for label generation");
 
       if (order.shiprocket_label_url) {
         return new Response(
@@ -627,10 +628,10 @@ Deno.serve(async (req) => {
         actor_id: authUser?.id || null,
       });
 
-      return new Response(
-        JSON.stringify({ success: true, label_url: labelUrl }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
+      return new Response(JSON.stringify({ success: true, label_url: labelUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
     // --- Action: Generate Manifest ---
@@ -692,10 +693,10 @@ Deno.serve(async (req) => {
         actor_id: authUser?.id || null,
       });
 
-      return new Response(
-        JSON.stringify({ success: true, manifest_url: manifestUrl }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
+      return new Response(JSON.stringify({ success: true, manifest_url: manifestUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
     // --- Action: Get Live Tracking & Synchronize Status ---

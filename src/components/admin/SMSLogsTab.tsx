@@ -44,7 +44,10 @@ export type SMSLogRecord = {
   created_at: string;
 };
 
-export const DLT_TEMPLATES: Record<string, { name: string; description: string; category: string }> = {
+export const DLT_TEMPLATES: Record<
+  string,
+  { name: string; description: string; category: string }
+> = {
   "6aa1c8937992a371950d6052": {
     name: "Zerah_Login_OTP",
     description: "Customer / Admin 4-Digit Login OTP",

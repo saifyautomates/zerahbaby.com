@@ -193,7 +193,11 @@ function ProductCardInner({
 
   // Default age/size label for subtitle
   const defaultSizeLabel = useMemo(() => {
-    if (activeVariant?.size && activeVariant.size.toLowerCase() !== "default" && activeVariant.size.toLowerCase() !== "standard") {
+    if (
+      activeVariant?.size &&
+      activeVariant.size.toLowerCase() !== "default" &&
+      activeVariant.size.toLowerCase() !== "standard"
+    ) {
       return activeVariant.size.toLowerCase();
     }
     if (product.ageGroup) return product.ageGroup.toLowerCase();

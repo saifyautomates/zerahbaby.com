@@ -346,9 +346,10 @@ export async function lookupProductForReturn(code: string): Promise<ReturnProduc
     if (recentSaleItem) {
       recentSoldPrice = typeof recentSaleItem.price === "number" ? recentSaleItem.price : null;
       const unitSell =
-        typeof recentSaleItem.unit_selling_price === "number" && recentSaleItem.unit_selling_price > 0
+        typeof recentSaleItem.unit_selling_price === "number" &&
+        recentSaleItem.unit_selling_price > 0
           ? recentSaleItem.unit_selling_price
-          : (recentSoldPrice || 0);
+          : recentSoldPrice || 0;
       const parentSale = recentSaleItem.offline_sales;
       const saleSubtotal = Number(parentSale?.subtotal) || 0;
       const saleDiscount = Number(parentSale?.discount) || 0;
@@ -477,7 +478,10 @@ export function useOfflineSalesForReturnsLookup() {
             const saleDiscount = Number(s.discount) || 0;
 
             let finalUnitPaid = dbFinalUnitPaid;
-            if (finalUnitPaid <= 0 || (saleDiscount > 0 && Math.abs(finalUnitPaid - dbUnitSelling) < 0.001)) {
+            if (
+              finalUnitPaid <= 0 ||
+              (saleDiscount > 0 && Math.abs(finalUnitPaid - dbUnitSelling) < 0.001)
+            ) {
               if (saleSubtotal > 0 && saleDiscount > 0) {
                 const propDiscount = (saleDiscount * dbUnitSelling) / saleSubtotal;
                 finalUnitPaid = Math.max(0, Number((dbUnitSelling - propDiscount).toFixed(2)));

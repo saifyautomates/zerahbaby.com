@@ -40,16 +40,15 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
 
     // Must fail due to RLS
     expect(error).toBeDefined();
-    expect(error?.message).toMatch(/permission denied|violates row-level security|new row violates/i);
+    expect(error?.message).toMatch(
+      /permission denied|violates row-level security|new row violates/i,
+    );
     expect(data).toBeNull();
   });
 
   test("3. RLS: Anonymous users CANNOT update any homepage section", async () => {
     // Attempt to update the first section
-    const { data: sections } = await anonClient
-      .from("homepage_sections")
-      .select("id")
-      .limit(1);
+    const { data: sections } = await anonClient.from("homepage_sections").select("id").limit(1);
 
     if (sections && sections.length > 0) {
       const targetId = sections[0].id;
@@ -69,10 +68,7 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
   });
 
   test("4. RLS: Anonymous users CANNOT delete any homepage section", async () => {
-    const { data: sections } = await anonClient
-      .from("homepage_sections")
-      .select("id")
-      .limit(1);
+    const { data: sections } = await anonClient.from("homepage_sections").select("id").limit(1);
 
     if (sections && sections.length > 0) {
       const targetId = sections[0].id;
@@ -91,13 +87,11 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
   });
 
   test("5. RLS: Anonymous users CANNOT tamper with homepage_section_items", async () => {
-    const { data, error } = await anonClient
-      .from("homepage_section_items")
-      .insert({
-        section_id: "00000000-0000-0000-0000-000000000000",
-        product_id: "00000000-0000-0000-0000-000000000000",
-        sort_order: 1,
-      } as any);
+    const { data, error } = await anonClient.from("homepage_section_items").insert({
+      section_id: "00000000-0000-0000-0000-000000000000",
+      product_id: "00000000-0000-0000-0000-000000000000",
+      sort_order: 1,
+    } as any);
 
     expect(error).toBeDefined();
     expect(error?.message).toMatch(/permission denied|violates row-level security/i);
@@ -306,9 +300,8 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
   });
 
   test("12. Scheduling: isSectionCurrentlyActive strictly respects starts_at and ends_at boundaries", async () => {
-    const { isSectionCurrentlyActive, getSectionScheduleStatus } = await import(
-      "../src/lib/homepage-sections"
-    );
+    const { isSectionCurrentlyActive, getSectionScheduleStatus } =
+      await import("../src/lib/homepage-sections");
 
     const baseSection: any = {
       id: "sec-sched",
@@ -319,22 +312,36 @@ test.describe("Homepage Multi-Section CMS & Security Suite", () => {
 
     // 1. Always active (no schedule dates)
     expect(isSectionCurrentlyActive({ ...baseSection, starts_at: null, ends_at: null })).toBe(true);
-    expect(getSectionScheduleStatus({ ...baseSection, starts_at: null, ends_at: null })).toBe("always");
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: null, ends_at: null })).toBe(
+      "always",
+    );
 
     // 2. Currently active (started yesterday, ends tomorrow)
     const yesterday = new Date(Date.now() - 86400000).toISOString();
     const tomorrow = new Date(Date.now() + 86400000).toISOString();
-    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: yesterday, ends_at: tomorrow })).toBe(true);
-    expect(getSectionScheduleStatus({ ...baseSection, starts_at: yesterday, ends_at: tomorrow })).toBe("active");
+    expect(
+      isSectionCurrentlyActive({ ...baseSection, starts_at: yesterday, ends_at: tomorrow }),
+    ).toBe(true);
+    expect(
+      getSectionScheduleStatus({ ...baseSection, starts_at: yesterday, ends_at: tomorrow }),
+    ).toBe("active");
 
     // 3. Upcoming campaign (starts tomorrow) -> MUST NOT be active on storefront
-    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe(false);
-    expect(getSectionScheduleStatus({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe("upcoming");
+    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe(
+      false,
+    );
+    expect(getSectionScheduleStatus({ ...baseSection, starts_at: tomorrow, ends_at: null })).toBe(
+      "upcoming",
+    );
 
     // 4. Expired campaign (ended yesterday) -> MUST NOT be active on storefront
     const twoDaysAgo = new Date(Date.now() - 172800000).toISOString();
-    expect(isSectionCurrentlyActive({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday })).toBe(false);
-    expect(getSectionScheduleStatus({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday })).toBe("expired");
+    expect(
+      isSectionCurrentlyActive({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday }),
+    ).toBe(false);
+    expect(
+      getSectionScheduleStatus({ ...baseSection, starts_at: twoDaysAgo, ends_at: yesterday }),
+    ).toBe("expired");
 
     // 5. Hidden or draft section is never active
     expect(isSectionCurrentlyActive({ ...baseSection, is_visible: false })).toBe(false);

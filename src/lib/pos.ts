@@ -227,23 +227,25 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
 
       if (!error && data && data.found) {
         // Keep offline IndexedDB cache fresh with authoritative live stock & pricing
-        import("@/lib/offline-sync-engine").then((m) => {
-          m.updateOfflineCatalogProduct({
-            id: data.product_id,
-            uuid: data.product_id,
-            slug: data.slug,
-            name: data.name,
-            brand: data.brand,
-            category: data.category,
-            price: Number(data.price || 0),
-            mrp: Number(data.mrp || data.price || 0),
-            stock: Number(data.stock || 0),
-            sku: data.sku,
-            barcode: data.barcode,
-            sales_channel: data.sales_channel,
-            is_active: !data.archived,
-          }).catch(console.error);
-        }).catch(console.error);
+        import("@/lib/offline-sync-engine")
+          .then((m) => {
+            m.updateOfflineCatalogProduct({
+              id: data.product_id,
+              uuid: data.product_id,
+              slug: data.slug,
+              name: data.name,
+              brand: data.brand,
+              category: data.category,
+              price: Number(data.price || 0),
+              mrp: Number(data.mrp || data.price || 0),
+              stock: Number(data.stock || 0),
+              sku: data.sku,
+              barcode: data.barcode,
+              sales_channel: data.sales_channel,
+              is_active: !data.archived,
+            }).catch(console.error);
+          })
+          .catch(console.error);
 
         return {
           found: true,
@@ -263,8 +265,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           age_group: data.age_group || "",
           description: data.description || "",
           sales_channel: (data.sales_channel || "ONLINE_AND_OFFLINE") as
-            | "ONLINE_AND_OFFLINE"
-            | "OFFLINE_ONLY",
+            "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
           buying_price: Number(data.buying_price || 0) || null,
         };
       }
@@ -337,8 +338,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           age_group: directProduct.age_group || "",
           description: directProduct.description || "",
           sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as
-            | "ONLINE_AND_OFFLINE"
-            | "OFFLINE_ONLY",
+            "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
         };
       }
     } catch (directErr) {
@@ -393,8 +393,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         age_group: String(offline.age_group || ""),
         description: String(offline.description || ""),
         sales_channel: (offline.sales_channel || "ONLINE_AND_OFFLINE") as
-          | "ONLINE_AND_OFFLINE"
-          | "OFFLINE_ONLY",
+          "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
         buying_price: Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null,
       };
     }
