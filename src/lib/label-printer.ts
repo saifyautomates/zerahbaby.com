@@ -75,19 +75,19 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageWidthMm: 100, // roll width: 100mm printable (108mm physical roll)
     pageHeightMm: 25, // single label height: 25mm
     pageMarginMm: 0,
-    labelWidthMm: 96, // 2mm bleed on each side
-    labelHeightMm: 23.5, // 0.75mm top+bottom bleed
+    labelWidthMm: 98, // 1mm bleed on each side
+    labelHeightMm: 24.0,
     paddingTopMm: 0.8,
-    paddingHorizMm: 2.5,
+    paddingHorizMm: 2.0,
     paddingBottomMm: 0.6,
     gridColumns: 1,
-    barcodeBarWidthPx: 1.3,
-    barcodeHeightMm: 5.6,
-    barcodeFontPt: 5.8,
-    brandFontPt: 6.5,
-    nameFontPt: 6.8,
-    priceFontPt: 7.2,
-    skuFontPt: 6.8,
+    barcodeBarWidthPx: 1.4,
+    barcodeHeightMm: 8.5,
+    barcodeFontPt: 6.5,
+    brandFontPt: 7.2,
+    nameFontPt: 7.8,
+    priceFontPt: 8.5,
+    skuFontPt: 6.5,
     isThermalRoll: true,
   },
   /** ─── 1-UP 58mm THERMAL ROLL (50mm × 25mm Horizontal Landscape) ─── */
@@ -95,19 +95,19 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     pageWidthMm: 50, // roll width: 50mm printable (58mm physical roll)
     pageHeightMm: 25,
     pageMarginMm: 0,
-    labelWidthMm: 48,
-    labelHeightMm: 23.8,
+    labelWidthMm: 48.5,
+    labelHeightMm: 24.0,
     paddingTopMm: 0.6,
-    paddingHorizMm: 1.4,
-    paddingBottomMm: 0.4,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
     gridColumns: 1,
-    barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 4.8,
-    barcodeFontPt: 5.2,
-    brandFontPt: 5.6,
-    nameFontPt: 5.8,
-    priceFontPt: 6.0,
-    skuFontPt: 5.8,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 7.8,
+    barcodeFontPt: 5.8,
+    brandFontPt: 6.2,
+    nameFontPt: 6.8,
+    priceFontPt: 7.5,
+    skuFontPt: 5.6,
     isThermalRoll: true,
   },
   /** ─── A4 GRID ─── */
@@ -122,12 +122,12 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     paddingBottomMm: 0.6,
     gridColumns: 4,
     barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 5.0,
-    barcodeFontPt: 5.2,
-    brandFontPt: 5.6,
-    nameFontPt: 5.8,
-    priceFontPt: 6.0,
-    skuFontPt: 5.8,
+    barcodeHeightMm: 7.5,
+    barcodeFontPt: 5.8,
+    brandFontPt: 6.2,
+    nameFontPt: 6.8,
+    priceFontPt: 7.5,
+    skuFontPt: 5.6,
     isThermalRoll: false,
   },
 } as const;
@@ -566,8 +566,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     if (labelType === "barcode-only") {
       return [
+        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
         `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
+        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
       ].join("");
     }
 
@@ -580,35 +581,58 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
         : "";
 
-    // Price rendering according to retail specification (e.g. M.R.P.: ₹ 799   (Inclusive of All taxes))
-    let priceSnippet = "";
+    // Price section
+    let priceSection = "";
     if (showMrp && showSellPrice) {
-      priceSnippet = `<span class="lbl-bold">M.R.P.:&nbsp;</span><span class="lbl-mrp-strike">${mrpFormatted}</span>&nbsp;<span class="lbl-bold">Price:&nbsp;</span><span class="lbl-sell-bold">${priceFormatted}</span>${discBadge}`;
+      priceSection = [
+        `<div class="lbl-prices-stacked">`,
+        `  <span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`,
+        `  <span class="lbl-sell-bold">Price: ${priceFormatted} ${discBadge}</span>`,
+        `</div>`,
+      ].join("");
     } else if (showSellPrice) {
-      priceSnippet = `<span class="lbl-bold">Price:&nbsp;</span><span class="lbl-sell-bold">${priceFormatted}</span>`;
+      priceSection = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
     } else {
-      // Default: Bold MRP matching retail tag
-      priceSnippet = `<span class="lbl-bold">M.R.P.:&nbsp;</span><span class="lbl-mrp-bold">${mrpFormatted}</span>${discBadge}`;
+      priceSection = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</span>`;
+    }
+
+    const sizeSnippet = sizeValue && sizeValue !== "--"
+      ? `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue)}</span>`
+      : "";
+
+    const artNoSnippet = artNoValue && artNoValue !== p.sku
+      ? `Art: ${escapeHtml(artNoValue)} &bull; `
+      : "";
+
+    if (separatePriceLine && (showMrp || showSellPrice)) {
+      const priceItems: string[] = [];
+      if (showMrp) priceItems.push(`<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`);
+      if (showSellPrice) priceItems.push(`<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`);
+      if (discBadge) priceItems.push(discBadge);
+
+      return [
+        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
+        `<div class="lbl-name-standalone">${escapeHtml(productName)}</div>`,
+        `<div class="lbl-price-row">${priceItems.join("&nbsp; ")}</div>`,
+        `<div class="lbl-bc">${barcodeSvg}</div>`,
+        `<div class="lbl-meta-bottom">`,
+        `  <span class="lbl-sku-text">${artNoSnippet}SKU: ${escapeHtml(p.sku || p.barcode || "—")}</span>`,
+        `  ${sizeSnippet}`,
+        `</div>`,
+      ].join("");
     }
 
     return [
-      `<div class="lbl-row lbl-artno-row">`,
-      `  <span class="lbl-bold">ArtNo:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span>`,
+      `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
+      `<div class="lbl-row-middle">`,
+      `  <div class="lbl-name">${escapeHtml(productName)}</div>`,
+      priceSection ? `  <div class="lbl-price-container">${priceSection}</div>` : "",
       `</div>`,
-      `<div class="lbl-row lbl-product-row">`,
-      `  <span class="lbl-bold">Product:&nbsp;</span><span class="lbl-val lbl-truncate">${escapeHtml(productName)}</span>`,
-      `</div>`,
-      `<div class="lbl-row lbl-between lbl-brand-size-row">`,
-      `  <div class="lbl-inline"><span class="lbl-bold">Brand:&nbsp;</span><span class="lbl-val">${escapeHtml(brandValue)}</span></div>`,
-      `  <div class="lbl-inline"><span class="lbl-bold">Size:&nbsp;</span><span class="lbl-val">${escapeHtml(sizeValue)}</span></div>`,
-      `</div>`,
-      `<div class="lbl-row lbl-between lbl-price-row">`,
-      `  <div class="lbl-inline">${priceSnippet}</div>`,
-      `  <span class="lbl-tax-note">(Inclusive of All taxes)</span>`,
-      `</div>`,
-      `<div class="lbl-divider"></div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
-      `<div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
+      `<div class="lbl-meta-bottom">`,
+      `  <span class="lbl-sku-text">${artNoSnippet}SKU: ${escapeHtml(p.sku || p.barcode || "—")}</span>`,
+      `  ${sizeSnippet}`,
+      `</div>`,
     ].join("");
   };
 
@@ -687,121 +711,174 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    .lbl-row {
-      display: flex;
-      flex-direction: row;
-      align-items: baseline;
-      width: 100%;
-      overflow: hidden;
-      white-space: nowrap;
-      line-height: 1.15;
-      font-size: ${cfg.nameFontPt}pt;
-      color: #000000;
-      flex-shrink: 0;
-      box-sizing: border-box;
-      margin: 0;
-    }
-
-    .lbl-between {
-      justify-content: space-between;
-    }
-
-    .lbl-inline {
-      display: inline-flex;
-      align-items: baseline;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-
-    .lbl-bold {
-      font-weight: 800;
-      color: #000000;
-      flex-shrink: 0;
-    }
-
-    .lbl-val {
-      font-weight: 700;
-      color: #000000;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .lbl-truncate {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .lbl-price-bold,
-    .lbl-mrp-bold,
-    .lbl-sell-bold {
-      font-size: ${cfg.priceFontPt}pt;
-      font-weight: 800;
-      color: #000000;
-      white-space: nowrap;
-    }
-
-    .lbl-mrp-strike {
-      font-size: ${Math.round(cfg.priceFontPt * 0.88)}pt;
-      font-weight: 600;
-      color: #555555;
-      text-decoration: line-through;
-      white-space: nowrap;
-      margin-right: 0.5mm;
-    }
-
-    .lbl-tax-note {
-      font-size: ${Math.round(cfg.priceFontPt * 0.72)}pt;
-      font-weight: 600;
-      color: #000000;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .lbl-disc-pct {
-      font-size: ${Math.round(cfg.priceFontPt * 0.82)}pt;
-      font-weight: 800;
-      color: #059669;
-      margin-left: 0.5mm;
-    }
-
-    .lbl-divider {
-      width: 100%;
-      height: 0;
-      border-top: 0.8pt solid #000000;
-      margin: 0.25mm 0 0.15mm;
-      flex-shrink: 0;
-    }
-
-    .lbl-bc {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .lbl-bc svg {
-      display: block;
-      margin: 0 auto;
-    }
-
-    .lbl-footer-brand {
+    /* ── Row 1: Brand Header (ZÉRAH BABY & KIDS on TOP) ── */
+    .lbl-brand {
       font-size: ${cfg.brandFontPt}pt;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #000000;
+      color: #222222;
+      line-height: 1;
       width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       text-align: center;
-      line-height: 1.05;
       flex-shrink: 0;
-      margin-top: 0.1mm;
+    }
+
+    /* ── Row 2: Product Name (Left) + Prices (Right) ── */
+    .lbl-row-middle {
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      width: 100%;
+      gap: 1.5mm;
+      overflow: hidden;
+      flex-shrink: 0;
+      margin-top: 0.2mm;
+      margin-bottom: 0.2mm;
+    }
+
+    .lbl-name {
+      font-size: ${cfg.nameFontPt}pt;
+      font-weight: 700;
+      color: #000000;
+      line-height: 1.15;
+      text-align: left;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .lbl-name-standalone {
+      font-size: ${cfg.nameFontPt}pt;
+      font-weight: 700;
+      color: #000000;
+      line-height: 1.15;
+      width: 100%;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+
+    .lbl-price-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      gap: 1.5mm;
+      line-height: 1;
+      flex-shrink: 0;
+      margin: 0.2mm 0;
+    }
+
+    .lbl-price-container {
+      display: flex;
+      align-items: baseline;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .lbl-prices-stacked {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      text-align: right;
+      line-height: 1.1;
+      flex-shrink: 0;
+    }
+
+    .lbl-mrp-strike {
+      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+      font-weight: 600;
+      color: #555555;
+      text-decoration: line-through;
+      white-space: nowrap;
+    }
+
+    .lbl-sell-bold,
+    .lbl-mrp-bold {
+      font-size: ${cfg.priceFontPt}pt;
+      font-weight: 900;
+      color: #000000;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+
+    .lbl-disc-pct {
+      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+      font-weight: 800;
+      color: #059669;
+      margin-left: 0.5mm;
+    }
+
+    /* ── Row 3: Barcode & Barcode Number ── */
+    .lbl-bc {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      margin: 0.2mm 0;
+    }
+
+    .lbl-bc svg {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: 100%;
+      max-height: ${cfg.barcodeHeightMm}mm;
+    }
+
+    /* ── Row 4: SKU & Size Bottom Row ── */
+    .lbl-meta-bottom {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+      width: 100%;
+      font-size: ${cfg.skuFontPt}pt;
+      color: #333333;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .lbl-sku-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lbl-size-badge {
+      font-weight: 800;
+      color: #000000;
+      margin-left: 1mm;
+      flex-shrink: 0;
+    }
+
+    .lbl-sku {
+      font-size: ${cfg.skuFontPt}pt;
+      font-weight: 700;
+      color: #444444;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+      line-height: 1;
+      flex-shrink: 0;
     }
 
     /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */
