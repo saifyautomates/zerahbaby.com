@@ -70,64 +70,64 @@ export interface PrintFormatConfig {
 }
 
 export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig> = {
-  /** ─── 1-UP 58mm THERMAL ROLL (50mm × 75mm Vertical Portrait Default) ─── */
+  /** ─── 1-UP 108mm THERMAL ROLL (100mm × 25mm Horizontal Landscape) ─── */
+  "thermal-108": {
+    pageWidthMm: 100, // roll width: 100mm printable (108mm physical roll)
+    pageHeightMm: 25, // single label height: 25mm
+    pageMarginMm: 0,
+    labelWidthMm: 96, // 2mm bleed on each side
+    labelHeightMm: 23.5, // 0.75mm top+bottom bleed
+    paddingTopMm: 0.8,
+    paddingHorizMm: 2.5,
+    paddingBottomMm: 0.6,
+    gridColumns: 1,
+    barcodeBarWidthPx: 1.3,
+    barcodeHeightMm: 5.6,
+    barcodeFontPt: 5.8,
+    brandFontPt: 6.5,
+    nameFontPt: 6.8,
+    priceFontPt: 7.2,
+    skuFontPt: 6.8,
+    isThermalRoll: true,
+  },
+  /** ─── 1-UP 58mm THERMAL ROLL (50mm × 25mm Horizontal Landscape) ─── */
   "thermal-58": {
-    pageWidthMm: 50, // roll width: 50mm printable
-    pageHeightMm: 75, // vertical portrait label height: 75mm
+    pageWidthMm: 50, // roll width: 50mm printable (58mm physical roll)
+    pageHeightMm: 25,
     pageMarginMm: 0,
     labelWidthMm: 48,
-    labelHeightMm: 73,
-    paddingTopMm: 1.5,
-    paddingHorizMm: 2.0,
-    paddingBottomMm: 1.5,
+    labelHeightMm: 23.8,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.4,
+    paddingBottomMm: 0.4,
     gridColumns: 1,
-    barcodeBarWidthPx: 1.2,
-    barcodeHeightMm: 14.0, // tall, clear barcode for rapid optical scanning
-    barcodeFontPt: 7.0,
-    brandFontPt: 7.5,
-    nameFontPt: 8.0,
-    priceFontPt: 9.0,
-    skuFontPt: 8.0,
+    barcodeBarWidthPx: 1.0,
+    barcodeHeightMm: 4.8,
+    barcodeFontPt: 5.2,
+    brandFontPt: 5.6,
+    nameFontPt: 5.8,
+    priceFontPt: 6.0,
+    skuFontPt: 5.8,
     isThermalRoll: true,
   },
-  /** ─── 1-UP 108mm THERMAL ROLL (75mm × 100mm Vertical Portrait) ─── */
-  "thermal-108": {
-    pageWidthMm: 75, // roll width: 75mm printable (108mm physical roll)
-    pageHeightMm: 100, // vertical portrait label height: 100mm
-    pageMarginMm: 0,
-    labelWidthMm: 72,
-    labelHeightMm: 96,
-    paddingTopMm: 2.0,
-    paddingHorizMm: 2.5,
-    paddingBottomMm: 2.0,
-    gridColumns: 1,
-    barcodeBarWidthPx: 1.4,
-    barcodeHeightMm: 18.0,
-    barcodeFontPt: 8.5,
-    brandFontPt: 9.5,
-    nameFontPt: 10.0,
-    priceFontPt: 11.5,
-    skuFontPt: 9.5,
-    isThermalRoll: true,
-  },
-  /** ─── A4 GRID (4-Column Portrait Sheet) ─── */
+  /** ─── A4 GRID ─── */
   a4: {
     pageWidthMm: 210,
     pageHeightMm: 297,
     pageMarginMm: 8,
-    labelWidthMm: 46,
-    labelHeightMm: 68,
-    paddingTopMm: 1.5,
+    labelWidthMm: 47,
+    labelHeightMm: 26,
+    paddingTopMm: 0.8,
     paddingHorizMm: 1.5,
-    paddingBottomMm: 1.5,
+    paddingBottomMm: 0.6,
     gridColumns: 4,
-    barcodeBarWidthPx: 1.1,
-    barcodeHeightMm: 12.0,
-    barcodeFontPt: 6.5,
-    brandFontPt: 7.0,
-    nameFontPt: 7.5,
-    priceFontPt: 8.5,
-    skuFontPt: 7.5,
+    barcodeBarWidthPx: 1.0,
+    barcodeHeightMm: 5.0,
+    barcodeFontPt: 5.2,
+    brandFontPt: 5.6,
+    nameFontPt: 5.8,
+    priceFontPt: 6.0,
+    skuFontPt: 5.8,
     isThermalRoll: false,
   },
 } as const;
@@ -384,25 +384,27 @@ export function generateBarcodeSvgString(
       width: cfg.barWidthPx,
       height: Math.round(cfg.heightMm * 3.7795), // mm → px at 96dpi
       fontSize: Math.round(cfg.fontPt * 1.333), // pt → px
-      margin: 2,
-      marginTop: 1,
-      marginBottom: 2,
+      margin: 1,
+      marginTop: 0,
+      marginBottom: 0,
       displayValue: cfg.displayValue ?? true,
       font: "Arial, Helvetica, sans-serif",
       fontOptions: "bold",
-      textMargin: 2,
+      textMargin: 1,
       background: "#ffffff",
       lineColor: "#000000",
     });
-
-    const nativeWidth = parseFloat(svg.getAttribute("width") || "120");
-    const nativeHeight = parseFloat(svg.getAttribute("height") || "60");
-    svg.setAttribute("viewBox", `0 0 ${nativeWidth} ${nativeHeight}`);
+    // Force deterministic physical size on the SVG element itself.
+    // Avoid "max-width: 100%" which causes browsers to rescale in print.
+    // Use explicit mm-unit width + height so the barcode always prints at
+    // its configured physical size regardless of printer driver scaling.
     svg.removeAttribute("width");
     svg.removeAttribute("height");
+    svg.setAttribute("width", `${cfg.maxWidthMm}mm`);
+    svg.setAttribute("height", `${cfg.heightMm + cfg.fontPt * 0.35 + 0.5}mm`);
     svg.setAttribute(
       "style",
-      `display:block;margin:0 auto;max-width:${cfg.maxWidthMm}mm;width:100%;height:auto;shape-rendering:crispEdges;overflow:visible;`,
+      "display:block;margin:0 auto;shape-rendering:crispEdges;overflow:visible;max-width:100%;",
     );
     return svg.outerHTML;
   } catch (err) {
@@ -591,21 +593,19 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     return [
       `<div class="lbl-row lbl-artno-row">`,
-      `  <span class="lbl-bold">Art No:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span>`,
+      `  <span class="lbl-bold">ArtNo:&nbsp;</span><span class="lbl-val">${escapeHtml(artNoValue)}</span>`,
       `</div>`,
       `<div class="lbl-row lbl-product-row">`,
-      `  <span class="lbl-bold">Product:&nbsp;</span><span class="lbl-val lbl-product-name">${escapeHtml(productName)}</span>`,
+      `  <span class="lbl-bold">Product:&nbsp;</span><span class="lbl-val lbl-truncate">${escapeHtml(productName)}</span>`,
       `</div>`,
-      `<div class="lbl-row lbl-brand-row">`,
-      `  <span class="lbl-bold">Brand:&nbsp;</span><span class="lbl-val">${escapeHtml(brandValue)}</span>`,
+      `<div class="lbl-row lbl-between lbl-brand-size-row">`,
+      `  <div class="lbl-inline"><span class="lbl-bold">Brand:&nbsp;</span><span class="lbl-val">${escapeHtml(brandValue)}</span></div>`,
+      `  <div class="lbl-inline"><span class="lbl-bold">Size:&nbsp;</span><span class="lbl-val">${escapeHtml(sizeValue)}</span></div>`,
       `</div>`,
-      `<div class="lbl-row lbl-size-row">`,
-      `  <span class="lbl-bold">Size:&nbsp;</span><span class="lbl-val">${escapeHtml(sizeValue)}</span>`,
+      `<div class="lbl-row lbl-between lbl-price-row">`,
+      `  <div class="lbl-inline">${priceSnippet}</div>`,
+      `  <span class="lbl-tax-note">(Inclusive of All taxes)</span>`,
       `</div>`,
-      `<div class="lbl-row lbl-price-row">`,
-      `  ${priceSnippet}`,
-      `</div>`,
-      `<div class="lbl-tax-note">(Inclusive of All Taxes)</div>`,
       `<div class="lbl-divider"></div>`,
       `<div class="lbl-bc">${barcodeSvg}</div>`,
       `<div class="lbl-footer-brand">${escapeHtml(brandValue)}</div>`,
@@ -621,7 +621,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         .map(
           (p, idx) => `
         <div class="sticker-preview-wrapper" data-label-index="${idx + 1}">
-          <div class="sticker-dim-badge no-print">${cfg.pageWidthMm}mm × ${cfg.pageHeightMm}mm Label #${idx + 1} (Portrait)</div>
+          <div class="sticker-dim-badge no-print">${cfg.pageWidthMm}mm × ${cfg.pageHeightMm}mm Label #${idx + 1}</div>
           <div class="label-page sticker-card">
             <div class="label-inner">${renderLabelContent(p)}</div>
           </div>
@@ -653,6 +653,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   }
 
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
+  const pageSizeDecl = `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+  const pageMarginDecl = cfg.isThermalRoll ? "0" : `${cfg.pageMarginMm}mm`;
+
   const css = `
     /* ── Reset ── */
     *, *::before, *::after {
@@ -663,22 +666,22 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     /* ── Exact Physical Page Dimensions (Strictly isolated per format) ── */
     @page {
-      size: portrait;
-      margin: 0;
+      size: ${pageSizeDecl};
+      margin: ${pageMarginDecl};
     }
 
+    /* ── Label Typography & Layout Tokens ── */
     /* ── Label Typography & Layout Tokens ── */
     .label-inner {
       width: 100%;
       height: 100%;
-      min-height: 100%;
+      max-height: 100%;
       padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      justify-content: flex-start;
-      gap: 1.2mm;
-      overflow: visible;
+      align-items: center;
+      justify-content: space-between;
+      overflow: hidden;
       background: #ffffff;
       box-sizing: border-box;
       font-family: Arial, Helvetica, sans-serif;
@@ -689,13 +692,25 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       flex-direction: row;
       align-items: baseline;
       width: 100%;
-      line-height: 1.25;
+      overflow: hidden;
+      white-space: nowrap;
+      line-height: 1.15;
       font-size: ${cfg.nameFontPt}pt;
       color: #000000;
+      flex-shrink: 0;
       box-sizing: border-box;
       margin: 0;
-      overflow-wrap: break-word;
-      word-break: break-word;
+    }
+
+    .lbl-between {
+      justify-content: space-between;
+    }
+
+    .lbl-inline {
+      display: inline-flex;
+      align-items: baseline;
+      white-space: nowrap;
+      overflow: hidden;
     }
 
     .lbl-bold {
@@ -707,63 +722,55 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     .lbl-val {
       font-weight: 700;
       color: #000000;
-      overflow-wrap: break-word;
-      word-break: break-word;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .lbl-product-name {
-      white-space: normal;
-      overflow-wrap: break-word;
-      word-break: break-word;
-      line-height: 1.2;
-    }
-
-    .lbl-price-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      width: 100%;
-      margin-top: 0.3mm;
+    .lbl-truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .lbl-price-bold,
     .lbl-mrp-bold,
     .lbl-sell-bold {
       font-size: ${cfg.priceFontPt}pt;
-      font-weight: 900;
+      font-weight: 800;
       color: #000000;
+      white-space: nowrap;
     }
 
     .lbl-mrp-strike {
-      font-size: ${Math.round(cfg.priceFontPt * 0.9)}pt;
+      font-size: ${Math.round(cfg.priceFontPt * 0.88)}pt;
       font-weight: 600;
       color: #555555;
       text-decoration: line-through;
-      margin-right: 1mm;
+      white-space: nowrap;
+      margin-right: 0.5mm;
     }
 
     .lbl-tax-note {
       font-size: ${Math.round(cfg.priceFontPt * 0.72)}pt;
-      font-weight: 700;
+      font-weight: 600;
       color: #000000;
-      line-height: 1.1;
-      width: 100%;
-      text-align: left;
-      margin-top: -0.4mm;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .lbl-disc-pct {
-      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+      font-size: ${Math.round(cfg.priceFontPt * 0.82)}pt;
       font-weight: 800;
       color: #059669;
-      margin-left: 1mm;
+      margin-left: 0.5mm;
     }
 
     .lbl-divider {
       width: 100%;
       height: 0;
-      border-top: 1pt solid #000000;
-      margin: 1.5mm 0 1mm;
+      border-top: 0.8pt solid #000000;
+      margin: 0.25mm 0 0.15mm;
       flex-shrink: 0;
     }
 
@@ -772,72 +779,69 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       display: flex;
       justify-content: center;
       align-items: center;
-      overflow: visible;
+      overflow: hidden;
       flex-shrink: 0;
-      margin: 0 auto;
     }
 
     .lbl-bc svg {
       display: block;
       margin: 0 auto;
-      max-width: 100%;
-      height: auto;
     }
 
     .lbl-footer-brand {
       font-size: ${cfg.brandFontPt}pt;
       font-weight: 800;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       color: #000000;
       width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       text-align: center;
-      line-height: 1.15;
+      line-height: 1.05;
       flex-shrink: 0;
-      margin-top: 1mm;
+      margin-top: 0.1mm;
     }
 
     /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */
-    .print-mode-50x25 .label-page,
-    .print-mode-portrait-50mm .label-page {
-      width: ${PRINT_FORMAT_CONFIG["thermal-58"].labelWidthMm}mm;
-      min-height: ${PRINT_FORMAT_CONFIG["thermal-58"].labelHeightMm}mm;
-      max-width: ${PRINT_FORMAT_CONFIG["thermal-58"].labelWidthMm}mm;
-      height: auto;
-      margin: 0 auto;
+    .print-mode-50x25 .label-page {
+      width: 50mm;
+      height: 25mm;
+      max-width: 50mm;
+      max-height: 25mm;
       box-sizing: border-box;
       background: #ffffff;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .print-mode-108mm .label-page {
-      width: ${PRINT_FORMAT_CONFIG["thermal-108"].labelWidthMm}mm;
-      min-height: ${PRINT_FORMAT_CONFIG["thermal-108"].labelHeightMm}mm;
-      max-width: ${PRINT_FORMAT_CONFIG["thermal-108"].labelWidthMm}mm;
-      height: auto;
-      margin: 0 auto;
+      width: 100mm;
+      height: 25mm;
+      max-width: 100mm;
+      max-height: 25mm;
       box-sizing: border-box;
       background: #ffffff;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .print-mode-a4 .label-grid {
       display: grid;
       grid-template-columns: repeat(${cfg.gridColumns}, 1fr);
-      gap: 2mm;
+      gap: 1.5mm;
       width: 194mm;
       box-sizing: border-box;
     }
 
     .print-mode-a4 .label-cell {
-      min-height: ${cfg.labelHeightMm}mm;
-      height: auto;
-      overflow: visible;
+      height: ${cfg.labelHeightMm}mm;
+      max-height: ${cfg.labelHeightMm}mm;
+      overflow: hidden;
       page-break-inside: avoid;
       break-inside: avoid;
       border: 0.3mm dashed #cccccc;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
       box-sizing: border-box;
       background: #ffffff;
@@ -1025,22 +1029,20 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       }
 
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
-      .label-page {
-        width: ${cfg.labelWidthMm}mm !important;
-        max-width: ${cfg.labelWidthMm}mm !important;
-        min-height: ${cfg.labelHeightMm}mm !important;
-        height: auto !important;
+      .print-mode-50x25 .label-page,
+      .print-mode-108mm .label-page {
         page-break-after: always !important;
         break-after: page !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
-        overflow: visible !important;
-        margin: 0 auto !important;
+        overflow: hidden !important;
+        margin: 0 !important;
         padding: 0 !important;
       }
 
       /* Suppress trailing page break on final label to prevent extra blank stickers */
-      .label-page:last-child,
+      .print-mode-50x25 .label-page:last-child,
+      .print-mode-108mm .label-page:last-child,
       .sticker-preview-wrapper:last-child .label-page {
         page-break-after: auto !important;
         break-after: auto !important;
