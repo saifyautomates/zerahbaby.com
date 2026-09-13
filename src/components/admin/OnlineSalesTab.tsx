@@ -518,6 +518,46 @@ export function OnlineSalesTab() {
                   // Stock restoration best-effort
                 }
                 try {
+                  const { data: retRows } = await (supabase.from as any)("online_returns")
+                    .select("id")
+                    .eq("order_id", id);
+                  if (retRows && retRows.length > 0) {
+                    const retIds = retRows.map((r: { id: string }) => r.id);
+                    await (supabase.from as any)("online_return_items")
+                      .delete()
+                      .in("return_id", retIds);
+                    await (supabase.from as any)("online_returns").delete().eq("order_id", id);
+                  }
+                } catch {
+                  // online_returns optional or already cleared
+                }
+
+                try {
+                  await (supabase.from as any)("shipment_labels").delete().eq("order_id", id);
+                } catch {
+                  // shipment_labels optional
+                }
+                try {
+                  await (supabase.from as any)("order_shipments").delete().eq("order_id", id);
+                } catch {
+                  // order_shipments optional
+                }
+                try {
+                  await (supabase.from as any)("shiprocket_shipments").delete().eq("order_id", id);
+                } catch {
+                  // shiprocket_shipments optional
+                }
+                try {
+                  await (supabase.from as any)("order_notifications").delete().eq("order_id", id);
+                } catch {
+                  // order_notifications optional
+                }
+                try {
+                  await (supabase.from as any)("sales_sms_logs").delete().eq("order_id", id);
+                } catch {
+                  // sales_sms_logs optional
+                }
+                try {
                   await (supabase.from as any)("shipping_events").delete().eq("order_id", id);
                 } catch {
                   // shipping_events table optional

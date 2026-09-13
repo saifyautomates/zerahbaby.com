@@ -144,8 +144,12 @@ Deno.serve(async (req) => {
     }
 
     // B. Clean up shipments, coupons, items, status history, and payments
-    await adminClient.from("shiprocket_shipments").delete().eq("order_id", orderId);
+    await adminClient.from("shipment_labels").delete().eq("order_id", orderId);
     await adminClient.from("order_shipments").delete().eq("order_id", orderId);
+    await adminClient.from("shiprocket_shipments").delete().eq("order_id", orderId);
+    await adminClient.from("order_notifications").delete().eq("order_id", orderId);
+    await adminClient.from("sales_sms_logs").delete().eq("order_id", orderId);
+    await adminClient.from("shipping_events").delete().eq("order_id", orderId);
     await adminClient.from("coupon_usage").delete().eq("order_id", orderId);
     await adminClient.from("order_items").delete().eq("order_id", orderId);
     await adminClient.from("order_status_history").delete().eq("order_id", orderId);

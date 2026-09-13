@@ -526,6 +526,44 @@ export function useDeleteCancelledOrder() {
       }
 
       try {
+        const { data: retRows } = await (supabase.from as any)("online_returns")
+          .select("id")
+          .eq("order_id", orderId);
+        if (retRows && retRows.length > 0) {
+          const retIds = retRows.map((r: { id: string }) => r.id);
+          await (supabase.from as any)("online_return_items").delete().in("return_id", retIds);
+          await (supabase.from as any)("online_returns").delete().eq("order_id", orderId);
+        }
+      } catch {
+        // online_returns optional or already cleared
+      }
+
+      try {
+        await (supabase.from as any)("shipment_labels").delete().eq("order_id", orderId);
+      } catch {
+        // shipment_labels optional
+      }
+      try {
+        await (supabase.from as any)("order_shipments").delete().eq("order_id", orderId);
+      } catch {
+        // order_shipments optional
+      }
+      try {
+        await (supabase.from as any)("shiprocket_shipments").delete().eq("order_id", orderId);
+      } catch {
+        // shiprocket_shipments optional
+      }
+      try {
+        await (supabase.from as any)("order_notifications").delete().eq("order_id", orderId);
+      } catch {
+        // order_notifications optional
+      }
+      try {
+        await (supabase.from as any)("sales_sms_logs").delete().eq("order_id", orderId);
+      } catch {
+        // sales_sms_logs optional
+      }
+      try {
         await (supabase.from as any)("shipping_events").delete().eq("order_id", orderId);
       } catch {
         // shipping_events table optional or already cleared
