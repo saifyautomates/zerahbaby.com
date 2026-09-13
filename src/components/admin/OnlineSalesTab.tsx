@@ -379,16 +379,31 @@ export function OnlineSalesTab() {
       const orderIds = activeOrdersToCancel.map((o) => o.id);
       const reasonText = bulkCancelReason.trim() || "Bulk cancelled by Admin";
 
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: "cancelled",
-          cancelled_at: new Date().toISOString(),
-          cancellation_reason: reasonText,
-        })
-        .in("id", orderIds);
-
-      if (error) throw error;
+      // Execute canonical admin order cancellations with atomic restock & ledger audit
+      for (const o of activeOrdersToCancel) {
+        try {
+          const { error: cancelRpcErr } = await (supabase.rpc as any)("admin_cancel_order", {
+            order_id: o.id,
+            reason: reasonText,
+          });
+          if (cancelRpcErr) {
+            // Fallback to cancel_customer_order or direct update if needed
+            await (supabase.rpc as any)("cancel_customer_order", {
+              order_id: o.id,
+              reason: reasonText,
+            });
+          }
+        } catch {
+          await supabase
+            .from("orders")
+            .update({
+              status: "cancelled",
+              cancelled_at: new Date().toISOString(),
+              cancellation_reason: reasonText,
+            })
+            .eq("id", o.id);
+        }
+      }
 
       // Trigger cancellation on Shiprocket & auto refund for online paid orders
       activeOrdersToCancel.forEach((o) => {

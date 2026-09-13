@@ -1521,26 +1521,35 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
         .select("id, name, stock")
         .eq("product_id", id);
 
-      if (variants && variants.length > 1) {
-        const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        const diff = cleanStock - currentTotal;
-        if (diff !== 0) {
-          const primaryVar = variants[0];
-          const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
+      // Execute canonical auditable inventory adjustment via RPC
+      const { error: rpcErr } = await (supabase.rpc as any)("admin_adjust_inventory", {
+        _product_id: id,
+        _new_stock: cleanStock,
+        _reason: "Admin dashboard inline stock edit",
+      });
+
+      if (rpcErr) {
+        if (variants && variants.length > 1) {
+          const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+          const diff = cleanStock - currentTotal;
+          if (diff !== 0) {
+            const primaryVar = variants[0];
+            const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
+            await supabase
+              .from("product_variants")
+              .update({ stock: newPrimaryStock })
+              .eq("id", primaryVar.id);
+          }
+        } else if (variants && variants.length === 1) {
           await supabase
             .from("product_variants")
-            .update({ stock: newPrimaryStock })
-            .eq("id", primaryVar.id);
+            .update({ stock: cleanStock })
+            .eq("id", variants[0].id);
         }
-      } else if (variants && variants.length === 1) {
-        await supabase
-          .from("product_variants")
-          .update({ stock: cleanStock })
-          .eq("id", variants[0].id);
-      }
 
-      const { error } = await supabase.from("products").update({ stock: cleanStock }).eq("id", id);
-      if (error) throw error;
+        const { error } = await supabase.from("products").update({ stock: cleanStock }).eq("id", id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Stock updated successfully");
