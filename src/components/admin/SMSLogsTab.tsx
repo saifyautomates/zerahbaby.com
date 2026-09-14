@@ -279,7 +279,7 @@ export function SMSLogsTab() {
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight">Transactional SMS Logs</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Track MSG91 delivery status, retries, and errors for system-generated messages. Click
+            Track SMS delivery status, retries, and errors for system-generated messages. Click
             any row to view full details.
           </p>
         </div>
@@ -702,7 +702,7 @@ export function SMSLogsTab() {
                         <span className="text-emerald-700 dark:text-emerald-400 font-bold text-sm">
                           {selectedLog.provider_status === "mock_success"
                             ? "Sent (Sandbox)"
-                            : "Delivered (MSG91)"}
+                            : "Delivered"}
                         </span>
                       </>
                     ) : selectedLog.status === "FAILED" ||
@@ -894,7 +894,7 @@ export function SMSLogsTab() {
                   {/* Provider Message ID */}
                   <div className="rounded-xl border border-border/70 p-3 bg-muted/20">
                     <span className="text-[11px] text-muted-foreground font-medium block">
-                      Provider Request ID (MSG91)
+                      Provider Request ID
                     </span>
                     <div className="flex items-center justify-between mt-1">
                       <span className="font-mono text-xs font-medium text-foreground truncate max-w-[200px]">
@@ -921,7 +921,7 @@ export function SMSLogsTab() {
                   {/* Template / Flow ID */}
                   <div className="rounded-xl border border-border/70 p-3 bg-muted/20">
                     <span className="text-[11px] text-muted-foreground font-medium block">
-                      DLT Template / MSG91 Flow ID
+                      DLT Template / Flow ID
                     </span>
                     <div className="flex items-center justify-between mt-1">
                       <div>

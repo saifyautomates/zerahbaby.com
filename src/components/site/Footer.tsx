@@ -23,7 +23,7 @@ export function Footer() {
   } = useSettings();
 
   const waLink =
-    whatsappUrl || (contactPhone ? `https://wa.me/${contactPhone.replace(/[^0-9]/g, "")}` : "");
+    whatsappUrl || "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g";
 
   const socials = [
     {

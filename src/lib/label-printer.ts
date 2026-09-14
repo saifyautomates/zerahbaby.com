@@ -1045,11 +1045,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const effectiveMrp = typeof p.mrp === "number" && p.mrp > 0 ? p.mrp : p.price;
     const mrpFormatted = "₹" + Math.round(effectiveMrp);
     const priceFormatted = "₹" + Math.round(p.price);
-    const artNoValue = (p.artNo || p.sku || p.barcode || "—").toString().trim();
+    const skuValue = (p.sku || p.artNo || p.barcode || "—").toString().trim();
     const productName = (p.name || "").toString().trim();
-    const brandValue = (p.brand || "ZERAH").toString().trim().toUpperCase();
-    const sizeValue = (p.size || p.ageGroup || "--").toString().trim();
-    const bottomBrand = brandValue || "ZÉRAH BABY & KIDS";
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
@@ -1066,56 +1063,25 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         `  <div class="lbl-bc-section">`,
         `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
         `  </div>`,
-        `  <div class="lbl-sku-line">SKU: ${escapeHtml(artNoValue)}</div>`,
-        `  <div class="lbl-brand-footer">${escapeHtml(bottomBrand)}</div>`,
+        `  <div class="lbl-sku-line">SKU: ${escapeHtml(skuValue)}</div>`,
         `</div>`,
       ].join("");
     }
 
-    const hasDiscount = typeof p.mrp === "number" && p.mrp > p.price && p.price > 0;
-    const discountPct = hasDiscount
-      ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100)
-      : 0;
-    const discBadge =
-      showDiscount && hasDiscount && discountPct > 0
-        ? `<span class="lbl-disc-badge">(-${discountPct}%)</span>`
-        : "";
-
-    // Optional offer price row if enabled and lower than MRP
-    const offerPriceRow =
-      showSellPrice && p.price > 0 && p.price < effectiveMrp
-        ? `<div class="lbl-offer-line"><span class="lbl-offer-key">Price:</span> <span class="lbl-offer-val">${priceFormatted}</span> ${discBadge}</div>`
-        : "";
+    const hasMrpDiff = effectiveMrp > p.price && p.price > 0;
 
     return [
       `<div class="lbl-v-stack">`,
-      `  <div class="lbl-field">`,
-      `    <div class="lbl-key">Art No:</div>`,
-      `    <div class="lbl-val lbl-art">${escapeHtml(artNoValue)}</div>`,
+      `  <div class="lbl-brand-header">ZÉRAH BABY &amp; KIDS</div>`,
+      `  <div class="lbl-product-name">${escapeHtml(productName)}</div>`,
+      `  <div class="lbl-price-row">`,
+      `    <span class="lbl-selling-price">${priceFormatted}</span>`,
+      hasMrpDiff ? `    <span class="lbl-mrp-price">${mrpFormatted}</span>` : "",
       `  </div>`,
-      `  <div class="lbl-field">`,
-      `    <div class="lbl-key">Product:</div>`,
-      `    <div class="lbl-val lbl-product">${escapeHtml(productName)}</div>`,
-      `  </div>`,
-      `  <div class="lbl-field">`,
-      `    <div class="lbl-key">Brand:</div>`,
-      `    <div class="lbl-val lbl-brand">${escapeHtml(brandValue)}</div>`,
-      `  </div>`,
-      `  <div class="lbl-field">`,
-      `    <div class="lbl-key">Size:</div>`,
-      `    <div class="lbl-val lbl-size">${escapeHtml(sizeValue)}</div>`,
-      `  </div>`,
-      `  <div class="lbl-field lbl-mrp-group">`,
-      `    <div class="lbl-key">M.R.P.:</div>`,
-      `    <div class="lbl-mrp-val">${mrpFormatted}</div>`,
-      `    <div class="lbl-tax-note">(Inclusive of All Taxes)</div>`,
-      offerPriceRow ? `    ${offerPriceRow}` : "",
-      `  </div>`,
-      `  <div class="lbl-divider"></div>`,
       `  <div class="lbl-bc-section">`,
       `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
-      `    <div class="lbl-brand-footer">ZÉRAH BABY &amp; KIDS</div>`,
       `  </div>`,
+      `  <div class="lbl-sku-line">SKU: ${escapeHtml(skuValue)}</div>`,
       `</div>`,
     ].join("");
   };
@@ -1253,124 +1219,44 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #000000;
-      margin-bottom: 2mm;
-    }
-
-    .lbl-sku-line {
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 800;
-      color: #111111;
-      margin-top: 1mm;
-    }
-
-    .lbl-field {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 0.7mm;
+      color: #64748b;
+      margin-bottom: 0.6mm;
       text-align: center;
-      line-height: 1.15;
-    }
-
-    .lbl-key {
-      font-size: ${cfg.skuFontPt * 0.9}pt;
-      font-weight: 700;
-      color: #444444;
-      letter-spacing: 0.03em;
       line-height: 1.1;
-      text-transform: none;
     }
 
-    .lbl-val {
+    .lbl-product-name {
       font-size: ${cfg.nameFontPt}pt;
-      font-weight: 800;
+      font-weight: 700;
       color: #000000;
       line-height: 1.2;
+      text-align: center;
       word-break: break-word;
       overflow-wrap: break-word;
-      max-width: 100%;
-    }
-
-    .lbl-art {
-      font-size: ${cfg.skuFontPt + 0.5}pt;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-    }
-
-    .lbl-product {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 800;
-      color: #000000;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      line-height: 1.2;
-      max-width: 100%;
+      margin-bottom: 0.6mm;
       padding: 0 0.5mm;
     }
 
-    .lbl-brand {
-      font-size: ${cfg.brandFontPt}pt;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+    .lbl-price-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2mm;
+      margin-bottom: 0.6mm;
+      line-height: 1.1;
     }
 
-    .lbl-size {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 800;
-    }
-
-    .lbl-mrp-group {
-      margin-top: 0.5mm;
-      margin-bottom: 0.5mm;
-    }
-
-    .lbl-mrp-val {
+    .lbl-selling-price {
       font-size: ${cfg.priceFontPt}pt;
       font-weight: 900;
       color: #000000;
-      line-height: 1.05;
-      letter-spacing: -0.01em;
-      margin-top: 0.2mm;
     }
 
-    .lbl-tax-note {
-      font-size: ${Math.max(5.0, cfg.skuFontPt * 0.78)}pt;
+    .lbl-mrp-price {
+      font-size: ${Math.max(6, cfg.priceFontPt * 0.72)}pt;
+      color: #64748b;
+      text-decoration: line-through;
       font-weight: 600;
-      color: #444444;
-      line-height: 1;
-      margin-top: 0.4mm;
-    }
-
-    .lbl-offer-line {
-      margin-top: 0.4mm;
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 700;
-      color: #000000;
-    }
-
-    .lbl-offer-key {
-      color: #444444;
-    }
-
-    .lbl-offer-val {
-      font-weight: 900;
-      color: #000000;
-    }
-
-    .lbl-disc-badge {
-      font-size: ${cfg.skuFontPt * 0.85}pt;
-      font-weight: 800;
-      color: #059669;
-      margin-left: 0.8mm;
-    }
-
-    .lbl-divider {
-      width: 88%;
-      border-top: 1px dashed #000000;
-      margin: 1.2mm auto;
     }
 
     .lbl-bc-section {
@@ -1379,7 +1265,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-top: 0.2mm;
+      margin-top: 0.4mm;
     }
 
     .lbl-bc-box {
@@ -1399,16 +1285,13 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       shape-rendering: crispEdges;
     }
 
-    .lbl-brand-footer {
-      font-size: ${Math.max(5.5, cfg.brandFontPt * 0.85)}pt;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #111111;
-      margin-top: 0.8mm;
-      line-height: 1;
+    .lbl-sku-line {
+      font-size: ${cfg.skuFontPt}pt;
+      font-weight: 600;
+      color: #64748b;
+      margin-top: 0.6mm;
       text-align: center;
-      width: 100%;
+      line-height: 1.1;
     }
 
     .a4-sheet {

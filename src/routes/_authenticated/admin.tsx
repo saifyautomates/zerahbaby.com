@@ -2757,7 +2757,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   maps_url: "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
   instagram_url: "https://www.instagram.com/zerah_kids/",
   facebook_url: "",
-  whatsapp_url: "",
+  whatsapp_url: "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g",
   feature_hover_swap: "true",
   feature_promo_badges: "true",
   feature_size_guide: "true",
@@ -2813,20 +2813,94 @@ function SettingsTab() {
   });
 
   const [testingSms, setTestingSms] = useState(false);
+  const [savingAlerts, setSavingAlerts] = useState(false);
+
+  async function onSaveAlertSettings(overrideVals?: {
+    phone?: string;
+    email?: string;
+    silent?: boolean;
+  }) {
+    setSavingAlerts(true);
+    try {
+      const phoneToSave = (
+        overrideVals?.phone !== undefined
+          ? overrideVals.phone
+          : (current.owner_notification_phone ?? "")
+      ).trim();
+      const emailToSave = (
+        overrideVals?.email !== undefined
+          ? overrideVals.email
+          : (current.owner_notification_email ?? "")
+      ).trim();
+      const offlineNotify = current.owner_notify_offline_sales !== "false" ? "true" : "false";
+      const onlineNotify = current.owner_notify_online_sales !== "false" ? "true" : "false";
+      const resendApiKey = (current.resend_api_key ?? "").trim();
+
+      const rows: Array<{ key: string; value: string }> = [
+        { key: "owner_notification_phone", value: phoneToSave },
+        { key: "owner_notification_email", value: emailToSave },
+        { key: "owner_notify_offline_sales", value: offlineNotify },
+        { key: "owner_notify_online_sales", value: onlineNotify },
+      ];
+
+      if (resendApiKey) {
+        rows.push({ key: "resend_api_key", value: resendApiKey });
+      }
+
+      const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+      if (error) throw error;
+
+      setValues((prev) => ({
+        ...(prev || {}),
+        owner_notification_phone: phoneToSave,
+        owner_notification_email: emailToSave,
+        owner_notify_offline_sales: offlineNotify,
+        owner_notify_online_sales: onlineNotify,
+        ...(resendApiKey ? { resend_api_key: resendApiKey } : {}),
+      }));
+
+      await qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      await qc.invalidateQueries({ queryKey: ["site_settings"] });
+
+      if (!overrideVals?.silent) {
+        toast.success("Admin alert mobile number, email & preferences saved successfully!");
+      }
+      return { phone: phoneToSave, email: emailToSave };
+    } catch (err: unknown) {
+      const msg = (err as Error).message || "Failed to save alert settings";
+      toast.error(`Save failed: ${msg}`);
+      throw err;
+    } finally {
+      setSavingAlerts(false);
+    }
+  }
 
   async function onSendTestNotification() {
     setTestingEmail(true);
     try {
-      const targetEmail =
-        current.owner_notification_email || current.contact_email || "hello@zerahkids.com";
+      const targetEmail = (
+        current.owner_notification_email ||
+        current.contact_email ||
+        "hello@zerahkids.com"
+      ).trim();
+
+      // Auto-save current values to site_settings first
+      await onSaveAlertSettings({ email: targetEmail, silent: true });
+
       const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
-        body: { type: "test", recipient: targetEmail },
+        body: {
+          type: "test",
+          recipient: targetEmail,
+          api_key: current.resend_api_key || undefined,
+        },
       });
       if (error) throw error;
-      if (data && !data.success && data.error) {
-        throw new Error(data.error);
+      if (data && !data.success) {
+        throw new Error(data.error || "Email delivery failed");
       }
-      toast.success(`Test email sent to ${targetEmail}!`);
+      toast.success(
+        data?.message || `Test email dispatched to ${targetEmail}! Please check your inbox.`,
+      );
     } catch (err: unknown) {
       toast.error(`Test email failed: ${(err as Error).message}`);
     } finally {
@@ -2839,7 +2913,11 @@ function SettingsTab() {
   ) {
     setTestingSms(true);
     try {
-      const targetPhone = current.owner_notification_phone || "9667571712, 9057074777";
+      const targetPhone = (current.owner_notification_phone || "9057074777").trim();
+
+      // Auto-save current values to site_settings first
+      await onSaveAlertSettings({ phone: targetPhone, silent: true });
+
       const isOffline = templateKey === "offline_pos_sale_owner";
       const { data, error } = await supabase.functions.invoke("msg91-transactional", {
         body: {
@@ -2857,8 +2935,8 @@ function SettingsTab() {
         },
       });
       if (error) throw error;
-      if (data && !data.success && data.error) {
-        throw new Error(data.error);
+      if (data && !data.success) {
+        throw new Error(data.error || "SMS dispatch failed");
       }
       toast.success(
         data?.message ||
@@ -2878,14 +2956,35 @@ function SettingsTab() {
 
       {/* ─── SALE NOTIFICATIONS CARD (SMS & EMAIL) ─────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="border-b border-border pb-4">
-          <h3 className="font-display text-lg font-bold text-foreground">
-            Owner &amp; Admin Alerts (SMS &amp; Email)
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Jab bhi koi naya online order place ho ya offline physical store par sale ho, toh Admin
-            ko instant DLT SMS aur complete invoice email deliver hoga.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold text-foreground">
+              Owner &amp; Admin Alerts (SMS &amp; Email)
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Jab bhi koi naya online order place ho ya offline physical store par sale ho, toh Admin
+              ko instant DLT SMS aur complete invoice email deliver hoga.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onSaveAlertSettings()}
+            disabled={savingAlerts}
+            className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-98 transition disabled:opacity-50 cursor-pointer shrink-0"
+            title="Admin alerts mobile number, email and toggles yahi se save karein"
+          >
+            {savingAlerts ? (
+              <>
+                <span className="size-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Check className="size-3.5" />
+                Save Alert Settings
+              </>
+            )}
+          </button>
         </div>
 
         <div className="mt-5 space-y-5">
@@ -2899,7 +2998,7 @@ function SettingsTab() {
                 <button
                   type="button"
                   onClick={() => onSendTestSms("online_sale_owner")}
-                  disabled={testingSms}
+                  disabled={testingSms || savingAlerts}
                   className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
                   title="Test DLT template Zerah_New_Online_Order_Admin_"
                 >
@@ -2908,7 +3007,7 @@ function SettingsTab() {
                 <button
                   type="button"
                   onClick={() => onSendTestSms("offline_pos_sale_owner")}
-                  disabled={testingSms}
+                  disabled={testingSms || savingAlerts}
                   className="inline-flex items-center justify-center rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 px-3 py-1.5 text-xs font-bold text-foreground transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
                   title="Test DLT template Zerah_Offline_Sale_Admin_"
                 >
@@ -2918,13 +3017,13 @@ function SettingsTab() {
             </div>
             <p className="text-[11px] text-muted-foreground">
               Is number par DLT approved admin templates (Zerah_New_Online_Order_Admin_ &amp;
-              Zerah_Offline_Sale_Admin_) deliver honge.
+              Zerah_Offline_Sale_Admin_) deliver honge. Multiple numbers comma (,) se separate karke daal sakte hain.
             </p>
             <input
               type="tel"
               value={current.owner_notification_phone ?? ""}
               onChange={(e) => setValues({ ...current, owner_notification_phone: e.target.value })}
-              placeholder="e.g. 9057074777"
+              placeholder="e.g. 9057074777 or 9057074777, 9667571712"
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-mono outline-none transition focus:border-primary shadow-2xs mt-2"
             />
           </div>
@@ -2938,7 +3037,7 @@ function SettingsTab() {
               <button
                 type="button"
                 onClick={onSendTestNotification}
-                disabled={testingEmail}
+                disabled={testingEmail || savingAlerts}
                 className="inline-flex items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50 cursor-pointer w-fit"
               >
                 {testingEmail ? "Sending Email…" : "Send Test Email"}
@@ -2946,7 +3045,7 @@ function SettingsTab() {
             </div>
             <p className="text-[11px] text-muted-foreground">
               Is email address par new online orders aur counter sales ke itemized invoice details
-              aayenge.
+              aayenge. Multiple emails comma (,) se separate karke daal sakte hain.
             </p>
             <input
               type="email"
@@ -2954,6 +3053,25 @@ function SettingsTab() {
               onChange={(e) => setValues({ ...current, owner_notification_email: e.target.value })}
               placeholder="e.g. hello@zerahkids.com"
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs mt-2"
+            />
+          </div>
+
+          {/* EMAIL SERVICE API KEY (OPTIONAL) */}
+          <div className="space-y-1.5 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Email Service API Key (Optional — For Live Resend Delivery)
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Agar aap apne custom email provider (Resend) se direct live emails chahte hain, toh yahan API key save karein.
+            </p>
+            <input
+              type="password"
+              value={current.resend_api_key ?? ""}
+              onChange={(e) => setValues({ ...current, resend_api_key: e.target.value })}
+              placeholder="re_xxxxxxxxxxxxxxxxxxxx"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-mono outline-none transition focus:border-primary shadow-2xs mt-2"
             />
           </div>
 
@@ -2988,6 +3106,31 @@ function SettingsTab() {
                 className="size-4 accent-primary cursor-pointer"
               />
             </label>
+          </div>
+
+          {/* CARD ACTION FOOTER */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border mt-4">
+            <p className="text-xs text-muted-foreground">
+              Admin number ya email change karne ke baad <strong>Save Alert Settings</strong> par click karein.
+            </p>
+            <button
+              type="button"
+              onClick={() => onSaveAlertSettings()}
+              disabled={savingAlerts}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-98 transition disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              {savingAlerts ? (
+                <>
+                  <span className="size-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  Saving Alert Contacts…
+                </>
+              ) : (
+                <>
+                  <Check className="size-3.5" />
+                  Save Alert Settings
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -3326,32 +3469,6 @@ body{font-family:'Courier New',monospace;font-size:8px;width:${wMm}mm;min-height
             >
               🏷️ Test Thermal Label Printer
             </button>
-          </div>
-
-          {/* ── QZ Tray Status ── */}
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-2">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">⚡</span>
-              <div>
-                <h4 className="font-bold text-sm text-amber-900">
-                  Direct Printing (TSPL/ZPL Native Commands)
-                </h4>
-                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  For native direct printing to the HPRT HT300 without the Windows print dialog,
-                  install <strong>QZ Tray</strong> on the Windows machine running the POS. When QZ
-                  Tray is active, this system automatically uses TSPL commands instead of browser
-                  printing.
-                </p>
-                <a
-                  href="https://qz.io/download/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-2 text-xs font-bold text-amber-700 underline hover:text-amber-900"
-                >
-                  Download QZ Tray →
-                </a>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -4093,9 +4210,10 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
                               onClick={() => setCustomerToDelete(c)}
                               title="Delete Customer"
                               aria-label={`Delete customer ${c.full_name || c.email}`}
-                              className="p-1.5 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer shadow-2xs"
+                              className="inline-flex items-center gap-1 rounded-xl border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer shadow-2xs"
                             >
                               <Trash2 className="size-3.5" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
@@ -4365,14 +4483,16 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
           onConfirm={async () => {
             try {
               setIsDeleting(true);
-              const { error } = await supabase.rpc("admin_delete_customer" as any, {
+              const { data, error } = await supabase.rpc("admin_delete_customer" as any, {
                 target_customer_id: customerToDelete.id,
               });
               if (error) throw error;
               toast.success("Customer removed successfully");
               customerSelection.deselectMany([customerToDelete.id]);
-              qc.invalidateQueries({ queryKey: ["admin-customers"] });
+              await qc.invalidateQueries({ queryKey: ["admin-customers"] });
+              await qc.invalidateQueries({ queryKey: ["pos-customers-ledger-hub"] });
             } catch (err: any) {
+              console.error("Failed to delete customer:", err);
               toast.error(err.message || "Failed to delete customer");
             } finally {
               setIsDeleting(false);
@@ -4400,14 +4520,16 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
             try {
               setIsDeleting(true);
               const ids = customerSelection.selectedItems.map((c) => c.id);
-              const { error } = await supabase.rpc("admin_bulk_delete_customers" as any, {
+              const { data, error } = await supabase.rpc("admin_bulk_delete_customers" as any, {
                 target_customer_ids: ids,
               });
               if (error) throw error;
               toast.success(`Successfully removed ${ids.length} customers`);
               customerSelection.clearSelection();
-              qc.invalidateQueries({ queryKey: ["admin-customers"] });
+              await qc.invalidateQueries({ queryKey: ["admin-customers"] });
+              await qc.invalidateQueries({ queryKey: ["pos-customers-ledger-hub"] });
             } catch (err: any) {
+              console.error("Failed to bulk delete customers:", err);
               toast.error(err.message || "Failed to delete selected customers");
             } finally {
               setIsDeleting(false);

@@ -799,6 +799,9 @@ Deno.serve(async (req) => {
           providerStatus = result.providerStatus;
           errorDetails = result.errorDetails;
           providerMsgId = result.providerMsgId;
+        } else {
+          providerStatus = "error";
+          errorDetails = "SMS credentials or DLT template ID is not configured in server environment.";
         }
 
         const finalStatus =

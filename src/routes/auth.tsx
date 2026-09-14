@@ -125,6 +125,7 @@ function AuthPage() {
 
   // ─── Derived ──────────────────────────────────────────────────────────────────
   const isEmail = contact.includes("@");
+  const expectedOtpLength = isEmail ? 6 : 4;
 
   // Normalise phone → E.164 (+91XXXXXXXXXX for India)
   function normalisePhone(raw: string): string {
@@ -291,11 +292,11 @@ function AuthPage() {
     e.preventDefault();
     const token = otp.trim();
     const isContactEmail = contact.includes("@");
-    const expectedLen = 4;
-    const digitRegex = /^\d{4}$/;
+    const expectedLen = isContactEmail ? 6 : 4;
+    const digitRegex = isContactEmail ? /^\d{6}$/ : /^\d{4}$/;
     if (!digitRegex.test(token) || busy) {
       if (token.length > 0 && token.length !== expectedLen) {
-        toast.error("Please enter the 4-digit code.");
+        toast.error(`Please enter the ${expectedLen}-digit code.`);
       }
       return;
     }
@@ -517,12 +518,14 @@ function AuthPage() {
           <BrandName size="lg" align="center" />
         </div>
         <h1 className="text-center font-display text-xl font-bold">
-          {mode === "input" ? "Sign In to Your Account" : "Enter 4-digit code"}
+          {mode === "input"
+            ? "Sign In to Your Account"
+            : `Enter ${expectedOtpLength}-digit code`}
         </h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {mode === "input"
             ? "Enter your email or mobile number to continue"
-            : `We sent a 4-digit code to ${contact}`}
+            : `We sent a ${expectedOtpLength}-digit code to ${contact}`}
         </p>
 
         {/* ── INTELLIGENT ALTERNATIVE AUTH SUGGESTION ── */}
@@ -655,14 +658,6 @@ function AuthPage() {
                 </button>
               </div>
             )}
-
-            {isEmail && !otpExpired && (
-              <div className="rounded-xl bg-amber-50 border border-amber-200/60 p-3 text-xs text-amber-800 text-center">
-                📬 <strong>Check Spam / Junk Folder:</strong> If the code doesn&apos;t appear in
-                your Primary inbox within 1 minute, please check your Spam or Promotions folder.
-              </div>
-            )}
-
             <input
               ref={otpInputRef}
               id="auth-otp-input"
@@ -670,14 +665,14 @@ function AuthPage() {
               inputMode="numeric"
               pattern="[0-9]*"
               required
-              maxLength={4}
+              maxLength={expectedOtpLength}
               value={otp}
               onChange={(e) => {
                 setOtpExpired(false); // typing dismisses the banner
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 4));
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, expectedOtpLength));
               }}
-              placeholder="Enter 4-digit code"
-              aria-label="Enter 4-digit code"
+              placeholder={`Enter ${expectedOtpLength}-digit code`}
+              aria-label={`Enter ${expectedOtpLength}-digit code`}
               autoComplete="one-time-code"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-widest outline-none focus:border-primary"
             />
@@ -685,7 +680,7 @@ function AuthPage() {
             <button
               id="auth-verify-otp-btn"
               type="submit"
-              disabled={busy || otp.length !== 4}
+              disabled={busy || otp.length !== expectedOtpLength}
               className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {busy ? "Verifying…" : "Verify & Sign In"}

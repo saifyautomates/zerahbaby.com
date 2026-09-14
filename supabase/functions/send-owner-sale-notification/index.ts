@@ -600,7 +600,7 @@ function renderTestEmail(): { subject: string; html: string } {
       Test Owner Sale Notification
     </h2>
     <p style="text-align:center; color:#64748b; font-size:14px; margin:0 0 20px 0;">
-      This is a test message to confirm your Resend email notification configuration is working seamlessly.
+      This is a test message to confirm your store email notification configuration is working seamlessly.
     </p>
 
     <div class="meta-box">
@@ -613,8 +613,8 @@ function renderTestEmail(): { subject: string; html: string } {
         <span class="meta-value">${escapeHtml(dateStr)}</span>
       </div>
       <div class="meta-row">
-        <span class="meta-label">Provider:</span>
-        <span class="meta-value">Resend (zerahkids.com)</span>
+        <span class="meta-label">Delivery:</span>
+        <span class="meta-value">Store Alert System (zerahkids.com)</span>
       </div>
     </div>
 
@@ -927,7 +927,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim() || "";
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
-  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim() || "";
+  let resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim() || "";
   const fromEmail =
     Deno.env.get("RESEND_FROM_EMAIL")?.trim() || "Zérah Store Alerts <orders@zerahkids.com>";
 
@@ -986,6 +986,7 @@ Deno.serve(async (req) => {
     let return_id = payload.return_id;
     const force_retry = payload.force_retry;
     const customRecipient = payload.recipient;
+    const payloadApiKey = payload.api_key || payload.resend_api_key;
 
     // If not already authorized as service_role or staff/admin, allow if referencing a real DB order/return
     if (!isAuthorized) {
@@ -1064,6 +1065,15 @@ Deno.serve(async (req) => {
     (settingsRows || []).forEach((row: { key: string; value: string }) => {
       settings[row.key] = row.value;
     });
+
+    if (!resendApiKey) {
+      resendApiKey = (
+        payloadApiKey ||
+        settings.resend_api_key ||
+        settings.email_api_key ||
+        ""
+      ).trim();
+    }
 
     let configuredOwnerEmail =
       customRecipient ||
@@ -1421,11 +1431,20 @@ Deno.serve(async (req) => {
     let dispatchError: string | null = null;
 
     if (!resendApiKey) {
-      console.warn(
-        "[send-owner-sale-notification] RESEND_API_KEY is not configured. Simulating successful send.",
-      );
-      resendMessageId = `simulated_${Date.now()}`;
-      dispatchError = null;
+      const msg =
+        "Email delivery key is not configured. Please enter your Resend API key in Admin Alert Settings or add RESEND_API_KEY in Supabase secrets to enable live email delivery.";
+      console.warn("[send-owner-sale-notification]", msg);
+      if (type === "test") {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: msg,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+      resendMessageId = `unconfigured_${Date.now()}`;
+      dispatchError = msg;
     } else {
       try {
         const ownerRecipients = configuredOwnerEmail

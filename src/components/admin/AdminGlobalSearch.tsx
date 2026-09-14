@@ -92,7 +92,7 @@ const QUICK_NAV_ACTIONS: SearchResultItem[] = [
     id: "nav-settings",
     category: "navigation",
     title: "Store Settings & Notifications",
-    subtitle: "Configure store info and Resend owner alerts",
+    subtitle: "Configure store info and owner email alerts",
     tab: "settings",
   },
   {

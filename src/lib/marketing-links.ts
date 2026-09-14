@@ -261,13 +261,15 @@ export function validateAndNormalizeWhatsApp(raw: string): ValidationResult {
       host === "wa.me" ||
       host === "api.whatsapp.com" ||
       host === "chat.whatsapp.com" ||
-      host === "web.whatsapp.com";
+      host === "web.whatsapp.com" ||
+      host === "whatsapp.com" ||
+      host === "www.whatsapp.com";
 
     if (!isWhatsAppHost) {
       return {
         isValid: false,
         normalizedUrl: "",
-        error: "Must be a valid WhatsApp link (wa.me/number) or direct 10-digit mobile number",
+        error: "Must be a valid WhatsApp link (e.g. channel, group, or wa.me) or direct 10-digit mobile number",
       };
     }
 

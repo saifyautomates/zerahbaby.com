@@ -120,113 +120,69 @@ function SingleStickerPreview({
   if (labelType === "barcode-only") {
     return (
       <div
-        className="relative flex flex-col justify-between items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
-        style={{ width: previewW, height: previewH, padding: "12px 10px 8px" }}
+        className="relative flex flex-col items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+        style={{
+          width: previewW,
+          height: previewH,
+          padding: "12px 10px 10px",
+          justifyContent: "space-between",
+        }}
       >
-        <p className="w-full truncate font-extrabold uppercase text-gray-900 tracking-wider text-center text-xs">
-          ZÉRAH BABY &amp; KIDS
+        <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
+          Zérah Baby &amp; Kids
         </p>
-        <div className="w-full flex-1 flex flex-col justify-center items-center overflow-hidden my-1">
+        <div className="mt-2 scale-90 w-full flex flex-col items-center justify-center">
           <Barcode
             value={barcodeValue}
             format="CODE128"
-            width={cfg.barcodeBarWidthPx * 0.9}
-            height={bcHeight * 1.6}
-            fontSize={11}
+            width={1.2}
+            height={bcHeight * 1.5}
+            fontSize={10}
             margin={0}
             displayValue={true}
             background="transparent"
             lineColor="#000000"
           />
+          <p className="mt-1 text-[9px] text-muted-foreground">
+            SKU: {product.sku || artNoVal}
+          </p>
         </div>
-        <p className="text-[11px] font-bold text-gray-700">SKU: {artNoVal}</p>
-        <p className="text-[10px] font-extrabold tracking-wider uppercase text-black mt-1">
-          {brandVal}
-        </p>
       </div>
     );
   }
 
   return (
     <div
-      className="relative flex flex-col justify-between items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
-      style={{ width: previewW, height: previewH, padding: "10px 10px 8px" }}
+      className="relative flex flex-col items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+      style={{
+        width: previewW,
+        height: previewH,
+        padding: "12px 10px 10px",
+        justifyContent: "space-between",
+      }}
     >
-      <div className="w-full flex flex-col items-center text-center">
-        {/* Art No */}
-        <div className="w-full flex flex-col items-center mb-1">
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
-            Art No:
-          </span>
-          <span className="text-[11px] font-black text-black leading-tight">
-            {artNoVal}
-          </span>
-        </div>
-
-        {/* Product */}
-        <div className="w-full flex flex-col items-center mb-1">
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
-            Product:
-          </span>
-          <span className="text-[12px] font-black text-black leading-snug line-clamp-2 px-1">
-            {product.name}
-          </span>
-        </div>
-
-        {/* Brand */}
-        <div className="w-full flex flex-col items-center mb-1">
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
-            Brand:
-          </span>
-          <span className="text-[11px] font-extrabold uppercase text-black leading-tight tracking-wide">
-            {brandVal}
-          </span>
-        </div>
-
-        {/* Size */}
-        <div className="w-full flex flex-col items-center mb-1">
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
-            Size:
-          </span>
-          <span className="text-[11px] font-black text-black leading-tight">
-            {sizeVal}
-          </span>
-        </div>
-
-        {/* MRP */}
-        <div className="w-full flex flex-col items-center mt-0.5 mb-1">
-          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
-            M.R.P.:
-          </span>
-          <span className="text-[15px] font-black text-black leading-none mt-0.5">
-            {mrpFormatted}
-          </span>
-          <span className="text-[8px] font-bold text-gray-500 leading-none mt-0.5">
-            (Inclusive of All Taxes)
-          </span>
-          {showSellPrice && product.price > 0 && product.price < mrpVal && (
-            <div className="text-[10px] font-bold text-black mt-0.5">
-              <span>Price: </span>
-              <span className="font-black">{priceFormatted}</span>
-              {showDiscount && discountPct > 0 && (
-                <span className="text-emerald-700 font-extrabold ml-1">
-                  (-{discountPct}%)
-                </span>
-              )}
-            </div>
+      <div className="flex flex-col items-center w-full">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          Zérah Baby &amp; Kids
+        </p>
+        <p className="text-xs font-semibold mt-1 text-center line-clamp-2 px-1">
+          {product.name || "Product Name"}
+        </p>
+        <div className="flex items-center justify-center gap-2 mt-1">
+          <span className="text-sm font-black">{priceFormatted}</span>
+          {mrpVal > product.price && (
+            <span className="text-[10px] text-muted-foreground line-through">
+              {mrpFormatted}
+            </span>
           )}
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="w-[88%] border-t border-dashed border-black my-1" />
-
-      {/* Barcode Section */}
-      <div className="w-full flex flex-col items-center justify-center">
+      <div className="mt-2 scale-90 w-full flex flex-col items-center">
         <Barcode
           value={barcodeValue}
           format="CODE128"
-          width={cfg.barcodeBarWidthPx * 0.82}
+          width={1.2}
           height={bcHeight}
           fontSize={10}
           margin={0}
@@ -234,8 +190,8 @@ function SingleStickerPreview({
           background="transparent"
           lineColor="#000000"
         />
-        <p className="text-[9px] font-extrabold tracking-wider uppercase text-black mt-0.5 leading-none">
-          ZÉRAH BABY &amp; KIDS
+        <p className="mt-1 text-[9px] text-muted-foreground">
+          SKU: {product.sku || artNoVal}
         </p>
       </div>
     </div>

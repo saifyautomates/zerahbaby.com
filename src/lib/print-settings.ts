@@ -244,27 +244,18 @@ export function buildTSPLLabel(params: {
     `GAP 2 mm, 0 mm`,
     `DIRECTION 1`,
     `CLS`,
-    // Row 1: Art No
-    `TEXT 12,12,"2",0,1,1,"Art No: ${safeArtNo}"`,
+    // Row 1: Brand Header
+    `TEXT ${Math.round(w / 2)},12,"2",0,1,1,2,"ZERAH BABY & KIDS"`,
     // Row 2: Product Name
-    `TEXT 12,38,"2",0,1,1,"Product: ${safeName}"`,
-    // Row 3: Brand
-    `TEXT 12,64,"2",0,1,1,"Brand: ${safeBrand}"`,
-    // Row 4: Size
-    `TEXT 12,90,"2",0,1,1,"Size: ${safeSize}"`,
-    // Row 5: M.R.P. & Taxes
-    showMrp && showSellPrice
-      ? `TEXT 12,116,"2",0,1,1,"M.R.P.: Rs.${mrpVal} Price: Rs.${price}${discStr}"`
-      : showSellPrice
-        ? `TEXT 12,116,"2",0,1,1,"Price: Rs.${price}"`
-        : `TEXT 12,116,"2",0,1,1,"M.R.P.: Rs.${mrpVal}${discStr}"`,
-    `TEXT 12,142,"1",0,1,1,"(Inclusive of All Taxes)"`,
-    // Row 6: Horizontal Divider Line
-    `BAR 10,165,${w - 20},2`,
-    // Row 7: Barcode centered (Code 128, height 60 dots, readable number below)
-    `BARCODE ${Math.round(w / 2)},175,"128",60,1,0,2,2,"${safeBarcode}"`,
-    // Row 8: Brand Footer centered
-    `TEXT ${Math.round(w / 2)},270,"2",0,1,1,2,"${safeBrand}"`,
+    `TEXT ${Math.round(w / 2)},38,"2",0,1,1,2,"${safeName}"`,
+    // Row 3: Selling Price & MRP
+    mrpVal > price
+      ? `TEXT ${Math.round(w / 2)},68,"3",0,1,1,2,"Rs.${price}  Rs.${mrpVal}"`
+      : `TEXT ${Math.round(w / 2)},68,"3",0,1,1,2,"Rs.${price}"`,
+    // Row 4: Barcode centered (Code 128, height 60 dots, readable number below)
+    `BARCODE ${Math.round(w / 2)},100,"128",60,1,0,2,2,"${safeBarcode}"`,
+    // Row 5: SKU Footer centered
+    `TEXT ${Math.round(w / 2)},180,"2",0,1,1,2,"SKU: ${safeArtNo}"`,
     `PRINT ${copies},1`,
     `END`,
   ];
