@@ -1231,12 +1231,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       padding: 0;
     }
 
-    /* ── Exact Physical Page Dimensions ── */
-    @page {
-      size: ${pageSizeDecl};
-      margin: ${pageMarginDecl};
-    }
-
     /* ── Label Container & Typography ── */
     .label-page {
       width: ${cfg.pageWidthMm}mm;
@@ -1246,8 +1240,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       background: #ffffff;
       overflow: hidden;
       margin: 0 auto;
-      page-break-after: always;
-      break-after: page;
     }
 
     .label-page:last-child {
@@ -1564,7 +1556,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     /* ── Strict Physical Print Styling (@media print) ── */
     @media print {
       @page {
-        size: portrait;
         size: ${pageSizeDecl};
         margin: ${pageMarginDecl};
       }
@@ -1576,7 +1567,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       }
 
       html, body {
-        width: auto !important;
+        width: ${cfg.pageWidthMm}mm !important;
         height: auto !important;
         min-height: 0 !important;
         margin: 0 !important;
@@ -1591,10 +1582,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
       .screen-canvas {
         padding: 0 !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
         display: block !important;
         background: transparent !important;
-        width: auto !important;
+        width: ${cfg.pageWidthMm}mm !important;
       }
 
       .sticker-preview-wrapper,
@@ -1611,13 +1602,14 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
         width: ${cfg.pageWidthMm}mm !important;
-        min-height: ${cfg.pageHeightMm}mm !important;
+        height: ${cfg.pageHeightMm}mm !important;
+        max-height: ${cfg.pageHeightMm}mm !important;
         page-break-after: always !important;
         break-after: page !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         overflow: hidden !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
         padding: 0 !important;
       }
 
@@ -1746,6 +1738,7 @@ export function openLabelPrintInNewTab(params: {
   showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
+  showProductName?: boolean;
   separatePriceLine?: boolean;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -1778,6 +1771,7 @@ export function openLabelPrintInNewTab(params: {
       showDiscount: params.showDiscount ?? false,
       showMrp: params.showMrp ?? true,
       showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
+      showProductName: params.showProductName ?? getSavedShowProductName(),
       separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
       isStandaloneTab: true,
     });
@@ -1815,6 +1809,7 @@ export function printProductLabels(params: {
   showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
+  showProductName?: boolean;
   separatePriceLine?: boolean;
   onDone?: () => void;
 }): boolean {
@@ -1855,6 +1850,7 @@ export function printProductLabels(params: {
     showDiscount: params.showDiscount ?? false,
     showMrp: params.showMrp ?? true,
     showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
+    showProductName: params.showProductName ?? getSavedShowProductName(),
     separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
     isStandaloneTab: false,
   });
