@@ -1460,6 +1460,11 @@ function ReviewsSection({
 
   const stats = calculateReviewStats(reviews);
 
+  // If a product has no published/visible reviews, hide the Reviews section completely
+  if (isLoading || reviews.length === 0 || stats.totalRatings === 0) {
+    return null;
+  }
+
   // Filter & sort reviews
   const filteredReviews = reviews
     .filter((r) => {
@@ -1487,7 +1492,7 @@ function ReviewsSection({
 
         {/* Verified Purchase Gating Action - only shown for delivered buyers */}
         <div>
-          {isVerifiedBuyer && stats.totalRatings > 0 && (
+          {isVerifiedBuyer && (
             <button
               type="button"
               onClick={() => setShowReviewModal(true)}
@@ -1500,30 +1505,7 @@ function ReviewsSection({
         </div>
       </div>
 
-      {/* Clean Amazon/Flipkart empty state when 0 reviews exist */}
-      {stats.totalRatings === 0 ? (
-        <div className="py-12 px-6 rounded-3xl border border-gray-100 bg-muted/30 text-center space-y-3 mb-8">
-          <Star className="size-10 text-gray-300 mx-auto" />
-          <h3 className="text-base font-bold text-foreground">No customer reviews yet</h3>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
-            Reviews from verified customers who purchased and received delivery of this product will appear here.
-          </p>
-          {isVerifiedBuyer && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowReviewModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-xs shadow-xs hover:bg-[#7a1c1c] transition cursor-pointer"
-              >
-                <Star className="size-3.5 fill-white" />
-                <span>{hasAlreadyReviewed ? "Edit Your Review" : "Rate & Review Product"}</span>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Ratings & Breakdown Hero Card */}
+      {/* Ratings & Breakdown Hero Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-8 bg-muted/70 rounded-3xl border border-gray-100 mb-8">
         {/* Left Column: Overall Score */}
         <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-border/80 lg:pr-8">
@@ -1801,8 +1783,6 @@ function ReviewsSection({
               : "Be the first verified buyer to share feedback on this product!"}
           </p>
         </div>
-      )}
-      </>
       )}
 
       {/* Review Modal */}
