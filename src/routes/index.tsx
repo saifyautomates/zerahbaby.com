@@ -413,30 +413,12 @@ function Index() {
 
   const displayReviews =
     realReviews && realReviews.length > 0
-      ? realReviews.map((r: { rating: number; comment: string }) => {
-          return {
-            name: "Verified Parent",
-            text: r.comment,
-            rating: r.rating,
-          };
-        })
-      : [
-          {
-            name: "Ananya",
-            text: "The organic onesies survived a hundred washes and still feel soft. My go-to gift now.",
-            rating: 5,
-          },
-          {
-            name: "Vikram",
-            text: "Stroller arrived a day early and folds with one hand while holding the baby. Brilliant.",
-            rating: 5,
-          },
-          {
-            name: "Meera",
-            text: "Finally wipes that don't irritate my daughter's skin. Reordering on subscription.",
-            rating: 5,
-          },
-        ];
+      ? realReviews.map((r: { rating: number; comment: string }) => ({
+          name: "Verified Parent",
+          text: r.comment,
+          rating: r.rating,
+        }))
+      : [];
 
   const slides = heroSlides && heroSlides.length > 0 ? heroSlides : defaultHeroSlides;
   const hasMedia = slides.length > 0;
@@ -796,35 +778,37 @@ function Index() {
         />
       )}
 
-      <section key="reviews-section" className="mx-auto max-w-7xl px-4 py-14">
-        <div className="text-center">
-          <h2 className="font-display text-2xl font-bold sm:text-3xl">Loved by parents</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Real words from real families who shop with us
-          </p>
-        </div>
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {displayReviews.map((r, idx) => (
-            <figure
-              key={idx}
-              className="lift rounded-2xl border border-border bg-card p-6 shadow-sm"
-            >
-              <div className="flex gap-0.5 text-accent">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`size-4 ${i < r.rating ? "fill-accent" : "text-muted"}`}
-                  />
-                ))}
-              </div>
-              <blockquote className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                “{r.text}”
-              </blockquote>
-              <figcaption className="mt-4 text-sm font-bold">{r.name}</figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
+      {displayReviews.length > 0 && (
+        <section key="reviews-section" className="mx-auto max-w-7xl px-4 py-14">
+          <div className="text-center">
+            <h2 className="font-display text-2xl font-bold sm:text-3xl">Loved by parents</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Real words from real families who shop with us
+            </p>
+          </div>
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {displayReviews.map((r, idx) => (
+              <figure
+                key={idx}
+                className="lift rounded-2xl border border-border bg-card p-6 shadow-sm"
+              >
+                <div className="flex gap-0.5 text-accent">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`size-4 ${i < r.rating ? "fill-accent" : "text-muted"}`}
+                    />
+                  ))}
+                </div>
+                <blockquote className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  “{r.text}”
+                </blockquote>
+                <figcaption className="mt-4 text-sm font-bold">{r.name}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

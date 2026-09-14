@@ -1529,27 +1529,20 @@ function ReviewsSection({
         <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-border/80 lg:pr-8">
           <div className="flex items-center gap-3">
             <span className="font-display text-4xl sm:text-5xl font-black text-foreground tracking-tight">
-              {stats.totalRatings > 0
-                ? stats.averageRating
-                : product.rating > 0
-                  ? product.rating
-                  : "—"}
+              {stats.averageRating.toFixed(1)}
             </span>
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-0.5 text-amber-400">
-                {[1, 2, 3, 4, 5].map((s) => {
-                  const currentAvg = stats.totalRatings > 0 ? stats.averageRating : product.rating;
-                  return (
-                    <Star
-                      key={s}
-                      className={`size-4 sm:size-5 ${
-                        s <= Math.round(currentAvg || 0)
-                          ? "fill-[#f59e0b] text-[#f59e0b]"
-                          : "text-gray-300"
-                      }`}
-                    />
-                  );
-                })}
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    className={`size-4 sm:size-5 ${
+                      s <= Math.round(stats.averageRating || 0)
+                        ? "fill-[#f59e0b] text-[#f59e0b]"
+                        : "text-gray-300"
+                    }`}
+                  />
+                ))}
               </div>
               <span className="text-xs font-semibold text-muted-foreground mt-1">
                 out of 5 stars
