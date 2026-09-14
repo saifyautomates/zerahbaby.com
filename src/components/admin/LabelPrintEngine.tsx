@@ -80,6 +80,8 @@ function SingleStickerPreview({
   showDiscount,
   showMrp = true,
   showSellPrice = true,
+  showProductName = true,
+  separatePriceLine = true,
   layout,
   customWidthMm,
   customHeightMm,
