@@ -94,8 +94,6 @@ export interface PrintFormatConfig {
   /** Whether this layout uses a continuous roll (no inter-label gap in CSS) */
   isThermalRoll: boolean;
   isSheet: boolean;
-  /** Whether the label inner content should be rotated 90deg inside the physical label container */
-  rotateContent90?: boolean;
 }
 
 export const LABEL_SIZE_OPTIONS: Array<{
@@ -282,19 +280,18 @@ export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
     pageMarginMm: 0,
     labelWidthMm: 50,
     labelHeightMm: 25,
-    paddingTopMm: 1.2,
-    paddingHorizMm: 0.8,
-    paddingBottomMm: 0.8,
-    barcodeBarWidthPx: 1.05,
-    barcodeHeightMm: 8.5,
-    barcodeFontPt: 5.0,
-    brandFontPt: 5.2,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 7.8,
+    barcodeFontPt: 5.8,
+    brandFontPt: 6.2,
     nameFontPt: 6.8,
-    priceFontPt: 7.4,
-    skuFontPt: 5.2,
+    priceFontPt: 7.5,
+    skuFontPt: 5.6,
     isThermalRoll: true,
     isSheet: false,
-    rotateContent90: true,
   },
   /** 2. 58 × 30 mm — Landscape */
   "58x30": {
@@ -517,19 +514,18 @@ export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
     pageMarginMm: 0,
     labelWidthMm: 50,
     labelHeightMm: 25,
-    paddingTopMm: 1.2,
-    paddingHorizMm: 0.8,
-    paddingBottomMm: 0.8,
-    barcodeBarWidthPx: 1.05,
-    barcodeHeightMm: 8.5,
-    barcodeFontPt: 5.0,
-    brandFontPt: 5.2,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 7.8,
+    barcodeFontPt: 5.8,
+    brandFontPt: 6.2,
     nameFontPt: 6.8,
-    priceFontPt: 7.4,
-    skuFontPt: 5.2,
+    priceFontPt: 7.5,
+    skuFontPt: 5.6,
     isThermalRoll: true,
     isSheet: false,
-    rotateContent90: true,
   },
   "thermal-108": {
     id: "108x50",
@@ -1084,7 +1080,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
   const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
   const rawProducts = Array.isArray(products) ? products : [products];
-  const isRotatedContent = Boolean(!cfg.isSheet && cfg.rotateContent90);
 
   // Isolated print mode class
   const modeClass = cfg.isSheet ? "print-mode-sheet" : "print-mode-thermal";
@@ -1123,13 +1118,12 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const skuValue = (p.sku || p.artNo || p.barcode || "—").toString().trim();
     const productName = (p.name || "").toString().trim();
 
-    const effectiveLabelWidthMm = isRotatedContent ? cfg.pageHeightMm : cfg.labelWidthMm;
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
       heightMm: labelType === "barcode-only" ? Math.max(16, cfg.barcodeHeightMm * 1.5) : cfg.barcodeHeightMm,
       fontPt: cfg.barcodeFontPt,
       displayValue: true,
-      maxWidthMm: effectiveLabelWidthMm - cfg.paddingHorizMm * 2,
+      maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
     });
 
     if (labelType === "barcode-only") {
@@ -1241,7 +1235,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         <div class="sticker-preview-wrapper" data-label-index="${idx + 1}">
           <div class="sticker-dim-badge no-print">${cfg.pageWidthMm}mm × ${cfg.pageHeightMm}mm Label #${idx + 1}</div>
           <div class="label-page sticker-card">
-            <div class="label-inner ${isRotatedContent ? "rotated-90" : ""}">${renderLabelContent(p)}</div>
+            <div class="label-inner">${renderLabelContent(p)}</div>
           </div>
         </div>`,
         )
@@ -1249,7 +1243,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     } else {
       pagesHtml = labels
         .map(
-          (p, idx) => `<div class="label-page" data-label-index="${idx + 1}"><div class="label-inner ${isRotatedContent ? "rotated-90" : ""}">${renderLabelContent(p)}</div></div>`,
+          (p, idx) => `<div class="label-page" data-label-index="${idx + 1}"><div class="label-inner">${renderLabelContent(p)}</div></div>`,
         )
         .join("");
     }
@@ -1259,9 +1253,12 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   // For thermal labels, add explicit orientation keyword to prevent
   // printer drivers (e.g. Seagull/BarTender on HPRT HT300) from
   // auto-rotating landscape content into portrait orientation.
+  const isLandscapeLabel = !cfg.isSheet && cfg.pageWidthMm > cfg.pageHeightMm;
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+    : isLandscapeLabel
+      ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm landscape`
+      : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
@@ -1286,16 +1283,18 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       background: #ffffff;
       overflow: hidden;
       margin: 0 auto;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
-    .label-page + .label-page,
-    .sticker-preview-wrapper + .sticker-preview-wrapper {
-      page-break-before: always;
-      break-before: page;
+    .label-page:first-child,
+    .label-page:first-of-type {
+      page-break-before: avoid;
+      break-before: avoid;
+    }
+
+    .label-page:last-child,
+    .label-page:last-of-type {
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     .label-inner {
@@ -1312,35 +1311,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       text-align: center;
       font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow: hidden;
-    }
-
-    .label-inner.rotated-90 {
-      width: ${cfg.pageHeightMm}mm;
-      height: ${cfg.pageWidthMm}mm;
-      min-width: ${cfg.pageHeightMm}mm;
-      max-width: ${cfg.pageHeightMm}mm;
-      min-height: ${cfg.pageWidthMm}mm;
-      max-height: ${cfg.pageWidthMm}mm;
-      transform: rotate(-90deg);
-      transform-origin: center center;
-      box-sizing: border-box;
-      flex-shrink: 0;
-      padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      background: #ffffff;
-      text-align: center;
-      font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-    }
-
-    .label-inner.rotated-90 .lbl-brand-header,
-    .label-inner.rotated-90 .lbl-product-name,
-    .label-inner.rotated-90 .lbl-price-row,
-    .label-inner.rotated-90 .lbl-sku-line {
-      white-space: nowrap;
     }
 
     .lbl-v-stack {
@@ -1688,32 +1658,28 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+        page-break-after: always !important;
+        break-after: page !important;
         overflow: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
-        position: relative !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
       }
 
-      .label-page + .label-page,
-      .sticker-preview-wrapper + .sticker-preview-wrapper {
-        page-break-before: always !important;
-        break-before: page !important;
+      .label-page:first-child,
+      .label-page:first-of-type,
+      .sticker-preview-wrapper:first-child .label-page {
+        page-break-before: avoid !important;
+        break-before: avoid !important;
       }
 
-      .label-inner.rotated-90 {
-        width: ${cfg.pageHeightMm}mm !important;
-        height: ${cfg.pageWidthMm}mm !important;
-        min-width: ${cfg.pageHeightMm}mm !important;
-        max-width: ${cfg.pageHeightMm}mm !important;
-        min-height: ${cfg.pageWidthMm}mm !important;
-        max-height: ${cfg.pageWidthMm}mm !important;
-        transform: rotate(-90deg) !important;
-        transform-origin: center center !important;
-        box-sizing: border-box !important;
-        overflow: hidden !important;
+      /* Suppress trailing page break on final label to prevent extra blank stickers */
+      .label-page:last-child,
+      .label-page:last-of-type,
+      .sticker-preview-wrapper:last-child .label-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
       }
 
       /* ── A4 Sheet Page Breaks ── */
