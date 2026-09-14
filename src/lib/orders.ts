@@ -42,9 +42,11 @@ export function isOrderReturnable(order: Order | undefined | null, windowDays = 
   const status = (order.status || "").toLowerCase();
   if (status !== "delivered" && status !== "open_box_accepted") return false;
 
-  const orderDate = new Date(order.created_at);
+  // In sync with canonical calculate_online_return_refund RPC:
+  // Return window is calculated from delivery / update timestamp, falling back to creation timestamp.
+  const deliveryDate = new Date(order.updated_at || order.created_at);
   const now = new Date();
-  const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+  const diffDays = (now.getTime() - deliveryDate.getTime()) / (1000 * 60 * 60 * 24);
   return diffDays <= windowDays;
 }
 

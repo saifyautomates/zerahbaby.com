@@ -268,6 +268,7 @@ export interface Order {
   owner_notification_status?: string | null;
   owner_notified_at?: string | null;
   created_at: string;
+  updated_at?: string | null;
   order_items: OrderItem[];
   shiprocket_order_id?: number | null;
   shiprocket_shipment_id?: number | null;
