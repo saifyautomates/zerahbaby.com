@@ -355,6 +355,10 @@ export function Header() {
               <img
                 src={logo}
                 alt={`${brandName} logo`}
+                width={44}
+                height={44}
+                fetchPriority="high"
+                decoding="async"
                 className="size-8 sm:size-10 md:size-11 object-contain drop-shadow-sm flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "0";

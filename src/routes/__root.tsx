@@ -91,7 +91,11 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
         <div className="pt-4 space-y-3">
           <p className="text-xs text-muted-foreground">
-            {(error instanceof Error ? error.message : typeof error === "string" ? error : (error as any)?.message) ||
+            {(error instanceof Error
+              ? error.message
+              : typeof error === "string"
+                ? error
+                : (error as any)?.message) ||
               "An unexpected issue occurred while loading this view."}
           </p>
           <div className="flex justify-center gap-2">
@@ -229,9 +233,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap",
       },
-      // Preconnect to Supabase storage CDN so product images start loading faster
+      // Preconnect to Supabase storage CDN & Unsplash so product images start loading faster
       { rel: "preconnect", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
       { rel: "dns-prefetch", href: "https://wbbatgbvizhghtkvuguf.supabase.co" },
+      { rel: "preconnect", href: "https://images.unsplash.com" },
+      { rel: "dns-prefetch", href: "https://images.unsplash.com" },
     ],
   }),
   shellComponent: RootShell,

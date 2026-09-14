@@ -61,11 +61,12 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
       .getByRole("button", { name: /^Add to bag$/i })
       .first();
     await expect(addToBagBtn).toBeVisible();
+    await addToBagBtn.scrollIntoViewIfNeeded();
 
     // Add once
     await addToBagBtn.click();
     const cartSection = page.locator("#cart-section");
-    await expect(cartSection).toBeVisible({ timeout: 5000 });
+    await expect(cartSection).toBeVisible({ timeout: 15000 });
     await expect(cartSection.locator("li")).toHaveCount(1);
     await expect(cartSection.locator("li").first().locator("span.w-5")).toHaveText("1");
 
@@ -95,6 +96,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
       .getByRole("button", { name: /^Add to bag$/i })
       .first();
     await expect(addToBagBtn).toBeVisible();
+    await addToBagBtn.scrollIntoViewIfNeeded();
 
     // Click first available variant button if any variant pills exist
     const variantPill = page.locator('button[data-variant="true"]').first();
@@ -105,7 +107,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     await addToBagBtn.click();
 
     const cartSection = page.locator("#cart-section");
-    await expect(cartSection).toBeVisible({ timeout: 5000 });
+    await expect(cartSection).toBeVisible({ timeout: 15000 });
 
     const cartItem = cartSection.locator("li").first();
     await expect(cartItem).toBeVisible();

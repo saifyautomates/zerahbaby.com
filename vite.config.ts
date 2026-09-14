@@ -20,17 +20,34 @@ export default defineConfig({
       rollupOptions: {
         output: {
           manualChunks: (id: string): string | undefined => {
+            const normId = id.replace(/\\/g, "/");
             // Supabase client — large, changes rarely → own chunk
-            if (id.includes("@supabase")) return "supabase";
+            if (normId.includes("@supabase")) return "supabase";
             // Tanstack query + router — framework, rarely changes
-            if (id.includes("@tanstack")) return "tanstack";
+            if (normId.includes("@tanstack")) return "tanstack";
             // Lucide icons — large icon set
-            if (id.includes("lucide-react")) return "icons";
+            if (normId.includes("lucide-react")) return "icons";
+            // Heavy admin & POS dependencies: charts, spreadsheets, barcode scanners
+            if (normId.includes("recharts") || normId.includes("/d3-")) return "charts";
+            if (
+              normId.includes("xlsx") ||
+              normId.includes("papaparse") ||
+              normId.includes("jszip")
+            ) {
+              return "spreadsheets";
+            }
+            if (normId.includes("@zxing")) return "scanner";
+            if (normId.includes("qz-tray")) return "qz";
+            if (normId.includes("date-fns")) return "date-fns";
             // React core
-            if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/"))
+            if (
+              normId.includes("/node_modules/react/") ||
+              normId.includes("/node_modules/react-dom/")
+            ) {
               return "react";
+            }
             // Radix UI primitives + Sonner toast
-            if (id.includes("@radix-ui") || id.includes("sonner")) return "ui";
+            if (normId.includes("@radix-ui") || normId.includes("sonner")) return "ui";
             return undefined;
           },
         },
