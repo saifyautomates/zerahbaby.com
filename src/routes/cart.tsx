@@ -50,7 +50,7 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 function CartPage() {
   const {
@@ -74,11 +74,16 @@ function CartPage() {
   const { user } = useSession();
   const [couponInput, setCouponInput] = useState("");
   const [isApplying, setIsApplying] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Guard against duplicate checkout navigations from rapid clicking
   const isNavigatingRef = useRef(false);
 
-  if (isLoading) {
+  if (!isHydrated || isLoading) {
     return <CartPageSkeleton />;
   }
 

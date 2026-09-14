@@ -32,6 +32,8 @@ declare module "https://*" {
   export const createClient: any;
   export const encode: any;
   export const decode: any;
+  export type User = any;
+  export const User: any;
 }
 
 declare module "npm:*" {

@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -36,7 +37,7 @@ function NotFoundComponent() {
   return <FallbackRecoveryPage />;
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   useEffect(() => {
     console.error("[RootErrorComponent] Caught root route error:", error);
 
@@ -90,7 +91,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
         <div className="pt-4 space-y-3">
           <p className="text-xs text-muted-foreground">
-            {error?.message || "An unexpected issue occurred while loading this view."}
+            {(error instanceof Error ? error.message : typeof error === "string" ? error : (error as any)?.message) ||
+              "An unexpected issue occurred while loading this view."}
           </p>
           <div className="flex justify-center gap-2">
             <button
@@ -237,9 +239,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=window.location.pathname;var d=document.documentElement;if(p.startsWith('/admin')){var s=localStorage.getItem('zerah-theme');if(s==='dark'||(!s&&window.matchMedia('(prefers-color-scheme: dark)').matches)){d.classList.add('dark');}else{d.classList.remove('dark');}}else{d.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         {children}

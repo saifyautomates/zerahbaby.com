@@ -592,7 +592,7 @@ export async function fetchSingleProduct(
       const { getCachedCatalog } = await import("@/lib/offline-sync-engine");
       const cached = await getCachedCatalog();
       if (cached && cached.length > 0) {
-        const match = cached.find((r: ProductRow) => {
+        const match = (cached as unknown as ProductRow[]).find((r: ProductRow) => {
           const s = (r.slug || "").toLowerCase();
           const u = (r.id || "").toLowerCase();
           const k = (r.sku || "").toLowerCase();

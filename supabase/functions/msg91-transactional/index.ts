@@ -740,6 +740,8 @@ Deno.serve(async (req) => {
       sale_number?: string;
       order_number?: string;
       idempotency_key?: string;
+      is_test?: boolean;
+      template_key?: string;
     };
     const {
       action,
