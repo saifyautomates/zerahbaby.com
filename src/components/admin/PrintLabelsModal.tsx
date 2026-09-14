@@ -313,81 +313,65 @@ export function PrintLabelsModal({
               </div>
             </div>
 
-            {/* If Custom is selected, show Presets and Width/Height inputs */}
+            {/* If Custom is selected, show Shape Selectors and Width/Height inputs */}
             {layout === "custom" && (
               <div className="flex flex-wrap items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
                 <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
-                  Presets:
+                  Shape:
                 </span>
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomDims({ widthMm: 50, heightMm: 50 });
-                    setSavedCustomDimensions(50, 50);
+                    setCustomDims((prev) => {
+                      const size = prev.widthMm || 50;
+                      const next = { widthMm: size, heightMm: size };
+                      setSavedCustomDimensions(next.widthMm, next.heightMm);
+                      return next;
+                    });
                   }}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                    customDims.widthMm === 50 && customDims.heightMm === 50
-                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                    customDims.widthMm === customDims.heightMm
+                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
                       : "bg-muted/50 text-foreground border-border hover:bg-muted"
                   }`}
                 >
-                  Square (50×50)
+                  Square
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomDims({ widthMm: 58, heightMm: 58 });
-                    setSavedCustomDimensions(58, 58);
+                    setCustomDims((prev) => {
+                      const h = prev.heightMm > prev.widthMm ? prev.heightMm : Math.round(prev.widthMm * 1.5);
+                      const next = { widthMm: prev.widthMm, heightMm: Math.min(200, Math.max(20, h)) };
+                      setSavedCustomDimensions(next.widthMm, next.heightMm);
+                      return next;
+                    });
                   }}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                    customDims.widthMm === 58 && customDims.heightMm === 58
-                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                    customDims.heightMm > customDims.widthMm
+                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
                       : "bg-muted/50 text-foreground border-border hover:bg-muted"
                   }`}
                 >
-                  Square (58×58)
+                  Portrait
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomDims({ widthMm: 50, heightMm: 75 });
-                    setSavedCustomDimensions(50, 75);
+                    setCustomDims((prev) => {
+                      const h = prev.widthMm > prev.heightMm ? prev.heightMm : Math.round(prev.widthMm * 0.7);
+                      const next = { widthMm: prev.widthMm, heightMm: Math.max(15, Math.min(prev.widthMm - 5, h)) };
+                      setSavedCustomDimensions(next.widthMm, next.heightMm);
+                      return next;
+                    });
                   }}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                    customDims.widthMm === 50 && customDims.heightMm === 75
-                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                    customDims.widthMm > customDims.heightMm
+                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
                       : "bg-muted/50 text-foreground border-border hover:bg-muted"
                   }`}
                 >
-                  Portrait (50×75)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDims({ widthMm: 58, heightMm: 40 });
-                    setSavedCustomDimensions(58, 40);
-                  }}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                    customDims.widthMm === 58 && customDims.heightMm === 40
-                      ? "bg-[#8B2020] text-white border-[#8B2020]"
-                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  Landscape (58×40)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDims({ widthMm: 50, heightMm: 25 });
-                    setSavedCustomDimensions(50, 25);
-                  }}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                    customDims.widthMm === 50 && customDims.heightMm === 25
-                      ? "bg-[#8B2020] text-white border-[#8B2020]"
-                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  Compact (50×25)
+                  Landscape
                 </button>
 
                 <div className="h-3.5 w-px bg-border mx-1" />
