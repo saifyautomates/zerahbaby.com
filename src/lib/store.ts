@@ -133,12 +133,12 @@ export function getColorGallery(
 
   const rawImages = product.product_images || [];
 
-  // 1. Variant-level media (SKU is authoritative key)
+  // 1. Variant-level media (SKU or Variant ID in product_images, or variant.images array)
   if (variant) {
     const vSku = variant.sku?.trim().toLowerCase();
     const vId = variant.id;
 
-    // Direct match by variant_sku or variant_id
+    // Direct match by variant_sku or variant_id in product_images
     if (rawImages.length > 0) {
       const variantMatched = rawImages
         .filter((img) => {
@@ -163,16 +163,13 @@ export function getColorGallery(
       }
     }
 
-    // Direct match from variant.images or variant.imageUrl
-    if (variant.images && variant.images.length > 0) {
+    // Match from variant.images if dedicated array of multiple images is set
+    if (variant.images && variant.images.length > 1) {
       return variant.images.filter(Boolean);
-    }
-    if (variant.imageUrl) {
-      return [variant.imageUrl];
     }
   }
 
-  // 2. Color-level match (excluding media tagged to a DIFFERENT variant)
+  // 2. Color-level match (excluding media tagged to a DIFFERENT variant or DIFFERENT color)
   const targetColor = (color || variant?.color)?.trim().toLowerCase();
   if (targetColor && rawImages.length > 0) {
     const vSku = variant?.sku?.trim().toLowerCase();
@@ -205,10 +202,31 @@ export function getColorGallery(
     }
   }
 
-  // 3. Product-level general media (where variant_id, variant_sku, and color are NOT set to another variant)
+  // 3. Product-level general media (where variant_id, variant_sku, and other colors are NOT set)
   if (rawImages.length > 0) {
+    const vSku = variant?.sku?.trim().toLowerCase();
+    const vId = variant?.id;
+    const targetColor = (color || variant?.color)?.trim().toLowerCase();
+
     const productLevelImages = rawImages
-      .filter((img) => !img.variant_id && !img.variant_sku && (!img.color || !img.color.trim()))
+      .filter((img) => {
+        // Exclude images tagged to a DIFFERENT variant SKU
+        if (img.variant_sku && vSku && img.variant_sku.trim().toLowerCase() !== vSku) {
+          return false;
+        }
+        // Exclude images tagged to a DIFFERENT variant ID
+        if (img.variant_id && vId && img.variant_id !== vId) {
+          return false;
+        }
+        // Exclude images tagged to a DIFFERENT color
+        if (img.color && img.color.trim()) {
+          const imgColor = img.color.trim().toLowerCase();
+          if (targetColor && imgColor !== targetColor) {
+            return false;
+          }
+        }
+        return true;
+      })
       .sort(
         (a, b) =>
           (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
@@ -221,21 +239,23 @@ export function getColorGallery(
       return productLevelImages;
     }
 
-    // If no isolated product-level images, and no specific variant requested, return general list
-    if (!variant && !color) {
-      const allSorted = [...rawImages]
-        .sort(
-          (a, b) =>
-            (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
-            (a.sort_order ?? 0) - (b.sort_order ?? 0),
-        )
-        .map((img) => img.public_url)
-        .filter(Boolean);
-      if (allSorted.length > 0) return allSorted;
-    }
+    // If no isolated product-level images, return all sorted rawImages
+    const allSorted = [...rawImages]
+      .sort(
+        (a, b) =>
+          (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+          (a.sort_order ?? 0) - (b.sort_order ?? 0),
+      )
+      .map((img) => img.public_url)
+      .filter(Boolean);
+    if (allSorted.length > 0) return allSorted;
   }
 
-  // 4. Fallback: full product gallery
+  // 4. Fallback: variant.imageUrl if available, or full product.images
+  if (variant?.imageUrl && (!product.images || product.images.length === 0)) {
+    return [variant.imageUrl];
+  }
+
   const fullGallery = (product.images?.length ? product.images : [product.image]).filter(
     Boolean,
   ) as string[];
