@@ -204,6 +204,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           },
         ]),
       },
+      {
+        children: `(function(){try{var p=window.location.pathname;var d=document.documentElement;if(p.startsWith('/admin')){var s=localStorage.getItem('zerah-theme');if(s==='dark'||(!s&&window.matchMedia('(prefers-color-scheme: dark)').matches)){d.classList.add('dark');}else{d.classList.remove('dark');}}else{d.classList.remove('dark');}}catch(e){}})();`,
+      },
     ],
     links: [
       {
@@ -242,11 +245,6 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=window.location.pathname;var d=document.documentElement;if(p.startsWith('/admin')){var s=localStorage.getItem('zerah-theme');if(s==='dark'||(!s&&window.matchMedia('(prefers-color-scheme: dark)').matches)){d.classList.add('dark');}else{d.classList.remove('dark');}}else{d.classList.remove('dark');}}catch(e){}})();`,
-          }}
-        />
       </head>
       <body>
         {children}

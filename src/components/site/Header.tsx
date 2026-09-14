@@ -125,7 +125,8 @@ export function Header() {
   const { user } = useSession();
   const hasUser = isMounted && Boolean(user);
   const { data: userProfile } = useProfile(user?.id);
-  const { isAdmin, adminMode, toggleAdminMode } = useAdminMode();
+  const { isAdmin: isAdminRole, adminMode, toggleAdminMode } = useAdminMode();
+  const isAdmin = hasUser && isAdminRole;
   const saveProfile = useSaveProfile(user?.id);
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -783,7 +784,7 @@ export function Header() {
           <div className="flex items-center gap-3 bg-muted/20 p-4 border-b border-border/60">
             <div className="relative group size-12 shrink-0">
               <div className="size-full rounded-full overflow-hidden bg-background flex items-center justify-center border border-border/50 shadow-sm">
-                {userProfile?.avatar_url ? (
+                {hasUser && userProfile?.avatar_url ? (
                   <img
                     src={userProfile.avatar_url}
                     alt="Profile"
@@ -794,7 +795,7 @@ export function Header() {
                 )}
               </div>
 
-              {user && (
+              {hasUser && (
                 <>
                   <button
                     type="button"
