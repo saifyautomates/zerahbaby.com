@@ -70,6 +70,9 @@ type ProductRow = {
         sort_order: number;
         color?: string | null;
         alt_text?: string | null;
+        variant_id?: string | null;
+        variant_sku?: string | null;
+        media_type?: string | null;
       }[]
     | null;
   product_variants?:
@@ -120,15 +123,75 @@ export function getProductColors(product: Product): string[] {
   return Array.from(colorSet);
 }
 
-/** Get gallery images for a specific color (or all images if no color selected or no color images exist) */
-export function getColorGallery(product: Product, color?: string | null): string[] {
+/** Get gallery images/videos for a specific color or variant (strictly isolates variant media) */
+export function getColorGallery(
+  product: Product,
+  color?: string | null,
+  variant?: ProductVariant | null,
+): string[] {
   if (!product) return [];
 
   const rawImages = product.product_images || [];
-  if (color && color.trim() && rawImages.length > 0) {
-    const trimmedColor = color.trim().toLowerCase();
+
+  // 1. Variant-level media (SKU is authoritative key)
+  if (variant) {
+    const vSku = variant.sku?.trim().toLowerCase();
+    const vId = variant.id;
+
+    // Direct match by variant_sku or variant_id
+    if (rawImages.length > 0) {
+      const variantMatched = rawImages
+        .filter((img) => {
+          if (img.variant_sku && vSku && img.variant_sku.trim().toLowerCase() === vSku) {
+            return true;
+          }
+          if (img.variant_id && vId && img.variant_id === vId) {
+            return true;
+          }
+          return false;
+        })
+        .sort(
+          (a, b) =>
+            (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+            (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        )
+        .map((img) => img.public_url)
+        .filter(Boolean);
+
+      if (variantMatched.length > 0) {
+        return variantMatched;
+      }
+    }
+
+    // Direct match from variant.images or variant.imageUrl
+    if (variant.images && variant.images.length > 0) {
+      return variant.images.filter(Boolean);
+    }
+    if (variant.imageUrl) {
+      return [variant.imageUrl];
+    }
+  }
+
+  // 2. Color-level match (excluding media tagged to a DIFFERENT variant)
+  const targetColor = (color || variant?.color)?.trim().toLowerCase();
+  if (targetColor && rawImages.length > 0) {
+    const vSku = variant?.sku?.trim().toLowerCase();
+    const vId = variant?.id;
+
     const colorImages = rawImages
-      .filter((img) => img.color && img.color.trim().toLowerCase() === trimmedColor)
+      .filter((img) => {
+        if (!img.color || img.color.trim().toLowerCase() !== targetColor) {
+          return false;
+        }
+        // Strict isolation: if an image belongs to another variant SKU/ID, never show it
+        if (img.variant_sku && vSku && img.variant_sku.trim().toLowerCase() !== vSku) {
+          return false;
+        }
+        if (img.variant_id && vId && img.variant_id !== vId) {
+          return false;
+        }
+        return true;
+      })
       .sort(
         (a, b) =>
           (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
@@ -142,9 +205,10 @@ export function getColorGallery(product: Product, color?: string | null): string
     }
   }
 
-  // If rawImages exist, use them in sort_order / primary order
+  // 3. Product-level general media (where variant_id, variant_sku, and color are NOT set to another variant)
   if (rawImages.length > 0) {
-    const sorted = [...rawImages]
+    const productLevelImages = rawImages
+      .filter((img) => !img.variant_id && !img.variant_sku && (!img.color || !img.color.trim()))
       .sort(
         (a, b) =>
           (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
@@ -152,10 +216,26 @@ export function getColorGallery(product: Product, color?: string | null): string
       )
       .map((img) => img.public_url)
       .filter(Boolean);
-    if (sorted.length > 0) return sorted;
+
+    if (productLevelImages.length > 0) {
+      return productLevelImages;
+    }
+
+    // If no isolated product-level images, and no specific variant requested, return general list
+    if (!variant && !color) {
+      const allSorted = [...rawImages]
+        .sort(
+          (a, b) =>
+            (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+            (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        )
+        .map((img) => img.public_url)
+        .filter(Boolean);
+      if (allSorted.length > 0) return allSorted;
+    }
   }
 
-  // Fallback: full product gallery
+  // 4. Fallback: full product gallery
   const fullGallery = (product.images?.length ? product.images : [product.image]).filter(
     Boolean,
   ) as string[];
@@ -268,6 +348,11 @@ export const mapProduct = (row: ProductRow): Product => {
       sort_order: img.sort_order,
       color: img.color ?? null,
       alt_text: img.alt_text ?? null,
+      variant_id: (img as any).variant_id ?? null,
+      variant_sku: (img as any).variant_sku ?? null,
+      media_type:
+        (img as any).media_type ??
+        (img.public_url?.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? "video" : "image"),
     })),
     deliveryFee:
       row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 65,
@@ -277,19 +362,37 @@ export const mapProduct = (row: ProductRow): Product => {
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
     sales_channel:
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
-    variants: normalizedVariants.map((v) => ({
-      id: v.id,
-      name: v.name,
-      color: v.color ?? null,
-      size: v.size ?? null,
-      sku: v.sku,
-      barcode: v.barcode ?? null,
-      stock: v.stock,
-      priceOverride: v.price_override,
-      mrpOverride: v.mrp_override,
-      imageUrl: v.image_url ?? null,
-      conflictReconciliationNeeded: v.conflict_reconciliation_needed,
-    })),
+    variants: normalizedVariants.map((v) => {
+      const vSku = v.sku?.trim().toLowerCase();
+      const vImages = (row.product_images || [])
+        .filter((img) => {
+          if ((img as any).variant_id && (img as any).variant_id === v.id) return true;
+          if ((img as any).variant_sku && (img as any).variant_sku.trim().toLowerCase() === vSku)
+            return true;
+          return false;
+        })
+        .sort(
+          (a, b) =>
+            (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+            (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        )
+        .map((img) => img.public_url);
+
+      return {
+        id: v.id,
+        name: v.name,
+        color: v.color ?? null,
+        size: v.size ?? null,
+        sku: v.sku,
+        barcode: v.barcode ?? null,
+        stock: v.stock,
+        priceOverride: v.price_override,
+        mrpOverride: v.mrp_override,
+        imageUrl: v.image_url ?? vImages[0] ?? null,
+        images: vImages.length > 0 ? vImages : v.image_url ? [v.image_url] : undefined,
+        conflictReconciliationNeeded: v.conflict_reconciliation_needed,
+      };
+    }),
     buyingPrice: (() => {
       if (row.buyingPrice !== undefined && row.buyingPrice !== null) return Number(row.buyingPrice);
       if (row.buying_price !== undefined && row.buying_price !== null)
@@ -342,7 +445,7 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
     let query = supabase
       .from("products")
       .select(
-        "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)",
+        "*, product_images(id, public_url, is_primary, sort_order, color, alt_text, variant_id, variant_sku, media_type), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)",
       )
       .order("sort_order", { ascending: true });
     if (!includeInactive) {
@@ -491,7 +594,7 @@ export async function fetchSingleProduct(
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(decoded);
 
   const selectFields =
-    "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)";
+    "*, product_images(id, public_url, is_primary, sort_order, color, alt_text, variant_id, variant_sku, media_type), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)";
 
   try {
     let row: ProductRow | null = null;

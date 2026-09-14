@@ -79,6 +79,9 @@ export type ProductDraft = {
     sort_order: number;
     color?: string | null;
     alt_text?: string | null;
+    variant_id?: string | null;
+    variant_sku?: string | null;
+    media_type?: string | null;
   }[];
   stock: number;
   lowStockAt: number;
@@ -204,6 +207,11 @@ const toDraft = (
     sort_order: img.sort_order ?? i,
     color: img.color ?? null,
     alt_text: img.alt_text ?? null,
+    variant_id: img.variant_id ?? null,
+    variant_sku: img.variant_sku ?? null,
+    media_type:
+      img.media_type ??
+      (img.public_url?.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? "video" : "image"),
   }));
 
   if (pImages.length === 0 && p?.images?.length) {
@@ -215,6 +223,9 @@ const toDraft = (
         sort_order: i,
         color: null,
         alt_text: null,
+        variant_id: null,
+        variant_sku: null,
+        media_type: url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? "video" : "image",
       });
     });
   }
@@ -535,6 +546,37 @@ export function ProductForm({
           is_primary: existing.length === 0,
           sort_order: existing.length,
           color,
+          alt_text: draft.name,
+        },
+      ];
+    }
+    setDraft((d) => ({ ...d, productImages: updated }));
+  };
+
+  const handleSetImageVariant = (imgUrl: string, variantSku: string | null) => {
+    const existing = draft.productImages || [];
+    const idx = existing.findIndex((p) => p.public_url === imgUrl);
+    const matchedVar = draft.variants.find((v) => v.sku === variantSku);
+    const varColor = matchedVar?.color || null;
+    let updated: typeof existing;
+    if (idx >= 0) {
+      updated = [...existing];
+      updated[idx] = {
+        ...updated[idx],
+        variant_sku: variantSku,
+        variant_id: matchedVar?.id || null,
+        color: varColor ?? updated[idx].color,
+      };
+    } else {
+      updated = [
+        ...existing,
+        {
+          public_url: imgUrl,
+          is_primary: existing.length === 0,
+          sort_order: existing.length,
+          color: varColor,
+          variant_sku: variantSku,
+          variant_id: matchedVar?.id || null,
           alt_text: draft.name,
         },
       ];
@@ -1354,6 +1396,37 @@ export function ProductForm({
                           </span>
                         )}
 
+                        {!isProcessing && draft.variants.length > 0 && (() => {
+                          const matchingImg = draft.productImages?.find((img) => img.public_url === url);
+                          const assignedSku = matchingImg?.variant_sku || "";
+                          return (
+                            <div className="absolute bottom-1 right-1 z-20" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                aria-label="Assign media to variant"
+                                value={assignedSku || (matchingImg?.color ? `color:${matchingImg.color}` : "")}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (!val) {
+                                    handleSetImageVariant(url, null);
+                                  } else if (val.startsWith("color:")) {
+                                    handleSetImageColor(url, val.replace("color:", ""));
+                                  } else {
+                                    handleSetImageVariant(url, val);
+                                  }
+                                }}
+                                className="max-w-[85px] truncate text-[9px] font-bold bg-background/95 backdrop-blur-xs text-foreground px-1 py-0.5 rounded border border-border/80 shadow-xs cursor-pointer focus:outline-none hover:border-primary/60"
+                              >
+                                <option value="">🌐 Product</option>
+                                {draft.variants.map((v) => (
+                                  <option key={v.sku} value={v.sku}>
+                                    🏷️ {v.sku} {v.color ? `(${v.color}${v.size ? ` / ${v.size}` : ""})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })()}
+
                         <button
                           type="button"
                           aria-label="Remove image"
@@ -1886,33 +1959,48 @@ export function ProductForm({
                 {/* Variants List */}
                 <div className="space-y-3">
                   {draft.variants.map((v, idx) => {
-                    const swatchImg = v.color
-                      ? getColorSwatchImage(
-                          { ...product, product_images: draft.productImages } as any,
-                          v.color,
-                        )
-                      : draft.images[0] || "";
+                    const matchingVarImages = (draft.productImages || []).filter(
+                      (img) =>
+                        (v.sku && img.variant_sku?.toLowerCase() === v.sku.toLowerCase()) ||
+                        (v.id && img.variant_id === v.id),
+                    );
+                    const swatchImg =
+                      matchingVarImages[0]?.public_url ||
+                      v.image_url ||
+                      (v.color
+                        ? getColorSwatchImage(
+                            { ...product, product_images: draft.productImages } as any,
+                            v.color,
+                          )
+                        : "") ||
+                      draft.images[0] ||
+                      "";
 
                     return (
                       <div
                         key={idx}
                         className="flex flex-wrap gap-2.5 items-end p-3 rounded-lg border border-border bg-background shadow-2xs"
                       >
-                        {/* Swatch preview */}
-                        <div className="size-9 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted/30 mb-0.5">
-                          {swatchImg ? (
-                            <img
-                              loading="lazy"
-                              decoding="async"
-                              src={swatchImg}
-                              alt=""
-                              className="size-full object-cover"
-                            />
-                          ) : (
-                            <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
-                              {v.color?.[0] || "D"}
-                            </div>
-                          )}
+                        {/* Swatch preview with media count */}
+                        <div className="flex flex-col items-center shrink-0 mb-0.5">
+                          <div className="size-9 rounded-lg overflow-hidden border border-border/80 bg-muted/30 relative">
+                            {swatchImg ? (
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={swatchImg}
+                                alt=""
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <div className="size-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
+                                {v.color?.[0] || "D"}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[8px] text-muted-foreground font-semibold mt-0.5">
+                            {matchingVarImages.length > 0 ? `${matchingVarImages.length} media` : "0 media"}
+                          </span>
                         </div>
 
                         {/* Color (Editable Input + Dropdown Datalist) */}

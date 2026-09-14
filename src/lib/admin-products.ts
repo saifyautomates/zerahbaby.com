@@ -210,6 +210,9 @@ export function useSaveProduct() {
           sort_order: number;
           color?: string | null;
           alt_text?: string | null;
+          variant_id?: string | null;
+          variant_sku?: string | null;
+          media_type?: string | null;
         }[] = [];
 
         incomingImages.forEach((img, i) => {
@@ -221,6 +224,11 @@ export function useSaveProduct() {
               sort_order: i,
               color: img.color ? img.color.trim() : null,
               alt_text: img.alt_text || draft.name,
+              variant_id: (img as any).variant_id ?? null,
+              variant_sku: (img as any).variant_sku ? (img as any).variant_sku.trim() : null,
+              media_type:
+                (img as any).media_type ??
+                (url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ? "video" : "image"),
             });
           }
         });
@@ -257,6 +265,9 @@ export function useSaveProduct() {
                   sort_order: i,
                   color: img.color ?? null,
                   alt_text: img.alt_text ?? draft.name,
+                  variant_id: img.variant_id ?? null,
+                  variant_sku: img.variant_sku ?? null,
+                  media_type: img.media_type ?? "image",
                 })
                 .eq("id", existingRow.id) as any);
             } else {
@@ -272,6 +283,9 @@ export function useSaveProduct() {
                 is_primary: img.is_primary,
                 sort_order: i,
                 color: img.color ?? null,
+                variant_id: img.variant_id ?? null,
+                variant_sku: img.variant_sku ?? null,
+                media_type: img.media_type ?? "image",
               }) as any);
             }
           }),
@@ -395,6 +409,24 @@ export function useSaveProduct() {
             .from("products")
             .update({ stock: Math.max(0, finalVariantStock) })
             .eq("id", productId);
+
+          // Re-link product_images variant_id by variant_sku
+          const { data: updatedDbVariants } = await supabase
+            .from("product_variants")
+            .select("id, sku")
+            .eq("product_id", productId);
+
+          if (updatedDbVariants && updatedDbVariants.length > 0) {
+            for (const dv of updatedDbVariants) {
+              if (dv.sku) {
+                await (supabase
+                  .from("product_images" as any)
+                  .update({ variant_id: dv.id } as any)
+                  .eq("product_id", productId)
+                  .ilike("variant_sku", dv.sku.trim()) as any);
+              }
+            }
+          }
         }
 
         // Sync delivery fee setting

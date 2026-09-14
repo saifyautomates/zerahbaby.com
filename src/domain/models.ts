@@ -14,6 +14,9 @@ export interface ProductImage {
   sort_order: number;
   color?: string | null;
   alt_text?: string | null;
+  variant_id?: string | null;
+  variant_sku?: string | null;
+  media_type?: "image" | "video" | string | null;
 }
 
 export interface ProductVariant {
@@ -27,6 +30,7 @@ export interface ProductVariant {
   priceOverride?: number;
   mrpOverride?: number;
   imageUrl?: string | null;
+  images?: string[];
   conflictReconciliationNeeded?: boolean;
 }
 

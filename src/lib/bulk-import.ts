@@ -532,6 +532,7 @@ export interface BulkProductMedia {
   previewUrl: string;
   isVideo: boolean;
   color?: string;
+  variantSku?: string;
   sortOrder: number;
 }
 
@@ -926,6 +927,7 @@ async function parseZipArchive(zipFile: File): Promise<ParsedPackage> {
         isVideo,
         sortOrder: i,
         color: colorMatch ? colorMatch[0] : undefined,
+        variantSku: skuKey,
       });
     }
 
@@ -1203,9 +1205,39 @@ export function groupAndValidateRows(
       stock = toInt(rows.find((r) => r.raw.stock?.trim())?.raw.stock, 0);
     }
 
-    // Look for media in ZIP corresponding to this SKU
+    // Look for media in ZIP corresponding to this SKU or variant SKUs
     const normalizedSkuKey = sku.toLowerCase().trim();
-    const zipMedia = mediaBySku.get(normalizedSkuKey) ?? [];
+    const directProductMedia = (mediaBySku.get(normalizedSkuKey) ?? []).map((m) => ({
+      ...m,
+      variantSku: m.variantSku || sku,
+    }));
+
+    const variantMediaList: BulkProductMedia[] = [];
+    const missingMediaVariants: string[] = [];
+
+    for (const v of variants) {
+      const vSkuKey = v.sku.toLowerCase().trim();
+      const vMedia = mediaBySku.get(vSkuKey);
+      if (vMedia && vMedia.length > 0) {
+        vMedia.forEach((m) => {
+          variantMediaList.push({
+            ...m,
+            variantSku: v.sku,
+            color: v.color || m.color,
+          });
+        });
+      } else {
+        missingMediaVariants.push(v.sku);
+      }
+    }
+
+    if (missingMediaVariants.length > 0 && variants.length > 0) {
+      warnings.push(
+        `Variant(s) missing dedicated media folder in ZIP: ${missingMediaVariants.join(", ")}. Using product-level media fallback.`,
+      );
+    }
+
+    const zipMedia = [...directProductMedia, ...variantMediaList];
 
     // ── Business Validations (100% Add Product Parity) ──────────────────────
     if (!name) errors.push("Product Name is required.");
@@ -1508,6 +1540,10 @@ export async function commitBulkImport(
                 ) !== undefined,
             );
 
+            const isVideo =
+              !!url.match(/\.(mp4|webm|mov|ogg)(\?.*)?$/i) ||
+              !!correspondingZipMedia?.isVideo;
+
             return {
               product_id: productId,
               public_url: url,
@@ -1518,10 +1554,12 @@ export async function commitBulkImport(
               is_primary: idx === 0,
               sort_order: idx,
               color: correspondingZipMedia?.color || null,
+              variant_sku: correspondingZipMedia?.variantSku || null,
+              media_type: isVideo ? "video" : "image",
             };
           });
 
-          await supabase.from("product_images").insert(imageRecords);
+          await (supabase.from("product_images" as any) as any).insert(imageRecords);
         }
 
         // 4. Handle Variants
@@ -1604,6 +1642,43 @@ export async function commitBulkImport(
                 .eq("product_id", productId)
                 .eq("is_active", true)
                 .not("id", "in", `(${savedIds.map((id) => `'${id}'`).join(",")})`);
+            }
+
+            // Re-link product_images variant_id by variant_sku
+            const { data: updatedDbVariants } = await supabase
+              .from("product_variants")
+              .select("id, sku, image_url")
+              .eq("product_id", productId);
+
+            if (updatedDbVariants && updatedDbVariants.length > 0) {
+              for (const dv of updatedDbVariants) {
+                if (dv.sku) {
+                  await (supabase.from("product_images" as any) as any)
+                    .update({ variant_id: dv.id })
+                    .eq("product_id", productId)
+                    .ilike("variant_sku", dv.sku.trim());
+
+                  // If variant has no image_url, populate it from its first product_image
+                  if (!dv.image_url) {
+                    const { data: firstImg } = await supabase
+                      .from("product_images")
+                      .select("public_url")
+                      .eq("product_id", productId)
+                      .ilike("variant_sku", dv.sku.trim())
+                      .order("is_primary", { ascending: false })
+                      .order("sort_order", { ascending: true })
+                      .limit(1)
+                      .maybeSingle();
+
+                    if (firstImg?.public_url) {
+                      await supabase
+                        .from("product_variants")
+                        .update({ image_url: firstImg.public_url })
+                        .eq("id", dv.id);
+                    }
+                  }
+                }
+              }
             }
           }
         }

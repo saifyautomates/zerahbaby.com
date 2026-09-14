@@ -327,10 +327,19 @@ function ProductPage() {
     }
   }, [id, product]);
 
+  const activeVariant = useMemo(() => {
+    if (!product || !product.variants?.length) return null;
+    return product.variants.find((v) => v.id === selectedVariantId) ?? product.variants[0];
+  }, [product, selectedVariantId]);
+
   const gallery = useMemo(() => {
     if (!product) return [];
-    return getColorGallery(product, selectedColor);
-  }, [product, selectedColor]);
+    return getColorGallery(product, selectedColor, activeVariant);
+  }, [product, selectedColor, activeVariant]);
+
+  useEffect(() => {
+    setActiveImage(0);
+  }, [selectedVariantId, selectedColor]);
 
   const handleColorChange = (color: string) => {
     setSelectedColor(color);
@@ -405,10 +414,7 @@ function ProductPage() {
     setActiveImage((prev) => (prev - 1 + gallery.length) % gallery.length);
   }, [gallery.length]);
 
-  const activeVariant = useMemo(() => {
-    if (!product || !product.variants?.length) return null;
-    return product.variants.find((v) => v.id === selectedVariantId) ?? product.variants[0];
-  }, [product, selectedVariantId]);
+
 
   const activeStock = activeVariant ? activeVariant.stock : (product?.stock ?? 0);
   const activePrice = activeVariant?.priceOverride ?? product?.price ?? 0;
@@ -1053,6 +1059,10 @@ function ProductPage() {
                         type="button"
                         onClick={() => {
                           setSelectedVariantId(v.id);
+                          setActiveImage(0);
+                          if (v.color && v.color.toLowerCase() !== selectedColor?.toLowerCase()) {
+                            setSelectedColor(v.color);
+                          }
                           setQty(1);
                         }}
                         className={`min-w-[56px] px-5 py-2.5 text-xs font-bold rounded-2xl border transition-all cursor-pointer ${
