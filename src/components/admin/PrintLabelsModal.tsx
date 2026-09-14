@@ -272,20 +272,26 @@ export function PrintLabelsModal({
                 }}
                 className="bg-card text-foreground font-bold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-border focus:ring-2 focus:ring-[#8B2020] focus:border-[#8B2020] shadow-2xs cursor-pointer appearance-none outline-none"
               >
-                <optgroup label="Thermal Roll (Portrait)">
-                  <option value="50x75">50 × 75 mm (Portrait Default)</option>
-                  <option value="58x75">58 × 75 mm (Portrait)</option>
-                  <option value="58x100">58 × 100 mm (Tall Portrait)</option>
-                  <option value="50x50">50 × 50 mm (Square)</option>
-                  <option value="80x100">80 × 100 mm (Portrait)</option>
-                  <option value="50x25">50 × 25 mm (Compact)</option>
+                <optgroup label="Thermal Roll">
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal").map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label} ({o.description})
+                    </option>
+                  ))}
                 </optgroup>
                 <optgroup label="A4 Sheet Grids">
-                  <option value="a4-3x8">A4 — 3 × 8</option>
-                  <option value="a4-4x10">A4 — 4 × 10</option>
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "sheet").map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
                 </optgroup>
                 <optgroup label="Custom Size">
-                  <option value="custom">Custom</option>
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "custom").map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
                 </optgroup>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
