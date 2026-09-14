@@ -1069,15 +1069,32 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     }
 
     const hasMrpDiff = effectiveMrp > p.price && p.price > 0;
+    const discountPct = hasMrpDiff ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
+
+    let priceHtml = "";
+    if (!separatePriceLine) {
+      priceHtml = `  <div class="lbl-product-name">
+        ${escapeHtml(productName)}
+        ${(showSellPrice || showMrp || showDiscount) ? " - " : ""}
+        ${showSellPrice ? `<span class="lbl-selling-price-inline">${priceFormatted}</span>` : ""}
+        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price-inline">${mrpFormatted}</span>` : ""}
+        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-inline">(${discountPct}%)</span>` : ""}
+      </div>`;
+    } else {
+      priceHtml = `  <div class="lbl-product-name">${escapeHtml(productName)}</div>`;
+      if (showSellPrice || showMrp || showDiscount) {
+        priceHtml += `\n  <div class="lbl-price-row">
+          ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}
+          ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
+          ${showDiscount && discountPct > 0 ? `<span class="lbl-discount">(${discountPct}% OFF)</span>` : ""}
+        </div>`;
+      }
+    }
 
     return [
       `<div class="lbl-v-stack">`,
       `  <div class="lbl-brand-header">ZÉRAH BABY &amp; KIDS</div>`,
-      `  <div class="lbl-product-name">${escapeHtml(productName)}</div>`,
-      `  <div class="lbl-price-row">`,
-      `    <span class="lbl-selling-price">${priceFormatted}</span>`,
-      hasMrpDiff ? `    <span class="lbl-mrp-price">${mrpFormatted}</span>` : "",
-      `  </div>`,
+      priceHtml,
       `  <div class="lbl-bc-section">`,
       `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
       `  </div>`,
@@ -1269,6 +1286,33 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       color: #64748b;
       text-decoration: line-through;
       font-weight: 600;
+    }
+
+    .lbl-discount {
+      font-size: ${Math.max(6, cfg.priceFontPt * 0.72)}pt;
+      color: #000000;
+      font-weight: 900;
+    }
+
+    .lbl-selling-price-inline {
+      font-size: ${Math.max(7, cfg.nameFontPt * 1.1)}pt;
+      font-weight: 900;
+      color: #000000;
+    }
+
+    .lbl-mrp-price-inline {
+      font-size: ${Math.max(6, cfg.nameFontPt * 0.9)}pt;
+      color: #64748b;
+      text-decoration: line-through;
+      font-weight: 600;
+      margin-left: 0.5mm;
+    }
+
+    .lbl-discount-inline {
+      font-size: ${Math.max(6, cfg.nameFontPt * 0.9)}pt;
+      color: #000000;
+      font-weight: 900;
+      margin-left: 0.5mm;
     }
 
     .lbl-bc-section {

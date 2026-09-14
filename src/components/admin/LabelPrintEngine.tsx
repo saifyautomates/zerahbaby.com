@@ -166,17 +166,45 @@ function SingleStickerPreview({
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Zérah Baby &amp; Kids
         </p>
-        <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-          {product.name || "Product Name"}
-        </p>
-        <div className="flex items-center justify-center gap-2 mt-0.5">
-          <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
-          {mrpVal > product.price && (
-            <span className="text-[10px] text-muted-foreground line-through">
-              {mrpFormatted}
-            </span>
-          )}
-        </div>
+
+        {!separatePriceLine ? (
+          <p className={`font-semibold text-center line-clamp-2 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
+            {product.name || "Product Name"}
+            {(showSellPrice || showMrp || showDiscount) && " - "}
+            {showSellPrice && (
+              <span className={`font-black ${isCompact ? "text-[11px]" : "text-xs"}`}>{priceFormatted}</span>
+            )}
+            {showMrp && mrpVal > product.price && (
+              <span className="text-[9px] text-muted-foreground line-through ml-1">
+                {mrpFormatted}
+              </span>
+            )}
+            {showDiscount && discountPct > 0 && (
+              <span className="ml-1 text-[9px] font-bold text-amber-600">({discountPct}%)</span>
+            )}
+          </p>
+        ) : (
+          <>
+            <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
+              {product.name || "Product Name"}
+            </p>
+            {(showSellPrice || showMrp || showDiscount) && (
+              <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                {showSellPrice && (
+                  <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
+                )}
+                {showMrp && mrpVal > product.price && (
+                  <span className="text-[10px] text-muted-foreground line-through">
+                    {mrpFormatted}
+                  </span>
+                )}
+                {showDiscount && discountPct > 0 && (
+                  <span className="text-[10px] font-bold text-amber-600">({discountPct}% OFF)</span>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mt-1 scale-90 w-full flex flex-col items-center">
