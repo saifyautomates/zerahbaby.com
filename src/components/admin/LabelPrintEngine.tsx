@@ -101,11 +101,12 @@ function SingleStickerPreview({
     ? 220
     : Math.max(180, Math.min(260, Math.round(cfg.labelWidthMm * 4.4)));
   const previewH = Math.max(
-    140,
+    85,
     Math.round(previewW * (cfg.labelHeightMm / cfg.labelWidthMm)),
   );
 
-  const bcHeight = Math.max(20, Math.round(previewH * 0.12));
+  const isCompact = cfg.labelHeightMm <= 35;
+  const bcHeight = isCompact ? 24 : Math.max(28, Math.min(48, Math.round(previewH * 0.18)));
 
   const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price && product.price > 0;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
@@ -124,26 +125,26 @@ function SingleStickerPreview({
         style={{
           width: previewW,
           height: previewH,
-          padding: "12px 10px 10px",
+          padding: isCompact ? "6px 8px" : "12px 10px 10px",
           justifyContent: "space-between",
         }}
       >
         <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
           Zérah Baby &amp; Kids
         </p>
-        <div className="mt-2 scale-90 w-full flex flex-col items-center justify-center">
+        <div className="mt-1 scale-90 w-full flex flex-col items-center justify-center">
           <Barcode
             value={barcodeValue}
             format="CODE128"
-            width={1.2}
-            height={bcHeight * 1.5}
-            fontSize={10}
+            width={isCompact ? 1.0 : 1.2}
+            height={bcHeight * 1.3}
+            fontSize={isCompact ? 9 : 10}
             margin={0}
             displayValue={true}
             background="transparent"
             lineColor="#000000"
           />
-          <p className="mt-1 text-[9px] text-muted-foreground">
+          <p className="mt-0.5 text-[9px] text-muted-foreground">
             SKU: {product.sku || artNoVal}
           </p>
         </div>
@@ -157,7 +158,7 @@ function SingleStickerPreview({
       style={{
         width: previewW,
         height: previewH,
-        padding: "12px 10px 10px",
+        padding: isCompact ? "6px 8px" : "12px 10px 10px",
         justifyContent: "space-between",
       }}
     >
@@ -165,11 +166,11 @@ function SingleStickerPreview({
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Zérah Baby &amp; Kids
         </p>
-        <p className="text-xs font-semibold mt-1 text-center line-clamp-2 px-1">
+        <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
           {product.name || "Product Name"}
         </p>
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <span className="text-sm font-black">{priceFormatted}</span>
+        <div className="flex items-center justify-center gap-2 mt-0.5">
+          <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
           {mrpVal > product.price && (
             <span className="text-[10px] text-muted-foreground line-through">
               {mrpFormatted}
@@ -178,19 +179,19 @@ function SingleStickerPreview({
         </div>
       </div>
 
-      <div className="mt-2 scale-90 w-full flex flex-col items-center">
+      <div className="mt-1 scale-90 w-full flex flex-col items-center">
         <Barcode
           value={barcodeValue}
           format="CODE128"
-          width={1.2}
+          width={isCompact ? 1.0 : 1.2}
           height={bcHeight}
-          fontSize={10}
+          fontSize={isCompact ? 9 : 10}
           margin={0}
           displayValue={true}
           background="transparent"
           lineColor="#000000"
         />
-        <p className="mt-1 text-[9px] text-muted-foreground">
+        <p className="mt-0.5 text-[9px] text-muted-foreground">
           SKU: {product.sku || artNoVal}
         </p>
       </div>

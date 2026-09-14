@@ -1164,7 +1164,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm portrait`;
+    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
@@ -1175,9 +1175,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       padding: 0;
     }
 
-    /* ── Exact Physical Page Dimensions (Strictly portrait isolated) ── */
+    /* ── Exact Physical Page Dimensions ── */
     @page {
-      size: portrait;
       size: ${pageSizeDecl};
       margin: ${pageMarginDecl};
     }
@@ -1185,33 +1184,46 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     /* ── Label Container & Typography ── */
     .label-page {
       width: ${cfg.pageWidthMm}mm;
-      min-height: ${cfg.pageHeightMm}mm;
+      height: ${cfg.pageHeightMm}mm;
+      max-height: ${cfg.pageHeightMm}mm;
       box-sizing: border-box;
       background: #ffffff;
       overflow: hidden;
       margin: 0 auto;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .label-page:last-child {
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     .label-inner {
       width: 100%;
-      min-height: ${cfg.pageHeightMm}mm;
+      height: ${cfg.pageHeightMm}mm;
+      max-height: ${cfg.pageHeightMm}mm;
       box-sizing: border-box;
       padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: space-between;
       background: #ffffff;
       text-align: center;
       font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
     }
 
     .lbl-v-stack {
       width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: space-between;
       text-align: center;
+      overflow: hidden;
     }
 
     .lbl-brand-header {
