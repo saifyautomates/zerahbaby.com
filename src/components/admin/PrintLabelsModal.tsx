@@ -31,6 +31,8 @@ import {
   setSavedShowMrp,
   getSavedShowSellPrice,
   setSavedShowSellPrice,
+  getSavedShowProductName,
+  setSavedShowProductName,
   getSavedSeparatePrice,
   setSavedSeparatePrice,
   printProductLabels,
@@ -53,6 +55,7 @@ export function PrintLabelsModal({
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
   const [showMrp, setShowMrp] = useState<boolean>(() => getSavedShowMrp());
   const [showSellPrice, setShowSellPrice] = useState<boolean>(() => getSavedShowSellPrice());
+  const [showProductName, setShowProductName] = useState<boolean>(() => getSavedShowProductName());
   const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() =>
     getSavedSeparatePrice(),
   );
@@ -80,6 +83,15 @@ export function PrintLabelsModal({
   const handleSellPriceToggle = (checked: boolean) => {
     setShowSellPrice(checked);
     setSavedShowSellPrice(checked);
+    if (checked && labelType === "barcode-only") {
+      setLabelType("full");
+      setSavedLabelType("full");
+    }
+  };
+
+  const handleProductNameToggle = (checked: boolean) => {
+    setShowProductName(checked);
+    setSavedShowProductName(checked);
     if (checked && labelType === "barcode-only") {
       setLabelType("full");
       setSavedLabelType("full");
@@ -154,6 +166,7 @@ export function PrintLabelsModal({
         showDiscount,
         showMrp,
         showSellPrice,
+        showProductName,
         separatePriceLine,
         onDone: () => setIsPrinting(false),
       });
@@ -176,6 +189,7 @@ export function PrintLabelsModal({
       showDiscount,
       showMrp,
       showSellPrice,
+      showProductName,
       separatePriceLine,
     });
   };
@@ -335,6 +349,22 @@ export function PrintLabelsModal({
 
             <div className="h-4 w-px bg-border/60" />
 
+            {/* Product Name toggle */}
+            <label
+              className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
+                labelType === "barcode-only" ? "opacity-40 pointer-events-none" : "text-foreground"
+              }`}
+            >
+              <input
+                type="checkbox"
+                disabled={labelType === "barcode-only"}
+                checked={showProductName}
+                onChange={(e) => handleProductNameToggle(e.target.checked)}
+                className="size-4 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+              />
+              <span>Product Name</span>
+            </label>
+
             {/* Sell Price toggle */}
             <label
               className={`flex items-center gap-1.5 cursor-pointer text-xs font-bold select-none transition ${
@@ -469,6 +499,7 @@ export function PrintLabelsModal({
               showDiscount={showDiscount}
               showMrp={showMrp}
               showSellPrice={showSellPrice}
+              showProductName={showProductName}
               separatePriceLine={separatePriceLine}
             />
           </div>

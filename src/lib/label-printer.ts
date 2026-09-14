@@ -595,6 +595,7 @@ export const LABEL_DISCOUNT_KEY = "zerah_label_show_discount";
 export const LABEL_TYPE_KEY = "zerah_label_type";
 export const LABEL_SHOW_MRP_KEY = "zerah_label_show_mrp";
 export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
+export const LABEL_SHOW_PRODUCT_NAME_KEY = "zerah_label_show_product_name";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
 
 let memoryProfile: LabelPrinterProfile = "50x75";
@@ -602,6 +603,7 @@ let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
 let memoryShowSellPrice = true;
+let memoryShowProductName = true;
 let memorySeparatePrice = true;
 let memoryCustomWidthMm = 50;
 let memoryCustomHeightMm = 75;
@@ -729,6 +731,27 @@ export function setSavedShowSellPrice(show: boolean): void {
     }
   }
 }
+export function getSavedShowProductName(): boolean {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem(LABEL_SHOW_PRODUCT_NAME_KEY);
+      if (saved !== null) return saved === "true";
+    } catch {
+      /* ignore */
+    }
+  }
+  return true;
+}
+export function setSavedShowProductName(show: boolean): void {
+  memoryShowProductName = show;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LABEL_SHOW_PRODUCT_NAME_KEY, show ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }
+}
 export function getSavedSeparatePrice(): boolean {
   if (typeof window !== "undefined") {
     try {
@@ -807,6 +830,7 @@ export type DirectPrintPayload = {
   layout?: LabelPrinterProfile;
   labelType?: LabelType;
   showDiscount?: boolean;
+  showProductName?: boolean;
   widthMm?: number;
   heightMm?: number;
 };
@@ -984,6 +1008,7 @@ export type BuildLabelPrintOptions = {
   showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
+  showProductName?: boolean;
   separatePriceLine?: boolean;
   isStandaloneTab?: boolean;
 };
@@ -1004,6 +1029,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     showDiscount = false,
     showMrp = true,
     showSellPrice = true,
+    showProductName = true,
     separatePriceLine = true,
     isStandaloneTab = false,
   } = params;
@@ -1073,15 +1099,19 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     let priceHtml = "";
     if (!separatePriceLine) {
-      priceHtml = `  <div class="lbl-product-name">
+      priceHtml = showProductName ? `  <div class="lbl-product-name">
         ${escapeHtml(productName)}
         ${(showSellPrice || showMrp || showDiscount) ? " - " : ""}
         ${showSellPrice ? `<span class="lbl-selling-price-inline">${priceFormatted}</span>` : ""}
         ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price-inline">${mrpFormatted}</span>` : ""}
         ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-inline">(${discountPct}%)</span>` : ""}
+      </div>` : `  <div class="lbl-product-name">
+        ${showSellPrice ? `<span class="lbl-selling-price-inline">${priceFormatted}</span>` : ""}
+        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price-inline">${mrpFormatted}</span>` : ""}
+        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-inline">(${discountPct}%)</span>` : ""}
       </div>`;
     } else {
-      priceHtml = `  <div class="lbl-product-name">${escapeHtml(productName)}</div>`;
+      priceHtml = showProductName ? `  <div class="lbl-product-name">${escapeHtml(productName)}</div>` : "";
       if (showSellPrice || showMrp || showDiscount) {
         priceHtml += `\n  <div class="lbl-price-row">
           ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}

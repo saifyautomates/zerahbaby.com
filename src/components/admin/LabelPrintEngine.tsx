@@ -44,6 +44,7 @@ type Props = {
   showDiscount: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
+  showProductName?: boolean;
   separatePriceLine?: boolean;
   customWidthMm?: number;
   customHeightMm?: number;
@@ -88,6 +89,7 @@ function SingleStickerPreview({
   showDiscount: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
+  showProductName?: boolean;
   separatePriceLine?: boolean;
   layout: LabelLayout;
   customWidthMm?: number;
@@ -169,8 +171,8 @@ function SingleStickerPreview({
 
         {!separatePriceLine ? (
           <p className={`font-semibold text-center line-clamp-2 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-            {product.name || "Product Name"}
-            {(showSellPrice || showMrp || showDiscount) && " - "}
+            {showProductName && (product.name || "Product Name")}
+            {showProductName && (showSellPrice || showMrp || showDiscount) && " - "}
             {showSellPrice && (
               <span className={`font-black ${isCompact ? "text-[11px]" : "text-xs"}`}>{priceFormatted}</span>
             )}
@@ -185,9 +187,11 @@ function SingleStickerPreview({
           </p>
         ) : (
           <>
-            <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-              {product.name || "Product Name"}
-            </p>
+            {showProductName && (
+              <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
+                {product.name || "Product Name"}
+              </p>
+            )}
             {(showSellPrice || showMrp || showDiscount) && (
               <div className="flex items-center justify-center gap-1.5 mt-0.5">
                 {showSellPrice && (
@@ -238,6 +242,7 @@ export function LabelPrintEngine({
   showDiscount,
   showMrp = true,
   showSellPrice = true,
+  showProductName = true,
   separatePriceLine = true,
   customWidthMm,
   customHeightMm,
@@ -278,6 +283,7 @@ export function LabelPrintEngine({
                 showDiscount={showDiscount}
                 showMrp={showMrp}
                 showSellPrice={showSellPrice}
+                showProductName={showProductName}
                 separatePriceLine={separatePriceLine}
                 layout={layout}
                 customWidthMm={activeCustomW}
@@ -305,6 +311,7 @@ export function LabelPrintEngine({
                 showDiscount={showDiscount}
                 showMrp={showMrp}
                 showSellPrice={showSellPrice}
+                showProductName={showProductName}
                 separatePriceLine={separatePriceLine}
                 layout={layout}
                 customWidthMm={activeCustomW}
