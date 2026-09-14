@@ -130,7 +130,8 @@ function SingleStickerPreview({
           width: previewW,
           height: previewH,
           padding: isCompact ? "6px 8px" : "12px 10px 10px",
-          justifyContent: "space-between",
+          justifyContent: "center",
+          gap: isCompact ? "4px" : "12px",
         }}
       >
         <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
@@ -163,7 +164,8 @@ function SingleStickerPreview({
         width: previewW,
         height: previewH,
         padding: isCompact ? "6px 8px" : "12px 10px 10px",
-        justifyContent: "space-between",
+        justifyContent: "center",
+        gap: isCompact ? "4px" : "12px",
       }}
     >
       <div className="flex flex-col items-center w-full">

@@ -1277,7 +1277,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      gap: ${cfg.labelHeightMm <= 35 ? 1 : 2.5}mm;
       text-align: center;
       overflow: hidden;
     }
