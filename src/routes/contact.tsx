@@ -125,7 +125,7 @@ function ContactPage() {
   };
 
   const waLink =
-    whatsappUrl || (contactPhone ? `https://wa.me/${cleanPhoneForWa(contactPhone)}` : "");
+    whatsappUrl || "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

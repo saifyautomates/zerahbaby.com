@@ -743,12 +743,12 @@ export function useSettings() {
     const data = s ?? {};
     const rawIg = data["instagram_url"] ?? "https://www.instagram.com/zerah_kids/";
     const rawFb = data["facebook_url"] ?? "";
-    const rawWa = data["whatsapp_url"] ?? "";
+    const rawWa = data["whatsapp_url"] ?? "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g";
     const rawPhone = data["contact_phone"] ?? "9057074777, 9667571712";
 
     const igNorm = validateAndNormalizeInstagram(rawIg);
     const fbNorm = validateAndNormalizeFacebook(rawFb);
-    const waNorm = validateAndNormalizeWhatsApp(rawWa || rawPhone);
+    const waNorm = validateAndNormalizeWhatsApp(rawWa || "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g");
 
     return {
       settings: data,
@@ -775,7 +775,10 @@ export function useSettings() {
           ? igNorm.normalizedUrl
           : "https://www.instagram.com/zerah_kids/",
       facebookUrl: fbNorm.isValid && fbNorm.normalizedUrl ? fbNorm.normalizedUrl : "",
-      whatsappUrl: waNorm.isValid && waNorm.normalizedUrl ? waNorm.normalizedUrl : "",
+      whatsappUrl:
+        waNorm.isValid && waNorm.normalizedUrl
+          ? waNorm.normalizedUrl
+          : "https://whatsapp.com/channel/0029VbC1igD8fewjKTLYEj0g",
     };
   }, [s]);
 
