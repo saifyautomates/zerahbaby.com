@@ -100,23 +100,33 @@ export const LABEL_SIZE_OPTIONS: Array<{
   label: string;
   description: string;
   category: "thermal" | "sheet" | "custom";
+  subcategory?: "square" | "portrait" | "landscape";
 }> = [
-  { id: "50x75", label: "50 × 75 mm", description: "Standard Thermal Portrait (Default)", category: "thermal" },
-  { id: "58x75", label: "58 × 75 mm", description: "Thermal Portrait", category: "thermal" },
-  { id: "58x100", label: "58 × 100 mm", description: "Tall Thermal Portrait", category: "thermal" },
-  { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal" },
-  { id: "80x100", label: "80 × 100 mm", description: "Wide Thermal Portrait", category: "thermal" },
-  { id: "50x25", label: "50 × 25 mm", description: "Compact Thermal", category: "thermal" },
-  { id: "58x30", label: "58 × 30 mm", description: "Thermal Compact", category: "thermal" },
-  { id: "58x40", label: "58 × 40 mm", description: "Thermal Compact", category: "thermal" },
-  { id: "58x50", label: "58 × 50 mm", description: "Thermal Compact", category: "thermal" },
-  { id: "80x50", label: "80 × 50 mm", description: "Wide Thermal Compact", category: "thermal" },
-  { id: "100x50", label: "100 × 50 mm", description: "Large Thermal Compact", category: "thermal" },
-  { id: "108x50", label: "108 × 50 mm", description: "Extra-Wide Thermal", category: "thermal" },
-  { id: "108x75", label: "108 × 75 mm", description: "Jumbo Thermal", category: "thermal" },
+  // ── Thermal Square ──
+  { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
+  { id: "58x50", label: "58 × 50 mm", description: "Square Thermal (Compact)", category: "thermal", subcategory: "square" },
+
+  // ── Thermal Portrait ──
+  { id: "50x75", label: "50 × 75 mm", description: "Portrait Thermal (Default)", category: "thermal", subcategory: "portrait" },
+  { id: "58x75", label: "58 × 75 mm", description: "Portrait Thermal", category: "thermal", subcategory: "portrait" },
+  { id: "58x100", label: "58 × 100 mm", description: "Tall Portrait Thermal", category: "thermal", subcategory: "portrait" },
+  { id: "80x100", label: "80 × 100 mm", description: "Wide Portrait Thermal", category: "thermal", subcategory: "portrait" },
+
+  // ── Thermal Landscape ──
+  { id: "50x25", label: "50 × 25 mm", description: "Landscape Thermal (Compact)", category: "thermal", subcategory: "landscape" },
+  { id: "58x30", label: "58 × 30 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "58x40", label: "58 × 40 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "80x50", label: "80 × 50 mm", description: "Wide Landscape Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "100x50", label: "100 × 50 mm", description: "Large Landscape Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "108x50", label: "108 × 50 mm", description: "Extra-Wide Landscape Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "108x75", label: "108 × 75 mm", description: "Jumbo Landscape Thermal", category: "thermal", subcategory: "landscape" },
+
+  // ── A4 Sheet Grids ──
   { id: "a4-3x8", label: "A4 — 3 × 8", description: "24 Labels / A4 Sheet", category: "sheet" },
   { id: "a4-4x10", label: "A4 — 4 × 10", description: "40 Labels / A4 Sheet", category: "sheet" },
-  { id: "custom", label: "Custom", description: "Custom Millimetre Size", category: "custom" },
+
+  // ── Custom Size ──
+  { id: "custom", label: "Custom", description: "Custom Millimetre Dimensions", category: "custom" },
 ];
 
 export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {

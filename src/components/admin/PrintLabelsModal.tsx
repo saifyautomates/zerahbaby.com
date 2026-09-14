@@ -272,8 +272,22 @@ export function PrintLabelsModal({
                 }}
                 className="bg-card text-foreground font-bold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-border focus:ring-2 focus:ring-[#8B2020] focus:border-[#8B2020] shadow-2xs cursor-pointer appearance-none outline-none"
               >
-                <optgroup label="Thermal Roll">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal").map((o) => (
+                <optgroup label="Thermal — Square">
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "square").map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label} ({o.description})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Thermal — Portrait">
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "portrait").map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label} ({o.description})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Thermal — Landscape / Compact">
+                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "landscape").map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label} ({o.description})
                     </option>
@@ -289,7 +303,7 @@ export function PrintLabelsModal({
                 <optgroup label="Custom Size">
                   {LABEL_SIZE_OPTIONS.filter((o) => o.category === "custom").map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.label}
+                      {o.label} ({o.description})
                     </option>
                   ))}
                 </optgroup>
@@ -299,9 +313,85 @@ export function PrintLabelsModal({
               </div>
             </div>
 
-            {/* If Custom is selected, show Width and Height inputs */}
+            {/* If Custom is selected, show Presets and Width/Height inputs */}
             {layout === "custom" && (
-              <div className="flex items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
+              <div className="flex flex-wrap items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
+                <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
+                  Presets:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDims({ widthMm: 50, heightMm: 50 });
+                    setSavedCustomDimensions(50, 50);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    customDims.widthMm === 50 && customDims.heightMm === 50
+                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  Square (50×50)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDims({ widthMm: 58, heightMm: 58 });
+                    setSavedCustomDimensions(58, 58);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    customDims.widthMm === 58 && customDims.heightMm === 58
+                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  Square (58×58)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDims({ widthMm: 50, heightMm: 75 });
+                    setSavedCustomDimensions(50, 75);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    customDims.widthMm === 50 && customDims.heightMm === 75
+                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  Portrait (50×75)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDims({ widthMm: 58, heightMm: 40 });
+                    setSavedCustomDimensions(58, 40);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    customDims.widthMm === 58 && customDims.heightMm === 40
+                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  Landscape (58×40)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDims({ widthMm: 50, heightMm: 25 });
+                    setSavedCustomDimensions(50, 25);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    customDims.widthMm === 50 && customDims.heightMm === 25
+                      ? "bg-[#8B2020] text-white border-[#8B2020]"
+                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  Compact (50×25)
+                </button>
+
+                <div className="h-3.5 w-px bg-border mx-1" />
+
                 <span className="text-[11px] font-semibold text-muted-foreground">W:</span>
                 <input
                   type="number"
@@ -309,7 +399,7 @@ export function PrintLabelsModal({
                   max={200}
                   value={customDims.widthMm}
                   onChange={(e) => {
-                    const val = Math.max(20, Math.min(200, parseInt(e.target.value) || 60));
+                    const val = Math.max(20, Math.min(200, parseInt(e.target.value) || 50));
                     setCustomDims((prev) => {
                       const next = { ...prev, widthMm: val };
                       setSavedCustomDimensions(next.widthMm, next.heightMm);
@@ -326,7 +416,7 @@ export function PrintLabelsModal({
                   max={200}
                   value={customDims.heightMm}
                   onChange={(e) => {
-                    const val = Math.max(15, Math.min(200, parseInt(e.target.value) || 30));
+                    const val = Math.max(15, Math.min(200, parseInt(e.target.value) || 50));
                     setCustomDims((prev) => {
                       const next = { ...prev, heightMm: val };
                       setSavedCustomDimensions(next.widthMm, next.heightMm);
