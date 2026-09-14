@@ -307,6 +307,7 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close return receipt"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted transition cursor-pointer"
             >
               <X className="h-4 w-4" />

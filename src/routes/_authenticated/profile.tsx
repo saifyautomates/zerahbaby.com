@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -21,14 +20,14 @@ export const Route = createFileRoute("/_authenticated/profile")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  validateSearch: z.object({
-    tab: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search["tab"] === "string" ? search["tab"] : undefined,
   }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const { tab } = Route.useSearch();
+  const { tab = "" } = Route.useSearch();
   const navigate = useNavigate();
   const { user } = useSession();
   const { data: profile, isLoading } = useProfile(user?.id);

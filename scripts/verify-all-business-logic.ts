@@ -52,11 +52,12 @@ async function runAllVerifications() {
       .from("products")
       .select("id, name, slug, price, mrp, stock")
       .eq("is_active", true)
-      .gt("stock", 5)
+      .gt("stock", 0)
+      .gt("price", 1)
       .limit(1);
 
     if (pErr || !prods || prods.length === 0) {
-      const { data: fallback } = await anonClient.from("products").select("*").limit(1);
+      const { data: fallback } = await anonClient.from("products").select("*").gt("stock", 0).limit(1);
       testProduct = fallback?.[0];
     } else {
       testProduct = prods[0];

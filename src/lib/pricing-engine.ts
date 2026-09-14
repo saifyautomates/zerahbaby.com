@@ -178,7 +178,7 @@ export function calculateCartFinancials({
   // 4. Shipping Calculation
   const freeDeliveryEnabled = shippingConfig.freeDeliveryEnabled !== false;
   const threshold = Math.max(0, shippingConfig.freeDeliveryThreshold ?? 999);
-  const standardCharge = Math.max(0, shippingConfig.standardShippingCharge ?? 79);
+  const standardCharge = Math.max(0, shippingConfig.standardShippingCharge ?? 65);
 
   // Business Rule: Free delivery applies when netSubtotal meets or exceeds threshold
   const isFreeDelivery = subtotal > 0 && freeDeliveryEnabled && netSubtotal >= threshold;

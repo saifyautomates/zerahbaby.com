@@ -12,6 +12,12 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function extract10Digits(phone?: string | null): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : "";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -143,12 +149,49 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: "Target order not found" }, 404);
     }
 
-    // Authorization: Admin can refund any order; customer can only refund their own order
-    if (order.user_id !== user.id && !isAdmin) {
+    // Authorization:
+    // A) Admin can refund any order
+    // B) Authenticated customer can refund their own account-linked order (order.user_id === user.id)
+    // C) Verified guest customer can refund their guest order (order.user_id is null) if their verified phone matches order.phone
+    let isAuthorized = isAdmin;
+
+    if (!isAuthorized && order.user_id && order.user_id === user.id) {
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized && !order.user_id) {
+      let verifiedUserPhone = user.phone || (user.user_metadata as any)?.phone || "";
+      if (!verifiedUserPhone) {
+        const { data: userProfile } = await adminClient
+          .from("profiles")
+          .select("phone")
+          .eq("id", user.id)
+          .maybeSingle();
+        verifiedUserPhone = userProfile?.phone || "";
+      }
+
+      const userPhone10 = extract10Digits(verifiedUserPhone);
+      const orderPhone10 = extract10Digits(order.phone);
+
+      if (userPhone10 && orderPhone10 && userPhone10 === orderPhone10) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       return jsonResponse(
         { success: false, error: "Unauthorized: You do not have permission to refund this order" },
         403,
       );
+    }
+
+    // Link guest order to authenticated user for persistent consistency
+    if (!order.user_id && isAuthorized && !isAdmin) {
+      await adminClient
+        .from("orders")
+        .update({ user_id: user.id })
+        .eq("id", orderId)
+        .is("user_id", null);
     }
 
     // 5. Idempotency Guard (DB level)

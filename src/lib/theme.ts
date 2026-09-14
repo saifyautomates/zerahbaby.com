@@ -34,20 +34,25 @@ export function applyTheme(theme: Theme) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const initial = getInitialTheme();
-    applyTheme(initial);
-    return initial;
-  });
+  const [theme, setThemeState] = useState<Theme>("light");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    const initial = getInitialTheme();
+    setThemeState(initial);
+    applyTheme(initial);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     applyTheme(theme);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch {
       // Ignore storage errors
     }
-  }, [theme]);
+  }, [theme, mounted]);
 
   // Sync with other tabs / storage changes
   useEffect(() => {
@@ -71,7 +76,7 @@ export function useTheme() {
 
   return {
     theme,
-    isDark: theme === "dark",
+    isDark: mounted ? theme === "dark" : false,
     toggleTheme,
     setTheme,
   };

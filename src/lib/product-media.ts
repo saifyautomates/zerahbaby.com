@@ -1,4 +1,4 @@
-import { FIRSTCRY_IMAGE_MAP } from "@/lib/firstcry-catalog";
+import { FIRSTCRY_IMAGE_MAP } from "@/lib/firstcry-fallback-images";
 
 export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
   clothing:

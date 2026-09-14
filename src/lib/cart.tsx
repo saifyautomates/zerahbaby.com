@@ -217,7 +217,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const settings = {
         free_delivery_enabled: "true",
         free_delivery_threshold: "999",
-        standard_shipping_charge: "79",
+        standard_shipping_charge: "65",
         free_delivery_message: "Add ₹{amount} more for FREE DELIVERY 🎉",
       };
 
@@ -391,6 +391,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .filter((x): x is CartItem => x !== null && x.qty > 0);
 
+    // Check per-product delivery fee overrides from items in cart
+    let effectiveShippingCharge: number | undefined = undefined;
+    if (items.length > 0) {
+      const explicitFees = items
+        .map((i) => i.product.deliveryFee)
+        .filter((f): f is number => typeof f === "number" && !isNaN(f));
+      if (explicitFees.length > 0) {
+        if (items.every((i) => i.product.deliveryFee === 0)) {
+          effectiveShippingCharge = 0;
+        } else {
+          effectiveShippingCharge = Math.max(...explicitFees);
+        }
+      }
+    }
+
     const financials = calculateCartFinancials({
       items: items.map((i) => ({
         price: i.price,
@@ -410,9 +425,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       shippingConfig: {
         freeDeliveryEnabled: settingsData?.free_delivery_enabled !== "false",
         freeDeliveryThreshold: Number(settingsData?.free_delivery_threshold || 999),
-        standardShippingCharge: Number(settingsData?.standard_shipping_charge || 79),
+        standardShippingCharge: Number(settingsData?.standard_shipping_charge || 65),
         freeDeliveryMessage: settingsData?.free_delivery_message,
       },
+      customShippingCharge: effectiveShippingCharge,
     });
 
     const activeCoupon: CartCoupon | null =

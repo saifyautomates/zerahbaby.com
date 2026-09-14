@@ -22,7 +22,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Barcode from "react-barcode";
 import { playScanSuccess, playScanError } from "@/lib/audio";
-import { useGlobalBarcodeScanner } from "@/lib/barcode-scanner";
+import {
+  useGlobalBarcodeScanner,
+  sanitizeBarcode,
+  getBarcodeCandidates,
+} from "@/lib/barcode-scanner";
+import { POSCameraScanner } from "./POSCameraScanner";
 import {
   Plus,
   Minus,
@@ -31,6 +36,7 @@ import {
   CreditCard,
   Banknote,
   Scan,
+  Camera,
   Package,
   Search,
   User,
@@ -76,6 +82,7 @@ import {
   type POSCartItem,
   type SaleResult,
   type POSTransactionState,
+  type BarcodeResult,
   lookupBarcode,
   usePlaceOfflineSale,
   useSearchPOSCustomers,
@@ -222,6 +229,7 @@ export function POSTab() {
   const scanValue = searchQuery;
   const setScanValue = setSearchQuery;
   const [scanLoading, setScanLoading] = useState(false);
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
@@ -656,7 +664,7 @@ export function POSTab() {
               (cleanBarcode && v.barcode?.toLowerCase() === cleanBarcode),
           ),
       );
-      if (!p) return item.stock ?? 0;
+      if (!p) return Math.max(0, Number(item.stock ?? 0));
       if (item.variant_id || cleanSku || cleanBarcode) {
         const v = p.variants?.find(
           (varItem) =>
@@ -664,31 +672,38 @@ export function POSTab() {
             (cleanSku && varItem.sku?.toLowerCase() === cleanSku) ||
             (cleanBarcode && varItem.barcode?.toLowerCase() === cleanBarcode),
         );
-        if (v) return Number(v.stock ?? 0);
+        if (v) return Math.max(Number(v.stock ?? 0), Number(item.stock ?? 0));
       }
-      return Number(p.stock ?? 0);
+      return Math.max(Number(p.stock ?? 0), Number(item.stock ?? 0));
     },
     [products],
   );
 
   // Realtime & Cross-tab synchronized inventory listening in POS
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedInvalidate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["pos-products"] });
+        qc.invalidateQueries({ queryKey: ["admin-products"] });
+      }, 300);
+    };
+
     // 1. Cross-tab BroadcastChannel
     const bc =
       typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("zerah_catalog_sync") : null;
     if (bc) {
       bc.onmessage = (msg) => {
         if (msg.data?.type === "CATALOG_MUTATED") {
-          qc.invalidateQueries({ queryKey: ["pos-products"] });
-          qc.invalidateQueries({ queryKey: ["admin-products"] });
+          debouncedInvalidate();
         }
       };
     }
 
     // 2. Window event listener
     const handleCatalogEvent = () => {
-      qc.invalidateQueries({ queryKey: ["pos-products"] });
-      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      debouncedInvalidate();
     };
     window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
 
@@ -696,16 +711,15 @@ export function POSTab() {
     const channel = supabase
       .channel("pos-realtime-catalog-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        qc.invalidateQueries({ queryKey: ["pos-products"] });
-        qc.invalidateQueries({ queryKey: ["admin-products"] });
+        debouncedInvalidate();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, () => {
-        qc.invalidateQueries({ queryKey: ["pos-products"] });
-        qc.invalidateQueries({ queryKey: ["admin-products"] });
+        debouncedInvalidate();
       })
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       bc?.close();
       window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
       supabase.removeChannel(channel);
@@ -797,7 +811,10 @@ export function POSTab() {
         if (pSlug) idMap.set(String(pSlug).toLowerCase(), p);
 
         if (p.barcode) {
-          barcodeMap.set(p.barcode.trim().toLowerCase(), { product: p });
+          const cands = getBarcodeCandidates(p.barcode);
+          for (const c of cands) {
+            barcodeMap.set(c.toLowerCase(), { product: p });
+          }
         }
         if (p.sku) {
           skuMap.set(p.sku.trim().toLowerCase(), { product: p });
@@ -806,7 +823,10 @@ export function POSTab() {
         if (p.variants && p.variants.length > 0) {
           for (const v of p.variants) {
             if (v.barcode) {
-              barcodeMap.set(v.barcode.trim().toLowerCase(), { product: p, variant: v });
+              const cands = getBarcodeCandidates(v.barcode);
+              for (const c of cands) {
+                barcodeMap.set(c.toLowerCase(), { product: p, variant: v });
+              }
             }
             if (v.sku) {
               skuMap.set(v.sku.trim().toLowerCase(), { product: p, variant: v });
@@ -1448,16 +1468,22 @@ export function POSTab() {
   // Scan handler
   const handleScan = useCallback(
     async (code: string) => {
-      const cleanCode = code.trim();
+      const cleanCode = sanitizeBarcode(code);
       if (!cleanCode) return;
       setScanValue("");
 
+      const candidates = getBarcodeCandidates(cleanCode);
+
       // ── PRIORITY 1: INSTANT IN-MEMORY LOOKUP (< 1ms, ZERO NETWORK DELAY) ──
-      const q = cleanCode.toLowerCase();
-      const inMemoryMatch =
-        productLookupMaps.barcodeMap.get(q) ||
-        productLookupMaps.skuMap.get(q) ||
-        (productLookupMaps.idMap.has(q) ? { product: productLookupMaps.idMap.get(q)! } : undefined);
+      let inMemoryMatch: { product: Product; variant?: ProductVariant } | undefined;
+      for (const cand of candidates) {
+        const q = cand.toLowerCase();
+        inMemoryMatch =
+          productLookupMaps.barcodeMap.get(q) ||
+          productLookupMaps.skuMap.get(q) ||
+          (productLookupMaps.idMap.has(q) ? { product: productLookupMaps.idMap.get(q)! } : undefined);
+        if (inMemoryMatch) break;
+      }
 
       if (inMemoryMatch) {
         const { product, variant } = inMemoryMatch;
@@ -1532,7 +1558,14 @@ export function POSTab() {
       setScanLoading(true);
       try {
         try {
-          const result = await lookupBarcode(cleanCode);
+          let result: BarcodeResult | null = null;
+          for (const cand of candidates) {
+            const res = await lookupBarcode(cand);
+            if (res && res.found) {
+              result = res;
+              break;
+            }
+          }
 
           if (result && result.found) {
             if (result.archived) {
@@ -1596,7 +1629,15 @@ export function POSTab() {
 
         // ── PRIORITY 3: LOCAL INDEXEDDB CACHE LOOKUP (OFFLINE RESILIENCE) ──
         try {
-          const offline = await findOfflineProductByCode(cleanCode);
+          let offline: any = null;
+          for (const cand of candidates) {
+            const off = await findOfflineProductByCode(cand);
+            if (off) {
+              offline = off;
+              break;
+            }
+          }
+
           if (offline) {
             const v = (offline.matchedVariant || null) as {
               id?: string;
@@ -1677,10 +1718,11 @@ export function POSTab() {
         const searchMatches = await searchPOSProducts(cleanCode, 5);
         if (searchMatches.length > 0) {
           const topMatch = searchMatches[0];
+          const candSet = new Set(candidates.map((c) => c.toLowerCase()));
           const exactVar = topMatch.variants.find(
             (v) =>
-              (v.barcode && v.barcode === cleanCode) ||
-              (v.sku && v.sku.toLowerCase() === cleanCode.toLowerCase()),
+              (v.barcode && candSet.has(v.barcode.toLowerCase())) ||
+              (v.sku && candSet.has(v.sku.toLowerCase())),
           );
           if (topMatch.match_score >= 80 || exactVar || searchMatches.length === 1) {
             const added = addPOSResultToCart(topMatch, exactVar);
@@ -1700,20 +1742,32 @@ export function POSTab() {
         }
 
         // Secondary fallback: search in loaded local products catalog
+        const candSet = new Set(candidates.map((c) => c.toLowerCase()));
         const localMatches = products.filter((p) => {
+          const pBarcode = p.barcode?.toLowerCase();
+          const pSku = p.sku?.toLowerCase();
+          const pId = p.id?.toLowerCase();
+          const pUuid = p.uuid?.toLowerCase();
           return (
-            p.sku.toLowerCase() === q ||
-            p.barcode?.toLowerCase() === q ||
-            p.id.toLowerCase() === q ||
-            p.name.toLowerCase().includes(q) ||
-            p.variants?.some((v) => v.sku?.toLowerCase() === q || v.barcode?.toLowerCase() === q)
+            (pBarcode && candSet.has(pBarcode)) ||
+            (pSku && candSet.has(pSku)) ||
+            (pId && candSet.has(pId)) ||
+            (pUuid && candSet.has(pUuid)) ||
+            p.name.toLowerCase().includes(cleanCode.toLowerCase()) ||
+            p.variants?.some(
+              (v) =>
+                (v.barcode && candSet.has(v.barcode.toLowerCase())) ||
+                (v.sku && candSet.has(v.sku.toLowerCase())),
+            )
           );
         });
 
         if (localMatches.length === 1) {
           const p = localMatches[0];
           const matchedVar = p.variants?.find(
-            (v) => v.sku?.toLowerCase() === q || v.barcode?.toLowerCase() === q,
+            (v) =>
+              (v.barcode && candSet.has(v.barcode.toLowerCase())) ||
+              (v.sku && candSet.has(v.sku.toLowerCase())),
           );
           addProductManually(p, matchedVar);
           playScanSuccess();
@@ -1747,24 +1801,27 @@ export function POSTab() {
   useGlobalBarcodeScanner(handleScan);
 
   function addToCart(item: POSCartItem): boolean {
-    let added = true;
     const currentStock = getLiveItemStock(item);
     if (currentStock <= 0 && !item.isCustom) {
       playScanError();
       toast.error(`Cannot add "${item.name}". Item is out of stock.`);
       return false;
     }
+
+    const existing = cart.find(
+      (p) => p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || ""),
+    );
+    if (existing && existing.qty >= currentStock && !item.isCustom) {
+      playScanError();
+      toast.error(`Cannot add more "${item.name}". Only ${currentStock} in stock.`);
+      return false;
+    }
+
     setCart((prev) => {
-      const existing = prev.find(
+      const itemInPrev = prev.find(
         (p) => p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || ""),
       );
-      if (existing) {
-        if (existing.qty >= currentStock && !item.isCustom) {
-          playScanError();
-          toast.error(`Cannot add more "${item.name}". Only ${currentStock} in stock.`);
-          added = false;
-          return prev;
-        }
+      if (itemInPrev) {
         return prev.map((p) =>
           p.product_id === item.product_id && (p.variant_id || "") === (item.variant_id || "")
             ? { ...p, stock: currentStock, qty: p.qty + 1 }
@@ -1773,7 +1830,7 @@ export function POSTab() {
       }
       return [...prev, { ...item, stock: currentStock, qty: 1 }];
     });
-    return added;
+    return true;
   }
 
   function addProductManually(product: Product, variant?: (typeof product.variants)[0]) {
@@ -2578,7 +2635,7 @@ export function POSTab() {
                     }}
                     data-testid={`pos-sale-tab-${tabNumber.replace(/[^a-zA-Z0-9]/g, "")}`}
                     data-status={sess.status}
-                    title="Click to switch sale, double-click to assign customer from Supabase"
+                    title="Click to switch sale, double-click to assign customer"
                   >
                     <div className="flex items-center gap-1.5 px-3 py-1.5">
                       {isHeld && (
@@ -2625,6 +2682,7 @@ export function POSTab() {
                           isActive ? "hover:bg-primary-foreground/20" : "hover:bg-muted",
                         )}
                         title="Discard this sale session"
+                        aria-label={`Discard sale session ${tabNumber}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDiscardSession(sess.id);
@@ -2722,9 +2780,18 @@ export function POSTab() {
           <div className="p-4 border-b border-border/50 bg-card">
             <div className="relative" ref={searchDropdownRef}>
               <div className="relative flex items-center">
-                <Scan className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-primary animate-pulse pointer-events-none" />
+                <button
+                  type="button"
+                  onClick={() => setIsCameraScannerOpen(true)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                  title="Open Camera Barcode Scanner"
+                  aria-label="Open Camera Barcode Scanner"
+                >
+                  <Scan className="size-5 text-primary animate-pulse" />
+                </button>
                 <input
                   ref={scanInputRef}
+                  id="pos-barcode-search-input"
                   type="text"
                   value={searchQuery}
                   onFocus={() => {
@@ -2754,15 +2821,22 @@ export function POSTab() {
                       }
                     } else if (e.key === "Enter") {
                       e.preventDefault();
-                      const clean = searchQuery.trim();
+                      const cleanRaw = searchQuery.trim();
+                      if (!cleanRaw) return;
+                      const clean = sanitizeBarcode(cleanRaw);
                       if (!clean) return;
 
                       // 1. Check exact barcode or SKU match first (priority for scanner burst or exact SKU typing)
-                      const qLower = clean.toLowerCase();
-                      const exactMatch =
-                        productLookupMaps.barcodeMap.get(qLower) ||
-                        productLookupMaps.skuMap.get(qLower) ||
-                        productLookupMaps.idMap.get(qLower);
+                      const cands = getBarcodeCandidates(clean);
+                      let exactMatch: any = null;
+                      for (const c of cands) {
+                        const qLower = c.toLowerCase();
+                        exactMatch =
+                          productLookupMaps.barcodeMap.get(qLower) ||
+                          productLookupMaps.skuMap.get(qLower) ||
+                          productLookupMaps.idMap.get(qLower);
+                        if (exactMatch) break;
+                      }
 
                       if (exactMatch) {
                         await handleScan(clean);
@@ -2771,9 +2845,9 @@ export function POSTab() {
                         return;
                       }
 
-                      // 2. If suggestions dropdown is open with suggestions, add highlighted item
-                      if (isSearchDropdownOpen && selectableItems.length > 0) {
-                        const target = selectableItems[activeSuggestionIndex] || selectableItems[0];
+                      // 2. If suggestions dropdown is open AND user explicitly navigated down to a suggestion, add highlighted item
+                      if (isSearchDropdownOpen && selectableItems.length > 0 && activeSuggestionIndex > 0) {
+                        const target = selectableItems[activeSuggestionIndex];
                         if (target.isOutOfStock) {
                           playScanError();
                           toast.error(
@@ -2787,7 +2861,7 @@ export function POSTab() {
                         return;
                       }
 
-                      // 3. Barcode scanner fast Enter or direct SKU enter
+                      // 3. Barcode scanner fast Enter or direct SKU enter: Authoritatively process via handleScan
                       await handleScan(clean);
                       setIsSearchDropdownOpen(false);
                       setSearchQuery("");
@@ -2800,7 +2874,7 @@ export function POSTab() {
                   }}
                   placeholder="Scan barcode, or search by product name, SKU, variant, color (Enter to add)…"
                   aria-label="POS Universal Scan and Search Bar"
-                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-32 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all placeholder:text-muted-foreground/60 placeholder:font-normal placeholder:text-sm sm:placeholder:text-base"
+                  className="focus-ring w-full rounded-2xl border border-border/80 bg-card pl-12 pr-40 py-3.5 text-base sm:text-lg font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 shadow-premium-sm hover:shadow-premium-md transition-all placeholder:text-muted-foreground/60 placeholder:font-normal placeholder:text-sm sm:placeholder:text-base"
                   autoFocus
                 />
 
@@ -2824,10 +2898,21 @@ export function POSTab() {
                       }}
                       className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
                       title="Clear search"
+                      aria-label="Clear search"
                     >
                       <X className="size-4" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraScannerOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-colors cursor-pointer"
+                    title="Open Camera Barcode Scanner"
+                    aria-label="Open Camera Barcode Scanner"
+                  >
+                    <Camera className="size-3.5" />
+                    <span className="hidden sm:inline">Camera</span>
+                  </button>
                   <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted/60 border border-border/50 text-[10px] font-extrabold text-muted-foreground">
                     <span>↵ ENTER</span>
                   </div>
@@ -3191,6 +3276,7 @@ export function POSTab() {
                                 onClick={() =>
                                   updateQty(item.product_id, item.qty - 1, item.variant_id)
                                 }
+                                aria-label={`Decrease quantity of ${item.name}`}
                                 className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                               >
                                 <Minus className="size-3" />
@@ -3200,6 +3286,7 @@ export function POSTab() {
                                 onClick={() =>
                                   updateQty(item.product_id, item.qty + 1, item.variant_id)
                                 }
+                                aria-label={`Increase quantity of ${item.name}`}
                                 disabled={!item.isCustom && item.qty >= liveStock}
                                 className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                               >
@@ -3213,6 +3300,7 @@ export function POSTab() {
                           <td className="py-3 text-right pl-2">
                             <button
                               onClick={() => removeFromCart(item.product_id, item.variant_id)}
+                              aria-label={`Remove ${item.name} from cart`}
                               className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-red-50 cursor-pointer"
                             >
                               <Trash2 className="size-4" />
@@ -3503,6 +3591,7 @@ export function POSTab() {
                                 setCustomerSearchQuery("");
                                 searchCustomers.reset();
                               }}
+                              aria-label="Clear customer search"
                               className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
                             >
                               <X className="size-3.5" />
@@ -4070,15 +4159,35 @@ export function POSTab() {
                               </div>
                             </div>
 
-                            {typeof cashTendered === "number" && cashTendered > 0 && (
-                              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                                <span className="text-xs font-bold text-emerald-900">
-                                  Change Due to Customer:
-                                </span>
-                                <span className="text-base font-black text-emerald-700">
-                                  {formatPrice(changeDue)}
-                                </span>
-                              </div>
+                            {typeof cashTendered === "number" && cashTendered >= 0 && (
+                              Math.abs(cashTendered - payableAfterCredit) < 0.01 ? (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                    Payment Status:
+                                  </span>
+                                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                                    <span>✅</span> PAID IN FULL
+                                  </span>
+                                </div>
+                              ) : cashTendered > payableAfterCredit ? (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                    Change to Return:
+                                  </span>
+                                  <span className="text-base font-black text-emerald-700 dark:text-emerald-300">
+                                    {formatPrice(changeDue)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                                  <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                                    Amount Due:
+                                  </span>
+                                  <span className="text-base font-black text-amber-700 dark:text-amber-400">
+                                    {formatPrice(payableAfterCredit - cashTendered)}
+                                  </span>
+                                </div>
+                              )
                             )}
                           </div>
                         )}
@@ -4575,6 +4684,7 @@ export function POSTab() {
                 <button
                   type="button"
                   onClick={() => setSelectedPOSItem(null)}
+                  aria-label="Close product details"
                   className="grid size-8 place-items-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   <X className="size-4" />
@@ -4742,6 +4852,7 @@ export function POSTab() {
                             prev ? { ...prev, qty: Math.max(1, prev.qty - 1) } : prev,
                           );
                         }}
+                        aria-label="Decrease quantity"
                         className="px-3 py-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       >
                         <Minus className="size-4" />
@@ -4758,6 +4869,7 @@ export function POSTab() {
                             prev && prev.qty < prev.stock ? { ...prev, qty: prev.qty + 1 } : prev,
                           );
                         }}
+                        aria-label="Increase quantity"
                         className="px-3 py-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                       >
                         <Plus className="size-4" />
@@ -4801,6 +4913,7 @@ export function POSTab() {
                 <button
                   type="button"
                   onClick={() => setIsHeldOrdersOpen(false)}
+                  aria-label="Close held carts"
                   className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 >
                   <X className="size-4" />
@@ -4860,6 +4973,7 @@ export function POSTab() {
                             onClick={() => handleDeleteHeldOrder(order.id)}
                             className="p-1.5 rounded-xl text-destructive hover:bg-destructive/10 transition cursor-pointer"
                             title="Discard held order"
+                            aria-label="Discard held order"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -4905,7 +5019,7 @@ export function POSTab() {
                         ?.session_number || "Sale Tab"}
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
-                      Search authoritative Supabase records, create new, or bill as walk-in
+                      Search customer records, create new, or bill as walk-in
                     </p>
                   </div>
                 </div>
@@ -4915,6 +5029,7 @@ export function POSTab() {
                     setIsCustomerModalOpen(false);
                     setCustomerModalSessionId(null);
                   }}
+                  aria-label="Close customer dialog"
                   className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                 >
                   <X className="size-4" />
@@ -4925,7 +5040,7 @@ export function POSTab() {
               <div className="flex gap-2 p-4 pb-2 border-b border-border bg-background">
                 {(
                   [
-                    ["existing", "Search Customers (Supabase)", Search],
+                    ["existing", "Search Customers", Search],
                     ["new", "New Customer", UserPlus],
                     ["walkin", "Walk-in (Default)", User],
                   ] as const
@@ -4968,6 +5083,7 @@ export function POSTab() {
                             setCustomerSearchQuery("");
                             searchCustomers.reset();
                           }}
+                          aria-label="Clear customer search"
                           className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
                         >
                           <X className="size-4" />
@@ -4979,7 +5095,7 @@ export function POSTab() {
                     {searchCustomers.isPending && customerSearchQuery.trim().length >= 1 && (
                       <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2 border border-border rounded-xl bg-card">
                         <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        <span>Searching authoritative Supabase records…</span>
+                        <span>Searching customer records…</span>
                       </div>
                     )}
 
@@ -5111,7 +5227,7 @@ export function POSTab() {
                 {customerModalTab === "new" && (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Creates a permanent customer record in Supabase that is immediately available
+                      Creates a permanent customer record that is immediately available
                       across Admin, POS, and Online Storefront.
                     </p>
                     <div className="space-y-2">
@@ -5204,7 +5320,7 @@ export function POSTab() {
                         className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition shadow-sm disabled:opacity-50 cursor-pointer"
                       >
                         {createCustomer.isPending
-                          ? "Creating in Supabase…"
+                          ? "Creating Customer…"
                           : "Save & Assign Customer"}
                       </button>
                     </div>
@@ -5240,6 +5356,13 @@ export function POSTab() {
           </div>,
           document.body,
         )}
+
+      {/* Camera Barcode Scanner Modal with complete lifecycle */}
+      <POSCameraScanner
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScan={handleScan}
+      />
     </div>
   );
 }

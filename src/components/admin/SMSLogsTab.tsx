@@ -481,6 +481,9 @@ export function SMSLogsTab() {
                             title={
                               revealedPhones[log.id] ? "Mask phone number" : "Reveal full number"
                             }
+                            aria-label={
+                              revealedPhones[log.id] ? "Mask phone number" : "Reveal full number"
+                            }
                           >
                             <Eye className="size-3" />
                           </button>
@@ -575,6 +578,7 @@ export function SMSLogsTab() {
                             onClick={() => setSelectedLog(log)}
                             className="inline-flex items-center justify-center size-7 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition shadow-xs"
                             title="View all details"
+                            aria-label="View all details"
                           >
                             <Eye className="size-3.5" />
                           </button>

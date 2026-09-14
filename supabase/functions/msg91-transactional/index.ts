@@ -1058,6 +1058,10 @@ Deno.serve(async (req) => {
     ];
 
     const currentEventType = event_type || (order_id ? "online_sale" : "offline_pos_sale");
+    const ONLINE_ORDER_EVENTS = ["online_sale", "order_placed", "order_confirmed"];
+    const canonicalEventType = ONLINE_ORDER_EVENTS.includes(currentEventType)
+      ? "online_sale"
+      : currentEventType;
 
     if (event_type && !ALLOWED_EVENTS.includes(event_type)) {
       return new Response(JSON.stringify({ error: `Unsupported event type: ${event_type}` }), {
@@ -1148,7 +1152,7 @@ Deno.serve(async (req) => {
     const dispatchSingleSms = async (targetPhone, targetRecipientType) => {
       const { allowed, error: rateLimitError } = await checkRateLimitAndRecord(
         targetPhone,
-        currentEventType,
+        canonicalEventType,
       );
       if (!allowed)
         return { success: false, error: rateLimitError, recipient: targetRecipientType };
@@ -1179,7 +1183,7 @@ Deno.serve(async (req) => {
         };
       }
 
-      const canonicalKey = `${order_id || offline_sale_id || "tx"}_${currentEventType}_${cleanPhone}_${targetRecipientType}`;
+      const canonicalKey = `${order_id || offline_sale_id || "tx"}_${canonicalEventType}_${cleanPhone}_${targetRecipientType}`;
       const idempotencyKey =
         payload.idempotency_key &&
         targetRecipientType === recipient_type &&
@@ -1275,8 +1279,13 @@ Deno.serve(async (req) => {
       results.push(await dispatchSingleSms(authoritativePhone, "customer"));
     }
 
-    // B. Owner SMS - fires for online_sale, offline_pos_sale, order_delivered, and order_cancelled
-    const ownerEvents = ["online_sale", "offline_pos_sale", "order_delivered", "order_cancelled"];
+    // B. Owner SMS - fires for online_sale (including order_placed/order_confirmed aliases), offline_pos_sale, order_delivered, and order_cancelled
+    const ownerEvents = [
+      ...ONLINE_ORDER_EVENTS,
+      "offline_pos_sale",
+      "order_delivered",
+      "order_cancelled",
+    ];
     if (notify_owner && ownerEvents.includes(currentEventType)) {
       const { data: ownerSetting } = await adminClient
         .from("site_settings")

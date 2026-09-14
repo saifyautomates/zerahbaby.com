@@ -10,7 +10,7 @@ export const getRouter = () => {
         staleTime: 1000 * 30, // 30 seconds default before marking stale
         gcTime: 1000 * 60 * 10, // 10 minutes cache garbage collection
         retry: 1, // Reduce retries for faster failure feedback
-        refetchOnWindowFocus: true, // Automatically synchronize when user switches tabs/windows
+        refetchOnWindowFocus: false, // Avoid network storms on tab switches; critical data uses realtime
         refetchOnReconnect: true,
       },
     },

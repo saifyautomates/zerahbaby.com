@@ -23,6 +23,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();
@@ -107,6 +108,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     const prod = prods![0];
@@ -197,6 +199,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     const prod = prods![0];
@@ -249,6 +252,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     const prod = prods![0];
@@ -333,6 +337,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     const prod = prods![0];
@@ -423,6 +428,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     const prod = prods![0];

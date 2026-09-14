@@ -62,7 +62,7 @@ import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession, ensureAdminSession } from "@/lib/auth";
-import { formatPrice, imageFor, mapProduct, type Product } from "@/lib/store";
+import { formatPrice, imageFor, mapProduct, invalidateDeliveryFeesCache, type Product } from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import {
@@ -345,18 +345,6 @@ export function AdminPage() {
     }
   }, [tab]);
 
-  // Global hardware barcode scanner routing across the entire admin dashboard:
-  // If a hardware barcode is scanned while on ANY admin view (dashboard, orders, products, etc.),
-  // safely navigate to the "billing" tab (which routes to POS Terminal) and automatically add the scanned product.
-  useEffect(() => {
-    if (!isAdmin) return;
-    const unbind = initGlobalBarcodeScanner((_code) => {
-      if (tab !== "billing") {
-        setTab("billing");
-      }
-    });
-    return unbind;
-  }, [tab, setTab, isAdmin]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -422,20 +410,29 @@ export function AdminPage() {
 
   // Global hardware barcode scanner logic: instantly switches to POS from any admin page
   useEffect(() => {
-    if (!isAdmin) return;
-    if (hasPendingScans() && tab !== "billing") {
+    const routeToPOS = () => {
+      localStorage.setItem("zerah_admin_active_tab", "billing");
       localStorage.setItem("zerah_admin_active_subtab", "pos");
-      setTab("billing");
-    }
-
-    const unbind = initGlobalBarcodeScanner((_code) => {
-      localStorage.setItem("zerah_admin_active_subtab", "pos");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", "billing");
+        url.searchParams.set("subtab", "pos");
+        window.history.replaceState({}, "", url.toString());
+      }
       if (tab !== "billing") {
         setTab("billing");
       }
+    };
+
+    if (hasPendingScans() && tab !== "billing") {
+      routeToPOS();
+    }
+
+    const unbind = initGlobalBarcodeScanner((_code) => {
+      routeToPOS();
     });
     return unbind;
-  }, [tab, setTab, isAdmin]);
+  }, [tab, setTab]);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -1040,6 +1037,7 @@ export function AdminPage() {
                                 deleteNotification(notif.id);
                               }}
                               title="Delete notification"
+                              aria-label="Delete notification"
                               className="p-2 text-muted-foreground/50 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition cursor-pointer shrink-0"
                             >
                               <Trash2 className="size-4" />
@@ -1148,8 +1146,12 @@ function ProductsTab() {
   const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState("");
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
+  const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidate = useCallback(() => {
-    invalidateCatalogue(qc);
+    if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
+    invalidateTimerRef.current = setTimeout(() => {
+      invalidateCatalogue(qc);
+    }, 300);
   }, [qc]);
 
   // Realtime & Cross-tab synchronized inventory listening
@@ -1183,11 +1185,12 @@ function ProductsTab() {
       .subscribe();
 
     return () => {
+      if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
       bc?.close();
       window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, invalidate]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
@@ -1234,6 +1237,8 @@ function ProductsTab() {
           prod.deliveryFee = deliveryFees[prod.uuid];
         } else if (deliveryFees[prod.id] !== undefined) {
           prod.deliveryFee = deliveryFees[prod.id];
+        } else {
+          prod.deliveryFee = 65;
         }
         return prod;
       });
@@ -1243,6 +1248,7 @@ function ProductsTab() {
   const updateStock = useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
       const cleanStock = Math.max(0, stock);
+      const isZeroStock = cleanStock <= 0;
 
       // Check if this product has multiple variants
       const { data: variants } = await supabase
@@ -1271,12 +1277,19 @@ function ProductsTab() {
 
       const { error: prodErr } = await supabase
         .from("products")
-        .update({ stock: cleanStock })
+        .update({
+          stock: cleanStock,
+          ...(isZeroStock ? { is_active: false, status: "archived" } : {}),
+        })
         .eq("id", id);
       if (prodErr) throw prodErr;
     },
-    onSuccess: () => {
-      toast.success("Stock updated successfully");
+    onSuccess: (_, variables) => {
+      if (variables.stock <= 0) {
+        toast.success("Stock is 0 — Product moved to Archive");
+      } else {
+        toast.success("Stock updated successfully");
+      }
       setEditingStockId(null);
       invalidate();
       broadcastCatalogueChange();
@@ -1307,13 +1320,39 @@ function ProductsTab() {
           { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
           { onConflict: "key" },
         );
-      if (error) throw error;
+      if (error) {
+        const { error: rpcErr } = await (supabase.rpc as any)("admin_update_site_setting", {
+          _key: "product_delivery_fees",
+          _value: JSON.stringify(feeMap),
+        });
+        if (rpcErr) throw error;
+      }
+      return { uuid, slug, fee };
+    },
+    onMutate: async ({ uuid, slug, fee }) => {
+      await qc.cancelQueries({ queryKey: ["admin-products"] });
+      const previous = qc.getQueryData<Product[]>(["admin-products"]);
+      if (previous) {
+        qc.setQueryData<Product[]>(
+          ["admin-products"],
+          previous.map((p) =>
+            p.uuid === uuid || p.id === uuid || p.id === slug ? { ...p, deliveryFee: fee } : p,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (e: Error, _, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["admin-products"], context.previous);
+      }
+      toast.error(e.message);
     },
     onSuccess: (_, { fee }) => {
       toast.success(`Delivery fee updated to ${fee === 0 ? "Free (₹0)" : `₹${fee}`}`);
-      invalidate();
+      invalidateDeliveryFeesCache();
+      invalidateCatalogue(qc);
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const setDeliveryFeeBulk = useMutation({
@@ -1345,16 +1384,43 @@ function ProductsTab() {
           { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
           { onConflict: "key" },
         );
-      if (error) throw error;
+      if (error) {
+        const { error: rpcErr } = await (supabase.rpc as any)("admin_update_site_setting", {
+          _key: "product_delivery_fees",
+          _value: JSON.stringify(feeMap),
+        });
+        if (rpcErr) throw error;
+      }
+      return { ids, fee };
+    },
+    onMutate: async ({ ids, fee }) => {
+      await qc.cancelQueries({ queryKey: ["admin-products"] });
+      const previous = qc.getQueryData<Product[]>(["admin-products"]);
+      if (previous) {
+        const idSet = new Set(ids);
+        qc.setQueryData<Product[]>(
+          ["admin-products"],
+          previous.map((p) =>
+            idSet.has(p.uuid) || idSet.has(p.id) ? { ...p, deliveryFee: fee } : p,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (e: Error, _, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["admin-products"], context.previous);
+      }
+      toast.error(e.message);
     },
     onSuccess: (_, { fee }) => {
       toast.success(
         `Delivery fee set to ${fee === 0 ? "Free (₹0)" : `₹${fee}`} for selected products`,
       );
       setSelectedIds(new Set());
-      invalidate();
+      invalidateDeliveryFeesCache();
+      invalidateCatalogue(qc);
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const saveProductMutation = useSaveProduct();
@@ -1899,6 +1965,7 @@ function ProductsTab() {
               type="button"
               onClick={() => setPrintingLabels(true)}
               title="Advanced Print (Custom quantities, layout, discounts)"
+              aria-label="Advanced Print settings"
               className="px-2.5 py-2 text-xs border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
             >
               <Settings2 className="size-3.5" />
@@ -2012,7 +2079,7 @@ function ProductsTab() {
                 <th className="px-5 py-4">Delivery</th>
                 <th className="px-5 py-4">Stock</th>
                 <th className="px-5 py-4">Status</th>
-                <th className="px-5 py-4 text-right">Actions</th>
+                <th className="px-5 py-4 text-right min-w-[210px] whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -2156,33 +2223,56 @@ function ProductsTab() {
                         <button
                           type="button"
                           onClick={() => {
-                            const newFee = (p.deliveryFee ?? 79) === 0 ? 79 : 0;
+                            const newFee = (p.deliveryFee ?? 65) === 0 ? 65 : 0;
                             setDeliveryFeeQuick.mutate({ uuid: p.uuid, slug: p.id, fee: newFee });
                           }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            const custom = window.prompt(
+                              `Enter delivery fee for "${p.name}" (₹):`,
+                              String(p.deliveryFee ?? 65),
+                            );
+                            if (custom !== null && custom.trim() !== "") {
+                              const fee = Math.max(0, Number(custom));
+                              if (!isNaN(fee)) {
+                                setDeliveryFeeQuick.mutate({ uuid: p.uuid, slug: p.id, fee });
+                              }
+                            }
+                          }}
                           disabled={setDeliveryFeeQuick.isPending}
-                          title="Click to toggle between Free (₹0) and ₹79"
-                          className="inline-flex items-center gap-1.5 transition hover:scale-105 cursor-pointer"
+                          title="Click to toggle between Free (₹0) and ₹65 (or double-click to set custom fee)"
+                          className="inline-flex items-center gap-1.5 transition hover:scale-105 cursor-pointer select-none"
                         >
-                          {(p.deliveryFee ?? 79) === 0 ? (
+                          {(p.deliveryFee ?? 65) === 0 ? (
                             <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
                               <Truck className="size-3" /> Free (₹0)
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-foreground bg-muted border border-border px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs">
                               <Truck className="size-3 text-muted-foreground" /> ₹
-                              {p.deliveryFee ?? 79}
+                              {p.deliveryFee ?? 65}
                             </span>
                           )}
                         </button>
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      {p.variants && p.variants.length > 1 ? (
+                      {p.variants &&
+                      (p.variants.length > 1 ||
+                        (p.variants.length === 1 &&
+                          Boolean(
+                            (p.variants[0].color && p.variants[0].color.trim()) ||
+                              (p.variants[0].size && p.variants[0].size.trim()) ||
+                              (p.variants[0].name &&
+                                p.variants[0].name.trim() !== "" &&
+                                p.variants[0].name.trim() !== "Default"),
+                          ))) ? (
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setManagingVariantsProduct(p)}
                             title="Adjust variant stock (-)"
+                            aria-label={`Decrease variant stock for ${p.name}`}
                             className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
                           >
                             <Minus className="size-3" />
@@ -2210,6 +2300,7 @@ function ProductsTab() {
                             type="button"
                             onClick={() => setManagingVariantsProduct(p)}
                             title="Adjust variant stock (+)"
+                            aria-label={`Increase variant stock for ${p.name}`}
                             className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
                           >
                             <Plus className="size-3" />
@@ -2240,6 +2331,7 @@ function ProductsTab() {
                             onClick={() => updateStock.mutate({ id: p.uuid, stock: stockVal })}
                             className="rounded-md bg-emerald-600 text-white p-1 hover:bg-emerald-700 transition cursor-pointer"
                             title="Save Stock"
+                            aria-label={`Save stock for ${p.name}`}
                           >
                             <Check className="size-3" />
                           </button>
@@ -2248,6 +2340,7 @@ function ProductsTab() {
                             onClick={() => setEditingStockId(null)}
                             className="rounded-md border border-border p-1 text-muted-foreground hover:bg-muted transition cursor-pointer"
                             title="Cancel"
+                            aria-label="Cancel stock editing"
                           >
                             <X className="size-3" />
                           </button>
@@ -2261,6 +2354,7 @@ function ProductsTab() {
                             }
                             disabled={p.stock === 0 || updateStock.isPending}
                             title="Decrease Stock (-1)"
+                            aria-label={`Decrease stock for ${p.name}`}
                             className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-30 cursor-pointer"
                           >
                             <Minus className="size-3" />
@@ -2289,6 +2383,7 @@ function ProductsTab() {
                             onClick={() => updateStock.mutate({ id: p.uuid, stock: p.stock + 1 })}
                             disabled={updateStock.isPending}
                             title="Increase Stock (+1)"
+                            aria-label={`Increase stock for ${p.name}`}
                             className="flex size-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
                           >
                             <Plus className="size-3" />
@@ -2312,26 +2407,26 @@ function ProductsTab() {
                         {p.isActive ? "Live" : "Archived"}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="px-5 py-4 text-right min-w-[210px] whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => printLabel(p)}
                           disabled={isPrinting}
                           aria-label={`Print label for ${p.name}`}
                           title="Print Barcode Label (1-Click Direct Thermal Print)"
-                          className="rounded-lg border border-red-200/80 bg-red-50/70 p-2 text-[#8B2020] shadow-2xs transition-all hover:bg-red-100 hover:scale-105 cursor-pointer disabled:opacity-40"
+                          className="shrink-0 size-8.5 flex items-center justify-center rounded-lg border border-red-200/80 bg-red-50/70 text-[#8B2020] shadow-2xs transition-all hover:bg-red-100 hover:scale-105 cursor-pointer disabled:opacity-40"
                         >
-                          <Printer className="size-4" />
+                          <Printer className="size-4 shrink-0" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditing(p)}
                           aria-label={`Edit ${p.name}`}
                           title="Edit Product Details"
-                          className="rounded-lg border border-slate-200/80 bg-slate-50 p-2 text-slate-700 shadow-2xs transition-all hover:bg-slate-100 hover:text-slate-900 hover:scale-105 cursor-pointer"
+                          className="shrink-0 size-8.5 flex items-center justify-center rounded-lg border border-slate-200/80 bg-slate-50 text-slate-700 shadow-2xs transition-all hover:bg-slate-100 hover:text-slate-900 hover:scale-105 cursor-pointer"
                         >
-                          <Pencil className="size-4" />
+                          <Pencil className="size-4 shrink-0" />
                         </button>
                         <button
                           type="button"
@@ -2350,9 +2445,9 @@ function ProductsTab() {
                           }}
                           aria-label={`Duplicate ${p.name}`}
                           title="Duplicate Product (Clone with new SKU & Barcode)"
-                          className="rounded-lg border border-blue-200/80 bg-blue-50/70 p-2 text-blue-700 shadow-2xs transition-all hover:bg-blue-100 hover:scale-105 cursor-pointer"
+                          className="shrink-0 size-8.5 flex items-center justify-center rounded-lg border border-blue-200/80 bg-blue-50/70 text-blue-700 shadow-2xs transition-all hover:bg-blue-100 hover:scale-105 cursor-pointer"
                         >
-                          <Copy className="size-4" />
+                          <Copy className="size-4 shrink-0" />
                         </button>
                         {!p.isActive ? (
                           <button
@@ -2361,9 +2456,9 @@ function ProductsTab() {
                             disabled={restore.isPending}
                             aria-label={`Restore ${p.name}`}
                             title="Restore product to active store catalog"
-                            className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 cursor-pointer disabled:opacity-40"
+                            className="shrink-0 flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 cursor-pointer disabled:opacity-40"
                           >
-                            <RotateCcw className="size-3.5" />
+                            <RotateCcw className="size-3.5 shrink-0" />
                             <span>Restore</span>
                           </button>
                         ) : (
@@ -2379,9 +2474,9 @@ function ProductsTab() {
                             }}
                             aria-label={`Archive ${p.name}`}
                             title="Archive product (hide from store)"
-                            className="rounded-lg border border-amber-200/80 bg-amber-50/70 p-2 text-amber-700 shadow-2xs transition-all hover:bg-amber-100 hover:scale-105 cursor-pointer"
+                            className="shrink-0 size-8.5 flex items-center justify-center rounded-lg border border-amber-200/80 bg-amber-50/70 text-amber-700 shadow-2xs transition-all hover:bg-amber-100 hover:scale-105 cursor-pointer"
                           >
-                            <Package className="size-4" />
+                            <Package className="size-4 shrink-0" />
                           </button>
                         )}
                         <button
@@ -2396,9 +2491,9 @@ function ProductsTab() {
                           }}
                           aria-label={`Delete ${p.name}`}
                           title="Delete product permanently"
-                          className="rounded-lg border border-rose-200/80 bg-rose-50/70 p-2 text-rose-700 shadow-2xs transition-all hover:bg-rose-100 hover:scale-105 cursor-pointer"
+                          className="shrink-0 size-8.5 flex items-center justify-center rounded-lg border border-rose-200/80 bg-rose-50/70 text-rose-700 shadow-2xs transition-all hover:bg-rose-100 hover:scale-105 cursor-pointer"
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 className="size-4 shrink-0" />
                         </button>
                       </div>
                     </td>
@@ -2632,7 +2727,7 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   free_delivery_threshold:
     "Is amount ke upar ka order hone par customer ko shipping charge nahi lagega.",
   standard_shipping_charge:
-    "Agar order free delivery threshold se kam hai, toh yeh charge lagega (e.g. 79).",
+    "Agar order free delivery threshold se kam hai, toh yeh charge lagega (e.g. 65).",
   free_delivery_message:
     "Cart me progress bar ke liye message. Use {amount} as placeholder. (e.g. Add ₹{amount} more for FREE DELIVERY 🎉)",
   enable_cod: "True likhne par Cash on Delivery payment option on ho jayega, false par disable.",
@@ -2667,7 +2762,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   urgency_dispatch_cutoff_hour: "14",
   free_delivery_enabled: "true",
   free_delivery_threshold: "999",
-  standard_shipping_charge: "79",
+  standard_shipping_charge: "65",
   free_delivery_message: "Add ₹{amount} more for FREE DELIVERY 🎉",
 };
 
@@ -3062,17 +3157,17 @@ thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px 
                     setValues({
                       ...current,
                       print_label_width_mm: "50",
-                      print_label_height_mm: "75",
+                      print_label_height_mm: "25",
                     })
                   }
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
                     (current["print_label_width_mm"] ?? "50") === "50" &&
-                    (current["print_label_height_mm"] ?? "75") === "75"
+                    (current["print_label_height_mm"] ?? "25") === "25"
                       ? "bg-emerald-600 text-white border-emerald-600"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  50 × 75 mm (Portrait Default)
+                  50 × 25 mm (Landscape Default)
                 </button>
                 <button
                   type="button"
@@ -3200,7 +3295,7 @@ thead tr{background:#8B2020;color:#fff;}th,td{padding:6px 8px;border-bottom:1px 
                 if (doc) {
                   doc.open();
                   doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Test Label Print</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:portrait;margin:0;}
+<style>*{box-sizing:border-box;margin:0;padding:0;}@page{size:${wMm}mm ${hMm}mm;margin:0;}
 body{font-family:'Courier New',monospace;font-size:8px;width:${wMm}mm;min-height:${hMm}mm;background:#fff;color:#000;margin:0 auto;}
 .box{border:1px solid #000;padding:2mm;width:100%;height:${hMm - 2}mm;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;}
 .cross{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
@@ -4513,6 +4608,7 @@ function CouponsTab() {
                         onClick={() => setSelectedUsageCoupon(c.code)}
                         className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-primary/40 hover:text-primary hover:bg-primary/5 cursor-pointer"
                         title="View customers who redeemed this coupon"
+                        aria-label={`View redemptions for coupon ${c.code}`}
                       >
                         <Eye className="size-4" />
                       </button>
@@ -4525,6 +4621,7 @@ function CouponsTab() {
                         }}
                         className="rounded-lg border border-border bg-card p-2 text-muted-foreground shadow-xs transition-all hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
                         title="Delete coupon"
+                        aria-label={`Delete coupon ${c.code}`}
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -4602,6 +4699,7 @@ function CouponUsageModal({ couponCode, onClose }: { couponCode: string; onClose
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close coupon usage dialog"
             className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
           >
             <X className="size-5" />

@@ -239,11 +239,6 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=window.location.pathname;var t=localStorage.getItem("zerah-theme");if(p.startsWith("/admin")&&(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches))){document.documentElement.classList.add("dark");}else{document.documentElement.classList.remove("dark");}}catch(e){}})();`,
-          }}
-        />
         <HeadContent />
       </head>
       <body>
@@ -258,6 +253,7 @@ import { trackEvent } from "@/lib/analytics";
 import { initGlobalBarcodeScanner } from "@/lib/barcode-scanner";
 import { useSettings } from "@/lib/store";
 import { MaintenanceScreen } from "@/components/site/MaintenanceScreen";
+import { applyTheme, getInitialTheme } from "@/lib/theme";
 
 const DirectLabelPrintHost = safeLazy(() =>
   import("@/components/admin/LabelPrintEngine").then((m) => ({ default: m.DirectLabelPrintHost })),
@@ -271,26 +267,14 @@ function MaintenanceGuard({
   isAdminRoute: boolean;
 }) {
   const { data: settings, isLoading } = useSettings();
-  const [bypass, setBypass] = useState(false);
+  const { user } = useSession();
+  const { data: isAdmin } = useIsAdmin(user?.id);
 
-  useEffect(() => {
-    let typed = "";
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.length !== 1) return; // ignore shift, capslock, etc
-      typed += e.key.toLowerCase();
-      if (typed.length > 4) typed = typed.slice(-4);
-      if (typed === "saif") {
-        setBypass(true);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  if (isAdminRoute || isLoading || bypass) return <>{children}</>;
+  // Legitimate authorization: admin routes or authenticated authorized staff/admin
+  if (isAdminRoute || isLoading || isAdmin) return <>{children}</>;
 
   if (settings?.maintenance_mode === "true") {
-    return <MaintenanceScreen onBypass={() => setBypass(true)} />;
+    return <MaintenanceScreen />;
   }
 
   return <>{children}</>;
@@ -377,9 +361,11 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    // Force light mode on all non-admin routes
+    // Force light mode on all non-admin routes; apply theme on admin routes
     if (!isAdminRoute) {
       document.documentElement.classList.remove("dark");
+    } else {
+      applyTheme(getInitialTheme());
     }
   }, [isAdminRoute]);
 

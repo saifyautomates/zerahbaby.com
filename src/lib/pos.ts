@@ -340,6 +340,46 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as
             "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
         };
+      } else {
+        // Direct fallback: Check product_variants table directly for variant-specific barcode or SKU
+        const { data: rawVariant } = await supabase
+          .from("product_variants")
+          .select(
+            "id, name, sku, barcode, stock, price_override, mrp_override, color, size, image_url, products(*, product_images(public_url, is_primary, sort_order))",
+          )
+          .or(`barcode.eq.${clean},sku.ilike.${clean}`)
+          .maybeSingle();
+
+        if (rawVariant && rawVariant.products) {
+          const parentProd = rawVariant.products as unknown as DirectProductResult;
+          const images = parentProd.product_images || [];
+          const primaryImage =
+            rawVariant.image_url ||
+            images.find((img) => img.is_primary)?.public_url ||
+            images[0]?.public_url ||
+            null;
+
+          return {
+            found: true,
+            archived: parentProd.is_active === false,
+            product_id: parentProd.id,
+            variant_id: rawVariant.id,
+            slug: parentProd.slug,
+            name: `${parentProd.name}${rawVariant.name && rawVariant.name !== "Default" ? ` - ${rawVariant.name}` : ""}`,
+            brand: parentProd.brand || "Zérah Baby & Kids",
+            category: parentProd.category || "clothing",
+            price: Number(rawVariant.price_override ?? parentProd.price ?? 0),
+            mrp: Number(rawVariant.mrp_override ?? parentProd.mrp ?? parentProd.price ?? 0),
+            stock: Number(rawVariant.stock ?? parentProd.stock ?? 0),
+            sku: rawVariant.sku || parentProd.sku || "",
+            barcode: rawVariant.barcode || clean,
+            image_url: primaryImage,
+            age_group: parentProd.age_group || "",
+            description: parentProd.description || "",
+            sales_channel: (parentProd.sales_channel || "ONLINE_AND_OFFLINE") as
+              "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+          };
+        }
       }
     } catch (directErr) {
       console.warn("[pos] Online direct lookup notice:", directErr);

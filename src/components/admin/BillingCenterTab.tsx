@@ -2,10 +2,12 @@ import { useState, useMemo, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mapProduct, type Product, formatPrice } from "@/lib/store";
-import { POSTab } from "./POSTab";
-import { POSReturnsTab } from "./POSReturnsTab";
-import { OfflineAnalyticsTab } from "./OfflineAnalyticsTab";
-import { CustomerHistoryPanel } from "./CustomerHistoryPanel";
+import { safeLazy } from "@/lib/safe-lazy";
+
+const POSTab = safeLazy(() => import("./POSTab").then((m) => ({ default: m.POSTab })));
+const POSReturnsTab = safeLazy(() => import("./POSReturnsTab").then((m) => ({ default: m.POSReturnsTab })));
+const OfflineAnalyticsTab = safeLazy(() => import("./OfflineAnalyticsTab").then((m) => ({ default: m.OfflineAnalyticsTab })));
+const CustomerHistoryPanel = safeLazy(() => import("./CustomerHistoryPanel").then((m) => ({ default: m.CustomerHistoryPanel })));
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 import {
@@ -312,6 +314,7 @@ function LabelPrintingSubTab() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleOne(p.uuid)}
+                        aria-label={`Select product ${p.name}`}
                         className="size-5 rounded cursor-pointer accent-[#8B2020]"
                       />
                     </div>

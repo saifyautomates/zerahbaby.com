@@ -169,6 +169,7 @@ export function AdminAddCategory({ className = "" }: { className?: string }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
+                aria-label="Close add category dialog"
                 className="rounded-full p-2 bg-muted hover:bg-muted-foreground/20 cursor-pointer"
               >
                 <X className="size-4" />

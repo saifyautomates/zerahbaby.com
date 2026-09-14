@@ -21,16 +21,47 @@ import { useCategories, useProducts, useSettings } from "@/lib/store";
 import { useHeroMedia } from "@/lib/hero-media";
 import { useAdminMode } from "@/lib/admin-mode";
 import { HeroMedia } from "@/components/site/HeroMedia";
-import { HeroMediaDialog } from "@/components/admin/HeroMediaManager";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { ProductCarousel } from "@/components/site/ProductCarousel";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
-import {
-  AdminAddProduct,
-  AdminAddCategory,
-  AdminEditableText,
-} from "@/components/admin/InlineAdmin";
-import { SectionEditorModal } from "@/components/admin/SectionEditorModal";
+import { safeLazy } from "@/lib/safe-lazy";
+import { Suspense } from "react";
+
+const HeroMediaDialog = safeLazy(() =>
+  import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaDialog })),
+);
+const SectionEditorModal = safeLazy(() =>
+  import("@/components/admin/SectionEditorModal").then((m) => ({ default: m.SectionEditorModal })),
+);
+const LazyAdminAddCategory = safeLazy(() =>
+  import("@/components/admin/InlineAdmin").then((m) => ({ default: m.AdminAddCategory })),
+);
+const LazyAdminEditableText = safeLazy(() =>
+  import("@/components/admin/InlineAdmin").then((m) => ({ default: m.AdminEditableText })),
+);
+
+function AdminAddCategory() {
+  return (
+    <Suspense fallback={null}>
+      <LazyAdminAddCategory />
+    </Suspense>
+  );
+}
+
+function AdminEditableText(props: {
+  settingKey: string;
+  value: string;
+  children: React.ReactNode;
+  multiline?: boolean;
+}) {
+  const { adminMode } = useAdminMode();
+  if (!adminMode) return <>{props.children}</>;
+  return (
+    <Suspense fallback={<>{props.children}</>}>
+      <LazyAdminEditableText {...props} />
+    </Suspense>
+  );
+}
 import {
   useHomepageSections,
   resolveSectionProducts,

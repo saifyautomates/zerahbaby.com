@@ -29,7 +29,23 @@ export function QuickVariantStockModal({
 }: QuickVariantStockModalProps) {
   const qc = useQueryClient();
   const [variants, setVariants] = useState<ProductVariant[]>(() => {
-    return (product.variants || []).map((v) => ({ ...v }));
+    const raw = (product.variants || []).map((v) => ({ ...v }));
+    const hasRealVariants = raw.some(
+      (v) =>
+        Boolean(v.color && v.color.trim()) ||
+        Boolean(v.size && v.size.trim()) ||
+        Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
+    );
+    return hasRealVariants
+      ? raw.filter(
+          (v) =>
+            !(
+              (!v.color || !v.color.trim()) &&
+              (!v.size || !v.size.trim()) &&
+              (!v.name || v.name.trim() === "Default")
+            ),
+        )
+      : raw;
   });
   const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -64,6 +80,24 @@ export function QuickVariantStockModal({
         if (delErr) throw delErr;
       }
 
+      // If this product has real variants, ensure any lingering phantom "Default" variant
+      // in the DB is deactivated and zeroed out so it never contributes to stock or reappears
+      const hasRealVariants = variants.some(
+        (v) =>
+          Boolean(v.color && v.color.trim()) ||
+          Boolean(v.size && v.size.trim()) ||
+          Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
+      );
+      if (hasRealVariants && product.uuid) {
+        await supabase
+          .from("product_variants")
+          .update({ is_active: false, stock: 0 })
+          .eq("product_id", product.uuid)
+          .eq("name", "Default")
+          .is("color", null)
+          .is("size", null);
+      }
+
       // 2. Update each remaining variant in product_variants
       const updatePromises = variants.map((v) =>
         supabase
@@ -78,9 +112,13 @@ export function QuickVariantStockModal({
       }
 
       // 3. Update the parent product total stock
+      const isZeroStock = totalStock <= 0;
       const { error: prodErr } = await supabase
         .from("products")
-        .update({ stock: totalStock })
+        .update({
+          stock: Math.max(0, totalStock),
+          ...(isZeroStock ? { is_active: false, status: "archived" } : {}),
+        })
         .eq("id", product.uuid);
 
       if (prodErr) throw prodErr;
@@ -88,9 +126,13 @@ export function QuickVariantStockModal({
       // 4. Invalidate all dependent surfaces across store, PDP, POS, and Admin
       invalidateCatalogue(qc);
 
-      toast.success(
-        `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
-      );
+      if (isZeroStock) {
+        toast.success(`Stock is 0 — ${product.name} moved to Archive`);
+      } else {
+        toast.success(
+          `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
+        );
+      }
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
@@ -159,7 +201,9 @@ export function QuickVariantStockModal({
         <div className="px-6 py-3 bg-primary/5 border-b border-primary/15 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary">
             <Layers className="size-3.5 shrink-0" />
-            <span>{variants.length} Distinct Variants</span>
+            <span>
+              {variants.length} Distinct Variant{variants.length === 1 ? "" : "s"}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">Total In-Stock:</span>
@@ -229,6 +273,7 @@ export function QuickVariantStockModal({
                         onClick={() => handleStockChange(v.id, varStock - 1)}
                         disabled={varStock <= 0}
                         title="Decrease stock (-1)"
+                        aria-label={`Decrease stock for ${v.name}`}
                         className="size-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer disabled:opacity-30"
                       >
                         <Minus className="size-3.5" />
@@ -251,6 +296,7 @@ export function QuickVariantStockModal({
                         type="button"
                         onClick={() => handleStockChange(v.id, varStock + 1)}
                         title="Increase stock (+1)"
+                        aria-label={`Increase stock for ${v.name}`}
                         className="size-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                       >
                         <Plus className="size-3.5" />
@@ -274,6 +320,7 @@ export function QuickVariantStockModal({
                         type="button"
                         onClick={() => handleDeleteVariant(v.id)}
                         title="Delete this variant"
+                        aria-label={`Delete variant ${v.name}`}
                         className="size-7 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition flex items-center justify-center cursor-pointer"
                       >
                         <Trash2 className="size-3.5" />

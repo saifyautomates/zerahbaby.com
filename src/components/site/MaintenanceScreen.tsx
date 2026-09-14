@@ -3,12 +3,10 @@ import { Mail, Phone, Lock, X } from "lucide-react";
 import logoUrl from "@/assets/zerah-logo-official.png"; // Fallback logo
 import { useState, useEffect } from "react";
 
-export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
+export function MaintenanceScreen() {
   const { contactEmail: email, contactPhone: phone, settings } = useSettings();
   const [clicks, setClicks] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [passcode, setPasscode] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (clicks > 0) {
@@ -24,16 +22,6 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
     if (newClicks >= 5) {
       setShowPrompt(true);
       setClicks(0);
-    }
-  };
-
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passcode.trim().toLowerCase() === "saif") {
-      if (onBypass) onBypass();
-    } else {
-      setErrorMsg("Incorrect passcode");
-      setPasscode("");
     }
   };
 
@@ -95,8 +83,6 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
             <button
               onClick={() => {
                 setShowPrompt(false);
-                setErrorMsg("");
-                setPasscode("");
               }}
               className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
@@ -108,29 +94,16 @@ export function MaintenanceScreen({ onBypass }: { onBypass?: () => void }) {
               </div>
               <h2 className="text-xl font-bold">Admin Access</h2>
             </div>
-            <form onSubmit={handlePasscodeSubmit}>
-              <input
-                type="password"
-                placeholder="Enter passcode"
-                className="w-full rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all mb-4"
-                value={passcode}
-                onChange={(e) => {
-                  setPasscode(e.target.value);
-                  setErrorMsg("");
-                }}
-                autoFocus
-              />
-              {errorMsg && (
-                <p className="mb-4 text-sm font-semibold text-destructive text-left">{errorMsg}</p>
-              )}
-              <button
-                type="submit"
-                disabled={!passcode.trim()}
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50"
-              >
-                Unlock
-              </button>
-            </form>
+            <p className="text-sm text-muted-foreground mb-6 text-left leading-relaxed">
+              Authorized staff and store administrators can sign in to the admin portal to manage
+              the store and bypass maintenance mode.
+            </p>
+            <a
+              href="/admin"
+              className="block w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition text-center"
+            >
+              Sign In to Admin Portal
+            </a>
           </div>
         </div>
       )}

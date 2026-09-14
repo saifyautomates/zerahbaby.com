@@ -1,9 +1,44 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
+import { createClient, type User } from "https://esm.sh/@supabase/supabase-js@2.21.0";
+import { timingSafeEqual } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+/**
+ * Constant-time comparison of two hash strings to protect against timing attacks.
+ * Decodes strings to byte buffers and performs constant-time comparison.
+ * Handles null, undefined, malformed, or mismatched-length values safely without throwing.
+ */
+function constantTimeHashEqual(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
+
+  const aBuf = new TextEncoder().encode(a.toLowerCase());
+  const bBuf = new TextEncoder().encode(b.toLowerCase());
+
+  if (aBuf.length !== bBuf.length) {
+    // Lengths differ: execute dummy constant-time pass to normalize execution time
+    let dummyDiff = 1;
+    for (let i = 0; i < aBuf.length; i++) {
+      dummyDiff |= aBuf[i] ^ aBuf[i];
+    }
+    return false;
+  }
+
+  try {
+    return timingSafeEqual(aBuf, bBuf);
+  } catch {
+    // Fallback constant-time XOR comparison if native timingSafeEqual is unavailable
+    let diff = 0;
+    for (let i = 0; i < aBuf.length; i++) {
+      diff |= aBuf[i] ^ bBuf[i];
+    }
+    return diff === 0;
+  }
+}
 
 // Helper to convert an ArrayBuffer to a hex string without external dependencies
 function toHex(buffer: ArrayBuffer): string {
@@ -230,7 +265,7 @@ Deno.serve(async (req) => {
 
       // Verify cryptographic hash
       const expectedHash = await hashOtp(cleanPhone, cleanOtp, authSecret);
-      if (expectedHash !== record.otp_hash) {
+      if (!constantTimeHashEqual(expectedHash, record.otp_hash)) {
         await adminClient
           .from("auth_otps")
           .update({ attempts: record.attempts + 1 })
@@ -257,31 +292,60 @@ Deno.serve(async (req) => {
           `[msg91-auth] Initial signInWithPassword failed (${signInResult.error.message}). Resolving user state in Supabase Auth...`,
         );
 
-        // Search for user in Supabase Auth by phone number
-        let existingUser: any = null;
-        let page = 1;
-        while (!existingUser) {
-          const { data: pageData, error: listErr } = await adminClient.auth.admin.listUsers({
-            page,
-            perPage: 1000,
-          });
-          if (listErr) {
-            console.error("[msg91-auth] listUsers error:", listErr);
-            break;
-          }
-          const users = pageData?.users || [];
-          if (users.length === 0) break;
-          existingUser = users.find((u: { phone?: string }) => {
-            if (!u.phone) return false;
-            const uDigits = u.phone.replace(/\D/g, "");
-            return (
-              u.phone === cleanPhone ||
-              u.phone === formattedPhone ||
-              uDigits.slice(-10) === tenDigits
+        // ── TARGETED USER LOOKUP (Bounded O(1), Targeted Query) ───────────
+        let existingUser: User | null = null;
+
+        // Step 1: Check authoritative public.profiles by normalized phone formats
+        const { data: matchedProfiles, error: profileErr } = await adminClient
+          .from("profiles")
+          .select("id, phone")
+          .or(`phone.eq.${formattedPhone},phone.eq.${cleanPhone},phone.eq.${tenDigits}`)
+          .order("created_at", { ascending: false })
+          .limit(2);
+
+        if (profileErr) {
+          console.warn("[msg91-auth] profiles targeted lookup warning:", profileErr);
+        }
+
+        if (matchedProfiles && matchedProfiles.length > 0) {
+          if (matchedProfiles.length > 1 && matchedProfiles[0].id !== matchedProfiles[1].id) {
+            console.warn(
+              `[msg91-auth] Multiple distinct profiles detected for phone ${tenDigits}. Using primary: ${matchedProfiles[0].id}`,
             );
-          });
-          if (users.length < 1000) break;
-          page++;
+          }
+          const { data: userData, error: getUserErr } = await adminClient.auth.admin.getUserById(
+            matchedProfiles[0].id,
+          );
+          if (!getUserErr && userData?.user) {
+            existingUser = userData.user;
+          }
+        }
+
+        // Step 2: If not resolved via profiles (e.g. auth user exists before profile creation),
+        // query auth.users via bounded security definer RPC
+        if (!existingUser) {
+          const { data: rpcUsers, error: rpcErr } = await adminClient.rpc(
+            "get_auth_user_id_by_phone",
+            { p_phone: tenDigits },
+          );
+
+          if (rpcErr) {
+            console.warn("[msg91-auth] get_auth_user_id_by_phone RPC warning:", rpcErr);
+          }
+
+          if (rpcUsers && rpcUsers.length > 0) {
+            if (rpcUsers.length > 1 && rpcUsers[0].id !== rpcUsers[1].id) {
+              console.warn(
+                `[msg91-auth] Multiple auth records detected for phone ${tenDigits}. Using primary: ${rpcUsers[0].id}`,
+              );
+            }
+            const { data: userData, error: getUserErr } = await adminClient.auth.admin.getUserById(
+              rpcUsers[0].id,
+            );
+            if (!getUserErr && userData?.user) {
+              existingUser = userData.user;
+            }
+          }
         }
 
         if (existingUser) {
@@ -315,6 +379,19 @@ Deno.serve(async (req) => {
 
           if (createResult.error) {
             console.error("[msg91-auth] createUser error:", createResult.error);
+            // Safety fallback if race condition occurred and user was created concurrently
+            const { data: retryRpc } = await adminClient.rpc("get_auth_user_id_by_phone", {
+              p_phone: tenDigits,
+            });
+            if (retryRpc && retryRpc.length > 0) {
+              const { data: retryUser } = await adminClient.auth.admin.getUserById(retryRpc[0].id);
+              if (retryUser?.user) {
+                await adminClient.auth.admin.updateUserById(retryUser.user.id, {
+                  phone_confirm: true,
+                  password: derivedPassword,
+                });
+              }
+            }
           }
 
           signInResult = await adminClient.auth.signInWithPassword({

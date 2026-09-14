@@ -1067,6 +1067,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setTerm("")}
+                aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full bg-muted-foreground/20 hover:bg-muted-foreground/40 text-foreground transition"
               >
                 <X className="size-3" />

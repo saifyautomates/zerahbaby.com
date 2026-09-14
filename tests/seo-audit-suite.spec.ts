@@ -158,15 +158,17 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
   test("Product page: dynamic metadata, schema, and open graph", async ({ page }) => {
     const { data: prod } = await supabase
       .from("products")
-      .select("name, slug, brand, price")
+      .select("name, slug, brand, price, product_variants(price_override)")
       .eq("is_active", true)
+      .gt("price", 1)
       .limit(1)
       .single();
 
     const slug = prod?.slug || "tshirt";
     const expectedName = prod?.name || "TSHIRT";
-    const expectedPrice = prod?.price || 500;
-    const expectedBrand = prod?.brand || "Zérah";
+    const variantOverride = (prod as any)?.product_variants?.[0]?.price_override;
+    const expectedPrice = variantOverride ?? prod?.price ?? 500;
+    const expectedBrand = prod?.brand || "Zérah Baby & Kids";
 
     await page.goto(`${BASE_URL}/product/${slug}`);
     await page.waitForLoadState("domcontentloaded");

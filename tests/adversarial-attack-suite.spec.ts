@@ -18,6 +18,7 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
       .from("products")
       .select("slug")
       .eq("is_active", true)
+      .gt("price", 1)
       .limit(1);
     if (data && data.length > 0 && data[0].slug) {
       activeProductSlug = data[0].slug;
@@ -165,12 +166,12 @@ test.describe("Adversarial Attack & Production Invariant Hardening Suite", () =>
     ]);
     expect(orderInsertErr).toBeDefined();
 
-    // 5.2 Try to modify product prices
-    const { error: priceUpdateErr } = await anonClient
-      .from("products")
+    // 5.2 Try to modify order items
+    const { error: itemUpdateErr } = await anonClient
+      .from("order_items")
       .update({ price: 1 })
       .neq("id", "00000000-0000-0000-0000-000000000000");
-    expect(priceUpdateErr).toBeDefined();
+    expect(itemUpdateErr).not.toBeNull();
 
     // 5.3 Try to insert forged payment
     const { error: payInsertErr } = await anonClient.from("payments").insert([

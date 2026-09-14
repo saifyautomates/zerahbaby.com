@@ -460,6 +460,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                             onClick={() => handleOpenQuery(q)}
                             className="inline-flex items-center justify-center size-7 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition shadow-xs cursor-pointer"
                             title="View inquiry details"
+                            aria-label="View inquiry details"
                           >
                             <Eye className="size-3.5" />
                           </button>
@@ -469,6 +470,7 @@ export function QueriesTab({ onOpenOrder }: QueriesTabProps) {
                             disabled={deleteMutation.isPending}
                             className="inline-flex items-center justify-center size-7 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400 transition hover:bg-rose-500/20 focus:outline-none disabled:opacity-50 cursor-pointer"
                             title="Delete query"
+                            aria-label="Delete query"
                           >
                             <Trash2 className="size-3.5" />
                           </button>

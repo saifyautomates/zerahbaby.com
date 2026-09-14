@@ -1,10 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateDeliveryFeesCache } from "@/lib/store";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
 export const draftToRow = (draft: ProductDraft, isNew = false) => {
+  const variantTotalStock =
+    draft.variants && draft.variants.length > 0
+      ? draft.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : Number(draft.stock);
+  const effectiveStock = Math.max(0, variantTotalStock);
+  const isZeroStock = effectiveStock <= 0;
+
   const row: Record<string, unknown> = {
     slug: draft.slug.trim(),
     name: draft.name.trim(),
@@ -13,7 +21,7 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     price: Number(draft.price),
     mrp: Number(draft.mrp),
     age_group: draft.ageGroup,
-    stock: Number(draft.stock),
+    stock: effectiveStock,
     low_stock_at: Number(draft.lowStockAt),
     sku: draft.sku.trim(),
     barcode: draft.barcode.trim(),
@@ -23,8 +31,8 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
       .map((h) => h.trim())
       .filter(Boolean),
     is_featured: draft.isFeatured,
-    is_active: Number(draft.stock) <= 0 ? false : draft.isActive,
-    status: Number(draft.stock) <= 0 ? "archived" : draft.isActive ? "active" : "archived",
+    is_active: isZeroStock ? false : draft.isActive,
+    status: isZeroStock ? "archived" : draft.isActive ? "active" : "archived",
     sort_order: Number(draft.sortOrder),
     sales_channel: draft.salesChannel,
   };
@@ -51,6 +59,7 @@ export function broadcastCatalogueChange() {
 }
 
 export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
+  invalidateDeliveryFeesCache();
   qc.invalidateQueries({ queryKey: ["products"] });
   qc.invalidateQueries({ queryKey: ["product"] });
   qc.invalidateQueries({ queryKey: ["admin-products"] });
@@ -270,12 +279,29 @@ export function useSaveProduct() {
 
         // Sync variants (with color, size, barcode, mrp_override, image_url)
         if (draft.variants && draft.variants.length > 0) {
+          const hasRealVariants = draft.variants.some(
+            (v) =>
+              Boolean(v.color && v.color.trim()) ||
+              Boolean(v.size && v.size.trim()) ||
+              Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
+          );
+          const sanitizedVariants = hasRealVariants
+            ? draft.variants.filter(
+                (v) =>
+                  !(
+                    (!v.color || !v.color.trim()) &&
+                    (!v.size || !v.size.trim()) &&
+                    (!v.name || v.name.trim() === "Default")
+                  ),
+              )
+            : draft.variants;
+
           // Separate new variants (no id) from existing (have id) to avoid
           // passing id: null which violates the NOT NULL constraint.
           const existingVariants: Record<string, unknown>[] = [];
           const newVariants: Record<string, unknown>[] = [];
 
-          for (const v of draft.variants) {
+          for (const v of sanitizedVariants) {
             // Build descriptive name if color / size present
             let variantName = v.name;
             if (v.color && v.size) {
@@ -297,6 +323,7 @@ export function useSaveProduct() {
               price_override: v.price_override,
               mrp_override: v.mrp_override ?? null,
               image_url: v.image_url ?? null,
+              is_active: true,
             };
 
             const variantId = v.id && v.id.trim() !== "" ? v.id : crypto.randomUUID();
@@ -305,6 +332,18 @@ export function useSaveProduct() {
             } else {
               newVariants.push({ ...base, id: variantId });
             }
+          }
+
+          if (hasRealVariants) {
+            // Deactivate any unconfigured phantom Default variants for this product
+            // so they never linger, duplicate, or falsely inflate stock.
+            await supabase
+              .from("product_variants")
+              .update({ is_active: false, stock: 0 })
+              .eq("product_id", productId)
+              .eq("name", "Default")
+              .is("color", null)
+              .is("size", null);
           }
 
           if (existingVariants.length > 0) {
@@ -330,12 +369,32 @@ export function useSaveProduct() {
           ].filter(Boolean);
 
           if (allSavedVariantIds.length > 0) {
-            await (supabase
+            const { error: delErr } = await (supabase
               .from("product_variants" as any)
               .delete()
               .eq("product_id", productId)
+              .eq("is_active", true)
               .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`) as any);
+
+            // If any variant could not be deleted due to transaction references, deactivate it safely
+            if (delErr) {
+              await supabase
+                .from("product_variants")
+                .update({ is_active: false, stock: 0 })
+                .eq("product_id", productId)
+                .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`);
+            }
           }
+
+          // Synchronize parent product stock strictly with active variants
+          const finalVariantStock = sanitizedVariants.reduce(
+            (sum, v) => sum + (Number(v.stock) || 0),
+            0,
+          );
+          await supabase
+            .from("products")
+            .update({ stock: Math.max(0, finalVariantStock) })
+            .eq("id", productId);
         }
 
         // Sync delivery fee setting
@@ -355,12 +414,19 @@ export function useSaveProduct() {
           }
           feeMap[productId] = draft.deliveryFee;
           feeMap[draft.slug] = draft.deliveryFee;
-          await supabase
+          const { error: upsertErr } = await supabase
             .from("site_settings")
             .upsert(
               { key: "product_delivery_fees", value: JSON.stringify(feeMap) },
               { onConflict: "key" },
             );
+          if (upsertErr) {
+            await (supabase.rpc as any)("admin_update_site_setting", {
+              _key: "product_delivery_fees",
+              _value: JSON.stringify(feeMap),
+            });
+          }
+          invalidateDeliveryFeesCache();
         }
       }
       return { productId: productId || "", slug: (row.slug as string) || "" };

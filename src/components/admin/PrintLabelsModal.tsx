@@ -7,7 +7,7 @@
  */
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles, ExternalLink } from "lucide-react";
+import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles, ExternalLink, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/store";
 import {
@@ -17,6 +17,12 @@ import {
   type LabelLayout,
 } from "./LabelPrintEngine";
 import {
+  getSavedLabelProfile,
+  setSavedLabelProfile,
+  getSavedCustomDimensions,
+  setSavedCustomDimensions,
+  resolvePrintFormatConfig,
+  LABEL_SIZE_OPTIONS,
   getSavedLabelType,
   setSavedLabelType,
   getSavedShowDiscount,
@@ -41,7 +47,8 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid || p.id, 1])),
   );
-  const [layout, setLayout] = useState<LabelLayout>("thermal-58");
+  const [layout, setLayout] = useState<LabelLayout>(() => getSavedLabelProfile());
+  const [customDims, setCustomDims] = useState(() => getSavedCustomDimensions());
   const [labelType, setLabelType] = useState<LabelType>(() => getSavedLabelType());
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
   const [showMrp, setShowMrp] = useState<boolean>(() => getSavedShowMrp());
@@ -130,6 +137,8 @@ export function PrintLabelsModal({
     }));
   }, [preparedProducts, quantities]);
 
+  const activeCfg = resolvePrintFormatConfig(layout, customDims.widthMm, customDims.heightMm);
+
   const handlePrint = () => {
     if (preparedProducts.length === 0 || isPrinting) return;
     setIsPrinting(true);
@@ -139,6 +148,8 @@ export function PrintLabelsModal({
         products: preparedProducts,
         quantities,
         layout,
+        customWidthMm: customDims.widthMm,
+        customHeightMm: customDims.heightMm,
         labelType,
         showDiscount,
         showMrp,
@@ -159,6 +170,8 @@ export function PrintLabelsModal({
       products: preparedProducts,
       quantities,
       layout,
+      customWidthMm: customDims.widthMm,
+      customHeightMm: customDims.heightMm,
       labelType,
       showDiscount,
       showMrp,
@@ -190,11 +203,7 @@ export function PrintLabelsModal({
                   Print Product Labels
                 </h2>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {layout === "thermal-58"
-                    ? "Thermal 50×25mm"
-                    : layout === "thermal-108"
-                      ? "Thermal 100×25mm"
-                      : "A4 Grid (4-Col)"}
+                  {activeCfg.name}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -237,43 +246,78 @@ export function PrintLabelsModal({
         {/* Format & Option Controls Bar */}
         <div className="shrink-0 border-b border-border/60 px-4 py-3 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
           {/* Format selector */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-muted-foreground">Format:</span>
-            <div className="flex bg-muted/60 p-0.5 rounded-xl border border-border">
-              <button
-                type="button"
-                onClick={() => setLayout("thermal-58")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "thermal-58"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+            <div className="relative">
+              <select
+                value={layout}
+                onChange={(e) => {
+                  const newLayout = e.target.value as LabelLayout;
+                  setLayout(newLayout);
+                  setSavedLabelProfile(newLayout);
+                }}
+                className="bg-card text-foreground font-bold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-border focus:ring-2 focus:ring-[#8B2020] focus:border-[#8B2020] shadow-2xs cursor-pointer appearance-none outline-none"
               >
-                58mm Thermal (50×25mm)
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("thermal-108")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "thermal-108"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                108mm Thermal
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("a4")}
-                className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
-                  layout === "a4"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                A4 Grid
-              </button>
+                <optgroup label="Thermal Roll (Portrait)">
+                  <option value="50x75">50 × 75 mm (Portrait Default)</option>
+                  <option value="58x75">58 × 75 mm (Portrait)</option>
+                  <option value="58x100">58 × 100 mm (Tall Portrait)</option>
+                  <option value="50x50">50 × 50 mm (Square)</option>
+                  <option value="80x100">80 × 100 mm (Portrait)</option>
+                  <option value="50x25">50 × 25 mm (Compact)</option>
+                </optgroup>
+                <optgroup label="A4 Sheet Grids">
+                  <option value="a4-3x8">A4 — 3 × 8</option>
+                  <option value="a4-4x10">A4 — 4 × 10</option>
+                </optgroup>
+                <optgroup label="Custom Size">
+                  <option value="custom">Custom</option>
+                </optgroup>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                <ChevronDown className="size-3.5" />
+              </div>
             </div>
+
+            {/* If Custom is selected, show Width and Height inputs */}
+            {layout === "custom" && (
+              <div className="flex items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
+                <span className="text-[11px] font-semibold text-muted-foreground">W:</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={200}
+                  value={customDims.widthMm}
+                  onChange={(e) => {
+                    const val = Math.max(20, Math.min(200, parseInt(e.target.value) || 60));
+                    setCustomDims((prev) => {
+                      const next = { ...prev, widthMm: val };
+                      setSavedCustomDimensions(next.widthMm, next.heightMm);
+                      return next;
+                    });
+                  }}
+                  className="w-12 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
+                />
+                <span className="text-[11px] text-muted-foreground font-semibold">×</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">H:</span>
+                <input
+                  type="number"
+                  min={15}
+                  max={200}
+                  value={customDims.heightMm}
+                  onChange={(e) => {
+                    const val = Math.max(15, Math.min(200, parseInt(e.target.value) || 30));
+                    setCustomDims((prev) => {
+                      const next = { ...prev, heightMm: val };
+                      setSavedCustomDimensions(next.widthMm, next.heightMm);
+                      return next;
+                    });
+                  }}
+                  className="w-12 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
+                />
+                <span className="text-[10px] text-muted-foreground font-bold">mm</span>
+              </div>
+            )}
           </div>
 
           {/* Fully Clickable Option Toggles */}
@@ -420,6 +464,8 @@ export function PrintLabelsModal({
               entries={entries}
               labelType={labelType}
               layout={layout}
+              customWidthMm={customDims.widthMm}
+              customHeightMm={customDims.heightMm}
               showDiscount={showDiscount}
               showMrp={showMrp}
               showSellPrice={showSellPrice}
@@ -433,11 +479,7 @@ export function PrintLabelsModal({
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="size-3.5 text-emerald-600" />
             <span>
-              {layout === "thermal-58"
-                ? "Exact physical preview (Horizontal 50×25mm sticker)"
-                : layout === "thermal-108"
-                  ? "Exact physical preview (Horizontal 100×25mm sticker)"
-                  : "Exact physical preview (A4 4-Column Grid Sheet)"}
+              Exact physical preview ({activeCfg.name} • {activeCfg.isSheet ? "Sheet Grid" : activeCfg.pageHeightMm >= activeCfg.pageWidthMm ? "Thermal Portrait" : "Thermal Landscape"})
             </span>
           </div>
 

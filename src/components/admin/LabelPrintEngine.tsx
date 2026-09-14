@@ -14,7 +14,7 @@ import { useMemo } from "react";
 import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
 import type { LabelPrinterProfile, LabelType } from "@/lib/label-printer";
-import { sanitizeBarcode, PRINT_FORMAT_CONFIG } from "@/lib/label-printer";
+import { sanitizeBarcode, PRINT_FORMAT_CONFIG, resolvePrintFormatConfig } from "@/lib/label-printer";
 
 export type { LabelType };
 export type LabelLayout = LabelPrinterProfile;
@@ -45,6 +45,8 @@ type Props = {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
+  customWidthMm?: number;
+  customHeightMm?: number;
   widthMm?: number;
   heightMm?: number;
 };
@@ -77,8 +79,9 @@ function SingleStickerPreview({
   showDiscount,
   showMrp = true,
   showSellPrice = true,
-  separatePriceLine = true,
   layout,
+  customWidthMm,
+  customHeightMm,
 }: {
   product: LabelProduct;
   labelType: LabelType;
@@ -87,162 +90,153 @@ function SingleStickerPreview({
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
   layout: LabelLayout;
+  customWidthMm?: number;
+  customHeightMm?: number;
 }) {
-  const cfg = PRINT_FORMAT_CONFIG[layout];
+  const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
   const mrpVal = typeof product.mrp === "number" && product.mrp > 0 ? product.mrp : product.price;
 
-  // Screen preview scales ~4.2px per mm for clear representation
-  const SCALE = layout === "thermal-58" ? 4.4 : layout === "a4" ? 4.0 : 4.0;
-  const previewW = Math.round(cfg.labelWidthMm * SCALE);
-  const previewH = Math.round(cfg.labelHeightMm * SCALE);
+  // Compute screen preview dimensions maintaining exact physical aspect ratio
+  const previewW = cfg.isSheet
+    ? 220
+    : Math.max(180, Math.min(260, Math.round(cfg.labelWidthMm * 4.4)));
+  const previewH = Math.max(
+    140,
+    Math.round(previewW * (cfg.labelHeightMm / cfg.labelWidthMm)),
+  );
 
-  const bcHeight =
-    labelType === "barcode-only" ? Math.round(previewH * 0.45) : Math.round(previewH * 0.26);
+  const bcHeight = Math.max(20, Math.round(previewH * 0.12));
 
-  const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price;
+  const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price && product.price > 0;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
 
-  const skuVal = (product.sku || product.barcode || "—").toString().trim();
-  const artNoVal = (product.artNo || product.sku || "").toString().trim();
-  const sizeVal = (product.size || "").toString().trim();
+  const artNoVal = (product.artNo || product.sku || product.barcode || "—").toString().trim();
+  const brandVal = (product.brand || "ZERAH").toString().trim().toUpperCase();
+  const sizeVal = (product.size || "--").toString().trim();
+  const mrpFormatted = "₹" + Math.round(mrpVal);
+  const priceFormatted = "₹" + Math.round(product.price);
+  const barcodeValue = barcodeVal(product);
+
+  if (labelType === "barcode-only") {
+    return (
+      <div
+        className="relative flex flex-col justify-between items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+        style={{ width: previewW, height: previewH, padding: "12px 10px 8px" }}
+      >
+        <p className="w-full truncate font-extrabold uppercase text-gray-900 tracking-wider text-center text-xs">
+          ZÉRAH BABY &amp; KIDS
+        </p>
+        <div className="w-full flex-1 flex flex-col justify-center items-center overflow-hidden my-1">
+          <Barcode
+            value={barcodeValue}
+            format="CODE128"
+            width={cfg.barcodeBarWidthPx * 0.9}
+            height={bcHeight * 1.6}
+            fontSize={11}
+            margin={0}
+            displayValue={true}
+            background="transparent"
+            lineColor="#000000"
+          />
+        </div>
+        <p className="text-[11px] font-bold text-gray-700">SKU: {artNoVal}</p>
+        <p className="text-[10px] font-extrabold tracking-wider uppercase text-black mt-1">
+          {brandVal}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="relative flex flex-col justify-between items-center text-center rounded-lg border border-gray-300 bg-white text-black shadow-sm overflow-hidden select-none shrink-0"
-      style={{ width: previewW, height: previewH, padding: "4px 8px 3px" }}
+      className="relative flex flex-col justify-between items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+      style={{ width: previewW, height: previewH, padding: "10px 10px 8px" }}
     >
-      {/* Row 1: Brand Header (ZERAH BABY & KIDS on TOP) */}
-      <p
-        className="w-full truncate font-extrabold uppercase text-gray-800 tracking-wider text-center shrink-0"
-        style={{ fontSize: Math.round(cfg.brandFontPt * 1.15) + "px", lineHeight: 1 }}
-      >
-        ZÉRAH BABY &amp; KIDS
-      </p>
+      <div className="w-full flex flex-col items-center text-center">
+        {/* Art No */}
+        <div className="w-full flex flex-col items-center mb-1">
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
+            Art No:
+          </span>
+          <span className="text-[11px] font-black text-black leading-tight">
+            {artNoVal}
+          </span>
+        </div>
 
-      {/* Row 2: Product Name & Prices */}
-      {labelType !== "barcode-only" &&
-        (separatePriceLine && (showMrp || showSellPrice) ? (
-          <>
-            {/* Standalone Product Name */}
-            <p
-              className="font-bold text-black text-center leading-tight line-clamp-1 truncate w-full shrink-0"
-              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
-              title={product.name}
-            >
-              {product.name}
-            </p>
+        {/* Product */}
+        <div className="w-full flex flex-col items-center mb-1">
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
+            Product:
+          </span>
+          <span className="text-[12px] font-black text-black leading-snug line-clamp-2 px-1">
+            {product.name}
+          </span>
+        </div>
 
-            {/* Dedicated Separate Price Row */}
-            <div className="flex items-center justify-center gap-1.5 w-full leading-none overflow-hidden my-0.5 shrink-0">
-              {showMrp && (
-                <span
-                  className="text-gray-500 line-through whitespace-nowrap"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
-                >
-                  MRP: {formatPrice(mrpVal)}
-                </span>
-              )}
-              {showSellPrice && (
-                <span
-                  className="font-black text-black whitespace-nowrap"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
-                >
-                  Price: {formatPrice(product.price)}
-                </span>
-              )}
-              {showDiscount && hasDiscount && discountPct > 0 && (
-                <span
-                  className="font-extrabold text-emerald-800 whitespace-nowrap"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 0.9) + "px" }}
-                >
+        {/* Brand */}
+        <div className="w-full flex flex-col items-center mb-1">
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
+            Brand:
+          </span>
+          <span className="text-[11px] font-extrabold uppercase text-black leading-tight tracking-wide">
+            {brandVal}
+          </span>
+        </div>
+
+        {/* Size */}
+        <div className="w-full flex flex-col items-center mb-1">
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
+            Size:
+          </span>
+          <span className="text-[11px] font-black text-black leading-tight">
+            {sizeVal}
+          </span>
+        </div>
+
+        {/* MRP */}
+        <div className="w-full flex flex-col items-center mt-0.5 mb-1">
+          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider leading-none">
+            M.R.P.:
+          </span>
+          <span className="text-[15px] font-black text-black leading-none mt-0.5">
+            {mrpFormatted}
+          </span>
+          <span className="text-[8px] font-bold text-gray-500 leading-none mt-0.5">
+            (Inclusive of All Taxes)
+          </span>
+          {showSellPrice && product.price > 0 && product.price < mrpVal && (
+            <div className="text-[10px] font-bold text-black mt-0.5">
+              <span>Price: </span>
+              <span className="font-black">{priceFormatted}</span>
+              {showDiscount && discountPct > 0 && (
+                <span className="text-emerald-700 font-extrabold ml-1">
                   (-{discountPct}%)
                 </span>
               )}
             </div>
-          </>
-        ) : (
-          /* Inline / Stacked Beside Product Name */
-          <div className="flex items-center justify-between w-full gap-1.5 overflow-hidden shrink-0">
-            <p
-              className="font-bold text-black text-left leading-tight line-clamp-1 truncate flex-1 min-w-0"
-              style={{ fontSize: Math.round(cfg.nameFontPt * 1.05) + "px" }}
-              title={product.name}
-            >
-              {product.name}
-            </p>
-            <div className="flex items-baseline shrink-0 leading-tight text-right gap-1">
-              {showMrp && showSellPrice ? (
-                <>
-                  <span
-                    className="text-gray-500 line-through text-[10px] whitespace-nowrap leading-none"
-                    style={{ fontSize: Math.round(cfg.priceFontPt * 0.88) + "px" }}
-                  >
-                    MRP: {formatPrice(mrpVal)}
-                  </span>
-                  <span
-                    className="font-black text-black whitespace-nowrap leading-none"
-                    style={{ fontSize: Math.round(cfg.priceFontPt * 1.1) + "px" }}
-                  >
-                    Price: {formatPrice(product.price)}{" "}
-                    {showDiscount && hasDiscount && discountPct > 0 && (
-                      <span className="font-extrabold text-emerald-800 text-[9px]">
-                        (-{discountPct}%)
-                      </span>
-                    )}
-                  </span>
-                </>
-              ) : showSellPrice ? (
-                <span
-                  className="font-black text-black whitespace-nowrap"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
-                >
-                  Price: {formatPrice(product.price)}
-                </span>
-              ) : (
-                <span
-                  className="font-black text-black whitespace-nowrap"
-                  style={{ fontSize: Math.round(cfg.priceFontPt * 1.15) + "px" }}
-                >
-                  MRP: {formatPrice(mrpVal)}
-                  {showDiscount && hasDiscount && discountPct > 0 && (
-                    <span className="font-extrabold text-emerald-800 text-[9px] ml-1">
-                      (-{discountPct}%)
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
+          )}
+        </div>
+      </div>
 
-      {/* Row 3: Barcode with numbers */}
-      <div className="w-full flex-1 flex justify-center items-center overflow-hidden shrink-0 my-0.5">
+      {/* Divider */}
+      <div className="w-[88%] border-t border-dashed border-black my-1" />
+
+      {/* Barcode Section */}
+      <div className="w-full flex flex-col items-center justify-center">
         <Barcode
-          value={barcodeVal(product)}
+          value={barcodeValue}
           format="CODE128"
-          width={cfg.barcodeBarWidthPx * 0.76}
+          width={cfg.barcodeBarWidthPx * 0.82}
           height={bcHeight}
-          fontSize={Math.round(cfg.barcodeFontPt * 1.18)}
+          fontSize={10}
           margin={0}
-          marginTop={0}
-          marginBottom={0}
           displayValue={true}
           background="transparent"
           lineColor="#000000"
         />
-      </div>
-
-      {/* Row 4: SKU & Size Bottom */}
-      <div className="flex items-baseline justify-between w-full overflow-hidden text-gray-700 font-bold shrink-0 leading-none">
-        <span className="truncate" style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}>
-          {artNoVal && artNoVal !== skuVal ? `Art: ${artNoVal} • ` : ""}SKU: {skuVal}
-        </span>
-        <span
-          className="shrink-0 ml-1 font-extrabold text-black"
-          style={{ fontSize: Math.round(cfg.skuFontPt * 1.05) + "px" }}
-        >
-          Size: {sizeVal || "--"}
-        </span>
+        <p className="text-[9px] font-extrabold tracking-wider uppercase text-black mt-0.5 leading-none">
+          ZÉRAH BABY &amp; KIDS
+        </p>
       </div>
     </div>
   );
@@ -260,34 +254,65 @@ export function LabelPrintEngine({
   showMrp = true,
   showSellPrice = true,
   separatePriceLine = true,
+  customWidthMm,
+  customHeightMm,
+  widthMm,
+  heightMm,
 }: Props) {
+  const activeCustomW = customWidthMm || widthMm;
+  const activeCustomH = customHeightMm || heightMm;
+  const cfg = resolvePrintFormatConfig(layout, activeCustomW, activeCustomH);
   const labels = useMemo(() => expand(entries), [entries]);
 
   if (labels.length === 0) {
     return <p className="py-16 text-center text-sm text-muted-foreground">No labels to preview.</p>;
   }
 
-  const formatLabel = (() => {
-    if (layout === "thermal-108") return "1-Up 100mm × 25mm Thermal";
-    if (layout === "thermal-58") return "1-Up 50mm × 25mm Thermal";
-    return "A4 Grid (5 columns, Landscape)";
-  })();
-
   return (
     <div className="space-y-3">
       <div className="text-center pb-1 border-b border-border/40">
-        <p className="text-xs font-bold text-muted-foreground">{formatLabel}</p>
+        <p className="text-xs font-bold text-muted-foreground">{cfg.name}</p>
         <p className="text-[10px] text-muted-foreground/70">
           {labels.length} label{labels.length !== 1 ? "s" : ""} total
         </p>
       </div>
 
-      {layout === "thermal-108" || layout === "thermal-58" ? (
-        <div className="flex flex-col items-center gap-2 overflow-x-auto">
+      {!cfg.isSheet ? (
+        <div className="flex flex-col items-center gap-3 overflow-x-auto p-1">
           {labels.map((product, idx) => (
             <div
               key={`${product.uuid}-${idx}`}
-              className="flex items-center gap-0 bg-muted/30 border border-dashed border-border rounded-xl p-2"
+              className="flex flex-col items-center gap-1 bg-muted/30 border border-dashed border-border rounded-xl p-2.5"
+            >
+              <span className="text-[10px] font-bold text-muted-foreground">
+                {cfg.shortLabel} Sticker #{idx + 1}
+              </span>
+              <SingleStickerPreview
+                product={product}
+                labelType={labelType}
+                showDiscount={showDiscount}
+                showMrp={showMrp}
+                showSellPrice={showSellPrice}
+                separatePriceLine={separatePriceLine}
+                layout={layout}
+                customWidthMm={activeCustomW}
+                customHeightMm={activeCustomH}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          className={`grid gap-2 ${
+            (cfg.gridColumns || 3) === 3
+              ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+              : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+          }`}
+        >
+          {labels.map((product, idx) => (
+            <div
+              key={`${product.uuid}-${idx}`}
+              className="flex flex-col items-center gap-1 bg-muted/20 border border-dashed border-border rounded-xl p-2"
             >
               <SingleStickerPreview
                 product={product}
@@ -297,23 +322,10 @@ export function LabelPrintEngine({
                 showSellPrice={showSellPrice}
                 separatePriceLine={separatePriceLine}
                 layout={layout}
+                customWidthMm={activeCustomW}
+                customHeightMm={activeCustomH}
               />
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {labels.map((product, idx) => (
-            <SingleStickerPreview
-              key={`${product.uuid}-${idx}`}
-              product={product}
-              labelType={labelType}
-              showDiscount={showDiscount}
-              showMrp={showMrp}
-              showSellPrice={showSellPrice}
-              separatePriceLine={separatePriceLine}
-              layout={layout}
-            />
           ))}
         </div>
       )}

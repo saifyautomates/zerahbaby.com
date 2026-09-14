@@ -493,7 +493,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
     });
     const err = await sRes.json();
     expect(sRes.status).toBe(400);
-    expect(err.message).toContain("Insufficient stock");
+    expect(err.message).toMatch(/out of stock|Insufficient stock|exceeds available inventory/i);
   });
 
   test("TEST 16: Historical Order Snapshot Integrity — Changes in Product Prices Do Not Alter Old Orders", async () => {

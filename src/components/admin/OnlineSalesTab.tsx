@@ -9,7 +9,6 @@ import {
   useRetryOrderNotification,
   useDeleteCancelledOrder,
   useProcessOrderRefund,
-  useResendCustomerInvoice,
   type Order,
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
@@ -136,7 +135,6 @@ export function OnlineSalesTab() {
   const syncTracking = useSyncShiprocketTracking();
   const cancelShiprocketOrder = useCancelShiprocketOrder();
   const processRefund = useProcessOrderRefund();
-  const resendCustomerInvoice = useResendCustomerInvoice();
 
   const [orderToCancel, setOrderToCancel] = useState<UnifiedTransaction | null>(null);
   const [cancelReason, setCancelReason] = useState("Admin cancelled order via Zérah Admin Panel");
@@ -1152,38 +1150,21 @@ export function OnlineSalesTab() {
                     <InvoiceBox order={order as unknown as Order} />
 
                     {order._type === "online" && order.email && (
-                      <div className="flex items-center gap-2">
-                        {order.customer_notification_status === "sent" ? (
+                      order.customer_notification_status === "sent" ? (
+                        <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-700">
                             <MailCheck className="size-3.5" />
                             <span>Invoice Emailed</span>
                           </span>
-                        ) : order.customer_notification_status === "failed" ? (
+                        </div>
+                      ) : order.customer_notification_status === "failed" ? (
+                        <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-xs font-bold text-rose-700">
                             <MailWarning className="size-3.5" />
                             <span>Email Failed</span>
                           </span>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          onClick={() => resendCustomerInvoice.mutate({ orderId: order.id })}
-                          disabled={resendCustomerInvoice.isPending}
-                          title="Email official order confirmation & tax invoice directly to customer"
-                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 hover:bg-muted px-3 py-1 text-xs font-semibold text-foreground transition disabled:opacity-50 cursor-pointer shadow-2xs"
-                        >
-                          {resendCustomerInvoice.isPending ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : (
-                            <Send className="size-3 text-muted-foreground" />
-                          )}
-                          <span>
-                            {order.customer_notification_status === "sent"
-                              ? "Resend Customer Email"
-                              : "Email Customer Invoice"}
-                          </span>
-                        </button>
-                      </div>
+                        </div>
+                      ) : null
                     )}
 
                     {order._type === "online" && (

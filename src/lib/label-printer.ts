@@ -36,11 +36,35 @@ import { buildTSPLLabel, sendTSPLViaQZTray } from "@/lib/print-settings";
 /*  All physical dimensions live here. Nowhere else.                  */
 /* ================================================================== */
 
-export type LabelPrinterProfile = "thermal-108" | "a4" | "thermal-58";
+export type LabelPrinterProfile =
+  | "50x75"
+  | "58x75"
+  | "58x100"
+  | "50x50"
+  | "80x100"
+  | "50x25"
+  | "58x30"
+  | "58x40"
+  | "58x50"
+  | "80x50"
+  | "100x50"
+  | "108x50"
+  | "108x75"
+  | "a4-3x8"
+  | "a4-4x10"
+  | "custom"
+  // Legacy backward-compatibility aliases
+  | "thermal-108"
+  | "a4"
+  | "thermal-58";
+
 export type LabelType = "barcode-only" | "full";
 
 /** Physical millimetre configuration for each label format */
 export interface PrintFormatConfig {
+  id: LabelPrinterProfile;
+  name: string;
+  shortLabel: string;
   /** @page size declaration (CSS mm) */
   pageWidthMm: number;
   pageHeightMm: number;
@@ -54,8 +78,9 @@ export interface PrintFormatConfig {
   paddingTopMm: number;
   paddingHorizMm: number;
   paddingBottomMm: number;
-  /** For A4 only — grid columns */
-  gridColumns: number;
+  /** For A4 only — grid columns & rows */
+  gridColumns?: number;
+  gridRows?: number;
   /** Barcode options */
   barcodeBarWidthPx: number; // JsBarcode "width" (bar width in pixels at 96dpi render)
   barcodeHeightMm: number; // SVG height in mm
@@ -67,40 +92,162 @@ export interface PrintFormatConfig {
   skuFontPt: number;
   /** Whether this layout uses a continuous roll (no inter-label gap in CSS) */
   isThermalRoll: boolean;
+  isSheet: boolean;
 }
 
-export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig> = {
-  /** ─── 1-UP 108mm THERMAL ROLL (100mm × 25mm Horizontal Landscape) ─── */
-  "thermal-108": {
-    pageWidthMm: 100, // roll width: 100mm printable (108mm physical roll)
-    pageHeightMm: 25, // single label height: 25mm
+export const LABEL_SIZE_OPTIONS: Array<{
+  id: LabelPrinterProfile;
+  label: string;
+  description: string;
+  category: "thermal" | "sheet" | "custom";
+}> = [
+  { id: "50x75", label: "50 × 75 mm", description: "Standard Thermal Portrait (Default)", category: "thermal" },
+  { id: "58x75", label: "58 × 75 mm", description: "Thermal Portrait", category: "thermal" },
+  { id: "58x100", label: "58 × 100 mm", description: "Tall Thermal Portrait", category: "thermal" },
+  { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal" },
+  { id: "80x100", label: "80 × 100 mm", description: "Wide Thermal Portrait", category: "thermal" },
+  { id: "50x25", label: "50 × 25 mm", description: "Compact Thermal", category: "thermal" },
+  { id: "58x30", label: "58 × 30 mm", description: "Thermal Compact", category: "thermal" },
+  { id: "58x40", label: "58 × 40 mm", description: "Thermal Compact", category: "thermal" },
+  { id: "58x50", label: "58 × 50 mm", description: "Thermal Compact", category: "thermal" },
+  { id: "80x50", label: "80 × 50 mm", description: "Wide Thermal Compact", category: "thermal" },
+  { id: "100x50", label: "100 × 50 mm", description: "Large Thermal Compact", category: "thermal" },
+  { id: "108x50", label: "108 × 50 mm", description: "Extra-Wide Thermal", category: "thermal" },
+  { id: "108x75", label: "108 × 75 mm", description: "Jumbo Thermal", category: "thermal" },
+  { id: "a4-3x8", label: "A4 — 3 × 8", description: "24 Labels / A4 Sheet", category: "sheet" },
+  { id: "a4-4x10", label: "A4 — 4 × 10", description: "40 Labels / A4 Sheet", category: "sheet" },
+  { id: "custom", label: "Custom", description: "Custom Millimetre Size", category: "custom" },
+];
+
+export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
+  /** 1. 50 × 75 mm — Portrait (Standard Thermal Retail Tag Default) */
+  "50x75": {
+    id: "50x75",
+    name: "50 × 75 mm",
+    shortLabel: "50×75mm",
+    pageWidthMm: 50,
+    pageHeightMm: 75,
     pageMarginMm: 0,
-    labelWidthMm: 98, // 1mm bleed on each side
-    labelHeightMm: 24.0,
-    paddingTopMm: 0.8,
-    paddingHorizMm: 2.0,
-    paddingBottomMm: 0.6,
-    gridColumns: 1,
-    barcodeBarWidthPx: 1.4,
-    barcodeHeightMm: 8.5,
+    labelWidthMm: 50,
+    labelHeightMm: 75,
+    paddingTopMm: 1.5,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 1.5,
+    barcodeBarWidthPx: 1.15,
+    barcodeHeightMm: 13.0,
     barcodeFontPt: 6.5,
-    brandFontPt: 7.2,
-    nameFontPt: 7.8,
-    priceFontPt: 8.5,
+    brandFontPt: 7.5,
+    nameFontPt: 8.0,
+    priceFontPt: 12.0,
+    skuFontPt: 7.0,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 2. 58 × 75 mm — Portrait */
+  "58x75": {
+    id: "58x75",
+    name: "58 × 75 mm",
+    shortLabel: "58×75mm",
+    pageWidthMm: 58,
+    pageHeightMm: 75,
+    pageMarginMm: 0,
+    labelWidthMm: 58,
+    labelHeightMm: 75,
+    paddingTopMm: 1.5,
+    paddingHorizMm: 2.0,
+    paddingBottomMm: 1.5,
+    barcodeBarWidthPx: 1.25,
+    barcodeHeightMm: 14.5,
+    barcodeFontPt: 7.0,
+    brandFontPt: 8.0,
+    nameFontPt: 8.5,
+    priceFontPt: 13.0,
+    skuFontPt: 7.5,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 3. 58 × 100 mm — Tall Portrait */
+  "58x100": {
+    id: "58x100",
+    name: "58 × 100 mm",
+    shortLabel: "58×100mm",
+    pageWidthMm: 58,
+    pageHeightMm: 100,
+    pageMarginMm: 0,
+    labelWidthMm: 58,
+    labelHeightMm: 100,
+    paddingTopMm: 2.0,
+    paddingHorizMm: 2.0,
+    paddingBottomMm: 2.0,
+    barcodeBarWidthPx: 1.25,
+    barcodeHeightMm: 18.0,
+    barcodeFontPt: 7.5,
+    brandFontPt: 8.5,
+    nameFontPt: 9.5,
+    priceFontPt: 14.0,
+    skuFontPt: 8.0,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 4. 50 × 50 mm — Square */
+  "50x50": {
+    id: "50x50",
+    name: "50 × 50 mm",
+    shortLabel: "50×50mm",
+    pageWidthMm: 50,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 50,
+    labelHeightMm: 50,
+    paddingTopMm: 1.0,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 10.0,
+    barcodeFontPt: 6.0,
+    brandFontPt: 7.0,
+    nameFontPt: 7.5,
+    priceFontPt: 10.0,
     skuFontPt: 6.5,
     isThermalRoll: true,
+    isSheet: false,
   },
-  /** ─── 1-UP 58mm THERMAL ROLL (50mm × 25mm Horizontal Landscape) ─── */
-  "thermal-58": {
-    pageWidthMm: 50, // roll width: 50mm printable (58mm physical roll)
+  /** 5. 80 × 100 mm — Portrait */
+  "80x100": {
+    id: "80x100",
+    name: "80 × 100 mm",
+    shortLabel: "80×100mm",
+    pageWidthMm: 80,
+    pageHeightMm: 100,
+    pageMarginMm: 0,
+    labelWidthMm: 80,
+    labelHeightMm: 100,
+    paddingTopMm: 2.5,
+    paddingHorizMm: 3.0,
+    paddingBottomMm: 2.5,
+    barcodeBarWidthPx: 1.5,
+    barcodeHeightMm: 22.0,
+    barcodeFontPt: 8.5,
+    brandFontPt: 10.0,
+    nameFontPt: 11.0,
+    priceFontPt: 16.0,
+    skuFontPt: 9.0,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 6. 50 × 25 mm — Compact */
+  "50x25": {
+    id: "50x25",
+    name: "50 × 25 mm",
+    shortLabel: "50×25mm",
+    pageWidthMm: 50,
     pageHeightMm: 25,
     pageMarginMm: 0,
-    labelWidthMm: 48.5,
-    labelHeightMm: 24.0,
+    labelWidthMm: 50,
+    labelHeightMm: 25,
     paddingTopMm: 0.6,
     paddingHorizMm: 1.2,
     paddingBottomMm: 0.5,
-    gridColumns: 1,
     barcodeBarWidthPx: 1.1,
     barcodeHeightMm: 7.8,
     barcodeFontPt: 5.8,
@@ -109,28 +256,335 @@ export const PRINT_FORMAT_CONFIG: Record<LabelPrinterProfile, PrintFormatConfig>
     priceFontPt: 7.5,
     skuFontPt: 5.6,
     isThermalRoll: true,
+    isSheet: false,
   },
-  /** ─── A4 GRID (Horizontal Landscape) ─── */
-  a4: {
-    pageWidthMm: 297,
-    pageHeightMm: 210,
+  /** 2. 58 × 30 mm — Landscape */
+  "58x30": {
+    id: "58x30",
+    name: "58 × 30 mm",
+    shortLabel: "58×30mm",
+    pageWidthMm: 58,
+    pageHeightMm: 30,
+    pageMarginMm: 0,
+    labelWidthMm: 58,
+    labelHeightMm: 30,
+    paddingTopMm: 0.8,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 0.6,
+    barcodeBarWidthPx: 1.2,
+    barcodeHeightMm: 9.5,
+    barcodeFontPt: 6.2,
+    brandFontPt: 7.0,
+    nameFontPt: 7.5,
+    priceFontPt: 8.2,
+    skuFontPt: 6.0,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 3. 58 × 40 mm — Landscape */
+  "58x40": {
+    id: "58x40",
+    name: "58 × 40 mm",
+    shortLabel: "58×40mm",
+    pageWidthMm: 58,
+    pageHeightMm: 40,
+    pageMarginMm: 0,
+    labelWidthMm: 58,
+    labelHeightMm: 40,
+    paddingTopMm: 1.0,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 0.8,
+    barcodeBarWidthPx: 1.2,
+    barcodeHeightMm: 13.0,
+    barcodeFontPt: 6.8,
+    brandFontPt: 7.8,
+    nameFontPt: 8.5,
+    priceFontPt: 9.5,
+    skuFontPt: 6.8,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 4. 58 × 50 mm — Landscape */
+  "58x50": {
+    id: "58x50",
+    name: "58 × 50 mm",
+    shortLabel: "58×50mm",
+    pageWidthMm: 58,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 58,
+    labelHeightMm: 50,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 1.8,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.2,
+    barcodeHeightMm: 16.0,
+    barcodeFontPt: 7.2,
+    brandFontPt: 8.2,
+    nameFontPt: 9.0,
+    priceFontPt: 10.0,
+    skuFontPt: 7.2,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 5. 80 × 50 mm — Landscape */
+  "80x50": {
+    id: "80x50",
+    name: "80 × 50 mm",
+    shortLabel: "80×50mm",
+    pageWidthMm: 80,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 80,
+    labelHeightMm: 50,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 2.0,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.4,
+    barcodeHeightMm: 16.5,
+    barcodeFontPt: 7.8,
+    brandFontPt: 9.0,
+    nameFontPt: 10.0,
+    priceFontPt: 11.0,
+    skuFontPt: 7.8,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 6. 100 × 50 mm — Landscape */
+  "100x50": {
+    id: "100x50",
+    name: "100 × 50 mm",
+    shortLabel: "100×50mm",
+    pageWidthMm: 100,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 100,
+    labelHeightMm: 50,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 2.2,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.5,
+    barcodeHeightMm: 17.0,
+    barcodeFontPt: 8.2,
+    brandFontPt: 9.5,
+    nameFontPt: 10.5,
+    priceFontPt: 11.5,
+    skuFontPt: 8.2,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 7. 108 × 50 mm — Landscape */
+  "108x50": {
+    id: "108x50",
+    name: "108 × 50 mm",
+    shortLabel: "108×50mm",
+    pageWidthMm: 108,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 108,
+    labelHeightMm: 50,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 2.5,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.5,
+    barcodeHeightMm: 17.5,
+    barcodeFontPt: 8.5,
+    brandFontPt: 10.0,
+    nameFontPt: 11.0,
+    priceFontPt: 12.0,
+    skuFontPt: 8.5,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 8. 108 × 75 mm — Landscape */
+  "108x75": {
+    id: "108x75",
+    name: "108 × 75 mm",
+    shortLabel: "108×75mm",
+    pageWidthMm: 108,
+    pageHeightMm: 75,
+    pageMarginMm: 0,
+    labelWidthMm: 108,
+    labelHeightMm: 75,
+    paddingTopMm: 1.5,
+    paddingHorizMm: 3.0,
+    paddingBottomMm: 1.2,
+    barcodeBarWidthPx: 1.6,
+    barcodeHeightMm: 26.0,
+    barcodeFontPt: 9.5,
+    brandFontPt: 11.5,
+    nameFontPt: 13.0,
+    priceFontPt: 14.0,
+    skuFontPt: 9.5,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 9. A4 — 3 × 8 Grid (24 labels per sheet) */
+  "a4-3x8": {
+    id: "a4-3x8",
+    name: "A4 — 3 × 8",
+    shortLabel: "A4 3×8",
+    pageWidthMm: 210,
+    pageHeightMm: 297,
     pageMarginMm: 8,
+    labelWidthMm: 64.0,
+    labelHeightMm: 33.5,
+    paddingTopMm: 0.8,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 0.6,
+    gridColumns: 3,
+    gridRows: 8,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 10.5,
+    barcodeFontPt: 6.2,
+    brandFontPt: 7.0,
+    nameFontPt: 7.5,
+    priceFontPt: 8.2,
+    skuFontPt: 6.0,
+    isThermalRoll: false,
+    isSheet: true,
+  },
+  /** 10. A4 — 4 × 10 Grid (40 labels per sheet) */
+  "a4-4x10": {
+    id: "a4-4x10",
+    name: "A4 — 4 × 10",
+    shortLabel: "A4 4×10",
+    pageWidthMm: 210,
+    pageHeightMm: 297,
+    pageMarginMm: 8,
+    labelWidthMm: 48.5,
+    labelHeightMm: 26.5,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
+    gridColumns: 4,
+    gridRows: 10,
+    barcodeBarWidthPx: 1.0,
+    barcodeHeightMm: 8.0,
+    barcodeFontPt: 5.6,
+    brandFontPt: 6.0,
+    nameFontPt: 6.5,
+    priceFontPt: 7.2,
+    skuFontPt: 5.5,
+    isThermalRoll: false,
+    isSheet: true,
+  },
+  // Legacy aliases
+  "thermal-58": {
+    id: "50x25",
+    name: "50 × 25 mm",
+    shortLabel: "50×25mm",
+    pageWidthMm: 50,
+    pageHeightMm: 25,
+    pageMarginMm: 0,
     labelWidthMm: 50,
     labelHeightMm: 25,
     paddingTopMm: 0.6,
     paddingHorizMm: 1.2,
     paddingBottomMm: 0.5,
-    gridColumns: 5,
-    barcodeBarWidthPx: 1.0,
-    barcodeHeightMm: 7.5,
+    barcodeBarWidthPx: 1.1,
+    barcodeHeightMm: 7.8,
     barcodeFontPt: 5.8,
     brandFontPt: 6.2,
     nameFontPt: 6.8,
     priceFontPt: 7.5,
     skuFontPt: 5.6,
-    isThermalRoll: false,
+    isThermalRoll: true,
+    isSheet: false,
   },
-} as const;
+  "thermal-108": {
+    id: "108x50",
+    name: "108 × 50 mm",
+    shortLabel: "108×50mm",
+    pageWidthMm: 108,
+    pageHeightMm: 50,
+    pageMarginMm: 0,
+    labelWidthMm: 108,
+    labelHeightMm: 50,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 2.5,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.5,
+    barcodeHeightMm: 17.5,
+    barcodeFontPt: 8.5,
+    brandFontPt: 10.0,
+    nameFontPt: 11.0,
+    priceFontPt: 12.0,
+    skuFontPt: 8.5,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  a4: {
+    id: "a4-4x10",
+    name: "A4 — 4 × 10",
+    shortLabel: "A4 4×10",
+    pageWidthMm: 210,
+    pageHeightMm: 297,
+    pageMarginMm: 8,
+    labelWidthMm: 48.5,
+    labelHeightMm: 26.5,
+    paddingTopMm: 0.6,
+    paddingHorizMm: 1.2,
+    paddingBottomMm: 0.5,
+    gridColumns: 4,
+    gridRows: 10,
+    barcodeBarWidthPx: 1.0,
+    barcodeHeightMm: 8.0,
+    barcodeFontPt: 5.6,
+    brandFontPt: 6.0,
+    nameFontPt: 6.5,
+    priceFontPt: 7.2,
+    skuFontPt: 5.5,
+    isThermalRoll: false,
+    isSheet: true,
+  },
+};
+
+/**
+ * Resolves a complete, deterministic PrintFormatConfig for any layout profile,
+ * dynamically generating exact physical dimensions and scaled typography for custom sizes.
+ */
+export function resolvePrintFormatConfig(
+  layout?: LabelPrinterProfile,
+  customWidthMm?: number,
+  customHeightMm?: number,
+): PrintFormatConfig {
+  const profileKey = layout || "50x25";
+
+  if (profileKey === "custom") {
+    const w = Math.max(20, Math.min(200, Math.round(customWidthMm || 60)));
+    const h = Math.max(15, Math.min(200, Math.round(customHeightMm || 30)));
+
+    return {
+      id: "custom",
+      name: `Custom (${w} × ${h} mm)`,
+      shortLabel: `${w}×${h}mm`,
+      pageWidthMm: w,
+      pageHeightMm: h,
+      pageMarginMm: 0,
+      labelWidthMm: w,
+      labelHeightMm: h,
+      paddingTopMm: Math.max(0.5, Math.min(2.0, Number((h * 0.025).toFixed(1)))),
+      paddingHorizMm: Math.max(1.0, Math.min(3.5, Number((w * 0.025).toFixed(1)))),
+      paddingBottomMm: Math.max(0.4, Math.min(1.8, Number((h * 0.02).toFixed(1)))),
+      barcodeBarWidthPx: Math.max(0.9, Math.min(1.8, Number((w * 0.018).toFixed(1)))),
+      barcodeHeightMm: Math.max(6.0, Math.min(32.0, Number((h * 0.32).toFixed(1)))),
+      barcodeFontPt: Math.max(5.0, Math.min(11.0, Number((h * 0.16).toFixed(1)))),
+      brandFontPt: Math.max(5.5, Math.min(13.0, Number((h * 0.18).toFixed(1)))),
+      nameFontPt: Math.max(6.0, Math.min(15.0, Number((h * 0.2).toFixed(1)))),
+      priceFontPt: Math.max(6.5, Math.min(16.0, Number((h * 0.22).toFixed(1)))),
+      skuFontPt: Math.max(5.0, Math.min(11.0, Number((h * 0.15).toFixed(1)))),
+      isThermalRoll: true,
+      isSheet: false,
+    };
+  }
+
+  const existing = PRINT_FORMAT_CONFIG[profileKey];
+  if (existing) return existing;
+
+  // Fallback to standard 50x75 Portrait Default
+  return PRINT_FORMAT_CONFIG["50x75"] || PRINT_FORMAT_CONFIG["50x25"];
+}
 
 /* ================================================================== */
 /*  Persistent Printer Profile Helpers                                 */
@@ -143,18 +597,59 @@ export const LABEL_SHOW_MRP_KEY = "zerah_label_show_mrp";
 export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
 
-let memoryProfile: LabelPrinterProfile = "thermal-58";
+let memoryProfile: LabelPrinterProfile = "50x75";
 let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
 let memoryShowSellPrice = true;
 let memorySeparatePrice = true;
+let memoryCustomWidthMm = 50;
+let memoryCustomHeightMm = 75;
+
+export const CUSTOM_LABEL_WIDTH_KEY = "zerah_custom_label_width_mm";
+export const CUSTOM_LABEL_HEIGHT_KEY = "zerah_custom_label_height_mm";
+
+export function getSavedCustomDimensions(): { widthMm: number; heightMm: number } {
+  if (typeof window !== "undefined") {
+    try {
+      const w = parseFloat(localStorage.getItem(CUSTOM_LABEL_WIDTH_KEY) || "");
+      const h = parseFloat(localStorage.getItem(CUSTOM_LABEL_HEIGHT_KEY) || "");
+      return {
+        widthMm: !isNaN(w) && w >= 20 && w <= 200 ? w : memoryCustomWidthMm,
+        heightMm: !isNaN(h) && h >= 15 && h <= 200 ? h : memoryCustomHeightMm,
+      };
+    } catch {
+      /* ignore */
+    }
+  }
+  return { widthMm: memoryCustomWidthMm, heightMm: memoryCustomHeightMm };
+}
+
+export function setSavedCustomDimensions(widthMm: number, heightMm: number): void {
+  const safeW = Math.max(20, Math.min(200, Math.round(widthMm)));
+  const safeH = Math.max(15, Math.min(200, Math.round(heightMm)));
+  memoryCustomWidthMm = safeW;
+  memoryCustomHeightMm = safeH;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(CUSTOM_LABEL_WIDTH_KEY, String(safeW));
+      localStorage.setItem(CUSTOM_LABEL_HEIGHT_KEY, String(safeH));
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 export function getSavedLabelProfile(): LabelPrinterProfile {
   if (typeof window !== "undefined") {
     try {
-      const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY);
-      if (saved === "thermal-58" || saved === "thermal-108" || saved === "a4") return saved;
+      const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY) as LabelPrinterProfile | null;
+      if (saved) {
+        if (saved === "thermal-58" || saved === "50x25") return "50x75"; // migrate default to portrait
+        if (saved === "thermal-108") return "108x75";
+        if (saved === "a4") return "a4-4x10";
+        if (LABEL_SIZE_OPTIONS.some((o) => o.id === saved)) return saved;
+      }
     } catch {
       /* ignore */
     }
@@ -483,6 +978,8 @@ export type BuildLabelPrintOptions = {
   products: (Product | PrintableProduct)[];
   quantities?: Record<string, number>;
   layout?: LabelPrinterProfile;
+  customWidthMm?: number;
+  customHeightMm?: number;
   labelType?: LabelType;
   showDiscount?: boolean;
   showMrp?: boolean;
@@ -500,7 +997,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   const {
     products,
     quantities = {},
-    layout = "thermal-58",
+    layout = "50x25",
+    customWidthMm,
+    customHeightMm,
     labelType = "full",
     showDiscount = false,
     showMrp = true,
@@ -509,16 +1008,11 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     isStandaloneTab = false,
   } = params;
 
-  const cfg = PRINT_FORMAT_CONFIG[layout] || PRINT_FORMAT_CONFIG["thermal-58"];
+  const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
   const rawProducts = Array.isArray(products) ? products : [products];
 
-  // Map layout profile to isolated print mode class
-  const modeClass =
-    layout === "thermal-108"
-      ? "print-mode-108mm"
-      : layout === "a4"
-        ? "print-mode-a4"
-        : "print-mode-50x25";
+  // Isolated print mode class
+  const modeClass = cfg.isSheet ? "print-mode-sheet" : "print-mode-thermal";
 
   // ── 1. Flatten products × quantities into ordered label list ──────
   const labels: PrintableProduct[] = [];
@@ -555,10 +1049,11 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const productName = (p.name || "").toString().trim();
     const brandValue = (p.brand || "ZERAH").toString().trim().toUpperCase();
     const sizeValue = (p.size || p.ageGroup || "--").toString().trim();
+    const bottomBrand = brandValue || "ZÉRAH BABY & KIDS";
 
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
-      heightMm: labelType === "barcode-only" ? cfg.barcodeHeightMm * 1.5 : cfg.barcodeHeightMm,
+      heightMm: labelType === "barcode-only" ? Math.max(16, cfg.barcodeHeightMm * 1.5) : cfg.barcodeHeightMm,
       fontPt: cfg.barcodeFontPt,
       displayValue: true,
       maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
@@ -566,9 +1061,14 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     if (labelType === "barcode-only") {
       return [
-        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-sku">SKU: ${escapeHtml(p.sku || p.barcode || "—")}</div>`,
+        `<div class="lbl-v-stack lbl-barcode-only">`,
+        `  <div class="lbl-brand-header">ZÉRAH BABY &amp; KIDS</div>`,
+        `  <div class="lbl-bc-section">`,
+        `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
+        `  </div>`,
+        `  <div class="lbl-sku-line">SKU: ${escapeHtml(artNoValue)}</div>`,
+        `  <div class="lbl-brand-footer">${escapeHtml(bottomBrand)}</div>`,
+        `</div>`,
       ].join("");
     }
 
@@ -578,58 +1078,44 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       : 0;
     const discBadge =
       showDiscount && hasDiscount && discountPct > 0
-        ? `<span class="lbl-disc-pct">(-${discountPct}%)</span>`
+        ? `<span class="lbl-disc-badge">(-${discountPct}%)</span>`
         : "";
 
-    // Price section
-    let priceSection = "";
-    if (showMrp && showSellPrice) {
-      priceSection = [
-        `<div class="lbl-prices-stacked">`,
-        `  <span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`,
-        `  <span class="lbl-sell-bold">Price: ${priceFormatted} ${discBadge}</span>`,
-        `</div>`,
-      ].join("");
-    } else if (showSellPrice) {
-      priceSection = `<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`;
-    } else {
-      priceSection = `<span class="lbl-mrp-bold">MRP: ${mrpFormatted} ${discBadge}</span>`;
-    }
-
-    const sizeSnippet = `<span class="lbl-size-badge">Size: ${escapeHtml(sizeValue || "--")}</span>`;
-
-    const artNoSnippet =
-      artNoValue && artNoValue !== p.sku && artNoValue !== "—" ? `Art: ${escapeHtml(artNoValue)} &bull; ` : "";
-
-    if (separatePriceLine && (showMrp || showSellPrice)) {
-      const priceItems: string[] = [];
-      if (showMrp) priceItems.push(`<span class="lbl-mrp-strike">MRP: ${mrpFormatted}</span>`);
-      if (showSellPrice)
-        priceItems.push(`<span class="lbl-sell-bold">Price: ${priceFormatted}</span>`);
-      if (discBadge) priceItems.push(discBadge);
-
-      return [
-        `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-        `<div class="lbl-name-standalone">${escapeHtml(productName)}</div>`,
-        `<div class="lbl-price-row">${priceItems.join("&nbsp; ")}</div>`,
-        `<div class="lbl-bc">${barcodeSvg}</div>`,
-        `<div class="lbl-meta-bottom">`,
-        `  <span class="lbl-sku-text">${artNoSnippet}SKU: ${escapeHtml(p.sku || p.barcode || "—")}</span>`,
-        `  ${sizeSnippet}`,
-        `</div>`,
-      ].join("");
-    }
+    // Optional offer price row if enabled and lower than MRP
+    const offerPriceRow =
+      showSellPrice && p.price > 0 && p.price < effectiveMrp
+        ? `<div class="lbl-offer-line"><span class="lbl-offer-key">Price:</span> <span class="lbl-offer-val">${priceFormatted}</span> ${discBadge}</div>`
+        : "";
 
     return [
-      `<div class="lbl-brand">ZÉRAH BABY &amp; KIDS</div>`,
-      `<div class="lbl-row-middle">`,
-      `  <div class="lbl-name">${escapeHtml(productName)}</div>`,
-      priceSection ? `  <div class="lbl-price-container">${priceSection}</div>` : "",
-      `</div>`,
-      `<div class="lbl-bc">${barcodeSvg}</div>`,
-      `<div class="lbl-meta-bottom">`,
-      `  <span class="lbl-sku-text">${artNoSnippet}SKU: ${escapeHtml(p.sku || p.barcode || "—")}</span>`,
-      `  ${sizeSnippet}`,
+      `<div class="lbl-v-stack">`,
+      `  <div class="lbl-field">`,
+      `    <div class="lbl-key">Art No:</div>`,
+      `    <div class="lbl-val lbl-art">${escapeHtml(artNoValue)}</div>`,
+      `  </div>`,
+      `  <div class="lbl-field">`,
+      `    <div class="lbl-key">Product:</div>`,
+      `    <div class="lbl-val lbl-product">${escapeHtml(productName)}</div>`,
+      `  </div>`,
+      `  <div class="lbl-field">`,
+      `    <div class="lbl-key">Brand:</div>`,
+      `    <div class="lbl-val lbl-brand">${escapeHtml(brandValue)}</div>`,
+      `  </div>`,
+      `  <div class="lbl-field">`,
+      `    <div class="lbl-key">Size:</div>`,
+      `    <div class="lbl-val lbl-size">${escapeHtml(sizeValue)}</div>`,
+      `  </div>`,
+      `  <div class="lbl-field lbl-mrp-group">`,
+      `    <div class="lbl-key">M.R.P.:</div>`,
+      `    <div class="lbl-mrp-val">${mrpFormatted}</div>`,
+      `    <div class="lbl-tax-note">(Inclusive of All Taxes)</div>`,
+      offerPriceRow ? `    ${offerPriceRow}` : "",
+      `  </div>`,
+      `  <div class="lbl-divider"></div>`,
+      `  <div class="lbl-bc-section">`,
+      `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
+      `    <div class="lbl-brand-footer">ZÉRAH BABY &amp; KIDS</div>`,
+      `  </div>`,
       `</div>`,
     ].join("");
   };
@@ -637,7 +1123,54 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   // ── 3. Build HTML Structure ───────────────────────────────────────
   let pagesHtml = "";
 
-  if (cfg.isThermalRoll) {
+  if (cfg.isSheet) {
+    // A4 grid sheet layout with multi-sheet pagination
+    const cols = cfg.gridColumns || 3;
+    const rows = cfg.gridRows || 8;
+    const labelsPerSheet = cols * rows;
+    const sheets: PrintableProduct[][] = [];
+    for (let i = 0; i < labels.length; i += labelsPerSheet) {
+      sheets.push(labels.slice(i, i + labelsPerSheet));
+    }
+
+    if (isStandaloneTab) {
+      pagesHtml = sheets
+        .map(
+          (sheetLabels, sIdx) => `
+        <div class="a4-sheet-wrapper" data-sheet-index="${sIdx + 1}">
+          <div class="sticker-dim-badge no-print">A4 Sheet #${sIdx + 1} (${cols} × ${rows} Grid • ${sheetLabels.length} Label${sheetLabels.length !== 1 ? "s" : ""})</div>
+          <div class="a4-sheet sheet-card">
+            ${sheetLabels
+              .map(
+                (p, idx) => `
+              <div class="label-cell" data-label-index="${sIdx * labelsPerSheet + idx + 1}">
+                <div class="label-inner">${renderLabelContent(p)}</div>
+              </div>`,
+              )
+              .join("\n")}
+          </div>
+        </div>`,
+        )
+        .join("\n");
+    } else {
+      pagesHtml = sheets
+        .map(
+          (sheetLabels, sIdx) => `
+        <div class="a4-sheet" data-sheet-index="${sIdx + 1}">
+          ${sheetLabels
+            .map(
+              (p, idx) => `
+            <div class="label-cell" data-label-index="${sIdx * labelsPerSheet + idx + 1}">
+              <div class="label-inner">${renderLabelContent(p)}</div>
+            </div>`,
+            )
+            .join("\n")}
+        </div>`,
+        )
+        .join("\n");
+    }
+  } else {
+    // Thermal Roll: 1 label = exactly 1 physical sticker
     if (isStandaloneTab) {
       pagesHtml = labels
         .map(
@@ -660,23 +1193,13 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         )
         .join("\n");
     }
-  } else {
-    // A4 grid layout
-    const cells = labels
-      .map(
-        (p, idx) => `
-      <div class="label-cell" data-label-index="${idx + 1}">
-        <div class="label-inner">${renderLabelContent(p)}</div>
-      </div>`,
-      )
-      .join("\n");
-
-    pagesHtml = `<div class="label-grid">${cells}</div>`;
   }
 
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
-  const pageSizeDecl = cfg.isThermalRoll ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm` : "A4 landscape";
-  const pageMarginDecl = cfg.isThermalRoll ? "0" : `${cfg.pageMarginMm}mm`;
+  const pageSizeDecl = cfg.isSheet
+    ? "A4 portrait"
+    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm portrait`;
+  const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
     /* ── Reset ── */
@@ -686,234 +1209,225 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       padding: 0;
     }
 
-    /* ── Exact Physical Page Dimensions (Strictly isolated per format) ── */
+    /* ── Exact Physical Page Dimensions (Strictly portrait isolated) ── */
     @page {
+      size: portrait;
       size: ${pageSizeDecl};
       margin: ${pageMarginDecl};
     }
 
-    /* ── Label Typography & Layout Tokens ── */
-    /* ── Label Typography & Layout Tokens ── */
+    /* ── Label Container & Typography ── */
+    .label-page {
+      width: ${cfg.pageWidthMm}mm;
+      min-height: ${cfg.pageHeightMm}mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+
     .label-inner {
       width: 100%;
-      height: 100%;
-      max-height: 100%;
+      min-height: ${cfg.pageHeightMm}mm;
+      box-sizing: border-box;
       padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      overflow: hidden;
+      justify-content: flex-start;
       background: #ffffff;
-      box-sizing: border-box;
-      font-family: Arial, Helvetica, sans-serif;
+      text-align: center;
+      font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* ── Row 1: Brand Header (ZÉRAH BABY & KIDS on TOP) ── */
-    .lbl-brand {
+    .lbl-v-stack {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .lbl-brand-header {
       font-size: ${cfg.brandFontPt}pt;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #222222;
-      line-height: 1;
-      width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    /* ── Row 2: Product Name (Left) + Prices (Right) ── */
-    .lbl-row-middle {
-      display: flex;
-      flex-direction: row;
-      align-items: baseline;
-      justify-content: space-between;
-      width: 100%;
-      gap: 1.5mm;
-      overflow: hidden;
-      flex-shrink: 0;
-      margin-top: 0.2mm;
-      margin-bottom: 0.2mm;
-    }
-
-    .lbl-name {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 700;
       color: #000000;
-      line-height: 1.15;
-      text-align: left;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      margin-bottom: 2mm;
     }
 
-    .lbl-name-standalone {
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 700;
-      color: #000000;
-      line-height: 1.15;
+    .lbl-sku-line {
+      font-size: ${cfg.skuFontPt}pt;
+      font-weight: 800;
+      color: #111111;
+      margin-top: 1mm;
+    }
+
+    .lbl-field {
       width: 100%;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 0;
-    }
-
-    .lbl-price-row {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      gap: 1.5mm;
-      line-height: 1;
-      flex-shrink: 0;
-      margin: 0.2mm 0;
-    }
-
-    .lbl-price-container {
-      display: flex;
-      align-items: baseline;
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-
-    .lbl-prices-stacked {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      text-align: right;
+      align-items: center;
+      margin-bottom: 0.7mm;
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    .lbl-key {
+      font-size: ${cfg.skuFontPt * 0.9}pt;
+      font-weight: 700;
+      color: #444444;
+      letter-spacing: 0.03em;
       line-height: 1.1;
-      flex-shrink: 0;
+      text-transform: none;
     }
 
-    .lbl-mrp-strike {
-      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
-      font-weight: 600;
-      color: #555555;
-      text-decoration: line-through;
-      white-space: nowrap;
+    .lbl-val {
+      font-size: ${cfg.nameFontPt}pt;
+      font-weight: 800;
+      color: #000000;
+      line-height: 1.2;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
 
-    .lbl-sell-bold,
-    .lbl-mrp-bold {
+    .lbl-art {
+      font-size: ${cfg.skuFontPt + 0.5}pt;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .lbl-product {
+      font-size: ${cfg.nameFontPt}pt;
+      font-weight: 800;
+      color: #000000;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      line-height: 1.2;
+      max-width: 100%;
+      padding: 0 0.5mm;
+    }
+
+    .lbl-brand {
+      font-size: ${cfg.brandFontPt}pt;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .lbl-size {
+      font-size: ${cfg.nameFontPt}pt;
+      font-weight: 800;
+    }
+
+    .lbl-mrp-group {
+      margin-top: 0.5mm;
+      margin-bottom: 0.5mm;
+    }
+
+    .lbl-mrp-val {
       font-size: ${cfg.priceFontPt}pt;
       font-weight: 900;
       color: #000000;
-      white-space: nowrap;
+      line-height: 1.05;
       letter-spacing: -0.01em;
+      margin-top: 0.2mm;
     }
 
-    .lbl-disc-pct {
-      font-size: ${Math.round(cfg.priceFontPt * 0.85)}pt;
+    .lbl-tax-note {
+      font-size: ${Math.max(5.0, cfg.skuFontPt * 0.78)}pt;
+      font-weight: 600;
+      color: #444444;
+      line-height: 1;
+      margin-top: 0.4mm;
+    }
+
+    .lbl-offer-line {
+      margin-top: 0.4mm;
+      font-size: ${cfg.skuFontPt}pt;
+      font-weight: 700;
+      color: #000000;
+    }
+
+    .lbl-offer-key {
+      color: #444444;
+    }
+
+    .lbl-offer-val {
+      font-weight: 900;
+      color: #000000;
+    }
+
+    .lbl-disc-badge {
+      font-size: ${cfg.skuFontPt * 0.85}pt;
       font-weight: 800;
       color: #059669;
-      margin-left: 0.5mm;
+      margin-left: 0.8mm;
     }
 
-    /* ── Row 3: Barcode & Barcode Number ── */
-    .lbl-bc {
+    .lbl-divider {
+      width: 88%;
+      border-top: 1px dashed #000000;
+      margin: 1.2mm auto;
+    }
+
+    .lbl-bc-section {
       width: 100%;
-      flex: 1;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      overflow: hidden;
-      flex-shrink: 0;
-      margin: 0.2mm 0;
+      justify-content: center;
+      margin-top: 0.2mm;
     }
 
-    .lbl-bc svg {
+    .lbl-bc-box {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    .lbl-bc-box svg {
       display: block;
       margin: 0 auto;
-      max-width: 100%;
-      height: 100%;
-      max-height: ${cfg.barcodeHeightMm}mm;
+      max-width: 95%;
+      height: auto;
+      max-height: ${cfg.barcodeHeightMm + 4}mm;
+      shape-rendering: crispEdges;
     }
 
-    /* ── Row 4: SKU & Size Bottom Row ── */
-    .lbl-meta-bottom {
-      display: flex;
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: baseline;
-      width: 100%;
-      font-size: ${cfg.skuFontPt}pt;
-      color: #333333;
-      font-weight: 700;
-      line-height: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .lbl-sku-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .lbl-size-badge {
+    .lbl-brand-footer {
+      font-size: ${Math.max(5.5, cfg.brandFontPt * 0.85)}pt;
       font-weight: 800;
-      color: #000000;
-      margin-left: 1mm;
-      flex-shrink: 0;
-    }
-
-    .lbl-sku {
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 700;
-      color: #444444;
-      width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-align: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #111111;
+      margin-top: 0.8mm;
       line-height: 1;
-      flex-shrink: 0;
+      text-align: center;
+      width: 100%;
     }
 
-    /* ── Mode-Specific Dimensions (Screen & Print Baseline) ── */
-    .print-mode-50x25 .label-page {
-      width: 50mm;
-      height: 25mm;
-      max-width: 50mm;
-      max-height: 25mm;
-      box-sizing: border-box;
-      background: #ffffff;
-      overflow: hidden;
-      margin: 0 auto;
-    }
-
-    .print-mode-108mm .label-page {
-      width: 100mm;
-      height: 25mm;
-      max-width: 100mm;
-      max-height: 25mm;
-      box-sizing: border-box;
-      background: #ffffff;
-      overflow: hidden;
-      margin: 0 auto;
-    }
-
-    .print-mode-a4 .label-grid {
+    .a4-sheet {
+      width: 198mm;
+      height: 281mm;
+      max-height: 281mm;
       display: grid;
-      grid-template-columns: repeat(${cfg.gridColumns}, 1fr);
+      grid-template-columns: repeat(${cfg.gridColumns || 3}, 1fr);
+      grid-template-rows: repeat(${cfg.gridRows || 8}, 1fr);
       gap: 1.5mm;
-      width: 280mm;
-      margin: 0 auto;
       box-sizing: border-box;
+      background: #ffffff;
+      overflow: hidden;
+      margin: 0 auto;
     }
 
-    .print-mode-a4 .label-cell {
-      height: ${cfg.labelHeightMm}mm;
-      max-height: ${cfg.labelHeightMm}mm;
+    .label-cell {
+      height: 100%;
+      max-height: 100%;
       overflow: hidden;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1045,7 +1559,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         gap: 24px;
       }
 
-      .sticker-preview-wrapper {
+      .sticker-preview-wrapper,
+      .a4-sheet-wrapper {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1060,7 +1575,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         text-transform: uppercase;
       }
 
-      .sticker-card {
+      .sticker-card,
+      .sheet-card {
         border-radius: 3px;
         box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
         position: relative;
@@ -1069,6 +1585,12 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     /* ── Strict Physical Print Styling (@media print) ── */
     @media print {
+      @page {
+        size: portrait;
+        size: ${pageSizeDecl};
+        margin: ${pageMarginDecl};
+      }
+
       .no-print,
       .standalone-toolbar,
       .sticker-dim-badge {
@@ -1097,18 +1619,21 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         width: auto !important;
       }
 
-      .sticker-preview-wrapper {
+      .sticker-preview-wrapper,
+      .a4-sheet-wrapper {
         display: contents !important;
       }
 
-      .sticker-card {
+      .sticker-card,
+      .sheet-card {
         box-shadow: none !important;
         border-radius: 0 !important;
       }
 
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
-      .print-mode-50x25 .label-page,
-      .print-mode-108mm .label-page {
+      .label-page {
+        width: ${cfg.pageWidthMm}mm !important;
+        min-height: ${cfg.pageHeightMm}mm !important;
         page-break-after: always !important;
         break-after: page !important;
         page-break-inside: avoid !important;
@@ -1119,14 +1644,30 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       }
 
       /* Suppress trailing page break on final label to prevent extra blank stickers */
-      .print-mode-50x25 .label-page:last-child,
-      .print-mode-108mm .label-page:last-child,
+      .label-page:last-child,
       .sticker-preview-wrapper:last-child .label-page {
         page-break-after: auto !important;
         break-after: auto !important;
       }
 
-      .print-mode-a4 .label-cell {
+      /* ── A4 Sheet Page Breaks ── */
+      .a4-sheet {
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+      }
+
+      .a4-sheet:last-child,
+      .a4-sheet-wrapper:last-child .a4-sheet {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+
+      .label-cell {
         border: none !important;
       }
     }
@@ -1140,10 +1681,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     <div class="toolbar-info">
       <div class="toolbar-title">
         <span>ZÉRAH BABY &amp; KIDS</span>
-        <span class="toolbar-badge">${cfg.labelWidthMm}×${cfg.labelHeightMm}mm ${cfg.isThermalRoll ? "Thermal Sticker" : "A4 Sheet"}</span>
+        <span class="toolbar-badge">${cfg.name}</span>
       </div>
       <div class="toolbar-hint">
-        ${labels.length} label${labels.length !== 1 ? "s" : ""} ready • In print dialog: Set Paper Size to ${cfg.labelWidthMm}×${cfg.labelHeightMm}mm (or 2"×1"), Margins: None
+        ${labels.length} label${labels.length !== 1 ? "s" : ""} ready • Paper Size: ${cfg.name}, Margins: None
       </div>
     </div>
     <div class="toolbar-actions">
@@ -1194,7 +1735,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Zerah Labels – ${cfg.labelWidthMm}×${cfg.labelHeightMm}mm (${labels.length})</title>
+  <title>Zerah Labels – ${cfg.name} (${labels.length})</title>
   <style>${css}</style>
 </head>
 <body class="${modeClass}">
@@ -1221,6 +1762,8 @@ export function openLabelPrintInNewTab(params: {
   products: (Product | PrintableProduct)[];
   quantities?: Record<string, number>;
   layout?: LabelPrinterProfile;
+  customWidthMm?: number;
+  customHeightMm?: number;
   labelType?: LabelType;
   showDiscount?: boolean;
   showMrp?: boolean;
@@ -1250,7 +1793,9 @@ export function openLabelPrintInNewTab(params: {
     const html = buildLabelPrintHtml({
       products: rawProducts,
       quantities,
-      layout: params.layout || "thermal-58",
+      layout: params.layout || getSavedLabelProfile(),
+      customWidthMm: params.customWidthMm,
+      customHeightMm: params.customHeightMm,
       labelType: params.labelType || "full",
       showDiscount: params.showDiscount ?? false,
       showMrp: params.showMrp ?? true,
@@ -1286,6 +1831,8 @@ export function printProductLabels(params: {
   products: (Product | PrintableProduct)[];
   quantities?: Record<string, number>;
   layout?: LabelPrinterProfile;
+  customWidthMm?: number;
+  customHeightMm?: number;
   labelType?: LabelType;
   showDiscount?: boolean;
   showMrp?: boolean;
@@ -1323,7 +1870,9 @@ export function printProductLabels(params: {
   const html = buildLabelPrintHtml({
     products: rawProducts,
     quantities,
-    layout: params.layout || "thermal-58",
+    layout: params.layout || getSavedLabelProfile(),
+    customWidthMm: params.customWidthMm,
+    customHeightMm: params.customHeightMm,
     labelType: params.labelType || "full",
     showDiscount: params.showDiscount ?? false,
     showMrp: params.showMrp ?? true,
@@ -1444,6 +1993,8 @@ export async function triggerDirectLabelPrint(
     quantity?: number;
     quantities?: Record<string, number>;
     layout?: LabelPrinterProfile;
+    customWidthMm?: number;
+    customHeightMm?: number;
     labelType?: LabelType;
     showDiscount?: boolean;
     showMrp?: boolean;
@@ -1464,6 +2015,8 @@ export async function triggerDirectLabelPrint(
     products: rawProducts,
     quantities,
     layout: options?.layout,
+    customWidthMm: options?.customWidthMm,
+    customHeightMm: options?.customHeightMm,
     labelType: options?.labelType,
     showDiscount: options?.showDiscount,
     showMrp: options?.showMrp,
@@ -1486,6 +2039,8 @@ export function useDirectLabelPrint() {
         quantity?: number;
         quantities?: Record<string, number>;
         layout?: LabelPrinterProfile;
+        customWidthMm?: number;
+        customHeightMm?: number;
         labelType?: LabelType;
         showDiscount?: boolean;
         showMrp?: boolean;
@@ -1513,6 +2068,8 @@ export function useDirectLabelPrint() {
         products: rawProducts,
         quantities,
         layout: options?.layout,
+        customWidthMm: options?.customWidthMm,
+        customHeightMm: options?.customHeightMm,
         labelType: options?.labelType,
         showDiscount: options?.showDiscount,
         showMrp: options?.showMrp,

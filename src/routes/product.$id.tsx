@@ -58,15 +58,36 @@ import {
   calculateReviewStats,
   type Review,
 } from "@/lib/reviews";
-import { ReviewModal } from "@/components/site/ReviewModal";
-import { SizeGuideDrawer } from "@/components/site/SizeGuideDrawer";
+import { safeLazy } from "@/lib/safe-lazy";
+import { Suspense } from "react";
+import { useAdminMode } from "@/lib/admin-mode";
+
+const ReviewModal = safeLazy(() =>
+  import("@/components/site/ReviewModal").then((m) => ({ default: m.ReviewModal })),
+);
+const SizeGuideDrawer = safeLazy(() =>
+  import("@/components/site/SizeGuideDrawer").then((m) => ({ default: m.SizeGuideDrawer })),
+);
+const LazyAdminProductControls = safeLazy(() =>
+  import("@/components/admin/InlineAdmin").then((m) => ({ default: m.AdminProductControls })),
+);
+
+function AdminProductControls(props: { product: Product; inline?: boolean }) {
+  const { adminMode } = useAdminMode();
+  if (!adminMode) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyAdminProductControls {...props} />
+    </Suspense>
+  );
+}
+
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
 import { calculateCartFinancials } from "@/lib/pricing-engine";
 import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { ProductCard } from "@/components/site/ProductCard";
-import { AdminProductControls } from "@/components/admin/InlineAdmin";
 import { RelatedProducts } from "@/components/site/RelatedProducts";
 import { RecentlyViewed } from "@/components/site/RecentlyViewed";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
@@ -1220,11 +1241,15 @@ function ProductPage() {
       )}
 
       {/* Size Guide Drawer */}
-      <SizeGuideDrawer
-        isOpen={showSizeGuide}
-        onClose={() => setShowSizeGuide(false)}
-        ageGroup={product?.ageGroup}
-      />
+      {showSizeGuide && (
+        <Suspense fallback={null}>
+          <SizeGuideDrawer
+            isOpen={showSizeGuide}
+            onClose={() => setShowSizeGuide(false)}
+            ageGroup={product?.ageGroup}
+          />
+        </Suspense>
+      )}
 
       {/* Reviews Section */}
       {product && <ReviewsSection product={product} user={user} />}
@@ -1757,13 +1782,15 @@ function ReviewsSection({
 
       {/* Review Modal */}
       {showReviewModal && (
-        <ReviewModal
-          product={product}
-          user={user}
-          orderId={orderId}
-          existingReview={existingReview}
-          onClose={() => setShowReviewModal(false)}
-        />
+        <Suspense fallback={null}>
+          <ReviewModal
+            product={product}
+            user={user}
+            orderId={orderId}
+            existingReview={existingReview}
+            onClose={() => setShowReviewModal(false)}
+          />
+        </Suspense>
       )}
 
       {/* Full-Screen Photo Lightbox */}
@@ -1780,6 +1807,7 @@ function ReviewsSection({
               <button
                 type="button"
                 onClick={() => setSelectedPhoto(null)}
+                aria-label="Close enlarged photo"
                 className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white rounded-full bg-black/50 hover:bg-black/80 transition cursor-pointer"
               >
                 <X className="size-6" />
@@ -2167,6 +2195,7 @@ function BuyNowModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
+            aria-label="Close Quick Buy"
             className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             ✕

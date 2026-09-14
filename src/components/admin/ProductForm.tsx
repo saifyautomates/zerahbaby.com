@@ -256,7 +256,7 @@ const toDraft = (
     deliveryFee:
       (p?.salesChannel ?? defaultSalesChannel) === "OFFLINE_ONLY"
         ? 0
-        : (p?.deliveryFee ?? (p ? 0 : 79)),
+        : (p?.deliveryFee ?? 65),
     sku: p?.sku ?? "",
     barcode: p?.barcode ?? "",
     description: p?.description ?? "",
@@ -925,11 +925,35 @@ export function ProductForm({
           ? Math.round(Number(draft.price) * 1.5)
           : 0;
 
+    // Prune phantom "Default" variant if real explicit variants exist
+    const hasRealVariants = (draft.variants || []).some(
+      (v) =>
+        Boolean(v.color && v.color.trim()) ||
+        Boolean(v.size && v.size.trim()) ||
+        Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
+    );
+    const cleanedVariants = hasRealVariants
+      ? (draft.variants || []).filter(
+          (v) =>
+            !(
+              (!v.color || !v.color.trim()) &&
+              (!v.size || !v.size.trim()) &&
+              (!v.name || v.name.trim() === "Default")
+            ),
+        )
+      : draft.variants || [];
+
+    const finalStock = cleanedVariants.length > 0
+      ? cleanedVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : Number(draft.stock) || 0;
+
     // Auto-generate SKU and barcode if empty, sync primary image
     const finalDraft = {
       ...draft,
       slug: safeSlug,
       mrp: finalMrp,
+      variants: cleanedVariants,
+      stock: finalStock,
       images: validImages,
       imageUrl: validImages[0] || "",
       productImages:
@@ -983,7 +1007,7 @@ export function ProductForm({
           sortOrder: 0,
           lowStockAt: 2,
           ageGroup: "0-6m",
-          deliveryFee: 79,
+          deliveryFee: 65,
           salesChannel: "ONLINE_AND_OFFLINE",
           variants: [
             {
@@ -1657,7 +1681,7 @@ export function ProductForm({
                     <div className="flex flex-wrap items-center gap-1.5">
                       {[
                         { label: "Free (₹0)", value: 0 },
-                        { label: "Standard (₹79)", value: 79 },
+                        { label: "Standard (₹65)", value: 65 },
                         { label: "Express (₹149)", value: 149 },
                       ].map((opt) => (
                         <button
@@ -1684,7 +1708,7 @@ export function ProductForm({
                           className="h-8 w-full rounded-lg border border-border bg-background pl-6 pr-2 text-xs font-bold outline-none focus:border-primary"
                           value={
                             draft.deliveryFee === 0 ||
-                            draft.deliveryFee === 79 ||
+                            draft.deliveryFee === 65 ||
                             draft.deliveryFee === 149
                               ? ""
                               : draft.deliveryFee
@@ -1692,7 +1716,7 @@ export function ProductForm({
                           onChange={(e) =>
                             set(
                               "deliveryFee",
-                              e.target.value === "" ? 79 : Math.max(0, Number(e.target.value)),
+                              e.target.value === "" ? 65 : Math.max(0, Number(e.target.value)),
                             )
                           }
                         />
@@ -1757,20 +1781,30 @@ export function ProductForm({
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      set("variants", [
-                        ...draft.variants,
-                        {
-                          name: "",
-                          color: draft.colors[0] || null,
-                          size: "M",
-                          sku: generateSKU(draft.category, draft.colors[0], "M"),
-                          barcode: generateBarcode(),
-                          stock: 10,
-                          price_override: null,
-                        },
-                      ])
-                    }
+                    onClick={() => {
+                      const isSolePlaceholder =
+                        draft.variants.length === 1 &&
+                        draft.variants[0].name === "Default" &&
+                        !draft.variants[0].color &&
+                        !draft.variants[0].size;
+
+                      const newVar: ProductVariantDraft = {
+                        name: "",
+                        color: draft.colors[0] || null,
+                        size: "M",
+                        sku: generateSKU(draft.category, draft.colors[0], "M"),
+                        barcode: generateBarcode(),
+                        stock: 10,
+                        price_override: null,
+                      };
+
+                      const updated = isSolePlaceholder ? [newVar] : [...draft.variants, newVar];
+                      set("variants", updated);
+                      set(
+                        "stock",
+                        updated.reduce((sum, val) => sum + val.stock, 0),
+                      );
+                    }}
                     className="flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-bold hover:bg-primary hover:text-white transition cursor-pointer"
                   >
                     <Plus className="size-3" /> Add Single Variant

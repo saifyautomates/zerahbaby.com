@@ -1099,6 +1099,7 @@ export function POSReturnsTab() {
                         <button
                           type="button"
                           onClick={() => setProductScanQuery("")}
+                          aria-label="Clear barcode or SKU search"
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                         >
                           <X className="size-3.5" />
@@ -1309,6 +1310,7 @@ export function POSReturnsTab() {
                       <button
                         type="button"
                         onClick={() => setInvoiceScanQuery("")}
+                        aria-label="Clear invoice search"
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         <X className="size-3.5" />

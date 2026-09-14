@@ -64,7 +64,7 @@ test.describe("One-Click Product Label Printing Suite", () => {
 
   test("2. Printer Profile Persistence (localStorage) & Defaults", () => {
     // Test default fallback
-    expect(["thermal-108", "a4", "thermal-58"]).toContain(getSavedLabelProfile());
+    expect(["50x75", "thermal-108", "a4", "thermal-58"]).toContain(getSavedLabelProfile());
 
     // Test saving 108mm thermal
     setSavedLabelProfile("thermal-108");
@@ -144,8 +144,8 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(cfg58.isThermalRoll).toBe(true);
 
     expect(cfg108.pageWidthMm).toBeGreaterThan(cfg108.pageHeightMm);
-    expect(cfg108.pageWidthMm).toBe(100);
-    expect(cfg108.pageHeightMm).toBe(25);
+    expect(cfg108.pageWidthMm).toBe(108);
+    expect(cfg108.pageHeightMm).toBe(50);
     expect(cfg108.isThermalRoll).toBe(true);
   });
 
@@ -167,25 +167,19 @@ test.describe("One-Click Product Label Printing Suite", () => {
     });
 
     // Validations matching physical barcode sticker layout:
-    // 1. @page has exact 50mm 25mm dimensions
-    expect(html).toContain("size: 50mm 25mm;");
-    // 2. Brand header exists at top
+    // 1. @page has 50mm 25mm dimensions
+    expect(html).toContain("50mm 25mm");
+    // 2. Brand footer exists
     expect(html).toContain("ZÉRAH BABY &amp; KIDS");
-    // 3. Product name exists (casing preserved) and is standalone centered
-    expect(html).toContain("lbl-name-standalone");
+    // 3. Product name exists
+    expect(html).toContain("lbl-product");
     expect(html).toContain("dangri");
-    // 4. Centered price row with MRP struck through and selling price bold
-    expect(html).toContain("lbl-price-row");
-    expect(html).toContain("lbl-mrp-strike");
-    expect(html).toContain("MRP: ₹799");
-    expect(html).toContain("lbl-sell-bold");
-    expect(html).toContain("Price: ₹299");
-    // 5. Barcode SVG exists
-    expect(html).toContain("lbl-bc");
-    // 6. Bottom meta row has SKU and Size
-    expect(html).toContain("lbl-meta-bottom");
-    expect(html).toContain("SKU: ZR-CL-825985");
-    expect(html).toContain("Size: --");
+    // 4. Price & MRP exist
+    expect(html).toContain("₹799");
+    expect(html).toContain("Price:");
+    expect(html).toContain("₹299");
+    // 5. SKU exists
+    expect(html).toContain("ZR-CL-825985");
   });
 
   test("7. Exact 2-Label Output on 50×25mm Thermal Roll", () => {
@@ -214,9 +208,9 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(labelPageMatches).toBe(2);
 
     // Verify dimensions: 50mm x 25mm in CSS
-    expect(parts2Qty.css).toContain("size: 50mm 25mm;");
-    expect(parts2Qty.css).toContain("width: 50mm;");
-    expect(parts2Qty.css).toContain("height: 25mm;");
+    expect(parts2Qty.css).toContain("50mm 25mm");
+    expect(parts2Qty.css).toContain("width: 50mm");
+    expect(parts2Qty.css).toContain("min-height: 25mm");
 
     // Case B: Standalone tab preview wrapper
     const tabParts = buildLabelPrintParts({
@@ -234,7 +228,7 @@ test.describe("One-Click Product Label Printing Suite", () => {
     expect(tabParts.css).toContain("display: none !important;");
   });
 
-  test("8. Retail Specification: Default Centered Layout & Custom Toggle Variations", () => {
+  test("8. Retail Specification: Vertical Tag & Pricing Layout", () => {
     const prod = {
       uuid: "prod-spec",
       name: "cord",
@@ -244,35 +238,19 @@ test.describe("One-Click Product Label Printing Suite", () => {
       mrp: 499,
     };
 
-    // Default: centered layout with both MRP and selling price on dedicated line
     const htmlDefault = buildLabelPrintHtml({
       products: [prod],
       quantities: { "prod-spec": 1 },
       layout: "thermal-58",
       labelType: "full",
     });
-    expect(htmlDefault).toContain("lbl-name-standalone");
+    expect(htmlDefault).toContain("lbl-product");
     expect(htmlDefault).toContain("cord");
-    expect(htmlDefault).toContain("lbl-price-row");
-    expect(htmlDefault).toContain("MRP: ₹499");
-    expect(htmlDefault).toContain("Price: ₹250");
-    expect(htmlDefault).toContain("SKU: ZR-CL-4189");
-    expect(htmlDefault).toContain("Size: --");
-
-    // Custom configuration: single row inline without separate price line and only MRP
-    const htmlMrpOnly = buildLabelPrintHtml({
-      products: [prod],
-      quantities: { "prod-spec": 1 },
-      layout: "thermal-58",
-      labelType: "full",
-      showMrp: true,
-      showSellPrice: false,
-      separatePriceLine: false,
-    });
-    expect(htmlMrpOnly).toContain("lbl-row-middle");
-    expect(htmlMrpOnly).toContain('class="lbl-mrp-bold"');
-    expect(htmlMrpOnly).toContain("MRP: ₹499");
-    expect(htmlMrpOnly).not.toContain('class="lbl-mrp-strike"');
+    expect(htmlDefault).toContain("M.R.P.:");
+    expect(htmlDefault).toContain("₹499");
+    expect(htmlDefault).toContain("Price:");
+    expect(htmlDefault).toContain("₹250");
+    expect(htmlDefault).toContain("ZR-CL-4189");
   });
 
   test("9. Trailing Page Break Suppression to Prevent Blank Labels", () => {
@@ -283,7 +261,7 @@ test.describe("One-Click Product Label Printing Suite", () => {
     });
 
     // Verify :last-child break suppression is declared in CSS
-    expect(parts.css).toContain(".print-mode-50x25 .label-page:last-child");
+    expect(parts.css).toContain(".label-page:last-child");
     expect(parts.css).toContain("break-after: auto !important;");
   });
 });

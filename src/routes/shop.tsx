@@ -3,8 +3,24 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
-import { AdminAddProduct } from "@/components/admin/InlineAdmin";
 import { SlidersHorizontal, X, ChevronDown, ChevronUp, PackageSearch } from "lucide-react";
+import { safeLazy } from "@/lib/safe-lazy";
+import { Suspense } from "react";
+import { useAdminMode } from "@/lib/admin-mode";
+
+const LazyAdminAddProduct = safeLazy(() =>
+  import("@/components/admin/InlineAdmin").then((m) => ({ default: m.AdminAddProduct })),
+);
+
+function AdminAddProduct(props: { defaultCategory?: string; label?: string; className?: string }) {
+  const { adminMode } = useAdminMode();
+  if (!adminMode) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyAdminAddProduct {...props} />
+    </Suspense>
+  );
+}
 
 type ShopSearch = {
   category?: string | undefined;
@@ -474,6 +490,14 @@ function ShopPage() {
     return sorted;
   }, [list, category, q, selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
 
+  const [displayLimit, setDisplayLimit] = useState(24);
+
+  useEffect(() => {
+    setDisplayLimit(24);
+  }, [category, age, q, selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
+
+  const displayedProducts = useMemo(() => visible.slice(0, displayLimit), [visible, displayLimit]);
+
   const activeCategory = (categories ?? []).find((c) => c.slug === category);
   const hasAnyFilter = hasActiveFilters || !!category || !!q;
   const filterCount =
@@ -549,28 +573,27 @@ function ShopPage() {
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold transition hover:bg-muted lg:hidden whitespace-nowrap shrink-0 shadow-sm"
             >
               <SlidersHorizontal className="size-4" />
-              Filters
+              <span>Filters</span>
               {filterCount > 0 && (
-                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
                   {filterCount}
                 </span>
               )}
             </button>
-            {/* Sort */}
-            <label className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap shrink-0 ml-auto md:ml-0">
-              <span className="hidden md:inline">Sort</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="rounded-full border border-border bg-card px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-primary shadow-sm"
-              >
-                <option value="popular">Popularity</option>
-                <option value="rating">Rating</option>
-                <option value="newest">Newest</option>
-                <option value="low">Price: low → high</option>
-                <option value="high">Price: high → low</option>
-              </select>
-            </label>
+
+            {/* Sort dropdown */}
+            <select
+              aria-label="Sort products by"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold transition hover:bg-muted focus-ring shadow-sm"
+            >
+              <option value="popular">Most popular</option>
+              <option value="rating">Highest rated</option>
+              <option value="newest">Newest arrivals</option>
+              <option value="low">Price: Low to high</option>
+              <option value="high">Price: High to low</option>
+            </select>
           </div>
         </div>
       </div>
@@ -638,11 +661,27 @@ function ShopPage() {
           ) : visible.length === 0 ? (
             <EmptyState hasFilters={hasAnyFilter} />
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {visible.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+                {displayedProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              {visible.length > displayLimit && (
+                <div className="mt-8 flex flex-col items-center justify-center gap-2">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Showing {displayLimit} of {visible.length} products
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayLimit((prev) => prev + 24)}
+                    className="rounded-full border border-border bg-card hover:bg-muted px-6 py-2.5 text-xs sm:text-sm font-semibold text-foreground transition shadow-2xs cursor-pointer"
+                  >
+                    Load More Products
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

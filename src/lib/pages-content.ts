@@ -181,7 +181,7 @@ export const DEFAULT_SHIPPING_DELIVERY: PolicyPageContent = {
       id: "sec-2",
       title: "2. Shipping Rates & Free Delivery",
       content:
-        "Standard delivery fee across India is ₹79. We offer 100% FREE Delivery on all orders above ₹999 or for specially marked Free Delivery items. Exact delivery rates are calculated and shown upfront before checkout.",
+        "Standard delivery fee across India is ₹65. We offer 100% FREE Delivery on all orders above ₹999 or for specially marked Free Delivery items. Exact delivery rates are calculated and shown upfront before checkout.",
     },
     {
       id: "sec-3",

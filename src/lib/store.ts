@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import clothing from "@/assets/cat-clothing.jpg";
@@ -83,6 +84,7 @@ type ProductRow = {
         size?: string | null;
         barcode?: string | null;
         image_url?: string | null;
+        is_active?: boolean;
         conflict_reconciliation_needed?: boolean;
       }[]
     | null;
@@ -210,6 +212,32 @@ export const mapProduct = (row: ProductRow): Product => {
     product_images: row.product_images,
   });
 
+  // Normalize variants: exclude inactive, and exclude phantom Default variant if real variants exist
+  const rawVariants = (row.product_variants || []).filter(
+    (v) => (v as any).is_active !== false,
+  );
+  const hasRealVariants = rawVariants.some(
+    (v) =>
+      Boolean(v.color && v.color.trim().length > 0) ||
+      Boolean(v.size && v.size.trim().length > 0) ||
+      Boolean(v.name && v.name.trim().length > 0 && v.name.trim() !== "Default"),
+  );
+  const normalizedVariants = hasRealVariants
+    ? rawVariants.filter(
+        (v) =>
+          !(
+            (!v.color || !v.color.trim()) &&
+            (!v.size || !v.size.trim()) &&
+            (!v.name || v.name.trim() === "Default")
+          ),
+      )
+    : rawVariants;
+
+  const totalVariantStock = normalizedVariants.reduce(
+    (sum, v) => sum + (Number(v.stock) || 0),
+    0,
+  );
+
   return {
     uuid: row.id,
     id: row.slug,
@@ -228,7 +256,7 @@ export const mapProduct = (row: ProductRow): Product => {
     isFeatured: row.is_featured,
     isActive: row.is_active,
     sortOrder: row.sort_order,
-    stock: row.stock ?? 0,
+    stock: hasRealVariants ? totalVariantStock : (row.stock ?? 0),
     lowStockAt: row.low_stock_at ?? 5,
     sku: row.sku ?? "",
     barcode: row.barcode ?? "",
@@ -242,14 +270,14 @@ export const mapProduct = (row: ProductRow): Product => {
       alt_text: img.alt_text ?? null,
     })),
     deliveryFee:
-      row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 79,
+      row.delivery_fee !== undefined && row.delivery_fee !== null ? Number(row.delivery_fee) : 65,
     recommendationMode:
       (row.recommendation_mode as "manual_fallback" | "manual" | "auto") ?? "manual_fallback",
     salesChannel:
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
     sales_channel:
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
-    variants: (row.product_variants || []).map((v) => ({
+    variants: normalizedVariants.map((v) => ({
       id: v.id,
       name: v.name,
       color: v.color ?? null,
@@ -314,7 +342,7 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
     let query = supabase
       .from("products")
       .select(
-        "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, conflict_reconciliation_needed)",
+        "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)",
       )
       .order("sort_order", { ascending: true });
     if (!includeInactive) {
@@ -331,6 +359,8 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
           prod.deliveryFee = deliveryFees[prod.uuid];
         } else if (deliveryFees[prod.id] !== undefined) {
           prod.deliveryFee = deliveryFees[prod.id];
+        } else {
+          prod.deliveryFee = 65;
         }
         return prod;
       });
@@ -415,9 +445,14 @@ export type SingleProductResult = {
 let cachedDeliveryFees: Record<string, number> | null = null;
 let lastDeliveryFeesFetch = 0;
 
-async function getDeliveryFeesMap(): Promise<Record<string, number>> {
+export function invalidateDeliveryFeesCache(): void {
+  cachedDeliveryFees = null;
+  lastDeliveryFeesFetch = 0;
+}
+
+export async function getDeliveryFeesMap(forceRefresh = false): Promise<Record<string, number>> {
   const now = Date.now();
-  if (cachedDeliveryFees && now - lastDeliveryFeesFetch < 1000 * 60 * 5) {
+  if (!forceRefresh && cachedDeliveryFees && now - lastDeliveryFeesFetch < 1000 * 30) {
     return cachedDeliveryFees;
   }
   try {
@@ -434,7 +469,7 @@ async function getDeliveryFeesMap(): Promise<Record<string, number>> {
   } catch {
     // ignore
   }
-  return {};
+  return cachedDeliveryFees || {};
 }
 
 export async function fetchSingleProduct(
@@ -456,7 +491,7 @@ export async function fetchSingleProduct(
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(decoded);
 
   const selectFields =
-    "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, conflict_reconciliation_needed)";
+    "*, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url, is_active, conflict_reconciliation_needed)";
 
   try {
     let row: ProductRow | null = null;
@@ -542,6 +577,8 @@ export async function fetchSingleProduct(
       const prod = mapProduct(row);
       if (deliveryFee !== undefined) {
         prod.deliveryFee = deliveryFee;
+      } else {
+        prod.deliveryFee = 65;
       }
       return { product: prod, error: null, isNotFound: false, isError: false };
     }
@@ -700,44 +737,51 @@ export function useCategories() {
 
 export function useSettings() {
   const q = useQuery(settingsQueryOptions());
-  const s = q.data ?? {};
+  const s = q.data;
 
-  const rawIg = s["instagram_url"] ?? "https://www.instagram.com/zerah_kids/";
-  const rawFb = s["facebook_url"] ?? "";
-  const rawWa = s["whatsapp_url"] ?? "";
-  const rawPhone = s["contact_phone"] ?? "9057074777, 9667571712";
+  const parsed = useMemo(() => {
+    const data = s ?? {};
+    const rawIg = data["instagram_url"] ?? "https://www.instagram.com/zerah_kids/";
+    const rawFb = data["facebook_url"] ?? "";
+    const rawWa = data["whatsapp_url"] ?? "";
+    const rawPhone = data["contact_phone"] ?? "9057074777, 9667571712";
 
-  const igNorm = validateAndNormalizeInstagram(rawIg);
-  const fbNorm = validateAndNormalizeFacebook(rawFb);
-  const waNorm = validateAndNormalizeWhatsApp(rawWa || rawPhone);
+    const igNorm = validateAndNormalizeInstagram(rawIg);
+    const fbNorm = validateAndNormalizeFacebook(rawFb);
+    const waNorm = validateAndNormalizeWhatsApp(rawWa || rawPhone);
+
+    return {
+      settings: data,
+      brandName: data["brand_name"] ?? "Zérah Baby & Kids",
+      announcement: data["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
+      announcementEnabled: data["announcement_enabled"] !== "false",
+      announcementBg:
+        data["announcement_bg"] || "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)",
+      announcementTextColor: data["announcement_text_color"] || "#FFFFFF",
+      announcementLink: data["announcement_link"] || "",
+      heroTitle: data["hero_title"] ?? "Everything little ones need, in one happy place",
+      heroSubtitle:
+        data["hero_subtitle"] ??
+        "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
+      contactEmail: data["contact_email"] ?? "hello@zerahkids.com",
+      contactPhone: rawPhone,
+      storeAddress:
+        data["store_address"] ??
+        "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
+      storeHours: data["store_hours"] ?? "Open daily · 10:30 AM – 10:00 PM",
+      mapsUrl: data["maps_url"] ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
+      instagramUrl:
+        igNorm.isValid && igNorm.normalizedUrl
+          ? igNorm.normalizedUrl
+          : "https://www.instagram.com/zerah_kids/",
+      facebookUrl: fbNorm.isValid && fbNorm.normalizedUrl ? fbNorm.normalizedUrl : "",
+      whatsappUrl: waNorm.isValid && waNorm.normalizedUrl ? waNorm.normalizedUrl : "",
+    };
+  }, [s]);
 
   return {
     ...q,
-    settings: s,
-    brandName: s["brand_name"] ?? "Zérah Baby & Kids",
-    announcement: s["announcement"] ?? "Free delivery on orders above ₹999 · Easy 7-day returns",
-    announcementEnabled: s["announcement_enabled"] !== "false",
-    announcementBg:
-      s["announcement_bg"] || "linear-gradient(90deg, #E82A82 0%, #A855F7 50%, #00B4D8 100%)",
-    announcementTextColor: s["announcement_text_color"] || "#FFFFFF",
-    announcementLink: s["announcement_link"] || "",
-    heroTitle: s["hero_title"] ?? "Everything little ones need, in one happy place",
-    heroSubtitle:
-      s["hero_subtitle"] ??
-      "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids.",
-    contactEmail: s["contact_email"] ?? "hello@zerahkids.com",
-    contactPhone: rawPhone,
-    storeAddress:
-      s["store_address"] ??
-      "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
-    storeHours: s["store_hours"] ?? "Open daily · 10:30 AM – 10:00 PM",
-    mapsUrl: s["maps_url"] ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
-    instagramUrl:
-      igNorm.isValid && igNorm.normalizedUrl
-        ? igNorm.normalizedUrl
-        : "https://www.instagram.com/zerah_kids/",
-    facebookUrl: fbNorm.isValid && fbNorm.normalizedUrl ? fbNorm.normalizedUrl : "",
-    whatsappUrl: waNorm.isValid && waNorm.normalizedUrl ? waNorm.normalizedUrl : "",
+    ...parsed,
   };
 }
 
