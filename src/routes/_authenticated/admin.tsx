@@ -62,7 +62,13 @@ import { BrandName } from "@/components/site/BrandName";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useIsAdmin, useSession, ensureAdminSession } from "@/lib/auth";
-import { formatPrice, imageFor, mapProduct, invalidateDeliveryFeesCache, type Product } from "@/lib/store";
+import {
+  formatPrice,
+  imageFor,
+  mapProduct,
+  invalidateDeliveryFeesCache,
+  type Product,
+} from "@/lib/store";
 import { calculateStockValuation } from "@/lib/financial-reporting";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import {
@@ -78,6 +84,7 @@ import { useAllReviews, useUpdateReviewStatus, useDeleteReview } from "@/lib/rev
 import { useDirectLabelPrint } from "@/lib/label-printer";
 import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   useTableSelection,
   getProductsSelectionMetrics,
@@ -344,7 +351,6 @@ export function AdminPage() {
       }
     }
   }, [tab]);
-
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -2262,10 +2268,10 @@ function ProductsTab() {
                         (p.variants.length === 1 &&
                           Boolean(
                             (p.variants[0].color && p.variants[0].color.trim()) ||
-                              (p.variants[0].size && p.variants[0].size.trim()) ||
-                              (p.variants[0].name &&
-                                p.variants[0].name.trim() !== "" &&
-                                p.variants[0].name.trim() !== "Default"),
+                            (p.variants[0].size && p.variants[0].size.trim()) ||
+                            (p.variants[0].name &&
+                              p.variants[0].name.trim() !== "" &&
+                              p.variants[0].name.trim() !== "Default"),
                           ))) ? (
                         <div className="flex items-center gap-1.5">
                           <button
@@ -3701,6 +3707,7 @@ function AdminsTab({ currentEmail }: { currentEmail: string }) {
 /* ---------------- Customers ---------------- */
 
 function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
+  const qc = useQueryClient();
   const [activeSection, setActiveSection] = useState<"online" | "offline">("online");
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
@@ -3708,6 +3715,11 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
   const [selectedCustomer, setSelectedCustomer] = useState<
     Database["public"]["Tables"]["profiles"]["Row"] | null
   >(null);
+  const [customerToDelete, setCustomerToDelete] = useState<
+    Database["public"]["Tables"]["profiles"]["Row"] | null
+  >(null);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewPhoto, setViewPhoto] = useState<{ url: string; title: string } | null>(null);
 
   // Sync Offline Customers & Sales Data
@@ -3888,6 +3900,17 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
             selectedLabel="Selected Customers"
             metrics={customerMetrics}
             onClear={customerSelection.clearSelection}
+            actions={
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleting(true)}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-destructive px-3.5 py-1.5 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition shadow-2xs cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                Delete Selected ({customerSelection.selectedCount})
+              </button>
+            }
           />
 
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -4057,13 +4080,24 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
 
                         {/* Action */}
                         <td className="px-5 py-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCustomer(c)}
-                            className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
-                          >
-                            View Full Info
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCustomer(c)}
+                              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
+                            >
+                              View Full Info
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCustomerToDelete(c)}
+                              title="Delete Customer"
+                              aria-label={`Delete customer ${c.full_name || c.email}`}
+                              className="p-1.5 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer shadow-2xs"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -4236,7 +4270,19 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-border p-4 bg-muted/20 flex justify-end">
+            <div className="border-t border-border p-4 bg-muted/20 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const c = selectedCustomer;
+                  setSelectedCustomer(null);
+                  setCustomerToDelete(c);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive hover:text-destructive-foreground transition cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                Delete Customer
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedCustomer(null)}
@@ -4303,6 +4349,73 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
           </div>,
           document.body,
         )}
+
+      {/* Delete Confirmation for Single Customer */}
+      {customerToDelete && (
+        <ConfirmDialog
+          destructive
+          title="Delete Customer Profile?"
+          message={`Are you sure you want to permanently delete ${customerToDelete.full_name || customerToDelete.email || "this customer"}? Their storefront profile will be removed while keeping order transaction history intact for accounting.`}
+          confirmLabel={isDeleting ? "Deleting..." : "Delete Customer"}
+          cancelLabel="Cancel"
+          busy={isDeleting}
+          onCancel={() => {
+            if (!isDeleting) setCustomerToDelete(null);
+          }}
+          onConfirm={async () => {
+            try {
+              setIsDeleting(true);
+              const { error } = await supabase.rpc("admin_delete_customer" as any, {
+                target_customer_id: customerToDelete.id,
+              });
+              if (error) throw error;
+              toast.success("Customer removed successfully");
+              customerSelection.deselectMany([customerToDelete.id]);
+              qc.invalidateQueries({ queryKey: ["admin-customers"] });
+            } catch (err: any) {
+              toast.error(err.message || "Failed to delete customer");
+            } finally {
+              setIsDeleting(false);
+              setCustomerToDelete(null);
+            }
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation for Bulk Selected Customers */}
+      {isBulkDeleting && (
+        <ConfirmDialog
+          destructive
+          title={`Delete ${customerSelection.selectedCount} Selected Customers?`}
+          message={`Are you sure you want to permanently delete the ${customerSelection.selectedCount} selected customer profiles? Storefront profiles will be removed, and historical order records will remain intact.`}
+          confirmLabel={
+            isDeleting ? "Deleting..." : `Delete ${customerSelection.selectedCount} Customers`
+          }
+          cancelLabel="Cancel"
+          busy={isDeleting}
+          onCancel={() => {
+            if (!isDeleting) setIsBulkDeleting(false);
+          }}
+          onConfirm={async () => {
+            try {
+              setIsDeleting(true);
+              const ids = customerSelection.selectedItems.map((c) => c.id);
+              const { error } = await supabase.rpc("admin_bulk_delete_customers" as any, {
+                target_customer_ids: ids,
+              });
+              if (error) throw error;
+              toast.success(`Successfully removed ${ids.length} customers`);
+              customerSelection.clearSelection();
+              qc.invalidateQueries({ queryKey: ["admin-customers"] });
+            } catch (err: any) {
+              toast.error(err.message || "Failed to delete selected customers");
+            } finally {
+              setIsDeleting(false);
+              setIsBulkDeleting(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
