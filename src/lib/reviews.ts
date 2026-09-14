@@ -161,12 +161,12 @@ export function useCanUserReviewProduct(
       const existingReview =
         existingReviews && existingReviews.length > 0 ? (existingReviews[0] as Review) : null;
 
-      // 3. Query user's non-cancelled orders with order items
+      // 3. Query user's delivered orders with order items (only delivered buyers can review)
       const { data: orders, error } = await supabase
         .from("orders")
         .select("id, status, order_items(product_id, product_slug)")
         .eq("user_id", userId)
-        .neq("status", "cancelled");
+        .in("status", ["delivered", "open_box_accepted"]);
 
       if (error) {
         console.warn("Could not verify customer orders:", error);

@@ -1054,8 +1054,8 @@ function OrderCard({
                     <span>Buy it again</span>
                   </button>
 
-                  {/* Review Button */}
-                  {!isCancelled && (
+                  {/* Review Button - only allowed for delivered purchases */}
+                  {isDelivered && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1076,7 +1076,7 @@ function OrderCard({
                       className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-background hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition cursor-pointer w-full sm:w-auto"
                     >
                       <Star className="size-3 text-amber-500 fill-amber-500" />
-                      <span>Write Review</span>
+                      <span>Rate & Review Product</span>
                     </button>
                   )}
                 </div>

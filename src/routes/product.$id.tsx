@@ -414,6 +414,9 @@ function ProductPage() {
   const activePrice = activeVariant?.priceOverride ?? product?.price ?? 0;
   const soldOut = activeStock <= 0;
 
+  const { data: pageReviews = [] } = useProductReviews(product?.uuid);
+  const pageReviewStats = useMemo(() => calculateReviewStats(pageReviews), [pageReviews]);
+
   const { data: siteSettings } = useQuery({
     queryKey: ["site_settings"],
     queryFn: async () => {
@@ -913,14 +916,24 @@ function ProductPage() {
 
           {/* Trust Row under Pricing */}
           <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground divide-x divide-border/60">
-            <div className="flex items-center gap-1 font-bold text-foreground">
-              <Star className="size-3.5 fill-amber-400 text-amber-400" />
-              <span>{product.rating || "4.5"}</span>
-              <span className="font-normal text-muted-foreground">
-                ({product.reviews ? product.reviews.toLocaleString("en-IN") : "128"} reviews)
-              </span>
-            </div>
-            <div className="pl-3 flex items-center gap-1.5 font-medium text-muted-foreground">
+            {pageReviewStats.totalRatings > 0 ? (
+              <a
+                href="#customer-reviews"
+                className="flex items-center gap-1 font-bold text-foreground hover:text-[#8B2020] transition"
+              >
+                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                <span>{pageReviewStats.averageRating.toFixed(1)}</span>
+                <span className="font-normal text-muted-foreground">
+                  ({pageReviewStats.totalReviews.toLocaleString("en-IN")}{" "}
+                  {pageReviewStats.totalReviews === 1 ? "review" : "reviews"})
+                </span>
+              </a>
+            ) : null}
+            <div
+              className={`flex items-center gap-1.5 font-medium text-muted-foreground ${
+                pageReviewStats.totalRatings > 0 ? "pl-3" : ""
+              }`}
+            >
               <CheckCircle2 className="size-3.5 text-emerald-600" />
               <span>100% Original</span>
             </div>
@@ -1462,38 +1475,45 @@ function ReviewsSection({
           </p>
         </div>
 
-        {/* Verified Purchase Gating Action */}
+        {/* Verified Purchase Gating Action - only shown for delivered buyers */}
         <div>
-          {user ? (
-            isCheckingPurchase ? (
-              <div className="h-10 w-36 bg-muted animate-pulse rounded-full" />
-            ) : isVerifiedBuyer ? (
-              <button
-                type="button"
-                onClick={() => setShowReviewModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-sm shadow-xs hover:bg-[#7a1c1c] transition hover:scale-102 cursor-pointer"
-              >
-                <Star className="size-4 fill-white" />
-                <span>{hasAlreadyReviewed ? "Edit Your Review" : "Rate & Review Product"}</span>
-              </button>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
-                <ShieldCheck className="size-4 text-amber-600 shrink-0" />
-                <span>Only verified buyers can write a review</span>
-              </div>
-            )
-          ) : (
-            <Link
-              to="/auth"
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-border text-muted-foreground font-semibold text-xs hover:bg-muted transition"
+          {isVerifiedBuyer && stats.totalRatings > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowReviewModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-sm shadow-xs hover:bg-[#7a1c1c] transition hover:scale-102 cursor-pointer"
             >
-              <span>Sign in to review product</span>
-            </Link>
+              <Star className="size-4 fill-white" />
+              <span>{hasAlreadyReviewed ? "Edit Your Review" : "Rate & Review Product"}</span>
+            </button>
           )}
         </div>
       </div>
 
-      {/* Ratings & Breakdown Hero Card */}
+      {/* Clean Amazon/Flipkart empty state when 0 reviews exist */}
+      {stats.totalRatings === 0 ? (
+        <div className="py-12 px-6 rounded-3xl border border-gray-100 bg-muted/30 text-center space-y-3 mb-8">
+          <Star className="size-10 text-gray-300 mx-auto" />
+          <h3 className="text-base font-bold text-foreground">No customer reviews yet</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
+            Reviews from verified customers who purchased and received delivery of this product will appear here.
+          </p>
+          {isVerifiedBuyer && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-xs shadow-xs hover:bg-[#7a1c1c] transition cursor-pointer"
+              >
+                <Star className="size-3.5 fill-white" />
+                <span>{hasAlreadyReviewed ? "Edit Your Review" : "Rate & Review Product"}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Ratings & Breakdown Hero Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 sm:p-8 bg-muted/70 rounded-3xl border border-gray-100 mb-8">
         {/* Left Column: Overall Score */}
         <div className="lg:col-span-4 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:border-r lg:border-border/80 lg:pr-8">
@@ -1778,6 +1798,8 @@ function ReviewsSection({
               : "Be the first verified buyer to share feedback on this product!"}
           </p>
         </div>
+      )}
+      </>
       )}
 
       {/* Review Modal */}

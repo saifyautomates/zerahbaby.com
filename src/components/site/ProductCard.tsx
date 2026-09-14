@@ -418,16 +418,18 @@ function ProductCardInner({
           )}
         </div>
 
-        {/* Star Rating below price */}
-        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <div className="flex items-center gap-0.5">
-            <Star className="size-3.5 fill-amber-400 text-amber-400" />
-            <span className="font-bold text-foreground text-xs">{product.rating || "4.5"}</span>
+        {/* Star Rating below price - only shown when real ratings & reviews exist */}
+        {Boolean(product.rating && product.rating > 0 && product.reviews && product.reviews > 0) && (
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-0.5">
+              <Star className="size-3.5 fill-amber-400 text-amber-400" />
+              <span className="font-bold text-foreground text-xs">{product.rating}</span>
+            </div>
+            <span className="text-muted-foreground/70">
+              ({product.reviews?.toLocaleString("en-IN")})
+            </span>
           </div>
-          <span className="text-muted-foreground/70">
-            ({product.reviews ? product.reviews.toLocaleString("en-IN") : "96"})
-          </span>
-        </div>
+        )}
 
         {/* ── ADD TO BAG CTA ───────────────────────────────────────────────── */}
         <div className="mt-3 pt-0.5">
