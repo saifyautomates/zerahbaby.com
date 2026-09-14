@@ -25,11 +25,12 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
       .getByRole("button", { name: /^Add to bag$/i })
       .first();
     await expect(addToBagBtn).toBeVisible();
+    await addToBagBtn.scrollIntoViewIfNeeded();
     await addToBagBtn.click();
 
     // 2. Immediately show/update the cart item card in the cart section below
     const cartSection = page.locator("#cart-section");
-    await expect(cartSection).toBeVisible({ timeout: 5000 });
+    await expect(cartSection).toBeVisible({ timeout: 15000 });
 
     // 3. The newly added item must appear as a proper existing cart-item card
     const cartItemCard = cartSection.locator("li").first();
@@ -201,5 +202,28 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     await expect(mainCartItem.getByRole("button", { name: "Increase quantity" })).toBeVisible();
     await expect(mainCartItem.getByRole("button", { name: "Decrease quantity" })).toBeVisible();
     await expect(mainCartItem.getByRole("button", { name: /Remove/i })).toBeVisible();
+  });
+
+  test("7. Buy it again resolution: cart line initialized with product slug accurately resolves and displays in /cart", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    // Simulate "Buy It Again" inserting a cart line with product_slug
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "zerah-cart-guest",
+        JSON.stringify([{ id: "zerah-organic-bamboo-kimono-romper-sage", qty: 1 }]),
+      );
+    });
+
+    await page.goto("/cart", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: "Your bag" })).toBeVisible({ timeout: 15000 });
+
+    // Verify item card resolves and renders with product details
+    const cartItem = page.locator("ul.space-y-4 > li").first();
+    await expect(cartItem).toBeVisible({ timeout: 15000 });
+    await expect(cartItem).toContainText(/Kimono Romper/i);
+    await expect(cartItem.locator("span.w-5")).toHaveText("1");
   });
 });

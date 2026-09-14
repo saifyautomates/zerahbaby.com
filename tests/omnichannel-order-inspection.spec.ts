@@ -11,7 +11,7 @@ test.describe("Omnichannel Order Click & Inspection Flow", () => {
           id: "cc461d36-e0e6-42bb-a4ca-fd50b80562e5",
           order_number: "ORD-20260907-CC461D36",
           status: "cancelled",
-          cancelled_at: "2026-09-07T16:57:00Z",
+          cancelled_at: new Date().toISOString(),
           cancellation_reason: "Customer changed mind",
           payment_status: "pending",
           payment_method: "COD",
@@ -26,7 +26,7 @@ test.describe("Omnichannel Order Click & Inspection Flow", () => {
           city: "Kota",
           state: "Rajasthan",
           pincode: "324005",
-          created_at: "2026-09-07T16:57:00Z",
+          created_at: new Date().toISOString(),
           order_items: [
             {
               id: "item-1",

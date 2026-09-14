@@ -359,7 +359,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const list = allProducts;
     const items: CartItem[] = lines
       .map((line): CartItem | null => {
-        const product = list.find((x) => x.id === line.id || x.uuid === line.id);
+        const product = list.find(
+          (x) => x.id === line.id || x.uuid === line.id || x.slug === line.id,
+        );
         if (!product) return null;
 
         const defaultVariantId = product.variants?.length ? product.variants[0].id : undefined;
@@ -457,7 +459,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           registerProduct(productData);
         }
         setLines((prev) => {
-          const product = productData || list.find((p) => p.id === id || p.uuid === id);
+          const product =
+            productData ||
+            list.find((p) => p.id === id || p.uuid === id || p.slug === id);
           const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
           const stock = product
@@ -468,7 +472,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           const existing = prev.find(
             (l) =>
-              (l.id === id || (product && l.id === product.id)) &&
+              (l.id === id ||
+                (product &&
+                  (l.id === product.id || l.id === product.uuid || l.id === product.slug))) &&
               (l.variantId || defaultVariantId) === vId,
           );
           const requestedQty = (existing?.qty || 0) + qty;
@@ -476,7 +482,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           if (existing) {
             return prev.map((l) =>
-              (l.id === id || (product && l.id === product.id)) &&
+              (l.id === id ||
+                (product &&
+                  (l.id === product.id || l.id === product.uuid || l.id === product.slug))) &&
               (l.variantId || defaultVariantId) === vId
                 ? { ...l, qty: finalQty }
                 : l,
@@ -487,7 +495,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       setQty: (id, qty, variantId) =>
         setLines((prev) => {
-          const product = list.find((p) => p.id === id || p.uuid === id);
+          const product = list.find((p) => p.id === id || p.uuid === id || p.slug === id);
           const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
           const vId = variantId || defaultVariantId;
           const stock = product
@@ -499,12 +507,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? prev.filter(
                 (l) =>
                   !(
-                    (l.id === id || (product && l.id === product.id)) &&
+                    (l.id === id ||
+                      (product &&
+                        (l.id === product.id || l.id === product.uuid || l.id === product.slug))) &&
                     (l.variantId || defaultVariantId) === vId
                   ),
               )
             : prev.map((l) =>
-                (l.id === id || (product && l.id === product.id)) &&
+                (l.id === id ||
+                  (product &&
+                    (l.id === product.id || l.id === product.uuid || l.id === product.slug))) &&
                 (l.variantId || defaultVariantId) === vId
                   ? { ...l, qty: finalQty }
                   : l,
@@ -513,12 +525,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove: (id, variantId) =>
         setLines((prev) =>
           prev.filter((l) => {
-            const product = list.find((p) => p.id === id || p.uuid === id);
+            const product = list.find((p) => p.id === id || p.uuid === id || p.slug === id);
             const canonicalId = product ? product.id : id;
-            if (!variantId) return l.id !== canonicalId && l.id !== id;
+            if (!variantId) {
+              return (
+                l.id !== canonicalId &&
+                l.id !== id &&
+                (!product || (l.id !== product.uuid && l.id !== product.slug))
+              );
+            }
             const defaultVariantId = product?.variants?.length ? product.variants[0].id : undefined;
             return !(
-              (l.id === canonicalId || l.id === id) &&
+              (l.id === id ||
+                (product &&
+                  (l.id === product.id || l.id === product.uuid || l.id === product.slug))) &&
               (l.variantId || defaultVariantId) === variantId
             );
           }),

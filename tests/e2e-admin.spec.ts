@@ -20,6 +20,7 @@ test.describe("Zerah Baby And Kids - Admin Security & Functionality Tests", () =
   }) => {
     await page.goto("/admin/billing", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });
+    await page.waitForLoadState("domcontentloaded");
 
     await page.goto("/admin/orders", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/.*\/auth/, { timeout: 15000 });

@@ -33,6 +33,7 @@ export interface ProductVariant {
 export interface Product {
   uuid: string;
   id: string; // URL slug & identifier
+  slug?: string;
   name: string;
   brand: string;
   category: string;

@@ -948,7 +948,8 @@ function OrderCard({
           {order.order_items.map((item) => {
             const product = products?.find(
               (p) =>
-                (item.product_id && p.uuid === item.product_id) ||
+                (item.product_id && (p.uuid === item.product_id || p.id === item.product_id)) ||
+                p.slug === item.product_slug ||
                 p.id === item.product_slug ||
                 p.uuid === item.product_slug,
             );
@@ -1040,7 +1041,13 @@ function OrderCard({
                   {/* Amazon Signature: "Buy It Again" */}
                   <button
                     type="button"
-                    onClick={() => onBuyAgain(item.product_slug, item.variant_id, item.name)}
+                    onClick={() =>
+                      onBuyAgain(
+                        product?.id || product?.uuid || item.product_id || item.product_slug,
+                        item.variant_id,
+                        item.name,
+                      )
+                    }
                     className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 hover:shadow-sm transition cursor-pointer w-full sm:w-auto"
                   >
                     <ShoppingBag className="size-3.5" />
