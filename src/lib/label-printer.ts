@@ -41,6 +41,7 @@ export type LabelPrinterProfile =
   | "58x75"
   | "58x100"
   | "50x50"
+  | "50x40"
   | "80x100"
   | "50x25"
   | "58x30"
@@ -104,6 +105,7 @@ export const LABEL_SIZE_OPTIONS: Array<{
 }> = [
   // ── Thermal Square ──
   { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
+  { id: "50x40", label: "50 × 40 mm", description: "Square Thermal (50×40)", category: "thermal", subcategory: "square" },
   { id: "58x50", label: "58 × 50 mm", description: "Square Thermal (Compact)", category: "thermal", subcategory: "square" },
 
   // ── Thermal Portrait ──
@@ -217,6 +219,29 @@ export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
     barcodeFontPt: 6.0,
     brandFontPt: 7.0,
     nameFontPt: 7.5,
+    priceFontPt: 10.0,
+    skuFontPt: 6.5,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 50 × 40 mm — Square Thermal */
+  "50x40": {
+    id: "50x40",
+    name: "50 × 40 mm",
+    shortLabel: "50×40mm",
+    pageWidthMm: 50,
+    pageHeightMm: 40,
+    pageMarginMm: 0,
+    labelWidthMm: 50,
+    labelHeightMm: 40,
+    paddingTopMm: 1.0,
+    paddingHorizMm: 1.5,
+    paddingBottomMm: 0.8,
+    barcodeBarWidthPx: 1.15,
+    barcodeHeightMm: 11.5,
+    barcodeFontPt: 6.2,
+    brandFontPt: 7.2,
+    nameFontPt: 7.8,
     priceFontPt: 10.0,
     skuFontPt: 6.5,
     isThermalRoll: true,
