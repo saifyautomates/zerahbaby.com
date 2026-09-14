@@ -106,6 +106,7 @@ export const LABEL_SIZE_OPTIONS: Array<{
   // ── Thermal Square ──
   { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
   { id: "50x40", label: "50 × 40 mm", description: "Square Thermal (50×40)", category: "thermal", subcategory: "square" },
+  { id: "50x25", label: "50 × 25 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
   { id: "58x50", label: "58 × 50 mm", description: "Square Thermal (Compact)", category: "thermal", subcategory: "square" },
 
   // ── Thermal Portrait ──
@@ -115,7 +116,6 @@ export const LABEL_SIZE_OPTIONS: Array<{
   { id: "80x100", label: "80 × 100 mm", description: "Wide Portrait Thermal", category: "thermal", subcategory: "portrait" },
 
   // ── Thermal Landscape ──
-  { id: "50x25", label: "50 × 25 mm", description: "Landscape Thermal (Compact)", category: "thermal", subcategory: "landscape" },
   { id: "58x30", label: "58 × 30 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
   { id: "58x40", label: "58 × 40 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
   { id: "80x50", label: "80 × 50 mm", description: "Wide Landscape Thermal", category: "thermal", subcategory: "landscape" },
@@ -682,7 +682,7 @@ export function getSavedLabelProfile(): LabelPrinterProfile {
     try {
       const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY) as LabelPrinterProfile | null;
       if (saved) {
-        if (saved === "thermal-58" || saved === "50x25") return "50x75"; // migrate default to portrait
+        if (saved === "thermal-58") return "50x75"; // migrate legacy alias
         if (saved === "thermal-108") return "108x75";
         if (saved === "a4") return "a4-4x10";
         if (LABEL_SIZE_OPTIONS.some((o) => o.id === saved)) return saved;
@@ -1250,9 +1250,15 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   }
 
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
+  // For thermal labels, add explicit orientation keyword to prevent
+  // printer drivers (e.g. Seagull/BarTender on HPRT HT300) from
+  // auto-rotating landscape content into portrait orientation.
+  const isLandscapeLabel = !cfg.isSheet && cfg.pageWidthMm > cfg.pageHeightMm;
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+    : isLandscapeLabel
+      ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm landscape`
+      : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
