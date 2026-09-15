@@ -87,20 +87,184 @@ const CANCELLATION_REASONS = [
 type FilterTab = "all" | "active" | "delivered" | "cancelled";
 
 const TRACKING_STEPS = [
-  { key: "ordered", label: "Ordered" },
+  { key: "placed", label: "Placed" },
   { key: "processing", label: "Confirmed & Packed" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
 ];
 
 function getOrderStepIndex(status: string): number {
-  const s = (status || "").toLowerCase();
-  if (s === "cancelled" || s === "returned") return -1;
+  const s = (status || "").toLowerCase().trim();
+  if (
+    s === "cancelled" ||
+    s === "returned" ||
+    s.startsWith("return_") ||
+    s === "refund_processing" ||
+    s === "open_box_rejected"
+  ) {
+    return -1;
+  }
   if (s === "delivered" || s === "open_box_accepted") return 3;
   if (s === "out_for_delivery" || s === "open_box_inspection") return 2.5;
   if (s === "shipped") return 2;
-  if (s === "processing" || s === "packed" || s === "confirmed") return 1;
+  if (s === "packed") return 1.5;
+  if (s === "processing" || s === "confirmed") return 1;
   return 0; // placed / pending
+}
+
+interface OrderStatusMeta {
+  title: string;
+  description: string;
+  badgeBg: string;
+  badgeText: string;
+  icon: React.ReactNode;
+}
+
+function getOrderStatusMeta(order: Order): OrderStatusMeta {
+  const s = (order.status || "").toLowerCase().trim();
+
+  if (s === "cancelled") {
+    return {
+      title: "Cancelled",
+      description: order.cancellation_reason
+        ? `Reason: “${order.cancellation_reason}”`
+        : "This order was cancelled.",
+      badgeBg: "bg-rose-100 dark:bg-rose-950/50",
+      badgeText: "text-rose-700 dark:text-rose-400",
+      icon: <XCircle className="size-5" />,
+    };
+  }
+
+  if (s === "delivered" || s === "open_box_accepted") {
+    return {
+      title: "Delivered",
+      description: "Package was delivered directly to your delivery address.",
+      badgeBg: "bg-emerald-100 dark:bg-emerald-950/50",
+      badgeText: "text-emerald-700 dark:text-emerald-400",
+      icon: <CheckCircle2 className="size-5" />,
+    };
+  }
+
+  if (s === "out_for_delivery") {
+    return {
+      title: "Out for Delivery Today",
+      description: "Our delivery executive will contact you for drop-off.",
+      badgeBg: "bg-blue-100 dark:bg-blue-950/50",
+      badgeText: "text-blue-700 dark:text-blue-400",
+      icon: <Truck className="size-5" />,
+    };
+  }
+
+  if (s === "open_box_inspection") {
+    return {
+      title: "Out for Open-Box Delivery",
+      description: "Please inspect the product with the delivery executive before sharing the OTP.",
+      badgeBg: "bg-purple-100 dark:bg-purple-950/50",
+      badgeText: "text-purple-700 dark:text-purple-400",
+      icon: <ShieldCheck className="size-5" />,
+    };
+  }
+
+  if (s === "open_box_rejected") {
+    return {
+      title: "Rejected at Delivery",
+      description: "Inspected and rejected at doorstep. Return process initiated.",
+      badgeBg: "bg-rose-100 dark:bg-rose-950/50",
+      badgeText: "text-rose-700 dark:text-rose-400",
+      icon: <AlertTriangle className="size-5" />,
+    };
+  }
+
+  if (s === "shipped") {
+    return {
+      title: order.courier_name ? `Shipped via ${order.courier_name}` : "Order Shipped",
+      description: order.awb_code
+        ? `Tracking No: ${order.awb_code}`
+        : "Package is in transit with courier partner.",
+      badgeBg: "bg-blue-100 dark:bg-blue-950/50",
+      badgeText: "text-blue-700 dark:text-blue-400",
+      icon: <Truck className="size-5" />,
+    };
+  }
+
+  if (s === "packed") {
+    return {
+      title: "Order Packed & Ready",
+      description: "Your package is packed, sealed, and ready for courier pickup.",
+      badgeBg: "bg-indigo-100 dark:bg-indigo-950/50",
+      badgeText: "text-indigo-700 dark:text-indigo-400",
+      icon: <Package className="size-5" />,
+    };
+  }
+
+  if (s === "processing") {
+    return {
+      title: "Processing & Packing",
+      description: "Your items are being picked and prepared at our fulfillment center.",
+      badgeBg: "bg-amber-100 dark:bg-amber-950/50",
+      badgeText: "text-amber-700 dark:text-amber-400",
+      icon: <Clock className="size-5" />,
+    };
+  }
+
+  if (s === "confirmed") {
+    return {
+      title: "Order Confirmed",
+      description: "Your order has been verified and confirmed by our team.",
+      badgeBg: "bg-emerald-100 dark:bg-emerald-950/50",
+      badgeText: "text-emerald-700 dark:text-emerald-400",
+      icon: <CheckCircle2 className="size-5" />,
+    };
+  }
+
+  if (s === "returned") {
+    return {
+      title: "Returned",
+      description: "This order has been returned successfully.",
+      badgeBg: "bg-stone-100 dark:bg-stone-800",
+      badgeText: "text-stone-700 dark:text-stone-300",
+      icon: <RotateCcw className="size-5" />,
+    };
+  }
+
+  if (s === "return_in_transit") {
+    return {
+      title: "Return in Transit",
+      description: "Courier partner is transporting the returned item back to our hub.",
+      badgeBg: "bg-amber-100 dark:bg-amber-950/50",
+      badgeText: "text-amber-700 dark:text-amber-400",
+      icon: <Truck className="size-5" />,
+    };
+  }
+
+  if (s === "return_received") {
+    return {
+      title: "Return Received",
+      description: "Returned package has arrived at our warehouse for quality check.",
+      badgeBg: "bg-emerald-100 dark:bg-emerald-950/50",
+      badgeText: "text-emerald-700 dark:text-emerald-400",
+      icon: <CheckCircle2 className="size-5" />,
+    };
+  }
+
+  if (s === "refund_processing") {
+    return {
+      title: "Refund Processing",
+      description: "Your refund is being processed to your original payment method or store credit.",
+      badgeBg: "bg-blue-100 dark:bg-blue-950/50",
+      badgeText: "text-blue-700 dark:text-blue-400",
+      icon: <Clock className="size-5" />,
+    };
+  }
+
+  // DEFAULT / INITIAL: 'placed' or 'pending' or newly placed order!
+  return {
+    title: "Order Placed",
+    description: "We have received your order. We'll update you once it is confirmed.",
+    badgeBg: "bg-emerald-100 dark:bg-emerald-950/50",
+    badgeText: "text-emerald-700 dark:text-emerald-400",
+    icon: <CheckCircle2 className="size-5" />,
+  };
 }
 
 function OrdersPage() {
@@ -604,6 +768,8 @@ function OrderCard({
     }
   }, [order.created_at]);
 
+  const statusMeta = useMemo(() => getOrderStatusMeta(order), [order]);
+
   return (
     <article className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all hover:shadow-md">
       {/* ── 1. AMAZON-STYLE ORDER HEADER BAR ── */}
@@ -729,50 +895,18 @@ function OrderCard({
       <div className="p-4 sm:p-6 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            {isDelivered ? (
-              <span className="flex size-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                <CheckCircle2 className="size-5" />
-              </span>
-            ) : isCancelled ? (
-              <span className="flex size-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-                <XCircle className="size-5" />
-              </span>
-            ) : isShipped ? (
-              <span className="flex size-9 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                <Truck className="size-5" />
-              </span>
-            ) : (
-              <span className="flex size-9 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                <Clock className="size-5" />
-              </span>
-            )}
+            <span
+              className={`flex size-9 items-center justify-center rounded-full ${statusMeta.badgeBg} ${statusMeta.badgeText}`}
+            >
+              {statusMeta.icon}
+            </span>
 
             <div>
               <h2 className="text-sm sm:text-base font-bold text-foreground">
-                {isDelivered
-                  ? "Delivered"
-                  : isCancelled
-                    ? "Cancelled"
-                    : order.status === "out_for_delivery"
-                      ? "Out for Delivery Today"
-                      : isShipped
-                        ? `Shipped ${order.courier_name ? `via ${order.courier_name}` : ""}`
-                        : "Order Confirmed & Processing"}
+                {statusMeta.title}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {isDelivered
-                  ? "Package was delivered directly to your delivery address."
-                  : isCancelled
-                    ? order.cancellation_reason
-                      ? `Reason: “${order.cancellation_reason}”`
-                      : "This order was cancelled."
-                    : order.status === "out_for_delivery"
-                      ? "Our delivery executive will contact you for drop-off."
-                      : isShipped
-                        ? order.awb_code
-                          ? `Tracking No: ${order.awb_code}`
-                          : "In transit with courier partner."
-                        : "Estimated delivery within 3–5 business days across India."}
+                {statusMeta.description}
               </p>
             </div>
           </div>
@@ -1211,11 +1345,25 @@ function ShipmentTrackingModal({ order, onClose }: { order: Order; onClose: () =
                       <p className="text-[11px] text-muted-foreground">
                         {idx === 0
                           ? `Placed on ${new Date(order.created_at).toLocaleString("en-IN")}`
-                          : idx === 2 && awb
-                            ? `Handed over to ${courier}`
-                            : idx === 3 && order.status === "delivered"
-                              ? "Delivered successfully"
-                              : "Pending fulfillment"}
+                          : idx === 1
+                            ? order.status === "confirmed"
+                              ? "Order confirmed by seller"
+                              : order.status === "processing"
+                                ? "Items being packed at warehouse"
+                                : order.status === "packed"
+                                  ? "Packed & sealed for dispatch"
+                                  : stepIndex > 1
+                                    ? "Confirmed & Packed"
+                                    : "Awaiting confirmation & packing"
+                            : idx === 2 && awb
+                              ? `Handed over to ${courier}`
+                              : idx === 2 && (order.status === "shipped" || stepIndex > 2)
+                                ? "Handed over to courier partner"
+                                : idx === 3 && (order.status === "delivered" || order.status === "open_box_accepted")
+                                  ? "Delivered successfully"
+                                  : idx === 3 && order.status === "out_for_delivery"
+                                    ? "Out for delivery today"
+                                    : "Pending fulfillment"}
                       </p>
                     </div>
                   </div>

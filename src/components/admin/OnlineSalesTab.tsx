@@ -154,6 +154,8 @@ export function OnlineSalesTab() {
     onSuccess: (_, variables) => {
       toast.success("Order updated");
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      qc.invalidateQueries({ queryKey: ["order-history"] });
       if (variables.status === "confirmed") {
         createShipment.mutate(variables.id);
       }
