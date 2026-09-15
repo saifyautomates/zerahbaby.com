@@ -149,8 +149,7 @@ export function useAllOrders(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-orders"],
     enabled,
-    staleTime: 1000 * 5, // 5 seconds
-    refetchInterval: 15000, // 15 seconds polling fallback
+    staleTime: 1000 * 30, // 30 seconds fresh window (Realtime CDC handles instant invalidation)
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase

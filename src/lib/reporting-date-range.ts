@@ -308,7 +308,17 @@ export function useReportingDateRange() {
   const [state, setState] = useState(getInitialState);
 
   const syncFromUrlOrStorage = useCallback(() => {
-    setState(getInitialState());
+    const next = getInitialState();
+    setState((prev) => {
+      if (
+        prev.preset === next.preset &&
+        prev.startDate === next.startDate &&
+        prev.endDate === next.endDate
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {

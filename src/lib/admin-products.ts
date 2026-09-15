@@ -70,7 +70,6 @@ export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["product-relations"] });
   qc.invalidateQueries({ queryKey: ["homepage-sections"] });
   qc.invalidateQueries({ queryKey: ["admin-products-count"] });
-  broadcastCatalogueChange();
 }
 
 function useInvalidateCatalogue() {
@@ -466,6 +465,7 @@ export function useSaveProduct() {
     onSuccess: () => {
       toast.success("Saved to the live store");
       invalidate();
+      broadcastCatalogueChange();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -514,6 +514,7 @@ export function useDeleteProduct() {
         toast.success("Product removed from the store");
       }
       invalidate();
+      broadcastCatalogueChange();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -544,6 +545,7 @@ export function useAdjustInventory() {
     onSuccess: () => {
       toast.success("Inventory adjusted successfully");
       invalidate();
+      broadcastCatalogueChange();
       qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
       qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
     },

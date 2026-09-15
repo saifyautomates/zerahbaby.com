@@ -1642,7 +1642,6 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
 
   const invSelection = useTableSelection<DrillDownProduct>({
     items: filtered,
-    getId: (p: DrillDownProduct) => p.id || "",
   });
   const invMetrics = useMemo(
     () =>

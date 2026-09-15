@@ -78,7 +78,7 @@ import {
   useReportingDateRange,
   type DatePreset,
 } from "@/lib/financial-reporting";
-import { useCanonicalPOSSales } from "@/lib/canonical-reporting";
+import { useCanonicalPOSSales, CANONICAL_POS_SALES_KEY } from "@/lib/canonical-reporting";
 
 type WebsiteVisitor = {
   created_at: string;
@@ -232,6 +232,7 @@ export function DashboardTab({
         queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "offline_sales" }, () => {
+        queryClient.invalidateQueries({ queryKey: CANONICAL_POS_SALES_KEY });
         queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
         queryClient.invalidateQueries({ queryKey: ["admin-offline-sales"] });
         queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
@@ -681,8 +682,7 @@ export function DashboardTab({
         metadata: Record<string, any> | null;
       }>;
     },
-    staleTime: 5_000,
-    refetchInterval: 10_000,
+    staleTime: 1000 * 30,
   });
 
   const parsedActivities = useMemo(() => {
