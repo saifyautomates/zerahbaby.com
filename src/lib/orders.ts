@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateCanonicalReportingQueries } from "@/lib/canonical-reporting";
 
 import type { Order, OrderItem } from "@/domain/models";
 export type { Order, OrderItem };
@@ -386,9 +387,69 @@ export function useProcessOrderRefund() {
       qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
     },
     onError: (err: Error, variables) => {
-      toast.error(err.message || "Refund failed");
+      const isBalanceErr =
+        err.message?.toLowerCase().includes("balance") ||
+        err.message?.toLowerCase().includes("funds");
+      if (isBalanceErr) {
+        toast.error(
+          "Razorpay Balance Insufficient: Previous payments were already settled to your bank. Add funds on Razorpay or use 'Mark Refunded via UPI'.",
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(err.message || "Refund failed");
+      }
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
+    },
+  });
+}
+
+/**
+ * Admin manual offline/UPI refund hook for online orders when gateway balance is unavailable.
+ */
+export function useMarkOrderRefundedManual() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      amount,
+      utrOrRef,
+      notes,
+    }: {
+      orderId: string;
+      amount?: number;
+      utrOrRef?: string;
+      notes?: string;
+    }) => {
+      const refundId = utrOrRef?.trim()
+        ? `MANUAL-UPI-${utrOrRef.trim().toUpperCase()}`
+        : `MANUAL-UPI-${Date.now()}`;
+      const noteText = notes?.trim()
+        ? notes.trim()
+        : `Manually refunded via UPI/Bank${utrOrRef?.trim() ? ` (UTR: ${utrOrRef.trim()})` : ""}`;
+
+      const { data, error } = await supabase.rpc("record_order_refund_success", {
+        _order_id: orderId,
+        _refund_id: refundId,
+        _refund_status: "processed",
+        _refund_amount: amount ?? 0,
+        _notes: noteText,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      toast.success("Order marked as refunded manually (UPI / Bank Transfer)");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["my-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["order-history", variables.orderId] });
+      invalidateCanonicalReportingQueries(qc);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to record manual refund");
     },
   });
 }

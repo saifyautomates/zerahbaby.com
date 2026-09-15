@@ -9,6 +9,7 @@ import {
   useRetryOrderNotification,
   useDeleteCancelledOrder,
   useProcessOrderRefund,
+  useMarkOrderRefundedManual,
   type Order,
 } from "@/lib/orders";
 import { InvoiceBox } from "@/components/site/Invoice";
@@ -47,6 +48,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Clock,
+  Wallet,
 } from "lucide-react";
 import { AdminTableSkeleton } from "@/components/ui/Skeletons";
 import { AdminOrderItemsList } from "@/components/admin/AdminOrderItemsList";
@@ -135,11 +137,15 @@ export function OnlineSalesTab() {
   const syncTracking = useSyncShiprocketTracking();
   const cancelShiprocketOrder = useCancelShiprocketOrder();
   const processRefund = useProcessOrderRefund();
+  const markRefundedManual = useMarkOrderRefundedManual();
 
   const [orderToCancel, setOrderToCancel] = useState<UnifiedTransaction | null>(null);
   const [cancelReason, setCancelReason] = useState("Admin cancelled order via Zérah Admin Panel");
   const [isSingleCancelling, setIsSingleCancelling] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<UnifiedTransaction | null>(null);
+  const [orderToRefundManual, setOrderToRefundManual] = useState<UnifiedTransaction | null>(null);
+  const [manualRefundUtr, setManualRefundUtr] = useState("");
+  const [manualRefundNotes, setManualRefundNotes] = useState("");
 
   type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
 
@@ -1480,47 +1486,81 @@ export function OnlineSalesTab() {
                         <>
                           {order._type === "online" &&
                             order.razorpay_refund_status === "FAILED" && (
-                              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-2 text-left shadow-xs">
+                              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-2.5 text-left shadow-xs space-y-1.5">
                                 <p className="text-[10px] font-bold text-rose-800 uppercase flex items-center gap-1">
                                   <AlertCircle className="size-3 shrink-0" /> Refund Attempt Failed
                                 </p>
-                                <p className="text-xs text-rose-950 mt-0.5 break-words font-medium">
+                                <p className="text-xs text-rose-950 break-words font-medium">
                                   {order.refund_notes?.replace(/^Gateway refund failed:\s*/i, "") ||
                                     "Gateway rejected the refund"}
                                 </p>
+                                {(order.refund_notes?.toLowerCase().includes("balance") ||
+                                  order.refund_notes?.toLowerCase().includes("funds")) && (
+                                  <div className="rounded-lg bg-amber-50 border border-amber-200/80 p-2 text-[11px] text-amber-900 leading-relaxed">
+                                    <p className="font-bold text-amber-950 flex items-center gap-1">
+                                      💡 Razorpay Account Balance Low
+                                    </p>
+                                    <p className="mt-0.5 text-amber-900/90">
+                                      Customer payments have already been settled to your bank account. You can transfer money directly to customer via Google Pay / PhonePe / UPI and mark it here, or add funds on Razorpay.
+                                    </p>
+                                    <a
+                                      href="https://dashboard.razorpay.com"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:underline mt-1"
+                                    >
+                                      Open Razorpay Dashboard <ExternalLink className="size-3" />
+                                    </a>
+                                  </div>
+                                )}
                               </div>
                             )}
 
                           {order._type === "online" &&
                             (order.payment_status === "paid" ||
                               Boolean(order.razorpay_payment_id)) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (processRefund.isPending) return;
-                                  processRefund.mutate({
-                                    orderId: order.id,
-                                    reason: "Admin initiated cancellation refund",
-                                  });
-                                }}
-                                disabled={processRefund.isPending}
-                                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
-                              >
-                                {processRefund.isPending &&
-                                (processRefund.variables as any)?.orderId === order.id ? (
-                                  <>
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                    Processing Refund...
-                                  </>
-                                ) : (
-                                  <>
-                                    <RotateCcw className="size-3.5" />
-                                    {order.razorpay_refund_status === "FAILED"
-                                      ? "Retry Refund via Razorpay"
-                                      : "Refund via Razorpay"}
-                                  </>
-                                )}
-                              </button>
+                              <div className="space-y-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (processRefund.isPending) return;
+                                    processRefund.mutate({
+                                      orderId: order.id,
+                                      reason: "Admin initiated cancellation refund",
+                                    });
+                                  }}
+                                  disabled={processRefund.isPending}
+                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
+                                >
+                                  {processRefund.isPending &&
+                                  (processRefund.variables as any)?.orderId === order.id ? (
+                                    <>
+                                      <Loader2 className="size-3.5 animate-spin" />
+                                      Processing Refund...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="size-3.5" />
+                                      {order.razorpay_refund_status === "FAILED"
+                                        ? "Retry Refund via Razorpay"
+                                        : "Refund via Razorpay"}
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOrderToRefundManual(order);
+                                    setManualRefundUtr("");
+                                    setManualRefundNotes("");
+                                  }}
+                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold shadow-xs transition cursor-pointer"
+                                >
+                                  <Wallet className="size-3.5" />
+                                  Mark Refunded via UPI / Bank
+                                </button>
+                              </div>
                             )}
                         </>
                       )}
@@ -2396,6 +2436,141 @@ export function OnlineSalesTab() {
                 className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MANUAL REFUND MODAL (UPI / Direct Transfer) ──────── */}
+      {orderToRefundManual && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="flex flex-col w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shadow-xs">
+                  <Wallet className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                    Mark Refund as Completed (UPI / Direct)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Record offline transfer to customer
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderToRefundManual(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 text-xs text-emerald-950 space-y-1.5">
+                <div className="flex justify-between font-semibold">
+                  <span className="text-emerald-800">Customer:</span>
+                  <span className="font-bold text-foreground">
+                    {orderToRefundManual._type === "online"
+                      ? orderToRefundManual.full_name
+                      : orderToRefundManual.customer_name || "Customer"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-emerald-800">Phone:</span>
+                  <span className="font-mono text-foreground font-medium">
+                    {orderToRefundManual.phone || "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline font-bold text-sm pt-2 border-t border-emerald-200">
+                  <span className="text-emerald-900">Refund Amount:</span>
+                  <span className="text-emerald-700 font-extrabold text-base">
+                    {formatPrice(Number(orderToRefundManual.total))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    UPI UTR / Ref No. (Optional)
+                  </span>
+                  <input
+                    type="text"
+                    value={manualRefundUtr}
+                    onChange={(e) => setManualRefundUtr(e.target.value)}
+                    placeholder="e.g. 428912345678 or GPay / PhonePe Txn ID"
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Bank UTR number ya transaction reference audit trail ke liye save ho jayegi.
+                  </p>
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Notes (Optional)
+                  </span>
+                  <input
+                    type="text"
+                    value={manualRefundNotes}
+                    onChange={(e) => setManualRefundNotes(e.target.value)}
+                    placeholder="e.g. Refunded to customer PhonePe directly"
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/20 px-5 py-3.5">
+              <button
+                type="button"
+                disabled={markRefundedManual.isPending}
+                onClick={() => setOrderToRefundManual(null)}
+                className="rounded-xl border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={markRefundedManual.isPending}
+                onClick={async () => {
+                  try {
+                    await markRefundedManual.mutateAsync({
+                      orderId: orderToRefundManual.id,
+                      amount: Number(orderToRefundManual.total),
+                      utrOrRef: manualRefundUtr,
+                      notes: manualRefundNotes,
+                    });
+                    setOrderToRefundManual(null);
+                  } catch {}
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {markRefundedManual.isPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Saving Refund...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="size-3.5" />
+                    Confirm Manual Refund
+                  </>
+                )}
               </button>
             </div>
           </div>
