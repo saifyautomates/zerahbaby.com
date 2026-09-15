@@ -170,8 +170,55 @@ Deno.serve(async (req) => {
       };
     };
 
+    // Helper: Safely format detailed error message from Shiprocket API response
+    const extractSrErrorMessage = (srData: Record<string, any>, fallback: string): string => {
+      const detailedErrors: string[] = [];
+      if (srData.errors && typeof srData.errors === "object") {
+        if (Array.isArray(srData.errors)) {
+          detailedErrors.push(...srData.errors.map(String));
+        } else {
+          for (const [key, val] of Object.entries(srData.errors)) {
+            const msg = Array.isArray(val) ? val.join("; ") : String(val);
+            detailedErrors.push(`${key}: ${msg}`);
+          }
+        }
+      }
+      if (detailedErrors.length > 0) {
+        return detailedErrors.join(", ");
+      }
+      if (Array.isArray(srData.data) && srData.data[0]?.error) {
+        return String(srData.data[0].error);
+      }
+      if (srData.message && srData.message !== "Oops! Invalid Data.") {
+        return String(srData.message);
+      }
+      if (srData.message) {
+        return String(srData.message);
+      }
+      return fallback;
+    };
+
     // Helper: Dynamically fetch active primary pickup location
     const getPrimaryPickupLocation = async (): Promise<string> => {
+      // 1. Check environment variable override
+      const envPickup = Deno.env.get("SHIPROCKET_PICKUP_LOCATION")?.trim();
+      if (envPickup) return envPickup;
+
+      // 2. Check site_settings table if configured
+      try {
+        const { data: setting } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "shiprocket_pickup_location")
+          .maybeSingle();
+        if (setting?.value && typeof setting.value === "string" && setting.value.trim()) {
+          return setting.value.trim();
+        }
+      } catch (err) {
+        console.warn("[shiprocket-api] Error reading pickup location from site_settings:", err);
+      }
+
+      // 3. Dynamic fetch from Shiprocket company settings API
       try {
         const headers = await getHeaders();
         const res = await fetch(`${srBaseUrl}/v1/external/settings/company/pickup`, {
@@ -179,16 +226,25 @@ Deno.serve(async (req) => {
         });
         if (res.ok) {
           const json = (await res.json()) as Record<string, any>;
-          const addresses = json?.data?.shipping_address || [];
-          const primary = addresses.find((a: any) => a.is_primary_location === 1) || addresses[0];
-          if (primary?.pickup_location) {
-            return primary.pickup_location;
+          const addresses =
+            json?.data?.shipping_address ||
+            json?.shipping_address ||
+            json?.data?.pickup_addresses ||
+            (Array.isArray(json?.data) ? json.data : []);
+          if (Array.isArray(addresses) && addresses.length > 0) {
+            const primary =
+              addresses.find((a: any) => a.is_primary_location === 1 || a.is_primary === 1) ||
+              addresses[0];
+            const locName = primary?.pickup_location || primary?.pickup_code || primary?.name;
+            if (locName) {
+              return String(locName).trim();
+            }
           }
         }
       } catch (err) {
         console.warn("[shiprocket-api] Failed to fetch pickup locations dynamically:", err);
       }
-      return "work";
+      return "Primary";
     };
 
     // --- Action: Create Return Shipment ---
@@ -362,15 +418,15 @@ Deno.serve(async (req) => {
           products?: { name?: string; sku?: string; stock?: number; mrp?: number } | null;
         }) => {
           const units = i.qty || i.quantity || 1;
-          const itemName = i.products?.name || i.name || "Product";
-          const itemSku = i.products?.sku || i.sku_snapshot || "SKU-UNKNOWN";
-          const mrpVal = i.products?.mrp || i.price;
+          const itemName = (i.products?.name || i.name || "Product").trim().slice(0, 100);
+          const itemSku = (i.products?.sku || i.sku_snapshot || "SKU-UNKNOWN").trim().slice(0, 50);
+          const sellingPrice = Math.max(0.01, Number(i.price) || 1);
           return {
             name: itemName,
             sku: itemSku,
             units,
-            selling_price: i.price,
-            discount: mrpVal ? Math.max(0, mrpVal - i.price) : 0,
+            selling_price: sellingPrice,
+            discount: 0,
             tax: 0,
             hsn: "",
           };
@@ -382,17 +438,40 @@ Deno.serve(async (req) => {
       }
 
       const safeFullName = (order.full_name || "Customer").trim();
-      const firstName = safeFullName.split(" ")[0] || "Customer";
-      const lastName = safeFullName.split(" ").slice(1).join(" ") || firstName;
+      const parts = safeFullName.split(/\s+/).filter(Boolean);
+      const firstName = parts[0] || "Customer";
+      const lastName = parts.slice(1).join(" ") || firstName;
       const isCod = order.payment_method === "cod" || order.payment_method === "COD";
 
-      const srOrderId =
+      const rawOrderId =
         order.order_number ||
         `ORD-${String(order.id).replace(/-/g, "").substring(0, 12).toUpperCase()}`;
+      const srOrderId = String(rawOrderId).replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 50);
 
       const pickupLocation = await getPrimaryPickupLocation();
-      const orderDate = new Date(order.created_at);
+      const orderDate = new Date(order.created_at || Date.now());
       const formattedDate = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, "0")}-${String(orderDate.getDate()).padStart(2, "0")} ${String(orderDate.getHours()).padStart(2, "0")}:${String(orderDate.getMinutes()).padStart(2, "0")}`;
+
+      // Ensure billing address meets Shiprocket minimum length (>= 10 characters)
+      let billingAddress = (order.address || "").trim();
+      if (billingAddress.length < 10) {
+        const fullAddr = [billingAddress, order.city, order.state, order.pincode].filter(Boolean).join(", ");
+        billingAddress = fullAddr.length >= 10 ? fullAddr : billingAddress.padEnd(10, ".");
+      }
+
+      const billingCity = (order.city || "Kota").trim();
+      const billingState = (order.state || "Rajasthan").trim();
+      const billingPincode = String(order.pincode || "").replace(/[^0-9]/g, "").slice(0, 6) || "324001";
+      const billingEmail = (order.email || "hello@zerahkids.com").trim();
+      const rawPhone = String(order.phone || "").replace(/[^0-9]/g, "");
+      const cleanPhone =
+        rawPhone.replace(/^91(?=[0-9]{10}$)/, "").replace(/^0+/, "").slice(-10) || "9999999999";
+
+      const calculatedItemsTotal = orderItems.reduce(
+        (acc: number, item: any) => acc + item.selling_price * item.units,
+        0,
+      );
+      const subTotal = Math.max(0.01, Number(order.subtotal || order.total || calculatedItemsTotal));
 
       const payload = {
         order_id: srOrderId,
@@ -400,18 +479,18 @@ Deno.serve(async (req) => {
         pickup_location: pickupLocation,
         billing_customer_name: firstName,
         billing_last_name: lastName,
-        billing_address: order.address,
-        billing_address_2: order.address_line2 || "",
-        billing_city: order.city,
-        billing_pincode: order.pincode,
-        billing_state: order.state,
+        billing_address: billingAddress,
+        billing_address_2: (order.address_line2 || "").trim(),
+        billing_city: billingCity,
+        billing_pincode: billingPincode,
+        billing_state: billingState,
         billing_country: "India",
-        billing_email: order.email || "hello@zerahkids.com",
-        billing_phone: order.phone,
+        billing_email: billingEmail,
+        billing_phone: cleanPhone,
         shipping_is_billing: true,
         order_items: orderItems,
         payment_method: isCod ? "COD" : "Prepaid",
-        sub_total: Number(order.subtotal || order.total || 0),
+        sub_total: subTotal,
         length: 10,
         breadth: 10,
         height: 10,
@@ -428,10 +507,20 @@ Deno.serve(async (req) => {
       const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || (srData.status_code !== 1 && srData.status_code !== 200 && !srData.order_id)) {
         console.error("Shiprocket Create Order Error:", srData);
-        const errMsg =
-          srData.message ||
-          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
-          "Failed to create shipment in Shiprocket";
+        const errMsg = extractSrErrorMessage(srData, "Failed to create shipment in Shiprocket");
+
+        try {
+          await adminClient
+            .from("orders")
+            .update({
+              shipping_error: errMsg,
+              shipping_last_synced_at: new Date().toISOString(),
+            })
+            .eq("id", orderId!);
+        } catch (dbErr) {
+          console.warn("[shiprocket-api] Failed to record shipping_error:", dbErr);
+        }
+
         throw new Error(errMsg);
       }
 
@@ -441,6 +530,8 @@ Deno.serve(async (req) => {
           shiprocket_order_id: srData.order_id,
           shiprocket_shipment_id: srData.shipment_id,
           shiprocket_status: srData.status || "NEW",
+          shipping_error: null,
+          shipping_last_synced_at: new Date().toISOString(),
         })
         .eq("id", orderId!);
 
@@ -491,10 +582,7 @@ Deno.serve(async (req) => {
       const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || !srData.awb_assign_status) {
         console.error("Shiprocket AWB Error:", srData);
-        const errMsg =
-          srData.message ||
-          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
-          "Failed to generate AWB";
+        const errMsg = extractSrErrorMessage(srData, "Failed to generate AWB");
         throw new Error(errMsg);
       }
 
@@ -546,10 +634,7 @@ Deno.serve(async (req) => {
       const srData = (await res.json().catch(() => ({}))) as Record<string, any>;
       if (!res.ok || (srData.status !== 1 && srData.pickup_status !== 1 && !srData.response)) {
         console.error("Shiprocket Pickup Error:", srData);
-        const errMsg =
-          srData.message ||
-          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
-          "Failed to request pickup";
+        const errMsg = extractSrErrorMessage(srData, "Failed to request pickup");
         throw new Error(errMsg);
       }
 
@@ -606,10 +691,10 @@ Deno.serve(async (req) => {
       const labelUrl = srData.label_url || srData.response?.label_url;
 
       if (!res.ok || !labelUrl) {
-        const errMsg =
-          srData.message ||
-          (srData.errors ? Object.values(srData.errors).flat().join(", ") : "") ||
-          "Failed to generate shipping label from Shiprocket";
+        const errMsg = extractSrErrorMessage(
+          srData,
+          "Failed to generate shipping label from Shiprocket",
+        );
         throw new Error(errMsg);
       }
 
