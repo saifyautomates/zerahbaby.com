@@ -28,7 +28,7 @@ type ShopSearch = {
   q?: string | undefined;
 };
 
-import { productsQueryOptions, categoriesQueryOptions, ageGroups } from "@/lib/store";
+import { productsQueryOptions, categoriesQueryOptions, ageGroups, matchesAgeGroup } from "@/lib/store";
 import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/shop")({
@@ -422,6 +422,15 @@ function ShopPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Sync age parameter from URL search params into selectedAgeGroups state
+  useEffect(() => {
+    if (age) {
+      setSelectedAgeGroups([age]);
+    } else {
+      setSelectedAgeGroups([]);
+    }
+  }, [age]);
+
   // Sync shop filter state to sessionStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -472,7 +481,10 @@ function ShopPage() {
     const filtered = list.filter(
       (p) =>
         (!category || p.category?.toLowerCase().trim() === category.toLowerCase().trim()) &&
-        (selectedAgeGroups.length === 0 || selectedAgeGroups.includes(p.ageGroup)) &&
+        (selectedAgeGroups.length === 0 ||
+          selectedAgeGroups.some((target) =>
+            matchesAgeGroup(p.ageGroup, target, p.variants),
+          )) &&
         (selectedBrands.length === 0 || selectedBrands.includes(p.brand)) &&
         p.price <= maxPrice &&
         (!inStockOnly || p.stock > 0) &&

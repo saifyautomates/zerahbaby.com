@@ -911,4 +911,99 @@ export function useSettings() {
   };
 }
 
-export const ageGroups = ["0-6m", "6-12m", "12-24m", "2-4y"];
+export const ageGroups = [
+  "0-6m",
+  "6-12m",
+  "12-24m",
+  "2-4y",
+  "4-8y",
+  "8-16y",
+];
+
+/**
+ * Checks whether a given product's age group or any of its variant sizes
+ * falls within a target age filter (supporting infancy up to 16 Years).
+ */
+export function matchesAgeGroup(
+  productAgeGroup?: string | null,
+  targetAge?: string | null,
+  variants?: Array<{ size?: string | null }> | null,
+): boolean {
+  if (!targetAge || targetAge.toLowerCase() === "all" || targetAge.toLowerCase() === "all ages") {
+    return true;
+  }
+
+  const target = targetAge.trim().toLowerCase();
+  const pAge = (productAgeGroup || "").trim().toLowerCase();
+
+  // If product is flagged for all ages, it matches any age filter
+  if (pAge === "all ages" || pAge === "all" || pAge === "free size") {
+    return true;
+  }
+
+  // Exact or direct substring match on product age group
+  if (pAge && (pAge === target || pAge.includes(target) || target.includes(pAge))) {
+    return true;
+  }
+
+  // Helper to test if a string matches a specific bracket
+  const testString = (val: string): boolean => {
+    const s = val.toLowerCase().trim();
+    if (!s) return false;
+    if (s === target || s.includes(target) || target.includes(s)) return true;
+
+    // 0-6m: covers 0-3m, 3-6m, newborn, infant
+    if (target === "0-6m" || target === "0-6M") {
+      if (/0-3m|3-6m|newborn|infant|^0m|^1m|^2m|^3m|^4m|^5m|^6m/.test(s)) return true;
+    }
+
+    // 6-12m: covers 6-9m, 9-12m, 6-12m
+    if (target === "6-12m" || target === "6-12M") {
+      if (/6-9m|9-12m|6-12m|^6m|^7m|^8m|^9m|^10m|^11m|^12m/.test(s)) return true;
+    }
+
+    // 12-24m or 1-2y: covers 12-18m, 18-24m, 1-2y, toddler
+    if (target === "12-24m" || target === "12-24M" || target === "1-2y" || target === "1-2Y") {
+      if (/12-18m|18-24m|12-24m|1-2y|toddler/.test(s)) return true;
+    }
+
+    // 2-4y: covers 2-3y, 3-4y, 2-4y
+    if (target === "2-4y" || target === "2-4Y") {
+      if (/2-3y|3-4y|2-4y/.test(s)) return true;
+    }
+
+    // 4-8y or kids: covers 4-5y, 5-6y, 6-7y, 7-8y, 4-6y, 6-8y, kids
+    if (target === "4-8y" || target === "4-8Y" || target.includes("kids")) {
+      if (/4-5y|5-6y|6-7y|7-8y|4-6y|6-8y|4-8y|kids/.test(s)) return true;
+    }
+
+    // 8-16y or teens: covers 8-9y, 9-10y, 10-11y, 11-12y, 12-13y, 13-14y, 14-15y, 15-16y, teens
+    if (target === "8-16y" || target === "8-16Y" || target.includes("teen")) {
+      if (
+        /8-9y|9-10y|10-11y|11-12y|12-13y|13-14y|14-15y|15-16y|8-10y|10-12y|12-14y|14-16y|8-16y|teen/.test(
+          s,
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Test product-level age group
+  if (pAge && testString(pAge)) {
+    return true;
+  }
+
+  // Test variant sizes
+  if (variants && variants.length > 0) {
+    for (const v of variants) {
+      if (v.size && testString(v.size)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}

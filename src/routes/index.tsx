@@ -75,7 +75,7 @@ import heroFallback from "@/assets/hero-baby.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-import { productsQueryOptions, categoriesQueryOptions } from "@/lib/store";
+import { productsQueryOptions, categoriesQueryOptions, matchesAgeGroup } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
@@ -164,13 +164,9 @@ function HomepageSectionItemInner({
 
   const filteredProducts = useMemo(() => {
     if (selectedAge === "All") return sectionProducts;
-    const selNorm = selectedAge.toLowerCase();
-    const matched = sectionProducts.filter((p) => {
-      const ageNorm = (p.ageGroup || "").toLowerCase();
-      if (ageNorm.includes(selNorm)) return true;
-      return (p.variants || []).some((v: any) => (v.size || "").toLowerCase().includes(selNorm));
-    });
-    return matched.length > 0 ? matched : sectionProducts;
+    return sectionProducts.filter((p) =>
+      matchesAgeGroup(p.ageGroup, selectedAge, p.variants),
+    );
   }, [sectionProducts, selectedAge]);
 
   const patternSvg = useMemo(
@@ -203,7 +199,7 @@ function HomepageSectionItemInner({
       resolvedTheme.backgroundImageUrl,
     );
 
-  const ageGroups = ["All", "0-6M", "6-12M", "1-2Y", "2-3Y", "3-4Y"];
+  const ageGroups = ["All", "0-6M", "6-12M", "1-2Y", "2-4Y", "4-8Y", "8-16Y"];
 
   return (
     <div
@@ -636,40 +632,59 @@ function Index() {
               View all
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {[
               {
                 icon: Baby,
                 age: "0-6m",
+                label: "0–6 Months",
                 color: "text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50",
               },
               {
                 icon: Baby,
                 age: "6-12m",
+                label: "6–12 Months",
                 color:
                   "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50",
               },
               {
                 icon: Baby,
                 age: "12-24m",
+                label: "1–2 Years",
                 color: "text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50",
               },
               {
                 icon: Baby,
                 age: "2-4y",
+                label: "2–4 Years",
                 color: "text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50",
+              },
+              {
+                icon: Sparkles,
+                age: "4-8y",
+                label: "4–8 Years",
+                color: "text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/50",
+              },
+              {
+                icon: Sparkles,
+                age: "8-16y",
+                label: "8–16 Years",
+                color: "text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50",
               },
             ].map((a) => (
               <Link
                 key={a.age}
                 to="/shop"
                 search={{ age: a.age }}
-                className="flex items-center justify-center gap-3 bg-muted/40 hover:bg-muted/70 rounded-2xl p-3.5 border border-border/50 hover:border-border transition-all active:scale-98"
+                className="flex items-center gap-3 bg-muted/40 hover:bg-muted/70 rounded-2xl p-3 border border-border/50 hover:border-border transition-all active:scale-98"
               >
-                <div className={`p-2 rounded-xl ${a.color}`}>
+                <div className={`p-2 rounded-xl shrink-0 ${a.color}`}>
                   <a.icon className="size-5" />
                 </div>
-                <span className="text-xs font-bold text-foreground">{a.age}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-bold text-foreground leading-tight">{a.age}</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight truncate">{a.label}</span>
+                </div>
               </Link>
             ))}
           </div>
@@ -757,16 +772,18 @@ function Index() {
       )}
 
       {/* ─── DYNAMIC HOMEPAGE SECTIONS ─────────── */}
-      {sectionsToRender.map((section) => (
-        <HomepageSectionItem
-          key={section.id}
-          section={section}
-          list={list}
-          isLoading={isLoading}
-          adminMode={adminMode}
-          onEditSection={setEditingSection}
-        />
-      ))}
+      {sectionsToRender
+        .filter((s) => s.slug !== "all-products" && s.title.toLowerCase().trim() !== "all products")
+        .map((section) => (
+          <HomepageSectionItem
+            key={section.id}
+            section={section}
+            list={list}
+            isLoading={isLoading}
+            adminMode={adminMode}
+            onEditSection={setEditingSection}
+          />
+        ))}
 
       {/* ─── AUTOMATIC MASTER ALL PRODUCTS SECTION ─────────── */}
       <AllProductsSection

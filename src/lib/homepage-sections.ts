@@ -6,7 +6,12 @@ import type { ThemePresetId, ThemeConfig, SpacingVariant } from "@/lib/homepage-
 
 export type HomepageSectionType = "PRODUCT_GRID" | "PRODUCT_CAROUSEL";
 export type HomepageSectionSource =
-  "MANUAL" | "BESTSELLERS" | "NEW_ARRIVALS" | "DISCOUNTED" | "CATEGORY";
+  | "MANUAL"
+  | "ALL"
+  | "BESTSELLERS"
+  | "NEW_ARRIVALS"
+  | "DISCOUNTED"
+  | "CATEGORY";
 export type HomepageSectionStatus = "published" | "draft" | "archived";
 
 export interface SectionDisplaySettings {
@@ -215,9 +220,20 @@ export function resolveSectionProducts(
         manualList.push(found);
       }
     }
-    if (manualList.length > 0 || section.source_type === "MANUAL") {
+    if (manualList.length > 0) {
       return manualList.slice(0, max);
     }
+  }
+
+  // If section is designated as ALL products (or slug/title is all-products), return live catalog
+  if (
+    section.source_type === "ALL" ||
+    (section.source_type as string) === "ALL_PRODUCTS" ||
+    section.slug === "all-products" ||
+    section.title.toLowerCase().trim() === "all products"
+  ) {
+    const catalogMax = Math.max(max, 24);
+    return [...allProducts].slice(0, catalogMax);
   }
 
   if (section.source_type === "MANUAL") {

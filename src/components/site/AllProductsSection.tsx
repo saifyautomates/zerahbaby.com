@@ -10,7 +10,7 @@ import {
   Filter,
 } from "lucide-react";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
-import { type Product, type Category, productsQueryOptions } from "@/lib/store";
+import { type Product, type Category, productsQueryOptions, matchesAgeGroup } from "@/lib/store";
 import { useQuery } from "@tanstack/react-query";
 import { useAdminMode } from "@/lib/admin-mode";
 import { safeLazy } from "@/lib/safe-lazy";
@@ -31,7 +31,7 @@ function AdminAddProduct(props: { defaultCategory?: string; label?: string; clas
 }
 
 const PAGE_SIZE = 12;
-const AGE_GROUPS = ["All", "0-6m", "6-12m", "12-24m", "2-4y"];
+const AGE_GROUPS = ["All", "0-6m", "6-12m", "12-24m", "2-4y", "4-8y", "8-16y"];
 
 type SortOption = "featured" | "newest" | "price_asc" | "price_desc" | "rating";
 
@@ -114,14 +114,7 @@ export const AllProductsSection = memo(function AllProductsSection({
 
     // 2. Age Filter
     if (selectedAge !== "All") {
-      const selNorm = selectedAge.toLowerCase().trim();
-      result = result.filter((p) => {
-        const ageNorm = (p.ageGroup || "").toLowerCase();
-        if (ageNorm.includes(selNorm)) return true;
-        return (p.variants || []).some((v: any) =>
-          (v.size || "").toLowerCase().includes(selNorm),
-        );
-      });
+      result = result.filter((p) => matchesAgeGroup(p.ageGroup, selectedAge, p.variants));
     }
 
     // 3. Search Query Filter
