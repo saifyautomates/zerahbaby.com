@@ -257,6 +257,20 @@ export function POSTab() {
     const draft = loadPOSDraft();
     return draft?.discountValue || 0;
   });
+  const [finalPaidInput, setFinalPaidInput] = useState<string>(() => {
+    const local = loadStoredSessionsLocal();
+    const savedId = loadActiveSessionIdLocal();
+    const active = savedId ? local.find((s) => s.id === savedId) : local[0];
+    if (active && active.discount_type === "fixed" && (active.discount_value || 0) > 0) {
+      const activeSubtotal = (active.items || []).reduce(
+        (acc: number, it: { price: number; quantity?: number; qty?: number }) =>
+          acc + it.price * (it.quantity ?? it.qty ?? 1),
+        0,
+      );
+      return String(Math.max(0, activeSubtotal - (active.discount_value || 0)));
+    }
+    return "";
+  });
 
   // Customer state
   const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">(() => {
@@ -514,6 +528,25 @@ export function POSTab() {
   const discountAmount = posFinancials.discount;
   const total = posFinancials.finalTotal;
   const totalItems = useMemo(() => cart.reduce((acc, item) => acc + item.qty, 0), [cart]);
+
+  // Synchronize derived discountValue whenever subtotal changes while in fixed / final pay mode
+  useEffect(() => {
+    if (discountType === "fixed" && finalPaidInput.trim() !== "") {
+      const paid = parseFloat(finalPaidInput);
+      if (!isNaN(paid) && paid >= 0) {
+        if (paid <= subtotal) {
+          const derived = Math.round((subtotal - paid) * 100) / 100;
+          if (derived !== discountValue) {
+            setDiscountValue(derived);
+          }
+        } else {
+          if (discountValue !== 0) {
+            setDiscountValue(0);
+          }
+        }
+      }
+    }
+  }, [subtotal, discountType, finalPaidInput, discountValue]);
 
   // Dedicated Voucher Instrument Query (4-character token scope)
   const { data: voucherData, isFetching: voucherFetching } = useStoreCreditVoucher({
@@ -938,6 +971,16 @@ export function POSTab() {
     setCustomerId(resolvedTarget.customer_id || null);
     setDiscountType(resolvedTarget.discount_type || "none");
     setDiscountValue(resolvedTarget.discount_value || 0);
+    if (resolvedTarget.discount_type === "fixed" && (resolvedTarget.discount_value || 0) > 0) {
+      const targetSubtotal = (resolvedTarget.items || []).reduce(
+        (acc: number, it: { price: number; quantity?: number; qty?: number }) =>
+          acc + it.price * (it.quantity ?? it.qty ?? 1),
+        0,
+      );
+      setFinalPaidInput(String(Math.max(0, targetSubtotal - (resolvedTarget.discount_value || 0))));
+    } else {
+      setFinalPaidInput("");
+    }
     setStoreCreditApplied(resolvedTarget.store_credit_applied || 0);
     setCreditTokenInput(resolvedTarget.credit_token_input || "");
     setCreditDismissedManually(false);
@@ -1243,6 +1286,16 @@ export function POSTab() {
         setCustomerId(next.customer_id || null);
         setDiscountType(next.discount_type || "none");
         setDiscountValue(next.discount_value || 0);
+        if (next.discount_type === "fixed" && (next.discount_value || 0) > 0) {
+          const nextSubtotal = (next.items || []).reduce(
+            (acc: number, it: { price: number; quantity?: number; qty?: number }) =>
+              acc + it.price * (it.quantity ?? it.qty ?? 1),
+            0,
+          );
+          setFinalPaidInput(String(Math.max(0, nextSubtotal - (next.discount_value || 0))));
+        } else {
+          setFinalPaidInput("");
+        }
         setStoreCreditApplied(next.store_credit_applied || 0);
         setCreditTokenInput(next.credit_token_input || "");
         setCreditDismissedManually(false);
@@ -2061,6 +2114,7 @@ export function POSTab() {
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
+    setFinalPaidInput("");
     setStoreCreditApplied(0);
     setCreditTokenInput("");
     setCashTendered("");
@@ -2279,6 +2333,7 @@ export function POSTab() {
     setCart([]);
     setDiscountType("none");
     setDiscountValue(0);
+    setFinalPaidInput("");
     setCustomerMode("walkin");
     setCustomerName("");
     setCustomerPhone("");
@@ -3460,7 +3515,7 @@ export function POSTab() {
                         [
                           ["none", "No Discount"],
                           ["percentage", "Percent (%)"],
-                          ["fixed", "Flat Amount (₹)"],
+                          ["fixed", "Final Pay (₹)"],
                         ] as const
                       ).map(([type, label]) => (
                         <button
@@ -3468,7 +3523,16 @@ export function POSTab() {
                           type="button"
                           onClick={() => {
                             setDiscountType(type);
-                            if (type === "none") setDiscountValue(0);
+                            if (type === "none") {
+                              setDiscountValue(0);
+                              setFinalPaidInput("");
+                            } else if (type === "fixed") {
+                              if (discountValue > 0) {
+                                setFinalPaidInput(String(Math.max(0, subtotal - discountValue)));
+                              } else {
+                                setFinalPaidInput("");
+                              }
+                            }
                           }}
                           className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
                             discountType === type
@@ -3504,45 +3568,144 @@ export function POSTab() {
                                   {pct}%
                                 </button>
                               ))
-                            : [50, 100, 200, 500, 1000].map((amt) => (
-                                <button
-                                  key={amt}
-                                  type="button"
-                                  onClick={() => setDiscountValue(amt)}
-                                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                    discountValue === amt
-                                      ? "bg-emerald-600 text-white shadow-2xs"
-                                      : "bg-muted text-foreground hover:bg-muted/80"
-                                  }`}
-                                >
-                                  ₹{amt}
-                                </button>
-                              ))}
+                            : (
+                                [
+                                  {
+                                    label: `Exact (${formatPrice(subtotal)})`,
+                                    paid: subtotal,
+                                  },
+                                  ...(subtotal >= 50
+                                    ? [
+                                        {
+                                          label: `−₹50 (${formatPrice(Math.max(0, subtotal - 50))})`,
+                                          paid: Math.max(0, subtotal - 50),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(subtotal >= 100
+                                    ? [
+                                        {
+                                          label: `−₹100 (${formatPrice(Math.max(0, subtotal - 100))})`,
+                                          paid: Math.max(0, subtotal - 100),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(subtotal >= 200
+                                    ? [
+                                        {
+                                          label: `−₹200 (${formatPrice(Math.max(0, subtotal - 200))})`,
+                                          paid: Math.max(0, subtotal - 200),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(subtotal >= 500
+                                    ? [
+                                        {
+                                          label: `−₹500 (${formatPrice(Math.max(0, subtotal - 500))})`,
+                                          paid: Math.max(0, subtotal - 500),
+                                        },
+                                      ]
+                                    : []),
+                                ] as const
+                              ).map((preset) => {
+                                const isSelected =
+                                  finalPaidInput !== "" && Number(finalPaidInput) === preset.paid;
+                                return (
+                                  <button
+                                    key={preset.label}
+                                    type="button"
+                                    onClick={() => {
+                                      setFinalPaidInput(String(preset.paid));
+                                      const derivedDiscount = Math.max(0, subtotal - preset.paid);
+                                      setDiscountValue(derivedDiscount);
+                                    }}
+                                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-emerald-600 text-white shadow-2xs"
+                                        : "bg-muted text-foreground hover:bg-muted/80"
+                                    }`}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                );
+                              })}
                         </div>
 
                         {/* Direct Custom Input */}
                         <div className="flex items-center gap-3">
                           <div className="relative flex-1">
-                            <input
-                              type="number"
-                              value={discountValue || ""}
-                              onChange={(e) =>
-                                setDiscountValue(Math.max(0, Number(e.target.value)))
-                              }
-                              placeholder={
-                                discountType === "percentage"
-                                  ? "Enter discount % (e.g. 10)"
-                                  : "Enter ₹ discount amount"
-                              }
-                              min={0}
-                              max={discountType === "percentage" ? 100 : subtotal}
-                              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                            />
+                            {discountType === "percentage" ? (
+                              <input
+                                type="number"
+                                value={discountValue || ""}
+                                onChange={(e) =>
+                                  setDiscountValue(Math.max(0, Number(e.target.value)))
+                                }
+                                placeholder="Enter discount % (e.g. 10)"
+                                min={0}
+                                max={100}
+                                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                              />
+                            ) : (
+                              <input
+                                type="number"
+                                value={finalPaidInput}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFinalPaidInput(val);
+                                  if (val.trim() === "") {
+                                    setDiscountValue(0);
+                                    return;
+                                  }
+                                  const paid = parseFloat(val);
+                                  if (isNaN(paid) || paid < 0) {
+                                    setDiscountValue(0);
+                                    return;
+                                  }
+                                  if (paid <= subtotal) {
+                                    const derivedDiscount =
+                                      Math.round((subtotal - paid) * 100) / 100;
+                                    setDiscountValue(derivedDiscount);
+                                  } else {
+                                    // Paid amount is greater than subtotal: discount is 0, extra is change
+                                    setDiscountValue(0);
+                                    if (paymentMethod === "cash") {
+                                      setCashTendered(paid);
+                                    }
+                                  }
+                                }}
+                                placeholder="Enter final pay amount (e.g. 700)"
+                                min={0}
+                                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                              />
+                            )}
                           </div>
-                          {discountAmount > 0 && (
-                            <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
-                              −{formatPrice(discountAmount)}
-                            </span>
+                          {discountType === "fixed" ? (
+                            finalPaidInput.trim() !== "" && !isNaN(Number(finalPaidInput)) ? (
+                              Number(finalPaidInput) < subtotal ? (
+                                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                                  Discount: −{formatPrice(Math.max(0, subtotal - Number(finalPaidInput)))}
+                                </span>
+                              ) : Number(finalPaidInput) > subtotal ? (
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap shrink-0 bg-blue-50 dark:bg-blue-950/40 px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800">
+                                  Change: +{formatPrice(Number(finalPaidInput) - subtotal)}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-muted-foreground whitespace-nowrap shrink-0 bg-muted px-3 py-2 rounded-xl">
+                                  Exact (₹0 Disc)
+                                </span>
+                              )
+                            ) : discountAmount > 0 ? (
+                              <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                                −{formatPrice(discountAmount)}
+                              </span>
+                            ) : null
+                          ) : (
+                            discountAmount > 0 && (
+                              <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                                −{formatPrice(discountAmount)}
+                              </span>
+                            )
                           )}
                         </div>
                       </div>
