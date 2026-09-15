@@ -5,6 +5,11 @@ import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
 import { useSession, useIsAdmin } from "@/lib/auth";
+import {
+  type InvoicePaperSize,
+  INVOICE_PAPER_SIZES,
+  getPaperSizeSpec,
+} from "@/lib/print-settings";
 const logo = "/logo.png";
 
 /** Clickable invoice trigger — opens the full printable invoice for customers and admins. */
@@ -83,7 +88,7 @@ function esc(str: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Build professional, responsive A4 Landscape HTML for an online order invoice */
+/** Build professional, responsive HTML for an online order invoice across all normal paper sizes */
 export function buildOrderA4HTML(
   order: Order,
   store: {
@@ -92,7 +97,9 @@ export function buildOrderA4HTML(
     contactPhone?: string;
     contactEmail?: string;
   },
+  paperSize: InvoicePaperSize = "a4-landscape",
 ): string {
+  const spec = getPaperSizeSpec(paperSize);
   const brand = store.brandName || "ZÉRAH BABY & KIDS";
   const address =
     store.storeAddress || "In Front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan 324001";
@@ -168,8 +175,8 @@ export function buildOrderA4HTML(
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   @page {
-    size: A4 landscape;
-    margin: 10mm;
+    size: ${spec.cssSize};
+    margin: ${spec.marginMm}mm;
   }
 
   html, body {
@@ -179,7 +186,7 @@ export function buildOrderA4HTML(
     background: #ffffff;
     color: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    font-size: 10px;
+    font-size: ${spec.isPortrait ? "9px" : "10px"};
     line-height: 1.35;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -187,21 +194,25 @@ export function buildOrderA4HTML(
 
   .invoice-container {
     width: 100%;
-    max-width: 277mm;
+    max-width: ${spec.maxWidth};
     margin: 0 auto;
     box-sizing: border-box;
   }
 
-  /* ── 3-Column Landscape Header (277mm width) ── */
+  /* ── 3-Column Header ── */
   .header {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: ${spec.isPortrait ? "1.2fr 1fr" : "1.2fr 1fr 1fr"};
     align-items: center;
     border-bottom: 2.5px solid #8B2020;
     padding-bottom: 8px;
     margin-bottom: 8px;
     gap: 16px;
   }
+  ${spec.isPortrait ? `
+  .header-center { display: none !important; }
+  .bottom-summary { grid-template-columns: 1fr !important; }
+  ` : ""}
   .header-left {
     display: flex;
     align-items: center;
@@ -552,7 +563,7 @@ export function buildOrderA4HTML(
 </html>`;
 }
 
-/** Print online order invoice using isolated A4 landscape iframe */
+/** Print online order invoice using isolated iframe with selectable paper size */
 export function printOrderA4Invoice(
   order: Order,
   store: {
@@ -561,11 +572,13 @@ export function printOrderA4Invoice(
     contactPhone?: string;
     contactEmail?: string;
   },
+  paperSize: InvoicePaperSize = "a4-landscape",
 ) {
+  const spec = getPaperSizeSpec(paperSize);
   try {
     const iframe = document.createElement("iframe");
     iframe.style.cssText =
-      "position:fixed;top:-9999px;left:-9999px;width:297mm;height:210mm;border:none;visibility:hidden;";
+      `position:fixed;top:-9999px;left:-9999px;width:${spec.iframeWidth};height:${spec.iframeHeight};border:none;visibility:hidden;`;
     document.body.appendChild(iframe);
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -596,7 +609,7 @@ export function printOrderA4Invoice(
 
     iframe.onload = triggerPrint;
     doc.open();
-    doc.write(buildOrderA4HTML(order, store));
+    doc.write(buildOrderA4HTML(order, store, paperSize));
     doc.close();
 
     if (doc.readyState === "complete") {
@@ -611,8 +624,25 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
   const { brandName, storeAddress, contactPhone, contactEmail } = useSettings();
   const storeSettings = { brandName, storeAddress, contactPhone, contactEmail };
 
+  const [paperSize, setPaperSize] = useState<InvoicePaperSize>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("zerah_invoice_paper_size");
+      if (saved && saved in INVOICE_PAPER_SIZES) return saved as InvoicePaperSize;
+    }
+    return "a4-landscape";
+  });
+
+  const spec = getPaperSizeSpec(paperSize);
+
+  const handlePaperSizeChange = (newSize: InvoicePaperSize) => {
+    setPaperSize(newSize);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("zerah_invoice_paper_size", newSize);
+    }
+  };
+
   const handlePrint = () => {
-    printOrderA4Invoice(order, storeSettings);
+    printOrderA4Invoice(order, storeSettings, paperSize);
   };
 
   return createPortal(
@@ -625,8 +655,8 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
       <style>{`
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 10mm;
+            size: ${spec.cssSize};
+            margin: ${spec.marginMm}mm;
           }
           body {
             background: #ffffff !important;
@@ -640,12 +670,26 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Bar */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-muted/20 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5 bg-muted/20 print:hidden">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-foreground">Tax Invoice Preview</h2>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-[#8B2020]/10 text-[#8B2020]">
-              A4 Landscape
-            </span>
+            <div className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2.5 py-1 shadow-2xs">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider hidden sm:inline">
+                Paper Size:
+              </span>
+              <select
+                value={paperSize}
+                onChange={(e) => handlePaperSizeChange(e.target.value as InvoicePaperSize)}
+                className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer"
+                title="Select paper format for normal printer"
+              >
+                {Object.values(INVOICE_PAPER_SIZES).map((ps) => (
+                  <option key={ps.id} value={ps.id}>
+                    {ps.name} ({ps.dimensions})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -653,7 +697,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               className="inline-flex items-center gap-2 rounded-xl bg-[#8B2020] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7a1c1c] cursor-pointer"
             >
               <Printer className="size-3.5" />
-              <span>Print A4 Invoice</span>
+              <span>Print ({spec.name})</span>
             </button>
             <button
               onClick={onClose}
@@ -665,11 +709,14 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           </div>
         </div>
 
-        {/* Invoice Body — A4 Landscape Proportioned */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 print:p-0 print:overflow-visible bg-white text-slate-900">
-          <div className="w-full max-w-[277mm] mx-auto">
+        {/* Invoice Body — Paper Size Proportioned */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible bg-white text-slate-900 transition-all">
+          <div
+            className="w-full mx-auto transition-all"
+            style={{ maxWidth: spec.maxWidth }}
+          >
             {/* Header section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 border-b-2 border-[#8B2020] pb-4 mb-4">
+            <div className={`grid ${spec.isPortrait ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 md:grid-cols-3"} items-center gap-4 border-b-2 border-[#8B2020] pb-4 mb-4`}>
               <div className="flex gap-3 items-center">
                 <img
                   loading="lazy"
@@ -710,7 +757,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             </div>
 
             {/* Billing / Info details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-xl bg-slate-50 p-4 text-xs border border-slate-200 mb-4 print:bg-transparent">
+            <div className={`grid grid-cols-1 ${spec.isPortrait ? "sm:grid-cols-2" : "md:grid-cols-3"} gap-3 rounded-xl bg-slate-50 p-4 text-xs border border-slate-200 mb-4 print:bg-transparent`}>
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B2020]">
                   Billed &amp; Delivered To
@@ -826,7 +873,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             </table>
 
             {/* Bottom Summary (Policy Left, Totals Right) */}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4 items-start mb-4">
+            <div className={`grid grid-cols-1 ${spec.isPortrait ? "gap-3" : "md:grid-cols-[1fr_280px] gap-4"} items-start mb-4`}>
               <div className="rounded-xl border border-dashed border-slate-300 p-3 bg-slate-50 text-[11px] text-slate-600 space-y-1">
                 <p className="font-bold uppercase text-slate-900 text-[10px]">
                   Return &amp; Exchange Policy
@@ -877,7 +924,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
           </div>
 
           {/* Action buttons (hidden when printing) */}
-          <div className="mt-6 flex justify-end gap-3 print:hidden">
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-3 print:hidden">
             <button
               onClick={onClose}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 cursor-pointer"
@@ -888,7 +935,7 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
               onClick={handlePrint}
               className="inline-flex items-center gap-2 rounded-xl bg-[#8B2020] px-6 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#7a1c1c] cursor-pointer"
             >
-              <Printer className="size-4" /> Print A4 Invoice (Landscape)
+              <Printer className="size-4" /> Print Invoice ({spec.name})
             </button>
           </div>
         </div>

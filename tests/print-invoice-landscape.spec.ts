@@ -11,6 +11,12 @@ import {
   type ThermalReceiptItem,
 } from "../src/components/admin/ThermalReceipt";
 import type { Order } from "../src/domain/models";
+import {
+  INVOICE_PAPER_SIZES,
+  INVOICE_PAPER_SIZES_LIST,
+  getPaperSizeSpec,
+  type InvoicePaperSize,
+} from "../src/lib/print-settings";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -406,4 +412,94 @@ test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
       expect(pdfBuffer.length).toBeGreaterThan(5000);
     }
   });
+
+  test("8. Multi-Paper Size Catalog: Every paper size generates compliant @page and max-width in both POS and Order invoices", () => {
+    const sampleOrder: Order = {
+      id: "ord-test-multi-paper",
+      user_id: "usr-123",
+      email: "test@example.com",
+      full_name: "Anita Roy",
+      phone: "9123456780",
+      alt_phone: "",
+      address: "12 Green Park",
+      address_line2: "",
+      landmark: "",
+      city: "Kota",
+      state: "Rajasthan",
+      pincode: "324001",
+      payment_method: "online",
+      payment_status: "paid",
+      invoice_no: "INV-MP-001",
+      subtotal: 1200,
+      shipping: 0,
+      discount: 0,
+      coupon_code: "",
+      total: 1200,
+      status: "delivered",
+      notes: "",
+      created_at: "2026-09-12T10:15:00Z",
+      order_items: [
+        {
+          id: "item-1",
+          product_slug: "toddler-cotton-tee",
+          name: "Toddler Everyday Cotton Tee",
+          color: "Sunshine Yellow",
+          size: "2-3Y",
+          sku_snapshot: "ZR-TEE-YL-2Y",
+          image_url: "/logo.png",
+          price: 600,
+          qty: 2,
+        },
+      ],
+    };
+
+    for (const ps of INVOICE_PAPER_SIZES_LIST) {
+      // 1. POS A4/A5/Letter Invoice
+      const posHtml = buildA4HTML(sampleSale, sampleItems, storeMock as any, ps.id);
+      expect(posHtml).toContain(`size: ${ps.cssSize};`);
+      expect(posHtml).toContain(`margin: ${ps.marginMm}mm;`);
+      expect(posHtml).toContain(`max-width: ${ps.maxWidth};`);
+
+      // 2. Online Order Invoice
+      const orderHtml = buildOrderA4HTML(sampleOrder, storeMock, ps.id);
+      expect(orderHtml).toContain(`size: ${ps.cssSize};`);
+      expect(orderHtml).toContain(`margin: ${ps.marginMm}mm;`);
+      expect(orderHtml).toContain(`max-width: ${ps.maxWidth};`);
+    }
+  });
+
+  test("9. Browser Print Preview on A5 Half Sheet Landscape: renders cleanly without horizontal cutoff", async ({
+    page,
+    browserName,
+  }) => {
+    // A5 Landscape is 210mm x 148mm = ~794px x ~559px at 96 DPI
+    const html = buildA4HTML(sampleSale, sampleItems, storeMock as any, "a5-landscape");
+    await page.setViewportSize({ width: 794, height: 559 });
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await page.emulateMedia({ media: "print" });
+
+    // Check no horizontal scrollbar/overflow
+    const hasHorizontalOverflow = await page.evaluate(() => {
+      const docEl = document.documentElement;
+      return docEl.scrollWidth > docEl.clientWidth + 2;
+    });
+    expect(hasHorizontalOverflow).toBe(false);
+
+    // Ensure title and items are present
+    const invoiceTitle = await page.textContent("body");
+    expect(invoiceTitle).toContain("POS-2026-0042");
+    expect(invoiceTitle).toContain("Organic Cotton Baby Romper");
+
+    // Chromium PDF generation on A5 format
+    if (browserName === "chromium") {
+      const pdfBuffer = await page.pdf({
+        format: "A5",
+        landscape: true,
+        printBackground: true,
+        margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
+      });
+      expect(pdfBuffer.length).toBeGreaterThan(3000);
+    }
+  });
 });
+

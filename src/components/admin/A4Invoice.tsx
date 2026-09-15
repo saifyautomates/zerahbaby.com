@@ -21,7 +21,12 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, MonitorOff, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
-import { sendHTMLViaQZTray } from "@/lib/print-settings";
+import {
+  sendHTMLViaQZTray,
+  type InvoicePaperSize,
+  INVOICE_PAPER_SIZES,
+  getPaperSizeSpec,
+} from "@/lib/print-settings";
 import { supabase } from "@/integrations/supabase/client";
 import { useSettings } from "@/lib/store";
 
@@ -103,7 +108,9 @@ export function buildA4HTML(
   sale: A4InvoiceSale,
   items: A4InvoiceItem[],
   store: ReturnType<typeof useSettings>,
+  paperSize: InvoicePaperSize = "a4-landscape",
 ): string {
+  const spec = getPaperSizeSpec(paperSize);
   const date = sale.sale_date ?? new Date();
 
   const dateStr = date.toLocaleDateString("en-IN", {
@@ -166,8 +173,8 @@ export function buildA4HTML(
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   @page {
-    size: A4 landscape;
-    margin: 10mm;
+    size: ${spec.cssSize};
+    margin: ${spec.marginMm}mm;
   }
 
   html, body {
@@ -177,7 +184,7 @@ export function buildA4HTML(
     background: #ffffff;
     color: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    font-size: 10px;
+    font-size: ${spec.isPortrait ? "9px" : "10px"};
     line-height: 1.35;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -185,21 +192,25 @@ export function buildA4HTML(
 
   .invoice-container {
     width: 100%;
-    max-width: 277mm;
+    max-width: ${spec.maxWidth};
     margin: 0 auto;
     box-sizing: border-box;
   }
 
-  /* ── 3-Column Landscape Header (277mm width) ── */
+  /* ── 3-Column Header ── */
   .header {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: ${spec.isPortrait ? "1.2fr 1fr" : "1.2fr 1fr 1fr"};
     align-items: center;
     border-bottom: 2.5px solid #8B2020;
     padding-bottom: 8px;
     margin-bottom: 8px;
     gap: 16px;
   }
+  ${spec.isPortrait ? `
+  .header-center { display: none !important; }
+  .bottom-summary { grid-template-columns: 1fr !important; }
+  ` : ""}
   .header-left {
     display: flex;
     align-items: center;
@@ -609,15 +620,28 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
   const [printStatus, setPrintStatus] = useState<PrintStatus>("idle");
   const [printFailedReason, setPrintFailedReason] = useState<string | null>(null);
   const [invoicePrinter, setInvoicePrinter] = useState<string>("Default A4 Printer");
+  const [selectedPaperSize, setSelectedPaperSize] = useState<InvoicePaperSize>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("zerah_invoice_paper_size");
+      if (saved && saved in INVOICE_PAPER_SIZES) return saved as InvoicePaperSize;
+    }
+    return "a4-landscape";
+  });
+
+  const spec = getPaperSizeSpec(selectedPaperSize);
 
   useEffect(() => {
     supabase
       .from("site_settings")
       .select("key, value")
-      .in("key", ["print_invoice_printer_name"])
+      .in("key", ["print_invoice_printer_name", "print_invoice_paper_size"])
       .then(({ data }) => {
         const found = data?.find((r) => r.key === "print_invoice_printer_name");
         if (found && found.value) setInvoicePrinter(found.value);
+        const paperSetting = data?.find((r) => r.key === "print_invoice_paper_size");
+        if (paperSetting?.value && paperSetting.value in INVOICE_PAPER_SIZES) {
+          setSelectedPaperSize(paperSetting.value as InvoicePaperSize);
+        }
       });
   }, []);
 
@@ -626,7 +650,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintStatus("printing");
     setPrintFailedReason(null);
     try {
-      const html = buildA4HTML(sale, items, storeSettings);
+      const html = buildA4HTML(sale, items, storeSettings, selectedPaperSize);
 
       // Attempt QZ Tray direct silent print if configured & not default
       if (invoicePrinter && invoicePrinter !== "Default A4 Printer") {
@@ -655,7 +679,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     try {
       const iframe = document.createElement("iframe");
       iframe.style.cssText =
-        "position:fixed;top:-9999px;left:-9999px;width:297mm;height:210mm;border:none;visibility:hidden;";
+        `position:fixed;top:-9999px;left:-9999px;width:${spec.iframeWidth};height:${spec.iframeHeight};border:none;visibility:hidden;`;
       document.body.appendChild(iframe);
 
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -694,7 +718,7 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
       iframe.onload = triggerPrint;
 
       doc.open();
-      doc.write(buildA4HTML(sale, items, storeSettings));
+      doc.write(buildA4HTML(sale, items, storeSettings, selectedPaperSize));
       doc.close();
 
       if (doc.readyState === "complete") {
@@ -732,20 +756,40 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Modal Header ── */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-foreground">A4 Invoice</h2>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-[#8B2020]/10 text-[#8B2020]">
-                A4 Landscape
-              </span>
+              <div className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2 py-0.5 shadow-2xs">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider hidden sm:inline">
+                  Paper:
+                </span>
+                <select
+                  value={selectedPaperSize}
+                  onChange={(e) => {
+                    const val = e.target.value as InvoicePaperSize;
+                    setSelectedPaperSize(val);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("zerah_invoice_paper_size", val);
+                    }
+                  }}
+                  className="bg-transparent text-[11px] font-bold text-foreground outline-none cursor-pointer"
+                  title="Select paper format for normal printer"
+                >
+                  {Object.values(INVOICE_PAPER_SIZES).map((ps) => (
+                    <option key={ps.id} value={ps.id}>
+                      {ps.name} ({ps.dimensions})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">{sale.sale_number}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{sale.sale_number}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-muted cursor-pointer transition"
               aria-label="Close invoice"
             >
               <X className="h-4 w-4" />
@@ -833,17 +877,17 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
         <div className="flex gap-2 px-5 pb-5">
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted transition-all"
+            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted transition-all cursor-pointer"
           >
             Close
           </button>
           <button
             onClick={doPrint}
             disabled={printStatus === "printing"}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B2020] py-2.5 text-sm font-bold text-white hover:bg-[#7a1c1c] disabled:opacity-60 transition-all"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B2020] py-2.5 text-sm font-bold text-white hover:bg-[#7a1c1c] disabled:opacity-60 transition-all cursor-pointer"
           >
             <Printer className="h-4 w-4" />
-            {printStatus === "printing" ? "Printing…" : "Print A4 Invoice (Landscape)"}
+            {printStatus === "printing" ? "Printing…" : `Print Invoice (${spec.name})`}
           </button>
         </div>
       </div>

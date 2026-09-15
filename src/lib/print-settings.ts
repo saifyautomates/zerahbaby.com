@@ -19,6 +19,133 @@
 
 export type PrintProfile = "INVOICE_A4" | "THERMAL_BARCODE_LABEL";
 
+/** Supported paper formats on standard laser/inkjet/desktop printers */
+export type InvoicePaperSize =
+  | "a4-landscape"
+  | "a4-portrait"
+  | "a5-landscape"
+  | "a5-portrait"
+  | "letter-landscape"
+  | "letter-portrait"
+  | "auto";
+
+export interface PaperSizeSpec {
+  id: InvoicePaperSize;
+  name: string;
+  badge: string;
+  dimensions: string;
+  cssSize: string;
+  marginMm: number;
+  maxWidth: string;
+  isPortrait: boolean;
+  iframeWidth: string;
+  iframeHeight: string;
+  description: string;
+}
+
+export const INVOICE_PAPER_SIZES: Record<InvoicePaperSize, PaperSizeSpec> = {
+  "a4-landscape": {
+    id: "a4-landscape",
+    name: "A4 Landscape",
+    badge: "A4 Landscape (Recommended)",
+    dimensions: "297 × 210 mm",
+    cssSize: "A4 landscape",
+    marginMm: 10,
+    maxWidth: "277mm",
+    isPortrait: false,
+    iframeWidth: "297mm",
+    iframeHeight: "210mm",
+    description: "Standard full sheet horizontal layout — ideal for comprehensive invoice tables.",
+  },
+  "a4-portrait": {
+    id: "a4-portrait",
+    name: "A4 Portrait",
+    badge: "A4 Portrait (Full Sheet)",
+    dimensions: "210 × 297 mm",
+    cssSize: "A4 portrait",
+    marginMm: 10,
+    maxWidth: "190mm",
+    isPortrait: true,
+    iframeWidth: "210mm",
+    iframeHeight: "297mm",
+    description: "Standard vertical A4 page for normal laser and inkjet printers.",
+  },
+  "a5-landscape": {
+    id: "a5-landscape",
+    name: "A5 Landscape",
+    badge: "A5 Half-Sheet (Landscape)",
+    dimensions: "210 × 148 mm",
+    cssSize: "A5 landscape",
+    marginMm: 6,
+    maxWidth: "198mm",
+    isPortrait: false,
+    iframeWidth: "210mm",
+    iframeHeight: "148mm",
+    description: "Half of an A4 sheet horizontal — saves 50% paper, ideal for retail counter bills.",
+  },
+  "a5-portrait": {
+    id: "a5-portrait",
+    name: "A5 Portrait",
+    badge: "A5 Half-Sheet (Portrait)",
+    dimensions: "148 × 210 mm",
+    cssSize: "A5 portrait",
+    marginMm: 6,
+    maxWidth: "136mm",
+    isPortrait: true,
+    iframeWidth: "148mm",
+    iframeHeight: "210mm",
+    description: "Compact half A4 vertical invoice — fits small retail sheets.",
+  },
+  "letter-landscape": {
+    id: "letter-landscape",
+    name: "Letter Landscape",
+    badge: "Letter (Landscape)",
+    dimensions: "11 × 8.5 in",
+    cssSize: "letter landscape",
+    marginMm: 10,
+    maxWidth: "259mm",
+    isPortrait: false,
+    iframeWidth: "11in",
+    iframeHeight: "8.5in",
+    description: "Standard North American letter paper in wide orientation.",
+  },
+  "letter-portrait": {
+    id: "letter-portrait",
+    name: "Letter Portrait",
+    badge: "Letter (Portrait)",
+    dimensions: "8.5 × 11 in",
+    cssSize: "letter portrait",
+    marginMm: 10,
+    maxWidth: "195mm",
+    isPortrait: true,
+    iframeWidth: "8.5in",
+    iframeHeight: "11in",
+    description: "Standard North American letter paper in vertical orientation.",
+  },
+  auto: {
+    id: "auto",
+    name: "Auto / Any Paper",
+    badge: "Auto (Fit to Printer Tray)",
+    dimensions: "Dynamic Scale",
+    cssSize: "auto",
+    marginMm: 8,
+    maxWidth: "100%",
+    isPortrait: false,
+    iframeWidth: "100%",
+    iframeHeight: "100%",
+    description: "Automatically scales to whatever paper size is loaded in your printer tray.",
+  },
+};
+
+export const INVOICE_PAPER_SIZES_LIST: PaperSizeSpec[] = Object.values(INVOICE_PAPER_SIZES);
+
+export function getPaperSizeSpec(size?: InvoicePaperSize | string | null): PaperSizeSpec {
+  if (size && size in INVOICE_PAPER_SIZES) {
+    return INVOICE_PAPER_SIZES[size as InvoicePaperSize];
+  }
+  return INVOICE_PAPER_SIZES["a4-landscape"];
+}
+
 export interface InvoicePrintSettings {
   /** Human-readable name of the A4 invoice printer (informational only in browser) */
   printerName: string;
@@ -26,6 +153,8 @@ export interface InvoicePrintSettings {
   copies: number;
   /** Whether to auto-print invoice immediately after POS sale completion */
   autoPrint: boolean;
+  /** Selected paper size profile for normal printers */
+  paperSize: InvoicePaperSize;
 }
 
 export interface ThermalLabelSettings {
@@ -53,6 +182,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoicePrintSettings = {
   printerName: "Default A4 Printer",
   copies: 1,
   autoPrint: true,
+  paperSize: "a4-landscape",
 };
 
 export const DEFAULT_THERMAL_SETTINGS: ThermalLabelSettings = {
@@ -75,6 +205,7 @@ export const PRINT_SETTING_KEYS = {
   invoicePrinterName: "print_invoice_printer_name",
   invoiceCopies: "print_invoice_copies",
   invoiceAutoPrint: "print_invoice_auto_print",
+  invoicePaperSize: "print_invoice_paper_size",
   // Thermal label
   thermalPrinterName: "print_thermal_printer_name",
   labelWidthMm: "print_label_width_mm",
@@ -93,10 +224,16 @@ export function parseInvoiceSettings(
   raw: Record<string, string> | null | undefined,
 ): InvoicePrintSettings {
   if (!raw) return { ...DEFAULT_INVOICE_SETTINGS };
+  const rawPaper = raw[PRINT_SETTING_KEYS.invoicePaperSize];
+  const paperSize: InvoicePaperSize =
+    rawPaper && rawPaper in INVOICE_PAPER_SIZES
+      ? (rawPaper as InvoicePaperSize)
+      : DEFAULT_INVOICE_SETTINGS.paperSize;
   return {
     printerName: raw[PRINT_SETTING_KEYS.invoicePrinterName] || DEFAULT_INVOICE_SETTINGS.printerName,
     copies: parseInt(raw[PRINT_SETTING_KEYS.invoiceCopies] || "1", 10) || 1,
     autoPrint: raw[PRINT_SETTING_KEYS.invoiceAutoPrint] !== "false",
+    paperSize,
   };
 }
 
