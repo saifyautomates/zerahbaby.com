@@ -103,32 +103,8 @@ export const LABEL_SIZE_OPTIONS: Array<{
   category: "thermal" | "sheet" | "custom";
   subcategory?: "square" | "portrait" | "landscape";
 }> = [
-  // ── Thermal Square ──
-  { id: "50x50", label: "50 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
-  { id: "50x40", label: "50 × 40 mm", description: "Square Thermal (50×40)", category: "thermal", subcategory: "square" },
-  { id: "50x25", label: "50 × 25 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
-  { id: "58x50", label: "58 × 50 mm", description: "Square Thermal (Compact)", category: "thermal", subcategory: "square" },
-
-  // ── Thermal Portrait ──
-  { id: "50x75", label: "50 × 75 mm", description: "Portrait Thermal (Default)", category: "thermal", subcategory: "portrait" },
+  { id: "58x50", label: "58 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
   { id: "58x75", label: "58 × 75 mm", description: "Portrait Thermal", category: "thermal", subcategory: "portrait" },
-  { id: "58x100", label: "58 × 100 mm", description: "Tall Portrait Thermal", category: "thermal", subcategory: "portrait" },
-  { id: "80x100", label: "80 × 100 mm", description: "Wide Portrait Thermal", category: "thermal", subcategory: "portrait" },
-
-  // ── Thermal Landscape ──
-  { id: "58x30", label: "58 × 30 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "58x40", label: "58 × 40 mm", description: "Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "80x50", label: "80 × 50 mm", description: "Wide Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "100x50", label: "100 × 50 mm", description: "Large Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "108x50", label: "108 × 50 mm", description: "Extra-Wide Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "108x75", label: "108 × 75 mm", description: "Jumbo Landscape Thermal", category: "thermal", subcategory: "landscape" },
-
-  // ── A4 Sheet Grids ──
-  { id: "a4-3x8", label: "A4 — 3 × 8", description: "24 Labels / A4 Sheet", category: "sheet" },
-  { id: "a4-4x10", label: "A4 — 4 × 10", description: "40 Labels / A4 Sheet", category: "sheet" },
-
-  // ── Custom Size ──
-  { id: "custom", label: "Custom", description: "Custom Millimetre Dimensions", category: "custom" },
 ];
 
 export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
@@ -633,15 +609,15 @@ export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
 export const LABEL_SHOW_PRODUCT_NAME_KEY = "zerah_label_show_product_name";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
 
-let memoryProfile: LabelPrinterProfile = "50x75";
+let memoryProfile: LabelPrinterProfile = "58x50";
 let memoryShowDiscount = false;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
 let memoryShowSellPrice = true;
 let memoryShowProductName = true;
 let memorySeparatePrice = true;
-let memoryCustomWidthMm = 50;
-let memoryCustomHeightMm = 75;
+let memoryCustomWidthMm = 58;
+let memoryCustomHeightMm = 50;
 
 export const CUSTOM_LABEL_WIDTH_KEY = "zerah_custom_label_width_mm";
 export const CUSTOM_LABEL_HEIGHT_KEY = "zerah_custom_label_height_mm";
@@ -682,10 +658,9 @@ export function getSavedLabelProfile(): LabelPrinterProfile {
     try {
       const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY) as LabelPrinterProfile | null;
       if (saved) {
-        if (saved === "thermal-58") return "50x75"; // migrate legacy alias
-        if (saved === "thermal-108") return "108x75";
-        if (saved === "a4") return "a4-4x10";
         if (LABEL_SIZE_OPTIONS.some((o) => o.id === saved)) return saved;
+        if (saved === "58x75" || saved === "50x75" || saved === "thermal-108") return "58x75";
+        return "58x50";
       }
     } catch {
       /* ignore */

@@ -272,41 +272,11 @@ export function PrintLabelsModal({
                 }}
                 className="bg-card text-foreground font-bold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-border focus:ring-2 focus:ring-[#8B2020] focus:border-[#8B2020] shadow-2xs cursor-pointer appearance-none outline-none"
               >
-                <optgroup label="Thermal — Square">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "square").map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label} ({o.description})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Thermal — Portrait">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "portrait").map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label} ({o.description})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Thermal — Landscape / Compact">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "thermal" && o.subcategory === "landscape").map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label} ({o.description})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="A4 Sheet Grids">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "sheet").map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Custom Size">
-                  {LABEL_SIZE_OPTIONS.filter((o) => o.category === "custom").map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label} ({o.description})
-                    </option>
-                  ))}
-                </optgroup>
+                {LABEL_SIZE_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label} ({o.description})
+                  </option>
+                ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
                 <ChevronDown className="size-3.5" />
