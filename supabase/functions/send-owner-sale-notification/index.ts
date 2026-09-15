@@ -1434,7 +1434,7 @@ Deno.serve(async (req) => {
       const msg =
         "Email delivery key is not configured. Please enter your Resend API key in Admin Alert Settings or add RESEND_API_KEY in Supabase secrets to enable live email delivery.";
       console.warn("[send-owner-sale-notification]", msg);
-      if (type === "test") {
+      if (type === "test" || force_retry) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -1512,13 +1512,18 @@ Deno.serve(async (req) => {
     }
 
     const isSuccess = dispatchError === null;
+    const finalNotificationStatus = isSuccess
+      ? "sent"
+      : resendApiKey
+        ? "failed"
+        : "unconfigured";
 
     // 4. Update Database State and Log Event
     if (type === "offline_sale" && sale_id) {
       await adminClient
         .from("offline_sales")
         .update({
-          owner_notification_status: isSuccess ? "sent" : "failed",
+          owner_notification_status: finalNotificationStatus,
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", sale_id);
@@ -1526,7 +1531,7 @@ Deno.serve(async (req) => {
       await adminClient
         .from("orders")
         .update({
-          owner_notification_status: isSuccess ? "sent" : "failed",
+          owner_notification_status: finalNotificationStatus,
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", order_id);
@@ -1534,7 +1539,7 @@ Deno.serve(async (req) => {
       await adminClient
         .from("orders")
         .update({
-          customer_notification_status: isSuccess ? "sent" : "failed",
+          customer_notification_status: finalNotificationStatus,
           customer_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", order_id);
@@ -1542,7 +1547,7 @@ Deno.serve(async (req) => {
       await adminClient
         .from("offline_returns")
         .update({
-          owner_notification_status: isSuccess ? "sent" : "failed",
+          owner_notification_status: finalNotificationStatus,
           owner_notified_at: isSuccess ? new Date().toISOString() : null,
         })
         .eq("id", return_id);
