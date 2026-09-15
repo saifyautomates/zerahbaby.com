@@ -257,7 +257,6 @@ export function POSTab() {
     const draft = loadPOSDraft();
     return draft?.discountValue || 0;
   });
-  const [finalPaidInput, setFinalPaidInput] = useState<string>("");
 
   // Customer state
   const [customerMode, setCustomerMode] = useState<"walkin" | "existing" | "new">(() => {
@@ -626,7 +625,7 @@ export function POSTab() {
 
       const mapped = (productsRes.data || []).map((r) => {
         const prod = mapProduct(r as never);
-        const cost = costMap.get(r.id) ?? costMap.get(prod.uuid) ?? costMap.get(prod.id) ?? (r as unknown as { cost_price?: number })?.cost_price ?? 0;
+        const cost = costMap.get(prod.uuid) ?? costMap.get(prod.id) ?? 0;
         prod.buyingPrice = cost;
         prod.buying_price = cost;
         prod.product_costs = [{ buying_price: cost }];
@@ -766,18 +765,15 @@ export function POSTab() {
     for (const item of cart) {
       if (!item) continue;
       let bp = item.buying_price != null ? Number(item.buying_price) : 0;
-      // Fallback: look up from locally fetched products catalog (which has product_costs, buyingPrice, or cost_price)
+      // Fallback: look up from locally fetched products catalog (which has product_costs or buyingPrice)
       if ((!bp || bp <= 0) && catalog.length > 0) {
         const found = catalog.find(
           (p) =>
-            (p?.uuid && item.product_id && p.uuid.toLowerCase() === item.product_id.toLowerCase()) ||
-            (p?.id && item.product_id && p.id.toLowerCase() === item.product_id.toLowerCase()) ||
-            (p?.uuid && item.slug && p.uuid.toLowerCase() === item.slug.toLowerCase()) ||
-            (p?.id && item.slug && p.id.toLowerCase() === item.slug.toLowerCase()) ||
-            (p?.slug && item.slug && p.slug.toLowerCase() === item.slug.toLowerCase()) ||
-            (p?.sku && item.sku && p.sku.toLowerCase() === item.sku.toLowerCase()) ||
-            (p?.name && item.name && p.name.toLowerCase() === item.name.toLowerCase()) ||
-            (item.name && p?.name && item.name.toLowerCase().startsWith(p.name.toLowerCase())),
+            p?.uuid === item.product_id ||
+            p?.id === item.product_id ||
+            p?.uuid === item.slug ||
+            p?.id === item.slug ||
+            (p?.sku && item.sku && p.sku.toLowerCase() === item.sku.toLowerCase()),
         );
         if (found) {
           bp = Number(
@@ -785,7 +781,6 @@ export function POSTab() {
               found.buying_price ??
               (found as unknown as { product_costs?: Array<{ buying_price?: number }> })
                 ?.product_costs?.[0]?.buying_price ??
-              (found as unknown as { cost_price?: number })?.cost_price ??
               0,
           );
         }
@@ -3430,7 +3425,6 @@ export function POSTab() {
                           onClick={() => {
                             setDiscountType("none");
                             setDiscountValue(0);
-                            setFinalPaidInput("");
                           }}
                           className="text-[11px] font-bold text-destructive hover:underline cursor-pointer"
                         >
@@ -3445,7 +3439,7 @@ export function POSTab() {
                         [
                           ["none", "No Discount"],
                           ["percentage", "Percent (%)"],
-                          ["fixed", "Final Paid Amount (₹)"],
+                          ["fixed", "Flat Amount (₹)"],
                         ] as const
                       ).map(([type, label]) => (
                         <button
@@ -3453,16 +3447,7 @@ export function POSTab() {
                           type="button"
                           onClick={() => {
                             setDiscountType(type);
-                            if (type === "none") {
-                              setDiscountValue(0);
-                              setFinalPaidInput("");
-                            } else if (type === "fixed") {
-                              if (discountValue > 0) {
-                                setFinalPaidInput(String(Math.max(0, subtotal - discountValue)));
-                              } else {
-                                setFinalPaidInput("");
-                              }
-                            }
+                            if (type === "none") setDiscountValue(0);
                           }}
                           className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all cursor-pointer ${
                             discountType === type
@@ -3498,143 +3483,45 @@ export function POSTab() {
                                   {pct}%
                                 </button>
                               ))
-                            : (
-                                [
-                                  {
-                                    label: `Exact (${formatPrice(subtotal)})`,
-                                    paid: subtotal,
-                                  },
-                                  ...(subtotal >= 50
-                                    ? [
-                                        {
-                                          label: `−₹50 (${formatPrice(Math.max(0, subtotal - 50))})`,
-                                          paid: Math.max(0, subtotal - 50),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(subtotal >= 100
-                                    ? [
-                                        {
-                                          label: `−₹100 (${formatPrice(Math.max(0, subtotal - 100))})`,
-                                          paid: Math.max(0, subtotal - 100),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(subtotal >= 200
-                                    ? [
-                                        {
-                                          label: `−₹200 (${formatPrice(Math.max(0, subtotal - 200))})`,
-                                          paid: Math.max(0, subtotal - 200),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(subtotal >= 500
-                                    ? [
-                                        {
-                                          label: `−₹500 (${formatPrice(Math.max(0, subtotal - 500))})`,
-                                          paid: Math.max(0, subtotal - 500),
-                                        },
-                                      ]
-                                    : []),
-                                ] as const
-                              ).map((preset) => {
-                                const isSelected =
-                                  finalPaidInput !== "" && Number(finalPaidInput) === preset.paid;
-                                return (
-                                  <button
-                                    key={preset.label}
-                                    type="button"
-                                    onClick={() => {
-                                      setFinalPaidInput(String(preset.paid));
-                                      const derivedDiscount = Math.max(0, subtotal - preset.paid);
-                                      setDiscountValue(derivedDiscount);
-                                    }}
-                                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                      isSelected
-                                        ? "bg-emerald-600 text-white shadow-2xs"
-                                        : "bg-muted text-foreground hover:bg-muted/80"
-                                    }`}
-                                  >
-                                    {preset.label}
-                                  </button>
-                                );
-                              })}
+                            : [50, 100, 200, 500, 1000].map((amt) => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => setDiscountValue(amt)}
+                                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                    discountValue === amt
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-muted text-foreground hover:bg-muted/80"
+                                  }`}
+                                >
+                                  ₹{amt}
+                                </button>
+                              ))}
                         </div>
 
                         {/* Direct Custom Input */}
                         <div className="flex items-center gap-3">
                           <div className="relative flex-1">
-                            {discountType === "percentage" ? (
-                              <input
-                                type="number"
-                                value={discountValue || ""}
-                                onChange={(e) =>
-                                  setDiscountValue(Math.max(0, Number(e.target.value)))
-                                }
-                                placeholder="Enter discount % (e.g. 10)"
-                                min={0}
-                                max={100}
-                                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                              />
-                            ) : (
-                              <input
-                                type="number"
-                                value={finalPaidInput}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setFinalPaidInput(val);
-                                  if (val.trim() === "") {
-                                    setDiscountValue(0);
-                                    return;
-                                  }
-                                  const paid = parseFloat(val);
-                                  if (isNaN(paid) || paid < 0) {
-                                    setDiscountValue(0);
-                                    return;
-                                  }
-                                  if (paid <= subtotal) {
-                                    const derivedDiscount = Math.round((subtotal - paid) * 100) / 100;
-                                    setDiscountValue(derivedDiscount);
-                                  } else {
-                                    // Paid amount is greater than subtotal: discount is 0, extra is change
-                                    setDiscountValue(0);
-                                    if (paymentMethod === "cash") {
-                                      setCashTendered(paid);
-                                    }
-                                  }
-                                }}
-                                placeholder="Enter final paid amount"
-                                min={0}
-                                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                              />
-                            )}
+                            <input
+                              type="number"
+                              value={discountValue || ""}
+                              onChange={(e) =>
+                                setDiscountValue(Math.max(0, Number(e.target.value)))
+                              }
+                              placeholder={
+                                discountType === "percentage"
+                                  ? "Enter discount % (e.g. 10)"
+                                  : "Enter ₹ discount amount"
+                              }
+                              min={0}
+                              max={discountType === "percentage" ? 100 : subtotal}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                            />
                           </div>
-                          {discountType === "fixed" ? (
-                            finalPaidInput.trim() !== "" && !isNaN(Number(finalPaidInput)) ? (
-                              Number(finalPaidInput) < subtotal ? (
-                                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                                  Discount: −{formatPrice(Math.max(0, subtotal - Number(finalPaidInput)))}
-                                </span>
-                              ) : Number(finalPaidInput) > subtotal ? (
-                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap shrink-0 bg-blue-50 dark:bg-blue-950/40 px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800">
-                                  Change: +{formatPrice(Number(finalPaidInput) - subtotal)}
-                                </span>
-                              ) : (
-                                <span className="text-xs font-bold text-muted-foreground whitespace-nowrap shrink-0 bg-muted px-3 py-2 rounded-xl">
-                                  Exact (₹0 Disc)
-                                </span>
-                              )
-                            ) : discountAmount > 0 ? (
-                              <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
-                                −{formatPrice(discountAmount)}
-                              </span>
-                            ) : null
-                          ) : (
-                            discountAmount > 0 && (
-                              <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
-                                −{formatPrice(discountAmount)}
-                              </span>
-                            )
+                          {discountAmount > 0 && (
+                            <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                              −{formatPrice(discountAmount)}
+                            </span>
                           )}
                         </div>
                       </div>

@@ -81,8 +81,9 @@ type Props = {
 const STORE = {
   name: "ZÉRAH BABY & KIDS",
   tagline: "Premium Children's Clothing",
-  address: "Gordhanpura, Kota, Rajasthan 324001",
-  phone: "9057074777",
+  address:
+    "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar,\nGordhanpura, Kota, Rajasthan 324001",
+  phone: "9057074777 / 9667571712",
   email: "hello@zerahkids.com",
   website: "zerahkids.com",
   instagram: "@zerah_kids",
@@ -445,13 +446,15 @@ export function buildA4HTML(
     <div class="header-left">
       <img loading="lazy" decoding="async" src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" class="brand-logo" alt="Zerah Logo"/>
       <div>
-        <div class="brand-title">ZÉRAH BABY &amp; KIDS</div>
-        <div class="brand-tagline">Premium Children's Clothing</div>
+        <div class="brand-title">ZÉRAH BABY &amp; KIDS STORE</div>
+        <div class="brand-tagline">Premium Children's Clothing · Newborn to Pre-Teen</div>
       </div>
     </div>
     <div class="header-center">
-      <div>Gordhanpura, Kota, Rajasthan 324001</div>
-      <div>Ph: ${escapeHtml(store.contactPhone || "9057074777")}${store.contactEmail ? ` · ${escapeHtml(store.contactEmail)}` : ""}</div>
+      <div>In Front of Hanumanji Temple, Atwal Nagar</div>
+      <div>Kota, Rajasthan 324001</div>
+      <div>Ph: ${escapeHtml(store.contactPhone)}</div>
+      <div>${escapeHtml(store.contactEmail)}</div>
     </div>
     <div class="header-right">
       <div class="invoice-badge">${sale.status === "pending_sync" || sale.is_offline_queued ? "OFFLINE VOUCHER" : "TAX INVOICE"}</div>
