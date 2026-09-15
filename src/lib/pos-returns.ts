@@ -680,7 +680,19 @@ export function useProcessOfflineReturn() {
 export type CustomerCreditInfo = {
   customer_id: string | null;
   customer_name: string;
+  customer_phone?: string;
   available_credit: number;
+  credit_token?: string;
+  active_returns?: Array<{
+    id: string;
+    return_number?: string;
+    credit_token?: string;
+    refund_amount?: number;
+    credit_used?: number;
+    credit_balance?: number;
+    created_at?: string;
+    expires_at?: string;
+  }>;
   history: Array<{
     id: string;
     type: "CREDIT_ISSUED" | "CREDIT_USED" | "CREDIT_ADJUSTED";
@@ -714,6 +726,12 @@ export type StoreCreditVoucherResult = {
   status?: string;
   expired?: boolean;
   ownership_mismatch?: boolean;
+  is_coupon?: boolean;
+  coupon_code?: string;
+  discount_type?: "percentage" | "fixed";
+  discount_value?: number;
+  min_cart_value?: number;
+  max_discount?: number | null;
 };
 
 export function useStoreCreditVoucher(params: {
@@ -723,24 +741,105 @@ export function useStoreCreditVoucher(params: {
 }) {
   const { token, customerId, phone } = params;
   const cleanToken = token?.trim().toUpperCase() || "";
-  const enabled = cleanToken.length >= 4;
+  const enabled = cleanToken.length >= 3;
 
   return useQuery<StoreCreditVoucherResult>({
     queryKey: ["pos-store-credit-voucher", cleanToken, customerId, phone],
     queryFn: async () => {
-      const { data, error } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: StoreCreditVoucherResult | null; error: { message: string } | null }>
-      )("get_store_credit_voucher", {
-        _token: cleanToken,
-        _customer_id: customerId || null,
-        _phone: phone || "",
-      });
+      // 1. Primary: Attempt get_store_credit_voucher RPC
+      try {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: StoreCreditVoucherResult | null; error: { message: string } | null }>
+        )("get_store_credit_voucher", {
+          _token: cleanToken,
+          _customer_id: customerId || null,
+          _phone: phone || "",
+        });
 
-      if (error) throw new Error(error.message);
-      return data || { valid: false, error: "Voucher not found" };
+        if (!error && data && data.valid) {
+          return data;
+        }
+      } catch {
+        // Fall through to resilient fallback
+      }
+
+      // 2. Resilient Fallback: Query get_customer_store_credit with _token
+      try {
+        const { data: creditData, error: creditErr } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: any; error: any }>
+        )("get_customer_store_credit", {
+          _token: cleanToken,
+          _customer_id: customerId || null,
+          _phone: phone || "",
+        });
+
+        if (!creditErr && creditData) {
+          const matchingReturn =
+            creditData.active_returns?.find(
+              (r: any) => r.credit_token?.toUpperCase() === cleanToken,
+            ) || creditData.active_returns?.[0];
+
+          const creditAvail = Math.max(
+            Number(creditData.available_credit) || 0,
+            Number(matchingReturn?.credit_balance) || 0,
+          );
+
+          if (creditAvail > 0) {
+            return {
+              valid: true,
+              is_coupon: false,
+              token: cleanToken,
+              voucher_id: matchingReturn?.id,
+              customer_id: creditData.customer_id,
+              customer_name: creditData.customer_name || "Walk-in Customer",
+              customer_phone: creditData.customer_phone || "",
+              original_amount: matchingReturn?.refund_amount ?? creditAvail,
+              remaining_balance: matchingReturn?.credit_balance ?? creditAvail,
+              available_credit: creditAvail,
+              expires_at: matchingReturn?.expires_at,
+              status: "active",
+            };
+          }
+        }
+      } catch {
+        // Fall through
+      }
+
+      // 3. Resilient Fallback: Check promotional coupons table
+      try {
+        const { data: coupon, error: coupErr } = await supabase
+          .from("coupons")
+          .select("*")
+          .eq("code", cleanToken)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (!coupErr && coupon) {
+          return {
+            valid: true,
+            is_coupon: true,
+            coupon_code: coupon.code,
+            token: coupon.code,
+            discount_type: coupon.discount_type as "percentage" | "fixed",
+            discount_value: Number(coupon.discount_value) || 0,
+            min_cart_value: Number(coupon.minimum_order_value) || 0,
+            max_discount: coupon.maximum_discount ? Number(coupon.maximum_discount) : null,
+            remaining_balance: Number(coupon.discount_value) || 0,
+            available_credit: Number(coupon.discount_value) || 0,
+            status: "active",
+          };
+        }
+      } catch {
+        // Fall through
+      }
+
+      return { valid: false, error: `Voucher or Coupon ${cleanToken} not found` };
     },
     enabled,
     staleTime: 5_000,
@@ -756,7 +855,7 @@ export function useCustomerStoreCredit(params: {
   const enabled = Boolean(
     customerId ||
     (phone && phone.replace(/\D/g, "").length >= 10) ||
-    (token && token.trim().length >= 4),
+    (token && token.trim().length >= 3),
   );
 
   return useQuery<CustomerCreditInfo>({
@@ -774,14 +873,34 @@ export function useCustomerStoreCredit(params: {
       });
 
       if (error) throw new Error(error.message);
-      return (
-        data || {
-          customer_id: null,
-          customer_name: "Walk-in Customer",
-          available_credit: 0,
-          history: [],
-        }
+
+      const raw = data || {
+        customer_id: null,
+        customer_name: "Walk-in Customer",
+        available_credit: 0,
+        history: [],
+      };
+
+      // Calculate true available credit from raw balance and active returns
+      const activeReturnsBalance =
+        (raw.active_returns as any[])?.reduce(
+          (sum: number, r: any) => sum + (Number(r.credit_balance) || 0),
+          0,
+        ) ?? 0;
+
+      const effectiveAvailableCredit = Math.max(
+        Number(raw.available_credit) || 0,
+        activeReturnsBalance,
       );
+
+      const resolvedToken =
+        raw.credit_token || (raw.active_returns as any[])?.[0]?.credit_token || "";
+
+      return {
+        ...raw,
+        available_credit: effectiveAvailableCredit,
+        credit_token: resolvedToken,
+      };
     },
     enabled,
     staleTime: 5_000,

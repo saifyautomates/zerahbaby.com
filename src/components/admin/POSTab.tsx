@@ -548,7 +548,7 @@ export function POSTab() {
     }
   }, [subtotal, discountType, finalPaidInput, discountValue]);
 
-  // Dedicated Voucher Instrument Query (4-character token scope)
+  // Dedicated Voucher Instrument Query (token scope)
   const { data: voucherData, isFetching: voucherFetching } = useStoreCreditVoucher({
     token: creditTokenInput,
     customerId,
@@ -562,17 +562,42 @@ export function POSTab() {
   });
 
   // Authoritative Available Credit:
-  // When a 4-char voucher token is entered, use ONLY that specific voucher's remaining balance.
-  // Otherwise, use the customer's account store credit balance.
+  // When a voucher/coupon token is entered, check voucherData and customer active returns.
+  // Otherwise, use the customer's account store credit balance or active returns.
   const availableCredit = useMemo(() => {
-    if (creditTokenInput && creditTokenInput.trim().length >= 4) {
+    if (creditTokenInput && creditTokenInput.trim().length >= 3) {
       if (voucherData?.valid) {
-        return voucherData.remaining_balance ?? 0;
+        return voucherData.remaining_balance ?? voucherData.available_credit ?? 0;
+      }
+      const matchingReturn = customerCreditData?.active_returns?.find(
+        (r: any) => r.credit_token?.toUpperCase() === creditTokenInput.trim().toUpperCase(),
+      );
+      if (matchingReturn) {
+        return Math.max(0, Number(matchingReturn.credit_balance ?? matchingReturn.refund_amount) || 0);
       }
       return 0;
     }
-    return customerCreditData?.available_credit ?? 0;
+
+    const activeReturnsBalance =
+      customerCreditData?.active_returns?.reduce(
+        (sum: number, r: any) => sum + (Number(r.credit_balance) || 0),
+        0,
+      ) ?? 0;
+
+    return Math.max(Number(customerCreditData?.available_credit) || 0, activeReturnsBalance);
   }, [creditTokenInput, voucherData, customerCreditData]);
+
+  // Auto-sync customer's active return voucher token to input if empty
+  useEffect(() => {
+    if (!creditDismissedManually && customerCreditData) {
+      const activeToken =
+        customerCreditData.credit_token ||
+        (customerCreditData.active_returns as any[])?.[0]?.credit_token;
+      if (activeToken && !creditTokenInput) {
+        setCreditTokenInput(activeToken.toUpperCase());
+      }
+    }
+  }, [customerCreditData, creditDismissedManually, creditTokenInput]);
 
   // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
   // Do NOT re-apply if the cashier explicitly removed/dismissed the credit for this session
@@ -580,13 +605,21 @@ export function POSTab() {
     if (availableCredit > 0 && total > 0 && storeCreditApplied === 0 && !creditDismissedManually) {
       const applyAmount = Math.min(availableCredit, total);
       setStoreCreditApplied(applyAmount);
-      if (creditTokenInput.trim()) {
+      const activeToken =
+        creditTokenInput.trim() ||
+        customerCreditData?.credit_token ||
+        (customerCreditData?.active_returns as any[])?.[0]?.credit_token;
+      if (activeToken) {
         toast.success(
-          `Exchange Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(applyAmount)}`,
+          `Store Credit / Voucher ${activeToken.toUpperCase()} applied: ${formatPrice(applyAmount)}`,
+        );
+      } else {
+        toast.success(
+          `Customer Store Credit applied: ${formatPrice(applyAmount)}`,
         );
       }
     }
-  }, [availableCredit, total, storeCreditApplied, creditTokenInput, creditDismissedManually]);
+  }, [availableCredit, total, storeCreditApplied, creditTokenInput, creditDismissedManually, customerCreditData]);
 
   // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes)
   useEffect(() => {
@@ -3931,6 +3964,44 @@ export function POSTab() {
                               </button>
                             </div>
 
+                            {/* Store Credit Auto-Fetch Highlight for Linked Customer */}
+                            {availableCredit > 0 && (
+                              <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-950 dark:text-emerald-100 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                                  <div>
+                                    <span className="font-bold">
+                                      Store Credit: {formatPrice(availableCredit)}
+                                    </span>
+                                    {creditTokenInput && (
+                                      <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-600/20 text-emerald-800 dark:text-emerald-200 font-bold">
+                                        Voucher {creditTokenInput}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {effectiveCreditUsed > 0 ? (
+                                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-500/30">
+                                    <Check className="size-3" /> Auto-Applied
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCreditDismissedManually(false);
+                                      setStoreCreditApplied(Math.min(availableCredit, total));
+                                      toast.success(
+                                        `Applied ${formatPrice(Math.min(availableCredit, total))} store credit`,
+                                      );
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer shadow-2xs"
+                                  >
+                                    Apply ₹{Math.min(availableCredit, total)}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
                             {customerIntel && (
                               <div className="p-3 rounded-xl bg-muted/40 border border-border/80 space-y-2 text-xs">
                                 <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
@@ -3964,7 +4035,13 @@ export function POSTab() {
                                       Credit
                                     </p>
                                     <p className="text-xs font-black text-emerald-600">
-                                      {formatPrice(customerIntel.store_credit_balance || 0)}
+                                      {formatPrice(
+                                        Math.max(
+                                          Number(customerIntel.store_credit_balance) || 0,
+                                          availableCredit,
+                                          Number(customerCreditData?.available_credit) || 0,
+                                        ),
+                                      )}
                                     </p>
                                   </div>
                                 </div>
@@ -4081,17 +4158,25 @@ export function POSTab() {
                             if (e.key === "Enter") {
                               e.preventDefault();
                               setCreditDismissedManually(false);
-                              if (availableCredit > 0) {
+                              if (voucherData?.is_coupon) {
+                                setDiscountType(
+                                  voucherData.discount_type === "percentage" ? "percentage" : "fixed",
+                                );
+                                setDiscountValue(voucherData.discount_value || 0);
+                                toast.success(
+                                  `Coupon ${voucherData.coupon_code || creditTokenInput.trim().toUpperCase()} applied: ${voucherData.discount_value}${voucherData.discount_type === "percentage" ? "%" : "₹"} discount!`,
+                                );
+                              } else if (availableCredit > 0) {
                                 setStoreCreditApplied(Math.min(availableCredit, total));
                                 toast.success(
-                                  `Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
+                                  `Store Credit / Voucher ${creditTokenInput.trim()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
                                 );
                               } else if (creditTokenInput.trim()) {
-                                toast.info(`Checking voucher ${creditTokenInput.trim()}...`);
+                                toast.info(`Checking voucher / coupon ${creditTokenInput.trim()}...`);
                               }
                             }
                           }}
-                          placeholder="Enter or scan 4-character Voucher Token (e.g. A7K2, Q9XZ)..."
+                          placeholder="Enter or scan Voucher Token (e.g. A6D0) or Coupon Code..."
                           className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
                         />
                       </div>
@@ -4121,17 +4206,25 @@ export function POSTab() {
                           type="button"
                           onClick={() => {
                             setCreditDismissedManually(false);
-                            if (availableCredit > 0) {
+                            if (voucherData?.is_coupon) {
+                              setDiscountType(
+                                voucherData.discount_type === "percentage" ? "percentage" : "fixed",
+                              );
+                              setDiscountValue(voucherData.discount_value || 0);
+                              toast.success(
+                                `Coupon ${voucherData.coupon_code || creditTokenInput.trim().toUpperCase()} applied: ${voucherData.discount_value}${voucherData.discount_type === "percentage" ? "%" : "₹"} discount!`,
+                              );
+                            } else if (availableCredit > 0) {
                               setStoreCreditApplied(Math.min(availableCredit, total));
                               toast.success(
-                                `Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
+                                `Store Credit / Voucher ${creditTokenInput.trim().toUpperCase()} applied: ${formatPrice(Math.min(availableCredit, total))}`,
                               );
                             } else if (creditTokenInput.trim()) {
                               toast.info(
-                                `Checking voucher ${creditTokenInput.trim().toUpperCase()}...`,
+                                `Checking voucher / coupon ${creditTokenInput.trim().toUpperCase()}...`,
                               );
                             } else {
-                              toast.info("Please enter a voucher code");
+                              toast.info("Please enter a voucher or coupon code");
                             }
                           }}
                           className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shrink-0 shadow-2xs"
@@ -4237,9 +4330,9 @@ export function POSTab() {
                     ) : (
                       !voucherData?.error && (
                         <p className="text-[11px] text-muted-foreground">
-                          Enter a 4-character Return Credit Token (e.g.{" "}
-                          <span className="font-mono font-bold">A7K2</span>) or select an existing
-                          customer to redeem store credit towards this purchase.
+                          Enter a Return Credit Token (e.g.{" "}
+                          <span className="font-mono font-bold">A6D0</span>), promotional Coupon Code, or select an existing
+                          customer to automatically fetch their available store credit.
                         </p>
                       )
                     )}
