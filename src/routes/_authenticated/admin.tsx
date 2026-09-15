@@ -1290,6 +1290,28 @@ function ProductsTab() {
         .eq("id", id);
       if (prodErr) throw prodErr;
     },
+    onMutate: async ({ id, stock }) => {
+      await qc.cancelQueries({ queryKey: ["admin-products"] });
+      const previous = qc.getQueryData<Product[]>(["admin-products"]);
+      if (previous) {
+        qc.setQueryData<Product[]>(
+          ["admin-products"],
+          previous.map((p) => {
+            if (p.uuid === id || p.id === id) {
+              const cleanStock = Math.max(0, stock);
+              return { 
+                ...p, 
+                stock: cleanStock,
+                is_active: cleanStock <= 0 ? false : p.isActive,
+                isActive: cleanStock <= 0 ? false : p.isActive,
+              };
+            }
+            return p;
+          }),
+        );
+      }
+      return { previous };
+    },
     onSuccess: (_, variables) => {
       if (variables.stock <= 0) {
         toast.success("Stock is 0 — Product moved to Archive");
@@ -1300,7 +1322,12 @@ function ProductsTab() {
       invalidate();
       broadcastCatalogueChange();
     },
-    onError: (e: Error) => toast.error(e.message, { duration: 6000 }),
+    onError: (e: Error, _, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["admin-products"], context.previous);
+      }
+      toast.error(e.message, { duration: 6000 });
+    },
   });
 
   const setDeliveryFeeQuick = useMutation({

@@ -123,7 +123,33 @@ export function QuickVariantStockModal({
 
       if (prodErr) throw prodErr;
 
-      // 4. Invalidate all dependent surfaces across store, PDP, POS, and Admin
+      // 4. Optimistically update local cache to prevent UI lag
+      const previousAdminProducts = qc.getQueryData<any[]>(["admin-products"]);
+      if (previousAdminProducts) {
+        qc.setQueryData(
+          ["admin-products"],
+          previousAdminProducts.map((p) => {
+            if (p.uuid === product.uuid || p.id === product.uuid) {
+              return {
+                ...p,
+                stock: totalStock,
+                is_active: isZeroStock ? false : p.isActive,
+                isActive: isZeroStock ? false : p.isActive,
+                variants: p.variants?.map((v: any) => {
+                  const updatedV = variants.find((uv) => uv.id === v.id);
+                  if (updatedV) {
+                    return { ...v, stock: Number(updatedV.stock) || 0 };
+                  }
+                  return v;
+                })
+              };
+            }
+            return p;
+          })
+        );
+      }
+
+      // 5. Invalidate all dependent surfaces across store, PDP, POS, and Admin
       invalidateCatalogue(qc);
 
       if (isZeroStock) {
