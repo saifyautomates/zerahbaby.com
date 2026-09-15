@@ -281,10 +281,10 @@ function ProductPage() {
   const wishlisted = user && product ? isWishlisted(product.uuid) : false;
 
   useEffect(() => {
-    if (product) {
+    if (product?.uuid) {
       registerProduct(product);
     }
-  }, [product, registerProduct]);
+  }, [product?.uuid, registerProduct]);
 
   const isLoading = (singleLoading || productsLoading) && !product;
   const isNetworkError = (singleQueryError || singleResult?.isError) && !product;
@@ -325,7 +325,7 @@ function ProductPage() {
         setSelectedVariantId(null);
       }
     }
-  }, [id, product]);
+  }, [id, product?.uuid]);
 
   const activeVariant = useMemo(() => {
     if (!product || !product.variants?.length) return null;

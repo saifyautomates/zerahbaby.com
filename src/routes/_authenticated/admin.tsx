@@ -56,6 +56,7 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
+  Camera,
 } from "lucide-react";
 import logo from "@/assets/zerah-logo-official.png";
 import { BrandName } from "@/components/site/BrandName";
@@ -106,6 +107,7 @@ import {
 } from "@/lib/marketing-links";
 
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+import { ProductPhotosModal } from "@/components/admin/ProductPhotosModal";
 
 const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
@@ -1141,6 +1143,7 @@ function ProductsTab() {
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [stockVal, setStockVal] = useState<number>(0);
   const [managingVariantsProduct, setManagingVariantsProduct] = useState<Product | null>(null);
+  const [viewingPhotosProduct, setViewingPhotosProduct] = useState<Product | null>(null);
   const { printLabel, isPrinting } = useDirectLabelPrint();
 
   // Selection states
@@ -1326,6 +1329,58 @@ function ProductsTab() {
         qc.setQueryData(["admin-products"], context.previous);
       }
       toast.error(e.message, { duration: 6000 });
+    },
+  });
+
+  const toggleSalesChannel = useMutation({
+    mutationFn: async ({
+      uuid,
+      channel,
+    }: {
+      uuid: string;
+      channel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+    }) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ sales_channel: channel })
+        .eq("id", uuid);
+      if (error) throw error;
+      return { uuid, channel };
+    },
+    onMutate: async ({ uuid, channel }) => {
+      await qc.cancelQueries({ queryKey: ["admin-products"] });
+      const previous = qc.getQueryData<Product[]>(["admin-products"]);
+      if (previous) {
+        qc.setQueryData<Product[]>(
+          ["admin-products"],
+          previous.map((p) =>
+            p.uuid === uuid || p.id === uuid ? { ...p, salesChannel: channel } : p,
+          ),
+        );
+      }
+      setViewingPhotosProduct((prev) =>
+        prev && (prev.uuid === uuid || prev.id === uuid)
+          ? { ...prev, salesChannel: channel }
+          : prev,
+      );
+      return { previous };
+    },
+    onSuccess: (_, { channel, uuid }) => {
+      const prod = (data || []).find((p) => p.uuid === uuid || p.id === uuid);
+      const name = prod?.name || "Product";
+      if (channel === "ONLINE_AND_OFFLINE") {
+        toast.success(`"${name}" is now LIVE on website (Online & Offline Store)`);
+      } else {
+        toast.success(`"${name}" is now set to ONLY OFFLINE (POS)`);
+      }
+      invalidate();
+      broadcastCatalogueChange();
+    },
+    onError: (e: Error, _, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["admin-products"], context.previous);
+      }
+      toast.error(`Failed to update sales channel: ${e.message}`);
     },
   });
 
@@ -2140,11 +2195,12 @@ function ProductsTab() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3.5">
-                        <Link
-                          to="/product/$id"
-                          params={{ id: p.id || p.uuid }}
-                          className="relative group/thumb block size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-2xs transition-transform hover:scale-105"
-                          title="Open product on storefront (new tab)"
+                        {/* Product Thumbnail — Clicking opens full photo gallery for this product */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingPhotosProduct(p)}
+                          className="relative group/thumb block size-12 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-2xs transition-all hover:scale-105 hover:border-primary/50 cursor-pointer text-left"
+                          title={`Click to view all photos of ${p.name}`}
                         >
                           <img
                             src={p.image}
@@ -2157,41 +2213,82 @@ function ProductsTab() {
                               (e.target as HTMLImageElement).src = imageFor(p.category, null, p);
                             }}
                           />
-                          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/thumb:opacity-100 text-white">
-                            <ExternalLink className="size-3.5" />
+                          {/* Photo count indicator */}
+                          {(p.product_images?.length || p.images?.length || 0) > 1 && (
+                            <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[9px] font-black text-white px-1 py-0.2 rounded leading-tight flex items-center gap-0.5 shadow-xs">
+                              <Camera className="size-2.5" />
+                              {p.product_images?.length || p.images?.length}
+                            </span>
+                          )}
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/thumb:opacity-100 text-white">
+                            <Camera className="size-4" />
                           </span>
-                        </Link>
+                        </button>
+
                         <div className="max-w-[280px]">
-                          <Link
-                            to="/product/$id"
-                            params={{ id: p.id || p.uuid }}
-                            className="font-semibold text-foreground line-clamp-1 hover:text-primary transition-colors flex items-center gap-1 group/name"
-                            title={`Open ${p.name} on storefront`}
-                          >
-                            <span>{p.name}</span>
-                            <ExternalLink className="size-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
-                          </Link>
-                          <p className="text-xs font-medium text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setViewingPhotosProduct(p)}
+                              className="font-semibold text-foreground line-clamp-1 hover:text-primary transition-colors text-left cursor-pointer"
+                              title={`Click to view all photos of ${p.name}`}
+                            >
+                              {p.name}
+                            </button>
+                            {p.salesChannel !== "OFFLINE_ONLY" && (
+                              <Link
+                                to="/product/$id"
+                                params={{ id: p.id || p.uuid }}
+                                className="text-muted-foreground hover:text-primary transition-colors shrink-0 p-0.5"
+                                title={`View ${p.name} on live storefront in new tab`}
+                              >
+                                <ExternalLink className="size-3" />
+                              </Link>
+                            )}
+                          </div>
+                          <div className="text-xs font-medium text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                             <span>{p.brand}</span>
                             <span className="opacity-50">•</span>
-                            <span>{p.id}</span>
+                            <span className="font-mono">{p.id}</span>
                             <span className="opacity-50">•</span>
-                            {p.salesChannel === "OFFLINE_ONLY" ? (
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] uppercase font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded shadow-2xs"
-                                title="This product is only available in the offline POS system"
-                              >
-                                <Store className="size-2.5" /> Only Offline (POS)
-                              </span>
-                            ) : (
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] uppercase font-extrabold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded shadow-2xs"
-                                title="Available online and in-store POS"
-                              >
-                                <Package className="size-2.5" /> Online & Offline
-                              </span>
-                            )}
-                          </p>
+                            {/* Interactive 1-Click Channel Switcher Badge */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextChannel =
+                                  p.salesChannel === "OFFLINE_ONLY"
+                                    ? "ONLINE_AND_OFFLINE"
+                                    : "OFFLINE_ONLY";
+                                toggleSalesChannel.mutate({ uuid: p.uuid, channel: nextChannel });
+                              }}
+                              disabled={
+                                toggleSalesChannel.isPending &&
+                                toggleSalesChannel.variables?.uuid === p.uuid
+                              }
+                              title={
+                                p.salesChannel === "OFFLINE_ONLY"
+                                  ? "Click to make this product LIVE on website (Online & Offline)"
+                                  : "Click to set this product to ONLY OFFLINE (POS)"
+                              }
+                              className={`inline-flex items-center gap-1 text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded shadow-2xs border transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                                p.salesChannel === "OFFLINE_ONLY"
+                                  ? "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/60"
+                                  : "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60"
+                              }`}
+                            >
+                              {p.salesChannel === "OFFLINE_ONLY" ? (
+                                <>
+                                  <Store className="size-2.5" />
+                                  <span>Only Offline (POS)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Package className="size-2.5" />
+                                  <span>Online &amp; Offline</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -2692,6 +2789,21 @@ function ProductsTab() {
           product={managingVariantsProduct}
           onClose={() => setManagingVariantsProduct(null)}
           onSuccess={invalidate}
+        />
+      )}
+
+      {viewingPhotosProduct && (
+        <ProductPhotosModal
+          product={viewingPhotosProduct}
+          onClose={() => setViewingPhotosProduct(null)}
+          onEditProduct={(prod) => {
+            setViewingPhotosProduct(null);
+            setEditing(prod);
+          }}
+          onToggleSalesChannel={(prod, newChannel) => {
+            toggleSalesChannel.mutate({ uuid: prod.uuid, channel: newChannel });
+          }}
+          isTogglingChannel={toggleSalesChannel.isPending}
         />
       )}
     </div>
