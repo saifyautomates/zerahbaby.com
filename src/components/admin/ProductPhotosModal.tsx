@@ -2,29 +2,41 @@
  * ProductPhotosModal.tsx — Admin Product Photos Gallery & Quick Channel Manager
  * Zérah Baby & Kids
  *
- * Allows administrators to inspect all photos of any product (both Online and Only Offline),
- * view variant/color badges, preview high-res images, and quickly toggle sales channel
- * (Live on Website vs Only Offline POS).
+ * Allows administrators to:
+ * - Inspect all photos of any product (both Online and Only Offline)
+ * - Click directly on any photo to open interactive full-screen zoom / lightbox
+ * - Directly upload new photos via instant file picker
+ * - Set any photo as primary with 1-click
+ * - Delete unwanted photos
+ * - Quick-toggle sales channel (Live on Website vs Only Offline POS)
+ * - Seamlessly launch the full product editor drawer
  */
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   X,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Edit3,
   Store,
   Package,
-  Sparkles,
   Camera,
   Maximize2,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Trash2,
+  Star,
+  UploadCloud,
+  Loader2,
   Check,
-  Tag,
-  Layers,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { Product } from "@/lib/store";
 import { formatPrice, imageFor } from "@/lib/store";
+import { uploadMedia } from "@/lib/uploads";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ProductPhotoItem {
   id?: string;
@@ -52,10 +64,11 @@ export function ProductPhotosModal({
   ) => void;
   isTogglingChannel?: boolean;
 }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Extract all distinct images for this product
-  const photos = useMemo<ProductPhotoItem[]>(() => {
+  // Compute initial photos list from product data
+  const initialPhotos = useMemo<ProductPhotoItem[]>(() => {
     const list: ProductPhotoItem[] = [];
     const seenUrls = new Set<string>();
 
@@ -118,7 +131,7 @@ export function ProductPhotosModal({
       }
     }
 
-    // 5. If completely empty, add fallback category placeholder
+    // 5. Fallback placeholder if empty
     if (list.length === 0) {
       list.push({
         url: imageFor(product.category, null, product),
@@ -130,13 +143,41 @@ export function ProductPhotosModal({
     return list;
   }, [product]);
 
+  const [photos, setPhotos] = useState<ProductPhotoItem[]>(initialPhotos);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Sync state if initialPhotos changes
+  useEffect(() => {
+    setPhotos(initialPhotos);
+  }, [initialPhotos]);
+
+  // Fullscreen / Zoom Lightbox State
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+
+  // Direct Photo Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const [isActionBusy, setIsActionBusy] = useState(false);
+
   const activePhoto = photos[activeIndex] || photos[0];
   const isOfflineOnly = product.salesChannel === "OFFLINE_ONLY";
 
-  // Keyboard navigation
+  // Preload ProductForm bundle on mount for instant transition on edit click
+  useEffect(() => {
+    import("@/components/admin/ProductForm").catch(() => {});
+  }, []);
+
+  // Keyboard navigation & escape handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (isZoomed) {
+          setIsZoomed(false);
+          setZoomScale(1);
+        } else {
+          onClose();
+        }
+      }
       if (e.key === "ArrowLeft") {
         setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
       }
@@ -146,15 +187,162 @@ export function ProductPhotosModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [photos.length, onClose]);
+  }, [photos.length, onClose, isZoomed]);
+
+  // Handle Direct Upload
+  const handleDirectUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const toastId = toast.loading(`Uploading ${files.length} photo(s)...`);
+    try {
+      const pId = product.uuid || product.id;
+      const newItems: ProductPhotoItem[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const publicUrl = await uploadMedia(file, pId);
+
+        // Insert into Supabase product_images table if product has a valid UUID
+        let insertedId: string | undefined;
+        if (product.uuid) {
+          const { data, error } = await supabase
+            .from("product_images")
+            .insert({
+              product_id: product.uuid,
+              public_url: publicUrl,
+              sort_order: photos.length + i,
+              is_primary: photos.length === 0 && i === 0,
+              alt_text: product.name,
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (!error && data) {
+            insertedId = data.id;
+          }
+        }
+
+        newItems.push({
+          id: insertedId,
+          url: publicUrl,
+          isPrimary: photos.length === 0 && i === 0,
+          altText: product.name,
+        });
+      }
+
+      setPhotos((prev) => [...prev, ...newItems]);
+      setActiveIndex(photos.length); // switch to first newly uploaded photo
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast.success(`${files.length} photo(s) added successfully!`, { id: toastId });
+    } catch (err: any) {
+      console.error("Direct upload failed:", err);
+      toast.error(err?.message || "Failed to upload photo", { id: toastId });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Set As Primary
+  const handleSetPrimary = async () => {
+    if (!activePhoto || activePhoto.isPrimary || !product.uuid) return;
+    setIsActionBusy(true);
+    try {
+      // 1. Reset is_primary on all product images for this product
+      await supabase
+        .from("product_images")
+        .update({ is_primary: false })
+        .eq("product_id", product.uuid);
+
+      // 2. Set this image as primary in product_images
+      if (activePhoto.id) {
+        await supabase
+          .from("product_images")
+          .update({ is_primary: true })
+          .eq("id", activePhoto.id);
+      } else {
+        await supabase
+          .from("product_images")
+          .update({ is_primary: true })
+          .eq("product_id", product.uuid)
+          .eq("public_url", activePhoto.url);
+      }
+
+
+      // Update local state
+      setPhotos((prev) =>
+        prev.map((p, idx) => ({
+          ...p,
+          isPrimary: idx === activeIndex,
+        })),
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast.success("Set as primary photo!");
+    } catch (err: any) {
+      console.error("Failed to set primary:", err);
+      toast.error("Could not set primary photo");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  // Handle Delete Photo
+  const handleDeletePhoto = async () => {
+    if (!activePhoto || !product.uuid) return;
+    if (photos.length <= 1) {
+      toast.error("Cannot delete the only photo. Upload another photo first.");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete this photo from this product?")) {
+      return;
+    }
+
+    setIsActionBusy(true);
+    try {
+      if (activePhoto.id) {
+        await supabase.from("product_images").delete().eq("id", activePhoto.id);
+      } else {
+        await supabase
+          .from("product_images")
+          .delete()
+          .eq("product_id", product.uuid)
+          .eq("public_url", activePhoto.url);
+      }
+
+      const updated = photos.filter((_, idx) => idx !== activeIndex);
+      setPhotos(updated);
+      setActiveIndex((prev) => Math.min(prev, Math.max(0, updated.length - 1)));
+
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast.success("Photo deleted.");
+    } catch (err: any) {
+      console.error("Failed to delete photo:", err);
+      toast.error("Could not delete photo");
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-[220] flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
+      {/* Hidden File Input for Instant Upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        onChange={handleDirectUpload}
+      />
+
       <div
         className="flex w-full max-w-4xl max-h-[92vh] my-auto flex-col overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -218,17 +406,37 @@ export function ProductPhotosModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Upload Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 px-3 py-2 text-xs font-bold transition cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Add photos directly to this product"
+            >
+              {isUploading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <UploadCloud className="size-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {isUploading ? "Uploading..." : "Upload Photo"}
+              </span>
+            </button>
+
+            {/* Edit Product & Photos (Direct transition) */}
             <button
               type="button"
               onClick={() => {
-                onClose();
                 onEditProduct(product);
               }}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer active:scale-95"
+              title="Open full product editor"
             >
-              <Edit3 className="size-3.5" />
+              <Edit3 className="size-3.5 text-primary" />
               <span className="hidden sm:inline">Edit Product &amp; Photos</span>
             </button>
+
             <button
               type="button"
               onClick={onClose}
@@ -241,14 +449,29 @@ export function ProductPhotosModal({
         </div>
 
         {/* Main Photo Viewer Stage */}
-        <div className="relative flex flex-1 min-h-[360px] sm:min-h-[460px] items-center justify-center bg-black/90 p-4 sm:p-8 overflow-hidden select-none">
-          {/* Main Displayed Image */}
+        <div className="relative flex flex-1 min-h-[360px] sm:min-h-[460px] items-center justify-center bg-black/95 p-4 sm:p-8 overflow-hidden select-none group">
+          {/* Main Clickable Image — clicking triggers interactive zoom lightbox */}
           {activePhoto?.url && (
-            <img
-              src={activePhoto.url}
-              alt={activePhoto.altText || product.name}
-              className="max-h-[60vh] max-w-full rounded-2xl object-contain shadow-2xl transition-all duration-200"
-            />
+            <div
+              className="relative max-h-[60vh] max-w-full cursor-zoom-in group/img"
+              onClick={() => {
+                setIsZoomed(true);
+                setZoomScale(1.5);
+              }}
+              title="Click photo to zoom and inspect in high resolution"
+            >
+              <img
+                src={activePhoto.url}
+                alt={activePhoto.altText || product.name}
+                className="max-h-[60vh] max-w-full rounded-2xl object-contain shadow-2xl transition-transform duration-300 group-hover/img:scale-[1.02]"
+              />
+              <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/img:bg-black/15 transition-all flex items-center justify-center pointer-events-none">
+                <span className="opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/75 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+                  <ZoomIn className="size-3.5" />
+                  <span>Click to Zoom &amp; Inspect</span>
+                </span>
+              </div>
+            </div>
           )}
 
           {/* Navigation Arrows */}
@@ -256,20 +479,22 @@ export function ProductPhotosModal({
             <>
               <button
                 type="button"
-                onClick={() =>
-                  setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1))
-                }
-                className="absolute left-3 sm:left-6 flex size-10 sm:size-12 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition-all backdrop-blur-sm cursor-pointer active:scale-95"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+                }}
+                className="absolute left-3 sm:left-6 flex size-10 sm:size-12 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition-all backdrop-blur-sm cursor-pointer active:scale-95 z-10"
                 aria-label="Previous photo"
               >
                 <ChevronLeft className="size-6" />
               </button>
               <button
                 type="button"
-                onClick={() =>
-                  setActiveIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0))
-                }
-                className="absolute right-3 sm:right-6 flex size-10 sm:size-12 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition-all backdrop-blur-sm cursor-pointer active:scale-95"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-3 sm:right-6 flex size-10 sm:size-12 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition-all backdrop-blur-sm cursor-pointer active:scale-95 z-10"
                 aria-label="Next photo"
               >
                 <ChevronRight className="size-6" />
@@ -278,13 +503,14 @@ export function ProductPhotosModal({
           )}
 
           {/* Metadata Overlay Badge on Photo */}
-          <div className="absolute top-4 left-4 flex flex-wrap items-center gap-1.5 pointer-events-none">
+          <div className="absolute top-4 left-4 flex flex-wrap items-center gap-1.5 pointer-events-none z-10">
             <span className="bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full border border-white/20">
               Photo {activeIndex + 1} of {photos.length}
             </span>
             {activePhoto?.isPrimary && (
-              <span className="bg-[#8B2020] text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                Primary
+              <span className="bg-[#8B2020] text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                <Star className="size-3 fill-current" />
+                <span>Primary</span>
               </span>
             )}
             {activePhoto?.color && (
@@ -299,19 +525,68 @@ export function ProductPhotosModal({
             )}
           </div>
 
-          {/* Open Original in New Tab */}
-          {activePhoto?.url && (
-            <a
-              href={activePhoto.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1.5 rounded-xl border border-white/20 hover:bg-black/90 transition"
-              title="Open full resolution image in new tab"
-            >
-              <Maximize2 className="size-3.5" />
-              <span>Full Res</span>
-            </a>
-          )}
+          {/* Quick Actions Bar (Bottom Overlay) */}
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-auto z-10 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {/* Set Primary Button */}
+              {!activePhoto?.isPrimary && product.uuid && (
+                <button
+                  type="button"
+                  onClick={handleSetPrimary}
+                  disabled={isActionBusy}
+                  className="flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs font-semibold px-3 py-1.5 rounded-xl border border-white/20 backdrop-blur-md transition cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Make this the main cover photo for this product"
+                >
+                  <Star className="size-3.5 text-amber-400" />
+                  <span>Set as Primary</span>
+                </button>
+              )}
+
+              {/* Delete Button */}
+              {product.uuid && photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleDeletePhoto}
+                  disabled={isActionBusy}
+                  className="flex items-center gap-1 bg-red-950/70 hover:bg-red-900/90 text-red-200 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-red-500/30 backdrop-blur-md transition cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Remove this photo from product"
+                >
+                  <Trash2 className="size-3.5 text-red-400" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Interactive Zoom / Lightbox Trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsZoomed(true);
+                  setZoomScale(1.5);
+                }}
+                className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1.5 rounded-xl border border-white/20 hover:bg-black/90 transition cursor-pointer active:scale-95"
+                title="Open zoom lightbox"
+              >
+                <ZoomIn className="size-3.5" />
+                <span>Zoom &amp; Inspect</span>
+              </button>
+
+              {/* Open in New Tab */}
+              {activePhoto?.url && (
+                <a
+                  href={activePhoto.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1.5 rounded-xl border border-white/20 hover:bg-black/90 transition"
+                  title="Open high resolution original image in new tab"
+                >
+                  <Maximize2 className="size-3.5" />
+                  <span className="hidden sm:inline">Full Res</span>
+                </a>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Thumbnail Strip Gallery */}
@@ -347,22 +622,147 @@ export function ProductPhotosModal({
               );
             })}
 
-            {/* Quick Add More button */}
+            {/* Direct Add Photos Button */}
             <button
               type="button"
-              onClick={() => {
-                onClose();
-                onEditProduct(product);
-              }}
-              className="shrink-0 size-16 sm:size-18 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/50 transition cursor-pointer"
-              title="Upload more photos for this product in edit drawer"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="shrink-0 size-16 sm:size-18 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/50 transition cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Click to select photos from your device to upload"
             >
-              <Camera className="size-4" />
-              <span className="text-[9px] font-bold">+ Photos</span>
+              {isUploading ? (
+                <Loader2 className="size-4 animate-spin text-primary" />
+              ) : (
+                <Camera className="size-4" />
+              )}
+              <span className="text-[9px] font-bold">
+                {isUploading ? "Adding..." : "+ Photos"}
+              </span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Interactive Full-Screen Lightbox / Zoom Dialog */}
+      {isZoomed && activePhoto?.url && (
+        <div
+          className="fixed inset-0 z-[260] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-150 p-4 select-none"
+          onClick={() => {
+            setIsZoomed(false);
+            setZoomScale(1);
+          }}
+        >
+          {/* Top Controls Bar */}
+          <div
+            className="absolute top-4 inset-x-4 flex items-center justify-between z-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 text-white text-xs font-semibold">
+              <span>
+                Photo {activeIndex + 1} of {photos.length}
+              </span>
+              <span>•</span>
+              <span className="text-white/80">{Math.round(zoomScale * 100)}% Zoom</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setZoomScale((s) => Math.max(0.5, s - 0.25))}
+                className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition cursor-pointer active:scale-95"
+                title="Zoom Out"
+              >
+                <ZoomOut className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomScale(1)}
+                className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition cursor-pointer active:scale-95"
+                title="Reset Zoom (100%)"
+              >
+                <RotateCcw className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomScale((s) => Math.min(3.5, s + 0.25))}
+                className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition cursor-pointer active:scale-95"
+                title="Zoom In"
+              >
+                <ZoomIn className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsZoomed(false);
+                  setZoomScale(1);
+                }}
+                className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 border border-white/20 transition cursor-pointer active:scale-95 ml-2"
+                title="Close Zoom (Esc)"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Centered Zoomable Image */}
+          <div
+            className="flex-1 flex items-center justify-center w-full h-full overflow-auto p-4 cursor-grab active:cursor-grabbing"
+            onClick={(e) => {
+              // Clicking directly toggles zoom between 1.5x and 2.5x
+              if (e.target === e.currentTarget) {
+                setIsZoomed(false);
+                setZoomScale(1);
+              }
+            }}
+          >
+            <img
+              src={activePhoto.url}
+              alt={activePhoto.altText || product.name}
+              style={{
+                transform: `scale(${zoomScale})`,
+                transition: "transform 0.15s ease-out",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomScale((s) => (s >= 2 ? 1 : s + 0.5));
+              }}
+              className="max-h-[85vh] max-w-[90vw] object-contain shadow-2xl rounded-xl cursor-zoom-in"
+              title="Click to zoom in further"
+            />
+          </div>
+
+          {/* Navigation Arrows in Lightbox */}
+          {photos.length > 1 && (
+            <div
+              className="absolute bottom-6 inset-x-6 flex items-center justify-between pointer-events-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+                  setZoomScale(1.5);
+                }}
+                className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black/90 border border-white/25 transition backdrop-blur-md cursor-pointer active:scale-95"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="size-7" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+                  setZoomScale(1.5);
+                }}
+                className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black/90 border border-white/25 transition backdrop-blur-md cursor-pointer active:scale-95"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="size-7" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>,
     document.body,
   );
