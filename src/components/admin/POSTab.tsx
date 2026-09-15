@@ -626,7 +626,7 @@ export function POSTab() {
 
       const mapped = (productsRes.data || []).map((r) => {
         const prod = mapProduct(r as never);
-        const cost = costMap.get(prod.uuid) ?? costMap.get(prod.id) ?? 0;
+        const cost = costMap.get(r.id) ?? costMap.get(prod.uuid) ?? costMap.get(prod.id) ?? (r as unknown as { cost_price?: number })?.cost_price ?? 0;
         prod.buyingPrice = cost;
         prod.buying_price = cost;
         prod.product_costs = [{ buying_price: cost }];
@@ -766,15 +766,18 @@ export function POSTab() {
     for (const item of cart) {
       if (!item) continue;
       let bp = item.buying_price != null ? Number(item.buying_price) : 0;
-      // Fallback: look up from locally fetched products catalog (which has product_costs or buyingPrice)
+      // Fallback: look up from locally fetched products catalog (which has product_costs, buyingPrice, or cost_price)
       if ((!bp || bp <= 0) && catalog.length > 0) {
         const found = catalog.find(
           (p) =>
-            p?.uuid === item.product_id ||
-            p?.id === item.product_id ||
-            p?.uuid === item.slug ||
-            p?.id === item.slug ||
-            (p?.sku && item.sku && p.sku.toLowerCase() === item.sku.toLowerCase()),
+            (p?.uuid && item.product_id && p.uuid.toLowerCase() === item.product_id.toLowerCase()) ||
+            (p?.id && item.product_id && p.id.toLowerCase() === item.product_id.toLowerCase()) ||
+            (p?.uuid && item.slug && p.uuid.toLowerCase() === item.slug.toLowerCase()) ||
+            (p?.id && item.slug && p.id.toLowerCase() === item.slug.toLowerCase()) ||
+            (p?.slug && item.slug && p.slug.toLowerCase() === item.slug.toLowerCase()) ||
+            (p?.sku && item.sku && p.sku.toLowerCase() === item.sku.toLowerCase()) ||
+            (p?.name && item.name && p.name.toLowerCase() === item.name.toLowerCase()) ||
+            (item.name && p?.name && item.name.toLowerCase().startsWith(p.name.toLowerCase())),
         );
         if (found) {
           bp = Number(
@@ -782,6 +785,7 @@ export function POSTab() {
               found.buying_price ??
               (found as unknown as { product_costs?: Array<{ buying_price?: number }> })
                 ?.product_costs?.[0]?.buying_price ??
+              (found as unknown as { cost_price?: number })?.cost_price ??
               0,
           );
         }
