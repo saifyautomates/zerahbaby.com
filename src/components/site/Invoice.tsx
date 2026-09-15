@@ -94,10 +94,9 @@ export function buildOrderA4HTML(
   },
 ): string {
   const brand = store.brandName || "ZÉRAH BABY & KIDS";
-  const address =
-    store.storeAddress || "In Front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan 324001";
+  const address = store.storeAddress || "Gordhanpura, Kota, Rajasthan 324001";
   const phone = store.contactPhone || "9057074777";
-  const email = store.contactEmail || "support@zerahkids.com";
+  const email = store.contactEmail || "hello@zerahkids.com";
 
   const dateObj = new Date(order.created_at);
   const dateStr = dateObj.toLocaleDateString("en-IN", {
@@ -439,7 +438,7 @@ export function buildOrderA4HTML(
       <img loading="lazy" decoding="async" src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" class="brand-logo" alt="Zerah Logo"/>
       <div>
         <div class="brand-title">${esc(brand)}</div>
-        <div class="brand-tagline">Premium Children's Clothing · Newborn to Pre-Teen</div>
+        <div class="brand-tagline">Premium Children's Clothing</div>
       </div>
     </div>
     <div class="header-center">

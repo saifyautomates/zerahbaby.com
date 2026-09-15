@@ -134,9 +134,9 @@ function buildThermalReturnHTML(
 <body>
   <div class="text-center">
     <div style="font-size: 14px; font-weight: 900; letter-spacing: 0.5px;">ZÉRAH BABY &amp; KIDS</div>
-    <div style="font-size: 10px; color: #333;">Offline POS Returns &amp; Exchange</div>
-    <div style="font-size: 10px; color: #333;">Kota, Rajasthan 324001</div>
-    <div style="font-size: 10px; color: #333;">Support: +91 90570 74777</div>
+    <div style="font-size: 10px; color: #333; margin-top: 2px;">Premium Children's Clothing</div>
+    <div style="font-size: 10px; color: #333; margin-top: 2px;">Gordhanpura, Kota, Rajasthan 324001</div>
+    <div style="font-size: 10px; color: #333; margin-top: 2px;">Ph: 9057074777</div>
     <div style="display: inline-block; border: 1px solid #000; padding: 2px 8px; font-size: 10px; font-weight: 800; margin-top: 5px; text-transform: uppercase;">
       ${isExchangeCredit ? "EXCHANGE CREDIT VOUCHER" : "RETURN RECEIPT"}
     </div>
@@ -331,10 +331,10 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
               ZÉRAH BABY &amp; KIDS
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              Offline POS Returns &amp; Exchange
+              Premium Children's Clothing
             </p>
-            <p className="text-[10px] text-muted-foreground">Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-muted-foreground">Support: +91 90570 74777</p>
+            <p className="text-[10px] text-muted-foreground">Gordhanpura, Kota, Rajasthan 324001</p>
+            <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
             <div className="mt-2 inline-block rounded border border-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
               {isExchangeCredit ? "STORE CREDIT / EXCHANGE VOUCHER" : "RETURN RECEIPT"}
             </div>

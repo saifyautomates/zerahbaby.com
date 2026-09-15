@@ -166,9 +166,10 @@ export function buildThermalHTML(
 </head>
 <body>
   <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
-    <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS STORE</div>
-    <div style="font-size:9.5px;color:#555;margin-top:4px;">In Front of Hanumanji Temple,<br/>Atwal Nagar, Kota, Rajasthan</div>
-    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone)}</div>
+    <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS</div>
+    <div style="font-size:10px;color:#333;margin-top:2px;">Premium Children's Clothing</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Gordhanpura, Kota, Rajasthan 324001</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone || "9057074777")}</div>
   </div>
 
   ${
