@@ -105,6 +105,8 @@ import {
   validateAndNormalizeAnnouncementLink,
 } from "@/lib/marketing-links";
 
+import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
+
 const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),
 );
@@ -113,9 +115,6 @@ const MediaLibrary = safeLazy(() =>
 );
 const ProductForm = safeLazy(() =>
   import("@/components/admin/ProductForm").then((m) => ({ default: m.ProductForm })),
-);
-const PrintLabelsModal = safeLazy(() =>
-  import("@/components/admin/PrintLabelsModal").then((m) => ({ default: m.PrintLabelsModal })),
 );
 
 const BillingCenterTab = safeLazy(() =>
@@ -1200,8 +1199,8 @@ function ProductsTab() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-products"],
-    staleTime: 1000 * 5, // 5s fresh window with instant realtime invalidation
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60, // 1m fresh window with instant realtime invalidation
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const [productsRes, costsRes, settingsRes] = await Promise.all([
         supabase
@@ -2680,20 +2679,12 @@ function ProductsTab() {
       )}
 
       {printingLabels && (
-        <Suspense
-          fallback={
-            <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-background p-8 rounded-xl animate-pulse">Loading printer...</div>
-            </div>
+        <PrintLabelsModal
+          products={
+            selectedIds.size > 0 ? selectedProducts : list.length > 0 ? list : (data ?? [])
           }
-        >
-          <PrintLabelsModal
-            products={
-              selectedIds.size > 0 ? selectedProducts : list.length > 0 ? list : (data ?? [])
-            }
-            onClose={() => setPrintingLabels(false)}
-          />
-        </Suspense>
+          onClose={() => setPrintingLabels(false)}
+        />
       )}
 
       {managingVariantsProduct && (
