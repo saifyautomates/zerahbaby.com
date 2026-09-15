@@ -1463,7 +1463,7 @@ export function POSTab() {
       }
       return false;
     },
-    [products],
+    [products, addToCart, setProductSearch],
   );
 
   // Scan handler
@@ -1487,7 +1487,8 @@ export function POSTab() {
       }
 
       if (inMemoryMatch) {
-        let { product, variant } = inMemoryMatch;
+        const product = inMemoryMatch.product;
+        let variant = inMemoryMatch.variant;
 
         if (product.isActive === false) {
           playScanError();

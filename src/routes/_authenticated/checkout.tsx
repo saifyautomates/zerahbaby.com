@@ -203,7 +203,7 @@ function CheckoutPage() {
         setPaymentCancelled(true);
       }
     },
-    [clear, navigate],
+    [clear, navigate, qc],
   );
 
   useEffect(() => {

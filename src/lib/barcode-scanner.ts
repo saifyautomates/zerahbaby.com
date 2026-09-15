@@ -24,7 +24,8 @@ export interface BarcodeScanDetail {
 export function sanitizeBarcode(raw: string): string {
   if (!raw) return "";
   let clean = raw.trim();
-  // Strip non-printable ASCII control characters
+  // Strip non-printable ASCII control characters (emitted by hardware USB HID scanners)
+  // eslint-disable-next-line no-control-regex
   clean = clean.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
   // Strip AIM symbology identifier prefix (e.g. ]C1, ]e0, ]A0, ]Q3, ]d2)
   clean = clean.replace(/^\][a-zA-Z0-9]{2,3}/, "");

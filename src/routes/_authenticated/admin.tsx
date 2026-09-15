@@ -351,7 +351,7 @@ export function AdminPage() {
         window.history.replaceState({}, "", url.toString());
       }
     }
-  }, [tab]);
+  }, [tab, setTab]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);

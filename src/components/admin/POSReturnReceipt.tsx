@@ -9,7 +9,7 @@
  * - Exchange Policy note: "Exchange only — valid for purchasing any item at Zérah Baby & Kids"
  * - Restock confirmation
  */
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer, RotateCcw, Sparkles, Tag, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
@@ -255,7 +255,10 @@ function printViaIframe(htmlContent: string) {
 }
 
 export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Props) {
-  const date = returnData.created_at ? new Date(returnData.created_at) : new Date();
+  const date = useMemo(
+    () => (returnData.created_at ? new Date(returnData.created_at) : new Date()),
+    [returnData.created_at],
+  );
   const isExchangeCredit =
     returnData.refund_method === "exchange_credit" || !returnData.refund_method;
   const totalItemsCount = returnData.items.reduce((sum, i) => sum + (i.qty || 1), 0);

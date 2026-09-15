@@ -284,7 +284,7 @@ function ProductPage() {
     if (product?.uuid) {
       registerProduct(product);
     }
-  }, [product?.uuid, registerProduct]);
+  }, [product, registerProduct]);
 
   const isLoading = (singleLoading || productsLoading) && !product;
   const isNetworkError = (singleQueryError || singleResult?.isError) && !product;
@@ -325,7 +325,7 @@ function ProductPage() {
         setSelectedVariantId(null);
       }
     }
-  }, [id, product?.uuid]);
+  }, [id, product]);
 
   const activeVariant = useMemo(() => {
     if (!product || !product.variants?.length) return null;
