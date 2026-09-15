@@ -101,6 +101,58 @@ export type ProductDraft = {
   variants: ProductVariantDraft[];
 };
 
+const MATRIX_AVAILABLE_SIZES = [
+  // Baby & Infant (0-24 Months)
+  "0-3m",
+  "3-6m",
+  "6-12m",
+  "12-18m",
+  "18-24m",
+  // Toddler & Young Kids (1-8 Years)
+  "1-2Y",
+  "2-3Y",
+  "3-4Y",
+  "4-5Y",
+  "5-6Y",
+  "6-7Y",
+  "7-8Y",
+  // Older Kids & Teens (8-16 Years)
+  "8-9Y",
+  "9-10Y",
+  "10-11Y",
+  "11-12Y",
+  "12-13Y",
+  "13-14Y",
+  "14-15Y",
+  "15-16Y",
+  // Standard / Apparel Sizes
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "Free Size",
+];
+
+const SIZE_PRESETS = [
+  { label: "👶 Baby (0-2Y)", sizes: ["0-3m", "3-6m", "6-12m", "1-2Y", "2-3Y"] },
+  { label: "🧒 Kids (3-8Y)", sizes: ["3-4Y", "4-5Y", "5-6Y", "6-7Y", "7-8Y"] },
+  {
+    label: "👦 Teens (8-16Y)",
+    sizes: [
+      "8-9Y",
+      "9-10Y",
+      "10-11Y",
+      "11-12Y",
+      "12-13Y",
+      "13-14Y",
+      "14-15Y",
+      "15-16Y",
+    ],
+  },
+  { label: "👕 Adult (S-XL)", sizes: ["S", "M", "L", "XL"] },
+];
+
 const CATEGORY_PREFIXES: Record<string, string> = {
   clothing: "CL",
   toys: "TY",
@@ -1587,18 +1639,33 @@ export function ProductForm({
                   <option value="12-18m" />
                   <option value="12-24m" />
                   <option value="18-24m" />
+                  <option value="1-2y" />
                   <option value="2-3y" />
                   <option value="2-4y" />
                   <option value="3-4y" />
+                  <option value="4-5y" />
                   <option value="4-6y" />
+                  <option value="5-6y" />
+                  <option value="6-7y" />
                   <option value="6-8y" />
+                  <option value="7-8y" />
+                  <option value="8-9y" />
                   <option value="8-10y" />
+                  <option value="9-10y" />
+                  <option value="10-11y" />
                   <option value="10-12y" />
+                  <option value="11-12y" />
+                  <option value="12-13y" />
                   <option value="12-14y" />
+                  <option value="13-14y" />
+                  <option value="14-15y" />
+                  <option value="14-16y" />
+                  <option value="15-16y" />
                   <option value="Newborn" />
                   <option value="Infant" />
                   <option value="Toddler" />
-                  <option value="Kids" />
+                  <option value="Kids (3-8y)" />
+                  <option value="Teens (8-16y)" />
                   <option value="All Ages" />
                 </datalist>
               </label>
@@ -1918,43 +1985,94 @@ export function ProductForm({
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="font-semibold text-muted-foreground w-16">Sizes:</span>
-                      {[
-                        "0-3m",
-                        "3-6m",
-                        "6-12m",
-                        "1-2Y",
-                        "2-3Y",
-                        "S",
-                        "M",
-                        "L",
-                        "XL",
-                        "Free Size",
-                      ].map((sz) => {
-                        const isSel = matrixSizes.includes(sz);
-                        return (
+                    {/* Sizes Section with Quick Presets */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          <span>Sizes:</span>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                            {matrixSizes.length} selected
+                          </span>
+                        </div>
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-1">
+                          {SIZE_PRESETS.map((preset) => {
+                            const allActive = preset.sizes.every((s) => matrixSizes.includes(s));
+                            return (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => {
+                                  if (allActive) {
+                                    setMatrixSizes((prev) =>
+                                      prev.filter((s) => !preset.sizes.includes(s)),
+                                    );
+                                  } else {
+                                    setMatrixSizes((prev) =>
+                                      Array.from(new Set([...prev, ...preset.sizes])),
+                                    );
+                                  }
+                                }}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition cursor-pointer ${
+                                  allActive
+                                    ? "bg-emerald-600 text-white shadow-2xs"
+                                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            );
+                          })}
                           <button
-                            key={sz}
                             type="button"
-                            onClick={() => {
-                              setMatrixSizes((prev) =>
-                                isSel ? prev.filter((s) => s !== sz) : [...prev, sz],
-                              );
-                            }}
-                            className={`rounded px-2 py-0.5 text-xs font-semibold transition cursor-pointer ${
-                              isSel
-                                ? "bg-primary text-primary-foreground shadow-2xs"
-                                : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                            }`}
+                            onClick={() => setMatrixSizes([...MATRIX_AVAILABLE_SIZES])}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10 transition cursor-pointer"
                           >
-                            {sz}
+                            All
                           </button>
-                        );
-                      })}
+                          <button
+                            type="button"
+                            onClick={() => setMatrixSizes([])}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Size Pills Grid (Baby, Toddler, Kids 3-16Y, Adult) */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs max-h-40 overflow-y-auto p-1.5 rounded-lg bg-muted/20 border border-border/50">
+                        {MATRIX_AVAILABLE_SIZES.map((sz) => {
+                          const isSel = matrixSizes.includes(sz);
+                          return (
+                            <button
+                              key={sz}
+                              type="button"
+                              onClick={() => {
+                                setMatrixSizes((prev) =>
+                                  isSel ? prev.filter((s) => s !== sz) : [...prev, sz],
+                                );
+                              }}
+                              className={`rounded px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                                isSel
+                                  ? "bg-primary text-primary-foreground shadow-xs scale-102"
+                                  : "bg-background border border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <datalist id="variant-size-suggestions">
+                  {MATRIX_AVAILABLE_SIZES.map((sz) => (
+                    <option key={sz} value={sz} />
+                  ))}
+                </datalist>
 
                 {/* Variants List */}
                 <div className="space-y-3">
@@ -2058,7 +2176,8 @@ export function ProductForm({
                           <input
                             className={`${input} mt-1 text-foreground font-medium`}
                             value={v.size ?? ""}
-                            placeholder="e.g. M, 6-12m"
+                            placeholder="e.g. M, 6-12m, 7-8Y"
+                            list="variant-size-suggestions"
                             onChange={(e) => {
                               const updated = [...draft.variants];
                               const newSize = e.target.value || null;
