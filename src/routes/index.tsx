@@ -24,6 +24,7 @@ import { HeroMedia } from "@/components/site/HeroMedia";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
 import { ProductCarousel } from "@/components/site/ProductCarousel";
 import { CategoryCarousel } from "@/components/site/CategoryCarousel";
+import { AllProductsSection } from "@/components/site/AllProductsSection";
 import { safeLazy } from "@/lib/safe-lazy";
 import { Suspense } from "react";
 
@@ -766,6 +767,13 @@ function Index() {
           onEditSection={setEditingSection}
         />
       ))}
+
+      {/* ─── AUTOMATIC MASTER ALL PRODUCTS SECTION ─────────── */}
+      <AllProductsSection
+        initialProducts={products}
+        categories={categories}
+        isLoading={isLoading}
+      />
 
       {/* ─── MODAL: INLINE HOMEPAGE SECTION EDITOR ─────────── */}
       {(creatingSection || editingSection) && (
