@@ -1658,24 +1658,18 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
         width: ${cfg.pageWidthMm}mm !important;
-        height: ${cfg.pageHeightMm}mm !important;
-        max-height: ${cfg.pageHeightMm}mm !important;
+        height: ${cfg.pageHeightMm - 1.5}mm !important;
+        max-height: ${cfg.pageHeightMm - 1.5}mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         page-break-before: auto !important;
         break-before: auto !important;
-        page-break-after: auto !important;
-        break-after: auto !important;
+        page-break-after: always !important;
+        break-after: page !important;
         overflow: hidden !important;
         margin: 0 auto !important;
         padding: 0 !important;
-      }
-
-      /* Break ONLY before subsequent labels (never after), eliminating double-breaks and blank stickers */
-      .label-page + .label-page {
-        page-break-before: always !important;
-        break-before: page !important;
       }
 
       .label-page:first-child,
@@ -1684,6 +1678,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         break-before: avoid !important;
       }
 
+      /* Suppress trailing page break on final label to prevent extra blank stickers */
       .label-page:last-child,
       .label-page:last-of-type {
         page-break-after: avoid !important;
