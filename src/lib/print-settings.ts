@@ -57,12 +57,12 @@ export const DEFAULT_INVOICE_SETTINGS: InvoicePrintSettings = {
 
 export const DEFAULT_THERMAL_SETTINGS: ThermalLabelSettings = {
   printerName: "HPRT HT300",
-  widthMm: 50,
-  heightMm: 75,
+  widthMm: 58,
+  heightMm: 50,
   dpi: 203,
   copies: 1,
   labelType: "full",
-  showDiscount: false,
+  showDiscount: true,
 };
 
 /* ------------------------------------------------------------------ */
@@ -107,12 +107,12 @@ export function parseThermalSettings(
   const labelType = raw[PRINT_SETTING_KEYS.labelType];
   return {
     printerName: raw[PRINT_SETTING_KEYS.thermalPrinterName] || DEFAULT_THERMAL_SETTINGS.printerName,
-    widthMm: parseFloat(raw[PRINT_SETTING_KEYS.labelWidthMm] || "50") || 50,
-    heightMm: parseFloat(raw[PRINT_SETTING_KEYS.labelHeightMm] || "25") || 25,
+    widthMm: parseFloat(raw[PRINT_SETTING_KEYS.labelWidthMm] || "58") || 58,
+    heightMm: parseFloat(raw[PRINT_SETTING_KEYS.labelHeightMm] || "50") || 50,
     dpi: parseInt(raw[PRINT_SETTING_KEYS.labelDpi] || "203", 10) || 203,
     copies: parseInt(raw[PRINT_SETTING_KEYS.labelCopies] || "1", 10) || 1,
     labelType: labelType === "barcode-only" ? "barcode-only" : "full",
-    showDiscount: raw[PRINT_SETTING_KEYS.labelShowDiscount] === "true",
+    showDiscount: raw[PRINT_SETTING_KEYS.labelShowDiscount] !== "false",
   };
 }
 

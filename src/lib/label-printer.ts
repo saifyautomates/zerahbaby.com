@@ -585,7 +585,7 @@ export function resolvePrintFormatConfig(
   customWidthMm?: number,
   customHeightMm?: number,
 ): PrintFormatConfig {
-  const profileKey = layout || "50x25";
+  const profileKey = layout || "58x50";
 
   if (profileKey === "custom") {
     const w = Math.max(20, Math.min(200, Math.round(customWidthMm || 60)));
@@ -634,15 +634,15 @@ export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
 export const LABEL_SHOW_PRODUCT_NAME_KEY = "zerah_label_show_product_name";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
 
-let memoryProfile: LabelPrinterProfile = "3x2";
-let memoryShowDiscount = false;
+let memoryProfile: LabelPrinterProfile = "58x50";
+let memoryShowDiscount = true;
 let memoryLabelType: LabelType = "full";
 let memoryShowMrp = true;
 let memoryShowSellPrice = true;
 let memoryShowProductName = true;
 let memorySeparatePrice = true;
-let memoryCustomWidthMm = 76.2;
-let memoryCustomHeightMm = 50.8;
+let memoryCustomWidthMm = 58;
+let memoryCustomHeightMm = 50;
 
 export const CUSTOM_LABEL_WIDTH_KEY = "zerah_custom_label_width_mm";
 export const CUSTOM_LABEL_HEIGHT_KEY = "zerah_custom_label_height_mm";
@@ -684,9 +684,9 @@ export function getSavedLabelProfile(): LabelPrinterProfile {
       const saved = localStorage.getItem(DEFAULT_LABEL_PROFILE_KEY) as LabelPrinterProfile | null;
       if (saved) {
         if (LABEL_SIZE_OPTIONS.some((o) => o.id === saved)) return saved;
-        if (saved === "80x50" || saved === "100x50" || saved === "108x50") return "3x2";
+        if (saved === "80x50" || saved === "100x50" || saved === "108x50" || saved === "3x2") return "58x50";
         if (saved === "58x75" || saved === "50x75" || saved === "thermal-108") return "58x75";
-        return "3x2";
+        return "58x50";
       }
     } catch {
       /* ignore */
@@ -1068,11 +1068,11 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   const {
     products,
     quantities = {},
-    layout = "50x25",
+    layout = "58x50",
     customWidthMm,
     customHeightMm,
     labelType = "full",
-    showDiscount = false,
+    showDiscount = true,
     showMrp = true,
     showSellPrice = true,
     showProductName = true,
@@ -1327,7 +1327,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #334155;
+      color: #000000;
       margin: 0 auto 0.8mm auto;
       text-align: center;
       line-height: 1.15;
@@ -1365,7 +1365,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     .lbl-mrp-price {
       font-size: ${Math.max(6, cfg.priceFontPt * 0.72)}pt;
-      color: #64748b;
+      color: #000000;
       text-decoration: line-through;
       font-weight: 600;
     }
@@ -1384,7 +1384,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     .lbl-mrp-price-inline {
       font-size: ${Math.max(6, cfg.nameFontPt * 0.9)}pt;
-      color: #64748b;
+      color: #000000;
       text-decoration: line-through;
       font-weight: 600;
       margin-left: 0.5mm;
@@ -1429,7 +1429,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       width: 100%;
       font-size: ${cfg.skuFontPt}pt;
       font-weight: 700;
-      color: #475569;
+      color: #000000;
       margin: 1.0mm auto 0 auto;
       text-align: center;
       line-height: 1.15;
@@ -1658,8 +1658,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
         width: ${cfg.pageWidthMm}mm !important;
-        height: ${cfg.pageHeightMm - 1.5}mm !important;
-        max-height: ${cfg.pageHeightMm - 1.5}mm !important;
+        height: ${cfg.pageHeightMm}mm !important;
+        max-height: ${cfg.pageHeightMm}mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -1838,7 +1838,7 @@ export function openLabelPrintInNewTab(params: {
       customWidthMm: params.customWidthMm,
       customHeightMm: params.customHeightMm,
       labelType: params.labelType || "full",
-      showDiscount: params.showDiscount ?? false,
+      showDiscount: params.showDiscount ?? getSavedShowDiscount(),
       showMrp: params.showMrp ?? true,
       showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
       showProductName: params.showProductName ?? getSavedShowProductName(),
@@ -1917,7 +1917,7 @@ export function printProductLabels(params: {
     customWidthMm: params.customWidthMm,
     customHeightMm: params.customHeightMm,
     labelType: params.labelType || "full",
-    showDiscount: params.showDiscount ?? false,
+    showDiscount: params.showDiscount ?? getSavedShowDiscount(),
     showMrp: params.showMrp ?? true,
     showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
     showProductName: params.showProductName ?? getSavedShowProductName(),
@@ -2062,7 +2062,7 @@ export async function triggerDirectLabelPrint(
     customWidthMm: options?.customWidthMm,
     customHeightMm: options?.customHeightMm,
     labelType: options?.labelType,
-    showDiscount: options?.showDiscount,
+    showDiscount: options?.showDiscount ?? getSavedShowDiscount(),
     showMrp: options?.showMrp,
     showSellPrice: options?.showSellPrice,
     separatePriceLine: options?.separatePriceLine,
@@ -2115,7 +2115,7 @@ export function useDirectLabelPrint() {
         customWidthMm: options?.customWidthMm,
         customHeightMm: options?.customHeightMm,
         labelType: options?.labelType,
-        showDiscount: options?.showDiscount,
+        showDiscount: options?.showDiscount ?? getSavedShowDiscount(),
         showMrp: options?.showMrp,
         showSellPrice: options?.showSellPrice,
         separatePriceLine: options?.separatePriceLine,
