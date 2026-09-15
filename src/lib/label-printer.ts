@@ -1234,11 +1234,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       pagesHtml = labels
         .map(
           (p, idx) => `
-        <div class="sticker-preview-wrapper" data-label-index="${idx + 1}">
+        <div class="label-page sticker-card" data-label-index="${idx + 1}">
           <div class="sticker-dim-badge no-print">${cfg.pageWidthMm}mm × ${cfg.pageHeightMm}mm Label #${idx + 1}</div>
-          <div class="label-page sticker-card">
-            <div class="label-inner">${renderLabelContent(p)}</div>
-          </div>
+          <div class="label-inner">${renderLabelContent(p)}</div>
         </div>`,
         )
         .join("\n");
@@ -1252,15 +1250,12 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   }
 
   // ── 4. Build Exact Physical CSS ───────────────────────────────────
-  // For thermal labels, add explicit orientation keyword to prevent
-  // printer drivers (e.g. Seagull/BarTender on HPRT HT300) from
-  // auto-rotating landscape content into portrait orientation.
-  const isLandscapeLabel = !cfg.isSheet && cfg.pageWidthMm > cfg.pageHeightMm;
+  // Note: For custom mm page dimensions, never append orientation keywords
+  // like 'landscape' as Blink/WebKit and thermal printer drivers (e.g. Seagull)
+  // transpose width/height causing height overflow and skipped blank stickers.
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : isLandscapeLabel
-      ? `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm landscape`
-      : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
@@ -1663,8 +1658,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
         width: ${cfg.pageWidthMm}mm !important;
-        height: ${cfg.pageHeightMm}mm !important;
-        max-height: ${cfg.pageHeightMm}mm !important;
+        height: ${cfg.pageHeightMm <= 35 ? cfg.pageHeightMm - 1.2 : cfg.pageHeightMm - 2.0}mm !important;
+        max-height: ${cfg.pageHeightMm <= 35 ? cfg.pageHeightMm - 1.2 : cfg.pageHeightMm - 2.0}mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -1673,21 +1668,19 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         page-break-after: always !important;
         break-after: page !important;
         overflow: hidden !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         padding: 0 !important;
       }
 
       .label-page:first-child,
-      .label-page:first-of-type,
-      .sticker-preview-wrapper:first-child .label-page {
+      .label-page:first-of-type {
         page-break-before: avoid !important;
         break-before: avoid !important;
       }
 
       /* Suppress trailing page break on final label to prevent extra blank stickers */
       .label-page:last-child,
-      .label-page:last-of-type,
-      .sticker-preview-wrapper:last-child .label-page {
+      .label-page:last-of-type {
         page-break-after: avoid !important;
         break-after: avoid !important;
       }
