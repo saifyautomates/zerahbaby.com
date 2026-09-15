@@ -439,7 +439,6 @@ export function buildOrderA4HTML(
       <img loading="lazy" decoding="async" src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" class="brand-logo" alt="Zerah Logo"/>
       <div>
         <div class="brand-title">${esc(brand)}</div>
-        <div class="brand-tagline">Premium Children's Clothing · Newborn to Pre-Teen</div>
       </div>
     </div>
     <div class="header-center">
@@ -682,9 +681,6 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                 <div>
                   <p className="font-display text-xl font-black tracking-tight text-[#8B2020] uppercase">
                     {brandName}
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Premium Children's Clothing
                   </p>
                 </div>
               </div>

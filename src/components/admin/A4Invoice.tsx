@@ -80,7 +80,7 @@ type Props = {
 /* ------------------------------------------------------------------ */
 const STORE = {
   name: "ZÉRAH BABY & KIDS",
-  tagline: "Premium Children's Clothing",
+  tagline: "",
   address:
     "Shop No. 4-E-21, 80Ft. Road, Atwal Nagar,\nHanumanji Mandir Ke Samne, Kota, Rajasthan 324001",
   phone: "9057074777 / 9667571712",
@@ -447,7 +447,6 @@ export function buildA4HTML(
       <img loading="lazy" decoding="async" src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" class="brand-logo" alt="Zerah Logo"/>
       <div>
         <div class="brand-title">ZÉRAH BABY &amp; KIDS STORE</div>
-        <div class="brand-tagline">Premium Children's Clothing · Newborn to Pre-Teen</div>
       </div>
     </div>
     <div class="header-center">
