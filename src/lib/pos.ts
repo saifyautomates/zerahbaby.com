@@ -291,7 +291,9 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
       const directProduct = rawDirectProduct as unknown as DirectProductResult | null;
 
       if (directProduct) {
-        const variants = directProduct.product_variants || [];
+        const variants = (directProduct.product_variants || []).filter(
+          (v: any) => v.is_active !== false && v.isActive !== false,
+        );
         const cleanLower = clean.toLowerCase();
         const matchedVariant =
           variants.find(
@@ -299,6 +301,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
               String(v.barcode || "").toLowerCase() === cleanLower ||
               String(v.sku || "").toLowerCase() === cleanLower,
           ) ||
+          variants.find((v) => (v.stock ?? 0) > 0) ||
           variants.find((v) => v.name === "Default") ||
           variants[0] ||
           null;

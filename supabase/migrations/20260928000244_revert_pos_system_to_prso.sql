@@ -221,7 +221,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_customer_store_credit(text, uuid, text, uuid) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.get_customer_store_credit(uuid, text, text) TO authenticated, anon, service_role;
 CREATE OR REPLACE FUNCTION public.process_offline_return(
   _customer_name text DEFAULT 'Walk-in Customer',
   _customer_phone text DEFAULT '',
@@ -581,7 +581,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_offline_return(text, uuid, text, uuid) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.process_offline_return(text, text, text, uuid, text, text, text, text, uuid, jsonb, text) TO authenticated, anon, service_role;
 CREATE OR REPLACE FUNCTION public.place_offline_sale(
   _customer_name text DEFAULT 'Walk-in Customer',
   _customer_phone text DEFAULT '',
@@ -1053,4 +1053,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.place_offline_sale(text, uuid, text, uuid) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.place_offline_sale(text, text, text, text, text, text, numeric, uuid, jsonb, text, numeric, text, text) TO authenticated, anon, service_role;

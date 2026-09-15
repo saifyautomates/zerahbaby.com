@@ -167,8 +167,9 @@ export function buildThermalHTML(
 <body>
   <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
     <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS STORE</div>
-    <div style="font-size:9.5px;color:#555;margin-top:4px;">In Front of Hanumanji Temple,<br/>Atwal Nagar, Kota, Rajasthan</div>
-    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone)}</div>
+    <div style="font-size:9.5px;color:#555;margin-top:3px;">Premium Children's Clothing</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Shop No. 4-E-21, 80Ft. Road, Atwal Nagar,<br/>Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone || "9057074777")}</div>
   </div>
 
   ${
@@ -410,8 +411,9 @@ export function ThermalReceipt({
               ZÉRAH BABY &amp; KIDS
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Premium Children's Clothing</p>
-            <p className="text-[10px] text-muted-foreground">Gordhanpura, Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-muted-foreground">Ph: 9057074777</p>
+            <p className="text-[10px] text-muted-foreground">Shop No. 4-E-21, 80Ft. Road, Atwal Nagar</p>
+            <p className="text-[10px] text-muted-foreground">Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001</p>
+            <p className="text-[10px] text-muted-foreground">Ph: {storeSettings.contactPhone || "9057074777"}</p>
           </div>
 
           {/* Status banner */}

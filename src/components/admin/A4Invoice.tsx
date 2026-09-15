@@ -82,7 +82,7 @@ const STORE = {
   name: "ZÉRAH BABY & KIDS",
   tagline: "Premium Children's Clothing",
   address:
-    "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar,\nGordhanpura, Kota, Rajasthan 324001",
+    "Shop No. 4-E-21, 80Ft. Road, Atwal Nagar,\nHanumanji Mandir Ke Samne, Kota, Rajasthan 324001",
   phone: "9057074777 / 9667571712",
   email: "hello@zerahkids.com",
   website: "zerahkids.com",

@@ -890,7 +890,7 @@ export function useSettings() {
       contactPhone: rawPhone,
       storeAddress:
         data["store_address"] ??
-        "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India",
+        "Shop No. 4-E-21, 80Ft. Road, Atwal Nagar, Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001, India",
       storeHours: data["store_hours"] ?? "Open daily · 10:30 AM – 10:00 PM",
       mapsUrl: data["maps_url"] ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA",
       instagramUrl:
