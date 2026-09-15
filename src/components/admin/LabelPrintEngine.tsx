@@ -13,7 +13,7 @@
 import { useMemo } from "react";
 import Barcode from "react-barcode";
 import { formatPrice } from "@/lib/store";
-import type { LabelPrinterProfile, LabelType } from "@/lib/label-printer";
+import type { LabelPrinterProfile, LabelType, LabelRotation } from "@/lib/label-printer";
 import { sanitizeBarcode, PRINT_FORMAT_CONFIG, resolvePrintFormatConfig } from "@/lib/label-printer";
 
 export type { LabelType };
@@ -50,6 +50,7 @@ type Props = {
   customHeightMm?: number;
   widthMm?: number;
   heightMm?: number;
+  rotation?: LabelRotation;
 };
 
 function safeDiscountPct(mrp: number, price: number): number | null {
@@ -85,6 +86,7 @@ function SingleStickerPreview({
   layout,
   customWidthMm,
   customHeightMm,
+  rotation = 0,
 }: {
   product: LabelProduct;
   labelType: LabelType;
@@ -96,6 +98,7 @@ function SingleStickerPreview({
   layout: LabelLayout;
   customWidthMm?: number;
   customHeightMm?: number;
+  rotation?: LabelRotation;
 }) {
   const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
   const mrpVal = typeof product.mrp === "number" && product.mrp > 0 ? product.mrp : product.price;
@@ -110,7 +113,10 @@ function SingleStickerPreview({
   );
 
   const isCompact = cfg.labelHeightMm <= 35;
-  const bcHeight = isCompact ? 24 : Math.max(28, Math.min(48, Math.round(previewH * 0.18)));
+  const isRotated = rotation === 90 || rotation === 270;
+  const bcHeight = isRotated
+    ? Math.min(26, Math.max(20, Math.round(previewW * 0.12)))
+    : (isCompact ? 24 : Math.max(28, Math.min(48, Math.round(previewH * 0.18))));
 
   const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price && product.price > 0;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
@@ -122,28 +128,134 @@ function SingleStickerPreview({
   const priceFormatted = "₹" + Math.round(product.price);
   const barcodeValue = barcodeVal(product);
 
+  const innerStyle: React.CSSProperties = isRotated
+    ? {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: previewH,
+        height: previewW,
+        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+        transformOrigin: "center center",
+        padding: isCompact ? "4px 6px" : "10px 8px",
+        justifyContent: "center",
+        gap: isCompact ? "3px" : "6px",
+      }
+    : rotation === 180
+    ? {
+        width: "100%",
+        height: "100%",
+        padding: isCompact ? "6px 8px" : "12px 10px 10px",
+        justifyContent: "center",
+        gap: isCompact ? "4px" : "12px",
+        transform: "rotate(180deg)",
+        transformOrigin: "center center",
+      }
+    : {
+        width: "100%",
+        height: "100%",
+        padding: isCompact ? "6px 8px" : "12px 10px 10px",
+        justifyContent: "center",
+        gap: isCompact ? "4px" : "12px",
+      };
+
   if (labelType === "barcode-only") {
     return (
       <div
-        className="relative flex flex-col items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+        className="relative flex items-center justify-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
         style={{
           width: previewW,
           height: previewH,
-          padding: isCompact ? "6px 8px" : "12px 10px 10px",
-          justifyContent: "center",
-          gap: isCompact ? "4px" : "12px",
         }}
       >
-        <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
-          Zérah Baby &amp; Kids
-        </p>
+        <div className="flex flex-col items-center text-center" style={innerStyle}>
+          <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
+            Zérah Baby &amp; Kids
+          </p>
+          <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
+            <Barcode
+              value={barcodeValue}
+              format="CODE128"
+              width={isRotated ? 1.0 : (isCompact ? 1.0 : 1.25)}
+              height={bcHeight * 1.3}
+              fontSize={isCompact || isRotated ? 9 : 10}
+              margin={0}
+              displayValue={true}
+              background="transparent"
+              lineColor="#000000"
+            />
+            <p className="mt-1 text-[10px] font-bold text-slate-600 text-center w-full">
+              SKU: {product.sku || artNoVal}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative flex items-center justify-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
+      style={{
+        width: previewW,
+        height: previewH,
+      }}
+    >
+      <div className="flex flex-col items-center text-center" style={innerStyle}>
+        <div className="flex flex-col items-center w-full">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Zérah Baby &amp; Kids
+          </p>
+
+          {!separatePriceLine ? (
+            <p className={`font-semibold text-center line-clamp-2 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
+              {showProductName && (product.name || "Product Name")}
+              {showProductName && (showSellPrice || showMrp || showDiscount) && " - "}
+              {showSellPrice && (
+                <span className={`font-black ${isCompact ? "text-[11px]" : "text-xs"}`}>{priceFormatted}</span>
+              )}
+              {showMrp && mrpVal > product.price && (
+                <span className="text-[9px] text-muted-foreground line-through ml-1">
+                  {mrpFormatted}
+                </span>
+              )}
+              {showDiscount && discountPct > 0 && (
+                <span className="ml-1 text-[9px] font-bold text-amber-600">({discountPct}%)</span>
+              )}
+            </p>
+          ) : (
+            <>
+              {showProductName && (
+                <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
+                  {product.name || "Product Name"}
+                </p>
+              )}
+              {(showSellPrice || showMrp || showDiscount) && (
+                <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                  {showSellPrice && (
+                    <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
+                  )}
+                  {showMrp && mrpVal > product.price && (
+                    <span className="text-[10px] text-muted-foreground line-through">
+                      {mrpFormatted}
+                    </span>
+                  )}
+                  {showDiscount && discountPct > 0 && (
+                    <span className="text-[10px] font-bold text-amber-600">({discountPct}% OFF)</span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
           <Barcode
             value={barcodeValue}
             format="CODE128"
-            width={isCompact ? 1.0 : 1.25}
-            height={bcHeight * 1.3}
-            fontSize={isCompact ? 9 : 10}
+            width={isRotated ? 1.0 : (isCompact ? 1.0 : 1.25)}
+            height={bcHeight}
+            fontSize={isCompact || isRotated ? 9 : 10}
             margin={0}
             displayValue={true}
             background="transparent"
@@ -153,83 +265,6 @@ function SingleStickerPreview({
             SKU: {product.sku || artNoVal}
           </p>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="relative flex flex-col items-center text-center rounded-2xl border border-border bg-white text-black shadow-md overflow-hidden select-none shrink-0"
-      style={{
-        width: previewW,
-        height: previewH,
-        padding: isCompact ? "6px 8px" : "12px 10px 10px",
-        justifyContent: "center",
-        gap: isCompact ? "4px" : "12px",
-      }}
-    >
-      <div className="flex flex-col items-center w-full">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Zérah Baby &amp; Kids
-        </p>
-
-        {!separatePriceLine ? (
-          <p className={`font-semibold text-center line-clamp-2 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-            {showProductName && (product.name || "Product Name")}
-            {showProductName && (showSellPrice || showMrp || showDiscount) && " - "}
-            {showSellPrice && (
-              <span className={`font-black ${isCompact ? "text-[11px]" : "text-xs"}`}>{priceFormatted}</span>
-            )}
-            {showMrp && mrpVal > product.price && (
-              <span className="text-[9px] text-muted-foreground line-through ml-1">
-                {mrpFormatted}
-              </span>
-            )}
-            {showDiscount && discountPct > 0 && (
-              <span className="ml-1 text-[9px] font-bold text-amber-600">({discountPct}%)</span>
-            )}
-          </p>
-        ) : (
-          <>
-            {showProductName && (
-              <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-                {product.name || "Product Name"}
-              </p>
-            )}
-            {(showSellPrice || showMrp || showDiscount) && (
-              <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                {showSellPrice && (
-                  <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
-                )}
-                {showMrp && mrpVal > product.price && (
-                  <span className="text-[10px] text-muted-foreground line-through">
-                    {mrpFormatted}
-                  </span>
-                )}
-                {showDiscount && discountPct > 0 && (
-                  <span className="text-[10px] font-bold text-amber-600">({discountPct}% OFF)</span>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
-        <Barcode
-          value={barcodeValue}
-          format="CODE128"
-          width={isCompact ? 1.0 : 1.25}
-          height={bcHeight}
-          fontSize={isCompact ? 9 : 10}
-          margin={0}
-          displayValue={true}
-          background="transparent"
-          lineColor="#000000"
-        />
-        <p className="mt-1 text-[10px] font-bold text-slate-600 text-center w-full">
-          SKU: {product.sku || artNoVal}
-        </p>
       </div>
     </div>
   );
@@ -252,6 +287,7 @@ export function LabelPrintEngine({
   customHeightMm,
   widthMm,
   heightMm,
+  rotation = 0,
 }: Props) {
   const activeCustomW = customWidthMm || widthMm;
   const activeCustomH = customHeightMm || heightMm;
@@ -265,7 +301,9 @@ export function LabelPrintEngine({
   return (
     <div className="space-y-3">
       <div className="text-center pb-1 border-b border-border/40">
-        <p className="text-xs font-bold text-muted-foreground">{cfg.name}</p>
+        <p className="text-xs font-bold text-muted-foreground">
+          {cfg.name} {rotation !== 0 ? `• ${rotation}° Rotated` : ""}
+        </p>
         <p className="text-[10px] text-muted-foreground/70">
           {labels.length} label{labels.length !== 1 ? "s" : ""} total
         </p>
@@ -292,6 +330,7 @@ export function LabelPrintEngine({
                 layout={layout}
                 customWidthMm={activeCustomW}
                 customHeightMm={activeCustomH}
+                rotation={rotation}
               />
             </div>
           ))}
@@ -320,6 +359,7 @@ export function LabelPrintEngine({
                 layout={layout}
                 customWidthMm={activeCustomW}
                 customHeightMm={activeCustomH}
+                rotation={rotation}
               />
             </div>
           ))}

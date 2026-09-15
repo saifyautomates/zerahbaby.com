@@ -48,6 +48,7 @@ export type LabelPrinterProfile =
   | "58x30"
   | "58x40"
   | "58x50"
+  | "50x58"
   | "80x50"
   | "100x50"
   | "108x50"
@@ -61,6 +62,7 @@ export type LabelPrinterProfile =
   | "thermal-58";
 
 export type LabelType = "barcode-only" | "full";
+export type LabelRotation = 0 | 90 | 180 | 270;
 
 /** Physical millimetre configuration for each label format */
 export interface PrintFormatConfig {
@@ -104,8 +106,9 @@ export const LABEL_SIZE_OPTIONS: Array<{
   category: "thermal" | "sheet" | "custom";
   subcategory?: "square" | "portrait" | "landscape";
 }> = [
+  { id: "58x50", label: "58 × 50 mm", description: "Horizontal Thermal", category: "thermal", subcategory: "landscape" },
+  { id: "50x58", label: "50 × 58 mm", description: "Vertical Thermal", category: "thermal", subcategory: "portrait" },
   { id: "3x2", label: "3 × 2 inch (76 × 50 mm)", description: "3×2 Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "58x50", label: "58 × 50 mm", description: "Square Thermal", category: "thermal", subcategory: "square" },
   { id: "58x75", label: "58 × 75 mm", description: "Portrait Thermal", category: "thermal", subcategory: "portrait" },
 ];
 
@@ -352,6 +355,29 @@ export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
     labelHeightMm: 50,
     paddingTopMm: 1.2,
     paddingHorizMm: 1.8,
+    paddingBottomMm: 1.0,
+    barcodeBarWidthPx: 1.2,
+    barcodeHeightMm: 16.0,
+    barcodeFontPt: 7.2,
+    brandFontPt: 8.2,
+    nameFontPt: 9.0,
+    priceFontPt: 10.0,
+    skuFontPt: 7.2,
+    isThermalRoll: true,
+    isSheet: false,
+  },
+  /** 4b. 50 × 58 mm — Portrait */
+  "50x58": {
+    id: "50x58",
+    name: "50 × 58 mm",
+    shortLabel: "50×58mm",
+    pageWidthMm: 50,
+    pageHeightMm: 58,
+    pageMarginMm: 0,
+    labelWidthMm: 50,
+    labelHeightMm: 58,
+    paddingTopMm: 1.2,
+    paddingHorizMm: 1.5,
     paddingBottomMm: 1.0,
     barcodeBarWidthPx: 1.2,
     barcodeHeightMm: 16.0,
@@ -633,6 +659,7 @@ export const LABEL_SHOW_MRP_KEY = "zerah_label_show_mrp";
 export const LABEL_SHOW_SELL_PRICE_KEY = "zerah_label_show_sell_price";
 export const LABEL_SHOW_PRODUCT_NAME_KEY = "zerah_label_show_product_name";
 export const LABEL_SEPARATE_PRICE_KEY = "zerah_label_separate_price";
+export const LABEL_ROTATION_KEY = "zerah_label_rotation";
 
 let memoryProfile: LabelPrinterProfile = "58x50";
 let memoryShowDiscount = true;
@@ -641,6 +668,7 @@ let memoryShowMrp = true;
 let memoryShowSellPrice = true;
 let memoryShowProductName = true;
 let memorySeparatePrice = true;
+let memoryRotation: LabelRotation = 0;
 let memoryCustomWidthMm = 58;
 let memoryCustomHeightMm = 50;
 
@@ -825,6 +853,31 @@ export function setSavedLabelType(type: LabelType): void {
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(LABEL_TYPE_KEY, type);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function getSavedLabelRotation(): LabelRotation {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem(LABEL_ROTATION_KEY);
+      if (saved === "0" || saved === "90" || saved === "180" || saved === "270") {
+        return parseInt(saved, 10) as LabelRotation;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return memoryRotation;
+}
+
+export function setSavedLabelRotation(rot: LabelRotation): void {
+  memoryRotation = rot;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LABEL_ROTATION_KEY, rot.toString());
     } catch {
       /* ignore */
     }
@@ -1056,6 +1109,7 @@ export type BuildLabelPrintOptions = {
   showSellPrice?: boolean;
   showProductName?: boolean;
   separatePriceLine?: boolean;
+  rotation?: LabelRotation;
   isStandaloneTab?: boolean;
 };
 
@@ -1077,6 +1131,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     showSellPrice = true,
     showProductName = true,
     separatePriceLine = true,
+    rotation = getSavedLabelRotation(),
     isStandaloneTab = false,
   } = params;
 
@@ -1120,12 +1175,15 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const skuValue = (p.sku || p.artNo || p.barcode || "—").toString().trim();
     const productName = (p.name || "").toString().trim();
 
+    const is90or270 = rotation === 90 || rotation === 270;
+    const effectiveWidthMm = is90or270 ? cfg.labelHeightMm : cfg.labelWidthMm;
+
     const barcodeSvg = generateBarcodeSvgString(barcodeValue, {
       barWidthPx: cfg.barcodeBarWidthPx,
       heightMm: labelType === "barcode-only" ? Math.max(16, cfg.barcodeHeightMm * 1.5) : cfg.barcodeHeightMm,
       fontPt: cfg.barcodeFontPt,
       displayValue: true,
-      maxWidthMm: cfg.labelWidthMm - cfg.paddingHorizMm * 2,
+      maxWidthMm: effectiveWidthMm - cfg.paddingHorizMm * 2,
     });
 
     if (labelType === "barcode-only") {
@@ -1273,6 +1331,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     /* ── Label Container & Typography ── */
     .label-page {
+      position: relative;
       width: ${cfg.pageWidthMm}mm;
       height: ${cfg.pageHeightMm}mm;
       max-height: ${cfg.pageHeightMm}mm;
@@ -1295,9 +1354,27 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     }
 
     .label-inner {
+      ${rotation === 90 || rotation === 270 ? `
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: ${cfg.pageHeightMm}mm;
+      height: ${cfg.pageWidthMm}mm;
+      max-width: ${cfg.pageHeightMm}mm;
+      max-height: ${cfg.pageWidthMm}mm;
+      transform: translate(-50%, -50%) rotate(${rotation}deg);
+      transform-origin: center center;
+      ` : rotation === 180 ? `
       width: 100%;
       height: 100%;
       max-height: ${cfg.pageHeightMm}mm;
+      transform: rotate(180deg);
+      transform-origin: center center;
+      ` : `
+      width: 100%;
+      height: 100%;
+      max-height: ${cfg.pageHeightMm}mm;
+      `}
       box-sizing: border-box;
       padding: ${cfg.paddingTopMm}mm ${cfg.paddingHorizMm}mm ${cfg.paddingBottomMm}mm;
       display: flex;
@@ -1810,6 +1887,7 @@ export function openLabelPrintInNewTab(params: {
   showSellPrice?: boolean;
   showProductName?: boolean;
   separatePriceLine?: boolean;
+  rotation?: LabelRotation;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   try {
@@ -1843,6 +1921,7 @@ export function openLabelPrintInNewTab(params: {
       showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
       showProductName: params.showProductName ?? getSavedShowProductName(),
       separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
+      rotation: params.rotation ?? getSavedLabelRotation(),
       isStandaloneTab: true,
     });
 
@@ -1881,6 +1960,7 @@ export function printProductLabels(params: {
   showSellPrice?: boolean;
   showProductName?: boolean;
   separatePriceLine?: boolean;
+  rotation?: LabelRotation;
   onDone?: () => void;
 }): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -1922,6 +2002,7 @@ export function printProductLabels(params: {
     showSellPrice: params.showSellPrice ?? getSavedShowSellPrice(),
     showProductName: params.showProductName ?? getSavedShowProductName(),
     separatePriceLine: params.separatePriceLine ?? getSavedSeparatePrice(),
+    rotation: params.rotation ?? getSavedLabelRotation(),
     isStandaloneTab: false,
   });
 

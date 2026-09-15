@@ -7,7 +7,7 @@
  */
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles, ExternalLink, ChevronDown } from "lucide-react";
+import { X, Printer, Minus, Plus, Tag, CheckCircle2, Sparkles, ExternalLink, ChevronDown, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/store";
 import {
@@ -37,6 +37,9 @@ import {
   setSavedSeparatePrice,
   printProductLabels,
   openLabelPrintInNewTab,
+  type LabelRotation,
+  getSavedLabelRotation,
+  setSavedLabelRotation,
 } from "@/lib/label-printer";
 
 export function PrintLabelsModal({
@@ -59,7 +62,40 @@ export function PrintLabelsModal({
   const [separatePriceLine, setSeparatePriceLine] = useState<boolean>(() =>
     getSavedSeparatePrice(),
   );
+  const [rotation, setRotation] = useState<LabelRotation>(() => getSavedLabelRotation());
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const handleRotationChange = (newRot: LabelRotation) => {
+    setRotation(newRot);
+    setSavedLabelRotation(newRot);
+  };
+
+  const cycleRotation = () => {
+    const nextRot: Record<LabelRotation, LabelRotation> = { 0: 90, 90: 180, 180: 270, 270: 0 };
+    handleRotationChange(nextRot[rotation] ?? 0);
+  };
+
+  const handleFlipDimensions = () => {
+    if (layout === "custom") {
+      setCustomDims((prev) => {
+        const next = { widthMm: prev.heightMm, heightMm: prev.widthMm };
+        setSavedCustomDimensions(next.widthMm, next.heightMm);
+        return next;
+      });
+    } else if (layout === "58x50") {
+      setLayout("50x58");
+      setSavedLabelProfile("50x58");
+    } else if (layout === "50x58") {
+      setLayout("58x50");
+      setSavedLabelProfile("58x50");
+    } else {
+      const next = { widthMm: activeCfg.pageHeightMm, heightMm: activeCfg.pageWidthMm };
+      setLayout("custom");
+      setSavedLabelProfile("custom");
+      setCustomDims(next);
+      setSavedCustomDimensions(next.widthMm, next.heightMm);
+    }
+  };
 
   const handleLabelTypeChange = (newType: LabelType) => {
     setLabelType(newType);
@@ -168,6 +204,7 @@ export function PrintLabelsModal({
         showSellPrice,
         showProductName,
         separatePriceLine,
+        rotation,
         onDone: () => setIsPrinting(false),
       });
     } catch (err) {
@@ -191,6 +228,7 @@ export function PrintLabelsModal({
       showSellPrice,
       showProductName,
       separatePriceLine,
+      rotation,
     });
   };
 
@@ -281,6 +319,42 @@ export function PrintLabelsModal({
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
                 <ChevronDown className="size-3.5" />
               </div>
+            </div>
+
+            {/* Rotation & Flip Controls */}
+            <div className="flex items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs">
+              <button
+                type="button"
+                onClick={cycleRotation}
+                title="Click to cycle rotation by 90°"
+                className="flex items-center gap-1 text-[10px] font-extrabold uppercase text-muted-foreground hover:text-foreground tracking-wider cursor-pointer"
+              >
+                <RotateCw className="size-3 text-[#8B2020]" />
+                <span>Rotate:</span>
+              </button>
+              {([0, 90, 180, 270] as const).map((deg) => (
+                <button
+                  key={deg}
+                  type="button"
+                  onClick={() => handleRotationChange(deg)}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    rotation === deg
+                      ? "bg-[#8B2020] text-white shadow-2xs"
+                      : "bg-muted/50 text-foreground border border-transparent hover:bg-muted"
+                  }`}
+                >
+                  {deg}°
+                </button>
+              ))}
+              <div className="h-3.5 w-px bg-border mx-0.5" />
+              <button
+                type="button"
+                onClick={handleFlipDimensions}
+                title="Swap Width and Height (Landscape ⇄ Portrait)"
+                className="px-2 py-0.5 rounded-lg text-xs font-bold bg-muted/50 text-foreground hover:bg-muted border border-border transition cursor-pointer"
+              >
+                ⇄ Flip
+              </button>
             </div>
 
             {/* If Custom is selected, show Shape Selectors and Width/Height inputs */}
@@ -551,6 +625,7 @@ export function PrintLabelsModal({
               showSellPrice={showSellPrice}
               showProductName={showProductName}
               separatePriceLine={separatePriceLine}
+              rotation={rotation}
             />
           </div>
         </div>
@@ -560,7 +635,7 @@ export function PrintLabelsModal({
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="size-3.5 text-emerald-600" />
             <span>
-              Exact physical preview ({activeCfg.name} • {activeCfg.isSheet ? "Sheet Grid" : activeCfg.pageHeightMm >= activeCfg.pageWidthMm ? "Thermal Portrait" : "Thermal Landscape"})
+              Exact physical preview ({activeCfg.name} • {rotation !== 0 ? `${rotation}° Rotated • ` : ""}{activeCfg.isSheet ? "Sheet Grid" : activeCfg.pageHeightMm >= activeCfg.pageWidthMm ? "Thermal Portrait" : "Thermal Landscape"})
             </span>
           </div>
 
