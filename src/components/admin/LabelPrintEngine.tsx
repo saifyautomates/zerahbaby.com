@@ -201,67 +201,53 @@ function SingleStickerPreview({
         height: previewH,
       }}
     >
-      <div className="flex flex-col items-center text-center" style={innerStyle}>
+      <div className="flex flex-col items-center text-center w-full" style={innerStyle}>
         <div className="flex flex-col items-center w-full">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Zérah Baby &amp; Kids
+          <p className="text-[11px] font-black uppercase tracking-wider text-[#1e3a5f]">
+            ZÉRAH BABY &amp; KIDS
           </p>
 
-          {!separatePriceLine ? (
-            <p className={`font-semibold text-center line-clamp-2 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-              {showProductName && (product.name || "Product Name")}
-              {showProductName && (showSellPrice || showMrp || showDiscount) && " - "}
+          {showProductName && (
+            <p className="font-black text-black text-center line-clamp-1 px-1 text-base mt-0.5">
+              {product.name || "Product Name"}
+            </p>
+          )}
+
+          {(showSellPrice || showMrp || showDiscount) && (
+            <div className="flex items-center justify-center gap-2 mt-1">
               {showSellPrice && (
-                <span className={`font-black ${isCompact ? "text-[11px]" : "text-xs"}`}>{priceFormatted}</span>
+                <span className="font-black text-2xl text-black tracking-tight">{priceFormatted}</span>
+              )}
+              {showSellPrice && ((showMrp && mrpVal > product.price) || (showDiscount && discountPct > 0)) && (
+                <div className="h-5 w-px bg-slate-300 mx-0.5" />
               )}
               {showMrp && mrpVal > product.price && (
-                <span className="text-[9px] text-muted-foreground line-through ml-1">
+                <span className="text-sm font-bold text-slate-500 line-through">
                   {mrpFormatted}
                 </span>
               )}
               {showDiscount && discountPct > 0 && (
-                <span className="ml-1 text-[9px] font-bold text-amber-600">({discountPct}%)</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#ff5500] text-white shadow-2xs uppercase tracking-wider">
+                  {discountPct}% OFF
+                </span>
               )}
-            </p>
-          ) : (
-            <>
-              {showProductName && (
-                <p className={`font-semibold text-center line-clamp-1 px-1 ${isCompact ? "text-[11px] mt-0.5" : "text-xs mt-1"}`}>
-                  {product.name || "Product Name"}
-                </p>
-              )}
-              {(showSellPrice || showMrp || showDiscount) && (
-                <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                  {showSellPrice && (
-                    <span className={`font-black ${isCompact ? "text-xs" : "text-sm"}`}>{priceFormatted}</span>
-                  )}
-                  {showMrp && mrpVal > product.price && (
-                    <span className="text-[10px] text-muted-foreground line-through">
-                      {mrpFormatted}
-                    </span>
-                  )}
-                  {showDiscount && discountPct > 0 && (
-                    <span className="text-[10px] font-bold text-amber-600">({discountPct}% OFF)</span>
-                  )}
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
 
-        <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
+        <div className="mt-1.5 w-full flex flex-col items-center justify-center text-center">
           <Barcode
             value={barcodeValue}
             format="CODE128"
-            width={isRotated ? 1.0 : (isCompact ? 1.0 : 1.25)}
+            width={isRotated ? 1.0 : (isCompact ? 1.1 : 1.35)}
             height={bcHeight}
-            fontSize={isCompact || isRotated ? 9 : 10}
+            fontSize={isCompact || isRotated ? 9 : 11}
             margin={0}
             displayValue={true}
             background="transparent"
             lineColor="#000000"
           />
-          <p className="mt-1 text-[10px] font-bold text-slate-600 text-center w-full">
+          <p className="mt-1 text-xs font-black text-[#1e3a5f] text-center w-full tracking-wider">
             SKU: {product.sku || artNoVal}
           </p>
         </div>

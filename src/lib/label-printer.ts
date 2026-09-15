@@ -1202,32 +1202,20 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     const discountPct = hasMrpDiff ? Math.round(((effectiveMrp - p.price) / effectiveMrp) * 100) : 0;
 
     let priceHtml = "";
-    if (!separatePriceLine) {
-      priceHtml = showProductName ? `  <div class="lbl-product-name">
-        ${escapeHtml(productName)}
-        ${(showSellPrice || showMrp || showDiscount) ? " - " : ""}
-        ${showSellPrice ? `<span class="lbl-selling-price-inline">${priceFormatted}</span>` : ""}
-        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price-inline">${mrpFormatted}</span>` : ""}
-        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-inline">(${discountPct}%)</span>` : ""}
-      </div>` : `  <div class="lbl-product-name">
-        ${showSellPrice ? `<span class="lbl-selling-price-inline">${priceFormatted}</span>` : ""}
-        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price-inline">${mrpFormatted}</span>` : ""}
-        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-inline">(${discountPct}%)</span>` : ""}
+    if (showSellPrice || showMrp || showDiscount) {
+      priceHtml = `
+      <div class="lbl-price-row">
+        ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}
+        ${showSellPrice && ((showMrp && hasMrpDiff) || (showDiscount && discountPct > 0)) ? `<span class="lbl-price-divider"></span>` : ""}
+        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
+        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-badge">${discountPct}% OFF</span>` : ""}
       </div>`;
-    } else {
-      priceHtml = showProductName ? `  <div class="lbl-product-name">${escapeHtml(productName)}</div>` : "";
-      if (showSellPrice || showMrp || showDiscount) {
-        priceHtml += `\n  <div class="lbl-price-row">
-          ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}
-          ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
-          ${showDiscount && discountPct > 0 ? `<span class="lbl-discount">(${discountPct}% OFF)</span>` : ""}
-        </div>`;
-      }
     }
 
     return [
       `<div class="lbl-v-stack">`,
       `  <div class="lbl-brand-header">ZÉRAH BABY &amp; KIDS</div>`,
+      showProductName ? `  <div class="lbl-product-name">${escapeHtml(productName)}</div>` : "",
       priceHtml,
       `  <div class="lbl-bc-section">`,
       `    <div class="lbl-bc-box">${barcodeSvg}</div>`,
@@ -1400,26 +1388,26 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     .lbl-brand-header {
       width: 100%;
-      font-size: ${cfg.brandFontPt}pt;
-      font-weight: 800;
+      font-size: ${Math.max(7.5, cfg.brandFontPt * 0.95)}pt;
+      font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #000000;
-      margin: 0 auto 0.8mm auto;
+      color: #1e3a5f;
+      margin: 0 auto 0.4mm auto;
       text-align: center;
-      line-height: 1.15;
+      line-height: 1.1;
     }
 
     .lbl-product-name {
       width: 100%;
-      font-size: ${cfg.nameFontPt}pt;
-      font-weight: 700;
+      font-size: ${Math.max(9.5, cfg.nameFontPt * 1.2)}pt;
+      font-weight: 900;
       color: #000000;
-      line-height: 1.2;
+      line-height: 1.15;
       text-align: center;
       word-break: break-word;
       overflow-wrap: break-word;
-      margin: 0 auto 0.8mm auto;
+      margin: 0 auto 0.6mm auto;
       padding: 0 0.5mm;
     }
 
@@ -1428,50 +1416,46 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 2.5mm;
-      margin: 0 auto 1.2mm auto;
+      gap: 1.8mm;
+      margin: 0 auto 1.0mm auto;
       line-height: 1.1;
       text-align: center;
     }
 
     .lbl-selling-price {
-      font-size: ${cfg.priceFontPt}pt;
+      font-size: ${Math.max(13, cfg.priceFontPt * 1.45)}pt;
       font-weight: 900;
       color: #000000;
+      letter-spacing: -0.02em;
+    }
+
+    .lbl-price-divider {
+      display: inline-block;
+      width: 0.25mm;
+      height: 4.2mm;
+      background: #cbd5e1;
+      margin: 0 0.5mm;
     }
 
     .lbl-mrp-price {
-      font-size: ${Math.max(6, cfg.priceFontPt * 0.72)}pt;
-      color: #000000;
+      font-size: ${Math.max(7.5, cfg.priceFontPt * 0.85)}pt;
+      color: #64748b;
       text-decoration: line-through;
-      font-weight: 600;
+      font-weight: 700;
     }
 
-    .lbl-discount {
-      font-size: ${Math.max(6, cfg.priceFontPt * 0.72)}pt;
-      color: #000000;
+    .lbl-discount-badge {
+      display: inline-block;
+      font-size: ${Math.max(6.5, cfg.priceFontPt * 0.72)}pt;
+      background: #ff5500;
+      color: #ffffff;
       font-weight: 900;
-    }
-
-    .lbl-selling-price-inline {
-      font-size: ${Math.max(7, cfg.nameFontPt * 1.1)}pt;
-      font-weight: 900;
-      color: #000000;
-    }
-
-    .lbl-mrp-price-inline {
-      font-size: ${Math.max(6, cfg.nameFontPt * 0.9)}pt;
-      color: #000000;
-      text-decoration: line-through;
-      font-weight: 600;
-      margin-left: 0.5mm;
-    }
-
-    .lbl-discount-inline {
-      font-size: ${Math.max(6, cfg.nameFontPt * 0.9)}pt;
-      color: #000000;
-      font-weight: 900;
-      margin-left: 0.5mm;
+      padding: 0.5mm 2.2mm;
+      border-radius: 9999px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     .lbl-bc-section {
@@ -1504,13 +1488,13 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     .lbl-sku-line {
       width: 100%;
-      font-size: ${cfg.skuFontPt}pt;
-      font-weight: 700;
-      color: #000000;
-      margin: 1.0mm auto 0 auto;
+      font-size: ${Math.max(7.0, cfg.skuFontPt * 1.05)}pt;
+      font-weight: 900;
+      color: #1e3a5f;
+      margin: 0.8mm auto 0 auto;
       text-align: center;
       line-height: 1.15;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
     }
 
     .a4-sheet {
