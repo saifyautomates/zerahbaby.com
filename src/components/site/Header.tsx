@@ -101,7 +101,7 @@ function useRecentSearches() {
 }
 
 export function Header() {
-  const { count } = useCart();
+  const { count, openDrawer } = useCart();
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -624,6 +624,12 @@ export function Header() {
               </Link>
               <Link
                 to="/cart"
+                onClick={(e) => {
+                  if (typeof window !== "undefined" && window.innerWidth < 768) {
+                    e.preventDefault();
+                    openDrawer();
+                  }
+                }}
                 className="focus-ring press relative rounded-full p-2 text-foreground transition duration-200 hover:bg-muted hover:text-primary flex items-center justify-center"
                 aria-label={`Cart with ${count} items`}
               >

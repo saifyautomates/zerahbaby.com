@@ -232,6 +232,7 @@ function ProductPage() {
     subtotal: cartSubtotal,
     total: cartTotal,
     registerProduct,
+    openDrawer,
   } = useCart();
   const { user } = useSession();
   const { isWishlisted, toggle: toggleWishlist } = useWishlist();
@@ -496,6 +497,11 @@ function ProductPage() {
     const variantName =
       activeVariant?.name && activeVariant?.name !== "Default" ? ` - ${activeVariant?.name}` : "";
     toast.success("Added to bag", { description: `${qty} × ${product.name}${variantName}` });
+
+    // Open right-side Cart Drawer on mobile matching reference flow
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      openDrawer();
+    }
 
     setTimeout(() => {
       const targetElement =

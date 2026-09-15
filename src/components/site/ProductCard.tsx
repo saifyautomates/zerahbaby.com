@@ -50,7 +50,7 @@ function ProductCardInner({
 }) {
   const qc = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
-  const { add } = useCart();
+  const { add, openDrawer } = useCart();
   const { user } = useSession();
   const { isWishlisted, toggle } = useWishlist();
   const wishlisted = user ? isWishlisted(product.uuid) : false;
@@ -442,6 +442,9 @@ function ProductCardInner({
               if (isOutOfStock || isAdding) return;
               setIsAdding(true);
               add(product.id, 1, activeVariant?.id, product);
+              if (typeof window !== "undefined" && window.innerWidth < 768) {
+                openDrawer();
+              }
               trackEvent("add_to_cart", {
                 productId: product.uuid,
                 metadata: { variantId: activeVariant?.id },

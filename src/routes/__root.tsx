@@ -18,6 +18,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { BottomNav } from "@/components/site/BottomNav";
 import { OnboardingModal } from "@/components/site/OnboardingModal";
+import { CartDrawer } from "@/components/site/CartDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Suspense } from "react";
 import { safeLazy, isChunkLoadError } from "@/lib/safe-lazy";
@@ -473,6 +474,7 @@ function RootComponent() {
           </div>
         </MaintenanceGuard>
         <Toaster />
+        <CartDrawer />
         <Suspense fallback={null}>
           <GlobalRealtimeSyncHost />
           <AdminHosts isAdminRoute={isAdminRoute} />

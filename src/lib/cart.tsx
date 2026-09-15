@@ -38,6 +38,9 @@ type CartContextValue = {
   freeDeliveryMessage: string | null;
   amountToFreeDelivery: number;
   isLoading: boolean;
+  isDrawerOpen: boolean;
+  openDrawer: () => void;
+  closeDrawer: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -152,6 +155,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const prevUserIdRef = useRef<{ id?: string }>({ id: undefined });
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   const [knownProducts, setKnownProducts] = useState<Record<string, Product>>({});
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
 
   const registerProduct = useCallback((p: Product) => {
     if (!p) return;
@@ -597,8 +603,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeCoupon: () => setCoupon(null),
       registerProduct,
       isLoading: Boolean(productsLoading && lines.length > 0 && allProducts.length === 0),
+      isDrawerOpen,
+      openDrawer,
+      closeDrawer,
     };
-  }, [lines, allProducts, productsLoading, coupon, user, settingsData, registerProduct]);
+  }, [
+    lines,
+    allProducts,
+    productsLoading,
+    coupon,
+    user,
+    settingsData,
+    registerProduct,
+    isDrawerOpen,
+    openDrawer,
+    closeDrawer,
+  ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
