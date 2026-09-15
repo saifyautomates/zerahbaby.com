@@ -137,11 +137,11 @@ function SingleStickerPreview({
         <p className="w-full truncate font-bold uppercase text-slate-500 tracking-wider text-center text-[10px]">
           Zérah Baby &amp; Kids
         </p>
-        <div className="mt-1 scale-90 w-full flex flex-col items-center justify-center">
+        <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
           <Barcode
             value={barcodeValue}
             format="CODE128"
-            width={isCompact ? 1.0 : 1.2}
+            width={isCompact ? 1.0 : 1.25}
             height={bcHeight * 1.3}
             fontSize={isCompact ? 9 : 10}
             margin={0}
@@ -149,7 +149,7 @@ function SingleStickerPreview({
             background="transparent"
             lineColor="#000000"
           />
-          <p className="mt-0.5 text-[9px] text-muted-foreground">
+          <p className="mt-1 text-[10px] font-bold text-slate-600 text-center w-full">
             SKU: {product.sku || artNoVal}
           </p>
         </div>
@@ -215,11 +215,11 @@ function SingleStickerPreview({
         )}
       </div>
 
-      <div className="mt-1 scale-90 w-full flex flex-col items-center">
+      <div className="mt-1 w-full flex flex-col items-center justify-center text-center">
         <Barcode
           value={barcodeValue}
           format="CODE128"
-          width={isCompact ? 1.0 : 1.2}
+          width={isCompact ? 1.0 : 1.25}
           height={bcHeight}
           fontSize={isCompact ? 9 : 10}
           margin={0}
@@ -227,7 +227,7 @@ function SingleStickerPreview({
           background="transparent"
           lineColor="#000000"
         />
-        <p className="mt-0.5 text-[9px] text-muted-foreground">
+        <p className="mt-1 text-[10px] font-bold text-slate-600 text-center w-full">
           SKU: {product.sku || artNoVal}
         </p>
       </div>
