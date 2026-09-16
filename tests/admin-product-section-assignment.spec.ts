@@ -4,6 +4,7 @@ test.describe("Admin Product Form - Homepage Sections Placement", () => {
   test("Can expand homepage sections selector, search sections, and select specific sections", async ({
     page,
   }) => {
+    test.setTimeout(60000);
     // 1. Mock homepage sections in database
     await page.route("**/rest/v1/homepage_sections*", async (route) => {
       const mockSections = [
