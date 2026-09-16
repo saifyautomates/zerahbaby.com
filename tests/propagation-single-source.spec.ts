@@ -73,7 +73,7 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
       // 1D. Navigate to Product Detail Page and verify committed price appears
       await page.goto(`/product/${testProduct!.slug}`, { waitUntil: "networkidle" });
 
-      const priceLocator = page.locator(`text=₹${targetNewPrice}`).first();
+      const priceLocator = page.locator(`text=₹${targetNewPrice}`).locator("visible=true").first();
       await expect(priceLocator).toBeVisible({ timeout: 10000 });
       console.log(`[PASS] PDP displays committed price: ₹${targetNewPrice}`);
 
@@ -81,7 +81,7 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
 
       // 1E. Verify Storefront Catalog (/shop) displays committed price
       await page.goto("/shop", { waitUntil: "networkidle" });
-      const shopPriceLocator = page.locator(`text=₹${targetNewPrice}`).first();
+      const shopPriceLocator = page.locator(`text=₹${targetNewPrice}`).locator("visible=true").first();
       await expect(shopPriceLocator).toBeVisible({ timeout: 10000 });
       console.log(`[PASS] Storefront /shop displays committed price: ₹${targetNewPrice}`);
 
@@ -156,7 +156,7 @@ test.describe("Global Single Source of Truth & Full Propagation Suite", () => {
 
     // Open cart page
     await page.goto("/cart", { waitUntil: "domcontentloaded" });
-    const cartItem = page.locator(`text=${testProduct!.name}`).first();
+    const cartItem = page.locator("main").locator(`text=${testProduct!.name}`).first();
     await expect(cartItem).toBeVisible({ timeout: 10000 });
     console.log(`[PASS] Cart successfully loaded product: "${testProduct!.name}"`);
   });

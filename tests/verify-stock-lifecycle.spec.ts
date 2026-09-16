@@ -75,84 +75,94 @@ test.describe.serial("Stock Lifecycle & Inventory Precision Engine", () => {
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
+      .gt("stock", 2)
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();
     const prod = prods![0];
 
     expect(prod).toBeTruthy();
-    const targetVariant = prod!.product_variants[0];
+    const targetVariant =
+      prod!.product_variants.find(
+        (v: { stock: number | null }) => (v.stock || 0) > 1,
+      ) || prod!.product_variants[0];
     const initialParentStock = prod!.stock;
     const initialVarStock = targetVariant.stock;
 
-    // 1. Perform POS sale
-    const { data: saleRes, error: saleErr } = await anonClient.rpc("place_offline_sale", {
-      _customer_name: "Playwright Automated Test",
-      _customer_phone: "9988776655",
-      _payment_method: "cash",
-      _items: [
-        {
-          product_id: prod!.id,
-          variant_id: targetVariant.id,
-          product_slug: prod!.slug,
-          name: prod!.name,
-          variant_info: targetVariant.name,
-          price: 699,
-          qty: 1,
-        },
-      ],
-    });
+    let saleRes: { sale_id?: string } | null = null;
+    try {
+      // 1. Perform POS sale
+      const { data: res, error: saleErr } = await anonClient.rpc("place_offline_sale", {
+        _customer_name: "Playwright Automated Test",
+        _customer_phone: "9988776655",
+        _payment_method: "cash",
+        _items: [
+          {
+            product_id: prod!.id,
+            variant_id: targetVariant.id,
+            product_slug: prod!.slug,
+            name: prod!.name,
+            variant_info: targetVariant.name,
+            price: 699,
+            qty: 1,
+          },
+        ],
+      });
 
-    expect(saleErr).toBeNull();
-    expect(saleRes.sale_id).toBeTruthy();
+      expect(saleErr).toBeNull();
+      expect(res.sale_id).toBeTruthy();
+      saleRes = res;
 
-    // 2. Verify stock immediately after sale
-    const { data: afterSale } = await anonClient
-      .from("products")
-      .select("stock, product_variants(id, stock)")
-      .eq("id", prod!.id)
-      .single();
+      // 2. Verify stock immediately after sale
+      const { data: afterSale } = await anonClient
+        .from("products")
+        .select("stock, product_variants(id, stock)")
+        .eq("id", prod!.id)
+        .single();
 
-    const varAfterSale = afterSale!.product_variants.find(
-      (v: { id: string }) => v.id === targetVariant.id,
-    );
+      const varAfterSale = afterSale!.product_variants.find(
+        (v: { id: string }) => v.id === targetVariant.id,
+      );
 
-    expect(varAfterSale!.stock).toBe(initialVarStock - 1);
-    expect(afterSale!.stock).toBe(initialParentStock - 1); // Strictly 1 unit deducted!
+      expect(varAfterSale!.stock).toBe(initialVarStock - 1);
+      expect(afterSale!.stock).toBe(initialParentStock - 1); // Strictly 1 unit deducted!
+    } finally {
+      // 3. Perform POS return to unconditionally restore stock
+      if (saleRes?.sale_id) {
+        const { data: retRes, error: retErr } = await anonClient.rpc("process_offline_return", {
+          _original_sale_id: saleRes.sale_id,
+          _customer_name: "Playwright Automated Test",
+          _customer_phone: "9988776655",
+          _items: [
+            {
+              product_id: prod!.id,
+              variant_id: targetVariant.id,
+              name: prod!.name,
+              qty: 1,
+              refund_price: 699,
+            },
+          ],
+          _refund_method: "exchange_credit",
+          _return_reason: "Playwright stock restoration verification",
+        });
 
-    // 3. Perform POS return to restore stock
-    const { data: retRes, error: retErr } = await anonClient.rpc("process_offline_return", {
-      _original_sale_id: saleRes.sale_id,
-      _customer_name: "Playwright Automated Test",
-      _customer_phone: "9988776655",
-      _items: [
-        {
-          product_id: prod!.id,
-          variant_id: targetVariant.id,
-          name: prod!.name,
-          qty: 1,
-          refund_price: 699,
-        },
-      ],
-      _refund_method: "exchange_credit",
-      _return_reason: "Playwright stock restoration verification",
-    });
+        expect(retErr).toBeNull();
+        expect(retRes.return_number).toBeTruthy();
 
-    expect(retErr).toBeNull();
-    expect(retRes.return_number).toBeTruthy();
+        // 4. Verify stock restored to exact pre-sale baseline
+        const { data: afterReturn } = await anonClient
+          .from("products")
+          .select("stock, product_variants(id, stock)")
+          .eq("id", prod!.id)
+          .single();
 
-    // 4. Verify stock restored to exact pre-sale baseline
-    const { data: afterReturn } = await anonClient
-      .from("products")
-      .select("stock, product_variants(id, stock)")
-      .eq("id", prod!.id)
-      .single();
+        const varAfterReturn = afterReturn!.product_variants.find(
+          (v: { id: string }) => v.id === targetVariant.id,
+        );
 
-    const varAfterReturn = afterReturn!.product_variants.find(
-      (v: { id: string }) => v.id === targetVariant.id,
-    );
-
-    expect(varAfterReturn!.stock).toBe(initialVarStock);
-    expect(afterReturn!.stock).toBe(initialParentStock);
+        expect(varAfterReturn!.stock).toBe(initialVarStock);
+        expect(afterReturn!.stock).toBe(initialParentStock);
+      }
+    }
   });
 });
