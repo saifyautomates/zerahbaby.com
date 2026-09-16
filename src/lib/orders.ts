@@ -820,3 +820,140 @@ export function useCancelShiprocketOrder() {
     },
   });
 }
+
+/**
+ * Hook to test live connection to Shiprocket API.
+ */
+export function useTestShiprocketConnection() {
+  return useMutation({
+    mutationFn: async () => {
+      return invokeShiprocketApi({ action: "test_connection" }) as Promise<{
+        success: boolean;
+        message: string;
+        pickup_location?: string;
+        company?: string;
+        base_url?: string;
+      }>;
+    },
+  });
+}
+
+/**
+ * Hook to fetch available Shiprocket pickup warehouse locations.
+ */
+export function useGetShiprocketPickupLocations() {
+  return useQuery({
+    queryKey: ["shiprocket-pickup-locations"],
+    queryFn: async () => {
+      return invokeShiprocketApi({ action: "get_pickup_locations" }) as Promise<{
+        success: boolean;
+        pickup_locations: any[];
+        active_pickup_location: string;
+      }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to test live connection to Razorpay Payment Gateway.
+ */
+export function useTestRazorpayConnection() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+        body: { action: "test_connection" },
+      });
+      if (error) {
+        let msg = error.message;
+        try {
+          const errCtx = (error as { context?: Response }).context;
+          if (errCtx && typeof errCtx.json === "function") {
+            const b = await errCtx.json();
+            if (b?.error) msg = b.error;
+          }
+        } catch {
+          // fallback
+        }
+        throw new Error(msg || "Razorpay test failed");
+      }
+      if (data?.error) throw new Error(data.error);
+      return data as { success: boolean; message: string; key_id: string; mode: string };
+    },
+  });
+}
+
+/**
+ * Hook for bulk pushing orders to Shiprocket for fulfillment.
+ */
+export function useBulkCreateShiprocketShipments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      let succeeded = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const id of orderIds) {
+        try {
+          await invokeShiprocketApi({ action: "create_shipment", orderId: id });
+          succeeded++;
+        } catch (e: any) {
+          failed++;
+          errors.push(`Order ${id.slice(-6)}: ${e.message}`);
+        }
+      }
+
+      return { succeeded, failed, errors };
+    },
+    onSuccess: (data) => {
+      if (data.succeeded > 0) {
+        toast.success(`Successfully pushed ${data.succeeded} orders to Shiprocket!`);
+      }
+      if (data.failed > 0) {
+        toast.warning(`${data.failed} orders could not be pushed. ${data.errors[0] || ""}`);
+      }
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Bulk push to Shiprocket failed"),
+  });
+}
+
+/**
+ * Hook for bulk assigning couriers and generating AWBs.
+ */
+export function useBulkGenerateShiprocketAWB() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      let succeeded = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const id of orderIds) {
+        try {
+          await invokeShiprocketApi({ action: "generate_awb", orderId: id });
+          succeeded++;
+        } catch (e: any) {
+          failed++;
+          errors.push(`Order ${id.slice(-6)}: ${e.message}`);
+        }
+      }
+
+      return { succeeded, failed, errors };
+    },
+    onSuccess: (data) => {
+      if (data.succeeded > 0) {
+        toast.success(`Successfully generated AWB for ${data.succeeded} shipments!`);
+      }
+      if (data.failed > 0) {
+        toast.warning(`${data.failed} AWBs failed to generate. ${data.errors[0] || ""}`);
+      }
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["all-orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Bulk AWB generation failed"),
+  });
+}
+

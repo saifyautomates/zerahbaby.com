@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
 
     const isServiceRole = token === supabaseServiceKey;
     let authUser: { id: string; email?: string } | null = null;
+    let isAdmin = false;
 
     if (!isServiceRole) {
       const {
@@ -38,8 +39,6 @@ Deno.serve(async (req) => {
       authUser = user;
 
       // Canonical Admin Role Verification
-      let isAdmin = false;
-
       const { data: roleRow } = await adminClient
         .from("user_roles")
         .select("role")
@@ -80,10 +79,6 @@ Deno.serve(async (req) => {
         });
         if (rpcAdmin === true) isAdmin = true;
       }
-
-      if (!isAdmin) {
-        throw new Error("Unauthorized: Admin access required");
-      }
     }
 
     // 2. Parse request payload
@@ -91,18 +86,29 @@ Deno.serve(async (req) => {
       action?: string;
       orderId?: string;
       order_id?: string;
+      orderIds?: string[];
       returnId?: string;
       return_id?: string;
       courierId?: string;
       reason?: string;
       awbCode?: string;
+      pincode?: string;
     };
     const action = body.action;
     const orderId = body.orderId || body.order_id;
     const returnId = body.returnId || body.return_id;
+    const orderIds = body.orderIds || (orderId ? [orderId] : []);
 
-    if (!action || (!orderId && !returnId)) {
-      throw new Error("Missing action, orderId, or returnId");
+    if (!action) {
+      throw new Error("Missing action parameter");
+    }
+
+    // Global Action-Level Admin Check (Except automated customer shipment push)
+    const isCustomerSelfShipment =
+      !isAdmin && !isServiceRole && action === "create_shipment" && Boolean(orderId);
+
+    if (!isAdmin && !isServiceRole && !isCustomerSelfShipment) {
+      throw new Error("Unauthorized: Admin access required");
     }
 
     // --- Helper: Get Shiprocket Token ---
@@ -118,14 +124,35 @@ Deno.serve(async (req) => {
         return cached.token;
       }
 
-      // Need new token
-      const srEmail = Deno.env.get("SHIPROCKET_EMAIL")?.trim();
-      const srPassword = Deno.env.get("SHIPROCKET_PASSWORD")?.trim();
+      // Need new token - check env then site_settings fallback
+      let srEmail = Deno.env.get("SHIPROCKET_EMAIL")?.trim();
+      let srPassword = Deno.env.get("SHIPROCKET_PASSWORD")?.trim();
       const srBaseUrl =
         Deno.env.get("SHIPROCKET_API_BASE_URL")?.trim() || "https://apiv2.shiprocket.in";
 
       if (!srEmail || !srPassword) {
-        throw new Error("Shiprocket credentials not configured in Supabase secrets");
+        try {
+          const { data: eRow } = await adminClient
+            .from("site_settings")
+            .select("value")
+            .eq("key", "shiprocket_email")
+            .maybeSingle();
+          const { data: pRow } = await adminClient
+            .from("site_settings")
+            .select("value")
+            .eq("key", "shiprocket_password")
+            .maybeSingle();
+          if (eRow?.value && pRow?.value) {
+            srEmail = String(eRow.value).trim();
+            srPassword = String(pRow.value).trim();
+          }
+        } catch (settingsErr) {
+          console.warn("[shiprocket-api] Error reading credentials from site_settings:", settingsErr);
+        }
+      }
+
+      if (!srEmail || !srPassword) {
+        throw new Error("Shiprocket credentials not configured in Supabase secrets or Site Settings");
       }
 
       const authRes = await fetch(`${srBaseUrl}/v1/external/auth/login`, {
@@ -246,6 +273,91 @@ Deno.serve(async (req) => {
       }
       return "Primary";
     };
+
+    // --- Action: Test Connection & Diagnostics ---
+    if (action === "test_connection") {
+      await getShiprocketToken();
+      const primaryLoc = await getPrimaryPickupLocation();
+      let companyName = "Zerah Baby & Kids";
+      try {
+        const headers = await getHeaders();
+        const compRes = await fetch(`${srBaseUrl}/v1/external/settings/company/get`, { headers });
+        if (compRes.ok) {
+          const compJson = (await compRes.json()) as Record<string, any>;
+          companyName =
+            compJson?.data?.company_name || compJson?.company_name || companyName;
+        }
+      } catch {
+        // Optional info
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Shiprocket API authenticated & 100% connected with your store!",
+          pickup_location: primaryLoc,
+          company: companyName,
+          base_url: srBaseUrl,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
+    // --- Action: Get Available Pickup Warehouses ---
+    if (action === "get_pickup_locations") {
+      const headers = await getHeaders();
+      const res = await fetch(`${srBaseUrl}/v1/external/settings/company/pickup`, { headers });
+      const json = (await res.json().catch(() => ({}))) as Record<string, any>;
+      const addresses =
+        json?.data?.shipping_address ||
+        json?.shipping_address ||
+        json?.data?.pickup_addresses ||
+        (Array.isArray(json?.data) ? json.data : []);
+
+      const primary = await getPrimaryPickupLocation();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          pickup_locations: addresses,
+          active_pickup_location: primary,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
+    // --- Action: Check Courier Serviceability & Rates ---
+    if (action === "check_serviceability") {
+      let targetPincode = body.pincode;
+      if (!targetPincode && orderId) {
+        const { data: o } = await adminClient
+          .from("orders")
+          .select("pincode")
+          .eq("id", orderId)
+          .maybeSingle();
+        targetPincode = o?.pincode;
+      }
+
+      if (!targetPincode) {
+        throw new Error("Missing delivery pincode for serviceability check");
+      }
+
+      const cleanPin = String(targetPincode).replace(/\D/g, "").slice(0, 6);
+      const headers = await getHeaders();
+      const res = await fetch(
+        `${srBaseUrl}/v1/external/courier/serviceability/?pickup_postcode=324001&delivery_postcode=${cleanPin}&weight=0.5&cod=0`,
+        { headers },
+      );
+      const data = (await res.json().catch(() => ({}))) as Record<string, any>;
+      return new Response(
+        JSON.stringify({
+          success: true,
+          couriers: data?.data?.available_courier_companies || [],
+          recommendation: data?.data?.recommended_courier_company_id || null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
 
     // --- Action: Create Return Shipment ---
     if (action === "create_return_shipment") {
@@ -377,6 +489,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
       });
+    }
+
+    if (isCustomerSelfShipment) {
+      if (order.user_id && authUser?.id && order.user_id !== authUser.id) {
+        throw new Error("Unauthorized: You can only push your own order to fulfillment");
+      }
     }
 
     // --- Action: Create Shipment ---

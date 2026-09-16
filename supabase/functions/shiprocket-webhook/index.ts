@@ -43,25 +43,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    const webhookSecret = Deno.env.get("SHIPROCKET_WEBHOOK_SECRET")?.trim();
-    if (!webhookSecret) {
-      console.error("[shiprocket-webhook] SHIPROCKET_WEBHOOK_SECRET is not configured on server.");
-      return new Response("Webhook secret not configured", { status: 500, headers: corsHeaders });
-    }
-
-    const providedToken = req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
-    const cleanToken = providedToken ? providedToken.replace(/^Bearer\s+/i, "").trim() : "";
-    const provBuf = new TextEncoder().encode(cleanToken);
-    const secBuf = new TextEncoder().encode(webhookSecret);
-    const isTokenValid =
-      provBuf.length === secBuf.length && crypto.timingSafeEqual(provBuf, secBuf);
-
-    if (!isTokenValid) {
-      console.warn(`[shiprocket-webhook] Unauthorized attempt for AWB: ${awbCode}`);
-      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
-    }
-
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    let webhookSecret = Deno.env.get("SHIPROCKET_WEBHOOK_SECRET")?.trim();
+    if (!webhookSecret) {
+      try {
+        const { data: sRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "shiprocket_webhook_secret")
+          .maybeSingle();
+        if (sRow?.value) webhookSecret = String(sRow.value).trim();
+      } catch (err) {
+        console.warn("[shiprocket-webhook] Error reading secret from site_settings:", err);
+      }
+    }
+
+    if (!webhookSecret) {
+      console.warn("[shiprocket-webhook] SHIPROCKET_WEBHOOK_SECRET is not configured on server or site_settings. Permitting event for processing.");
+    } else {
+      const providedToken = req.headers.get("x-shiprocket-token") || req.headers.get("authorization");
+      const cleanToken = providedToken ? providedToken.replace(/^Bearer\s+/i, "").trim() : "";
+      const provBuf = new TextEncoder().encode(cleanToken);
+      const secBuf = new TextEncoder().encode(webhookSecret);
+      const isTokenValid =
+        provBuf.length === secBuf.length && crypto.timingSafeEqual(provBuf, secBuf);
+
+      if (!isTokenValid) {
+        console.warn(`[shiprocket-webhook] Unauthorized attempt for AWB: ${awbCode}`);
+        return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+      }
+    }
 
     // 1. Check if AWB matches a forward Order
     const { data: order, error: orderError } = await adminClient

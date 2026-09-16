@@ -47,20 +47,68 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as {
       orderId?: string;
       sessionId?: string;
+      action?: string;
     };
     const { orderId, sessionId } = body;
-    if (!orderId && !sessionId) {
+    if (!orderId && !sessionId && body.action !== "test_connection") {
       throw new Error("Missing sessionId or orderId in request payload");
     }
 
     // Resolve Razorpay API Credentials
-    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
-    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+    let rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
+    let rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+
+    if (!rawKeyId || !rawKeySecret) {
+      try {
+        const { data: kRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_id")
+          .maybeSingle();
+        const { data: sRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_secret")
+          .maybeSingle();
+        if (kRow?.value && sRow?.value) {
+          rawKeyId = String(kRow.value).trim();
+          rawKeySecret = String(sRow.value).trim();
+        }
+      } catch (settingsErr) {
+        console.warn("[create-razorpay-order] Error reading credentials from site_settings:", settingsErr);
+      }
+    }
+
     const razorpayKeyId = rawKeyId.trim();
     const razorpayKeySecret = rawKeySecret.trim();
 
     if (!razorpayKeyId || !razorpayKeySecret) {
-      throw new Error("Razorpay credentials not configured on server");
+      throw new Error("Razorpay credentials not configured in Supabase secrets or Site Settings");
+    }
+
+    // Action: Test Connection & Diagnostics
+    if ((body as any).action === "test_connection") {
+      if (!isAdmin) {
+        throw new Error("Unauthorized: Admin access required");
+      }
+      const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
+      const testRes = await fetch("https://api.razorpay.com/v1/payments?count=1", {
+        headers: { Authorization: `Basic ${credentials}` },
+      });
+      if (!testRes.ok) {
+        const errJson = (await testRes.json().catch(() => ({}))) as Record<string, any>;
+        throw new Error(errJson?.error?.description || "Failed to authenticate with Razorpay API");
+      }
+      const isLive = razorpayKeyId.startsWith("rzp_live_");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Razorpay API connected successfully in ${isLive ? "LIVE" : "TEST"} mode!`,
+          key_id: razorpayKeyId,
+          mode: isLive ? "live" : "test",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     }
 
     let amountInPaise = 0;

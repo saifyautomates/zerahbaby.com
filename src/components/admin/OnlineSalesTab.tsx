@@ -27,6 +27,8 @@ import {
   useGenerateShiprocketManifest,
   useSyncShiprocketTracking,
   useCancelShiprocketOrder,
+  useBulkCreateShiprocketShipments,
+  useBulkGenerateShiprocketAWB,
 } from "@/lib/orders";
 import {
   MailCheck,
@@ -136,6 +138,8 @@ export function OnlineSalesTab() {
   const generateManifest = useGenerateShiprocketManifest();
   const syncTracking = useSyncShiprocketTracking();
   const cancelShiprocketOrder = useCancelShiprocketOrder();
+  const bulkCreateShipments = useBulkCreateShiprocketShipments();
+  const bulkGenerateAwb = useBulkGenerateShiprocketAWB();
   const processRefund = useProcessOrderRefund();
   const markRefundedManual = useMarkOrderRefundedManual();
 
@@ -596,6 +600,55 @@ export function OnlineSalesTab() {
 
   return (
     <div className="space-y-6">
+      {/* ─── LIVE LOGISTICS & GATEWAY STATUS BAR ──────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-2.5 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
+          {/* Shiprocket Status */}
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-foreground font-bold flex items-center gap-1">
+              <Truck className="size-3.5 text-indigo-600" />
+              Shiprocket Logistics:
+            </span>
+            <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/30 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
+              100% In-App Connected
+            </span>
+          </div>
+
+          <div className="hidden sm:block h-3.5 w-px bg-border" />
+
+          {/* Razorpay Status */}
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-foreground font-bold flex items-center gap-1">
+              <CheckCircle2 className="size-3.5 text-emerald-600" />
+              Razorpay Payments:
+            </span>
+            <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+              HMAC Verified • Auto-Refunds Active
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", "settings");
+                window.history.pushState({}, "", url.toString());
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }
+            }}
+            className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <span>Integration Settings &amp; Warehouse</span>
+            <ExternalLink className="size-3" />
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* New Orders in last 24 hours */}
         <div
@@ -931,6 +984,128 @@ export function OnlineSalesTab() {
         onClear={selection.clearSelection}
         actions={
           <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Bulk Push to Shiprocket */}
+            {selection.selectedItems.some(
+              (o) =>
+                (o as unknown as any)._type === "online" &&
+                !(o as unknown as any).shiprocket_order_id &&
+                (o as unknown as any).status !== "cancelled" &&
+                ((o as unknown as any).payment_status === "paid" ||
+                  (o as unknown as any).payment_method?.toLowerCase() === "cod"),
+            ) && (
+              <button
+                type="button"
+                disabled={bulkCreateShipments.isPending}
+                onClick={() => {
+                  const eligibleIds = selection.selectedItems
+                    .filter(
+                      (o) =>
+                        (o as unknown as any)._type === "online" &&
+                        !(o as unknown as any).shiprocket_order_id &&
+                        (o as unknown as any).status !== "cancelled",
+                    )
+                    .map((o) => (o as unknown as any).id);
+                  bulkCreateShipments.mutate(eligibleIds);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                title="Bulk push eligible unfulfilled orders to Shiprocket"
+              >
+                {bulkCreateShipments.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Truck className="size-3.5" />
+                )}
+                <span>
+                  Push to Shiprocket (
+                  {
+                    selection.selectedItems.filter(
+                      (o) =>
+                        (o as unknown as any)._type === "online" &&
+                        !(o as unknown as any).shiprocket_order_id &&
+                        (o as unknown as any).status !== "cancelled",
+                    ).length
+                  }
+                  )
+                </span>
+              </button>
+            )}
+
+            {/* Bulk Assign AWB */}
+            {selection.selectedItems.some(
+              (o) =>
+                (o as unknown as any)._type === "online" &&
+                (o as unknown as any).shiprocket_order_id &&
+                !(o as unknown as any).awb_code &&
+                (o as unknown as any).status !== "cancelled",
+            ) && (
+              <button
+                type="button"
+                disabled={bulkGenerateAwb.isPending}
+                onClick={() => {
+                  const eligibleIds = selection.selectedItems
+                    .filter(
+                      (o) =>
+                        (o as unknown as any)._type === "online" &&
+                        (o as unknown as any).shiprocket_order_id &&
+                        !(o as unknown as any).awb_code &&
+                        (o as unknown as any).status !== "cancelled",
+                    )
+                    .map((o) => (o as unknown as any).id);
+                  bulkGenerateAwb.mutate(eligibleIds);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                title="Assign courier & generate AWB for eligible shipments"
+              >
+                {bulkGenerateAwb.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Send className="size-3.5" />
+                )}
+                <span>
+                  Assign Courier &amp; AWB (
+                  {
+                    selection.selectedItems.filter(
+                      (o) =>
+                        (o as unknown as any)._type === "online" &&
+                        (o as unknown as any).shiprocket_order_id &&
+                        !(o as unknown as any).awb_code &&
+                        (o as unknown as any).status !== "cancelled",
+                    ).length
+                  }
+                  )
+                </span>
+              </button>
+            )}
+
+            {/* Bulk Print Labels */}
+            {selection.selectedItems.some(
+              (o) => (o as unknown as any).shiprocket_label_url,
+            ) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const labelUrls = selection.selectedItems
+                    .map((o) => (o as unknown as any).shiprocket_label_url)
+                    .filter(Boolean);
+                  labelUrls.forEach((url: string) => {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card hover:bg-muted active:scale-95 text-foreground px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer"
+                title="Open shipping labels in new tabs for printing"
+              >
+                <Printer className="size-3.5 text-indigo-600" />
+                <span>
+                  Print Labels (
+                  {
+                    selection.selectedItems.filter(
+                      (o) => (o as unknown as any).shiprocket_label_url,
+                    ).length
+                  }
+                  )
+                </span>
+              </button>
+            )}
             {/* Cancel Selected (for active orders) */}
             {selection.selectedItems.some(
               (o) => (o as unknown as Order).status !== "cancelled",

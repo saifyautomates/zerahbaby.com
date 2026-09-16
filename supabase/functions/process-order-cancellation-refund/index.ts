@@ -268,11 +268,32 @@ Deno.serve(async (req) => {
     }
 
     // 8. Load & Validate Razorpay Server Secrets
-    const rawKeyId = (Deno.env.get("RAZORPAY_KEY_ID") || "").trim();
-    const rawKeySecret = (Deno.env.get("RAZORPAY_KEY_SECRET") || "").trim();
+    let rawKeyId = (Deno.env.get("RAZORPAY_KEY_ID") || "").trim();
+    let rawKeySecret = (Deno.env.get("RAZORPAY_KEY_SECRET") || "").trim();
 
     if (!rawKeyId || !rawKeySecret) {
-      console.error("[refund] Razorpay API credentials missing in server environment");
+      try {
+        const { data: kRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_id")
+          .maybeSingle();
+        const { data: sRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_secret")
+          .maybeSingle();
+        if (kRow?.value && sRow?.value) {
+          rawKeyId = String(kRow.value).trim();
+          rawKeySecret = String(sRow.value).trim();
+        }
+      } catch (settingsErr) {
+        console.warn("[refund] Error reading credentials from site_settings:", settingsErr);
+      }
+    }
+
+    if (!rawKeyId || !rawKeySecret) {
+      console.error("[refund] Razorpay API credentials missing in server environment and site_settings");
       return jsonResponse(
         { success: false, error: "Razorpay server API credentials not configured" },
         500,

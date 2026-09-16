@@ -170,6 +170,7 @@ import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 import { PaymentMethodsSettingsCard } from "@/components/admin/PaymentMethodsSettingsCard";
+import { ShiprocketRazorpayIntegrationsCard } from "@/components/admin/ShiprocketRazorpayIntegrationsCard";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async ({ location }) => {
@@ -3089,6 +3090,9 @@ function SettingsTab() {
     <div className="mx-auto max-w-3xl space-y-8 pb-16">
       {/* ─── PAYMENT METHODS & COD CONTROL CARD ────────────────── */}
       <PaymentMethodsSettingsCard />
+
+      {/* ─── SHIPROCKET & RAZORPAY INTEGRATIONS HUB ─────────────── */}
+      <ShiprocketRazorpayIntegrationsCard />
 
       {/* ─── SALE NOTIFICATIONS CARD (SMS & EMAIL) ─────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">

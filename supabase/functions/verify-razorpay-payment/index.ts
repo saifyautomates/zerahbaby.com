@@ -58,13 +58,35 @@ Deno.serve(async (req) => {
     }
 
     // 3. Resolve Secret & Query Server-Stored Payment Attempt (Authoritative Order ID)
-    const rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
-    const rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+    let rawKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
+    let rawKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
+
+    if (!rawKeySecret) {
+      try {
+        const { data: kRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_id")
+          .maybeSingle();
+        const { data: sRow } = await adminClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_key_secret")
+          .maybeSingle();
+        if (sRow?.value) {
+          rawKeySecret = String(sRow.value).trim();
+          if (kRow?.value) rawKeyId = String(kRow.value).trim();
+        }
+      } catch (settingsErr) {
+        console.warn("[verify-razorpay-payment] Error reading credentials from site_settings:", settingsErr);
+      }
+    }
+
     const razorpayKeyId = rawKeyId.trim();
     const razorpayKeySecret = rawKeySecret.trim();
 
     if (!razorpayKeySecret) {
-      throw new Error("Razorpay secret not configured on server");
+      throw new Error("Razorpay secret not configured on server or Site Settings");
     }
 
     // Server-Authoritative Order ID Check: Query payment_attempts for original stored record

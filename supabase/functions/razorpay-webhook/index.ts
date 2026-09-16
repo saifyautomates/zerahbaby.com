@@ -12,12 +12,23 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const signature =
-      req.headers.get("X-Razorpay-Signature") || req.headers.get("x-razorpay-signature");
-    const eventIdHeader =
-      req.headers.get("X-Razorpay-Event-Id") || req.headers.get("x-razorpay-event-id");
-    const secret = (Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "").trim();
+    const supabaseUrl = (Deno.env.get("SUPABASE_URL") || "").trim();
+    const supabaseServiceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    let secret = (Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "").trim();
+    if (!secret) {
+      try {
+        const { data: sRow } = await supabaseClient
+          .from("site_settings")
+          .select("value")
+          .eq("key", "razorpay_webhook_secret")
+          .maybeSingle();
+        if (sRow?.value) secret = String(sRow.value).trim();
+      } catch (err) {
+        console.warn("[razorpay-webhook] Error reading secret from site_settings:", err);
+      }
+    }
 
     if (!signature) {
       console.error("[razorpay-webhook] Missing X-Razorpay-Signature header");
@@ -49,11 +60,6 @@ Deno.serve(async (req) => {
       payload.event_id ||
       payload.id ||
       `evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    // 2. Create Admin Supabase Client
-    const supabaseUrl = (Deno.env.get("SUPABASE_URL") || "").trim();
-    const supabaseServiceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // 3. Webhook Idempotency Guard
     const { data: existingEvent } = await supabaseClient
