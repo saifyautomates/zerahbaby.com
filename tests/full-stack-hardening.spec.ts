@@ -23,15 +23,15 @@ test.describe("Production Hardening - Full-Stack Synchronization & Security", ()
   });
 
   test("2. Category Filtering and Search", async ({ page }) => {
-    await page.goto("/shop");
+    await page.goto("/shop", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 10000 });
 
     // Filter by Clothing
-    await page.goto("/shop?category=clothing");
+    await page.goto("/shop?category=clothing", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
 
     // Filter by Toys
-    await page.goto("/shop?category=toys");
+    await page.goto("/shop?category=toys", { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toBeVisible();
   });
 

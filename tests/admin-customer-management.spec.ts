@@ -120,7 +120,7 @@ test.describe("Admin Customer Management & Security", () => {
     // Click Delete button -> confirm dialog should open
     await deleteBtn.click();
 
-    const dialog = page.locator('div[role="dialog"]');
+    const dialog = page.locator('div[role="dialog"]').filter({ hasText: /Delete Customer/i });
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog.getByText(/Delete Customer Profile\?/i)).toBeVisible();
     await expect(dialog.getByText(/order transaction history intact/i)).toBeVisible();
@@ -189,7 +189,7 @@ test.describe("Admin Customer Management & Security", () => {
 
     // Trigger delete
     await page.getByRole("button", { name: /Delete/i }).first().click();
-    const dialog = page.locator('div[role="dialog"]');
+    const dialog = page.locator('div[role="dialog"]').filter({ hasText: /Delete Customer/i });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Delete Customer" }).click();
 
