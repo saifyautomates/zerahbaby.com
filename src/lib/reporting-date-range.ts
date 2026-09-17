@@ -223,9 +223,15 @@ export function calculateCanonicalISTBounds({
     if (!dateInput) return false;
     if (preset === "all") return true;
     let t: number;
-    if (typeof dateInput === "number") t = dateInput;
-    else if (dateInput instanceof Date) t = dateInput.getTime();
-    else t = new Date(dateInput).getTime();
+    if (typeof dateInput === "number") {
+      t = dateInput;
+    } else if (dateInput instanceof Date) {
+      t = dateInput.getTime();
+    } else {
+      const str = String(dateInput).trim();
+      const normalized = str.includes(" ") && !str.includes("T") ? str.replace(" ", "T") : str;
+      t = new Date(normalized).getTime();
+    }
     if (Number.isNaN(t)) return false;
     return t >= startMs && t < endMsExclusive;
   };
@@ -233,9 +239,15 @@ export function calculateCanonicalISTBounds({
   const inPrevPeriod = (dateInput: string | number | Date | null | undefined): boolean => {
     if (!dateInput || preset === "all") return false;
     let t: number;
-    if (typeof dateInput === "number") t = dateInput;
-    else if (dateInput instanceof Date) t = dateInput.getTime();
-    else t = new Date(dateInput).getTime();
+    if (typeof dateInput === "number") {
+      t = dateInput;
+    } else if (dateInput instanceof Date) {
+      t = dateInput.getTime();
+    } else {
+      const str = String(dateInput).trim();
+      const normalized = str.includes(" ") && !str.includes("T") ? str.replace(" ", "T") : str;
+      t = new Date(normalized).getTime();
+    }
     if (Number.isNaN(t)) return false;
     return t >= prevStartMs && t < prevEndMsExclusive;
   };

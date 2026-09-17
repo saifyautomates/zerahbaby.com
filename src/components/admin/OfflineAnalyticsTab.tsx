@@ -862,15 +862,18 @@ export function OfflineAnalyticsTab() {
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Receipt className="size-4 text-blue-600" /> Total POS Sales
+            <Receipt className="size-4 text-blue-600" /> Period POS Sales
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
             {totalSalesCount}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground font-medium truncate">
+            {dateRangeText}
+          </p>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <BarChart3 className="size-4 text-emerald-600" /> Total Sales Value
+            <BarChart3 className="size-4 text-emerald-600" /> Period Sales Value
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-primary">
             {formatPrice(totalSalesRevenue)}
@@ -1048,7 +1051,7 @@ export function OfflineAnalyticsTab() {
 
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {[
-              { id: "all", label: `All (${sales?.length || 0})` },
+              { id: "all", label: `All (${periodActiveSales.length})` },
               { id: "cash", label: `💵 Cash (${cashSales.length})` },
               { id: "upi", label: `📱 UPI (${upiSales.length})` },
               { id: "card", label: `💳 Card (${cardSales.length})` },
@@ -1657,13 +1660,54 @@ export function OfflineAnalyticsTab() {
               })}
               {!isLoading && filteredSales.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="px-5 py-16 text-center text-sm font-medium text-muted-foreground"
-                  >
-                    {searchQuery || paymentFilter !== "all"
-                      ? `No POS sales found matching the current search / filter.`
-                      : "No POS sales yet."}
+                  <td colSpan={10} className="px-5 py-16">
+                    <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-3">
+                      <div className="size-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                        <Receipt className="size-6 opacity-60" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-foreground text-sm">
+                          {searchQuery || paymentFilter !== "all"
+                            ? "No matching POS sales found"
+                            : `No POS sales for ${dateRangeText}`}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {searchQuery
+                            ? `No sales matched "${searchQuery}". Try a different receipt number, customer name, or product.`
+                            : paymentFilter !== "all"
+                              ? `No transactions completed with ${paymentFilter.toUpperCase()} in this period.`
+                              : (sales?.length || 0) > 0
+                                ? `You have ${sales?.length} total POS sale(s) in other periods. Switch to "All Time" or "Today" to view them.`
+                                : "No counter sales recorded yet. Completed walk-in transactions punched in the POS terminal will appear here."}
+                        </p>
+                      </div>
+                      {searchQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="px-3.5 py-1.5 rounded-xl border border-border bg-background text-foreground hover:bg-muted text-xs font-bold transition cursor-pointer"
+                        >
+                          Clear Search
+                        </button>
+                      ) : (sales?.length || 0) > 0 && datePreset !== "all" ? (
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setDateRange("all")}
+                            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90 transition cursor-pointer"
+                          >
+                            Show All Time ({sales?.length} sales)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDateRange("today")}
+                            className="px-4 py-2 rounded-xl border border-border bg-background text-foreground text-xs font-bold hover:bg-muted transition cursor-pointer"
+                          >
+                            Switch to Today
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               )}
