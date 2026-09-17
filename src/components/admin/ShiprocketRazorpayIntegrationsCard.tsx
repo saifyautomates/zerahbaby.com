@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   Zap,
+  Code2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -108,7 +109,7 @@ export function ShiprocketRazorpayIntegrationsCard() {
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedWebhook(id);
-    toast.success("Webhook URL copied to clipboard!");
+    toast.success("URL copied to clipboard!");
     setTimeout(() => setCopiedWebhook(null), 2500);
   };
 
@@ -205,13 +206,12 @@ export function ShiprocketRazorpayIntegrationsCard() {
                 </h3>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  100% IN-APP MANAGEMENT
+                  AUTOMATIC DISPATCH
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Orders (Prepaid &amp; COD) automatic push hote hain. Courier selection, AWB, pickup
-                scheduling, labels, manifest aur real-time tracking sab kuch hamari website ke Admin
-                Panel se direct operate hota hai.
+                Orders (Prepaid &amp; COD) automatically sync hote hain. Courier selection, AWB, labels
+                aur real-time tracking direct website ke Admin Panel se operate hota hai.
               </p>
             </div>
           </div>
@@ -225,7 +225,7 @@ export function ShiprocketRazorpayIntegrationsCard() {
             <RefreshCw
               className={`size-3.5 ${testShiprocket.isPending ? "animate-spin" : ""}`}
             />
-            <span>{testShiprocket.isPending ? "Testing API…" : "Test Shiprocket Connection"}</span>
+            <span>{testShiprocket.isPending ? "Testing Connection…" : "Test Shiprocket Connection"}</span>
           </button>
         </div>
 
@@ -323,41 +323,10 @@ export function ShiprocketRazorpayIntegrationsCard() {
           )}
         </div>
 
-        {/* Webhook Configuration for Automatic Live Tracking Sync */}
-        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Shiprocket Live Tracking Webhook URL
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(shiprocketWebhookUrl, "sr-webhook")}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
-            >
-              {copiedWebhook === "sr-webhook" ? (
-                <>
-                  <Check className="size-3.5" /> Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3.5" /> Copy Webhook URL
-                </>
-              )}
-            </button>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Paste this URL in Shiprocket Dashboard ➔ Settings ➔ API ➔ Webhooks for instant real-time
-            status updates (In Transit, Out for Delivery, Delivered, RTO) without manual polling.
-          </p>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-muted-foreground select-all overflow-x-auto">
-            <span>{shiprocketWebhookUrl}</span>
-          </div>
-        </div>
-
         {/* Shiprocket Credentials Inputs */}
         <div className="space-y-4 pt-2 border-t border-border/60">
-          <h4 className="font-bold text-sm text-foreground">Shiprocket API Credentials</h4>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h4 className="font-bold text-sm text-foreground">Shiprocket Account Credentials</h4>
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1">
               <label className="text-xs font-bold text-muted-foreground">
                 Shiprocket Account Email
@@ -386,7 +355,7 @@ export function ShiprocketRazorpayIntegrationsCard() {
                 <button
                   type="button"
                   onClick={() => setShowSrPassword(!showSrPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   {showSrPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -405,20 +374,60 @@ export function ShiprocketRazorpayIntegrationsCard() {
                 className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-none transition focus:border-indigo-600 shadow-2xs"
               />
             </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">
-                Webhook Secret (Optional)
-              </label>
-              <input
-                type="text"
-                value={srWebhookSecret}
-                onChange={(e) => setSrWebhookSecret(e.target.value)}
-                placeholder="Secret key configured in Shiprocket webhook"
-                className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-none transition focus:border-indigo-600 shadow-2xs"
-              />
-            </div>
           </div>
+
+          {/* Collapsible Developer/Webhook Section (Hidden from default view) */}
+          <details className="group rounded-2xl border border-border/60 bg-muted/15 p-3.5 transition">
+            <summary className="flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer select-none">
+              <span className="flex items-center gap-2">
+                <Code2 className="size-3.5 text-muted-foreground" />
+                <span>Developer Settings (Webhook &amp; Secrets)</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground transition-transform group-open:rotate-180">
+                ▼
+              </span>
+            </summary>
+            <div className="pt-3 space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Shiprocket Webhook URL
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(shiprocketWebhookUrl, "sr-webhook")}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
+                  >
+                    {copiedWebhook === "sr-webhook" ? (
+                      <>
+                        <Check className="size-3.5" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3.5" /> Copy URL
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-muted-foreground select-all overflow-x-auto">
+                  <span>{shiprocketWebhookUrl}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-muted-foreground">
+                  Webhook Secret (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={srWebhookSecret}
+                  onChange={(e) => setSrWebhookSecret(e.target.value)}
+                  placeholder="Secret key configured in Shiprocket webhook"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-none transition focus:border-indigo-600 shadow-2xs font-mono"
+                />
+              </div>
+            </div>
+          </details>
 
           <div className="flex justify-end pt-2">
             <button
@@ -456,13 +465,11 @@ export function ShiprocketRazorpayIntegrationsCard() {
                 </h3>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                   <ShieldCheck className="size-3.5" />
-                  HMAC-SHA256 LIVE
+                  SECURE GATEWAY ACTIVE
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                UPI Intent, Credit/Debit Cards, NetBanking, aur Wallets. Instant cryptographic
-                signature verification, automated inventory reservation, and 1-click gateway
-                cancellation refunds.
+                UPI, Credit/Debit Cards, NetBanking, aur Wallets. Instant payment verification, automated inventory reservation, aur 1-click gateway auto-refunds.
               </p>
             </div>
           </div>
@@ -474,7 +481,7 @@ export function ShiprocketRazorpayIntegrationsCard() {
             className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
           >
             <RefreshCw className={`size-3.5 ${testRazorpay.isPending ? "animate-spin" : ""}`} />
-            <span>{testRazorpay.isPending ? "Testing API…" : "Test Razorpay Connection"}</span>
+            <span>{testRazorpay.isPending ? "Testing Connection…" : "Test Razorpay Connection"}</span>
           </button>
         </div>
 
@@ -508,75 +515,31 @@ export function ShiprocketRazorpayIntegrationsCard() {
           <div className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
               <Zap className="size-3.5 text-amber-500" />
-              Automated Auto-Refunds
+              Instant Auto-Refunds
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Jab admin ya customer order cancel karta hai, Razorpay API se refund turant initiate ho jata hai.
+              Jab admin ya customer order cancel karta hai, Razorpay se refund turant initiate ho jata hai.
             </p>
           </div>
 
           <div className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
               <Truck className="size-3.5 text-indigo-500" />
-              Shiprocket Auto-Bridge
+              Automatic Shipping Sync
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Jaise hi payment capture hoti hai, order automatic Shiprocket par shipment ban jata hai.
+              Jaise hi online payment receive hoti hai, order automatic Shiprocket shipping queue me chala jata hai.
             </p>
           </div>
 
           <div className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
               <Lock className="size-3.5 text-emerald-500" />
-              Webhook Resiliency
+              Fail-Safe Order Creation
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Network disconnect ya browser close hone par bhi webhook se order finalize aur stock reserve ho jata hai.
+              Network disconnect ya browser close hone par bhi payment safely verify hokar order create ho jata hai.
             </p>
-          </div>
-        </div>
-
-        {/* Razorpay Webhook Configuration */}
-        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Razorpay Webhook URL
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(razorpayWebhookUrl, "rzp-webhook")}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
-            >
-              {copiedWebhook === "rzp-webhook" ? (
-                <>
-                  <Check className="size-3.5" /> Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3.5" /> Copy Webhook URL
-                </>
-              )}
-            </button>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Configure this URL in Razorpay Dashboard ➔ Settings ➔ Webhooks with events:{" "}
-            <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">
-              payment.captured
-            </code>
-            ,{" "}
-            <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">
-              payment.failed
-            </code>
-            ,{" "}
-            <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">order.paid</code>
-            ,{" "}
-            <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">
-              refund.processed
-            </code>
-            .
-          </p>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-muted-foreground select-all overflow-x-auto">
-            <span>{razorpayWebhookUrl}</span>
           </div>
         </div>
 
@@ -612,26 +575,66 @@ export function ShiprocketRazorpayIntegrationsCard() {
                 <button
                   type="button"
                   onClick={() => setShowRzpSecret(!showRzpSecret)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   {showRzpSecret ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
             </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs font-bold text-muted-foreground">
-                Webhook Secret (Configured in Razorpay Webhook Settings)
-              </label>
-              <input
-                type="password"
-                value={rzpWebhookSecret}
-                onChange={(e) => setRzpWebhookSecret(e.target.value)}
-                placeholder="••••••••••••••••"
-                className="w-full rounded-xl border border-border bg-background px-3.5 py-2 font-mono text-sm outline-none transition focus:border-emerald-600 shadow-2xs"
-              />
-            </div>
           </div>
+
+          {/* Collapsible Developer/Webhook Section (Hidden from default view) */}
+          <details className="group rounded-2xl border border-border/60 bg-muted/15 p-3.5 transition">
+            <summary className="flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer select-none">
+              <span className="flex items-center gap-2">
+                <Code2 className="size-3.5 text-muted-foreground" />
+                <span>Developer Settings (Webhook &amp; Secrets)</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground transition-transform group-open:rotate-180">
+                ▼
+              </span>
+            </summary>
+            <div className="pt-3 space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Razorpay Webhook URL
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(razorpayWebhookUrl, "rzp-webhook")}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
+                  >
+                    {copiedWebhook === "rzp-webhook" ? (
+                      <>
+                        <Check className="size-3.5" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3.5" /> Copy URL
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono text-muted-foreground select-all overflow-x-auto">
+                  <span>{razorpayWebhookUrl}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-muted-foreground">
+                  Webhook Secret (Configured in Razorpay Webhook Settings)
+                </label>
+                <input
+                  type="password"
+                  value={rzpWebhookSecret}
+                  onChange={(e) => setRzpWebhookSecret(e.target.value)}
+                  placeholder="••••••••••••••••"
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2 font-mono text-sm outline-none transition focus:border-emerald-600 shadow-2xs"
+                />
+              </div>
+            </div>
+          </details>
 
           <div className="flex justify-end pt-2">
             <button
