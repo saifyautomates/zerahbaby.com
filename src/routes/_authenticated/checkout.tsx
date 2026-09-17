@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart";
 import { useSession } from "@/lib/auth";
 import { useProfile, useSaveProfile, usePlaceOrder, type Profile } from "@/lib/orders";
 import { supabase } from "@/integrations/supabase/client";
+import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 import { trackEvent } from "@/lib/analytics";
 import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
 import {
@@ -395,6 +396,14 @@ function CheckoutPage() {
             coupon: couponCode || null,
             payment: "cod",
           },
+        });
+
+        // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
+        dispatchSaleNotifications({
+          sale_type: "online",
+          sale_id: codResult.order_id,
+        }).catch((notifyErr) => {
+          console.warn("[Checkout] COD sale notifications dispatcher error:", notifyErr);
         });
 
         // Trigger transactional SMS for finalized COD order (non-blocking)

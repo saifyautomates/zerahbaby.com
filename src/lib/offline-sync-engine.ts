@@ -11,6 +11,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 
 export type TransactionStatus = "COMPLETED" | "PENDING_CONFIRMATION" | "FAILED" | "CANCELLED";
 export type SyncStatus =
@@ -1208,8 +1209,28 @@ async function executeSyncLoop(options?: {
         });
         totalSynced++;
 
-        // 3. Trigger transactional SMS (non-blocking)
+        // 3. Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
         if (data?.sale_id && !data.duplicate) {
+          dispatchSaleNotifications({
+            sale_type: "offline",
+            sale_id: data.sale_id,
+          }).catch((notifyErr) => {
+            console.warn("[OfflineSync] Sale notifications dispatcher error:", notifyErr);
+          });
+
+          // Trigger Owner Sale Notification Email (non-blocking)
+          supabase.functions
+            .invoke("send-owner-sale-notification", {
+              body: {
+                type: "offline_sale",
+                sale_id: data.sale_id,
+              },
+            })
+            .catch((emailErr) => {
+              console.warn("[OfflineSync] Owner offline sale email error:", emailErr);
+            });
+
+          // Trigger transactional SMS (non-blocking)
           supabase.functions
             .invoke("msg91-transactional", {
               body: {

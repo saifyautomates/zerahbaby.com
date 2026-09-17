@@ -590,6 +590,168 @@ function renderCustomerOrderConfirmationEmail(
   return { subject, html };
 }
 
+function renderCustomerOfflinePurchaseEmail(
+  sale: Record<string, any>,
+  items: Array<Record<string, any>>,
+  _settings?: Record<string, string>,
+): { subject: string; html: string } {
+  const saleRef = sale.sale_number || "POS-SALE";
+  const dateStr = new Date(sale.created_at || Date.now()).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const finalTotal = Number(sale.total || 0);
+  const subtotal = Number(sale.subtotal || 0);
+  const discount = Number(sale.discount || 0);
+  const storeCreditUsed = Number(sale.store_credit_used || 0);
+  const customerName = sale.customer_name || "Valued Customer";
+  const paymentMethod = (sale.payment_method || "cash").toUpperCase();
+
+  const itemsHtml = items
+    .map((item) => {
+      const variantInfo = [item.variant_name, item.color, item.size].filter(Boolean).join(" · ");
+      return `
+      <tr>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;">
+          <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.3;">
+            ${escapeHtml(item.name)}
+          </div>
+          ${
+            variantInfo
+              ? `<div style="font-size: 12px; color: #8B2020; font-weight: 600; margin-top: 3px;">${escapeHtml(variantInfo)}</div>`
+              : ""
+          }
+          <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Qty: ${item.qty} × ${formatCurrency(Number(item.price))}</div>
+        </td>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; vertical-align: middle; font-weight: 700; color: #0f172a; font-size: 14px;">
+          ${formatCurrency(Number(item.price) * Number(item.qty))}
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purchase Receipt — Zérah Baby &amp; Kids</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #faf5f5; margin: 0; padding: 20px; color: #1e293b; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid #f1e4e4; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(139, 32, 32, 0.08); }
+    .header { background: linear-gradient(135deg, #8B2020 0%, #681818 100%); color: #ffffff; padding: 32px 28px; text-align: center; }
+    .brand-title { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; margin: 0; text-transform: uppercase; }
+    .brand-sub { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; margin-top: 6px; font-weight: 600; color: #fecaca; }
+    .content { padding: 32px 28px; }
+    .success-badge { display: inline-block; background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 6px 16px; border-radius: 999px; margin-bottom: 12px; }
+    .meta-box { background: #fafafa; border: 1px solid #f1f1f1; border-radius: 16px; padding: 20px; margin: 24px 0; font-size: 13px; line-height: 1.6; }
+    .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta-label { color: #64748b; font-weight: 500; }
+    .meta-value { font-weight: 700; color: #0f172a; text-align: right; }
+    .totals-box { background: #fef7f7; border: 1px solid #fee2e2; border-radius: 16px; padding: 20px; margin-top: 24px; }
+    .total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #475569; }
+    .grand-total { font-size: 18px; font-weight: 900; color: #8B2020; border-top: 2px dashed #fca5a5; padding-top: 12px; margin-top: 12px; }
+    .footer { text-align: center; padding: 28px 20px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f8fafc; background: #fafafa; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand-title">Zérah Baby &amp; Kids</div>
+      <div class="brand-sub">Store Purchase &amp; Tax Invoice</div>
+    </div>
+    <div class="content">
+      <div style="text-align: center;">
+        <span class="success-badge">✓ In-Store Purchase Receipt</span>
+        <h2 style="margin: 4px 0 8px 0; font-size: 24px; font-weight: 900; color: #0f172a;">
+          Thank you, ${escapeHtml(customerName)}!
+        </h2>
+        <p style="color: #64748b; font-size: 14px; margin: 0 auto; max-width: 440px; line-height: 1.5;">
+          Thank you for visiting and shopping at Zérah Baby &amp; Kids Store, Kota. Here is your electronic purchase receipt.
+        </p>
+      </div>
+
+      <div class="meta-box">
+        <div class="meta-row">
+          <span class="meta-label">Receipt / Invoice No:</span>
+          <span class="meta-value" style="color: #8B2020;">#${escapeHtml(saleRef)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Date &amp; Time:</span>
+          <span class="meta-value">${escapeHtml(dateStr)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Payment Method:</span>
+          <span class="meta-value">${escapeHtml(paymentMethod)}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Store Location:</span>
+          <span class="meta-value" style="max-width: 260px;">80 Feet Link Rd, Kota, Rajasthan</span>
+        </div>
+      </div>
+
+      <h3 style="font-size: 15px; font-weight: 800; margin: 28px 0 12px 0; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+        Purchased Items (${items.length} item${items.length > 1 ? "s" : ""})
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div class="totals-box">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span style="font-weight: 600; color: #0f172a;">${formatCurrency(subtotal)}</span>
+        </div>
+        ${
+          discount > 0
+            ? `<div class="total-row" style="color: #16a34a; font-weight: 600;">
+          <span>Discount:</span>
+          <span>- ${formatCurrency(discount)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          storeCreditUsed > 0
+            ? `<div class="total-row" style="color: #16a34a; font-weight: 600;">
+          <span>Store Credit Redeemed:</span>
+          <span>- ${formatCurrency(storeCreditUsed)}</span>
+        </div>`
+            : ""
+        }
+        <div class="total-row grand-total">
+          <span>Total Paid (incl. taxes):</span>
+          <span>${formatCurrency(finalTotal)}</span>
+        </div>
+      </div>
+
+      <div style="margin: 24px 0; padding: 14px; background: #fdf8f8; border: 1px solid #fae8e8; border-radius: 14px; text-align: center; font-size: 12px; color: #7f1d1d; line-height: 1.4; font-weight: 600;">
+        🌿 <strong>100% Baby Safe Garments</strong> &nbsp;|&nbsp; 🛡️ <strong>Store Exchange Available</strong>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; text-align: center; font-size: 13px; color: #475569;">
+        Questions about your purchase? Visit our store or WhatsApp us at 
+        <a href="https://wa.me/919057074777?text=Hi%2C%20I%20have%20a%20question%20about%20receipt%20${escapeHtml(saleRef)}" style="color: #8B2020; font-weight: 700; text-decoration: none;">
+          +91 9057074777
+        </a>.
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>Zérah Baby &amp; Kids Store</strong><br>
+      80 Feet Link Rd, near Bajot Restaurant, Kota, Rajasthan 324001<br>
+      Website: <a href="https://zerahkids.com" style="color: #8B2020; text-decoration: none;">zerahkids.com</a> · Support: hello@zerahkids.com
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const subject = `Purchase Receipt #${saleRef} — Zérah Baby & Kids`;
+  return { subject, html };
+}
+
 function renderTestEmail(): { subject: string; html: string } {
   const dateStr = new Date().toLocaleString("en-IN", {
     dateStyle: "full",
@@ -1158,6 +1320,93 @@ Deno.serve(async (req) => {
       const rendered = renderOfflineSaleEmail(sale, items || [], costsMap);
       emailSubject = rendered.subject;
       emailHtml = rendered.html;
+
+      // Dispatch Customer Purchase Receipt Email if customer email exists
+      if (sale.customer_email && sale.customer_email.includes("@")) {
+        const customerRendered = renderCustomerOfflinePurchaseEmail(sale, items || [], settings);
+
+        let customerMsgId: string | null = null;
+        let customerDispatchError: string | null = null;
+
+        if (!resendApiKey) {
+          console.log(
+            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Simulating offline customer receipt to: ${sale.customer_email}`,
+          );
+          customerMsgId = `simulated_offline_cust_${Date.now()}`;
+        } else {
+          try {
+            let custRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${resendApiKey}`,
+              },
+              body: JSON.stringify({
+                from: fromEmail,
+                to: [sale.customer_email.trim()],
+                reply_to: "hello@zerahkids.com",
+                subject: customerRendered.subject,
+                html: customerRendered.html,
+              }),
+            });
+
+            let custData = (await custRes.json()) as Record<string, any>;
+
+            if (
+              !custRes.ok &&
+              (custData.message?.includes("domain") || custData.message?.includes("not verified"))
+            ) {
+              console.warn(
+                "[send-owner-sale-notification] Custom domain not verified on Resend. Retrying offline customer receipt with onboarding@resend.dev fallback...",
+              );
+              custRes = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${resendApiKey}`,
+                },
+                body: JSON.stringify({
+                  from: "Zérah Baby & Kids <onboarding@resend.dev>",
+                  to: [sale.customer_email.trim()],
+                  reply_to: "hello@zerahkids.com",
+                  subject: customerRendered.subject,
+                  html: customerRendered.html,
+                }),
+              });
+              custData = (await custRes.json()) as Record<string, any>;
+            }
+
+            if (custRes.ok) {
+              customerMsgId = custData.id;
+              console.log(
+                `[send-owner-sale-notification] Customer offline receipt email delivered: ${customerMsgId} to ${sale.customer_email}`,
+              );
+            } else {
+              customerDispatchError = custData.message || JSON.stringify(custData);
+              console.error(
+                `[send-owner-sale-notification] Customer offline receipt email error:`,
+                customerDispatchError,
+              );
+            }
+          } catch (custFetchErr: unknown) {
+            customerDispatchError =
+              (custFetchErr as Error).message || "Network error sending customer offline receipt email";
+            console.error(
+              `[send-owner-sale-notification] Customer offline receipt fetch error:`,
+              customerDispatchError,
+            );
+          }
+        }
+
+        // Update database with customer notification status on offline_sales
+        await adminClient
+          .from("offline_sales")
+          .update({
+            customer_notification_status: customerDispatchError === null ? "sent" : "failed",
+            customer_notified_at: customerDispatchError === null ? new Date().toISOString() : null,
+          })
+          .eq("id", sale.id);
+      }
     } else if (type === "online_order") {
       if (!order_id) throw new Error("Missing order_id for online order notification");
       if (!notifyOnline && !force_retry) {

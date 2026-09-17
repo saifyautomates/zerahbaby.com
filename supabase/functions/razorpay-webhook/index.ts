@@ -161,6 +161,23 @@ Deno.serve(async (req) => {
         }
 
         if (targetOrderId && !isDuplicate) {
+          // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
+          try {
+            fetch(`${supabaseUrl}/functions/v1/dispatch-sale-notifications`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                sale_type: "online",
+                sale_id: targetOrderId,
+              }),
+            }).catch((e) => console.warn("[razorpay-webhook] Notification dispatcher error:", e));
+          } catch {
+            // Non-blocking
+          }
+
           // Trigger owner notification email (non-blocking)
           try {
             fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {

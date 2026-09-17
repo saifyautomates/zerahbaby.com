@@ -1291,7 +1291,8 @@ Deno.serve(async (req) => {
       "order_delivered",
       "order_cancelled",
     ];
-    if (notify_owner && ownerEvents.includes(currentEventType)) {
+    const shouldNotifyOwner = notify_owner !== false && ownerEvents.includes(currentEventType);
+    if (shouldNotifyOwner) {
       const { data: ownerSetting } = await adminClient
         .from("site_settings")
         .select("value")

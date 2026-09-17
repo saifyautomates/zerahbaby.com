@@ -278,6 +278,25 @@ Deno.serve(async (req) => {
 
     // 6. Trigger notifications & shipment creation EXACTLY ONCE (skip if duplicate)
     if (orderId && !isDuplicate) {
+      // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
+      try {
+        fetch(`${supabaseUrl}/functions/v1/dispatch-sale-notifications`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            sale_type: "online",
+            sale_id: orderId,
+          }),
+        }).catch((notifyErr) => {
+          console.warn("[verify-razorpay-payment] Notification dispatcher error:", notifyErr);
+        });
+      } catch {
+        // Non-blocking
+      }
+
       // Trigger Owner Sale Notification Email (non-blocking)
       try {
         fetch(`${supabaseUrl}/functions/v1/send-owner-sale-notification`, {

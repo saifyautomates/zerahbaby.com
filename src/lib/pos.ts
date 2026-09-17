@@ -11,6 +11,7 @@ import {
   invalidateCanonicalReportingQueries,
   notifyPOSSaleChanged,
 } from "@/lib/canonical-reporting";
+import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -556,8 +557,15 @@ export function usePlaceOfflineSale() {
               is_offline_queued: false,
             };
 
-            // Asynchronously trigger transactional SMS & Owner Email Notification (non-blocking)
+            // Asynchronously trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
             if (result.sale_id && !result.duplicate) {
+              dispatchSaleNotifications({
+                sale_type: "offline",
+                sale_id: result.sale_id,
+              }).catch((dispatchErr) => {
+                console.warn("[pos] Sale notifications dispatcher error:", dispatchErr);
+              });
+
               supabase.functions
                 .invoke("msg91-transactional", {
                   body: {
