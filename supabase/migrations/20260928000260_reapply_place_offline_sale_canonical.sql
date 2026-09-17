@@ -1,36 +1,9 @@
 -- =====================================================================
--- Migration: 20260928000246_unify_place_offline_sale_canonical.sql
--- Description: Drop all conflicting overloaded signatures of place_offline_sale
---              and define the single unified canonical signature with all
---              parameters supported so PostgREST resolves calls unambiguously.
+-- Migration: 20260928000260_reapply_place_offline_sale_canonical.sql
+-- Description: Re-apply place_offline_sale to production with complete
+--              valid_from, valid_until, and uncapped maximum discount handling.
 -- =====================================================================
 
--- 1. Drop conflicting overloaded signatures
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, text, text, numeric, uuid, jsonb, text, numeric, text, text
-);
-
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, numeric, text, jsonb, uuid, numeric, text, numeric, text, uuid, text, text
-);
-
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, numeric, text, jsonb, uuid, numeric, text, numeric, text, uuid, text
-);
-
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, numeric, text, jsonb, uuid, numeric, text, numeric, text, uuid
-);
-
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, numeric, text, jsonb, uuid, numeric, text, numeric, text
-);
-
-DROP FUNCTION IF EXISTS public.place_offline_sale(
-  text, text, text, text, numeric, text, jsonb, uuid, numeric, text
-);
-
--- 2. Define Single Unified Canonical place_offline_sale
 CREATE OR REPLACE FUNCTION public.place_offline_sale(
   _customer_name text DEFAULT 'Walk-in Customer',
   _customer_phone text DEFAULT '',
@@ -448,43 +421,3 @@ $$;
 GRANT EXECUTE ON FUNCTION public.place_offline_sale(
   text, text, text, text, text, numeric, text, jsonb, uuid, numeric, text, numeric, text, uuid, text
 ) TO authenticated, anon, service_role;
-
--- 3. Security Definer Helper for Checkout Session Status (Safe inspection by session_id)
-CREATE OR REPLACE FUNCTION public.get_checkout_session_status(_session_id text)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  v_rec record;
-BEGIN
-  IF _session_id IS NULL OR trim(_session_id) = '' THEN
-    RETURN jsonb_build_object('valid', false, 'error', 'Missing session ID');
-  END IF;
-
-  SELECT session_id, status, order_id, total, currency, payment_method, expires_at, created_at
-  INTO v_rec
-  FROM public.checkout_sessions
-  WHERE session_id = trim(_session_id)
-  LIMIT 1;
-
-  IF v_rec.session_id IS NULL THEN
-    RETURN jsonb_build_object('valid', false, 'error', 'Session not found');
-  END IF;
-
-  RETURN jsonb_build_object(
-    'valid', true,
-    'session_id', v_rec.session_id,
-    'status', v_rec.status,
-    'order_id', v_rec.order_id,
-    'total', v_rec.total,
-    'currency', v_rec.currency,
-    'payment_method', v_rec.payment_method,
-    'expires_at', v_rec.expires_at,
-    'created_at', v_rec.created_at
-  );
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_checkout_session_status(text) TO authenticated, anon, service_role;
