@@ -30,9 +30,11 @@ import { THEME_PRESETS } from "@/lib/homepage-themes";
 import { SectionEditorModal } from "@/components/admin/SectionEditorModal";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Link } from "@tanstack/react-router";
+import { useProducts } from "@/lib/store";
 
 export function HomepageSectionsTab() {
   const { data: sections = [], isLoading } = useHomepageSections(true);
+  const { data: allProducts = [] } = useProducts(false);
   const toggleVisibility = useToggleSectionVisibility();
   const reorder = useReorderSections();
   const duplicate = useDuplicateSection();
@@ -59,12 +61,19 @@ export function HomepageSectionsTab() {
     await reorder.mutateAsync(reorderedPayload);
   };
 
-  const getSourceBadge = (source: string) => {
+  const getSourceBadge = (source: string, section?: HomepageSection) => {
+    if (
+      source === "ALL" ||
+      section?.slug === "all-products" ||
+      section?.title?.toLowerCase()?.trim() === "all products"
+    ) {
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400";
+    }
     switch (source) {
       case "BESTSELLERS":
         return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400";
       case "NEW_ARRIVALS":
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400";
+        return "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-400";
       case "DISCOUNTED":
         return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400";
       case "CATEGORY":
@@ -174,9 +183,14 @@ export function HomepageSectionsTab() {
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${getSourceBadge(
                         section.source_type,
+                        section,
                       )}`}
                     >
-                      {section.source_type}
+                      {section.source_type === "ALL" ||
+                      section.slug === "all-products" ||
+                      section.title?.toLowerCase()?.trim() === "all products"
+                        ? "ALL PRODUCTS (AUTO)"
+                        : section.source_type}
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
                       {section.section_type === "PRODUCT_CAROUSEL" ? (
@@ -254,9 +268,13 @@ export function HomepageSectionsTab() {
 
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-1">
                     <span>
-                      {section.source_type === "MANUAL"
-                        ? `${section.items?.length ?? 0} curated items`
-                        : `Auto rules (Max ${section.display_settings.max_products || 8})`}
+                      {section.source_type === "ALL" ||
+                      section.slug === "all-products" ||
+                      section.title?.toLowerCase()?.trim() === "all products"
+                        ? `All catalog products (${allProducts.length} items · Auto-syncs new products)`
+                        : section.source_type === "MANUAL"
+                          ? `${section.items?.length ?? 0} curated items`
+                          : `Auto rules (Max ${section.display_settings.max_products || 8})`}
                     </span>
                     <span>•</span>
                     <span>CTA: "{section.display_settings.cta_label || "View all"}"</span>

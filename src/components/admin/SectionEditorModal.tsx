@@ -951,8 +951,13 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                 <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
                   Product Source Engine
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                   {[
+                    {
+                      id: "ALL",
+                      label: "All Products (Auto)",
+                      desc: "All catalog items automatically (new products auto-included)",
+                    },
                     { id: "MANUAL", label: "Manual Handpick", desc: "Curate specific products" },
                     { id: "BESTSELLERS", label: "Bestsellers", desc: "Top rated catalog items" },
                     { id: "NEW_ARRIVALS", label: "New Arrivals", desc: "Latest additions" },
@@ -979,6 +984,21 @@ export function SectionEditorModal({ section, onClose, onSuccess }: SectionEdito
                   ))}
                 </div>
               </div>
+
+              {sourceType === "ALL" && (
+                <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
+                    <Sparkles className="size-4 text-emerald-600" />
+                    Automatic Catalog Synchronization Active
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Store par jo bhi naye products upload ya bulk import honge, wo sab automatically is section me live appear honge. Manual curation ya handpicking karne ki zaroorat nahi hai.
+                  </p>
+                  <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
+                    Current active catalog: <strong>{allProducts.length} products</strong> automatically linked.
+                  </div>
+                </div>
+              )}
 
               {sourceType === "CATEGORY" && (
                 <div className="p-4 rounded-2xl border border-border bg-muted/20">

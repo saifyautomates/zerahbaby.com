@@ -204,7 +204,21 @@ export function resolveSectionProducts(
 ): Product[] {
   const max = section.display_settings?.max_products ?? 8;
 
-  // 1. If explicit items are curated/assigned to this section, ALWAYS respect them!
+  // 1. If section is designated as ALL products (or slug/title is all-products), return live catalog
+  if (
+    section.source_type === "ALL" ||
+    (section.source_type as string) === "ALL_PRODUCTS" ||
+    section.slug === "all-products" ||
+    section.title.toLowerCase().trim() === "all products"
+  ) {
+    const catalogMax = Math.max(max, 48);
+    // Newest products first so newly uploaded products automatically appear at top
+    return [...allProducts]
+      .sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0))
+      .slice(0, catalogMax);
+  }
+
+  // 2. If explicit items are curated/assigned to this section, ALWAYS respect them!
   if (section.items && section.items.length > 0) {
     const productMap = new Map<string, Product>();
     for (const p of allProducts) {
@@ -223,17 +237,6 @@ export function resolveSectionProducts(
     if (manualList.length > 0) {
       return manualList.slice(0, max);
     }
-  }
-
-  // If section is designated as ALL products (or slug/title is all-products), return live catalog
-  if (
-    section.source_type === "ALL" ||
-    (section.source_type as string) === "ALL_PRODUCTS" ||
-    section.slug === "all-products" ||
-    section.title.toLowerCase().trim() === "all products"
-  ) {
-    const catalogMax = Math.max(max, 24);
-    return [...allProducts].slice(0, catalogMax);
   }
 
   if (section.source_type === "MANUAL") {
