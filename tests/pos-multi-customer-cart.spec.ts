@@ -289,6 +289,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
   test("4. Real Browser UI: Multi-sale tab strip renders, allows creating new sales and switching", async ({
     page,
   }) => {
+    test.setTimeout(60000);
     await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
       localStorage.setItem("zerah_is_admin_00000000-0000-0000-0000-000000000001", "true");
@@ -299,9 +300,9 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
     // Navigate to POS billing terminal
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
 
-    // Verify POS Terminal title
+    // Verify POS Terminal title (allow time for lazy POSTab chunk compilation in dev)
     await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 15000,
+      timeout: 30000,
     });
 
     // Verify "+ New Sale" button is visible
@@ -331,6 +332,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
   test("5. Full E2E Customer Journey: Simultaneous sales, hold, switch, refresh survival, and independent completion", async ({
     page,
   }) => {
+    test.setTimeout(90000);
     await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
       localStorage.setItem("zerah_is_admin_00000000-0000-0000-0000-000000000001", "true");
@@ -340,7 +342,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
 
     await page.goto("/admin?tab=billing&subtab=pos", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 20000,
+      timeout: 30000,
     });
 
     // Reset leftover tabs for clean test run
@@ -354,10 +356,19 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
       }
     }
 
+    // Query active product SKU dynamically
+    const { data: activeProds } = await supabase
+      .from("products")
+      .select("sku, barcode")
+      .eq("is_active", true)
+      .gt("stock", 0)
+      .limit(1);
+    const targetSku = activeProds?.[0]?.sku || "ZR-CL-2796";
+
     // 1. Initial Sale A - Add item using search input
     const scanInput = page.getByPlaceholder(/Scan barcode, or search by product name/i);
     await expect(scanInput).toBeVisible({ timeout: 5000 });
-    await scanInput.fill("ZR-CL-4189");
+    await scanInput.fill(targetSku);
     await page.waitForTimeout(600);
     await scanInput.press("Enter");
     await page.waitForTimeout(800);
@@ -381,7 +392,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
     await page.waitForTimeout(400);
 
     // Add another item for Sale B
-    await scanInput.fill("ZR-CL-4189");
+    await scanInput.fill(targetSku);
     await page.waitForTimeout(600);
     await scanInput.press("Enter");
     await page.waitForTimeout(800);
@@ -393,7 +404,7 @@ test.describe("Multi-Customer POS / Multi-Cart System Integrity", () => {
     // 6. Test Browser Refresh Persistence
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "POS Terminal" })).toBeVisible({
-      timeout: 10000,
+      timeout: 30000,
     });
 
     // Both sales survived page reload

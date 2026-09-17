@@ -290,7 +290,7 @@ test.describe("POS Unified Customers & Manual Price Override — Authoritative S
     // 1. Search for real product by SKU and add to cart
     const scanBar = page.getByPlaceholder(/Scan barcode, or search by product name/i);
     await expect(scanBar).toBeVisible({ timeout: 5000 });
-    await scanBar.fill("ZR-CL-4189");
+    await scanBar.fill("ZR-CL-2796");
     await page.waitForTimeout(600);
     await scanBar.press("Enter");
     await page.waitForTimeout(800);

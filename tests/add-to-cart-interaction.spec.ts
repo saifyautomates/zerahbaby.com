@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+const TEST_PRODUCT_ID = "a0de4fe3-580b-4c02-9f75-a834f51c182c";
+
 test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate and clear guest cart storage
@@ -14,7 +16,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("1. Simple product add: creates rich cart item card below with all details", async ({
     page,
   }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     // Ensure cart section is not visible initially
     await expect(page.locator("#cart-section")).toHaveCount(0);
@@ -38,7 +40,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
 
     // 4. The card must show: image, name, price, quantity controls, remove button
     await expect(cartItemCard.locator("img")).toBeVisible();
-    await expect(cartItemCard.getByRole("link", { name: /cord/i }).first()).toBeVisible();
+    await expect(cartItemCard.getByRole("link", { name: /frock|cute|kids|cord/i }).first()).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: "Decrease quantity" })).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: "Increase quantity" })).toBeVisible();
     await expect(cartItemCard.getByRole("button", { name: /Remove/i })).toBeVisible();
@@ -54,7 +56,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("2. Same variant/SKU added twice: increases quantity on existing card without duplicate", async ({
     page,
   }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     const addToBagBtn = page
       .locator("main")
@@ -73,14 +75,16 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     // Wait for rapid-click lock to clear
     await page.waitForTimeout(300);
 
-    // Add second time (same product/variant)
+    // Add again
     await addToBagBtn.click();
 
-    // Must still have exactly 1 card, but with quantity = 2
+    // Must not duplicate card: still exactly 1 item card in cart section
     await expect(cartSection.locator("li")).toHaveCount(1);
+
+    // Quantity on the card should now be 2
     await expect(cartSection.locator("li").first().locator("span.w-5")).toHaveText("2");
 
-    // Cart badge in header should update to 2
+    // Cart badge should update to 2
     const cartBadge = page.locator('a[href="/cart"] span');
     await expect(cartBadge).toHaveText("2");
   });
@@ -88,7 +92,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("3. Product with variants: selects and displays authoritative variant attributes", async ({
     page,
   }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     // Ensure page loaded and variant selectors are ready
     const addToBagBtn = page
@@ -123,7 +127,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   test("4. Card controls: Quantity changes (+/-) and Remove button work instantly", async ({
     page,
   }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     const addToBagBtn = page
       .locator("main")
@@ -157,7 +161,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   });
 
   test("5. Persistence: Cart items persist across full page refresh", async ({ page }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     const addToBagBtn = page
       .locator("main")
@@ -180,7 +184,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   });
 
   test("6. Main /cart page uses the exact same CartItemCard design", async ({ page }) => {
-    await page.goto("/product/cord", { waitUntil: "networkidle" });
+    await page.goto(`/product/${TEST_PRODUCT_ID}`, { waitUntil: "networkidle" });
 
     const addToBagBtn = page
       .locator("main")
@@ -211,10 +215,10 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
   }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    // Simulate "Buy It Again" inserting a cart line with product_slug
-    await page.evaluate(() => {
-      localStorage.setItem("zerah-cart-guest", JSON.stringify([{ id: "cord", qty: 1 }]));
-    });
+    // Simulate "Buy It Again" inserting a cart line with product id
+    await page.evaluate((id) => {
+      localStorage.setItem("zerah-cart-guest", JSON.stringify([{ id, qty: 1 }]));
+    }, TEST_PRODUCT_ID);
 
     await page.goto("/cart", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: "Your bag" })).toBeVisible({ timeout: 15000 });
@@ -222,7 +226,7 @@ test.describe("Add to Cart Interaction & Cart Section Suite", () => {
     // Verify item card resolves and renders with product details
     const cartItem = page.locator("ul.space-y-4 > li").first();
     await expect(cartItem).toBeVisible({ timeout: 15000 });
-    await expect(cartItem).toContainText(/cord|set|romper|dress|frock/i);
+    await expect(cartItem).toContainText(/cord|set|romper|dress|frock|top/i);
     await expect(cartItem.locator("span.w-5")).toHaveText("1");
   });
 });

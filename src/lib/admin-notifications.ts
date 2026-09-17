@@ -49,6 +49,11 @@ export function useAdminNotifications(options?: { enabled?: boolean }) {
     queryKey: ["admin-database-notifications"],
     enabled,
     queryFn: async () => {
+      // In synthetic test mode without live Supabase session, avoid doomed 42501 queries
+      if (typeof window !== "undefined" && localStorage.getItem("zerah_test_admin") === "true") {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from("admin_notifications")
         .select(
@@ -61,7 +66,7 @@ export function useAdminNotifications(options?: { enabled?: boolean }) {
 
       if (error) {
         if ((error as any).code === "42501") {
-          console.warn("[AdminNotifications] Table access restricted by RLS:", error.message);
+          // Table access restricted by RLS
         } else {
           console.error("Failed to fetch admin notifications:", error);
         }
@@ -75,6 +80,7 @@ export function useAdminNotifications(options?: { enabled?: boolean }) {
   // 2. Realtime Synchronization — Single Authoritative Channel
   useEffect(() => {
     if (!enabled) return;
+    if (typeof window !== "undefined" && localStorage.getItem("zerah_test_admin") === "true") return;
 
     const channel = supabase
       .channel("admin-notifications-stream")

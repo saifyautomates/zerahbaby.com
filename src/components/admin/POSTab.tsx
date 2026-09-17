@@ -77,6 +77,7 @@ import {
   notifyPOSSaleChanged,
 } from "@/lib/canonical-reporting";
 import { broadcastCatalogueChange, invalidateCatalogue } from "@/lib/admin-products";
+import { subscribeToRealtimeSync } from "@/lib/realtime-sync";
 import clothing from "@/assets/cat-clothing.jpg";
 import {
   type POSCartItem,
@@ -773,22 +774,18 @@ export function POSTab() {
     };
     window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
 
-    // 3. Supabase Realtime Postgres Changes
-    const channel = supabase
-      .channel("pos-realtime-catalog-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+    // 3. Supabase Realtime Postgres Changes via Global Engine
+    const unsubscribeSync = subscribeToRealtimeSync((table) => {
+      if (table === "products" || table === "product_variants") {
         debouncedInvalidate();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, () => {
-        debouncedInvalidate();
-      })
-      .subscribe();
+      }
+    });
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       bc?.close();
       window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
-      supabase.removeChannel(channel);
+      unsubscribeSync();
     };
   }, [qc]);
 
@@ -2499,14 +2496,22 @@ export function POSTab() {
     return list;
   }, [searchResults]);
 
-  // Customer search results
+  // Customer search results (debounced by 250ms to prevent request storm on rapid typing)
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
   useEffect(() => {
-    if (customerSearchQuery.trim().length >= 2) {
-      searchCustomers.mutate(customerSearchQuery);
+    const timer = setTimeout(() => {
+      setDebouncedCustomerSearch(customerSearchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [customerSearchQuery]);
+
+  useEffect(() => {
+    if (debouncedCustomerSearch.length >= 2) {
+      searchCustomers.mutate(debouncedCustomerSearch);
     } else {
       searchCustomers.reset();
     }
-  }, [customerSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedCustomerSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex min-h-full flex-col rounded-2xl border border-border/50 bg-background relative">

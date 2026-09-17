@@ -877,9 +877,9 @@ function ProductPage() {
         <div>
           {featUrgency && (
             <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
-              {product.stock > 0 && product.stock <= product.lowStockAt && (
+              {activeStock > 0 && activeStock <= (product.lowStockAt || 3) && (
                 <span className="rounded-full bg-destructive/10 text-destructive px-2.5 py-1 animate-pulse border border-destructive/20 shadow-xs">
-                  🔥 Only {product.stock} left in stock
+                  🔥 {activeStock === 1 ? "Only 1 left in stock" : `Only ${activeStock} left in stock`}
                 </span>
               )}
             </div>

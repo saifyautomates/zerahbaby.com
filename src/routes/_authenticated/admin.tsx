@@ -168,6 +168,7 @@ const CustomerHistoryPanel = safeLazy(() =>
 );
 import { useTheme } from "@/lib/theme";
 import { useAdminNotifications } from "@/lib/admin-notifications";
+import { subscribeToRealtimeSync } from "@/lib/realtime-sync";
 import { initGlobalBarcodeScanner, hasPendingScans } from "@/lib/barcode-scanner";
 import { PaymentMethodsSettingsCard } from "@/components/admin/PaymentMethodsSettingsCard";
 import { ShiprocketRazorpayIntegrationsCard } from "@/components/admin/ShiprocketRazorpayIntegrationsCard";
@@ -373,7 +374,7 @@ export function AdminPage() {
     markAllAsRead,
     deleteNotification,
     clearAllNotifications,
-  } = useAdminNotifications({ enabled: Boolean(isAdmin) });
+  } = useAdminNotifications({ enabled: Boolean(isAdmin && user?.id) });
 
   // Detect OS for shortcut badge
   const isMac = useMemo(() => {
@@ -1188,22 +1189,18 @@ function ProductsTab() {
     };
     window.addEventListener("zerah:catalog-updated", handleCatalogEvent);
 
-    // 3. Supabase Realtime Postgres Changes
-    const channel = supabase
-      .channel("admin-realtime-catalog-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+    // 3. Supabase Realtime Postgres Changes via Global Engine
+    const unsubscribeSync = subscribeToRealtimeSync((table) => {
+      if (table === "products" || table === "product_variants") {
         invalidate();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "product_variants" }, () => {
-        invalidate();
-      })
-      .subscribe();
+      }
+    });
 
     return () => {
       if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
       bc?.close();
       window.removeEventListener("zerah:catalog-updated", handleCatalogEvent);
-      supabase.removeChannel(channel);
+      unsubscribeSync();
     };
   }, [qc, invalidate]);
 
@@ -1464,9 +1461,14 @@ function ProductsTab() {
           feeMap = {};
         }
       }
+      const productMap = new Map<string, Product>();
+      (data || []).forEach((p) => {
+        if (p.uuid) productMap.set(p.uuid, p);
+        if (p.id) productMap.set(p.id, p);
+      });
       ids.forEach((id) => {
         feeMap[id] = fee;
-        const prod = (data || []).find((p) => p.uuid === id || p.id === id);
+        const prod = productMap.get(id);
         if (prod) {
           feeMap[prod.uuid] = fee;
           feeMap[prod.id] = fee;

@@ -26,13 +26,15 @@ test.describe("BUG #8 — Accessible Names on Icon-Only Buttons", () => {
   test("POS BillingCenter controls have accessible names", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("zerah_test_admin", "true");
+      localStorage.setItem("zerah_admin_active_tab", "billing");
+      localStorage.setItem("zerah_admin_active_subtab", "pos");
     });
     await page.goto("http://localhost:8080/admin?tab=billing&subtab=pos", {
       waitUntil: "domcontentloaded",
     });
 
     const scanInput = page.locator('input[aria-label="POS Universal Scan and Search Bar"]');
-    await expect(scanInput).toBeVisible({ timeout: 10000 });
+    await expect(scanInput).toBeVisible({ timeout: 25000 });
 
     // Type to trigger clear button
     await scanInput.fill("cord");

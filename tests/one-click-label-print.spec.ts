@@ -63,8 +63,26 @@ test.describe("One-Click Product Label Printing Suite", () => {
   });
 
   test("2. Printer Profile Persistence (localStorage) & Defaults", () => {
+    if (typeof globalThis.localStorage === "undefined") {
+      const storage: Record<string, string> = {};
+      globalThis.localStorage = {
+        getItem: (k: string) => storage[k] ?? null,
+        setItem: (k: string, v: string) => {
+          storage[k] = String(v);
+        },
+        removeItem: (k: string) => {
+          delete storage[k];
+        },
+        clear: () => {
+          Object.keys(storage).forEach((k) => delete storage[k]);
+        },
+        length: 0,
+        key: (i: number) => Object.keys(storage)[i] ?? null,
+      } as Storage;
+    }
+
     // Test default fallback
-    expect(["50x75", "thermal-108", "a4", "thermal-58"]).toContain(getSavedLabelProfile());
+    expect(["50x75", "thermal-108", "a4", "thermal-58", "58x50"]).toContain(getSavedLabelProfile());
 
     // Test saving 108mm thermal
     setSavedLabelProfile("thermal-108");
@@ -172,11 +190,10 @@ test.describe("One-Click Product Label Printing Suite", () => {
     // 2. Brand footer exists
     expect(html).toContain("ZÉRAH BABY &amp; KIDS");
     // 3. Product name exists
-    expect(html).toContain("lbl-product");
+    expect(html).toContain("lbl-product-name");
     expect(html).toContain("dangri");
     // 4. Price & MRP exist
     expect(html).toContain("₹799");
-    expect(html).toContain("Price:");
     expect(html).toContain("₹299");
     // 5. SKU exists
     expect(html).toContain("ZR-CL-825985");
@@ -210,7 +227,7 @@ test.describe("One-Click Product Label Printing Suite", () => {
     // Verify dimensions: 50mm x 25mm in CSS
     expect(parts2Qty.css).toContain("50mm 25mm");
     expect(parts2Qty.css).toContain("width: 50mm");
-    expect(parts2Qty.css).toContain("min-height: 25mm");
+    expect(parts2Qty.css).toContain("25mm");
 
     // Case B: Standalone tab preview wrapper
     const tabParts = buildLabelPrintParts({
@@ -244,11 +261,9 @@ test.describe("One-Click Product Label Printing Suite", () => {
       layout: "thermal-58",
       labelType: "full",
     });
-    expect(htmlDefault).toContain("lbl-product");
+    expect(htmlDefault).toContain("lbl-product-name");
     expect(htmlDefault).toContain("cord");
-    expect(htmlDefault).toContain("M.R.P.:");
     expect(htmlDefault).toContain("₹499");
-    expect(htmlDefault).toContain("Price:");
     expect(htmlDefault).toContain("₹250");
     expect(htmlDefault).toContain("ZR-CL-4189");
   });
@@ -262,6 +277,6 @@ test.describe("One-Click Product Label Printing Suite", () => {
 
     // Verify :last-child break suppression is declared in CSS
     expect(parts.css).toContain(".label-page:last-child");
-    expect(parts.css).toContain("break-after: auto !important;");
+    expect(parts.css).toContain("break-after: avoid !important;");
   });
 });

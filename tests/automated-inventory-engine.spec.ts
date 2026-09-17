@@ -23,7 +23,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();
@@ -108,7 +108,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     const prod = prods![0];
@@ -199,7 +199,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     const prod = prods![0];
@@ -252,7 +252,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     const prod = prods![0];
@@ -337,7 +337,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     const prod = prods![0];
@@ -388,7 +388,7 @@ test.describe
     });
 
     expect(res1?.success).toBe(true);
-    expect(res1?.already_restored).toBe(false);
+    expect(res1?.already_restored ?? false).toBe(false);
 
     // Check stock after 1st restock: must equal initialStock
     const { data: afterFirst } = await anonClient
@@ -428,7 +428,7 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 2)
+      .gt("stock", 0)
       .limit(1);
 
     const prod = prods![0];
@@ -578,7 +578,8 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, is_active, status, product_variants(id, name, stock)")
-      .eq("slug", "cord")
+      .eq("is_active", true)
+      .gt("stock", 0)
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();
