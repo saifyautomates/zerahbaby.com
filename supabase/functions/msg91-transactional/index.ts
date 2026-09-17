@@ -756,7 +756,7 @@ Deno.serve(async (req) => {
 
     // Action: TEST dispatch from Admin Settings panel
     if (action === "test" || payload.is_test) {
-      const rawTargetPhones = payload.phone || "9667571712, 9057074777";
+      const rawTargetPhones = payload.phone || "9057074777";
       const targetPhones = extractIndianPhoneNumbers(rawTargetPhones);
       if (targetPhones.length === 0) {
         return new Response(
@@ -1310,9 +1310,9 @@ Deno.serve(async (req) => {
         targetOwnerPhones = extractIndianPhoneNumbers(contactSetting?.value);
       }
 
-      // Canonical default admin numbers: 9667571712 AND 9057074777
+      // Canonical default admin number: 9057074777
       if (targetOwnerPhones.length === 0) {
-        targetOwnerPhones = ["9667571712", "9057074777"];
+        targetOwnerPhones = ["9057074777"];
       }
 
       for (const phone of targetOwnerPhones) {
