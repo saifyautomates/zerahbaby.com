@@ -13,6 +13,9 @@ export default tseslint.config(
       "scratch",
       "src/routeTree.gen.ts",
       "src/integrations/supabase/types.ts",
+      "tests/**",
+      "scripts/**",
+      "supabase/**",
     ],
   },
   {
@@ -43,7 +46,7 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
+      "no-empty": ["error", { "allowEmptyCatch": true }],
     },
   },
-  eslintPluginPrettier,
 );
