@@ -36,7 +36,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           if (base && key) {
             const [prodRes, catRes] = await Promise.all([
               fetch(
-                `${base}/rest/v1/products?select=id,slug,name,image,image_url,updated_at&is_active=eq.true&sales_channel=neq.OFFLINE_ONLY&limit=1000`,
+                `${base}/rest/v1/products?select=id,slug,name,image,image_url,updated_at&is_active=eq.true&or=(sales_channel.is.null,sales_channel.neq.OFFLINE_ONLY)&limit=1000`,
                 { headers: { apikey: key } },
               ),
               fetch(`${base}/rest/v1/categories?select=slug,name&limit=100`, {
