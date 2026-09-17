@@ -86,7 +86,7 @@ const QUICK_NAV_ACTIONS: SearchResultItem[] = [
     category: "navigation",
     title: "Inventory Management",
     subtitle: "Track product stock adjustments and logs",
-    tab: "inventory",
+    tab: "products",
   },
   {
     id: "nav-settings",
