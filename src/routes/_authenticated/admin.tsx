@@ -2822,61 +2822,8 @@ function ProductsTab() {
 
 /* ---------------- Settings ---------------- */
 
-const SETTING_LABELS: Record<string, string> = {
-  brand_name: "Brand name",
-  hero_title: "Home hero title",
-  hero_subtitle: "Home hero subtitle",
-  contact_email: "Contact email",
-  contact_phone: "Contact phone",
-  store_address: "Store address",
-  store_hours: "Opening hours",
-  maps_url: "Google Maps link",
-  owner_notification_email: "Owner Sale Alert Email (Recipient)",
-  owner_notification_phone: "Owner Sale Alert Mobile (Recipient SMS)",
-  owner_notify_offline_sales: "Enable Offline POS Sale Alerts (true/false)",
-  owner_notify_online_sales: "Enable Online Order Alerts (true/false)",
-  // The feature toggles won't be rendered in the text list, so they don't strictly need labels here, but good for completeness
-  feature_hover_swap: "Hover Image Swap",
-  feature_promo_badges: "Floating Promo Badges",
-  feature_size_guide: "Size Guide Drawer",
-  feature_image_magnifier: "Image Magnifier (Zoom)",
-  feature_urgency_badges: "Urgency & Social Proof Badges",
-  feature_swatches: "Interactive Visual Swatches",
-  feature_sticky_cart: "Sticky 'Add to Cart' Bar",
-  urgency_dispatch_cutoff_hour: "Dispatch Cutoff Hour",
-  free_delivery_enabled: "Enable Free Delivery Threshold (true/false)",
-  free_delivery_threshold: "Free Delivery Threshold Amount (₹)",
-  standard_shipping_charge: "Standard Shipping Charge (₹)",
-  free_delivery_message: "Free Delivery Cart Message",
-  enable_cod: "Enable Cash on Delivery (true/false)",
-  enable_open_box: "Enable Open Box Delivery (true/false)",
-};
+/* ---------------- Settings ---------------- */
 
-const SETTING_DESCRIPTIONS: Record<string, string> = {
-  brand_name: "Yahan se website ka main naam (logo text) aur footer text change hoga.",
-  hero_title: "Homepage par aane wala sabse bada main title yahan se change hota hai.",
-  hero_subtitle:
-    "Homepage ke main title ke theek niche wala chhota text (subtitle) yahan se badle.",
-  contact_email: "Website ke footer aur contact page me dikhne wala aapka Email ID.",
-  contact_phone: "Website ke footer aur contact page me dikhne wala Phone/Mobile number.",
-  owner_notification_phone:
-    "Is mobile number par admin/owner ko new order aur offline sale ke DLT SMS alerts aayenge (e.g. 9057074777).",
-  owner_notification_email:
-    "Is email address par admin/owner ko new order aur offline sale ke invoice notification emails aayenge (e.g. hello@zerahkids.com).",
-  store_address: "Website ke footer aur contact page me dikhne wala dukan ka pata (address).",
-  store_hours: "Dukaan khulne aur band hone ka samay (yeh Footer me dikhta hai).",
-  maps_url: "Footer me location icon par click karne se jo Google Maps open hoga, uska link.",
-  free_delivery_enabled:
-    "True likhne par free delivery threshold on ho jayega, false par band ho jayega.",
-  free_delivery_threshold:
-    "Is amount ke upar ka order hone par customer ko shipping charge nahi lagega.",
-  standard_shipping_charge:
-    "Agar order free delivery threshold se kam hai, toh yeh charge lagega (e.g. 65).",
-  free_delivery_message:
-    "Cart me progress bar ke liye message. Use {amount} as placeholder. (e.g. Add ₹{amount} more for FREE DELIVERY 🎉)",
-  enable_cod: "True likhne par Cash on Delivery payment option on ho jayega, false par disable.",
-  enable_open_box: "True likhne par Checkout me Open Box Delivery option dikhega, false par nahi.",
-};
 const DEFAULT_SETTINGS: Record<string, string> = {
   brand_name: "Zerah Baby And Kid's",
   announcement: "Free delivery on orders above ₹999 · Easy 7-day returns",
@@ -2908,12 +2855,12 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   free_delivery_threshold: "999",
   standard_shipping_charge: "65",
   free_delivery_message: "Add ₹{amount} more for FREE DELIVERY 🎉",
+  maintenance_mode: "false",
 };
 
 function SettingsTab() {
   const qc = useQueryClient();
   const [values, setValues] = useState<Record<string, string> | null>(null);
-  const [testingEmail, setTestingEmail] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -2938,162 +2885,147 @@ function SettingsTab() {
       if (fullMerged.announcement !== undefined) {
         fullMerged.announcement_enabled = fullMerged.announcement.trim() ? "true" : "false";
       }
-      const rows = Object.entries(fullMerged).map(([key, value]) => ({ key, value }));
+      const rows = Object.entries(fullMerged).map(([key, value]) => ({ key, value: String(value ?? "") }));
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("All store settings saved & published successfully!");
+      toast.success("All store settings saved & published globally to live store!");
       qc.invalidateQueries({ queryKey: ["admin-settings"] });
       qc.invalidateQueries({ queryKey: ["site_settings"] });
+      qc.invalidateQueries({ queryKey: ["payment-settings"] });
+      qc.invalidateQueries({ queryKey: ["store-info"] });
     },
     onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
   });
-
-  const [testingSms, setTestingSms] = useState(false);
-  const [savingAlerts, setSavingAlerts] = useState(false);
-
-  async function onSaveAlertSettings(overrideVals?: {
-    phone?: string;
-    email?: string;
-    silent?: boolean;
-  }) {
-    setSavingAlerts(true);
-    try {
-      const phoneToSave = (
-        overrideVals?.phone !== undefined
-          ? overrideVals.phone
-          : (current.owner_notification_phone ?? "")
-      ).trim();
-      const emailToSave = (
-        overrideVals?.email !== undefined
-          ? overrideVals.email
-          : (current.owner_notification_email ?? "")
-      ).trim();
-      const offlineNotify = current.owner_notify_offline_sales !== "false" ? "true" : "false";
-      const onlineNotify = current.owner_notify_online_sales !== "false" ? "true" : "false";
-      const resendApiKey = (current.resend_api_key ?? "").trim();
-
-      const rows: Array<{ key: string; value: string }> = [
-        { key: "owner_notification_phone", value: phoneToSave },
-        { key: "owner_notification_email", value: emailToSave },
-        { key: "owner_notify_offline_sales", value: offlineNotify },
-        { key: "owner_notify_online_sales", value: onlineNotify },
-      ];
-
-      if (resendApiKey) {
-        rows.push({ key: "resend_api_key", value: resendApiKey });
-      }
-
-      const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
-      if (error) throw error;
-
-      setValues((prev) => ({
-        ...(prev || {}),
-        owner_notification_phone: phoneToSave,
-        owner_notification_email: emailToSave,
-        owner_notify_offline_sales: offlineNotify,
-        owner_notify_online_sales: onlineNotify,
-        ...(resendApiKey ? { resend_api_key: resendApiKey } : {}),
-      }));
-
-      await qc.invalidateQueries({ queryKey: ["admin-settings"] });
-      await qc.invalidateQueries({ queryKey: ["site_settings"] });
-
-      if (!overrideVals?.silent) {
-        toast.success("Admin alert mobile number, email & preferences saved successfully!");
-      }
-      return { phone: phoneToSave, email: emailToSave };
-    } catch (err: unknown) {
-      const msg = (err as Error).message || "Failed to save alert settings";
-      toast.error(`Save failed: ${msg}`);
-      throw err;
-    } finally {
-      setSavingAlerts(false);
-    }
-  }
-
-  async function onSendTestNotification() {
-    setTestingEmail(true);
-    try {
-      const targetEmail = (
-        current.owner_notification_email ||
-        current.contact_email ||
-        "hello@zerahkids.com"
-      ).trim();
-
-      // Auto-save current values to site_settings first
-      await onSaveAlertSettings({ email: targetEmail, silent: true });
-
-      const { data, error } = await supabase.functions.invoke("send-owner-sale-notification", {
-        body: {
-          type: "test",
-          recipient: targetEmail,
-          api_key: current.resend_api_key || undefined,
-        },
-      });
-      if (error) throw error;
-      if (data && !data.success) {
-        throw new Error(data.error || "Email delivery failed");
-      }
-      toast.success(
-        data?.message || `Test email dispatched to ${targetEmail}! Please check your inbox.`,
-      );
-    } catch (err: unknown) {
-      toast.error(`Test email failed: ${(err as Error).message}`);
-    } finally {
-      setTestingEmail(false);
-    }
-  }
-
-  async function onSendTestSms(
-    templateKey: "online_sale_owner" | "offline_pos_sale_owner" = "online_sale_owner",
-  ) {
-    setTestingSms(true);
-    try {
-      const targetPhone = (current.owner_notification_phone || "9057074777").trim();
-
-      // Auto-save current values to site_settings first
-      await onSaveAlertSettings({ phone: targetPhone, silent: true });
-
-      const isOffline = templateKey === "offline_pos_sale_owner";
-      const { data, error } = await supabase.functions.invoke("msg91-transactional", {
-        body: {
-          action: "test",
-          event_type: isOffline ? "offline_pos_sale" : "online_sale",
-          template_key: templateKey,
-          recipient_type: "owner",
-          phone: targetPhone,
-          name: "Test Customer",
-          order_number: isOffline ? undefined : "TEST-ORD-001",
-          sale_number: isOffline ? "POS-TEST-001" : undefined,
-          total: 999,
-          payment_method: isOffline ? "CASH" : "ONLINE",
-          notify_owner: true,
-        },
-      });
-      if (error) throw error;
-      if (data && !data.success) {
-        throw new Error(data.error || "SMS dispatch failed");
-      }
-      toast.success(
-        data?.message ||
-          `Test SMS (${isOffline ? "Offline Sale" : "Online Order"}) dispatched to ${targetPhone}! Check the SMS Logs tab.`,
-      );
-    } catch (err: unknown) {
-      toast.error(`Test SMS failed: ${(err as Error).message}`);
-    } finally {
-      setTestingSms(false);
-    }
-  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-16">
       {/* ─── PAYMENT METHODS & COD CONTROL CARD ────────────────── */}
       <PaymentMethodsSettingsCard />
 
-      {/* ─── MAINTENANCE MODE ─────────────────────────────────── */}
+      {/* ─── SHIPPING & DELIVERY RULES CARD ───────────────────── */}
+      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
+        <div className="border-b border-border pb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="font-display text-lg font-bold text-foreground">Shipping &amp; Delivery Rules</h3>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary">
+              Cart &amp; Checkout
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure free delivery threshold, standard shipping fees, and checkout delivery options.
+          </p>
+        </div>
 
+        <div className="space-y-5">
+          {/* Free Delivery Toggle */}
+          <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/10 p-4 cursor-pointer hover:bg-muted/20 transition">
+            <div>
+              <span className="block text-sm font-bold text-foreground">Free Delivery Eligibility</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                Automatically grant free shipping when customer cart value reaches threshold
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={current.free_delivery_enabled !== "false"}
+              onChange={(e) =>
+                setValues({
+                  ...current,
+                  free_delivery_enabled: e.target.checked ? "true" : "false",
+                })
+              }
+              className="size-4 accent-primary ml-4 shrink-0 cursor-pointer"
+            />
+          </label>
+
+          {/* Threshold & Shipping Charge Inputs */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Free Delivery Threshold (₹)
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={current.free_delivery_threshold ?? "999"}
+                onChange={(e) =>
+                  setValues({ ...current, free_delivery_threshold: e.target.value })
+                }
+                placeholder="999"
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs font-semibold"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Orders equal or above this subtotal will have ₹0 shipping.
+              </p>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Standard Shipping Charge (₹)
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={current.standard_shipping_charge ?? "65"}
+                onChange={(e) =>
+                  setValues({ ...current, standard_shipping_charge: e.target.value })
+                }
+                placeholder="65"
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs font-semibold"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Courier fee applied when cart is below free delivery threshold.
+              </p>
+            </label>
+          </div>
+
+          {/* Free Delivery Cart Message */}
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Free Delivery Progress Cart Message
+            </span>
+            <input
+              type="text"
+              value={current.free_delivery_message ?? "Add ₹{amount} more for FREE DELIVERY 🎉"}
+              onChange={(e) =>
+                setValues({ ...current, free_delivery_message: e.target.value })
+              }
+              placeholder="Add ₹{amount} more for FREE DELIVERY 🎉"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition focus:border-primary shadow-2xs font-medium"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Shown in cart progress bar. Keep <code className="text-primary font-bold">{"{amount}"}</code> to dynamically display remaining amount.
+            </p>
+          </label>
+
+          {/* Open Box Delivery Toggle */}
+          <label className="flex items-center justify-between rounded-2xl border border-border bg-muted/10 p-4 cursor-pointer hover:bg-muted/20 transition">
+            <div>
+              <span className="block text-sm font-bold text-foreground">Open Box Delivery Option</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                Allow customers to select Open Box Delivery inspection at checkout
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={current.enable_open_box !== "false"}
+              onChange={(e) =>
+                setValues({
+                  ...current,
+                  enable_open_box: e.target.checked ? "true" : "false",
+                })
+              }
+              className="size-4 accent-primary ml-4 shrink-0 cursor-pointer"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* ─── MAINTENANCE MODE ─────────────────────────────────── */}
       <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -3214,15 +3146,14 @@ function SettingsTab() {
         </div>
       </div>
 
-      {/* ─── GENERAL STORE SETTINGS & TEXT CONTROL ───────────────────────────── */}
+      {/* ─── GENERAL STORE SETTINGS & BRANDING ───────────────────────────── */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
         <div className="border-b border-border pb-4">
           <h3 className="font-display text-lg font-bold text-foreground">
-            Storefront Text &amp; Branding Content
+            Storefront Identity, Contact &amp; Location
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Update the textual branding and details across your storefront. All updates sync in real
-            time.
+            Update store name, homepage banner headlines, contact details, and physical store location.
           </p>
         </div>
 
@@ -3231,40 +3162,118 @@ function SettingsTab() {
             <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : (
-          <div className="space-y-6">
-            {Object.keys(SETTING_LABELS)
-              .filter(
-                (k) =>
-                  !k.startsWith("owner_") && !k.startsWith("feature_") && !k.startsWith("urgency_"),
-              )
-              .map((key) => (
-                <div
-                  key={key}
-                  className="space-y-2 border-b border-border/40 pb-5 last:border-0 last:pb-0"
-                >
-                  <label className="block space-y-1">
-                    <span className="text-sm font-bold text-foreground">
-                      {SETTING_LABELS[key] ?? key}
-                    </span>
-                    {SETTING_DESCRIPTIONS[key] && (
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        <span className="font-bold text-primary/80">
-                          Kya change hoga? (Effect):
-                        </span>{" "}
-                        {SETTING_DESCRIPTIONS[key]}
-                      </p>
-                    )}
-                    <textarea
-                      rows={key.includes("subtitle") || key === "announcement" ? 2 : 1}
-                      value={
-                        current[key] !== undefined ? current[key] : (DEFAULT_SETTINGS[key] ?? "")
-                      }
-                      onChange={(e) => setValues({ ...current, [key]: e.target.value })}
-                      className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs"
-                    />
-                  </label>
-                </div>
-              ))}
+          <div className="space-y-5">
+            {/* Brand Name */}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Brand Name (Logo &amp; Store Title)
+              </span>
+              <input
+                type="text"
+                value={current.brand_name ?? "Zerah Baby And Kid's"}
+                onChange={(e) => setValues({ ...current, brand_name: e.target.value })}
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+              />
+            </label>
+
+            {/* Hero Main Title */}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Homepage Hero Main Title
+              </span>
+              <textarea
+                rows={2}
+                value={current.hero_title ?? "Everything little ones need, in one happy place"}
+                onChange={(e) => setValues({ ...current, hero_title: e.target.value })}
+                className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+              />
+            </label>
+
+            {/* Hero Subtitle */}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Homepage Hero Subtitle
+              </span>
+              <textarea
+                rows={2}
+                value={
+                  current.hero_subtitle ??
+                  "Gentle clothing, safe toys, trusted nursery care and travel gear — handpicked for babies and kids."
+                }
+                onChange={(e) => setValues({ ...current, hero_subtitle: e.target.value })}
+                className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+              />
+            </label>
+
+            {/* Contact Email & Phone */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Public Contact Email
+                </span>
+                <input
+                  type="email"
+                  value={current.contact_email ?? "hello@zerahkids.com"}
+                  onChange={(e) => setValues({ ...current, contact_email: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Public Contact Phone
+                </span>
+                <input
+                  type="text"
+                  value={current.contact_phone ?? "9057074777, 9667571712"}
+                  onChange={(e) => setValues({ ...current, contact_phone: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+            </div>
+
+            {/* Physical Store Address */}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Physical Store Address
+              </span>
+              <textarea
+                rows={2}
+                value={
+                  current.store_address ??
+                  "80 Feet Link Rd, near Bajot Restaurant, Atwal Nagar, Gordhanpura, Kota, Rajasthan 324001, India"
+                }
+                onChange={(e) => setValues({ ...current, store_address: e.target.value })}
+                className="w-full resize-y rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+              />
+            </label>
+
+            {/* Store Hours & Maps Link */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Store Opening Hours
+                </span>
+                <input
+                  type="text"
+                  value={current.store_hours ?? "Open daily · 10:30 AM – 10:00 PM"}
+                  onChange={(e) => setValues({ ...current, store_hours: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Google Maps Location Link
+                </span>
+                <input
+                  type="url"
+                  value={current.maps_url ?? "https://maps.app.goo.gl/2MpZr9HmLrxVpZbQA"}
+                  onChange={(e) => setValues({ ...current, maps_url: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
+                />
+              </label>
+            </div>
           </div>
         )}
 
