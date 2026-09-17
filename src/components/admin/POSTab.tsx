@@ -4185,7 +4185,7 @@ export function POSTab() {
                               }
                             }
                           }}
-                          placeholder="Enter or scan Voucher Token (e.g. A6D0) or Coupon Code..."
+                          placeholder="Enter or scan Voucher Token (e.g. ZRH-7B89-K29P) or Coupon Code..."
                           className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
                         />
                       </div>
@@ -4254,8 +4254,9 @@ export function POSTab() {
                             {voucherData.error || "Invalid or ineligible voucher"}
                           </p>
                           <p className="text-[11px] opacity-80 mt-0.5">
-                            Exchange vouchers expire 7 days after issuance and cannot be re-used
-                            after full redemption.
+                            {voucherData.ownership_mismatch
+                              ? `This credit is strictly registered to ${voucherData.customer_name || "another customer"} (${voucherData.customer_phone || ""}). Select this customer to redeem.`
+                              : "Store credit vouchers expire 90 days after issuance and cannot be re-used after full redemption."}
                           </p>
                         </div>
                       </div>

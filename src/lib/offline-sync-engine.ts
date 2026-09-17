@@ -66,10 +66,51 @@ export type OfflineQueueItem = {
   is_permanent_error?: boolean;
 };
 
+export type OfflineReturnQueueItem = {
+  id: string; // client transaction UUID
+  operation_id: string;
+  idempotency_key: string;
+  return_number: string;
+  credit_token: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  refund_method: string;
+  refund_status: string;
+  return_reason: string;
+  notes: string;
+  original_sale_id: string | null;
+  items: Array<{
+    product_id: string | null;
+    variant_id?: string | null;
+    product_slug?: string;
+    name: string;
+    sku?: string;
+    barcode?: string;
+    variant_info?: string;
+    refund_price: number;
+    qty: number;
+    mrp?: number;
+    original_sale_item_id?: string | null;
+  }>;
+  refund_amount: number;
+  status: SyncStatus;
+  retry_count: number;
+  last_error?: string;
+  created_at: string;
+  synced_at?: string;
+  server_return_id?: string;
+  next_retry_at?: number;
+  is_permanent_error?: boolean;
+};
+
 const DB_NAME = "zerah_pos_offline_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SALES_STORE = "offline_sales";
+const RETURNS_STORE = "offline_returns";
 const CATALOG_STORE = "cached_catalog";
+const CUSTOMERS_STORE = "cached_customers";
 const TOKENS_STORE = "offline_tokens";
 
 // IndexedDB Helper
@@ -85,11 +126,19 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SALES_STORE)) {
         db.createObjectStore(SALES_STORE, { keyPath: "operation_id" });
       }
+      if (!db.objectStoreNames.contains(RETURNS_STORE)) {
+        db.createObjectStore(RETURNS_STORE, { keyPath: "operation_id" });
+      }
       if (!db.objectStoreNames.contains(CATALOG_STORE)) {
         const catStore = db.createObjectStore(CATALOG_STORE, { keyPath: "id" });
         catStore.createIndex("barcode", "barcode", { unique: false });
         catStore.createIndex("sku", "sku", { unique: false });
         catStore.createIndex("slug", "slug", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(CUSTOMERS_STORE)) {
+        const custStore = db.createObjectStore(CUSTOMERS_STORE, { keyPath: "id" });
+        custStore.createIndex("phone", "phone", { unique: false });
+        custStore.createIndex("name", "name", { unique: false });
       }
       if (!db.objectStoreNames.contains(TOKENS_STORE)) {
         db.createObjectStore(TOKENS_STORE, { keyPath: "date" });
@@ -439,6 +488,269 @@ export async function pruneObsoleteTestDrafts(): Promise<number> {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Offline Returns Queue Management                                  */
+/* ------------------------------------------------------------------ */
+
+export function generateClientStoreCreditCode(): string {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let p1 = "";
+  let p2 = "";
+  for (let i = 0; i < 4; i++) {
+    p1 += chars.charAt(Math.floor(Math.random() * chars.length));
+    p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `ZRH-${p1}-${p2}`;
+}
+
+export function generateClientReturnNumber(): string {
+  const d = new Date();
+  const yy = d.getFullYear().toString().slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const rand = Math.floor(10000 + Math.random() * 90000);
+  return `RET-${yy}${mm}${dd}-${rand}`;
+}
+
+function fallbackGetReturnsFromLS(): OfflineReturnQueueItem[] {
+  try {
+    const raw = localStorage.getItem("zerah_offline_returns_queue");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function queueOfflineReturn(
+  item: Omit<
+    OfflineReturnQueueItem,
+    "status" | "retry_count" | "id" | "operation_id" | "created_at"
+  > & {
+    id?: string;
+    operation_id?: string;
+    created_at?: string;
+    status?: SyncStatus;
+  },
+): Promise<OfflineReturnQueueItem> {
+  const id =
+    item.id ||
+    (typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `ret-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+  const operation_id = item.operation_id || `op-${id}`;
+  const created_at = item.created_at || new Date().toISOString();
+
+  const record: OfflineReturnQueueItem = {
+    ...item,
+    id,
+    operation_id,
+    created_at,
+    status: item.status || "PENDING_SYNC",
+    retry_count: 0,
+  };
+
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(RETURNS_STORE, "readwrite");
+      const store = tx.objectStore(RETURNS_STORE);
+      const req = store.put(record);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    const existing = fallbackGetReturnsFromLS();
+    existing.push(record);
+    localStorage.setItem("zerah_offline_returns_queue", JSON.stringify(existing));
+  }
+
+  notifySyncStatusChange();
+  return record;
+}
+
+export async function getAllQueuedReturns(): Promise<OfflineReturnQueueItem[]> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(RETURNS_STORE, "readonly");
+      const store = tx.objectStore(RETURNS_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const idbItems = (req.result || []) as OfflineReturnQueueItem[];
+        const lsItems = fallbackGetReturnsFromLS();
+        const map = new Map<string, OfflineReturnQueueItem>();
+        idbItems.forEach((i) => map.set(i.operation_id, i));
+        lsItems.forEach((i) => {
+          if (!map.has(i.operation_id)) map.set(i.operation_id, i);
+        });
+        const combined = Array.from(map.values()).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        resolve(combined);
+      };
+      req.onerror = () => resolve(fallbackGetReturnsFromLS());
+    });
+  } catch {
+    return fallbackGetReturnsFromLS();
+  }
+}
+
+export async function updateQueuedReturnStatus(
+  operation_id: string,
+  status: SyncStatus,
+  errorMsg?: string,
+  meta?: {
+    server_return_id?: string;
+    next_retry_at?: number;
+    is_permanent_error?: boolean;
+  },
+): Promise<void> {
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(RETURNS_STORE, "readwrite");
+      const store = tx.objectStore(RETURNS_STORE);
+      const req = store.get(operation_id);
+      req.onsuccess = () => {
+        const record = req.result as OfflineReturnQueueItem | undefined;
+        if (record) {
+          const updated: OfflineReturnQueueItem = {
+            ...record,
+            status,
+            last_error: errorMsg !== undefined ? errorMsg : record.last_error,
+            retry_count:
+              status === "FAILED" || status === "FAILED_REQUIRES_ACTION"
+                ? record.retry_count + 1
+                : record.retry_count,
+            synced_at: status === "SYNCED" ? new Date().toISOString() : record.synced_at,
+            next_retry_at: meta?.next_retry_at !== undefined ? meta.next_retry_at : record.next_retry_at,
+            is_permanent_error:
+              meta?.is_permanent_error !== undefined
+                ? meta.is_permanent_error
+                : status === "FAILED_REQUIRES_ACTION"
+                  ? true
+                  : record.is_permanent_error,
+            server_return_id: meta?.server_return_id || record.server_return_id,
+          };
+          store.put(updated);
+        }
+        resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  } catch {
+    const items = fallbackGetReturnsFromLS();
+    const idx = items.findIndex((i) => i.operation_id === operation_id);
+    if (idx !== -1) {
+      items[idx].status = status;
+      if (errorMsg !== undefined) items[idx].last_error = errorMsg;
+      if (status === "FAILED" || status === "FAILED_REQUIRES_ACTION") items[idx].retry_count++;
+      if (status === "SYNCED") items[idx].synced_at = new Date().toISOString();
+      if (meta?.next_retry_at !== undefined) items[idx].next_retry_at = meta.next_retry_at;
+      if (meta?.server_return_id) items[idx].server_return_id = meta.server_return_id;
+      localStorage.setItem("zerah_offline_returns_queue", JSON.stringify(items));
+    }
+  }
+  notifySyncStatusChange();
+}
+
+export async function deleteQueuedReturn(operationId: string): Promise<boolean> {
+  let removed = false;
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(RETURNS_STORE, "readwrite");
+      const store = tx.objectStore(RETURNS_STORE);
+      const req = store.delete(operationId);
+      req.onsuccess = () => {
+        removed = true;
+        resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  } catch {
+    // ignore
+  }
+
+  try {
+    const items = fallbackGetReturnsFromLS();
+    const filtered = items.filter((i) => i.operation_id !== operationId);
+    if (filtered.length !== items.length) {
+      localStorage.setItem("zerah_offline_returns_queue", JSON.stringify(filtered));
+      removed = true;
+    }
+  } catch {
+    // ignore
+  }
+
+  notifySyncStatusChange();
+  return removed;
+}
+
+export async function clearAllSyncedReturns(): Promise<number> {
+  const all = await getAllQueuedReturns();
+  let count = 0;
+  for (const item of all) {
+    if (item.status === "SYNCED") {
+      await deleteQueuedReturn(item.operation_id);
+      count++;
+    }
+  }
+  return count;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Customer Dataset Caching for Instant Offline Customer Search     */
+/* ------------------------------------------------------------------ */
+
+export async function cacheCustomerList(customers: Array<any>): Promise<void> {
+  if (typeof window === "undefined" || !window.indexedDB || !customers || customers.length === 0) return;
+  try {
+    const db = await openDB();
+    const tx = db.transaction(CUSTOMERS_STORE, "readwrite");
+    const store = tx.objectStore(CUSTOMERS_STORE);
+    customers.forEach((c) => {
+      if (c && c.id) {
+        store.put(c);
+      }
+    });
+  } catch (err) {
+    console.warn("[OfflineSync] Customer cache error:", err);
+  }
+}
+
+export async function searchOfflineCachedCustomers(query: string): Promise<Array<any>> {
+  const clean = query.trim().toLowerCase();
+  const digits = query.replace(/\D/g, "");
+  if (!clean) return [];
+
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(CUSTOMERS_STORE, "readonly");
+      const store = tx.objectStore(CUSTOMERS_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const all = (req.result || []) as Array<any>;
+        const matched = all.filter((c) => {
+          const name = String(c.name || c.full_name || "").toLowerCase();
+          const phone = String(c.phone || "").replace(/\D/g, "");
+          const email = String(c.email || "").toLowerCase();
+          return (
+            name.includes(clean) ||
+            (digits && phone.includes(digits)) ||
+            email.includes(clean)
+          );
+        });
+        resolve(matched.slice(0, 15));
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Catalog Caching for Instant Offline Barcode Lookups              */
 /* ------------------------------------------------------------------ */
 
@@ -678,6 +990,119 @@ export async function processOfflineSyncQueue(options?: {
   return executeSyncLoop(options);
 }
 
+async function syncPendingReturnsLoop(options?: {
+  forceRetry?: boolean;
+}): Promise<{ synced: number; failed: number }> {
+  let synced = 0;
+  let failed = 0;
+
+  try {
+    const all = await getAllQueuedReturns();
+    const now = Date.now();
+    const pending = all.filter((i) => {
+      if (i.status === "SYNCED") return false;
+      if (options?.forceRetry) return true;
+      if (i.status === "FAILED_REQUIRES_ACTION" || i.is_permanent_error) return false;
+      if (i.next_retry_at && i.next_retry_at > now) return false;
+      return (
+        i.status === "PENDING_SYNC" ||
+        i.status === "PENDING" ||
+        i.status === "RETRY_REQUIRED" ||
+        (i.status === "FAILED" && !i.is_permanent_error && i.retry_count < 5)
+      );
+    });
+
+    for (const item of pending) {
+      await updateQueuedReturnStatus(item.operation_id, "SYNCING");
+
+      try {
+        // Idempotency pre-check against database
+        if (item.idempotency_key) {
+          const { data: existingReturn } = await (supabase.from("offline_returns") as any)
+            .select("id, return_number, credit_token")
+            .eq("idempotency_key", item.idempotency_key)
+            .maybeSingle();
+
+          if (existingReturn?.id) {
+            await updateQueuedReturnStatus(item.operation_id, "SYNCED", undefined, {
+              server_return_id: existingReturn.id,
+              next_retry_at: undefined,
+              is_permanent_error: false,
+            });
+            synced++;
+            continue;
+          }
+        }
+
+        // Call canonical process_offline_return RPC
+        const rpcRes = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{
+            data: { return_id: string; return_number: string; credit_token: string; duplicate?: boolean } | null;
+            error: { message: string } | null;
+          }>
+        )("process_offline_return", {
+          _customer_name: item.customer_name || "Walk-in Customer",
+          _customer_phone: item.customer_phone || "",
+          _customer_email: item.customer_email || "",
+          _customer_id: item.customer_id || null,
+          _refund_method: item.refund_method || "exchange_credit",
+          _refund_status: item.refund_status || "completed",
+          _return_reason: item.return_reason || "Customer Return",
+          _notes: item.notes || "",
+          _original_sale_id: item.original_sale_id || null,
+          _items: item.items,
+          _idempotency_key: item.idempotency_key,
+          _custom_return_number: item.return_number,
+          _custom_credit_token: item.credit_token,
+        });
+
+        if (rpcRes.error) {
+          throw new Error(rpcRes.error.message);
+        }
+
+        const data = rpcRes.data;
+        await updateQueuedReturnStatus(item.operation_id, "SYNCED", undefined, {
+          server_return_id: data?.return_id,
+          next_retry_at: undefined,
+          is_permanent_error: false,
+        });
+        synced++;
+      } catch (err: unknown) {
+        const msg = (err as Error).message || "Return sync error";
+        console.warn(`[OfflineSync] Sync failed for return ${item.operation_id}:`, msg);
+
+        const isNetDrop =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("network disconnected") ||
+          msg.includes("timeout");
+
+        if (isNetDrop) {
+          const backoffDelay = Math.min(300000, 5000 * Math.pow(2, Math.min(item.retry_count, 5)));
+          await updateQueuedReturnStatus(item.operation_id, "PENDING_SYNC", msg, {
+            next_retry_at: Date.now() + backoffDelay,
+            is_permanent_error: false,
+          });
+        } else {
+          await updateQueuedReturnStatus(item.operation_id, "FAILED_REQUIRES_ACTION", msg, {
+            next_retry_at: undefined,
+            is_permanent_error: true,
+          });
+          failed++;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[OfflineSync] Return queue iteration error:", err);
+  }
+
+  return { synced, failed };
+}
+
 async function executeSyncLoop(options?: {
   silent?: boolean;
   forceRetry?: boolean;
@@ -685,10 +1110,16 @@ async function executeSyncLoop(options?: {
   isSyncInProgress = true;
   notifySyncStatusChange();
 
-  let syncedCount = 0;
-  let failedCount = 0;
+  let totalSynced = 0;
+  let totalFailed = 0;
 
   try {
+    // 1. Sync pending returns FIRST so any issued store credits exist in DB before sale redemption
+    const returnsResult = await syncPendingReturnsLoop(options);
+    totalSynced += returnsResult.synced;
+    totalFailed += returnsResult.failed;
+
+    // 2. Sync pending sales
     const all = await getAllQueuedSales();
     const now = Date.now();
     const pending = all.filter((i) => {
@@ -718,7 +1149,6 @@ async function executeSyncLoop(options?: {
 
       try {
         // 1. Idempotency Pre-Check: Was this sale already committed in Supabase?
-        // This covers cases where prior network dropped AFTER PostgreSQL committed!
         if (item.idempotency_key) {
           const { data: existingSale } = await (supabase.from("offline_sales") as any)
             .select("id, sale_number, total, created_at")
@@ -733,7 +1163,7 @@ async function executeSyncLoop(options?: {
               next_retry_at: undefined,
               is_permanent_error: false,
             });
-            syncedCount++;
+            totalSynced++;
             continue;
           }
         }
@@ -776,9 +1206,9 @@ async function executeSyncLoop(options?: {
           next_retry_at: undefined,
           is_permanent_error: false,
         });
-        syncedCount++;
+        totalSynced++;
 
-        // 3. Trigger transactional SMS (non-blocking, failure NEVER compromises sale status)
+        // 3. Trigger transactional SMS (non-blocking)
         if (data?.sale_id && !data.duplicate) {
           supabase.functions
             .invoke("msg91-transactional", {
@@ -812,7 +1242,6 @@ async function executeSyncLoop(options?: {
           msg.includes("Failed to execute 'fetch'");
 
         if (isNetDrop) {
-          // Temporary connectivity failure: schedule exponential backoff (5s, 10s, 20s, 40s... max 5 min)
           const backoffDelay = Math.min(300000, 5000 * Math.pow(2, Math.min(item.retry_count, 5)));
           await updateQueuedSaleStatus(item.operation_id, "PENDING_SYNC", msg, {
             transaction_status: "PENDING_CONFIRMATION",
@@ -820,29 +1249,29 @@ async function executeSyncLoop(options?: {
             is_permanent_error: false,
           });
         } else {
-          // Permanent business validation or server rejection: stop infinite retry!
           await updateQueuedSaleStatus(item.operation_id, "FAILED_REQUIRES_ACTION", msg, {
             transaction_status: "FAILED",
             next_retry_at: undefined,
             is_permanent_error: true,
           });
-          failedCount++;
+          totalFailed++;
         }
       }
     }
 
-    if (syncedCount > 0) {
+    if (totalSynced > 0) {
       toast.success(
-        `Synced ${syncedCount} offline POS sale${syncedCount > 1 ? "s" : ""} to cloud!`,
+        `Synced ${totalSynced} offline POS record${totalSynced > 1 ? "s" : ""} to cloud!`,
       );
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("zerah:pos-sale-updated"));
+        window.dispatchEvent(new CustomEvent("zerah:pos-return-updated"));
       }
     }
 
-    if (failedCount > 0 && !options?.silent) {
+    if (totalFailed > 0 && !options?.silent) {
       toast.error(
-        `${failedCount} offline POS sale${failedCount > 1 ? "s" : ""} could not be synchronized due to validation errors. Please check Sales History.`,
+        `${totalFailed} offline record${totalFailed > 1 ? "s" : ""} could not be synchronized due to validation errors. Please check History.`,
       );
     }
   } finally {
@@ -850,7 +1279,7 @@ async function executeSyncLoop(options?: {
     notifySyncStatusChange();
   }
 
-  return { synced: syncedCount, failed: failedCount };
+  return { synced: totalSynced, failed: totalFailed };
 }
 
 /* ------------------------------------------------------------------ */
@@ -871,14 +1300,25 @@ export function subscribeToSyncStatus(fn: StatusListener): () => void {
 }
 
 export async function notifySyncStatusChange() {
-  const all = await getAllQueuedSales();
-  const pendingCount = all.filter(
+  const [sales, returns] = await Promise.all([
+    getAllQueuedSales(),
+    getAllQueuedReturns(),
+  ]);
+  const pendingSales = sales.filter(
     (i) =>
       i.status === "PENDING_SYNC" ||
       i.status === "PENDING" ||
       i.status === "RETRY_REQUIRED" ||
       i.status === "SYNCING",
   ).length;
+  const pendingReturns = returns.filter(
+    (i) =>
+      i.status === "PENDING_SYNC" ||
+      i.status === "PENDING" ||
+      i.status === "RETRY_REQUIRED" ||
+      i.status === "SYNCING",
+  ).length;
+  const pendingCount = pendingSales + pendingReturns;
   const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   statusListeners.forEach((fn) => {

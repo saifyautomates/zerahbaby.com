@@ -10,6 +10,8 @@ import { formatPrice, imageFor } from "@/lib/store";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice } from "@/components/admin/A4Invoice";
 import clothing from "@/assets/cat-clothing.jpg";
+import { toast } from "sonner";
+import { useCustomerStoreCredit } from "@/lib/pos-returns";
 import {
   Search,
   User,
@@ -27,6 +29,9 @@ import {
   FileText,
   Clock,
   Sparkles,
+  Tag,
+  Copy,
+  CheckCircle2,
 } from "lucide-react";
 import { AdminCustomerHubSkeleton } from "@/components/ui/Skeletons";
 
@@ -86,6 +91,20 @@ export function CustomerHistoryPanel() {
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
   const [thermalReceiptSale, setThermalReceiptSale] = useState<OfflineSaleRecord | null>(null);
   const [a4InvoiceSale, setA4InvoiceSale] = useState<OfflineSaleRecord | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  /* ── 0. Live Customer Store Credit Intel ── */
+  const { data: customerCreditIntel } = useCustomerStoreCredit({
+    customerId: selectedCustomer?.id,
+    phone: selectedCustomer?.phone,
+  });
+
+  const copyToClipboard = (token: string) => {
+    navigator.clipboard.writeText(token);
+    setCopiedToken(token);
+    toast.success(`Copied voucher token: ${token}`);
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
 
   /* ── 1. Fetch All Offline Sales ── */
   const { data: rawSales = [], isLoading: salesLoading } = useQuery({
@@ -579,7 +598,12 @@ export function CustomerHistoryPanel() {
                     Available Store Credit
                   </p>
                   <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                    {formatPrice(selectedCustomer.store_credit_balance)}
+                    {formatPrice(
+                      Math.max(
+                        selectedCustomer.store_credit_balance,
+                        customerCreditIntel?.available_credit ?? 0,
+                      ),
+                    )}
                   </p>
                 </div>
                 <div className="text-center sm:text-right">
@@ -599,6 +623,148 @@ export function CustomerHistoryPanel() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Store Credit & Return Vouchers Section */}
+          <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-border bg-muted/20 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
+                <h4 className="text-sm font-bold text-foreground">
+                  Store Credit & Return Entitlements
+                </h4>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                Active Balance:{" "}
+                {formatPrice(
+                  Math.max(
+                    selectedCustomer.store_credit_balance,
+                    customerCreditIntel?.available_credit ?? 0,
+                  ),
+                )}
+              </span>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Active Return Vouchers */}
+              {customerCreditIntel?.active_returns && customerCreditIntel.active_returns.length > 0 ? (
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center gap-1.5">
+                    <Tag className="size-3.5 text-primary" /> Active Return Credit Vouchers ({customerCreditIntel.active_returns.length})
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {customerCreditIntel.active_returns.map((v) => (
+                      <div
+                        key={v.id}
+                        className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 flex flex-col justify-between"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300">
+                              Voucher Token
+                            </span>
+                            <div className="font-mono text-sm font-black text-foreground tracking-wider flex items-center gap-2 mt-0.5">
+                              {v.credit_token}
+                              <button
+                                type="button"
+                                onClick={() => v.credit_token && copyToClipboard(v.credit_token)}
+                                title="Copy voucher token"
+                                className="text-muted-foreground hover:text-foreground transition cursor-pointer"
+                              >
+                                {copiedToken === v.credit_token ? (
+                                  <CheckCircle2 className="size-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="size-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            {v.return_number && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                Return #{v.return_number}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                              {formatPrice(v.credit_balance ?? 0)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block">
+                              of {formatPrice(v.refund_amount ?? 0)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-emerald-500/20 pt-2 mt-2.5">
+                          <span>
+                            Issued: {v.created_at ? new Date(v.created_at).toLocaleDateString("en-IN") : "N/A"}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {v.expires_at ? `Expires: ${new Date(v.expires_at).toLocaleDateString("en-IN")}` : "90 Days Validity"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No unredeemed return vouchers currently active for this customer.
+                </p>
+              )}
+
+              {/* Credit Ledger History */}
+              {customerCreditIntel?.history && customerCreditIntel.history.length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Clock className="size-3.5 text-primary" /> Store Credit Ledger History
+                  </h5>
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-border/60 divide-y divide-border/60 text-xs">
+                    {customerCreditIntel.history.map((h) => (
+                      <div key={h.id} className="p-2.5 flex items-center justify-between gap-3 bg-muted/10">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                                h.type === "CREDIT_ISSUED"
+                                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                                  : h.type === "CREDIT_USED"
+                                    ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {h.type.replace("_", " ")}
+                            </span>
+                            {h.credit_token && (
+                              <span className="font-mono text-[10px] font-bold text-foreground">
+                                {h.credit_token}
+                              </span>
+                            )}
+                          </div>
+                          {h.notes && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{h.notes}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={`font-black ${
+                              h.type === "CREDIT_ISSUED"
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {h.type === "CREDIT_ISSUED" ? "+" : "-"}
+                            {formatPrice(h.amount)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground block">
+                            Bal: {formatPrice(h.balance_after)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -199,6 +199,14 @@ export function POSReturnsTab() {
       groups = groups.filter((g) => {
         const nameMatch = g.customer_name.toLowerCase().includes(q);
         const phoneMatch = g.customer_phone.toLowerCase().includes(q);
+        const creditTokenMatch = returnsList.some(
+          (r) =>
+            r.credit_token &&
+            r.credit_token.toLowerCase().includes(q) &&
+            ((g.customer_phone && r.customer_phone && g.customer_phone.includes(r.customer_phone)) ||
+              (g.customer_name && r.customer_name && g.customer_name.toLowerCase() === r.customer_name.toLowerCase()) ||
+              (g.customer_id && r.customer_id && g.customer_id === r.customer_id)),
+        );
         const saleMatch = g.sales.some(
           (s) =>
             s.sale_number.toLowerCase().includes(q) ||
@@ -209,12 +217,12 @@ export function POSReturnsTab() {
                 it.barcode.toLowerCase().includes(q),
             ),
         );
-        return nameMatch || phoneMatch || saleMatch;
+        return nameMatch || phoneMatch || creditTokenMatch || saleMatch;
       });
     }
 
     return groups;
-  }, [pastSalesWithMetrics, customerSearchQuery]);
+  }, [pastSalesWithMetrics, returnsList, customerSearchQuery]);
 
   /* ------------------------------------------------------------------ */
   /*  DISCOVERY MODE 2: Product Barcode Historical Sales Candidates     */
@@ -669,6 +677,7 @@ export function POSReturnsTab() {
         credit_token: result.credit_token,
         customer_name: resolvedCustomerName,
         customer_phone: customerPhone.trim(),
+        customer_id: customerId,
         items: returnCart.map((item) => ({
           name: item.name,
           sku: item.sku,
@@ -684,6 +693,8 @@ export function POSReturnsTab() {
         notes: returnNotes.trim(),
         created_at: new Date().toISOString(),
         expires_at: result.expires_at,
+        is_offline_queued: result.is_offline_queued,
+        status: result.is_offline_queued ? "PENDING_SYNC" : "COMPLETED",
       };
 
       setActiveReceipt(receiptData);
@@ -702,9 +713,17 @@ export function POSReturnsTab() {
       setReturnNotes("");
       setOriginalSaleId(null);
       setIdempotencyKey(generateIdempotencyKey());
-      toast.success(
-        `Store Credit Voucher #${result.return_number} issued! (${formatPrice(result.refund_amount)})`,
-      );
+
+      if (result.is_offline_queued) {
+        toast.info(
+          `Offline return queued (#${result.return_number}). Store Credit Voucher ${result.credit_token} (${formatPrice(result.refund_amount)}) generated and ready for immediate redemption!`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success(
+          `Store Credit Voucher #${result.return_number} issued! (${formatPrice(result.refund_amount)})`,
+        );
+      }
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to process offline return");
     }

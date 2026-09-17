@@ -6,6 +6,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  generateClientStoreCreditCode,
+  generateClientReturnNumber,
+  queueOfflineReturn,
+} from "@/lib/offline-sync-engine";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -100,6 +105,8 @@ export type ReturnResult = {
   refund_method?: string;
   credit_token: string;
   customer_name: string;
+  customer_phone?: string;
+  customer_id?: string | null;
   available_credit?: number;
   customer_credit_balance?: number;
   items_count?: number;
@@ -108,6 +115,8 @@ export type ReturnResult = {
   original_sale_number?: string | null;
   expires_at?: string;
   duplicate?: boolean;
+  is_offline_queued?: boolean;
+  is_pending_sync?: boolean;
 };
 
 export type ProcessReturnInput = {
@@ -221,8 +230,10 @@ export function parseReturnScanCode(raw: string): { type: ScanCodeType; value: s
     return { type: "invoice_qr", value: trimmed.toUpperCase() };
   }
 
-  // 2. Store Credit Token format (e.g. A123, P258, or legacy ZCR-..., CR-...)
+  // 2. Store Credit Token format (e.g. ZRH-7B89-K29P, A123, P258, or legacy ZCR-..., CR-...)
   if (
+    /^ZRH-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(trimmed) ||
+    /^ZRH-[A-Z0-9-]+/i.test(trimmed) ||
     /^[A-Z][0-9]{3}$/i.test(trimmed) ||
     /^ZCR-[A-Z0-9]+/i.test(trimmed) ||
     /^CR-[A-Z0-9-]+/i.test(trimmed)
@@ -246,15 +257,10 @@ export function parseReturnScanCode(raw: string): { type: ScanCodeType; value: s
 }
 
 /**
- * Generates 4-character uppercase alphanumeric Store Credit Voucher Token (e.g. A7K2, Q9XZ)
+ * Generates standardized ZRH-XXXX-XXXX Store Credit Voucher Token (e.g. ZRH-7B89-K29P)
  */
 export function generateStoreCreditCode(): string {
-  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let res = "";
-  for (let i = 0; i < 4; i++) {
-    res += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return res;
+  return generateClientStoreCreditCode();
 }
 
 /* ------------------------------------------------------------------ */
@@ -624,33 +630,211 @@ export function useProcessOfflineReturn() {
 
   return useMutation({
     mutationFn: async (input: ProcessReturnInput): Promise<ReturnResult> => {
-      // 1. Generate snappy 1 Letter + 3 Digits Store Credit Code (e.g. A123, P258)
-      const snappyCreditCode = generateStoreCreditCode();
+      // 1. Generate client-side deterministic return number and store credit token
+      const clientCreditCode = generateStoreCreditCode();
+      const clientReturnNumber = generateClientReturnNumber();
+      const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
-      const { data, error } = await (
-        supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: ReturnResult; error: { message: string } | null }>
-      )("process_offline_return", {
-        _customer_name: input.customer_name,
-        _customer_phone: input.customer_phone,
-        _customer_email: input.customer_email,
-        _customer_id: input.customer_id,
-        _refund_method: "exchange_credit",
-        _refund_status: input.refund_status,
-        _return_reason: input.return_reason,
-        _notes: input.notes,
-        _original_sale_id: input.original_sale_id || null,
-        _items: input.items,
-        _idempotency_key: input.idempotency_key,
-      });
+      const refundAmount = input.items.reduce(
+        (sum, item) => sum + (Number(item.refund_price) || 0) * (Number(item.qty) || 1),
+        0,
+      );
 
-      if (error) {
-        throw new Error(error.message);
+      // 2. Direct offline path if navigator reports offline
+      if (!isOnline) {
+        const queued = await queueOfflineReturn({
+          idempotency_key: input.idempotency_key,
+          return_number: clientReturnNumber,
+          credit_token: clientCreditCode,
+          customer_id: input.customer_id || null,
+          customer_name: input.customer_name || "Walk-in Customer",
+          customer_phone: input.customer_phone || "",
+          customer_email: input.customer_email || "",
+          refund_method: input.refund_method || "exchange_credit",
+          refund_status: input.refund_status || "completed",
+          return_reason: input.return_reason || "Customer Return",
+          notes: input.notes || "",
+          original_sale_id: input.original_sale_id || null,
+          items: input.items.map((it) => ({
+            product_id: it.product_id || null,
+            variant_id: it.variant_id || null,
+            product_slug: it.product_slug || "",
+            name: it.name,
+            sku: it.sku || "",
+            barcode: it.barcode || "",
+            variant_info: it.variant_info || "",
+            refund_price: Number(it.refund_price) || 0,
+            qty: Number(it.qty) || 1,
+            mrp: Number(it.mrp) || 0,
+            original_sale_item_id: it.original_sale_item_id || null,
+          })),
+          refund_amount: refundAmount,
+        });
+
+        return {
+          return_id: queued.id,
+          return_number: clientReturnNumber,
+          refund_amount: refundAmount,
+          refund_method: input.refund_method || "exchange_credit",
+          credit_token: clientCreditCode,
+          customer_name: input.customer_name || "Walk-in Customer",
+          customer_phone: input.customer_phone || "",
+          customer_id: input.customer_id || null,
+          available_credit: refundAmount,
+          customer_credit_balance: refundAmount,
+          items_count: input.items.length,
+          items_restocked: input.items.reduce((s, it) => s + (Number(it.qty) || 1), 0),
+          original_sale_id: input.original_sale_id || null,
+          is_offline_queued: true,
+          is_pending_sync: true,
+        };
       }
 
-      return data as ReturnResult;
+      // 3. Online RPC execution with fallback to offline queue on network failures
+      try {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: ReturnResult; error: { message: string } | null }>
+        )("process_offline_return", {
+          _customer_name: input.customer_name,
+          _customer_phone: input.customer_phone,
+          _customer_email: input.customer_email,
+          _customer_id: input.customer_id,
+          _refund_method: input.refund_method || "exchange_credit",
+          _refund_status: input.refund_status,
+          _return_reason: input.return_reason,
+          _notes: input.notes,
+          _original_sale_id: input.original_sale_id || null,
+          _items: input.items,
+          _idempotency_key: input.idempotency_key,
+          _offline_return_number: clientReturnNumber,
+          _offline_credit_token: clientCreditCode,
+        });
+
+        if (error) {
+          const errMsg = error.message.toLowerCase();
+          const isNetworkErr =
+            errMsg.includes("network") ||
+            errMsg.includes("fetch") ||
+            errMsg.includes("timeout") ||
+            errMsg.includes("abort") ||
+            errMsg.includes("failed to fetch");
+
+          if (isNetworkErr) {
+            const queued = await queueOfflineReturn({
+              idempotency_key: input.idempotency_key,
+              return_number: clientReturnNumber,
+              credit_token: clientCreditCode,
+              customer_id: input.customer_id || null,
+              customer_name: input.customer_name || "Walk-in Customer",
+              customer_phone: input.customer_phone || "",
+              customer_email: input.customer_email || "",
+              refund_method: input.refund_method || "exchange_credit",
+              refund_status: input.refund_status || "completed",
+              return_reason: input.return_reason || "Customer Return",
+              notes: input.notes || "",
+              original_sale_id: input.original_sale_id || null,
+              items: input.items.map((it) => ({
+                product_id: it.product_id || null,
+                variant_id: it.variant_id || null,
+                product_slug: it.product_slug || "",
+                name: it.name,
+                sku: it.sku || "",
+                barcode: it.barcode || "",
+                variant_info: it.variant_info || "",
+                refund_price: Number(it.refund_price) || 0,
+                qty: Number(it.qty) || 1,
+                mrp: Number(it.mrp) || 0,
+                original_sale_item_id: it.original_sale_item_id || null,
+              })),
+              refund_amount: refundAmount,
+            });
+
+            return {
+              return_id: queued.id,
+              return_number: clientReturnNumber,
+              refund_amount: refundAmount,
+              refund_method: input.refund_method || "exchange_credit",
+              credit_token: clientCreditCode,
+              customer_name: input.customer_name || "Walk-in Customer",
+              customer_phone: input.customer_phone || "",
+              customer_id: input.customer_id || null,
+              available_credit: refundAmount,
+              customer_credit_balance: refundAmount,
+              items_count: input.items.length,
+              items_restocked: input.items.reduce((s, it) => s + (Number(it.qty) || 1), 0),
+              original_sale_id: input.original_sale_id || null,
+              is_offline_queued: true,
+              is_pending_sync: true,
+            };
+          }
+
+          throw new Error(error.message);
+        }
+
+        return data as ReturnResult;
+      } catch (err: unknown) {
+        const errMsg = (err as Error)?.message?.toLowerCase() || "";
+        const isNetworkErr =
+          errMsg.includes("network") ||
+          errMsg.includes("fetch") ||
+          errMsg.includes("timeout") ||
+          errMsg.includes("abort") ||
+          errMsg.includes("failed to fetch");
+
+        if (isNetworkErr) {
+          const queued = await queueOfflineReturn({
+            idempotency_key: input.idempotency_key,
+            return_number: clientReturnNumber,
+            credit_token: clientCreditCode,
+            customer_id: input.customer_id || null,
+            customer_name: input.customer_name || "Walk-in Customer",
+            customer_phone: input.customer_phone || "",
+            customer_email: input.customer_email || "",
+            refund_method: input.refund_method || "exchange_credit",
+            refund_status: input.refund_status || "completed",
+            return_reason: input.return_reason || "Customer Return",
+            notes: input.notes || "",
+            original_sale_id: input.original_sale_id || null,
+            items: input.items.map((it) => ({
+              product_id: it.product_id || null,
+              variant_id: it.variant_id || null,
+              product_slug: it.product_slug || "",
+              name: it.name,
+              sku: it.sku || "",
+              barcode: it.barcode || "",
+              variant_info: it.variant_info || "",
+              refund_price: Number(it.refund_price) || 0,
+              qty: Number(it.qty) || 1,
+              mrp: Number(it.mrp) || 0,
+              original_sale_item_id: it.original_sale_item_id || null,
+            })),
+            refund_amount: refundAmount,
+          });
+
+          return {
+            return_id: queued.id,
+            return_number: clientReturnNumber,
+            refund_amount: refundAmount,
+            refund_method: input.refund_method || "exchange_credit",
+            credit_token: clientCreditCode,
+            customer_name: input.customer_name || "Walk-in Customer",
+            customer_phone: input.customer_phone || "",
+            customer_id: input.customer_id || null,
+            available_credit: refundAmount,
+            customer_credit_balance: refundAmount,
+            items_count: input.items.length,
+            items_restocked: input.items.reduce((s, it) => s + (Number(it.qty) || 1), 0),
+            original_sale_id: input.original_sale_id || null,
+            is_offline_queued: true,
+            is_pending_sync: true,
+          };
+        }
+
+        throw err;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["offline-returns"] });
