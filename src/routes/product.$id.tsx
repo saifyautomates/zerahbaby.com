@@ -61,6 +61,18 @@ import {
 import { safeLazy } from "@/lib/safe-lazy";
 import { Suspense } from "react";
 import { useAdminMode } from "@/lib/admin-mode";
+import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
+import { calculateCartFinancials } from "@/lib/pricing-engine";
+import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
+import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "@/lib/analytics";
+import { ProductCard } from "@/components/site/ProductCard";
+import { RelatedProducts } from "@/components/site/RelatedProducts";
+import { RecentlyViewed } from "@/components/site/RecentlyViewed";
+import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
+import { ProductDetailSkeleton } from "@/components/ui/Skeletons";
+import { CartItemCard } from "@/components/site/CartItemCard";
+import { productsQueryOptions, singleProductQueryOptions } from "@/lib/store";
 
 const ReviewModal = safeLazy(() =>
   import("@/components/site/ReviewModal").then((m) => ({ default: m.ReviewModal })),
@@ -81,20 +93,6 @@ function AdminProductControls(props: { product: Product; inline?: boolean }) {
     </Suspense>
   );
 }
-
-import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
-import { calculateCartFinancials } from "@/lib/pricing-engine";
-import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
-import { supabase } from "@/integrations/supabase/client";
-import { trackEvent } from "@/lib/analytics";
-import { ProductCard } from "@/components/site/ProductCard";
-import { RelatedProducts } from "@/components/site/RelatedProducts";
-import { RecentlyViewed } from "@/components/site/RecentlyViewed";
-import { ResponsiveMedia } from "@/components/ui/ResponsiveMedia";
-import { ProductDetailSkeleton } from "@/components/ui/Skeletons";
-import { CartItemCard } from "@/components/site/CartItemCard";
-
-import { productsQueryOptions, singleProductQueryOptions } from "@/lib/store";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ context, params }) => {
@@ -1466,8 +1464,46 @@ function ReviewsSection({
 
   const stats = calculateReviewStats(reviews);
 
-  // If a product has no published/visible reviews, hide the Reviews section completely
+  // If a product has no published/visible reviews, hide the public Reviews Display section.
+  // BUT: still allow verified buyers to write the FIRST review via a minimal CTA.
   if (isLoading || reviews.length === 0 || stats.totalRatings === 0) {
+    // Show first-review CTA only for verified buyers who haven't already reviewed
+    if (!isCheckingPurchase && isVerifiedBuyer && !hasAlreadyReviewed) {
+      return (
+        <section className="mt-16 pt-10 border-t border-gray-100" id="customer-reviews">
+          <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+            <Sparkles className="size-8 text-primary/60" />
+            <h3 className="font-display text-xl font-bold text-foreground">
+              Be the First to Review This Product
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              You've purchased this item! Share your experience and help other parents make the right choice.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowReviewModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#8B2020] text-white font-bold text-sm shadow-xs hover:bg-[#7a1c1c] transition hover:scale-102 cursor-pointer"
+            >
+              <Star className="size-4 fill-white" />
+              <span>Rate & Review Product</span>
+            </button>
+          </div>
+
+          {/* Review Modal */}
+          {showReviewModal && (
+            <Suspense fallback={null}>
+              <ReviewModal
+                product={product}
+                user={user}
+                orderId={orderId}
+                existingReview={existingReview}
+                onClose={() => setShowReviewModal(false)}
+              />
+            </Suspense>
+          )}
+        </section>
+      );
+    }
     return null;
   }
 

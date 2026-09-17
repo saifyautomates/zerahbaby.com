@@ -155,8 +155,8 @@ BEGIN
     SELECT * INTO v_coupon_record
     FROM public.coupons
     WHERE UPPER(code) = UPPER(trim(_coupon_code)) AND is_active = true
-      AND (start_date IS NULL OR start_date <= now())
-      AND (end_date IS NULL OR end_date >= now())
+      AND (valid_from IS NULL OR valid_from <= now())
+      AND (valid_until IS NULL OR valid_until >= now())
     LIMIT 1;
 
     IF v_coupon_record.id IS NOT NULL THEN

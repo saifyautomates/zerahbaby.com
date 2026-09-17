@@ -16,6 +16,11 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
+  try {
+    // Extract signature and event ID from request headers
+    const signature = req.headers.get("x-razorpay-signature") || req.headers.get("X-Razorpay-Signature") || "";
+    const eventIdHeader = req.headers.get("x-razorpay-event-id") || req.headers.get("X-Razorpay-Event-Id") || "";
+
     let secret = (Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "").trim();
     if (!secret) {
       try {
