@@ -16,7 +16,7 @@
  * - Printable receipt
  * - Double-submit prevention
  */
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -27,7 +27,11 @@ import {
   sanitizeBarcode,
   getBarcodeCandidates,
 } from "@/lib/barcode-scanner";
-import { POSCameraScanner } from "./POSCameraScanner";
+import { safeLazy } from "@/lib/safe-lazy";
+
+const POSCameraScanner = safeLazy(() =>
+  import("./POSCameraScanner").then((m) => ({ default: m.POSCameraScanner })),
+);
 import {
   Plus,
   Minus,
@@ -667,8 +671,8 @@ export function POSTab() {
   // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products"],
-    staleTime: 1000 * 5, // 5s fresh window with instant realtime invalidation
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60, // 60s fresh window with instant realtime invalidation
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const [productsRes, costsRes] = await Promise.all([
         supabase
@@ -5639,12 +5643,16 @@ export function POSTab() {
           document.body,
         )}
 
-      {/* Camera Barcode Scanner Modal with complete lifecycle */}
-      <POSCameraScanner
-        isOpen={isCameraScannerOpen}
-        onClose={() => setIsCameraScannerOpen(false)}
-        onScan={handleScan}
-      />
+      {/* Camera Barcode Scanner Modal with on-demand lazy load */}
+      {isCameraScannerOpen && (
+        <Suspense fallback={null}>
+          <POSCameraScanner
+            isOpen={isCameraScannerOpen}
+            onClose={() => setIsCameraScannerOpen(false)}
+            onScan={handleScan}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

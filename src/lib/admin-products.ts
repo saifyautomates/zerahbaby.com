@@ -69,6 +69,8 @@ export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["admin-search-products"] });
   qc.invalidateQueries({ queryKey: ["product-relations"] });
   qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+  qc.invalidateQueries({ queryKey: ["admin-homepage-sections"] });
+  qc.invalidateQueries({ queryKey: ["homepage-sections"] });
   qc.invalidateQueries({ queryKey: ["admin-products-count"] });
 }
 
@@ -416,15 +418,15 @@ export function useSaveProduct() {
             .eq("product_id", productId);
 
           if (updatedDbVariants && updatedDbVariants.length > 0) {
-            for (const dv of updatedDbVariants) {
-              if (dv.sku) {
-                await (supabase
-                  .from("product_images" as any)
-                  .update({ variant_id: dv.id } as any)
-                  .eq("product_id", productId)
-                  .ilike("variant_sku", dv.sku.trim()) as any);
-              }
-            }
+            await Promise.all(
+              updatedDbVariants
+                .filter((dv) => Boolean(dv.sku))
+                .map((dv) =>
+                  (supabase.from("product_images" as any).update({ variant_id: dv.id } as any) as any)
+                    .eq("product_id", productId)
+                    .ilike("variant_sku", (dv.sku || "").trim()),
+                ),
+            );
           }
         }
 

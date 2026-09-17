@@ -209,9 +209,22 @@ interface DirectProductResult {
   product_images?: DirectProductImage[] | null;
 }
 
+const barcodeMemoryCache = new Map<string, { result: BarcodeResult; timestamp: number }>();
+const BARCODE_CACHE_TTL_MS = 30_000; // 30s in-memory scan cache
+
+export function clearBarcodeMemoryCache(): void {
+  barcodeMemoryCache.clear();
+}
+
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const clean = code.trim();
   if (!clean) return { found: false };
+
+  // Check fast in-memory cache first
+  const cached = barcodeMemoryCache.get(clean.toLowerCase());
+  if (cached && Date.now() - cached.timestamp < BARCODE_CACHE_TTL_MS) {
+    return cached.result;
+  }
 
   const isOnline = typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -247,7 +260,7 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           })
           .catch(console.error);
 
-        return {
+        const res: BarcodeResult = {
           found: true,
           archived: !!data.archived,
           product_id: data.product_id,
@@ -268,6 +281,8 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
             "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
           buying_price: Number(data.buying_price || 0) || null,
         };
+        barcodeMemoryCache.set(clean.toLowerCase(), { result: res, timestamp: Date.now() });
+        return res;
       }
     } catch (rpcErr) {
       console.warn("[pos] Online barcode lookup notice:", rpcErr);
