@@ -126,12 +126,14 @@ export function useGlobalRealtimeSync() {
           ["admin-dashboard"],
           ["my-orders"],
           ["order-history"],
-          ["admin-products"],
-          ["admin-products-count"],
-          ["inventory-products"],
-          ["pos-products"],
-          ["products"],
-          ["product"],
+          ["admin-unified-store-activities"],
+        ]);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, (payload) => {
+        notifyListeners("order_items", payload.eventType, payload);
+        debouncedInvalidate(qc, [
+          ["admin-orders"],
+          ["admin-unified-store-activities"],
         ]);
       })
       .on(
@@ -143,12 +145,40 @@ export function useGlobalRealtimeSync() {
             ["offline-sales"],
             ["offline-sales-badge-count"],
             ["admin-dashboard"],
-            ["admin-products"],
-            ["admin-products-count"],
-            ["inventory-products"],
-            ["products"],
-            ["product"],
-            ["pos-products"],
+            ["admin-offline-sales"],
+            ["admin-canonical-pos-sales"],
+            ["admin-unified-store-activities"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "offline_sale_items" },
+        (payload) => {
+          notifyListeners("offline_sale_items", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["offline-sales"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "analytics_events" },
+        (payload) => {
+          notifyListeners("analytics_events", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["admin-unified-store-activities"],
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "website_visitors" },
+        (payload) => {
+          notifyListeners("website_visitors", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["admin-visitor-analytics"],
+            ["admin-unified-store-activities"],
           ]);
         },
       )
@@ -240,7 +270,6 @@ export function useGlobalRealtimeSync() {
             ["inventory-products"],
             ["pos-products"],
             ["product-relations"],
-            ["homepage-sections"],
           ]);
         },
       )
@@ -254,7 +283,6 @@ export function useGlobalRealtimeSync() {
             ["product"],
             ["admin-products"],
             ["pos-products"],
-            ["homepage-sections"],
           ]);
         },
       )
@@ -281,11 +309,8 @@ export function useGlobalRealtimeSync() {
           notifyListeners("inventory_transactions", payload.eventType, payload);
           debouncedInvalidate(qc, [
             ["inventory-products"],
-            ["admin-products"],
-            ["products"],
-            ["product"],
-            ["pos-products"],
             ["admin-dashboard"],
+            ["inventory-transactions"],
           ]);
         },
       )
@@ -299,9 +324,7 @@ export function useGlobalRealtimeSync() {
             ["offline-returns"],
             ["pos-customers"],
             ["admin-dashboard"],
-            ["pos-products"],
-            ["products"],
-            ["product"],
+            ["admin-unified-store-activities"],
           ]);
         },
       )
@@ -316,8 +339,6 @@ export function useGlobalRealtimeSync() {
             ["admin-orders"],
             ["my-orders"],
             ["admin-dashboard"],
-            ["products"],
-            ["product"],
           ]);
         },
       )

@@ -219,57 +219,14 @@ export function DashboardTab({
 
   const queryClient = useQueryClient();
 
-  // Supabase Realtime Omnichannel Live Sync Channel
+  // Local Activity Event Listener (Realtime is handled globally via realtime-sync.ts)
   useEffect(() => {
-    const channel = supabase
-      .channel("admin-dashboard-realtime-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "offline_sales" }, () => {
-        queryClient.invalidateQueries({ queryKey: CANONICAL_POS_SALES_KEY });
-        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-offline-sales"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "offline_returns" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["offline-returns"] });
-        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "offline_sale_items" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["offline-sales"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "analytics_events" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["admin-products-count"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-        queryClient.invalidateQueries({ queryKey: ["products"] });
-      })
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "website_visitors" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["admin-visitor-analytics"] });
-          queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
-        },
-      )
-      .subscribe();
-
     const handleLocalEvent = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-unified-store-activities"] });
     };
     window.addEventListener("zerah-activity-event", handleLocalEvent);
 
     return () => {
-      supabase.removeChannel(channel);
       window.removeEventListener("zerah-activity-event", handleLocalEvent);
     };
   }, [queryClient]);
