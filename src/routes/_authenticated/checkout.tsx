@@ -34,7 +34,6 @@ import {
   clearPendingPayment,
   getPaymentParamsFromUrl,
   stripPaymentParamsFromUrl,
-  isMobileDevice,
 } from "@/lib/payment-recovery";
 
 export const Route = createFileRoute("/_authenticated/checkout")({
@@ -512,11 +511,9 @@ function CheckoutPage() {
         idempotency_key: generatedIdempotencyKey,
       });
 
-      const mobile = isMobileDevice();
-
       // ── Build Razorpay options ──
-      // Mobile: let Razorpay handle UPI Intent natively (prefill method + no custom blocks)
-      // Desktop: show UPI QR / UPI ID input first, then cards/netbanking
+      // Configure display sequence to show UPI first on all devices.
+      // Razorpay handles UPI Intent natively on mobile when UPI is enabled.
       const options: Record<string, unknown> = {
         key: rzpKeyId,
         amount: rzpAmount,
@@ -528,32 +525,28 @@ function CheckoutPage() {
           name: customerInfo.full_name,
           email: customerInfo.email,
           contact: customerInfo.phone,
-          // On mobile, pre-select UPI so the UPI Intent screen appears first
-          method: mobile ? "upi" : undefined,
         },
         notes: {
           session_id: currentSessionId,
           store: "Zerah Baby And Kid's Kota",
         },
-        // Desktop: configure display sequence to show UPI first, then other methods
-        ...(!mobile && {
-          config: {
-            display: {
-              blocks: {
-                upi: {
-                  name: "Pay via UPI (PhonePe, GPay, Paytm)",
-                  instruments: [{ method: "upi" }],
-                },
-                other: {
-                  name: "Other Payment Modes",
-                  instruments: [{ method: "card" }, { method: "netbanking" }, { method: "wallet" }],
-                },
+        // Configure display sequence to show UPI first, then other methods (all devices)
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI",
+                instruments: [{ method: "upi" }],
               },
-              sequence: ["block.upi", "block.other"],
-              preferences: { show_default_blocks: true },
+              other: {
+                name: "Other Payment Modes",
+                instruments: [{ method: "card" }, { method: "netbanking" }, { method: "wallet" }],
+              },
             },
+            sequence: ["block.upi", "block.other"],
+            preferences: { show_default_blocks: true },
           },
-        }),
+        },
         handler: async (response: {
           razorpay_order_id?: string;
           razorpay_payment_id: string;
@@ -701,7 +694,7 @@ function CheckoutPage() {
           onSubmit={onSubmit}
           className="space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-5 sm:p-8"
         >
-          <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="flex items-start justify-between gap-2 border-b border-border pb-4 flex-wrap">
             <h2 className="text-lg font-bold">Delivery Address</h2>
             {hasSavedAddress && (
               <button
@@ -820,7 +813,7 @@ function CheckoutPage() {
           )}
 
           <div className="mt-8 border-t border-border pt-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between gap-2 mb-4 flex-wrap">
               <h2 className="text-lg font-bold">Payment &amp; Notes</h2>
               <span className="text-xs text-muted-foreground font-medium">
                 Select payment method
@@ -836,7 +829,7 @@ function CheckoutPage() {
                   onClick={() => setPaymentOptionsOpen((prev) => !prev)}
                   className="w-full flex items-center justify-between p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 overflow-hidden flex-1">
                     <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
                       {form.payment_method === "cod" ? (
                         <Banknote className="size-5" />
