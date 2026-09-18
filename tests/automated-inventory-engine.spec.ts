@@ -23,7 +23,8 @@ test.describe
     const { data: prods } = await anonClient
       .from("products")
       .select("id, name, slug, stock, product_variants(id, name, stock)")
-      .gt("stock", 0)
+      .eq("is_active", true)
+      .gt("stock", 5)
       .limit(1);
 
     expect(prods && prods.length > 0).toBeTruthy();
@@ -580,13 +581,25 @@ test.describe
       .select("id, name, slug, stock, is_active, status, product_variants(id, name, stock)")
       .eq("is_active", true)
       .gt("stock", 0)
-      .limit(1);
+      .limit(10);
 
     expect(prods && prods.length > 0).toBeTruthy();
-    const prod = prods![0];
-    const targetVariant = prod.product_variants[0];
+    // Choose product with stock <= 10 for clean depletion
+    const prod = prods?.find((p: any) => p.stock > 0 && p.stock <= 10) || prods![0];
     const initialStock = prod.stock;
-    const initialVarStock = targetVariant.stock;
+
+    // Build items payload to deplete all stock across all variants
+    const itemsToSell = prod.product_variants
+      .filter((v: { stock: number }) => v.stock > 0)
+      .map((v: { id: string; name: string; stock: number }) => ({
+        product_id: prod.id,
+        variant_id: v.id,
+        product_slug: prod.slug,
+        name: prod.name,
+        variant_info: v.name,
+        price: 199,
+        qty: v.stock,
+      }));
 
     // 1. Deplete all available stock via POS sale
     const idempotencyKey = `soldout_spec_${Date.now()}`;
@@ -594,17 +607,7 @@ test.describe
       _customer_name: "Soldout Tester",
       _customer_phone: "9876543210",
       _payment_method: "cash",
-      _items: [
-        {
-          product_id: prod.id,
-          variant_id: targetVariant.id,
-          product_slug: prod.slug,
-          name: prod.name,
-          variant_info: targetVariant.name,
-          price: 199,
-          qty: initialVarStock,
-        },
-      ],
+      _items: itemsToSell,
       _idempotency_key: idempotencyKey,
     });
 
@@ -621,19 +624,19 @@ test.describe
     expect(activeCatalogCheck?.length ?? 0).toBe(0);
 
     // 3. Process return to replenish stock
+    const returnItems = itemsToSell.map((item: { product_id: string; variant_id: string; name: string; qty: number }) => ({
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      name: item.name,
+      qty: item.qty,
+      refund_price: 199,
+    }));
+
     const { data: retRes, error: retErr } = await anonClient.rpc("process_offline_return", {
       _original_sale_id: saleRes.sale_id,
       _customer_name: "Soldout Tester",
       _customer_phone: "9876543210",
-      _items: [
-        {
-          product_id: prod.id,
-          variant_id: targetVariant.id,
-          name: prod.name,
-          qty: initialVarStock,
-          refund_price: 199,
-        },
-      ],
+      _items: returnItems,
       _refund_method: "cash",
       _return_reason: "Test auto-reactivation on restock",
     });
