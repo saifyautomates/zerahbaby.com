@@ -359,7 +359,7 @@ export function useSaveProduct() {
             // so they never linger, duplicate, or falsely inflate stock.
             await supabase
               .from("product_variants")
-              .update({ is_active: false, stock: 0 })
+              .update({ is_active: false, stock: 0, price_override: null, mrp_override: null })
               .eq("product_id", productId)
               .eq("name", "Default")
               .is("color", null)
@@ -400,7 +400,7 @@ export function useSaveProduct() {
             if (delErr) {
               await supabase
                 .from("product_variants")
-                .update({ is_active: false, stock: 0 })
+                .update({ is_active: false, stock: 0, price_override: null, mrp_override: null })
                 .eq("product_id", productId)
                 .not("id", "in", `(${allSavedVariantIds.map((id) => `'${id}'`).join(",")})`);
             }

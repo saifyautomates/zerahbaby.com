@@ -2080,6 +2080,21 @@ function BuyNowModal({
         if (createData?.amount) {
           rzpAmount = createData.amount;
         }
+
+        const expectedDisplayPaise = Math.round(Number(finalTotal) * 100);
+        if (expectedDisplayPaise !== rzpAmount) {
+          console.error("[BuyNow] Critical payment amount verification mismatch!", {
+            finalTotal,
+            expectedDisplayPaise,
+            gatewayOrderPaise: rzpAmount,
+          });
+          setSubmitting(false);
+          toast.error("Payment amount verification failed. Please refresh and try again.", {
+            id: "amount-verify-fail",
+            duration: 6000,
+          });
+          return;
+        }
       } catch (createErr) {
         console.error("[BuyNow] Failed to create Razorpay order:", createErr);
         toast.error(

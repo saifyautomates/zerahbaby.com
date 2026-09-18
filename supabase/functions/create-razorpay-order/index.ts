@@ -197,6 +197,16 @@ Deno.serve(async (req) => {
       throw new Error(`Invalid amount calculation: ${amountInPaise}`);
     }
 
+    // Safe Server Audit Logging for Authoritative Order Creation
+    console.log("[create-razorpay-order] Order Creation Audit:", {
+      checkoutAuthoritativeTotal: amountInPaise / 100,
+      amountInPaise,
+      currency: "INR",
+      receipt,
+      sessionId: targetSessionId,
+      orderId: targetOrderId,
+    });
+
     // 4. Create Razorpay Order via Official API
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const response = await fetch("https://api.razorpay.com/v1/orders", {

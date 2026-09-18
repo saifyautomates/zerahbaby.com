@@ -396,6 +396,23 @@ function CheckoutPage() {
 
       // ─── COD FLOW ──────────────────────────────────────────────────
       if (form.payment_method === "cod") {
+        const expectedDisplayRupees = Number(finalTotal);
+        const serverSessionRupees = Number(sessionResult.total);
+
+        if (Math.abs(expectedDisplayRupees - serverSessionRupees) > 0.01) {
+          console.error("[Checkout] COD payment amount verification mismatch!", {
+            expectedDisplayRupees,
+            serverSessionRupees,
+          });
+          await cancelCheckoutSession(currentSessionId, "Payment amount verification mismatch");
+          setSubmitting(false);
+          toast.error("Payment amount verification failed. Please refresh and try again.", {
+            id: "amount-verify-fail",
+            duration: 6000,
+          });
+          return;
+        }
+
         const codResult = await placeCodOrder(currentSessionId);
 
         trackEvent("order_created", {
@@ -511,6 +528,40 @@ function CheckoutPage() {
         createData.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_TSOPbz5nCb4pLb";
       // Use ONLY the server-authoritative amount — never trust any client-calculated amount
       const rzpAmount: number = createData.amount;
+
+      // ─── STRICT FAIL-SAFE: THREE-WAY AMOUNT VERIFICATION ─────────────
+      // Verify:
+      // 1. Frontend displayed amount (finalTotal in rupees -> paise)
+      // 2. Server authoritative session total (sessionResult.total in rupees -> paise)
+      // 3. Razorpay gateway order amount (createData.amount in paise)
+      // If ANY amount does NOT match, NEVER open payment.
+      const expectedDisplayPaise = Math.round(Number(finalTotal) * 100);
+      const serverSessionPaise = Math.round(Number(sessionResult.total) * 100);
+      const gatewayOrderPaise = Number(createData.amount);
+
+      if (
+        expectedDisplayPaise !== serverSessionPaise ||
+        expectedDisplayPaise !== gatewayOrderPaise ||
+        serverSessionPaise !== gatewayOrderPaise
+      ) {
+        console.error("[Checkout] Critical payment amount verification mismatch!", {
+          frontendDisplayRupees: finalTotal,
+          expectedDisplayPaise,
+          serverSessionRupees: sessionResult.total,
+          serverSessionPaise,
+          gatewayOrderPaise,
+        });
+
+        // Cancel the invalid session on server to prevent orphaned states
+        await cancelCheckoutSession(currentSessionId, "Payment amount verification mismatch");
+        setSubmitting(false);
+
+        toast.error("Payment amount verification failed. Please refresh and try again.", {
+          id: "amount-verify-fail",
+          duration: 6000,
+        });
+        return;
+      }
 
       // ── Save pending payment to sessionStorage BEFORE opening Razorpay ──
       // This is critical for UPI app-switch recovery: if the browser is backgrounded
@@ -656,17 +707,17 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10">
+    <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10 w-full min-w-0">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 
       {paymentCancelled && (
-        <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-3.5">
+        <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-300 w-full min-w-0">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <div className="size-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
               <AlertCircle className="size-5" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="font-bold text-foreground text-sm">
                 Payment cancelled. Your order has not been placed.
               </h4>
@@ -699,19 +750,19 @@ function CheckoutPage() {
       )}
 
       <div
-        className={`mt-8 grid gap-8 lg:grid-cols-[1fr_360px] transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
+        className={`mt-8 grid gap-8 grid-cols-1 lg:grid-cols-[1fr_360px] w-full min-w-0 transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
       >
         <form
           onSubmit={onSubmit}
-          className="space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-5 sm:p-8"
+          className="w-full min-w-0 max-w-full space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-4 sm:p-8 box-border"
         >
-          <div className="flex items-start justify-between gap-2 border-b border-border pb-4 flex-wrap">
-            <h2 className="text-lg font-bold">Delivery Address</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4 min-w-0 w-full">
+            <h2 className="text-lg font-bold min-w-0">Delivery Address</h2>
             {hasSavedAddress && (
               <button
                 type="button"
                 onClick={() => setAddressMode(addressMode === "saved" ? "new" : "saved")}
-                className="text-sm font-semibold text-primary transition hover:underline"
+                className="text-xs sm:text-sm font-semibold text-primary transition hover:underline self-start sm:self-auto shrink-0"
               >
                 {addressMode === "saved" ? "Enter a new address" : "Use saved address"}
               </button>
@@ -719,17 +770,17 @@ function CheckoutPage() {
           </div>
 
           {addressMode === "saved" && profile ? (
-            <div className="rounded-xl border border-border bg-muted/30 p-5">
-              <p className="font-semibold">{profile.full_name}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{profile.address}</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 sm:p-5 min-w-0 w-full break-words">
+              <p className="font-semibold break-words">{profile.full_name}</p>
+              <p className="mt-2 text-sm text-muted-foreground break-words">{profile.address}</p>
+              <p className="text-sm text-muted-foreground break-words">
                 {profile.city}, {profile.state} {profile.pincode}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">Mobile: {profile.phone}</p>
+              <p className="mt-2 text-sm text-muted-foreground break-words">Mobile: {profile.phone}</p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-semibold">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 min-w-0 w-full">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Full name*
                 <input
                   required
@@ -739,7 +790,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Mobile number*
                 <input
                   required
@@ -750,7 +801,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Alternate number
                 <input
                   inputMode="tel"
@@ -760,7 +811,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, alt_phone: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Pincode*
                 <input
                   required
@@ -771,18 +822,18 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "") })}
                 />
               </label>
-              <label className="text-sm font-semibold sm:col-span-2">
+              <label className="text-sm font-semibold sm:col-span-2 min-w-0 w-full">
                 House / flat, building, street*
                 <textarea
                   required
                   rows={2}
                   maxLength={300}
-                  className={`mt-1 ${field}`}
+                  className={`mt-1 ${field} resize-none`}
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Area / colony
                 <input
                   maxLength={120}
@@ -791,7 +842,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, address_line2: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 Landmark
                 <input
                   maxLength={120}
@@ -800,7 +851,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, landmark: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 City / town*
                 <input
                   required
@@ -810,7 +861,7 @@ function CheckoutPage() {
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                 />
               </label>
-              <label className="text-sm font-semibold">
+              <label className="text-sm font-semibold min-w-0 w-full">
                 State*
                 <input
                   required
@@ -823,24 +874,24 @@ function CheckoutPage() {
             </div>
           )}
 
-          <div className="mt-8 border-t border-border pt-6">
-            <div className="flex items-start justify-between gap-2 mb-4 flex-wrap">
-              <h2 className="text-lg font-bold">Payment &amp; Notes</h2>
-              <span className="text-xs text-muted-foreground font-medium">
+          <div className="mt-8 border-t border-border pt-6 min-w-0 w-full">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-2 mb-4 min-w-0 w-full">
+              <h2 className="text-lg font-bold min-w-0">Payment &amp; Notes</h2>
+              <span className="text-xs text-muted-foreground font-medium shrink-0">
                 Select payment method
               </span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2 space-y-3">
-                {/* ─── PAY NOW TRIGGER CARD (Replaces previous static card) ─── */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 min-w-0 w-full">
+              <div className="sm:col-span-2 space-y-3 min-w-0 w-full">
+                {/* ─── PAY NOW TRIGGER CARD ─── */}
                 <button
                   type="button"
                   id="checkout-pay-now-trigger"
                   onClick={() => setPaymentOptionsOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full max-w-full min-w-0 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40 box-border"
                 >
-                  <div className="flex items-center gap-3 min-w-0 overflow-hidden flex-1">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
                     <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
                       {form.payment_method === "cod" ? (
                         <Banknote className="size-5" />
@@ -848,14 +899,14 @@ function CheckoutPage() {
                         <CreditCard className="size-5" />
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-base text-foreground">Pay Now</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
                           {form.payment_method === "cod" ? "COD Selected" : "Online Selected"}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 break-words">
                         {form.payment_method === "cod"
                           ? "Cash on Delivery · Pay cash or UPI at doorstep"
                           : "Online Payment · Instant via UPI, Cards, NetBanking"}
@@ -867,7 +918,7 @@ function CheckoutPage() {
                     <span className="text-xs font-semibold text-primary hidden sm:inline">
                       {paymentOptionsOpen ? "Hide Options" : "Change Method"}
                     </span>
-                    <div className="p-1 rounded-full bg-muted text-muted-foreground group-hover:text-foreground transition-colors">
+                    <div className="p-1 rounded-full bg-muted text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
                       {paymentOptionsOpen ? (
                         <ChevronUp className="size-4" />
                       ) : (
@@ -879,13 +930,13 @@ function CheckoutPage() {
 
                 {/* ─── 2 TABS: ORDER ONLINE & CASH ON DELIVERY ─── */}
                 {paymentOptionsOpen && (
-                  <div className="grid gap-3 sm:grid-cols-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300 min-w-0 w-full max-w-full">
                     {/* TAB 1: ORDER ONLINE */}
                     <button
                       type="button"
                       id="payment-tab-online"
                       onClick={() => setForm((prev) => ({ ...prev, payment_method: "online" }))}
-                      className={`w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer ${
+                      className={`w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border ${
                         form.payment_method === "online"
                           ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
                           : "border-border bg-card hover:bg-muted/30"
@@ -908,11 +959,11 @@ function CheckoutPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <CreditCard className="size-4 text-primary shrink-0" />
                           <span className="font-bold text-sm text-foreground">Order Online</span>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
                             Instant
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
+                        <p className="text-xs text-muted-foreground leading-relaxed break-words">
                           Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or
                           NetBanking.
                         </p>
@@ -925,7 +976,7 @@ function CheckoutPage() {
                         type="button"
                         id="payment-tab-cod"
                         onClick={() => setForm((prev) => ({ ...prev, payment_method: "cod" }))}
-                        className={`w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer ${
+                        className={`w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border ${
                           form.payment_method === "cod"
                             ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
                             : "border-border bg-card hover:bg-muted/30"
@@ -951,12 +1002,12 @@ function CheckoutPage() {
                               Cash on Delivery
                             </span>
                             {codFee > 0 && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
                                 +₹{codFee} fee
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
+                          <p className="text-xs text-muted-foreground leading-relaxed break-words">
                             Pay with cash or UPI upon delivery at your doorstep.
                           </p>
                         </div>
@@ -965,7 +1016,7 @@ function CheckoutPage() {
                       /* COD DISABLED / UNAVAILABLE STATE (Admin Turned Off or Limit Not Met) */
                       <div
                         id="payment-tab-cod-disabled"
-                        className="w-full text-left flex items-start gap-3.5 p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none"
+                        className="w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none box-border"
                         title={codUnavailableReason || "COD unavailable right now"}
                       >
                         <div className="mt-0.5 shrink-0">
@@ -977,11 +1028,11 @@ function CheckoutPage() {
                             <span className="font-bold text-sm text-muted-foreground line-through decoration-muted-foreground/50">
                               Cash on Delivery
                             </span>
-                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
                               Unavailable
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
+                          <p className="text-xs text-muted-foreground leading-relaxed break-words">
                             {codUnavailableReason}
                           </p>
                         </div>
@@ -991,12 +1042,12 @@ function CheckoutPage() {
                 )}
               </div>
 
-              <label className="text-sm font-semibold sm:col-span-2">
+              <label className="text-sm font-semibold sm:col-span-2 min-w-0 w-full">
                 Delivery notes (optional)
                 <textarea
                   rows={2}
                   maxLength={300}
-                  className={`mt-1 ${field}`}
+                  className={`mt-1 ${field} resize-none`}
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
@@ -1006,22 +1057,22 @@ function CheckoutPage() {
           <button
             id="place-order-submit-btn"
             disabled={busy}
-            className="focus-ring press mt-4 w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none cursor-pointer"
+            className="focus-ring press mt-4 w-full max-w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none cursor-pointer"
           >
             {busy
               ? "Placing order…"
               : `${form.payment_method === "cod" ? "Confirm COD Order" : "Pay Now"} · ${formatPrice(finalTotal)}`}
           </button>
         </form>
-        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-sm lg:sticky lg:top-24">
+        <aside className="w-full min-w-0 max-w-full h-fit rounded-3xl border border-border/60 bg-card p-4 sm:p-6 shadow-premium-sm lg:sticky lg:top-24 box-border">
           <h2 className="font-display text-xl font-bold">Your order</h2>
-          <ul className="mt-4 space-y-4 text-sm">
+          <ul className="mt-4 space-y-4 text-sm min-w-0 w-full">
             {items.map(({ product, qty, variantId, variant, price, color, size, image }) => (
               <li
                 key={`${product.id}-${variantId || "default"}`}
-                className="flex gap-4 items-center"
+                className="flex gap-3 sm:gap-4 items-center min-w-0 w-full"
               >
-                <div className="size-16 shrink-0 rounded-xl overflow-hidden bg-muted border border-border/50">
+                <div className="size-14 sm:size-16 shrink-0 rounded-xl overflow-hidden bg-muted border border-border/50">
                   <img
                     src={image || product.image}
                     alt={product.name}
@@ -1051,80 +1102,80 @@ function CheckoutPage() {
                   )}
                   <p className="text-muted-foreground text-xs">Qty: {qty}</p>
                 </div>
-                <span className="font-semibold shrink-0">{formatPrice(price * qty)}</span>
+                <span className="font-semibold shrink-0 tabular-nums">{formatPrice(price * qty)}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 space-y-3.5 border-t border-border pt-4 text-sm">
+          <div className="mt-4 space-y-3.5 border-t border-border pt-4 text-sm min-w-0 w-full">
             {savings > 0 && (
-              <div className="flex justify-between items-center text-muted-foreground">
-                <span className="font-medium">Total MRP</span>
-                <span className="font-semibold tabular-nums text-right line-through">
+              <div className="flex justify-between items-center text-muted-foreground gap-2 min-w-0">
+                <span className="font-medium truncate">Total MRP</span>
+                <span className="font-semibold tabular-nums text-right line-through shrink-0">
                   {formatPrice(subtotal + savings)}
                 </span>
               </div>
             )}
             {savings > 0 && (
-              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                <span className="font-medium flex items-center gap-1.5">
-                  <Sparkles className="size-3.5" />
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 gap-2 min-w-0">
+                <span className="font-medium flex items-center gap-1.5 truncate">
+                  <Sparkles className="size-3.5 shrink-0" />
                   MRP Discount
                 </span>
-                <span className="font-bold tabular-nums text-right">- {formatPrice(savings)}</span>
+                <span className="font-bold tabular-nums text-right shrink-0">- {formatPrice(savings)}</span>
               </div>
             )}
-            <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40">
-              <span className="text-foreground font-semibold">Subtotal</span>
-              <span className="font-bold tabular-nums text-right">{formatPrice(subtotal)}</span>
+            <div className="flex justify-between items-center text-foreground font-semibold pt-1 border-t border-border/40 gap-2 min-w-0">
+              <span className="text-foreground font-semibold truncate">Subtotal</span>
+              <span className="font-bold tabular-nums text-right shrink-0">{formatPrice(subtotal)}</span>
             </div>
             {couponDiscount > 0 && (
-              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-                <span className="font-medium flex items-center gap-2 text-xs">
-                  <TicketPercent className="size-4 text-emerald-600" />
+              <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 gap-2 min-w-0">
+                <span className="font-medium flex items-center gap-2 text-xs truncate">
+                  <TicketPercent className="size-4 text-emerald-600 shrink-0" />
                   Promo Coupon ({couponCode})
                 </span>
-                <span className="font-bold text-xs tabular-nums text-right">
+                <span className="font-bold text-xs tabular-nums text-right shrink-0">
                   - {formatPrice(couponDiscount)}
                 </span>
               </div>
             )}
-            <div className="flex justify-between items-center text-foreground">
-              <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                <Truck className="size-4 text-primary" />
+            <div className="flex justify-between items-center text-foreground gap-2 min-w-0">
+              <span className="text-muted-foreground font-medium flex items-center gap-1.5 truncate">
+                <Truck className="size-4 text-primary shrink-0" />
                 Delivery Fee
               </span>
               <span
-                className={`font-bold tabular-nums text-right ${shipping === 0 ? "text-emerald-600 font-black uppercase" : ""}`}
+                className={`font-bold tabular-nums text-right shrink-0 ${shipping === 0 ? "text-emerald-600 font-black uppercase" : ""}`}
               >
                 {shipping === 0 ? "FREE" : `+ ${formatPrice(shipping)}`}
               </span>
             </div>
             {codFee > 0 && (
-              <div className="flex justify-between items-center text-foreground">
-                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                  <Banknote className="size-4 text-primary" />
+              <div className="flex justify-between items-center text-foreground gap-2 min-w-0">
+                <span className="text-muted-foreground font-medium flex items-center gap-1.5 truncate">
+                  <Banknote className="size-4 text-primary shrink-0" />
                   COD Handling Fee
                 </span>
-                <span className="font-bold tabular-nums text-right text-primary">
+                <span className="font-bold tabular-nums text-right text-primary shrink-0">
                   + {formatPrice(codFee)}
                 </span>
               </div>
             )}
             <div className="border-t border-dashed border-border/80 my-3" />
-            <div className="flex items-center justify-between pt-1">
-              <div className="space-y-0.5">
-                <span className="text-base font-bold text-foreground block">Total to pay</span>
-                <span className="text-[11px] text-muted-foreground block">
+            <div className="flex items-center justify-between pt-1 gap-2 min-w-0">
+              <div className="space-y-0.5 min-w-0 flex-1">
+                <span className="text-base font-bold text-foreground block truncate">Total to pay</span>
+                <span className="text-[11px] text-muted-foreground block truncate">
                   Inclusive of all taxes
                 </span>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">
                   {formatPrice(finalTotal)}
                 </span>
                 {(savings > 0 || couponDiscount > 0) && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 mt-1">
-                    <Sparkles className="size-3" />
+                    <Sparkles className="size-3 shrink-0" />
                     You save {formatPrice(savings + couponDiscount)}
                   </span>
                 )}
@@ -1133,9 +1184,9 @@ function CheckoutPage() {
           </div>
 
           {/* Coupon code */}
-          <div className="mt-4 border-t border-border pt-4">
+          <div className="mt-4 border-t border-border pt-4 min-w-0 w-full">
             <p className="text-sm font-semibold">Have a coupon?</p>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex gap-2 min-w-0 w-full">
               <input
                 type="text"
                 value={couponInput}
@@ -1143,7 +1194,7 @@ function CheckoutPage() {
                 placeholder="Enter code"
                 aria-label="Coupon code"
                 disabled={couponApplied}
-                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+                className="flex-1 min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
               />
               {couponApplied ? (
                 <button
@@ -1153,7 +1204,7 @@ function CheckoutPage() {
                     setCouponInput("");
                     toast.success("Coupon removed");
                   }}
-                  className="rounded-xl border border-destructive px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10"
+                  className="rounded-xl border border-destructive px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10 shrink-0 cursor-pointer"
                 >
                   Remove
                 </button>
@@ -1173,7 +1224,7 @@ function CheckoutPage() {
                       setCouponLoading(false);
                     }
                   }}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 shrink-0 cursor-pointer"
                 >
                   {couponLoading ? "…" : "Apply"}
                 </button>
