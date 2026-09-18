@@ -1162,6 +1162,26 @@ Deno.serve(async (req) => {
         if (ord) {
           isAuthorized = true;
         }
+      } else if (type === "customer_order_invoice" && order_id) {
+        const { data: ord } = await adminClient
+          .from("orders")
+          .select("id")
+          .eq("id", order_id)
+          .maybeSingle();
+
+        if (ord) {
+          isAuthorized = true;
+        }
+      } else if (type === "offline_sale" && sale_id) {
+        const { data: sl } = await adminClient
+          .from("offline_sales")
+          .select("id")
+          .eq("id", sale_id)
+          .maybeSingle();
+
+        if (sl) {
+          isAuthorized = true;
+        }
       } else if (type === "online_return" && return_id) {
         const { data: ret } = await adminClient
           .from("online_returns")
@@ -1329,10 +1349,11 @@ Deno.serve(async (req) => {
         let customerDispatchError: string | null = null;
 
         if (!resendApiKey) {
-          console.log(
-            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Simulating offline customer receipt to: ${sale.customer_email}`,
+          console.warn(
+            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Cannot dispatch offline customer receipt to: ${sale.customer_email}`,
           );
-          customerMsgId = `simulated_offline_cust_${Date.now()}`;
+          customerDispatchError = "Email delivery key is not configured";
+          customerMsgId = null;
         } else {
           try {
             let custRes = await fetch("https://api.resend.com/emails", {
@@ -1406,6 +1427,20 @@ Deno.serve(async (req) => {
             customer_notified_at: customerDispatchError === null ? new Date().toISOString() : null,
           })
           .eq("id", sale.id);
+
+        // Audit log customer offline receipt
+        await adminClient.from("owner_notification_logs").insert({
+          event_type: "customer_offline_receipt",
+          reference_id: sale.id,
+          reference_number: sale.sale_number,
+          recipient: sale.customer_email.trim(),
+          status: customerDispatchError === null ? "sent" : "failed",
+          total: Number(sale.total),
+          provider: "resend",
+          provider_message_id: customerMsgId,
+          error_message: customerDispatchError,
+          sent_at: customerDispatchError === null ? new Date().toISOString() : null,
+        });
       }
     } else if (type === "online_order") {
       if (!order_id) throw new Error("Missing order_id for online order notification");
@@ -1475,10 +1510,11 @@ Deno.serve(async (req) => {
         let customerDispatchError: string | null = null;
 
         if (!resendApiKey) {
-          console.log(
-            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Simulating customer invoice to: ${order.email}`,
+          console.warn(
+            `[send-owner-sale-notification] RESEND_API_KEY unconfigured. Cannot dispatch customer invoice to: ${order.email}`,
           );
-          customerMsgId = `simulated_customer_${Date.now()}`;
+          customerDispatchError = "Email delivery key is not configured";
+          customerMsgId = null;
         } else {
           try {
             let custRes = await fetch("https://api.resend.com/emails", {
@@ -1553,6 +1589,20 @@ Deno.serve(async (req) => {
             customer_notified_at: customerDispatchError === null ? new Date().toISOString() : null,
           })
           .eq("id", order.id);
+
+        // Audit log customer invoice email
+        await adminClient.from("owner_notification_logs").insert({
+          event_type: "customer_order_invoice",
+          reference_id: order.id,
+          reference_number: order.order_number || `#${order.id.slice(0, 8).toUpperCase()}`,
+          recipient: order.email.trim(),
+          status: customerDispatchError === null ? "sent" : "failed",
+          total: Number(order.total),
+          provider: "resend",
+          provider_message_id: customerMsgId,
+          error_message: customerDispatchError,
+          sent_at: customerDispatchError === null ? new Date().toISOString() : null,
+        });
       }
     } else if (type === "customer_order_invoice") {
       if (!order_id) throw new Error("Missing order_id for customer invoice dispatch");
@@ -1692,7 +1742,7 @@ Deno.serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
         );
       }
-      resendMessageId = `unconfigured_${Date.now()}`;
+      resendMessageId = null;
       dispatchError = msg;
     } else {
       try {

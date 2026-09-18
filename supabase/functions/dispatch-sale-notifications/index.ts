@@ -506,9 +506,9 @@ async function dispatchResendEmail(
 ): Promise<{ status: "SENT" | "FAILED"; messageId: string | null; error: string | null }> {
   if (!resendApiKey) {
     return {
-      status: "SENT",
-      messageId: `simulated_resend_${Date.now()}`,
-      error: null,
+      status: "FAILED",
+      messageId: null,
+      error: "RESEND_API_KEY is not configured in Supabase secrets or Site Settings",
     };
   }
 
@@ -664,8 +664,12 @@ Deno.serve(async (req) => {
         "owner_notification_phone",
         "owner_notification_email",
         "contact_phone",
+        "contact_email",
         "owner_notify_online_sales",
         "owner_notify_offline_sales",
+        "resend_api_key",
+        "email_api_key",
+        "resend_from_email",
       ]);
 
     const settingsMap: Record<string, string> = {};
@@ -677,7 +681,7 @@ Deno.serve(async (req) => {
     const targetOwnerPhones = extractIndianPhoneNumbers(rawOwnerPhones);
     const configuredOwnerPhone = targetOwnerPhones.length > 0 ? targetOwnerPhones[0] : "9057074777";
 
-    const configuredOwnerEmail = settingsMap.owner_notification_email || Deno.env.get("OWNER_NOTIFICATION_EMAIL") || "hello@zerahkids.com";
+    const configuredOwnerEmail = settingsMap.owner_notification_email || settingsMap.contact_email || Deno.env.get("OWNER_NOTIFICATION_EMAIL") || "hello@zerahkids.com";
 
     // 3. Resolve Customer Info
     const customerName = cleanCustomerName(
@@ -741,8 +745,8 @@ Deno.serve(async (req) => {
     };
 
     const msg91AuthKey = Deno.env.get("MSG91_AUTH_KEY");
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const fromEmail = "Zérah Baby & Kids <orders@zerahkids.com>";
+    const resendApiKey = (Deno.env.get("RESEND_API_KEY") || settingsMap.resend_api_key || settingsMap.email_api_key || "").trim() || undefined;
+    const fromEmail = (Deno.env.get("RESEND_FROM_EMAIL") || settingsMap.resend_from_email || "Zérah Baby & Kids <orders@zerahkids.com>").trim();
 
     // -----------------------------------------------------------------------
     // CHANNEL 1: Customer WhatsApp/SMS
@@ -941,6 +945,15 @@ Deno.serve(async (req) => {
       if (!customerEmail || !customerEmail.includes("@")) {
         customerEmailStatus = "SKIPPED";
         customerEmailError = "No customer email provided";
+
+        // Update target table customer_notification_status to skipped
+        const targetTable = saleType === "online" ? "orders" : "offline_sales";
+        await adminClient
+          .from(targetTable)
+          .update({
+            customer_notification_status: "skipped",
+          })
+          .eq("id", saleId);
       } else {
         const custRendered = renderCustomerInvoiceEmail(saleType, saleRecord, saleItems);
         const res = await dispatchResendEmail(
@@ -954,6 +967,20 @@ Deno.serve(async (req) => {
         customerEmailStatus = res.status;
         customerEmailId = res.messageId;
         customerEmailError = res.error;
+
+        // Log customer email in owner_notification_logs for admin auditing & retry
+        await adminClient.from("owner_notification_logs").insert({
+          event_type: saleType === "online" ? "customer_order_invoice" : "customer_offline_receipt",
+          reference_id: saleId,
+          reference_number: saleNumber,
+          recipient: customerEmail,
+          status: customerEmailStatus === "SENT" ? "sent" : "failed",
+          total: totalAmount,
+          provider: "resend",
+          provider_message_id: customerEmailId,
+          error_message: customerEmailError,
+          sent_at: customerEmailStatus === "SENT" ? new Date().toISOString() : null,
+        });
 
         // Update target table customer_notification_status
         const targetTable = saleType === "online" ? "orders" : "offline_sales";
