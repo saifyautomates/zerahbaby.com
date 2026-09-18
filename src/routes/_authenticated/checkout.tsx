@@ -707,7 +707,7 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6 sm:py-10 pb-16 sm:pb-10 w-full min-w-0 max-w-full overflow-x-hidden box-border">
+    <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6 sm:py-10 pb-16 sm:pb-10 w-full min-w-0 box-border">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 
@@ -750,7 +750,7 @@ function CheckoutPage() {
       )}
 
       <div
-        className={`mt-8 grid gap-8 grid-cols-1 lg:grid-cols-[1fr_360px] w-full min-w-0 transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
+        className={`mt-8 grid gap-8 grid-cols-1 lg:grid-cols-[1fr_360px] w-full min-w-0 max-w-full transition-opacity ${busy ? "opacity-50 pointer-events-none" : ""}`}
       >
         <form
           onSubmit={onSubmit}
@@ -877,7 +877,7 @@ function CheckoutPage() {
           <div className="mt-8 border-t border-border pt-6 min-w-0 w-full">
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-2 mb-4 min-w-0 w-full">
               <h2 className="text-lg font-bold min-w-0">Payment &amp; Notes</h2>
-              <span className="text-xs text-muted-foreground font-medium shrink-0">
+              <span className="text-xs text-muted-foreground font-medium shrink-0 truncate max-w-[10rem] sm:max-w-none">
                 Select payment method
               </span>
             </div>
@@ -889,7 +889,7 @@ function CheckoutPage() {
                   type="button"
                   id="checkout-pay-now-trigger"
                   onClick={() => setPaymentOptionsOpen((prev) => !prev)}
-                  className="w-full max-w-full min-w-0 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40 box-border"
+                  className="w-full min-w-0 flex items-center justify-between p-3 sm:p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40 box-border overflow-hidden"
                 >
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
                     <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
@@ -936,7 +936,7 @@ function CheckoutPage() {
                       type="button"
                       id="payment-tab-online"
                       onClick={() => setForm((prev) => ({ ...prev, payment_method: "online" }))}
-                      className={`w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border ${
+                      className={`w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
                         form.payment_method === "online"
                           ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
                           : "border-border bg-card hover:bg-muted/30"
@@ -976,7 +976,7 @@ function CheckoutPage() {
                         type="button"
                         id="payment-tab-cod"
                         onClick={() => setForm((prev) => ({ ...prev, payment_method: "cod" }))}
-                        className={`w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border ${
+                        className={`w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
                           form.payment_method === "cod"
                             ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
                             : "border-border bg-card hover:bg-muted/30"
@@ -1016,7 +1016,7 @@ function CheckoutPage() {
                       /* COD DISABLED / UNAVAILABLE STATE (Admin Turned Off or Limit Not Met) */
                       <div
                         id="payment-tab-cod-disabled"
-                        className="w-full max-w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none box-border"
+                        className="w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none box-border overflow-hidden"
                         title={codUnavailableReason || "COD unavailable right now"}
                       >
                         <div className="mt-0.5 shrink-0">
