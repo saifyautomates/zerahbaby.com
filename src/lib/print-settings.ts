@@ -143,7 +143,7 @@ export function getPaperSizeSpec(size?: InvoicePaperSize | string | null): Paper
   if (size && size in INVOICE_PAPER_SIZES) {
     return INVOICE_PAPER_SIZES[size as InvoicePaperSize];
   }
-  return INVOICE_PAPER_SIZES["a4-landscape"];
+  return INVOICE_PAPER_SIZES["a4-portrait"];
 }
 
 export interface InvoicePrintSettings {
@@ -182,7 +182,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoicePrintSettings = {
   printerName: "Default A4 Printer",
   copies: 1,
   autoPrint: true,
-  paperSize: "a4-landscape",
+  paperSize: "a4-portrait",
 };
 
 export const DEFAULT_THERMAL_SETTINGS: ThermalLabelSettings = {

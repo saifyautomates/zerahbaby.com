@@ -11,8 +11,7 @@
  */
 import React, { useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, RotateCcw, Sparkles, Tag, CheckCircle, AlertTriangle } from "lucide-react";
-import Barcode from "react-barcode";
+import { X, Printer, RotateCcw, Sparkles, Tag, CheckCircle } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 
 export type ReturnReceiptData = {
@@ -147,30 +146,20 @@ function buildThermalReturnHTML(
   </div>
 
   ${
-    returnData.is_offline_queued
-      ? `<div style="border: 1px dashed #d97706; background: #fffbeb; padding: 4px; font-size: 9px; font-weight: 800; color: #b45309; text-align: center; margin-top: 6px;">
-          ⚠ OFFLINE RETURN — QUEUED LOCALLY (PENDING SERVER SYNC)
-        </div>`
-      : `<div style="border: 1px solid #059669; background: #ecfdf5; padding: 4px; font-size: 9px; font-weight: 800; color: #065f46; text-align: center; margin-top: 6px;">
-          ✓ SERVER CONFIRMED FINANCIAL ENTITLEMENT
-        </div>`
-  }
-
-  ${
     isExchangeCredit
       ? `<div class="voucher-box">
           <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">AVAILABLE STORE CREDIT VALUE</div>
           <div class="voucher-amount">₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</div>
-          <div style="font-size: 9px; font-weight: 700;">✓ Valid across all store products • 90 Days Expiry</div>
+          <div style="font-size: 9px; font-weight: 700;">✓ Valid for purchasing any item at store</div>
           ${
             returnData.credit_token
               ? `
-            <div style="margin-top: 6px; border: 2px solid #000; padding: 6px 4px; background: #fafafa;">
-              <div style="font-size: 9px; font-weight: 800; text-transform: uppercase;">STORE CREDIT VOUCHER CODE</div>
-              <div style="font-size: 17px; font-weight: 900; letter-spacing: 2px; font-family: monospace; color: #000; margin: 3px 0;">
+            <div style="margin-top: 6px; border: 2px solid #000; padding: 4px; background: #fafafa;">
+              <div style="font-size: 9px; font-weight: 800; text-transform: uppercase;">STORE CREDIT CODE</div>
+              <div style="font-size: 22px; font-weight: 900; letter-spacing: 3px; font-family: monospace; color: #000; margin: 2px 0;">
                 ${escHtml(returnData.credit_token)}
               </div>
-              <div style="font-size: 8px; color: #555;">Customer-linked • Scan barcode or enter at POS checkout</div>
+              <div style="font-size: 8px; color: #555;">Show or enter this 4-character code at POS checkout</div>
             </div>`
               : ""
           }
@@ -359,53 +348,21 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
 
           {/* Prominent Exchange Voucher Box */}
           {isExchangeCredit && (
-            <div className="my-2.5 rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-500/10 p-3 text-center print:border-black print:bg-transparent">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 print:text-black">
-                  AVAILABLE STORE CREDIT VALUE
-                </span>
-                {returnData.is_offline_queued ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[9px] font-bold">
-                    <AlertTriangle className="size-2.5" /> OFFLINE QUEUED
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-bold">
-                    <CheckCircle className="size-2.5" /> CONFIRMED
-                  </span>
-                )}
-              </div>
-              <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 print:text-black block mt-0.5">
+            <div className="my-2.5 rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-500/10 p-2.5 text-center print:border-black print:bg-transparent">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 print:text-black block">
+                AVAILABLE STORE CREDIT VALUE
+              </span>
+              <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 print:text-black block mt-0.5">
                 {formatPrice(returnData.refund_amount)}
               </span>
               {returnData.credit_token && (
-                <div className="mt-2 bg-background print:bg-transparent border border-emerald-500/40 rounded-xl p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Store Credit Voucher Token
-                  </span>
-                  <div className="font-mono text-sm font-black text-foreground tracking-widest my-1">
-                    {returnData.credit_token}
-                  </div>
-                  <div className="w-full flex justify-center py-1 overflow-hidden">
-                    <Barcode
-                      value={returnData.credit_token}
-                      format="CODE128"
-                      width={1.2}
-                      height={36}
-                      fontSize={10}
-                      margin={0}
-                      displayValue={false}
-                      background="transparent"
-                      lineColor="currentColor"
-                    />
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">
-                    Scan barcode at POS to redeem immediately
-                  </span>
+                <div className="mt-1.5 bg-background print:bg-transparent border border-emerald-500/40 rounded-lg py-1 px-2 font-mono text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                  TOKEN: {returnData.credit_token}
                 </div>
               )}
-              <div className="flex items-center justify-between text-[9px] font-bold text-emerald-900 dark:text-emerald-200 print:text-black mt-2 pt-1.5 border-t border-emerald-500/20">
-                <span>Valid: 90 Days</span>
-                <span>Customer-Linked Entitlement</span>
+              <div className="flex items-center justify-between text-[9px] font-bold text-emerald-900 dark:text-emerald-200 print:text-black mt-1.5 pt-1 border-t border-emerald-500/20">
+                <span>Expiry: NEVER / NO EXPIRY</span>
+                <span>All Store Items</span>
               </div>
             </div>
           )}
