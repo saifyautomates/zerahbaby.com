@@ -6,6 +6,11 @@ export function BottomNav() {
   const location = useLocation();
   const currentPath = location.pathname;
 
+  // On Checkout page, hide BottomNav so it does not block the checkout flow or overlap payment buttons
+  if (currentPath === "/checkout" || currentPath.startsWith("/checkout")) {
+    return null;
+  }
+
   const navItems = [
     { label: "Home", path: "/", icon: Home },
     { label: "Categories", path: "/categories", icon: LayoutGrid },
@@ -19,7 +24,7 @@ export function BottomNav() {
       {/* Spacer to prevent content from hiding behind the fixed bottom nav */}
       <div className="h-[4.5rem] md:hidden w-full shrink-0" />
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/60 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.1)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border/60 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.1)] w-full max-w-full overflow-hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="flex items-center justify-around h-[4.5rem] px-2">

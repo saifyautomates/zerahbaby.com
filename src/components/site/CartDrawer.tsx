@@ -129,8 +129,10 @@ export function CartDrawer() {
       {/* 2. Slide-In Right Drawer Container */}
       <aside
         ref={drawerRef}
-        className={`fixed inset-y-0 right-0 flex w-full max-w-[420px] sm:max-w-md flex-col bg-background shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto border-l border-border/60 ${
-          isDrawerOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 right-0 flex w-full max-w-[420px] sm:max-w-md flex-col bg-background shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] border-l border-border/60 ${
+          isDrawerOpen
+            ? "translate-x-0 pointer-events-auto opacity-100 visible"
+            : "translate-x-full pointer-events-none opacity-0 invisible"
         }`}
         style={{
           paddingTop: "env(safe-area-inset-top, 0px)",

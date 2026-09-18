@@ -767,8 +767,10 @@ export function Header() {
         />
       </div>
       <div
-        className="fixed inset-y-0 z-[110] flex w-full pointer-events-none md:hidden"
-        style={{ pointerEvents: open ? "auto" : "none" }}
+        className={cn(
+          "fixed inset-y-0 z-[110] flex w-full md:hidden transition-all duration-300",
+          open ? "pointer-events-auto visible opacity-100" : "pointer-events-none invisible opacity-0",
+        )}
       >
         <div
           role="dialog"
@@ -1046,8 +1048,8 @@ export function Header() {
       {/* Mobile Full-Screen Search Modal */}
       <div
         className={cn(
-          "fixed inset-0 z-[110] bg-background md:hidden transition-transform duration-300 ease-out flex flex-col",
-          searchOpen ? "translate-x-0" : "translate-x-full",
+          "fixed inset-0 z-[110] bg-background md:hidden transition-all duration-300 ease-out flex flex-col",
+          searchOpen ? "translate-x-0 opacity-100 visible pointer-events-auto" : "translate-x-full opacity-0 invisible pointer-events-none",
         )}
       >
         <div className="flex items-center gap-2 p-3 border-b border-border/60">

@@ -26,7 +26,7 @@ export function SizeGuideDrawer({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[110] transition-opacity duration-300 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+      className={`fixed inset-0 z-[110] transition-all duration-300 ${isOpen ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}
     >
       {/* Backdrop */}
       <div

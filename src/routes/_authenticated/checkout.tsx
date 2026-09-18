@@ -707,7 +707,7 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 pb-32 sm:pb-10 w-full min-w-0">
+    <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6 sm:py-10 pb-16 sm:pb-10 w-full min-w-0 max-w-full overflow-x-hidden box-border">
       <h1 className="font-display text-3xl font-bold">Checkout</h1>
       <p className="mt-1 text-sm text-muted-foreground">Signed in as {user?.email}</p>
 
@@ -754,7 +754,7 @@ function CheckoutPage() {
       >
         <form
           onSubmit={onSubmit}
-          className="w-full min-w-0 max-w-full space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-4 sm:p-8 box-border"
+          className="w-full min-w-0 max-w-full space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-3.5 sm:p-8 box-border overflow-hidden"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4 min-w-0 w-full">
             <h2 className="text-lg font-bold min-w-0">Delivery Address</h2>
@@ -1064,7 +1064,7 @@ function CheckoutPage() {
               : `${form.payment_method === "cod" ? "Confirm COD Order" : "Pay Now"} · ${formatPrice(finalTotal)}`}
           </button>
         </form>
-        <aside className="w-full min-w-0 max-w-full h-fit rounded-3xl border border-border/60 bg-card p-4 sm:p-6 shadow-premium-sm lg:sticky lg:top-24 box-border">
+        <aside className="w-full min-w-0 max-w-full h-fit rounded-3xl border border-border/60 bg-card p-3.5 sm:p-6 shadow-premium-sm lg:sticky lg:top-24 box-border overflow-hidden">
           <h2 className="font-display text-xl font-bold">Your order</h2>
           <ul className="mt-4 space-y-4 text-sm min-w-0 w-full">
             {items.map(({ product, qty, variantId, variant, price, color, size, image }) => (
