@@ -2510,7 +2510,7 @@ export function POSTab() {
   }, [customerSearchQuery]);
 
   useEffect(() => {
-    if (debouncedCustomerSearch.length >= 2) {
+    if (debouncedCustomerSearch.length >= 1) {
       searchCustomers.mutate(debouncedCustomerSearch);
     } else {
       searchCustomers.reset();
@@ -3826,7 +3826,7 @@ export function POSTab() {
                         </div>
 
                         {/* Searching state */}
-                        {searchCustomers.isPending && customerSearchQuery.trim().length >= 2 && (
+                        {searchCustomers.isPending && customerSearchQuery.trim().length >= 1 && (
                           <div className="p-3 text-center text-xs text-muted-foreground flex items-center justify-center gap-2 border border-border rounded-xl bg-card">
                             <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             <span>Searching customers…</span>
@@ -3835,7 +3835,7 @@ export function POSTab() {
 
                         {/* No results empty state */}
                         {!searchCustomers.isPending &&
-                          customerSearchQuery.trim().length >= 2 &&
+                          customerSearchQuery.trim().length >= 1 &&
                           (searchCustomers.data ?? []).length === 0 && (
                             <div className="p-4 text-center rounded-xl border border-border bg-card shadow-sm space-y-2">
                               <p className="font-bold text-foreground text-xs">

@@ -678,17 +678,34 @@ export function usePlaceOfflineSale() {
 export function useSearchPOSCustomers() {
   return useMutation({
     mutationFn: async (query: string): Promise<POSCustomer[]> => {
-      if (!query.trim()) return [];
+      const clean = query.trim();
+      if (!clean) return [];
+
       const { data, error } = await (
         supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
-        ) => Promise<{ data: POSCustomer[] | null; error: unknown }>
+        ) => Promise<{ data: POSCustomer[] | null; error: { message: string } | null }>
       )("search_pos_customers", {
-        _query: query.trim(),
+        _query: clean,
       });
-      if (error) return [];
-      return (data ?? []) as POSCustomer[];
+
+      if (!error && data) {
+        return data as POSCustomer[];
+      }
+
+      if (error) {
+        console.warn("[useSearchPOSCustomers] RPC fallback invoked:", error.message);
+      }
+
+      // Defense-in-depth fallback: query pos_customers directly
+      const { data: fallbackData } = await supabase
+        .from("pos_customers")
+        .select("*")
+        .or(`name.ilike.%${clean}%,phone.ilike.%${clean}%,email.ilike.%${clean}%,city.ilike.%${clean}%`)
+        .limit(25);
+
+      return (fallbackData ?? []) as POSCustomer[];
     },
   });
 }
