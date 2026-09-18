@@ -358,7 +358,14 @@ function AuthPage() {
               setOtp("");
               throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
             }
-            if (m.includes("incorrect") || m.includes("invalid") || m.includes("double-check")) {
+            if (
+              m.includes("incorrect otp") ||
+              m.includes("incorrect code") ||
+              m.includes("invalid otp") ||
+              m.includes("wrong otp") ||
+              m.includes("wrong code") ||
+              m.includes("double-check")
+            ) {
               throw new Error("Incorrect OTP. Please double-check and try again.");
             }
             if (m.includes("too many")) {
@@ -376,8 +383,18 @@ function AuthPage() {
             setOtp("");
             throw new Error("OTP has expired. Tap “Resend OTP” to get a fresh one.");
           }
-          if (m.includes("invalid") || m.includes("incorrect") || m.includes("double-check")) {
+          if (
+            m.includes("incorrect otp") ||
+            m.includes("incorrect code") ||
+            m.includes("invalid otp") ||
+            m.includes("wrong otp") ||
+            m.includes("wrong code") ||
+            m.includes("double-check")
+          ) {
             throw new Error("Incorrect OTP. Please double-check and try again.");
+          }
+          if (m.includes("too many")) {
+            throw new Error("Too many incorrect attempts. Please request a new OTP.");
           }
           throw new Error(data?.error || data?.message || "Failed to verify OTP.");
         }

@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
         const { data: matchedProfiles, error: profileErr } = await adminClient
           .from("profiles")
           .select("id, phone")
-          .or(`phone.eq.${formattedPhone},phone.eq.${cleanPhone},phone.eq.${tenDigits}`)
+          .or(`phone.eq.${formattedPhone},phone.eq.${cleanPhone},phone.eq.${tenDigits},phone.eq.0${tenDigits}`)
           .order("created_at", { ascending: false })
           .limit(2);
 
@@ -308,16 +308,18 @@ Deno.serve(async (req) => {
         }
 
         if (matchedProfiles && matchedProfiles.length > 0) {
-          if (matchedProfiles.length > 1 && matchedProfiles[0].id !== matchedProfiles[1].id) {
-            console.warn(
-              `[msg91-auth] Multiple distinct profiles detected for phone ${tenDigits}. Using primary: ${matchedProfiles[0].id}`,
+          for (const prof of matchedProfiles) {
+            const { data: userData, error: getUserErr } = await adminClient.auth.admin.getUserById(
+              prof.id,
             );
-          }
-          const { data: userData, error: getUserErr } = await adminClient.auth.admin.getUserById(
-            matchedProfiles[0].id,
-          );
-          if (!getUserErr && userData?.user) {
-            existingUser = userData.user;
+            if (!getUserErr && userData?.user) {
+              const uPhoneDigits = (userData.user.phone || "").replace(/\D/g, "").slice(-10);
+              // If user's auth phone is null (signed in with email/google) or matches tenDigits, select it
+              if (!userData.user.phone || uPhoneDigits === tenDigits) {
+                existingUser = userData.user;
+                break;
+              }
+            }
           }
         }
 
@@ -355,12 +357,17 @@ Deno.serve(async (req) => {
           const { error: updateErr } = await adminClient.auth.admin.updateUserById(
             existingUser.id,
             {
+              phone: formattedPhone,
               phone_confirm: true,
               password: derivedPassword,
             },
           );
           if (updateErr) {
-            console.error("[msg91-auth] updateUserById error:", updateErr);
+            console.warn("[msg91-auth] updateUserById phone update error, falling back:", updateErr.message);
+            await adminClient.auth.admin.updateUserById(existingUser.id, {
+              phone_confirm: true,
+              password: derivedPassword,
+            });
           }
 
           const targetPhone = existingUser.phone || formattedPhone;
@@ -368,6 +375,17 @@ Deno.serve(async (req) => {
             phone: targetPhone,
             password: derivedPassword,
           });
+
+          // Fallback to email sign-in if phone sign-in fails and user has email
+          if (signInResult.error && existingUser.email) {
+            console.log(
+              `[msg91-auth] Phone sign-in failed (${signInResult.error.message}), attempting email sign-in: ${existingUser.email}`,
+            );
+            signInResult = await adminClient.auth.signInWithPassword({
+              email: existingUser.email,
+              password: derivedPassword,
+            });
+          }
         } else {
           // User doesn't exist yet, create user with phone_confirm: true
           console.log(`[msg91-auth] Creating new Supabase user for ${formattedPhone}...`);
@@ -375,6 +393,7 @@ Deno.serve(async (req) => {
             phone: formattedPhone,
             password: derivedPassword,
             phone_confirm: true,
+            user_metadata: { phone: formattedPhone },
           });
 
           if (createResult.error) {
@@ -387,28 +406,50 @@ Deno.serve(async (req) => {
               const { data: retryUser } = await adminClient.auth.admin.getUserById(retryRpc[0].id);
               if (retryUser?.user) {
                 await adminClient.auth.admin.updateUserById(retryUser.user.id, {
+                  phone: formattedPhone,
                   phone_confirm: true,
                   password: derivedPassword,
                 });
+                existingUser = retryUser.user;
               }
             }
+          } else if (createResult.data?.user) {
+            existingUser = createResult.data.user;
           }
 
           signInResult = await adminClient.auth.signInWithPassword({
             phone: formattedPhone,
             password: derivedPassword,
           });
+
+          if (signInResult.error && existingUser?.email) {
+            signInResult = await adminClient.auth.signInWithPassword({
+              email: existingUser.email,
+              password: derivedPassword,
+            });
+          }
         }
       }
 
-      if (signInResult.error) {
+      if (signInResult.error || !signInResult.data?.session) {
         console.error("[msg91-auth] Final signInWithPassword failed:", signInResult.error);
-        throw signInResult.error;
+        throw new Error(
+          "Authentication session error: " +
+            (signInResult.error?.message || "Failed to establish user session. Please try again."),
+        );
       }
 
-      if (!signInResult.data?.session) {
-        throw new Error("Failed to establish user session. Please try again.");
-      }
+      const activeUserId = signInResult.data.session.user.id;
+
+      // Sync profiles table with normalized phone
+      await adminClient.from("profiles").upsert(
+        {
+          id: activeUserId,
+          phone: formattedPhone,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
 
       // OTP verified AND session established successfully!
       // Delete record from auth_otps to prevent replay
