@@ -765,9 +765,9 @@ export function DashboardTab({
     if (productSlug) {
       return {
         label: "View Product",
-        tooltip: `Click to view product: /product/${productSlug}`,
-        icon: ChevronRight,
-        isExternal: false,
+        tooltip: `Click to open product: /product/${productSlug} in a new tab`,
+        icon: ExternalLink,
+        isExternal: true,
       };
     }
 
@@ -788,9 +788,9 @@ export function DashboardTab({
     if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
       return {
         label: "View Cart",
-        tooltip: "Click to open storefront cart",
-        icon: ChevronRight,
-        isExternal: false,
+        tooltip: "Click to open storefront cart in a new tab",
+        icon: ExternalLink,
+        isExternal: true,
       };
     }
 
@@ -801,9 +801,9 @@ export function DashboardTab({
       if (path === "/products" || path === "/products/") path = "/shop";
       return {
         label: path === "/" ? "Visit Store" : "Open Page",
-        tooltip: `Click to visit ${path}`,
-        icon: ChevronRight,
-        isExternal: false,
+        tooltip: `Click to open ${path} in a new tab`,
+        icon: ExternalLink,
+        isExternal: true,
       };
     }
 
@@ -917,7 +917,7 @@ export function DashboardTab({
       }
     }
 
-    const navigateToLocalPath = (rawPath: string) => {
+    const openTargetPage = (rawPath: string) => {
       setIsRecentActivityModalOpen(false);
       let path = rawPath.trim();
       if (!path.startsWith("/")) path = `/${path}`;
@@ -925,12 +925,15 @@ export function DashboardTab({
       if (path === "/products" || path === "/products/") path = "/shop";
 
       try {
-        const [pathname, search] = path.split("?");
-        if (search) {
-          const searchObj = Object.fromEntries(new URLSearchParams(search).entries());
-          navigate({ to: pathname as any, search: searchObj as any });
-        } else {
-          navigate({ to: pathname as any });
+        const win = window.open(path, "_blank", "noopener,noreferrer");
+        if (!win || win.closed || typeof win.closed === "undefined") {
+          const [pathname, search] = path.split("?");
+          if (search) {
+            const searchObj = Object.fromEntries(new URLSearchParams(search).entries());
+            navigate({ to: pathname as any, search: searchObj as any });
+          } else {
+            navigate({ to: pathname as any });
+          }
         }
       } catch {
         window.location.href = path;
@@ -946,7 +949,7 @@ export function DashboardTab({
         : null);
 
     if (productSlug) {
-      navigateToLocalPath(`/product/${productSlug}`);
+      openTargetPage(`/product/${productSlug}`);
       return;
     }
 
@@ -967,14 +970,17 @@ export function DashboardTab({
 
     // 6. Cart view / add
     if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
-      navigateToLocalPath("/cart");
+      openTargetPage("/cart");
       return;
     }
 
     // 7. Generic Page views e.g. "Page viewed: /" or "Page viewed: /shop"
     if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
-      const path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
-      navigateToLocalPath(path);
+      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
+      if (act.metadata?.search && !path.includes("?")) {
+        path = `${path}${act.metadata.search}`;
+      }
+      openTargetPage(path);
       return;
     }
 
@@ -2197,7 +2203,7 @@ export function DashboardTab({
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     {act.channelTag && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground border border-border/50">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground border border-border/50 group-hover:border-primary/40 group-hover:text-primary transition-colors">
                         {act.channelTag}
                       </span>
                     )}

@@ -140,40 +140,35 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
       await page.waitForTimeout(500);
 
       // Verify Omnichannel Modal opened
-      const modal = page.locator("div[role='dialog']");
+      const modal = page.locator("div[role='dialog']").filter({ hasText: "#CC461D36" });
       await expect(modal).toBeVisible({ timeout: 10000 });
       await expect(modal).toContainText("#CC461D36");
       await expect(modal).toContainText("COD Real Customer");
 
       // Close modal
-      const closeBtn = page.locator("button:text-is('Close')");
+      const closeBtn = page.locator("button[aria-label='Close modal']");
       await closeBtn.click();
-      await page.waitForTimeout(300);
+      await expect(modal).not.toBeVisible({ timeout: 5000 });
     }
 
     // 7. Click "View All" to open full modal
     const viewAllBtn = page.locator("button:has-text('View All')").first();
     await viewAllBtn.click();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(500);
 
-    // Verify modal is open and has action badges
     const modalTitle = page.locator(".fixed h3:has-text('Recent Activity')").first();
-    await expect(modalTitle).toBeVisible();
+    await expect(modalTitle).toBeVisible({ timeout: 10000 });
 
-    // Take screenshot of the "View All" modal
+    // Take screenshot of modal
     await page.screenshot({
       path: "C:/Users/jackx/.gemini/antigravity-ide/brain/57e4e7f2-4a35-423f-899c-7d8d383295b1/recent_activity_modal_verified.png",
     });
   });
 
-  test("Clicking a page view activity item navigates in the same tab instead of opening a new window", async ({
+  test("Clicking a page view activity item opens the target storefront page", async ({
     page,
+    context,
   }) => {
-    let popupOpened = false;
-    page.on("popup", () => {
-      popupOpened = true;
-    });
-
     // Mock activities
     await page.route("**/rest/v1/rpc/get_unified_store_activities*", async (route) => {
       route.fulfill({
@@ -184,7 +179,7 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
             id: "act-view-home",
             source: "analytics",
             event_type: "view",
-            title: "Page viewed: /",
+            title: "Page viewed: /about",
             subtitle: "visitor",
             product_name: null,
             product_slug: null,
@@ -192,7 +187,7 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
             customer_name: "visitor",
             amount: 0,
             created_at: new Date().toISOString(),
-            metadata: { path: "/" },
+            metadata: { path: "/about" },
           },
         ]),
       });
@@ -206,16 +201,20 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
 
     await page.goto("http://localhost:8080/admin?tab=dashboard", { waitUntil: "networkidle" });
 
-    const homeItem = page.locator("div[role='button']:has-text('Page viewed: /')").first();
-    await expect(homeItem).toBeVisible({ timeout: 15000 });
+    const aboutItem = page.locator("div[role='button']:has-text('Page viewed: /about')").first();
+    await expect(aboutItem).toBeVisible({ timeout: 15000 });
 
-    await homeItem.click();
-    await page.waitForTimeout(1000);
+    const [popup] = await Promise.all([
+      context.waitForEvent("page").catch(() => null),
+      aboutItem.click(),
+    ]);
 
-    // Assert that no new tab/popup opened
-    expect(popupOpened).toBe(false);
-
-    // Assert that we navigated to the storefront in the same tab
-    expect(page.url()).toBe("http://localhost:8080/");
+    if (popup) {
+      await popup.waitForLoadState("domcontentloaded");
+      expect(popup.url()).toContain("/about");
+      await popup.close();
+    } else {
+      expect(page.url()).toContain("/about");
+    }
   });
 });
