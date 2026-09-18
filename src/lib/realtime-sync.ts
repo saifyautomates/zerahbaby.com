@@ -39,7 +39,7 @@ const debounceTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 function debouncedInvalidate(
   qc: ReturnType<typeof useQueryClient>,
   queryKeys: string[][],
-  delay = 300,
+  delay = 50,
 ) {
   const keyIdentifier = queryKeys.map((k) => k.join(":")).join("|");
   if (debounceTimers[keyIdentifier]) {
@@ -356,8 +356,48 @@ export function useGlobalRealtimeSync() {
         }
       });
 
+    // Instant cross-tab sync via BroadcastChannel (0ms delay within same browser)
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("zerah_catalog_sync");
+        bc.onmessage = (ev) => {
+          if (ev.data?.type === "CATALOG_MUTATED") {
+            qc.invalidateQueries({ queryKey: ["products"] });
+            qc.invalidateQueries({ queryKey: ["product"] });
+            qc.invalidateQueries({ queryKey: ["admin-products"] });
+            qc.invalidateQueries({ queryKey: ["inventory-products"] });
+            qc.invalidateQueries({ queryKey: ["pos-products"] });
+            qc.invalidateQueries({ queryKey: ["categories"] });
+            qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+          }
+        };
+      } catch (err) {
+        console.warn("[RealtimeSync] BroadcastChannel init error:", err);
+      }
+    }
+
+    const onCustomCatalogUpdate = () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
+      qc.invalidateQueries({ queryKey: ["admin-products"] });
+      qc.invalidateQueries({ queryKey: ["inventory-products"] });
+      qc.invalidateQueries({ queryKey: ["pos-products"] });
+      qc.invalidateQueries({ queryKey: ["categories"] });
+      qc.invalidateQueries({ queryKey: ["homepage-sections"] });
+    };
+    window.addEventListener("zerah:catalog-updated", onCustomCatalogUpdate);
+
     return () => {
       supabase.removeChannel(channel);
+      if (bc) {
+        try {
+          bc.close();
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener("zerah:catalog-updated", onCustomCatalogUpdate);
     };
   }, [qc]);
 }

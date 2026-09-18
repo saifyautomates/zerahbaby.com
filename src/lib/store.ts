@@ -398,6 +398,11 @@ export const mapProduct = (row: ProductRow): Product => {
         )
         .map((img) => img.public_url);
 
+      const isDefault =
+        (!v.color || !v.color.trim()) &&
+        (!v.size || !v.size.trim()) &&
+        (!v.name || v.name.trim() === "Default");
+
       return {
         id: v.id,
         name: v.name,
@@ -406,8 +411,8 @@ export const mapProduct = (row: ProductRow): Product => {
         sku: v.sku,
         barcode: v.barcode ?? null,
         stock: v.stock,
-        priceOverride: v.price_override,
-        mrpOverride: v.mrp_override,
+        priceOverride: isDefault ? undefined : (v.price_override ?? undefined),
+        mrpOverride: isDefault ? undefined : (v.mrp_override ?? undefined),
         imageUrl: v.image_url ?? vImages[0] ?? null,
         images: vImages.length > 0 ? vImages : v.image_url ? [v.image_url] : undefined,
         conflictReconciliationNeeded: v.conflict_reconciliation_needed,
@@ -748,13 +753,15 @@ export async function fetchSingleProduct(
 export const singleProductQueryOptions = (identifier: string, includeInactive = false) => ({
   queryKey: ["product", identifier, includeInactive] as const,
   queryFn: () => fetchSingleProduct(identifier, includeInactive),
-  staleTime: 1000 * 60 * 5, // 5 minutes caching
+  staleTime: 1000 * 30, // 30 seconds caching for fast responsiveness
+  refetchOnWindowFocus: true,
 });
 
 export const productsQueryOptions = (includeInactive = false) => ({
   queryKey: ["products", includeInactive] as const,
   queryFn: () => fetchProducts(includeInactive),
-  staleTime: 1000 * 60 * 5, // 5 minutes caching for ultra-fast navigation
+  staleTime: 1000 * 30, // 30 seconds caching for fast responsiveness
+  refetchOnWindowFocus: true,
 });
 
 export const fallbackCategories: Category[] = [

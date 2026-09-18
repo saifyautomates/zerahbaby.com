@@ -333,18 +333,24 @@ const toDraft = (
     salesChannel: p?.salesChannel ?? defaultSalesChannel ?? "ONLINE_AND_OFFLINE",
     colors: existingColors,
     variants: p?.variants?.length
-      ? p.variants.map((v) => ({
-          id: v.id,
-          name: v.name,
-          color: v.color ?? null,
-          size: v.size ?? null,
-          sku: v.sku ?? "",
-          barcode: v.barcode ?? null,
-          stock: v.stock,
-          price_override: v.priceOverride ?? null,
-          mrp_override: v.mrpOverride ?? null,
-          image_url: v.imageUrl ?? null,
-        }))
+      ? p.variants.map((v) => {
+          const isDefault =
+            (!v.color || !v.color.trim()) &&
+            (!v.size || !v.size.trim()) &&
+            (!v.name || v.name.trim() === "Default");
+          return {
+            id: v.id,
+            name: v.name,
+            color: v.color ?? null,
+            size: v.size ?? null,
+            sku: v.sku ?? "",
+            barcode: v.barcode ?? null,
+            stock: v.stock,
+            price_override: isDefault ? null : (v.priceOverride ?? null),
+            mrp_override: isDefault ? null : (v.mrpOverride ?? null),
+            image_url: v.imageUrl ?? null,
+          };
+        })
       : [
           {
             name: "Default",
@@ -1035,7 +1041,11 @@ export function ProductForm({
               (!v.name || v.name.trim() === "Default")
             ),
         )
-      : draft.variants || [];
+      : (draft.variants || []).map((v) => ({
+          ...v,
+          price_override: null,
+          mrp_override: null,
+        }));
 
     const finalStock = cleanedVariants.length > 0
       ? cleanedVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
@@ -1745,12 +1755,26 @@ export function ProductForm({
                       className={input}
                       placeholder="0"
                       value={draft.price === 0 ? "" : draft.price}
-                      onChange={(e) =>
-                        set(
-                          "price",
-                          e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)),
-                        )
-                      }
+                      onChange={(e) => {
+                        const newPrice =
+                          e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
+                        const oldPrice = draft.price;
+                        setDraft((prev) => ({
+                          ...prev,
+                          price: newPrice,
+                          variants: (prev.variants || []).map((v) => {
+                            const isDefault =
+                              (!v.color || !v.color.trim()) &&
+                              (!v.size || !v.size.trim()) &&
+                              (!v.name || v.name.trim() === "Default");
+                            if (isDefault) return { ...v, price_override: null };
+                            if (v.price_override === null || v.price_override === oldPrice) {
+                              return { ...v, price_override: newPrice };
+                            }
+                            return v;
+                          }),
+                        }));
+                      }}
                     />
                   </label>
                   <label className="text-sm font-semibold">
@@ -1768,9 +1792,26 @@ export function ProductForm({
                       className={input}
                       placeholder="0"
                       value={draft.mrp === 0 ? "" : draft.mrp}
-                      onChange={(e) =>
-                        set("mrp", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))
-                      }
+                      onChange={(e) => {
+                        const newMrp =
+                          e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
+                        const oldMrp = draft.mrp;
+                        setDraft((prev) => ({
+                          ...prev,
+                          mrp: newMrp,
+                          variants: (prev.variants || []).map((v) => {
+                            const isDefault =
+                              (!v.color || !v.color.trim()) &&
+                              (!v.size || !v.size.trim()) &&
+                              (!v.name || v.name.trim() === "Default");
+                            if (isDefault) return { ...v, mrp_override: null };
+                            if (v.mrp_override === null || v.mrp_override === oldMrp) {
+                              return { ...v, mrp_override: newMrp };
+                            }
+                            return v;
+                          }),
+                        }));
+                      }}
                     />
                     {draft.price > 0 && (
                       <div className="flex flex-wrap items-center gap-1 mt-1.5">

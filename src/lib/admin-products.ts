@@ -327,6 +327,11 @@ export function useSaveProduct() {
               variantName = v.size;
             }
 
+            const isDefaultVariant =
+              (!v.color || !v.color.trim()) &&
+              (!v.size || !v.size.trim()) &&
+              (!v.name || v.name.trim() === "Default");
+
             const base: Record<string, unknown> = {
               product_id: productId,
               name: variantName || "Default",
@@ -335,8 +340,8 @@ export function useSaveProduct() {
               sku: v.sku ? v.sku.trim() : draft.sku,
               barcode: v.barcode ? v.barcode.trim() : null,
               stock: Number(v.stock) || 0,
-              price_override: v.price_override,
-              mrp_override: v.mrp_override ?? null,
+              price_override: isDefaultVariant ? null : v.price_override,
+              mrp_override: isDefaultVariant ? null : (v.mrp_override ?? null),
               image_url: v.image_url ?? null,
               is_active: true,
             };

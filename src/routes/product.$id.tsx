@@ -416,8 +416,17 @@ function ProductPage() {
 
 
 
+  const isDefaultVariant =
+    !activeVariant ||
+    ((!activeVariant.color || !activeVariant.color.trim()) &&
+      (!activeVariant.size || !activeVariant.size.trim()) &&
+      (!activeVariant.name || activeVariant.name.trim() === "Default"));
+
   const activeStock = activeVariant ? activeVariant.stock : (product?.stock ?? 0);
-  const activePrice = activeVariant?.priceOverride ?? product?.price ?? 0;
+  const activePrice =
+    !isDefaultVariant && activeVariant?.priceOverride && activeVariant.priceOverride > 0
+      ? activeVariant.priceOverride
+      : (product?.price ?? 0);
   const soldOut = activeStock <= 0;
 
   const { data: pageReviews = [] } = useProductReviews(product?.uuid);

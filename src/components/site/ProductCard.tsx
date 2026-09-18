@@ -91,13 +91,19 @@ function ProductCardInner({
   }, [product.variants, selectedVariantId]);
 
   // ── 2. Pricing (zero cross-variant leakage) ───────────────────────────────
+  const isDefaultVariant =
+    !activeVariant ||
+    ((!activeVariant.color || !activeVariant.color.trim()) &&
+      (!activeVariant.size || !activeVariant.size.trim()) &&
+      (!activeVariant.name || activeVariant.name.trim() === "Default"));
+
   const activePrice =
-    activeVariant?.priceOverride && activeVariant.priceOverride > 0
+    !isDefaultVariant && activeVariant?.priceOverride && activeVariant.priceOverride > 0
       ? activeVariant.priceOverride
       : product.price;
 
   const activeMrp =
-    activeVariant?.mrpOverride && activeVariant.mrpOverride > 0
+    !isDefaultVariant && activeVariant?.mrpOverride && activeVariant.mrpOverride > 0
       ? activeVariant.mrpOverride
       : product.mrp && product.mrp > 0
         ? product.mrp
