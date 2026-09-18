@@ -165,10 +165,16 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
     });
   });
 
-  test("Clicking a page view activity item opens the target storefront page", async ({
+  test("Clicking a page view activity item opens the Activity Details modal on the SAME admin page without new tabs or navigation", async ({
     page,
     context,
   }) => {
+    // Track any new tabs/pages opened
+    let newPageOpened = false;
+    context.on("page", () => {
+      newPageOpened = true;
+    });
+
     // Mock activities
     await page.route("**/rest/v1/rpc/get_unified_store_activities*", async (route) => {
       route.fulfill({
@@ -176,18 +182,32 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
         contentType: "application/json",
         body: JSON.stringify([
           {
-            id: "act-view-home",
+            id: "act-view-about",
             source: "analytics",
             event_type: "view",
             title: "Page viewed: /about",
-            subtitle: "visitor",
+            subtitle: "Nikhil chhatani",
             product_name: null,
             product_slug: null,
             product_image: null,
-            customer_name: "visitor",
+            customer_name: "Nikhil chhatani",
             amount: 0,
             created_at: new Date().toISOString(),
             metadata: { path: "/about" },
+          },
+          {
+            id: "act-cart-item",
+            source: "analytics",
+            event_type: "cart",
+            title: "Added to Cart: Organic Cotton Romper",
+            subtitle: "Priya Sharma",
+            product_name: "Organic Cotton Romper",
+            product_slug: "organic-cotton-romper",
+            product_image: null,
+            customer_name: "Priya Sharma",
+            amount: 899,
+            created_at: new Date().toISOString(),
+            metadata: { path: "/product/organic-cotton-romper" },
           },
         ]),
       });
@@ -201,20 +221,71 @@ test.describe("Recent Activity Interactive Feed & Navigation", () => {
 
     await page.goto("http://localhost:8080/admin?tab=dashboard", { waitUntil: "networkidle" });
 
+    // 1. Verify Page viewed: /about is visible
     const aboutItem = page.locator("div[role='button']:has-text('Page viewed: /about')").first();
     await expect(aboutItem).toBeVisible({ timeout: 15000 });
 
-    const [popup] = await Promise.all([
-      context.waitForEvent("page").catch(() => null),
-      aboutItem.click(),
-    ]);
+    // 2. Click the activity item
+    await aboutItem.click();
+    await page.waitForTimeout(400);
 
-    if (popup) {
-      await popup.waitForLoadState("domcontentloaded");
-      expect(popup.url()).toContain("/about");
-      await popup.close();
-    } else {
-      expect(page.url()).toContain("/about");
+    // Verify NO new browser tab or window opened
+    expect(newPageOpened).toBe(false);
+
+    // Verify URL remains strictly on admin dashboard
+    expect(page.url()).toContain("/admin");
+    expect(page.url()).not.toContain("/about");
+
+    // 3. Verify Activity Details modal is visible on the same page
+    const detailModal = page.locator("div[role='dialog']").filter({ hasText: "Activity Details" });
+    await expect(detailModal).toBeVisible({ timeout: 5000 });
+    await expect(detailModal).toContainText("Page viewed: /about");
+    await expect(detailModal).toContainText("Nikhil chhatani");
+    await expect(detailModal).toContainText("/about");
+
+    // 4. Close the modal via Close Details button
+    const closeBtn = detailModal.getByRole("button", { name: "Close Details" });
+    await closeBtn.click();
+    await page.waitForTimeout(300);
+
+    // Verify modal is closed and Recent Activity feed is still present
+    await expect(detailModal).not.toBeVisible();
+    await expect(aboutItem).toBeVisible();
+
+    // 5. Test another activity item (Cart item with product details)
+    const cartItem = page.locator("div[role='button']:has-text('Added to Cart')").first();
+    await expect(cartItem).toBeVisible();
+    await cartItem.click();
+    await page.waitForTimeout(400);
+
+    // Verify modal displays the cart activity with product info
+    await expect(detailModal).toBeVisible();
+    await expect(detailModal).toContainText("Added to Cart: Organic Cotton Romper");
+    await expect(detailModal).toContainText("Priya Sharma");
+    await expect(detailModal).toContainText("₹899");
+
+    // Close via header X button
+    const closeXBtn = detailModal.locator("button[aria-label='Close activity details']");
+    await closeXBtn.click();
+    await expect(detailModal).not.toBeVisible();
+
+    // 6. Test Responsive Viewports (Mobile 375px, Tablet 768px, Desktop 1280px)
+    for (const vp of [
+      { width: 375, height: 667 },
+      { width: 768, height: 1024 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(vp);
+      await aboutItem.click();
+      await expect(detailModal).toBeVisible();
+      // Verify modal fits within viewport
+      const box = await detailModal.locator("> div").boundingBox();
+      if (box) {
+        expect(box.width).toBeLessThanOrEqual(vp.width);
+      }
+      // Close via Escape key
+      await page.keyboard.press("Escape");
+      await expect(detailModal).not.toBeVisible();
     }
   });
 });

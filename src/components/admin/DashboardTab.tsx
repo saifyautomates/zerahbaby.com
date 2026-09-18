@@ -714,6 +714,25 @@ export function DashboardTab({
     metadata?: Record<string, any> | null;
   };
 
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
+  const [copiedActivityData, setCopiedActivityData] = useState(false);
+
+  const copyActivityText = (text: string, label = "Copied to clipboard") => {
+    navigator.clipboard.writeText(text);
+    setCopiedActivityData(true);
+    toast.success(label);
+    setTimeout(() => setCopiedActivityData(false), 2000);
+  };
+
+  useEffect(() => {
+    if (!selectedActivity) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedActivity(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedActivity]);
+
   const getActionMeta = (act: ActivityItem) => {
     if (!act || act.id === "operational") return null;
 
@@ -748,8 +767,8 @@ export function DashboardTab({
       act.title.toLowerCase().includes("voucher")
     ) {
       return {
-        label: "Returns",
-        tooltip: "Click to go to Returns & Exchanges",
+        label: "View Return",
+        tooltip: "Click to inspect return details",
         icon: ChevronRight,
         isExternal: false,
       };
@@ -764,10 +783,10 @@ export function DashboardTab({
 
     if (productSlug) {
       return {
-        label: "View Product",
-        tooltip: `Click to open product: /product/${productSlug} in a new tab`,
-        icon: ExternalLink,
-        isExternal: true,
+        label: "View Details",
+        tooltip: "Click to inspect product activity details",
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
@@ -778,8 +797,8 @@ export function DashboardTab({
       act.metadata?.path === "/checkout"
     ) {
       return {
-        label: "Checkouts",
-        tooltip: "Click to view Orders & Checkouts",
+        label: "View Details",
+        tooltip: "Click to inspect checkout activity details",
         icon: ChevronRight,
         isExternal: false,
       };
@@ -787,29 +806,25 @@ export function DashboardTab({
 
     if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
       return {
-        label: "View Cart",
-        tooltip: "Click to open storefront cart in a new tab",
-        icon: ExternalLink,
-        isExternal: true,
+        label: "View Details",
+        tooltip: "Click to inspect cart activity details",
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
     if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
-      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
-      if (!path.startsWith("/")) path = `/${path}`;
-      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
-      if (path === "/products" || path === "/products/") path = "/shop";
       return {
-        label: path === "/" ? "Visit Store" : "Open Page",
-        tooltip: `Click to open ${path} in a new tab`,
-        icon: ExternalLink,
-        isExternal: true,
+        label: "View Details",
+        tooltip: "Click to inspect page visit details",
+        icon: ChevronRight,
+        isExternal: false,
       };
     }
 
     return {
-      label: "Inspect",
-      tooltip: "Click to inspect activity",
+      label: "View Details",
+      tooltip: "Click to inspect activity details",
       icon: ChevronRight,
       isExternal: false,
     };
@@ -818,7 +833,7 @@ export function DashboardTab({
   const handleActivityClick = (act: ActivityItem) => {
     if (!act || act.id === "operational") return;
 
-    // 1. Online Order
+    // 1. Online Order - if order details are in memory, show rich receipt modal
     const isOnlineOrder =
       act.source === "online_order" ||
       (act.typeKey === "order" && act.source !== "pos_sale") ||
@@ -833,7 +848,6 @@ export function DashboardTab({
           act.title.toUpperCase().includes(o.id.slice(0, 8).toUpperCase()),
       );
       if (orderMatch) {
-        setIsRecentActivityModalOpen(false);
         setSelectedSale({
           key: `online-${orderMatch.id}`,
           id: orderMatch.invoice_no
@@ -856,14 +870,9 @@ export function DashboardTab({
         });
         return;
       }
-      if (onNavigate) {
-        setIsRecentActivityModalOpen(false);
-        onNavigate("orders", orderId);
-        return;
-      }
     }
 
-    // 2. POS Sale
+    // 2. POS Sale - if sale details are in memory, show rich POS receipt modal
     if (act.source === "pos_sale" || act.title.toLowerCase().includes("store sale")) {
       const saleId = act.metadata?.sale_id || act.id;
       const posMatch = rawPosSales.find(
@@ -873,7 +882,6 @@ export function DashboardTab({
           act.title.toUpperCase().includes(s.id.slice(0, 8).toUpperCase()),
       );
       if (posMatch) {
-        setIsRecentActivityModalOpen(false);
         setSelectedSale({
           key: `pos-${posMatch.id}`,
           id: posMatch.sale_number || `#${posMatch.id.slice(0, 8).toUpperCase()}`,
@@ -894,98 +902,11 @@ export function DashboardTab({
         });
         return;
       }
-      if (onNavigate) {
-        setIsRecentActivityModalOpen(false);
-        onNavigate("billing");
-        return;
-      }
     }
 
-    // 3. Returns & Exchanges
-    if (
-      act.source === "pos_return" ||
-      act.source === "online_return" ||
-      act.typeKey === "return" ||
-      act.title.toLowerCase().includes("return") ||
-      act.title.toLowerCase().includes("voucher")
-    ) {
-      if (onNavigate) {
-        setIsRecentActivityModalOpen(false);
-        onNavigate("returns");
-        toast.info("Navigated to Returns & Exchanges");
-        return;
-      }
-    }
-
-    const openTargetPage = (rawPath: string) => {
-      setIsRecentActivityModalOpen(false);
-      let path = rawPath.trim();
-      if (!path.startsWith("/")) path = `/${path}`;
-      if (path === "/store" || path === "/store/" || path === "store") path = "/shop";
-      if (path === "/products" || path === "/products/") path = "/shop";
-
-      try {
-        const win = window.open(path, "_blank", "noopener,noreferrer");
-        if (!win || win.closed || typeof win.closed === "undefined") {
-          const [pathname, search] = path.split("?");
-          if (search) {
-            const searchObj = Object.fromEntries(new URLSearchParams(search).entries());
-            navigate({ to: pathname as any, search: searchObj as any });
-          } else {
-            navigate({ to: pathname as any });
-          }
-        }
-      } catch {
-        window.location.href = path;
-      }
-    };
-
-    // 4. Product Page
-    const productSlug =
-      act.productSlug ||
-      (act.title.includes("/product/") ? act.title.match(/\/product\/([^\s?#/]+)/)?.[1] : null) ||
-      (typeof act.metadata?.path === "string" && act.metadata.path.includes("/product/")
-        ? act.metadata.path.match(/\/product\/([^\s?#/]+)/)?.[1]
-        : null);
-
-    if (productSlug) {
-      openTargetPage(`/product/${productSlug}`);
-      return;
-    }
-
-    // 5. Checkout started / Page viewed: /checkout
-    if (
-      act.typeKey === "checkout" ||
-      act.title.toLowerCase().includes("checkout") ||
-      act.title.includes("/checkout") ||
-      act.metadata?.path === "/checkout"
-    ) {
-      if (onNavigate) {
-        setIsRecentActivityModalOpen(false);
-        onNavigate("orders");
-        toast.info("Navigated to Orders to review checkouts and unpaid orders");
-        return;
-      }
-    }
-
-    // 6. Cart view / add
-    if (act.typeKey === "cart" || act.title.includes("/cart") || act.metadata?.path === "/cart") {
-      openTargetPage("/cart");
-      return;
-    }
-
-    // 7. Generic Page views e.g. "Page viewed: /" or "Page viewed: /shop"
-    if (act.title.startsWith("Page viewed:") || act.metadata?.path) {
-      let path = act.metadata?.path || act.title.replace("Page viewed:", "").trim();
-      if (act.metadata?.search && !path.includes("?")) {
-        path = `${path}${act.metadata.search}`;
-      }
-      openTargetPage(path);
-      return;
-    }
-
-    // Fallback: Toast activity info
-    toast.info(act.title);
+    // 3. For all other activities (page views, carts, checkouts, returns, or non-cached orders):
+    // Display complete details in the same-page Activity Details modal without navigating or opening new tabs
+    setSelectedActivity(act);
   };
 
   // Widget preview on Dashboard (top 8 activities)
@@ -2791,6 +2712,236 @@ export function DashboardTab({
                 className="rounded-xl border border-border bg-card hover:bg-muted px-4 py-2 text-xs font-bold text-foreground transition cursor-pointer shadow-2xs"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Details Modal (Same-Page Inspection) */}
+      {selectedActivity && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="activity-detail-modal-title"
+          onClick={() => setSelectedActivity(null)}
+        >
+          <div
+            className="flex flex-col w-full max-w-xl max-h-[90vh] rounded-3xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border/80 px-6 py-4 bg-muted/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`size-10 rounded-2xl flex items-center justify-center shrink-0 border border-border/60 ${selectedActivity.color}`}
+                >
+                  <selectedActivity.icon className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 id="activity-detail-modal-title" className="text-base font-bold text-foreground truncate">
+                      Activity Details
+                    </h3>
+                    {selectedActivity.channelTag && (
+                      <span className="inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                        {selectedActivity.channelTag}
+                      </span>
+                    )}
+                    {selectedActivity.source && (
+                      <span className="inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase bg-muted text-muted-foreground border border-border/60">
+                        {selectedActivity.source.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {selectedActivity.fullTime || selectedActivity.time}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedActivity(null)}
+                className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer shrink-0"
+                aria-label="Close activity details"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+              {/* Event Summary Card */}
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Action / Event
+                  </span>
+                  <p className="text-sm font-bold text-foreground mt-0.5">
+                    {selectedActivity.title}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/50">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Actor / Customer
+                    </span>
+                    <p className="text-xs font-semibold text-foreground flex items-center gap-1.5 mt-0.5">
+                      <Users className="size-3.5 text-primary shrink-0" />
+                      <span className="truncate">
+                        {selectedActivity.customerName || selectedActivity.subtitle || "Anonymous Visitor"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Recorded Time
+                    </span>
+                    <p className="text-xs font-semibold text-foreground flex items-center gap-1.5 mt-0.5">
+                      <Calendar className="size-3.5 text-primary shrink-0" />
+                      <span className="truncate">{selectedActivity.time}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {typeof selectedActivity.amount === "number" && selectedActivity.amount > 0 && (
+                  <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Associated Amount
+                    </span>
+                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      ₹{Math.round(selectedActivity.amount).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Product Card if product is linked */}
+              {(selectedActivity.productName || selectedActivity.productSlug) && (
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
+                  <div className="flex items-center gap-2 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <Package className="size-3.5 text-primary" />
+                    <span>Product Information</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {selectedActivity.productImage ? (
+                      <img
+                        src={selectedActivity.productImage}
+                        alt=""
+                        className="size-12 rounded-xl object-cover border border-border shrink-0"
+                      />
+                    ) : (
+                      <div className="size-12 rounded-xl bg-muted flex items-center justify-center border border-border shrink-0">
+                        <Package className="size-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {selectedActivity.productName || selectedActivity.productSlug}
+                      </p>
+                      {selectedActivity.productSlug && (
+                        <p className="text-[11px] text-muted-foreground font-mono truncate">
+                          /product/{selectedActivity.productSlug}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Path & Target Route Details */}
+              {(selectedActivity.metadata?.path || selectedActivity.title.includes("/")) && (
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <Eye className="size-3.5 text-primary" />
+                      <span>Target Route / URL</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetUrl = String(
+                          selectedActivity.metadata?.path ||
+                            selectedActivity.title.replace("Page viewed:", "").trim()
+                        );
+                        copyActivityText(targetUrl, "URL copied to clipboard");
+                      }}
+                      className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                      title="Copy URL"
+                    >
+                      {copiedActivityData ? (
+                        <Check className="size-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-3" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-muted/60 font-mono text-xs text-foreground break-all">
+                    {String(
+                      selectedActivity.metadata?.path ||
+                        selectedActivity.title.replace("Page viewed:", "").trim()
+                    )}
+                    {selectedActivity.metadata?.search ? String(selectedActivity.metadata.search) : ""}
+                  </div>
+                </div>
+              )}
+
+              {/* Complete Metadata Parameters */}
+              {selectedActivity.metadata && Object.keys(selectedActivity.metadata).length > 0 && (
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <Activity className="size-3.5 text-primary" />
+                      <span>Event Metadata & Telemetry</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyActivityText(
+                          JSON.stringify(selectedActivity.metadata, null, 2),
+                          "Activity metadata copied"
+                        )
+                      }
+                      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition cursor-pointer"
+                    >
+                      {copiedActivityData ? (
+                        <Check className="size-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-3" />
+                      )}
+                      <span>Copy JSON</span>
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/30 overflow-hidden">
+                    {Object.entries(selectedActivity.metadata).map(([key, val]) => (
+                      <div key={key} className="flex items-center justify-between px-3 py-2 text-xs">
+                        <span className="font-medium text-muted-foreground font-mono text-[11px]">{key}</span>
+                        <span className="font-semibold text-foreground text-right truncate max-w-[240px] font-mono text-[11px]">
+                          {typeof val === "object" ? JSON.stringify(val) : String(val)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-border px-6 py-3.5 bg-muted/20">
+              <span className="text-xs text-muted-foreground">
+                Activity ID: <span className="font-mono">{selectedActivity.id.slice(0, 10)}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedActivity(null)}
+                className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-primary-foreground transition cursor-pointer shadow-xs"
+              >
+                Close Details
               </button>
             </div>
           </div>
