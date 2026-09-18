@@ -2887,7 +2887,9 @@ function SettingsTab() {
       if (fullMerged.announcement !== undefined) {
         fullMerged.announcement_enabled = fullMerged.announcement.trim() ? "true" : "false";
       }
-      const rows = Object.entries(fullMerged).map(([key, value]) => ({ key, value: String(value ?? "") }));
+      const rows = Object.entries(fullMerged)
+        .filter(([key, value]) => !(key === "resend_api_key" && !value))
+        .map(([key, value]) => ({ key, value: String(value ?? "") }));
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
     },
@@ -3278,93 +3280,6 @@ function SettingsTab() {
             </div>
           </div>
         )}
-
-        {/* ─── SALE NOTIFICATIONS & RESEND EMAIL SETUP CARD ─── */}
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
-          <div className="border-b border-border pb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="font-display text-lg font-bold text-foreground">
-                Sale Notifications &amp; Resend Email Setup
-              </h3>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                Live Alerts
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure where admin sale alerts are sent, and enter your Resend API key for instant email receipts.
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Admin Notification Email
-                </span>
-                <input
-                  type="email"
-                  value={current.owner_notification_email ?? "hello@zerahkids.com"}
-                  onChange={(e) => setValues({ ...current, owner_notification_email: e.target.value })}
-                  placeholder="hello@zerahkids.com"
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Receives comprehensive sale breakdowns on every order &amp; POS sale.
-                </p>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Admin Notification Phone (SMS / WhatsApp)
-                </span>
-                <input
-                  type="text"
-                  value={current.owner_notification_phone ?? "9057074777"}
-                  onChange={(e) => setValues({ ...current, owner_notification_phone: e.target.value })}
-                  placeholder="9057074777"
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Receives MSG91 sale alert notifications on sale completion.
-                </p>
-              </label>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Resend API Key
-                </span>
-                <input
-                  type="password"
-                  value={current.resend_api_key ?? ""}
-                  onChange={(e) => setValues({ ...current, resend_api_key: e.target.value })}
-                  placeholder="re_xxxxxxxxxxxxxxxxxxxx"
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs font-mono"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Get your free API key from <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="text-primary underline font-bold">resend.com/api-keys</a>.
-                </p>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Resend From Email
-                </span>
-                <input
-                  type="text"
-                  value={current.resend_from_email ?? "Zérah Baby & Kids <orders@zerahkids.com>"}
-                  onChange={(e) => setValues({ ...current, resend_from_email: e.target.value })}
-                  placeholder="Zérah Baby & Kids <orders@zerahkids.com>"
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-medium outline-none transition focus:border-primary shadow-2xs"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Requires domain verified in Resend, or use onboarding@resend.dev for test email.
-                </p>
-              </label>
-            </div>
-          </div>
-        </div>
 
         <div className="flex justify-end pt-4 border-t border-border">
           <button
