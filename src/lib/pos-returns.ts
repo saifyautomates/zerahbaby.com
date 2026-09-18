@@ -943,7 +943,7 @@ export function useStoreCreditVoucher(params: {
           _phone: phone || "",
         });
 
-        if (!error && data && data.valid) {
+        if (!error && data) {
           return data;
         }
       } catch {

@@ -571,14 +571,11 @@ export function POSTab() {
   // Otherwise, use the customer's account store credit balance or active returns.
   const availableCredit = useMemo(() => {
     if (creditTokenInput && creditTokenInput.trim().length >= 3) {
-      if (voucherData?.valid) {
+      if (voucherData) {
+        if (!voucherData.valid) {
+          return 0;
+        }
         return voucherData.remaining_balance ?? voucherData.available_credit ?? 0;
-      }
-      const matchingReturn = customerCreditData?.active_returns?.find(
-        (r: any) => r.credit_token?.toUpperCase() === creditTokenInput.trim().toUpperCase(),
-      );
-      if (matchingReturn) {
-        return Math.max(0, Number(matchingReturn.credit_balance ?? matchingReturn.refund_amount) || 0);
       }
       return 0;
     }
@@ -626,15 +623,16 @@ export function POSTab() {
     }
   }, [availableCredit, total, storeCreditApplied, creditTokenInput, creditDismissedManually, customerCreditData]);
 
-  // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes)
+  // Dynamic re-clamping if total or available credit changes (e.g. cart quantity changes or invalid voucher)
   useEffect(() => {
-    if (
-      storeCreditApplied > 0 &&
-      (storeCreditApplied > availableCredit || storeCreditApplied > total)
-    ) {
-      setStoreCreditApplied(Math.min(availableCredit, total));
+    if (storeCreditApplied > 0) {
+      if (voucherData && !voucherData.valid) {
+        setStoreCreditApplied(0);
+      } else if (storeCreditApplied > availableCredit || storeCreditApplied > total) {
+        setStoreCreditApplied(Math.min(availableCredit, total));
+      }
     }
-  }, [availableCredit, total, storeCreditApplied]);
+  }, [availableCredit, total, storeCreditApplied, voucherData]);
 
   // Auto-clamp applied credit to available credit and final total
   const effectiveCreditUsed = useMemo(() => {
@@ -4251,13 +4249,13 @@ export function POSTab() {
                         <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold">
-                            {voucherData.error || "Invalid or ineligible voucher"}
+                            {voucherData.error || (voucherData.ownership_mismatch ? "This voucher is not available for this customer." : "Invalid or ineligible voucher")}
                           </p>
-                          <p className="text-[11px] opacity-80 mt-0.5">
-                            {voucherData.ownership_mismatch
-                              ? `This credit is strictly registered to ${voucherData.customer_name || "another customer"} (${voucherData.customer_phone || ""}). Select this customer to redeem.`
-                              : "Store credit vouchers expire 90 days after issuance and cannot be re-used after full redemption."}
-                          </p>
+                          {!voucherData.ownership_mismatch && (
+                            <p className="text-[11px] opacity-80 mt-0.5">
+                              Store credit vouchers expire 90 days after issuance and cannot be re-used after full redemption.
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
