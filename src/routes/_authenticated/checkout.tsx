@@ -756,13 +756,13 @@ function CheckoutPage() {
           onSubmit={onSubmit}
           className="w-full min-w-0 max-w-full space-y-4 rounded-3xl border border-border/60 bg-card shadow-premium-sm p-3.5 sm:p-8 box-border overflow-hidden"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4 min-w-0 w-full">
-            <h2 className="text-lg font-bold min-w-0">Delivery Address</h2>
+          <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3 min-w-0 w-full">
+            <h2 className="text-base sm:text-lg font-bold min-w-0 text-foreground">Delivery Address</h2>
             {hasSavedAddress && (
               <button
                 type="button"
                 onClick={() => setAddressMode(addressMode === "saved" ? "new" : "saved")}
-                className="text-xs sm:text-sm font-semibold text-primary transition hover:underline self-start sm:self-auto shrink-0"
+                className="text-xs sm:text-sm font-semibold text-primary transition hover:underline shrink-0"
               >
                 {addressMode === "saved" ? "Enter a new address" : "Use saved address"}
               </button>
@@ -770,13 +770,13 @@ function CheckoutPage() {
           </div>
 
           {addressMode === "saved" && profile ? (
-            <div className="rounded-xl border border-border bg-muted/30 p-4 sm:p-5 min-w-0 w-full break-words">
-              <p className="font-semibold break-words">{profile.full_name}</p>
-              <p className="mt-2 text-sm text-muted-foreground break-words">{profile.address}</p>
-              <p className="text-sm text-muted-foreground break-words">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 sm:p-5 min-w-0 w-full break-words">
+              <p className="font-bold text-sm text-foreground break-words">{profile.full_name}</p>
+              <p className="mt-1 text-xs text-muted-foreground break-words">{profile.address}</p>
+              <p className="text-xs text-muted-foreground break-words">
                 {profile.city}, {profile.state} {profile.pincode}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground break-words">Mobile: {profile.phone}</p>
+              <p className="mt-2 text-xs text-muted-foreground break-words">Mobile: {profile.phone}</p>
             </div>
           ) : (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 min-w-0 w-full">
@@ -874,180 +874,161 @@ function CheckoutPage() {
             </div>
           )}
 
-          <div className="mt-8 border-t border-border pt-6 min-w-0 w-full">
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-2 mb-4 min-w-0 w-full">
-              <h2 className="text-lg font-bold min-w-0">Payment &amp; Notes</h2>
-              <span className="text-xs text-muted-foreground font-medium shrink-0 truncate max-w-[10rem] sm:max-w-none">
+          <div className="mt-8 border-t border-border/60 pt-6 min-w-0 w-full">
+            <div className="flex items-center justify-between gap-2 mb-4 min-w-0 w-full">
+              <h2 className="text-base sm:text-lg font-bold min-w-0 text-foreground">Payment &amp; Notes</h2>
+              <span className="text-xs text-muted-foreground font-normal shrink-0">
                 Select payment method
               </span>
             </div>
 
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 min-w-0 w-full">
-              <div className="sm:col-span-2 space-y-3 min-w-0 w-full">
-                {/* ─── PAY NOW TRIGGER CARD ─── */}
-                <button
-                  type="button"
-                  id="checkout-pay-now-trigger"
-                  onClick={() => setPaymentOptionsOpen((prev) => !prev)}
-                  className="w-full min-w-0 flex items-center justify-between p-3 sm:p-4 rounded-2xl border border-border bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40 box-border overflow-hidden"
-                >
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
-                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
-                      {form.payment_method === "cod" ? (
-                        <Banknote className="size-5" />
-                      ) : (
-                        <CreditCard className="size-5" />
-                      )}
+            <div className="space-y-3 min-w-0 w-full">
+              {/* ─── PAY NOW TRIGGER CARD ─── */}
+              <button
+                type="button"
+                id="checkout-pay-now-trigger"
+                onClick={() => setPaymentOptionsOpen((prev) => !prev)}
+                className="w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition shadow-xs group cursor-pointer box-border overflow-hidden"
+              >
+                <div className="mt-0.5 shrink-0">
+                  <div className="size-4 rounded-full border border-muted-foreground/40 bg-background" />
+                </div>
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CreditCard className="size-4 text-primary shrink-0" />
+                    <span className="font-bold text-sm text-foreground">Pay Now</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      {form.payment_method === "cod" ? "COD Selected" : "Online Selected"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed break-words">
+                    {form.payment_method === "cod"
+                      ? "Cash on Delivery · Pay cash or UPI at doorstep"
+                      : "Online Payment · Instant via UPI, Cards, NetBanking."}
+                  </p>
+                </div>
+              </button>
+
+              {/* ─── 2 TABS: ORDER ONLINE & CASH ON DELIVERY ─── */}
+              {paymentOptionsOpen && (
+                <div className="space-y-3 pt-0.5 animate-in fade-in slide-in-from-top-2 duration-300 min-w-0 w-full max-w-full">
+                  {/* TAB 1: ORDER ONLINE */}
+                  <button
+                    type="button"
+                    id="payment-tab-online"
+                    onClick={() => setForm((prev) => ({ ...prev, payment_method: "online" }))}
+                    className={`w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
+                      form.payment_method === "online"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/40 shadow-xs"
+                        : "border-border/70 bg-card hover:bg-muted/30"
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <div
+                        className={`size-4 rounded-full border flex items-center justify-center transition-colors ${
+                          form.payment_method === "online"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-muted-foreground/40 bg-background"
+                        }`}
+                      >
+                        {form.payment_method === "online" && (
+                          <div className="size-1.5 rounded-full bg-white" />
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-base text-foreground">Pay Now</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
-                          {form.payment_method === "cod" ? "COD Selected" : "Online Selected"}
+                        <CreditCard className="size-4 text-primary shrink-0" />
+                        <span className="font-bold text-sm text-foreground">Order Online</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                          Instant
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 break-words">
-                        {form.payment_method === "cod"
-                          ? "Cash on Delivery · Pay cash or UPI at doorstep"
-                          : "Online Payment · Instant via UPI, Cards, NetBanking"}
+                      <p className="text-xs text-muted-foreground leading-relaxed break-words">
+                        Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or
+                        NetBanking.
                       </p>
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className="text-xs font-semibold text-primary hidden sm:inline">
-                      {paymentOptionsOpen ? "Hide Options" : "Change Method"}
-                    </span>
-                    <div className="p-1 rounded-full bg-muted text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
-                      {paymentOptionsOpen ? (
-                        <ChevronUp className="size-4" />
-                      ) : (
-                        <ChevronDown className="size-4" />
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {/* ─── 2 TABS: ORDER ONLINE & CASH ON DELIVERY ─── */}
-                {paymentOptionsOpen && (
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 pt-1 animate-in fade-in slide-in-from-top-2 duration-300 min-w-0 w-full max-w-full">
-                    {/* TAB 1: ORDER ONLINE */}
+                  {/* TAB 2: CASH ON DELIVERY */}
+                  {isCodEligible ? (
                     <button
                       type="button"
-                      id="payment-tab-online"
-                      onClick={() => setForm((prev) => ({ ...prev, payment_method: "online" }))}
-                      className={`w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
-                        form.payment_method === "online"
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
-                          : "border-border bg-card hover:bg-muted/30"
+                      id="payment-tab-cod"
+                      onClick={() => setForm((prev) => ({ ...prev, payment_method: "cod" }))}
+                      className={`w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
+                        form.payment_method === "cod"
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/40 shadow-xs"
+                          : "border-border/70 bg-card hover:bg-muted/30"
                       }`}
                     >
                       <div className="mt-0.5 shrink-0">
                         <div
                           className={`size-4 rounded-full border flex items-center justify-center transition-colors ${
-                            form.payment_method === "online"
+                            form.payment_method === "cod"
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-muted-foreground/40 bg-background"
                           }`}
                         >
-                          {form.payment_method === "online" && (
+                          {form.payment_method === "cod" && (
                             <div className="size-1.5 rounded-full bg-white" />
                           )}
                         </div>
                       </div>
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <CreditCard className="size-4 text-primary shrink-0" />
-                          <span className="font-bold text-sm text-foreground">Order Online</span>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
-                            Instant
+                          <Banknote className="size-4 text-primary shrink-0" />
+                          <span className="font-bold text-sm text-foreground">
+                            Cash on Delivery
                           </span>
+                          {codFee > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
+                              +₹{codFee} fee
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed break-words">
-                          Pay securely with UPI (GPay, PhonePe, Paytm), Credit / Debit Cards, or
-                          NetBanking.
+                          Pay with cash or UPI upon delivery at your doorstep.
                         </p>
                       </div>
                     </button>
-
-                    {/* TAB 2: CASH ON DELIVERY */}
-                    {isCodEligible ? (
-                      <button
-                        type="button"
-                        id="payment-tab-cod"
-                        onClick={() => setForm((prev) => ({ ...prev, payment_method: "cod" }))}
-                        className={`w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer box-border overflow-hidden ${
-                          form.payment_method === "cod"
-                            ? "border-primary bg-primary/5 ring-2 ring-primary/30 shadow-xs"
-                            : "border-border bg-card hover:bg-muted/30"
-                        }`}
-                      >
-                        <div className="mt-0.5 shrink-0">
-                          <div
-                            className={`size-4 rounded-full border flex items-center justify-center transition-colors ${
-                              form.payment_method === "cod"
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-muted-foreground/40 bg-background"
-                            }`}
-                          >
-                            {form.payment_method === "cod" && (
-                              <div className="size-1.5 rounded-full bg-white" />
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Banknote className="size-4 text-primary shrink-0" />
-                            <span className="font-bold text-sm text-foreground">
-                              Cash on Delivery
-                            </span>
-                            {codFee > 0 && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
-                                +₹{codFee} fee
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed break-words">
-                            Pay with cash or UPI upon delivery at your doorstep.
-                          </p>
-                        </div>
-                      </button>
-                    ) : (
-                      /* COD DISABLED / UNAVAILABLE STATE (Admin Turned Off or Limit Not Met) */
-                      <div
-                        id="payment-tab-cod-disabled"
-                        className="w-full min-w-0 text-left flex items-start gap-3 p-3 sm:p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none box-border overflow-hidden"
-                        title={codUnavailableReason || "COD unavailable right now"}
-                      >
-                        <div className="mt-0.5 shrink-0">
-                          <div className="size-4 rounded-full border border-muted-foreground/30 bg-muted flex items-center justify-center" />
-                        </div>
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Banknote className="size-4 text-muted-foreground shrink-0" />
-                            <span className="font-bold text-sm text-muted-foreground line-through decoration-muted-foreground/50">
-                              Cash on Delivery
-                            </span>
-                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
-                              Unavailable
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed break-words">
-                            {codUnavailableReason}
-                          </p>
-                        </div>
+                  ) : (
+                    /* COD DISABLED / UNAVAILABLE STATE */
+                    <div
+                      id="payment-tab-cod-disabled"
+                      className="w-full min-w-0 text-left flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border border-dashed border-border/80 bg-muted/40 opacity-70 cursor-not-allowed select-none box-border overflow-hidden"
+                      title={codUnavailableReason || "COD unavailable right now"}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        <div className="size-4 rounded-full border border-muted-foreground/30 bg-muted flex items-center justify-center" />
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Banknote className="size-4 text-muted-foreground shrink-0" />
+                          <span className="font-bold text-sm text-muted-foreground line-through decoration-muted-foreground/50">
+                            Cash on Delivery
+                          </span>
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
+                            Unavailable
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed break-words">
+                          {codUnavailableReason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <label className="text-sm font-semibold sm:col-span-2 min-w-0 w-full">
+              <label className="text-sm font-semibold min-w-0 w-full block pt-1">
                 Delivery notes (optional)
                 <textarea
                   rows={2}
                   maxLength={300}
-                  className={`mt-1 ${field} resize-none`}
+                  placeholder="Add any delivery instructions (optional)"
+                  className={`mt-1.5 ${field} resize-none`}
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
@@ -1057,7 +1038,7 @@ function CheckoutPage() {
           <button
             id="place-order-submit-btn"
             disabled={busy}
-            className="focus-ring press mt-4 w-full max-w-full rounded-full bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none cursor-pointer"
+            className="focus-ring press mt-4 w-full max-w-full rounded-full bg-primary py-3.5 sm:py-4 text-sm font-bold text-primary-foreground shadow-premium-md transition-all duration-300 hover:bg-primary/90 hover:-translate-y-0.5 hover:shadow-premium-hover disabled:opacity-60 disabled:transform-none disabled:shadow-none cursor-pointer"
           >
             {busy
               ? "Placing order…"

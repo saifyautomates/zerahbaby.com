@@ -6,11 +6,6 @@ export function BottomNav() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // On Checkout page, hide BottomNav so it does not block the checkout flow or overlap payment buttons
-  if (currentPath === "/checkout" || currentPath.startsWith("/checkout")) {
-    return null;
-  }
-
   const navItems = [
     { label: "Home", path: "/", icon: Home },
     { label: "Categories", path: "/categories", icon: LayoutGrid },
