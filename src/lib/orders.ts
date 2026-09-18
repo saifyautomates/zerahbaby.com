@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateCanonicalReportingQueries } from "@/lib/canonical-reporting";
+import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 
 import type { Order, OrderItem } from "@/domain/models";
 export type { Order, OrderItem };
@@ -268,10 +269,20 @@ export function usePlaceOrder() {
         throw new Error((error as { message?: string })?.message || "Failed to place order");
       return (data as { order_id: string }).order_id;
     },
-    onSuccess: () => {
+    onSuccess: (orderId, variables) => {
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       qc.invalidateQueries({ queryKey: ["admin-orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+
+      // If COD order, authoritatively trigger multi-channel sale notifications (Customer SMS + Admin SMS + Admin Email)
+      if (variables?.payment_method?.toLowerCase() === "cod") {
+        dispatchSaleNotifications({
+          sale_type: "online",
+          sale_id: orderId,
+        }).catch((notifyErr) => {
+          console.warn("[orders] COD sale notification dispatch error:", notifyErr);
+        });
+      }
     },
   });
 }

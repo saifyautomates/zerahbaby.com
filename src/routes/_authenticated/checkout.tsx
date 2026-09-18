@@ -188,6 +188,17 @@ function CheckoutPage() {
             razorpay_payment_id: opts.razorpay_payment_id,
           },
         });
+
+        // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
+        if (verifyData.order_id) {
+          dispatchSaleNotifications({
+            sale_type: "online",
+            sale_id: verifyData.order_id,
+          }).catch((notifyErr) => {
+            console.warn("[Checkout] Online paid sale notifications dispatcher error:", notifyErr);
+          });
+        }
+
         await clear();
         await qc.invalidateQueries({ queryKey: ["my-orders"] });
         await qc.invalidateQueries({ queryKey: ["admin-orders"] });

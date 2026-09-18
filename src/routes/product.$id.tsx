@@ -63,6 +63,7 @@ import { Suspense } from "react";
 import { useAdminMode } from "@/lib/admin-mode";
 import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
 import { calculateCartFinancials } from "@/lib/pricing-engine";
+import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
@@ -2146,6 +2147,17 @@ function BuyNowModal({
                 razorpay_payment_id: response.razorpay_payment_id,
               },
             });
+
+            // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
+            if (orderId) {
+              dispatchSaleNotifications({
+                sale_type: "online",
+                sale_id: orderId,
+              }).catch((notifyErr) => {
+                console.warn("[BuyNow] Sale notifications dispatcher error:", notifyErr);
+              });
+            }
+
             toast.success("Payment successful! Your order has been placed.", {
               id: "buy-now-verify",
             });
