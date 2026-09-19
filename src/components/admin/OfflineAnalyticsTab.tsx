@@ -750,27 +750,11 @@ export function OfflineAnalyticsTab() {
         });
       }
     }
-    // Deduct returns in period
-    for (const ret of (returnsList ?? []).filter((r) => inCurrentPeriod(r.created_at))) {
-      for (const item of (ret as any).offline_return_items ?? []) {
-        const key = item.sku || item.name || item.product_name;
-        if (key && map.has(key)) {
-          const cur = map.get(key)!;
-          const retQty = Number(item.qty || item.quantity || 1);
-          const retRev = Number(item.subtotal || item.refund_price || 0) * retQty;
-          map.set(key, {
-            ...cur,
-            qty: Math.max(0, cur.qty - retQty),
-            revenue: Math.max(0, cur.revenue - retRev),
-          });
-        }
-      }
-    }
     return Array.from(map.values())
       .filter((p) => p.qty > 0)
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  }, [activeSales, returnsList, inCurrentPeriod]);
+  }, [activeSales, inCurrentPeriod]);
 
   const handleClearDummyData = async () => {
     if (

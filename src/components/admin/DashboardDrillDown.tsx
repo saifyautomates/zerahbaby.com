@@ -1218,7 +1218,8 @@ export function DashboardDrillDown({
         });
       });
       validPosSales.forEach((s) => {
-        if (s.return_status === "returned") return; // Completely returned sale!
+        const retStatus = (s.return_status || "").toLowerCase().trim();
+        if (retStatus === "returned" || retStatus === "fully_returned" || retStatus === "completed") return; // Completely returned sale!
         const saleItems = s.offline_sale_items || [];
         const saleSubtotal = saleItems.reduce(
           (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
@@ -1243,10 +1244,11 @@ export function DashboardDrillDown({
           );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const rawItemTotal = (item.price || 0) * netQty;
+          const netSaleTotal = Math.max(0, Number(s.total || 0) - Number((s as any).returned_amount || 0));
           const rev =
             saleSubtotal > 0
-              ? (rawItemTotal / saleSubtotal) * Number(s.total || 0)
-              : Number(item.subtotal || item.price || s.total || 0);
+              ? (rawItemTotal / saleSubtotal) * netSaleTotal
+              : Number(item.subtotal || item.price || netSaleTotal || 0);
           const cogs = bp * netQty;
           const profit = rev - cogs;
           allItems.push({
