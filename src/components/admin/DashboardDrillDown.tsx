@@ -459,14 +459,31 @@ function SalesChannelDrillDown({
   }, []);
 
   const onlineOrders = useMemo(() => {
-    return validOrders.map((o) => ({
-      sale_id: o.id,
-      date: o.created_at,
-      id: `#${o.id.substring(0, 8).toUpperCase()}`,
-      customer: o.full_name || o.email || "Guest",
-      source: "Online" as const,
-      total: o.total || 0,
-    }));
+    return validOrders
+      .filter((o) => {
+        const s = (o.status || "").toLowerCase();
+        const retStatus = (
+          ((o as unknown as Record<string, unknown>).return_status as string) || ""
+        ).toUpperCase();
+        if (
+          s === "cancelled" ||
+          s === "returned" ||
+          s === "refunded" ||
+          retStatus === "COMPLETED" ||
+          retStatus === "REFUNDED"
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((o) => ({
+        sale_id: o.id,
+        date: o.created_at,
+        id: `#${o.id.substring(0, 8).toUpperCase()}`,
+        customer: o.full_name || o.email || "Guest",
+        source: "Online" as const,
+        total: o.total || 0,
+      }));
   }, [validOrders]);
 
   // Fast lookup maps built from validReturns for accurate return exclusions
