@@ -860,11 +860,13 @@ export function POSTab() {
         totalCost += bp * (item.qty || 1);
       }
     }
-    const curTotal = typeof total === "number" ? total : 0;
-    const profit = curTotal - totalCost;
-    const marginPct = totalCost > 0 && curTotal > 0 ? (profit / curTotal) * 100 : null;
+    // Use the actual selling price (after all discounts) for profit calculation.
+    // `total` is posFinancials.finalTotal = subtotal - couponDiscount - manualDiscount
+    const actualRevenue = typeof total === "number" ? total : 0;
+    const profit = actualRevenue - totalCost;
+    const marginPct = totalCost > 0 && actualRevenue > 0 ? (profit / actualRevenue) * 100 : null;
     return { totalCost, profit, marginPct, hasCostData };
-  }, [cart, total, products]);
+  }, [cart, total, products, discountAmount, couponDiscount]);
 
   // In-Memory O(1) Instant POS Catalog Index (Barcodes, SKUs, IDs, Variants)
   const productLookupMaps = useMemo(() => {
