@@ -1794,11 +1794,7 @@ export function ProductForm({
                               (!v.color || !v.color.trim()) &&
                               (!v.size || !v.size.trim()) &&
                               (!v.name || v.name.trim() === "Default");
-                            if (isDefault) return { ...v, price_override: null };
-                            if (v.price_override === null || v.price_override === oldPrice) {
-                              return { ...v, price_override: newPrice };
-                            }
-                            return v;
+                            return { ...v, price_override: null };
                           }),
                         }));
                       }}

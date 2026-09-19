@@ -60,13 +60,18 @@ test.describe("Baby Girls Top MRP Synchronization & Financial Integrity", () => 
     expect(vErr).toBeNull();
     expect(variants?.length).toBeGreaterThan(0);
 
-    // Variant 5-6Y (which had the bug) must inherit price & mrp (null overrides)
+    // Variant 5-6Y and 4-5Y must inherit price & mrp (null overrides)
     const var56 = variants?.find((v) => v.size === "5-6Y");
     expect(var56).toBeTruthy();
     expect(var56?.price_override).toBeNull();
     expect(var56?.mrp_override).toBeNull();
 
-    console.log("[PASS] Database verification: Product MRP is 800, variant overrides are NULL (inheriting).");
+    const var45 = variants?.find((v) => v.size === "4-5Y");
+    expect(var45).toBeTruthy();
+    expect(var45?.price_override).toBeNull();
+    expect(var45?.mrp_override).toBeNull();
+
+    console.log("[PASS] Database verification: Product MRP is 800, all variant overrides are NULL (inheriting).");
   });
 
   test("2. Financial Engine Calculation Verification", () => {
