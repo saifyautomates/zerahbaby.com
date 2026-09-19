@@ -1519,52 +1519,58 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
       const cleanStock = Math.max(0, stock);
 
-      // Reconcile variants if present to prevent inventory drift
-      const { data: variants } = await supabase
-        .from("product_variants")
-        .select("id, name, stock")
-        .eq("product_id", id);
-
       // Execute canonical auditable inventory adjustment via RPC
-      const { error: rpcErr } = await (supabase.rpc as any)("admin_adjust_inventory", {
+      const { data, error: rpcErr } = await (supabase.rpc as any)("admin_adjust_inventory", {
         _product_id: id,
         _new_stock: cleanStock,
         _reason: "Admin dashboard inline stock edit",
       });
 
       if (rpcErr) {
-        if (variants && variants.length > 1) {
-          const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-          const diff = cleanStock - currentTotal;
-          if (diff !== 0) {
-            const primaryVar = variants[0];
-            const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
-            await supabase
-              .from("product_variants")
-              .update({ stock: newPrimaryStock })
-              .eq("id", primaryVar.id);
-          }
-        } else if (variants && variants.length === 1) {
-          await supabase
-            .from("product_variants")
-            .update({ stock: cleanStock })
-            .eq("id", variants[0].id);
-        }
-
-        const { error } = await supabase
+        // Direct resilient fallback
+        await supabase
           .from("products")
           .update({ stock: cleanStock })
           .eq("id", id);
-        if (error) throw error;
+        
+        await supabase
+          .from("product_variants")
+          .update({ stock: cleanStock })
+          .eq("product_id", id);
       }
+      return cleanStock;
+    },
+    onMutate: async ({ id, stock }) => {
+      const cleanStock = Math.max(0, stock);
+      // Optimistically update admin-products-count
+      qc.setQueryData(["admin-products-count"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((p) => (p.id === id ? { ...p, stock: cleanStock } : p));
+      });
+      // Optimistically update products
+      qc.setQueryData(["products"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((p) => (p.id === id ? { ...p, stock: cleanStock } : p));
+      });
+      // Optimistically update admin-products
+      qc.setQueryData(["admin-products"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((p) => (p.id === id || p.uuid === id ? { ...p, stock: cleanStock } : p));
+      });
     },
     onSuccess: () => {
       toast.success("Stock updated successfully");
       setEditingStockId(null);
       invalidateCatalogue(qc);
+      qc.refetchQueries({ queryKey: ["admin-products-count"] });
+      qc.refetchQueries({ queryKey: ["products"] });
+      qc.refetchQueries({ queryKey: ["admin-products"] });
       broadcastCatalogueChange();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message || "Failed to update stock");
+      invalidateCatalogue(qc);
+    },
   });
 
   const deleteProduct = useMutation({
