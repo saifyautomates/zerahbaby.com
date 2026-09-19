@@ -1864,8 +1864,8 @@ function ProductsTab() {
 
   // Authoritative shared stock valuation
   const valuation = useMemo(() => {
-    return calculateStockValuation(activeProducts);
-  }, [activeProducts]);
+    return calculateStockValuation((data ?? []).filter((p) => p.isActive || (p.stock || 0) > 0));
+  }, [data]);
 
   const totalStockUnits = valuation.totalUnits;
   const totalStockValue = valuation.retailValue;

@@ -112,12 +112,10 @@ export function QuickVariantStockModal({
       }
 
       // 3. Update the parent product total stock
-      const isZeroStock = totalStock <= 0;
       const { error: prodErr } = await supabase
         .from("products")
         .update({
           stock: Math.max(0, totalStock),
-          ...(isZeroStock ? { is_active: false, status: "archived" } : {}),
         })
         .eq("id", product.uuid);
 
@@ -133,8 +131,6 @@ export function QuickVariantStockModal({
               return {
                 ...p,
                 stock: totalStock,
-                is_active: isZeroStock ? false : p.isActive,
-                isActive: isZeroStock ? false : p.isActive,
                 variants: p.variants?.map((v: any) => {
                   const updatedV = variants.find((uv) => uv.id === v.id);
                   if (updatedV) {
@@ -152,13 +148,29 @@ export function QuickVariantStockModal({
       // 5. Invalidate all dependent surfaces across store, PDP, POS, and Admin
       invalidateCatalogue(qc);
 
-      if (isZeroStock) {
-        toast.success(`Stock is 0 — ${product.name} moved to Archive`);
-      } else {
-        toast.success(
-          `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
-        );
-      }
+      // 6. Synchronize offline IndexedDB catalog cache
+      import("@/lib/offline-sync-engine")
+        .then((m) => {
+          m.updateOfflineCatalogProduct({
+            id: product.uuid,
+            uuid: product.uuid,
+            stock: totalStock,
+            variants: variants.map((v) => ({
+              id: v.id,
+              name: v.name,
+              stock: Number(v.stock) || 0,
+              color: v.color,
+              size: v.size,
+              sku: v.sku,
+              barcode: v.barcode,
+            })),
+          }).catch(console.error);
+        })
+        .catch(console.error);
+
+      toast.success(
+        `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
+      );
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {

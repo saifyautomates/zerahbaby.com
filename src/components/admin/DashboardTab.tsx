@@ -238,7 +238,7 @@ export function DashboardTab({
         const { error: delErr } = await supabase
           .from("website_visitors")
           .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
+          .gte("created_at", "1970-01-01T00:00:00Z");
         if (delErr) throw delErr;
       }
     },

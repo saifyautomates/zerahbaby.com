@@ -217,6 +217,22 @@ export function CategoriesTab() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
+      const { data: category } = await supabase
+        .from("categories")
+        .select("name, slug")
+        .eq("id", id)
+        .maybeSingle();
+      if (category) {
+        const { count, error: countErr } = await supabase
+          .from("products")
+          .select("id", { count: "exact", head: true })
+          .or(`category.eq."${category.name}",category.eq."${category.slug}"`);
+        if (!countErr && count && count > 0) {
+          throw new Error(
+            `Cannot delete "${category.name}": ${count} product(s) are currently assigned to this category. Please reassign or remove the products first.`,
+          );
+        }
+      }
       const { error } = await supabase.from("categories").delete().eq("id", id);
       if (error) throw error;
     },

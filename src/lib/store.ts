@@ -410,10 +410,9 @@ export const mapProduct = (row: ProductRow): Product => {
         Number(v.price_override) > 0 &&
         Number(v.price_override) !== Number(row.price);
 
-      // Variant only has a genuine MRP override if it has a custom price and a distinct MRP
+      // Variant has a genuine MRP override if it differs from parent product MRP
       const hasDistinctMrp =
         !isDefault &&
-        hasDistinctPrice &&
         v.mrp_override != null &&
         Number(v.mrp_override) > 0 &&
         Number(v.mrp_override) !== Number(row.mrp);

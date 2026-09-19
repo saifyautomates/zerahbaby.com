@@ -106,15 +106,9 @@ export async function searchPOSProducts(query: string, limit = 20): Promise<POSS
                     : p.price ?? 0,
               ),
               mrp: Number(
-                v.price_override &&
-                  Number(v.price_override) !== Number(p.price) &&
-                  v.mrp_override &&
-                  Number(v.mrp_override) !== Number(p.mrp)
+                v.mrp_override && Number(v.mrp_override) > 0 && Number(v.mrp_override) !== Number(p.mrp)
                   ? v.mrp_override
-                  : v.priceOverride &&
-                      Number(v.priceOverride) !== Number(p.price) &&
-                      v.mrpOverride &&
-                      Number(v.mrpOverride) !== Number(p.mrp)
+                  : v.mrpOverride && Number(v.mrpOverride) > 0 && Number(v.mrpOverride) !== Number(p.mrp)
                     ? v.mrpOverride
                     : p.mrp ?? p.price ?? 0,
               ),

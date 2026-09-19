@@ -285,7 +285,9 @@ export function OnlineSalesTab() {
       o.status !== "cancelled",
   ).length;
 
-  const cancelledOrdersCount = allData.filter((o) => o.status === "cancelled").length;
+  const cancelledOrdersCount = allData.filter(
+    (o) => (o._type ? o._type === "online" : true) && o.status === "cancelled",
+  ).length;
 
   const orders = allData.filter((o) => {
     // Filter by Search Query (ID, Customer Name, Phone, Email, City)

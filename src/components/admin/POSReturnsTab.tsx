@@ -376,9 +376,13 @@ export function POSReturnsTab() {
           product_slug: item.product_slug || item.product_id || "",
           name: item.name,
           sku: item.sku,
-          barcode: item.barcode,
-          image_url: imageFor("clothing", undefined),
-          current_price: item.price,
+          barcode: item.barcode || "",
+          image_url:
+            (item as any).image_url ||
+            (item as any).image ||
+            (item as any).image_url_snapshot ||
+            imageFor("clothing", undefined),
+          current_price: item.price || 0,
           recent_sold_price: item.price,
           refund_price: historicalPaidPrice,
           mrp: item.unit_mrp || item.mrp || item.price,

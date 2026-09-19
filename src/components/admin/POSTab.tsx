@@ -1628,7 +1628,7 @@ export function POSTab() {
           const price = hasCustomPrice ? Number(vPrice) : product.price;
 
           const vMrp = variant?.mrpOverride ?? (variant as any)?.mrp_override;
-          const hasCustomMrp = hasCustomPrice && vMrp != null && Number(vMrp) > 0 && Number(vMrp) !== Number(product.mrp);
+          const hasCustomMrp = vMrp != null && Number(vMrp) > 0 && Number(vMrp) !== Number(product.mrp);
           const mrp = hasCustomMrp ? Number(vMrp) : (product.mrp ?? product.price);
           const sku = variant?.sku || product.sku || "";
           const barcode = variant?.barcode || product.barcode || cleanCode;
@@ -1793,7 +1793,7 @@ export function POSTab() {
             const price = hasCustomPrice ? Number(rawVPrice) : Number(offline.price ?? 0);
 
             const rawVMrp = v?.mrp_override ?? v?.mrpOverride;
-            const hasCustomMrp = hasCustomPrice && rawVMrp != null && Number(rawVMrp) > 0 && Number(rawVMrp) !== Number(offline.mrp);
+            const hasCustomMrp = rawVMrp != null && Number(rawVMrp) > 0 && Number(rawVMrp) !== Number(offline.mrp);
             const mrp = hasCustomMrp ? Number(rawVMrp) : Number(offline.mrp ?? price);
             const sku = String(v?.sku || offline.sku || "");
             const barcode = String(v?.barcode || offline.barcode || cleanCode);
@@ -1987,16 +1987,13 @@ export function POSTab() {
       brand: product.brand,
       category: product.category,
       price:
-        selectedVar?.priceOverride && selectedVar.priceOverride !== product.price
-          ? selectedVar.priceOverride
+        selectedVar?.priceOverride != null && Number(selectedVar.priceOverride) > 0 && Number(selectedVar.priceOverride) !== Number(product.price)
+          ? Number(selectedVar.priceOverride)
           : product.price,
       mrp:
-        selectedVar?.priceOverride &&
-        selectedVar.priceOverride !== product.price &&
-        selectedVar?.mrpOverride &&
-        selectedVar.mrpOverride !== product.mrp
-          ? selectedVar.mrpOverride
-          : product.mrp || product.price,
+        selectedVar?.mrpOverride != null && Number(selectedVar.mrpOverride) > 0 && Number(selectedVar.mrpOverride) !== Number(product.mrp)
+          ? Number(selectedVar.mrpOverride)
+          : (product.mrp || product.price),
       stock: stock,
       sku: selectedVar?.sku || product.sku,
       barcode: selectedVar?.barcode || product.barcode,

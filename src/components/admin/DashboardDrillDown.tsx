@@ -1582,16 +1582,34 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
       });
 
       if (rpcErr) {
-        // Direct resilient fallback
+        // Safe resilient fallback that never multiplies stock across variants
+        const { data: variants } = await supabase
+          .from("product_variants")
+          .select("id, name, stock")
+          .eq("product_id", id);
+
+        if (variants && variants.length > 1) {
+          const currentTotal = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+          const diff = cleanStock - currentTotal;
+          if (diff !== 0) {
+            const primaryVar = variants[0];
+            const newPrimaryStock = Math.max(0, (Number(primaryVar.stock) || 0) + diff);
+            await supabase
+              .from("product_variants")
+              .update({ stock: newPrimaryStock })
+              .eq("id", primaryVar.id);
+          }
+        } else if (variants && variants.length === 1) {
+          await supabase
+            .from("product_variants")
+            .update({ stock: cleanStock })
+            .eq("id", variants[0].id);
+        }
+
         await supabase
           .from("products")
           .update({ stock: cleanStock })
           .eq("id", id);
-        
-        await supabase
-          .from("product_variants")
-          .update({ stock: cleanStock })
-          .eq("product_id", id);
       }
       return cleanStock;
     },

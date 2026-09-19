@@ -31,8 +31,8 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
       .map((h) => h.trim())
       .filter(Boolean),
     is_featured: draft.isFeatured,
-    is_active: isZeroStock ? false : draft.isActive,
-    status: isZeroStock ? "archived" : draft.isActive ? "active" : "archived",
+    is_active: draft.isActive,
+    status: draft.isActive ? "active" : "archived",
     sort_order: Number(draft.sortOrder),
     sales_channel: draft.salesChannel,
   };
