@@ -25,8 +25,11 @@ import {
   useCanonicalPOSSales,
   invalidateCanonicalReportingQueries,
   notifyPOSSaleChanged,
+  type CanonicalPOSSale,
 } from "@/lib/canonical-reporting";
 import { isValidPOSSale, useReportingDateRange, type DatePreset } from "@/lib/financial-reporting";
+import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
+import { A4Invoice } from "@/components/admin/A4Invoice";
 import {
   BarChart3,
   Receipt,
@@ -49,6 +52,8 @@ import {
   AlertTriangle,
   Calendar,
   Check,
+  Printer,
+  FileText,
 } from "lucide-react";
 import {
   BarChart,
@@ -141,6 +146,8 @@ const DATE_RANGE_OPTIONS: { key: DatePreset; label: string; subLabel: string }[]
 export function OfflineAnalyticsTab() {
   const qc = useQueryClient();
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
+  const [thermalReceiptSale, setThermalReceiptSale] = useState<CanonicalPOSSale | null>(null);
+  const [a4InvoiceSale, setA4InvoiceSale] = useState<CanonicalPOSSale | null>(null);
   const [saleToVoid, setSaleToVoid] = useState<{
     id: string;
     sale_number: string;
@@ -1210,6 +1217,7 @@ export function OfflineAnalyticsTab() {
                 <th className="px-5 py-4">Payment</th>
                 <th className="px-5 py-4">Discount</th>
                 <th className="px-5 py-4 text-right">Total</th>
+                <th className="px-5 py-4 text-right">Receipt / Invoice</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -1441,11 +1449,33 @@ export function OfflineAnalyticsTab() {
                       <td className="px-5 py-4 text-right font-bold text-primary">
                         {formatPrice(Number(sale.total))}
                       </td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setThermalReceiptSale(sale)}
+                            className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
+                            title="Print or download 80mm POS thermal receipt"
+                          >
+                            <Printer className="size-3.5" />
+                            <span>Receipt</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setA4InvoiceSale(sale)}
+                            className="px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold text-xs cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors border border-border"
+                            title="Print or download standard A4 tax invoice"
+                          >
+                            <FileText className="size-3.5 text-indigo-600" />
+                            <span>A4 Bill</span>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                     {/* Expanded Details */}
                     {isExpanded && (
                       <tr className="bg-muted/10">
-                        <td colSpan={10} className="p-0">
+                        <td colSpan={11} className="p-0">
                           <div className="border-t border-border px-8 py-4">
                             <table className="w-full text-xs">
                               <thead>
@@ -1523,7 +1553,7 @@ export function OfflineAnalyticsTab() {
                               </tbody>
                             </table>
 
-                            <div className="mt-3 flex items-center justify-between">
+                            <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
                               <div className="text-xs text-muted-foreground space-y-1">
                                 <p>Subtotal: {formatPrice(Number(sale.subtotal))}</p>
                                 {Number(sale.discount) > 0 && (
@@ -1585,71 +1615,97 @@ export function OfflineAnalyticsTab() {
                                 )}
                               </div>
 
-                              {sale.status !== "cancelled" &&
-                                sale.status !== "voided" &&
-                                !sale.is_voided && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSaleToVoid({
-                                        id: sale.id,
-                                        sale_number: sale.sale_number,
-                                        isDraft:
-                                          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-                                            sale.id,
-                                          ) || sale.id.startsWith("off_"),
-                                      });
-                                      setVoidReason("");
-                                      setRestoreStock(true);
-                                    }}
-                                    disabled={voidSaleMutation.isPending}
-                                    className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2 text-sm font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50 cursor-pointer"
-                                    title="Cancel completed sale and optionally restore stock"
-                                  >
-                                    <RotateCcw className="size-4" />
-                                    Cancel Sale
-                                  </button>
-                                )}
-                              {(sale.status === "cancelled" ||
-                                sale.status === "voided" ||
-                                sale.is_voided) && (
-                                <div className="flex flex-col items-end gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                                      <RotateCcw className="size-3.5" />
-                                      Cancelled
-                                    </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setThermalReceiptSale(sale);
+                                  }}
+                                  className="flex items-center gap-1.5 rounded-xl border border-primary bg-primary text-primary-foreground px-4 py-2 text-xs font-bold hover:bg-primary/90 transition-colors cursor-pointer shadow-xs"
+                                  title="Print or download 80mm thermal receipt"
+                                >
+                                  <Printer className="size-4" />
+                                  <span>Print Thermal Slip</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setA4InvoiceSale(sale);
+                                  }}
+                                  className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-xs"
+                                  title="Print or download A4 customer invoice"
+                                >
+                                  <FileText className="size-4 text-indigo-600" />
+                                  <span>Print A4 Invoice</span>
+                                </button>
+                                {sale.status !== "cancelled" &&
+                                  sale.status !== "voided" &&
+                                  !sale.is_voided && (
                                     <button
                                       type="button"
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        if (
-                                          confirm(
-                                            `Permanently delete cancelled POS sale #${sale.sale_number} from database? This cannot be undone.`,
-                                          )
-                                        ) {
-                                          await hardDeleteSalesMutation.mutateAsync({
-                                            saleIds: [sale.id],
-                                            restoreStock: false,
-                                          });
-                                        }
+                                        setSaleToVoid({
+                                          id: sale.id,
+                                          sale_number: sale.sale_number,
+                                          isDraft:
+                                            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                                              sale.id,
+                                            ) || sale.id.startsWith("off_"),
+                                        });
+                                        setVoidReason("");
+                                        setRestoreStock(true);
                                       }}
-                                      disabled={hardDeleteSalesMutation.isPending}
-                                      className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
-                                      title="Permanently purge this sale record from database"
+                                      disabled={voidSaleMutation.isPending}
+                                      className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50 cursor-pointer"
+                                      title="Cancel completed sale and optionally restore stock"
                                     >
-                                      <Trash2 className="size-3.5" />
-                                      Delete Record
+                                      <RotateCcw className="size-4" />
+                                      Cancel Sale
                                     </button>
-                                  </div>
-                                  {sale.void_reason && (
-                                    <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
-                                      Reason: {sale.void_reason}
-                                    </p>
                                   )}
-                                </div>
-                              )}
+                                {(sale.status === "cancelled" ||
+                                  sale.status === "voided" ||
+                                  sale.is_voided) && (
+                                  <div className="flex flex-col items-end gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
+                                        <RotateCcw className="size-3.5" />
+                                        Cancelled
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (
+                                            confirm(
+                                              `Permanently delete cancelled POS sale #${sale.sale_number} from database? This cannot be undone.`,
+                                            )
+                                          ) {
+                                            await hardDeleteSalesMutation.mutateAsync({
+                                              saleIds: [sale.id],
+                                              restoreStock: false,
+                                            });
+                                          }
+                                        }}
+                                        disabled={hardDeleteSalesMutation.isPending}
+                                        className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                                        title="Permanently purge this sale record from database"
+                                      >
+                                        <Trash2 className="size-3.5" />
+                                        Delete Record
+                                      </button>
+                                    </div>
+                                    {sale.void_reason && (
+                                      <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
+                                        Reason: {sale.void_reason}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1943,6 +1999,74 @@ export function OfflineAnalyticsTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── REPRINT / DOWNLOAD THERMAL RECEIPT MODAL ── */}
+      {thermalReceiptSale && (
+        <ThermalReceipt
+          sale={{
+            sale_number: thermalReceiptSale.sale_number,
+            customer_name: thermalReceiptSale.customer_name || "Walk-in Customer",
+            customer_phone: thermalReceiptSale.customer_phone,
+            subtotal: Number(thermalReceiptSale.subtotal || thermalReceiptSale.total),
+            discount: Number(thermalReceiptSale.discount || 0),
+            discount_type: thermalReceiptSale.discount_type || "fixed",
+            discount_value: Number(thermalReceiptSale.discount_value || 0),
+            total: Number(thermalReceiptSale.total),
+            store_credit_used: Number(
+              (thermalReceiptSale as unknown as Record<string, unknown>).store_credit_used || 0,
+            ),
+            credit_token_used: (thermalReceiptSale as unknown as Record<string, unknown>)
+              .credit_token_used as string | null,
+            payment_method: thermalReceiptSale.payment_method || "cash",
+            pos_token_number: thermalReceiptSale.pos_token_number,
+            status: thermalReceiptSale.status === "sync_pending" ? "pending_sync" : "completed",
+          }}
+          items={(thermalReceiptSale.offline_sale_items ?? []).map((item) => ({
+            name: item.name,
+            sku: item.sku || undefined,
+            barcode: item.barcode_snapshot || undefined,
+            price: Number(item.price),
+            mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
+            qty: Number(item.qty),
+          }))}
+          saleDate={new Date(thermalReceiptSale.created_at)}
+          onClose={() => setThermalReceiptSale(null)}
+        />
+      )}
+
+      {/* ── REPRINT / DOWNLOAD A4 INVOICE MODAL ── */}
+      {a4InvoiceSale && (
+        <A4Invoice
+          sale={{
+            sale_number: a4InvoiceSale.sale_number,
+            customer_name: a4InvoiceSale.customer_name || "Walk-in Customer",
+            customer_phone: a4InvoiceSale.customer_phone,
+            customer_email: a4InvoiceSale.customer_email || undefined,
+            subtotal: Number(a4InvoiceSale.subtotal || a4InvoiceSale.total),
+            discount: Number(a4InvoiceSale.discount || 0),
+            discount_type: a4InvoiceSale.discount_type || "fixed",
+            discount_value: Number(a4InvoiceSale.discount_value || 0),
+            total: Number(a4InvoiceSale.total),
+            store_credit_used: Number(
+              (a4InvoiceSale as unknown as Record<string, unknown>).store_credit_used || 0,
+            ),
+            credit_token_used: (a4InvoiceSale as unknown as Record<string, unknown>)
+              .credit_token_used as string | null,
+            payment_method: a4InvoiceSale.payment_method || "cash",
+            sale_date: new Date(a4InvoiceSale.created_at),
+            status: a4InvoiceSale.status === "sync_pending" ? "pending_sync" : "completed",
+          }}
+          items={(a4InvoiceSale.offline_sale_items ?? []).map((item) => ({
+            name: item.name,
+            sku: item.sku || undefined,
+            barcode: item.barcode_snapshot || undefined,
+            price: Number(item.price),
+            mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
+            qty: Number(item.qty),
+          }))}
+          onClose={() => setA4InvoiceSale(null)}
+        />
       )}
     </div>
   );
