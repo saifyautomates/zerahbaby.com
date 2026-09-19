@@ -540,7 +540,8 @@ function SalesChannelDrillDown({
       total: number;
     }> = [];
     validPosSales.forEach((s) => {
-      if (s.return_status === "returned") return; // Completely returned sale!
+      const retStatus = (s.return_status || "").toLowerCase().trim();
+      if (retStatus === "returned" || retStatus === "fully_returned" || retStatus === "completed") return; // Completely returned sale!
       if (s.offline_sale_items && s.offline_sale_items.length > 0) {
         s.offline_sale_items.forEach((item) => {
           const itemQty = item.qty || item.quantity || 1;

@@ -271,8 +271,10 @@ export function OnlineSalesTab() {
 
   const revenue = allData
     .filter((o) => {
-      if (o.status === "cancelled") return false;
-      if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
+      const s = (o.status || "").toLowerCase().trim();
+      if (s === "cancelled" || s === "returned" || s === "refunded") return false;
+      const ps = (o.payment_status || "").toLowerCase().trim();
+      if (ps === "failed" || ps === "refunded") return false;
       return true;
     })
     .reduce((sum, o) => sum + Number(o.total || 0), 0);

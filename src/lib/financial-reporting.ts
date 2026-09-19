@@ -183,8 +183,11 @@ export interface FinancialMetrics {
  * Filter predicate to identify valid online orders (excludes cancelled, failed, refunded)
  */
 export function isValidOnlineOrder(o: ReportOrder): boolean {
-  if (o.status === "cancelled") return false;
-  if (o.payment_status === "failed" || o.payment_status === "refunded") return false;
+  if (!o) return false;
+  const s = (o.status || "").toLowerCase().trim();
+  if (s === "cancelled" || s === "returned" || s === "refunded") return false;
+  const ps = (o.payment_status || "").toLowerCase().trim();
+  if (ps === "failed" || ps === "refunded") return false;
   return true;
 }
 
