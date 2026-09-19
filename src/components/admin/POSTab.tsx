@@ -4556,44 +4556,44 @@ export function POSTab() {
 
                 {/* Right Column (5 cols): Order Summary & Complete Action */}
                 <div className="lg:col-span-5 space-y-4">
-                  <div className="rounded-2xl bg-card p-5 shadow-2xs border border-border space-y-4 sticky top-4">
-                    <div className="flex items-center justify-between border-b border-border pb-3">
-                      <h3 className="text-sm font-bold text-foreground">Order Summary</h3>
-                      <span className="text-xs font-bold text-muted-foreground">
+                  <div className="rounded-3xl bg-card p-6 shadow-sm border border-border/80 space-y-4 sticky top-4">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-3.5">
+                      <h3 className="text-base font-bold text-foreground">Order Summary</h3>
+                      <span className="text-sm font-semibold text-muted-foreground">
                         {totalItems} items
                       </span>
                     </div>
 
                     {/* Items List Snapshot */}
-                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40 text-xs">
+                    <div className="max-h-56 overflow-y-auto space-y-3 pr-1 text-xs">
                       {cart.map((item) => (
                         <div
                           key={item.product_id}
-                          className="pt-2 first:pt-0 flex items-center justify-between gap-2"
+                          className="flex items-start justify-between gap-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="font-semibold truncate text-foreground text-xs">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-bold truncate text-foreground text-sm">
                                 {item.name}
                               </p>
                               {item.sales_channel === "OFFLINE_ONLY" ? (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
+                                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200">
                                   🏪 Offline Only
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-blue-100/70 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80">
                                   🌐 Online + POS
                                 </span>
                               )}
                             </div>
-                            <p className="text-muted-foreground text-[10px] mt-0.5">
+                            <p className="text-muted-foreground text-xs mt-1">
                               {item.qty} × {formatPrice(item.price)}
                               {item.isCustom && (
                                 <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
                               )}
                             </p>
                           </div>
-                          <span className="font-bold text-foreground shrink-0 text-xs">
+                          <span className="font-bold text-foreground shrink-0 text-sm">
                             {formatPrice(item.price * item.qty)}
                           </span>
                         </div>
@@ -4601,23 +4601,23 @@ export function POSTab() {
                     </div>
 
                     {/* Breakdown */}
-                    <div className="space-y-2 text-xs pt-3 border-t border-border">
+                    <div className="space-y-2.5 text-sm pt-3 border-t border-border/60">
                       <div className="flex justify-between text-muted-foreground">
                         <span>Items Subtotal</span>
-                        <span className="font-semibold text-foreground">
+                        <span className="font-bold text-foreground">
                           {formatPrice(subtotal)}
                         </span>
                       </div>
                       {productSavings > 0 && (
-                        <div className="flex justify-between text-muted-foreground text-[11px]">
-                          <span>MRP Savings</span>
-                          <span className="text-emerald-600 font-bold">
+                        <div className="flex justify-between text-teal-600 dark:text-teal-400 font-medium">
+                          <span className="text-muted-foreground font-normal">MRP Savings</span>
+                          <span className="font-bold">
                             −{formatPrice(productSavings)}
                           </span>
                         </div>
                       )}
                       {discountAmount > 0 && (
-                        <div className="flex justify-between text-emerald-700 font-bold">
+                        <div className="flex justify-between text-teal-700 dark:text-teal-300 font-bold">
                           <span>
                             Discount {discountType === "percentage" ? `(${discountValue}%)` : ""}
                           </span>
@@ -4629,49 +4629,51 @@ export function POSTab() {
                         <span>{formatPrice(total)}</span>
                       </div>
                       {effectiveCreditUsed > 0 && (
-                        <div className="flex justify-between text-emerald-700 font-bold bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
+                        <div className="flex justify-between text-teal-700 font-bold bg-teal-500/10 p-2 rounded-xl border border-teal-500/20">
                           <span>Store Credit Applied</span>
                           <span>−{formatPrice(effectiveCreditUsed)}</span>
                         </div>
                       )}
-                      <div className="flex items-baseline justify-between border-t border-border pt-3 text-base">
-                        <span className="font-bold text-foreground">Customer Payable</span>
-                        <span className="font-black text-2xl text-primary">
-                          {formatPrice(payableAfterCredit)}
+                    </div>
+
+                    {/* Customer Payable */}
+                    <div className="flex items-baseline justify-between border-t border-border/60 pt-3.5 pb-1">
+                      <span className="text-xl font-bold text-foreground tracking-tight">Customer Payable</span>
+                      <span className="font-black text-3xl text-[#8B3A3A] tracking-tight">
+                        {formatPrice(payableAfterCredit)}
+                      </span>
+                    </div>
+                    {customerRemainingCredit > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Remaining Account Credit:</span>
+                        <span className="font-bold text-teal-600 dark:text-teal-400">
+                          {formatPrice(customerRemainingCredit)}
                         </span>
                       </div>
-                      {customerRemainingCredit > 0 && (
-                        <div className="flex justify-between text-[11px] text-muted-foreground pt-1">
-                          <span>Remaining Account Credit:</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                            {formatPrice(customerRemainingCredit)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    )}
 
                     {/* ── Admin-only Profit Indicator ── */}
                     {profitCalc.hasCostData ? (
                       <div
-                        className={`rounded-xl border p-3 space-y-1.5 ${
+                        className={`rounded-2xl border p-4 space-y-2 ${
                           profitCalc.profit >= 0
-                            ? "bg-emerald-500/8 border-emerald-500/25"
+                            ? "bg-[#EAF8F2] border-[#C1EAD7] dark:bg-emerald-950/20 dark:border-emerald-800/40"
                             : "bg-red-500/8 border-red-500/25"
                         }`}
                       >
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          📊 Admin Profit View
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                          <span>📊</span> ADMIN PROFIT VIEW
                         </p>
-                        <div className="flex justify-between text-xs text-muted-foreground">
+                        <div className="flex justify-between text-sm text-muted-foreground">
                           <span>Total Cost (COGS)</span>
-                          <span className="font-semibold text-foreground">
+                          <span className="font-bold text-foreground">
                             {formatPrice(profitCalc.totalCost)}
                           </span>
                         </div>
                         <div
-                          className={`flex justify-between text-sm font-bold ${
+                          className={`flex justify-between text-base font-bold ${
                             profitCalc.profit >= 0
-                              ? "text-emerald-700 dark:text-emerald-400"
+                              ? "text-teal-700 dark:text-teal-300"
                               : "text-red-600 dark:text-red-400"
                           }`}
                         >
@@ -4680,57 +4682,57 @@ export function POSTab() {
                             {profitCalc.profit >= 0 ? "+" : ""}
                             {formatPrice(profitCalc.profit)}
                             {profitCalc.marginPct !== null && (
-                              <span className="ml-1.5 text-[11px] opacity-80">
+                              <span className="ml-1 text-sm font-semibold opacity-90">
                                 ({profitCalc.marginPct.toFixed(1)}% margin)
                               </span>
                             )}
                           </span>
                         </div>
                         {discountAmount > 0 && (
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground/80">
                             Includes {formatPrice(discountAmount)} discount applied
                           </p>
                         )}
                       </div>
                     ) : cart.length > 0 ? (
-                      <div className="rounded-xl border border-dashed border-border p-2.5 text-center">
-                        <p className="text-[10px] text-muted-foreground">
+                      <div className="rounded-2xl border border-dashed border-border p-3 text-center">
+                        <p className="text-xs text-muted-foreground">
                           💡 Set buying price in product catalog to see profit
                         </p>
                       </div>
                     ) : null}
 
                     {/* Printer Output Target Selector */}
-                    <div className="space-y-2 pt-2 border-t border-border/80">
-                      <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                    <div className="space-y-2.5 pt-3 border-t border-border/60">
+                      <div className="flex items-center justify-between text-sm font-bold text-foreground">
                         <span>Automatic Printer Target</span>
-                        <span className="text-[10px] text-muted-foreground font-normal">
+                        <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
                           {printFormat === "a4" ? "📄 A4 Laser / Desktop" : "🧾 80mm Thermal Slip"}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <button
                           type="button"
                           onClick={() => setPrintFormat("thermal")}
-                          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                          className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
                             printFormat === "thermal"
-                              ? "bg-primary text-primary-foreground border-primary shadow-2xs ring-2 ring-primary/20"
-                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                              ? "bg-[#8B3A3A] text-white border-[#8B3A3A] shadow-sm"
+                              : "bg-card text-foreground/80 border-border/80 hover:bg-muted/30"
                           }`}
                         >
-                          <Receipt className="size-3.5" />
+                          <Receipt className="size-4 shrink-0" />
                           <span>Thermal Slip (80mm)</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setPrintFormat("a4")}
-                          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                          className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
                             printFormat === "a4"
-                              ? "bg-primary text-primary-foreground border-primary shadow-2xs ring-2 ring-primary/20"
-                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                              ? "bg-[#8B3A3A] text-white border-[#8B3A3A] shadow-sm"
+                              : "bg-card text-foreground/80 border-border/80 hover:bg-muted/30"
                           }`}
                         >
-                          <ReceiptText className="size-3.5" />
+                          <ReceiptText className="size-4 shrink-0" />
                           <span>A4 Tax Invoice</span>
                         </button>
                       </div>
@@ -4765,7 +4767,7 @@ export function POSTab() {
                       disabled={
                         placeSale.isPending || createCustomer.isPending || cart.length === 0
                       }
-                      className="w-full rounded-xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-premium-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full rounded-2xl bg-[#8B3A3A] hover:bg-[#783030] py-4 text-base font-bold text-white shadow-md transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {placeSale.isPending || createCustomer.isPending ? (
                         <>
@@ -4774,7 +4776,7 @@ export function POSTab() {
                         </>
                       ) : (
                         <>
-                          <Check className="size-5" />
+                          <Check className="size-5 stroke-[2.5]" />
                           <span>
                             {payableAfterCredit === 0 && effectiveCreditUsed > 0
                               ? `Complete Sale — Settle ₹0 (100% Store Credit)`
