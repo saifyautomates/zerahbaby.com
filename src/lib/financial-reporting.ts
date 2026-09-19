@@ -62,6 +62,10 @@ export interface ReportPOSItem {
   price?: number;
   subtotal?: number;
   buying_price?: number | null;
+  quantity_sold?: number;
+  quantity_returned?: number;
+  returned_quantity?: number;
+  return_status?: string | null;
 }
 
 export interface ReportPOSSale {
@@ -69,6 +73,8 @@ export interface ReportPOSSale {
   sale_number?: string;
   created_at: string;
   status?: string | null;
+  return_status?: string | null;
+  returned_amount?: number | null;
   payment_method?: string | null;
   total?: number;
   subtotal?: number;
@@ -320,10 +326,20 @@ export function calculateFinancialMetrics({
 
   let posUnitsSold = 0;
   let offlineCogs = 0;
+  let itemLevelReturnedCogs = 0;
+
   validPos.forEach((s) => {
+    // If entire sale was returned, skip all items from active sold count and cost
+    if (s.return_status === "returned") return;
+
     s.offline_sale_items?.forEach((item) => {
       const qty = Number(item.qty || item.quantity || 1);
-      posUnitsSold += qty;
+      const retQty = Number(
+        item.quantity_returned ||
+        item.returned_quantity ||
+        (item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0),
+      );
+      const netQty = Math.max(0, qty - retQty);
 
       const historicalBp = Number(item.buying_price || 0);
       const bp =
@@ -334,16 +350,38 @@ export function calculateFinancialMetrics({
                 (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
               ),
             );
-      offlineCogs += bp * qty;
+
+      if (retQty > 0) {
+        itemLevelReturnedCogs += bp * Math.min(qty, retQty);
+      }
+
+      if (netQty <= 0) return; // Completely returned product: remove from units sold & My Cost!
+
+      posUnitsSold += netQty;
+      offlineCogs += bp * netQty;
     });
   });
 
   let totalUnitsReturned = 0;
+  let returnRecordsCogs = 0;
   validReturns.forEach((r) => {
     r.offline_return_items?.forEach((item) => {
-      totalUnitsReturned += Number(item.qty || item.quantity || 1);
+      const retQty = Number(item.qty || item.quantity || 1);
+      totalUnitsReturned += retQty;
+
+      const p = products.find(
+        (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
+      );
+      const bp = getProductBuyingPrice(p);
+      returnRecordsCogs += bp * retQty;
     });
   });
+
+  // If there are unlinked returns whose items weren't deducted at sale level, deduct them now
+  if (returnRecordsCogs > itemLevelReturnedCogs) {
+    const unlinkedReturnCogs = returnRecordsCogs - itemLevelReturnedCogs;
+    offlineCogs = Math.max(0, offlineCogs - unlinkedReturnCogs);
+  }
 
   const totalUnitsSold = onlineUnitsSold + posUnitsSold;
   const totalCogs = onlineCogs + offlineCogs;

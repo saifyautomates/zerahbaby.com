@@ -91,6 +91,9 @@ export interface DrillDownPOSItem {
   price?: number;
   subtotal?: number;
   buying_price?: number | null;
+  quantity_returned?: number;
+  returned_quantity?: number;
+  return_status?: string | null;
 }
 
 export interface DrillDownPOSSale {
@@ -98,6 +101,7 @@ export interface DrillDownPOSSale {
   sale_number?: string;
   created_at: string;
   status?: string;
+  return_status?: string | null;
   total?: number;
   customer_name?: string;
   customer_phone?: string;
@@ -533,10 +537,19 @@ function SalesChannelDrillDown({
       total: number;
     }> = [];
     validPosSales.forEach((s) => {
+      if (s.return_status === "returned") return; // Completely returned sale!
       if (s.offline_sale_items && s.offline_sale_items.length > 0) {
         s.offline_sale_items.forEach((item) => {
-          const p = getProduct(item.product_id || "");
           const itemQty = item.qty || item.quantity || 1;
+          const retQty = Number(
+            item.quantity_returned ||
+            item.returned_quantity ||
+            (item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0)
+          );
+          const netQty = Math.max(0, itemQty - retQty);
+          if (netQty <= 0) return; // Completely returned product: remove from items sold history!
+
+          const p = getProduct(item.product_id || "");
           const itemPrice = item.price || 0;
           items.push({
             sale_id: s.id,
@@ -545,9 +558,9 @@ function SalesChannelDrillDown({
             slug: p?.slug || null,
             image: getProductImage(p),
             source: "POS",
-            qty: itemQty,
+            qty: netQty,
             price: itemPrice,
-            total: itemPrice * itemQty || s.total || 0,
+            total: itemPrice * netQty || s.total || 0,
           });
         });
       } else {
@@ -1182,29 +1195,38 @@ export function DashboardDrillDown({
         });
       });
       validPosSales.forEach((s) => {
+        if (s.return_status === "returned") return; // Completely returned sale!
         const saleItems = s.offline_sale_items || [];
         const saleSubtotal = saleItems.reduce(
           (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
           0,
         );
         saleItems.forEach((item) => {
+          const itemQty = item.qty || item.quantity || 1;
+          const retQty = Number(
+            item.quantity_returned ||
+            item.returned_quantity ||
+            (item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0)
+          );
+          const netQty = Math.max(0, itemQty - retQty);
+          if (netQty <= 0) return; // Completely returned product: remove from My Cost and Profit analysis!
+
           const p = getProduct(item.product_id || item.product_slug || "");
           const historicalBp = Number(item.buying_price || 0);
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
-          const itemQty = item.qty || item.quantity || 1;
-          const rawItemTotal = (item.price || 0) * itemQty;
+          const rawItemTotal = (item.price || 0) * netQty;
           const rev =
             saleSubtotal > 0
               ? (rawItemTotal / saleSubtotal) * Number(s.total || 0)
               : Number(item.subtotal || item.price || s.total || 0);
-          const cogs = bp * itemQty;
+          const cogs = bp * netQty;
           const profit = rev - cogs;
           allItems.push({
             date: s.created_at,
             product: p ? p.name : item.name || "Product",
             slug: p?.slug || item.product_slug || undefined,
             image: getProductImage(p),
-            qty: itemQty,
+            qty: netQty,
             rev,
             cogs,
             profit,

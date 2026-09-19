@@ -25,6 +25,11 @@ export interface CanonicalPOSSaleItem {
   variant_info?: string | null;
   mrp_snapshot?: number | null;
   barcode_snapshot?: string | null;
+  quantity?: number;
+  quantity_sold?: number;
+  quantity_returned?: number;
+  returned_quantity?: number;
+  return_status?: string | null;
 }
 
 export interface CanonicalPOSSale {

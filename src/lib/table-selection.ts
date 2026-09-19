@@ -299,13 +299,21 @@ export function getRevenueSelectionMetrics(
     if (items && items.length > 0) {
       items.forEach((item) => {
         const qty = Number(item.qty || item.quantity || 1);
-        totalQty += qty;
+        const retQty = Number(
+          (item as any).quantity_returned ||
+          (item as any).returned_quantity ||
+          ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? qty : 0)
+        );
+        const netQty = (row as any).return_status === "returned" ? 0 : Math.max(0, qty - retQty);
+        if (netQty <= 0) return;
+
+        totalQty += netQty;
 
         const p = allProducts.find(
           (prod) => prod.id === item.product_slug || prod.uuid === item.product_id,
         );
         const buyingPrice = getProductBuyingPrice(p as unknown as ReportProduct);
-        totalCogs += buyingPrice * qty;
+        totalCogs += buyingPrice * netQty;
       });
     } else if (row.items_count) {
       totalQty += Number(row.items_count);
@@ -376,15 +384,25 @@ export function getPOSSelectionMetrics(
     discount += Number(s.discount || 0);
     total += Number(s.total || 0);
 
+    if ((s as any).return_status === "returned") return;
+
     s.offline_sale_items?.forEach((item) => {
       const qty = Number(item.qty || 1);
-      totalQty += qty;
+      const retQty = Number(
+        (item as any).quantity_returned ||
+        (item as any).returned_quantity ||
+        ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? qty : 0)
+      );
+      const netQty = Math.max(0, qty - retQty);
+      if (netQty <= 0) return;
+
+      totalQty += netQty;
 
       const p = allProducts.find(
         (prod) => prod.id === item.product_slug || prod.uuid === item.product_id,
       );
       const buyingPrice = getProductBuyingPrice(p as unknown as ReportProduct);
-      totalCogs += buyingPrice * qty;
+      totalCogs += buyingPrice * netQty;
     });
   });
 

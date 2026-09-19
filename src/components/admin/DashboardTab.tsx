@@ -284,10 +284,21 @@ export function DashboardTab({
   } = useQuery<
     Array<{
       id: string;
+      return_number?: string;
       refund_amount: number;
       created_at: string;
       status: string;
       refund_status: string;
+      offline_return_items?: Array<{
+        id: string;
+        product_id?: string | null;
+        product_slug?: string;
+        name?: string;
+        sku?: string;
+        qty?: number;
+        refund_price?: number;
+        subtotal?: number;
+      }>;
     }>
   >({
     queryKey: ["offline-returns"],
@@ -295,7 +306,7 @@ export function DashboardTab({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_returns")
-        .select("id, refund_amount, created_at, status, refund_status")
+        .select("id, return_number, refund_amount, created_at, status, refund_status, offline_return_items(id, product_id, product_slug, name, sku, qty, refund_price, subtotal)")
         .order("created_at", { ascending: false })
         .limit(1500);
       if (error) {
@@ -535,24 +546,39 @@ export function DashboardTab({
           .join(", ") || "Order items",
     }));
 
-    const posMapped = posSales.map((s) => ({
-      key: `pos-${s.id}`,
-      id: s.sale_number || `#${s.id.toString().substring(0, 8).toUpperCase()}`,
-      rawId: s.id,
-      customer: s.customer_name || "Walk-in Customer",
-      phone: s.customer_phone || "",
-      amount: Number(s.total || 0),
-      payment_method: s.payment_method || "Cash",
-      status: s.status || "completed",
-      source: "POS" as const,
-      created_at: s.created_at,
-      itemCount: s.offline_sale_items?.length || 1,
-      itemsSummary:
-        s.offline_sale_items
-          ?.map((i) => i.name || i.product_slug)
-          .filter(Boolean)
-          .join(", ") || "POS items",
-    }));
+    const posMapped = posSales
+      .filter((s) => s.return_status !== "returned")
+      .map((s) => {
+        const activeItems = (s.offline_sale_items || []).filter((item) => {
+          const qty = Number(item.qty || item.quantity || 1);
+          const retQty = Number(
+            item.quantity_returned ||
+            item.returned_quantity ||
+            (item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0),
+          );
+          return qty - retQty > 0;
+        });
+
+        return {
+          key: `pos-${s.id}`,
+          id: s.sale_number || `#${s.id.toString().substring(0, 8).toUpperCase()}`,
+          rawId: s.id,
+          customer: s.customer_name || "Walk-in Customer",
+          phone: s.customer_phone || "",
+          amount: Number(s.total || 0),
+          payment_method: s.payment_method || "Cash",
+          status: s.status || "completed",
+          source: "POS" as const,
+          created_at: s.created_at,
+          itemCount: activeItems.length,
+          itemsSummary:
+            activeItems
+              .map((i) => i.name || i.product_slug)
+              .filter(Boolean)
+              .join(", ") || (s.return_status === "returned" ? "Returned" : "POS items"),
+        };
+      })
+      .filter((s) => s.itemCount > 0);
 
     let combined = [...onlineMapped, ...posMapped].sort(
       (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),

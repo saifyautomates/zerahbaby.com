@@ -47,6 +47,9 @@ type SaleItem = {
   variant_info?: string;
   mrp_snapshot?: number;
   barcode_snapshot?: string;
+  quantity_returned?: number;
+  returned_quantity?: number;
+  return_status?: string | null;
 };
 
 type OfflineSaleRecord = {
@@ -66,6 +69,7 @@ type OfflineSaleRecord = {
   pos_token_number: number | null;
   pos_token_date: string | null;
   status: string;
+  return_status?: string | null;
   created_at: string;
   offline_sale_items?: SaleItem[];
 };
@@ -185,7 +189,8 @@ export function CustomerHistoryPanel() {
       if (
         sale.status === "cancelled" ||
         sale.status === "voided" ||
-        (sale as { is_voided?: boolean }).is_voided
+        (sale as { is_voided?: boolean }).is_voided ||
+        sale.return_status === "returned"
       )
         continue;
 
@@ -827,8 +832,8 @@ export function CustomerHistoryPanel() {
                           {formatPrice(sale.total)}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {(sale.offline_sale_items ?? []).length} item
-                          {(sale.offline_sale_items ?? []).length !== 1 ? "s" : ""}
+                          {(sale.offline_sale_items ?? []).filter((i) => Number(i.qty || 1) - Number(i.quantity_returned || (i.return_status === "RETURNED" ? i.qty : 0)) > 0).length} item
+                          {(sale.offline_sale_items ?? []).filter((i) => Number(i.qty || 1) - Number(i.quantity_returned || (i.return_status === "RETURNED" ? i.qty : 0)) > 0).length !== 1 ? "s" : ""}
                         </p>
                       </div>
 
@@ -865,7 +870,9 @@ export function CustomerHistoryPanel() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/40">
-                            {(sale.offline_sale_items ?? []).map((item) => {
+                            {(sale.offline_sale_items ?? [])
+                              .filter((item) => Number(item.qty || 1) - Number(item.quantity_returned || (item.return_status === "RETURNED" ? item.qty : 0)) > 0)
+                              .map((item) => {
                               const itemImg = resolveItemImage(item);
                               return (
                                 <tr key={item.id} className="hover:bg-muted/50">
