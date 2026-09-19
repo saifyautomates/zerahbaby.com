@@ -156,82 +156,95 @@ export function buildThermalHTML(
   @page { size: 80mm auto; margin: 3mm 2mm; }
   body {
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.35;
     color: #000;
     background: #fff;
-    width: 76mm;
+    width: 74mm;
+    max-width: 74mm;
+    padding: 2mm 1mm;
+    margin: 0 auto;
   }
-  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+  .divider { border-top: 1px dotted #000; margin: 6px 0; }
+  .solid-divider { border-top: 1px solid #000; margin: 6px 0; }
+  .text-center { text-align: center; }
+  .bold { font-weight: 800; }
+  .row { display: flex; justify-content: space-between; gap: 4px; }
 </style>
 </head>
 <body>
-  <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:8px;margin-bottom:8px;">
-    <div style="font-size:15px;font-weight:900;letter-spacing:-0.5px;">ZÉRAH BABY &amp; KIDS STORE</div>
-    <div style="font-size:9.5px;color:#555;margin-top:2px;">Shop No. 4-E-21, 80Ft. Road, Atwal Nagar,<br/>Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001</div>
-    <div style="font-size:9.5px;color:#555;margin-top:2px;">Ph: ${escHtml(store.contactPhone || "9057074777")}</div>
+  <div class="text-center" style="margin-bottom: 6px;">
+    <div style="font-size: 13.5px; font-weight: 900; letter-spacing: 0.5px;">ZÉRAH BABY &amp; KIDS STORE</div>
+    <div style="font-size: 9.5px; color: #111; margin-top: 2px;">In Front of Hanumanji Temple,</div>
+    <div style="font-size: 9.5px; color: #111;">Atwal Nagar, Kota, Rajasthan</div>
+    <div style="font-size: 9.5px; color: #111;">Ph: 9057074777, 9667571712</div>
   </div>
 
   ${
     sale.status === "pending_sync" || sale.is_offline_queued
-      ? `<div style="text-align:center;border:1px dashed #000;padding:4px 6px;margin-bottom:8px;font-weight:900;font-size:10px;">
+      ? `<div style="border: 1px dashed #000; padding: 4px 6px; margin: 4px 0 6px 0; font-weight: 800; font-size: 9px; text-align: center;">
           *** OFFLINE SALE — PENDING SYNC ***
-          <div style="font-size:8px;font-weight:normal;margin-top:2px;">Saved locally. Will sync to cloud when connected.</div>
+          <div style="font-size: 8px; font-weight: normal; margin-top: 2px;">Saved locally. Will sync to cloud when connected.</div>
         </div>`
-      : `<div style="text-align:center;font-size:10px;font-weight:bold;margin-bottom:6px;letter-spacing:1px;">TAX INVOICE / CASH MEMO</div>`
+      : ""
   }
 
-  <div style="font-size:10px;margin-top:4px;">
-    <div class="flex"><span>Invoice:</span><span class="bold">${escHtml(sale.sale_number)}</span></div>
-    <div class="flex"><span>Date:</span><span>${escHtml(dateStr)}</span></div>
-    <div class="flex"><span>Time:</span><span>${escHtml(timeStr)}</span></div>
-    <div class="flex"><span>Customer:</span><span class="bold">${escHtml(sale.customer_name || "Walk-in Customer")}</span></div>
-    ${sale.customer_phone ? `<div class="flex"><span>Mobile:</span><span>${escHtml(sale.customer_phone)}</span></div>` : ""}
+  <div class="divider"></div>
+
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span>Invoice</span><span class="bold">${escHtml(sale.sale_number)}</span></div>
+    <div class="row"><span>Date</span><span>${escHtml(dateStr)}</span></div>
+    <div class="row"><span>Time</span><span>${escHtml(timeStr)}</span></div>
   </div>
 
   <div class="divider"></div>
-  <div class="bold" style="font-size:10px;margin-bottom:2px;">ITEMS</div>
+
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span>Customer</span><span class="bold">${escHtml(sale.customer_name || "Walk-in Customer")}</span></div>
+    ${sale.customer_phone ? `<div class="row"><span>Mobile</span><span>${escHtml(sale.customer_phone)}</span></div>` : ""}
+  </div>
+
+  <div class="divider"></div>
   ${itemRows}
 
   <div class="divider"></div>
-  <div style="font-size:11px;">
-    <div style="display:flex;justify-content:space-between;"><span style="color:#555;">Subtotal</span><span>₹${sale.subtotal.toLocaleString("en-IN")}</span></div>
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span style="color:#333;">Subtotal</span><span>₹${sale.subtotal.toLocaleString("en-IN")}</span></div>
     ${couponRow}
     ${discountRow}
-    <div style="display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:4px;margin-top:4px;">
-      <span style="font-size:13px;font-weight:900;">TOTAL</span>
-      <span style="font-size:13px;font-weight:900;">₹${grossBillTotal.toLocaleString("en-IN")}</span>
+    <div style="border-top: 1px solid #000; margin-top: 4px; padding-top: 4px;">
+      <div class="row">
+        <span style="font-size: 13px; font-weight: 900;">TOTAL</span>
+        <span style="font-size: 13px; font-weight: 900;">₹${grossBillTotal.toLocaleString("en-IN")}</span>
+      </div>
     </div>
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div style="border-top:1px dashed #666;padding-top:3px;margin-top:3px;font-size:10.5px;">
-            <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:#555;margin-bottom:2px;">PAYMENT BREAKDOWN</div>
-            <div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;">
+        ? `<div style="border-top: 1px dotted #666; padding-top: 3px; margin-top: 3px; font-size: 10px;">
+            <div class="row" style="color: #047857; font-weight: 700;">
               <span>Exchange Credit ${sale.credit_token_used ? `[${escHtml(sale.credit_token_used)}]` : ""}</span><span>−₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
             </div>
             ${
               additionalPaid > 0
-                ? `<div style="display:flex;justify-content:space-between;font-weight:700;margin-top:1px;">
-                    <span>Additional Paid (${escHtml((sale.payment_method || "Cash").toUpperCase())})</span><span>₹${additionalPaid.toLocaleString("en-IN")}</span>
+                ? `<div class="row" style="font-weight: 700; margin-top: 1px;">
+                    <span>Paid (${escHtml((sale.payment_method || "Cash").toUpperCase())})</span><span>₹${additionalPaid.toLocaleString("en-IN")}</span>
                    </div>`
-                : `<div style="display:flex;justify-content:space-between;color:#047857;font-weight:700;margin-top:1px;">
+                : `<div class="row" style="color: #047857; font-weight: 700; margin-top: 1px;">
                     <span>Settlement</span><span>100% Store Credit</span>
                    </div>`
             }
-            <div style="display:flex;justify-content:space-between;font-weight:900;margin-top:2px;border-top:1px solid #eee;padding-top:1px;">
-              <span>Total Settled</span><span>₹${grossBillTotal.toLocaleString("en-IN")}</span>
-            </div>
           </div>`
-        : `<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:2px;">
-            <span>Payment</span><span style="font-weight:700;text-transform:uppercase;">${escHtml(sale.payment_method || "Cash")}</span>
+        : `<div class="row" style="margin-top: 2px;">
+            <span style="color:#333;">Payment</span><span style="font-weight: 700; text-transform: uppercase;">${escHtml(sale.payment_method || "Cash")}</span>
           </div>`
     }
   </div>
 
   <div class="divider"></div>
-  <div style="text-align:center;font-size:10px;color:#555;">
-    <div style="font-weight:700;">Thank You For Shopping!</div>
+  <div class="text-center" style="font-size: 9.5px; color: #111; line-height: 1.4;">
+    <div style="font-weight: 800;">Thank You For Shopping!</div>
     <div>Exchange/Return within 7 days with receipt.</div>
-    <div style="margin-top:2px;">Visit us again · ${escHtml(store.instagramUrl)}</div>
+    <div style="margin-top: 2px;">Visit us again ·</div>
   </div>
 </body>
 </html>`;
@@ -405,31 +418,29 @@ export function ThermalReceipt({
         {/* ── Receipt Preview (screen-only) ── */}
         <div className="overflow-y-auto p-4">
           {/* Store header */}
-          <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-foreground">
-              ZÉRAH BABY &amp; KIDS
+          <div className="text-center pb-2">
+            <p className="text-xs font-black tracking-tight text-foreground font-mono">
+              ZÉRAH BABY &amp; KIDS STORE
             </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Shop No. 4-E-21, 80Ft. Road, Atwal Nagar</p>
-            <p className="text-[10px] text-muted-foreground">Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001</p>
-            <p className="text-[10px] text-muted-foreground">Ph: {storeSettings.contactPhone || "9057074777"}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">In Front of Hanumanji Temple,</p>
+            <p className="text-[10px] text-muted-foreground">Atwal Nagar, Kota, Rajasthan</p>
+            <p className="text-[10px] text-muted-foreground">Ph: 9057074777, 9667571712</p>
           </div>
+
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
 
           {/* Status banner */}
           {sale.status === "pending_sync" || sale.is_offline_queued ? (
-            <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 p-2 text-center text-xs mb-3 text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 p-2 text-center text-xs mb-2.5 text-amber-700 dark:text-amber-300">
               <p className="font-extrabold text-[11px]">⚡ OFFLINE VOUCHER — PENDING SYNC</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Saved locally. Will synchronize to cloud database automatically.
               </p>
             </div>
-          ) : (
-            <div className="text-center text-[11px] font-bold text-muted-foreground mb-3 tracking-wider">
-              TAX INVOICE / CASH MEMO
-            </div>
-          )}
+          ) : null}
 
           {/* Invoice details */}
-          <div className="text-[11px] space-y-0.5 mb-3">
+          <div className="text-[11px] space-y-0.5 mb-2.5">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Invoice</span>
               <span className="font-bold text-foreground">{sale.sale_number}</span>
@@ -452,12 +463,14 @@ export function ThermalReceipt({
             </div>
           </div>
 
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
+
           {/* Customer */}
-          <div className="border-t border-dashed border-gray-400 pt-2 pb-2 mb-2 text-[11px]">
+          <div className="text-[11px] space-y-0.5 mb-2.5">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Customer</span>
               <span className="font-semibold text-foreground text-right max-w-[55%] truncate">
-                {sale.customer_name}
+                {sale.customer_name || "Walk-in Customer"}
               </span>
             </div>
             {sale.customer_phone && sale.customer_phone.trim() !== "" && (
@@ -468,10 +481,10 @@ export function ThermalReceipt({
             )}
           </div>
 
-          <div className="border-t border-dashed border-gray-400 my-2" />
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
 
           {/* Items */}
-          <div className="space-y-1.5 text-[11px]">
+          <div className="space-y-2 text-[11px]">
             {items.map((item, i) => (
               <div key={i}>
                 <div className="flex justify-between gap-1">
@@ -486,11 +499,19 @@ export function ThermalReceipt({
                   {formatPrice(item.price)} × {item.qty}
                   {item.sku && ` · SKU: ${item.sku}`}
                 </div>
+                {item.mrp && item.mrp > item.price && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    <span className="line-through mr-1.5">{formatPrice(item.mrp)}</span>
+                    <span className="text-emerald-700 font-semibold">
+                      Save {formatPrice((item.mrp - item.price) * item.qty)}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <div className="border-t border-dashed border-gray-400 my-2" />
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
 
           {/* Totals */}
           <div className="text-[11px] space-y-0.5">
@@ -517,14 +538,14 @@ export function ThermalReceipt({
                 <span className="font-semibold">−{formatPrice(sale.discount)}</span>
               </div>
             )}
-            <div className="flex justify-between pt-1 border-t border-gray-900">
+            <div className="flex justify-between pt-1 border-t border-gray-900 mt-1">
               <span className="font-black text-foreground text-sm">TOTAL</span>
               <span className="font-black text-foreground text-sm">
                 {formatPrice(grossBillTotal)}
               </span>
             </div>
             {sale.store_credit_used && sale.store_credit_used > 0 ? (
-              <div className="pt-1 text-[10px] space-y-0.5 border-t border-dashed border-gray-300">
+              <div className="pt-1 text-[10px] space-y-0.5 border-t border-dotted border-gray-300">
                 <div className="flex justify-between text-emerald-700 font-semibold">
                   <span>
                     Store Credit {sale.credit_token_used ? `[${sale.credit_token_used}]` : ""}
@@ -551,13 +572,13 @@ export function ThermalReceipt({
             )}
           </div>
 
-          <div className="border-t border-dashed border-gray-400 my-3" />
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
 
           {/* Footer */}
           <div className="text-center text-[10px] text-muted-foreground space-y-0.5">
-            <p className="font-bold">Thank You For Shopping!</p>
+            <p className="font-bold text-foreground">Thank You For Shopping!</p>
             <p>Exchange/Return within 7 days with receipt.</p>
-            <p className="mt-1">Visit us again · zerah_kids</p>
+            <p className="mt-0.5">Visit us again ·</p>
           </div>
         </div>
       </div>

@@ -118,113 +118,113 @@ function buildThermalReturnHTML(
     padding: 2mm 1mm;
     margin: 0 auto;
   }
-  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+  .divider { border-top: 1px dotted #000; margin: 6px 0; }
+  .dashed-divider { border-top: 1px dashed #000; margin: 6px 0; }
   .text-center { text-align: center; }
   .bold { font-weight: 800; }
-  .voucher-box {
-    border: 2px dashed #000;
-    padding: 6px 4px;
-    margin: 8px 0;
+  .voucher-card {
+    border: 1.5px dashed #059669;
+    border-radius: 8px;
+    padding: 8px 6px;
+    margin: 6px 0;
     text-align: center;
   }
   .voucher-amount {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 900;
-    margin: 3px 0;
+    color: #059669;
+    margin: 2px 0 6px 0;
+  }
+  .token-pill {
+    border: 1px solid #059669;
+    border-radius: 20px;
+    padding: 3px 8px;
+    background: #fff;
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #064e3b;
+    display: inline-block;
+    width: 90%;
   }
   .row { display: flex; justify-content: space-between; gap: 4px; }
 </style>
 </head>
 <body>
-  <div class="text-center">
-    <div style="font-size: 14px; font-weight: 900; letter-spacing: 0.5px;">ZÉRAH BABY &amp; KIDS</div>
-    <div style="font-size: 10px; color: #333;">Offline POS Returns &amp; Exchange</div>
+  <div class="text-center" style="margin-bottom: 6px;">
     <div style="font-size: 10px; color: #333;">Kota, Rajasthan 324001</div>
     <div style="font-size: 10px; color: #333;">Support: +91 90570 74777</div>
-    <div style="display: inline-block; border: 1px solid #000; padding: 2px 8px; font-size: 10px; font-weight: 800; margin-top: 5px; text-transform: uppercase;">
-      ${isExchangeCredit ? "EXCHANGE CREDIT VOUCHER" : "RETURN RECEIPT"}
+    <div style="display: inline-block; border: 1px solid #000; border-radius: 4px; padding: 2px 8px; font-size: 9.5px; font-weight: 800; margin-top: 4px; text-transform: uppercase;">
+      ${isExchangeCredit ? "STORE CREDIT / EXCHANGE VOUCHER" : "RETURN RECEIPT"}
     </div>
   </div>
 
-  ${
-    returnData.is_offline_queued
-      ? `<div style="border: 1px dashed #d97706; background: #fffbeb; padding: 4px; font-size: 9px; font-weight: 800; color: #b45309; text-align: center; margin-top: 6px;">
-          ⚠ OFFLINE RETURN — QUEUED LOCALLY (PENDING SERVER SYNC)
-        </div>`
-      : `<div style="border: 1px solid #059669; background: #ecfdf5; padding: 4px; font-size: 9px; font-weight: 800; color: #065f46; text-align: center; margin-top: 6px;">
-          ✓ SERVER CONFIRMED FINANCIAL ENTITLEMENT
-        </div>`
-  }
+  <div class="divider"></div>
 
   ${
     isExchangeCredit
-      ? `<div class="voucher-box">
-          <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">AVAILABLE STORE CREDIT VALUE</div>
+      ? `<div class="voucher-card">
+          <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #065f46;">AVAILABLE STORE CREDIT VALUE</div>
           <div class="voucher-amount">₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</div>
-          <div style="font-size: 9px; font-weight: 700;">✓ Valid across all store products • 90 Days Expiry</div>
           ${
             returnData.credit_token
-              ? `
-            <div style="margin-top: 6px; border: 2px solid #000; padding: 6px 4px; background: #fafafa;">
-              <div style="font-size: 9px; font-weight: 800; text-transform: uppercase;">STORE CREDIT VOUCHER CODE</div>
-              <div style="font-size: 17px; font-weight: 900; letter-spacing: 2px; font-family: monospace; color: #000; margin: 3px 0;">
-                ${escHtml(returnData.credit_token)}
-              </div>
-              <div style="font-size: 8px; color: #555;">Customer-linked • Scan barcode or enter at POS checkout</div>
-            </div>`
+              ? `<div style="margin-bottom: 6px;">
+                  <div class="token-pill">TOKEN: ${escHtml(returnData.credit_token)}</div>
+                </div>`
               : ""
           }
-        </div>`
+          <div style="display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: #065f46; border-top: 1px dashed rgba(5,150,105,0.4); padding-top: 4px; margin-top: 4px;">
+            <span>Expiry: NEVER / NO EXPIRY</span>
+            <span>All Store Items</span>
+          </div>
+        </div>
+        <div class="divider"></div>`
       : ""
   }
 
-  <div class="divider"></div>
-
-  <div style="font-size: 10px; line-height: 1.4;">
-    <div class="row"><span>Voucher / Return #:</span><span class="bold">${escHtml(returnData.return_number)}</span></div>
-    ${returnData.original_sale_number || returnData.original_sale_id ? `<div class="row"><span>Original Invoice #:</span><span class="bold">${escHtml(returnData.original_sale_number || String(returnData.original_sale_id).substring(0, 8).toUpperCase())}</span></div>` : ""}
-    ${returnData.credit_token ? `<div class="row" style="font-size: 11px; font-weight: 900; color: #000;"><span>Store Credit Code:</span><span style="font-family: monospace; letter-spacing: 1px;">${escHtml(returnData.credit_token)}</span></div>` : ""}
-    <div class="row"><span>Date:</span><span>${dateStr}</span></div>
-    <div class="row"><span>Time:</span><span>${timeStr}</span></div>
-    ${returnData.customer_name ? `<div class="row" style="margin-top: 3px;"><span>Customer:</span><span class="bold">${escHtml(returnData.customer_name)}</span></div>` : ""}
-    ${returnData.customer_phone ? `<div class="row"><span>Mobile:</span><span>${escHtml(returnData.customer_phone)}</span></div>` : ""}
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span>Return Number</span><span class="bold">${escHtml(returnData.return_number)}</span></div>
+    ${returnData.credit_token ? `<div class="row"><span>Credit Token</span><span class="bold" style="letter-spacing: 0.5px;">${escHtml(returnData.credit_token)}</span></div>` : ""}
+    <div class="row"><span>Date</span><span>${dateStr}</span></div>
+    <div class="row"><span>Time</span><span>${timeStr}</span></div>
   </div>
 
   <div class="divider"></div>
-  <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px;">Returned Items (${totalItemsCount}):</div>
+
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span>Customer</span><span class="bold">${escHtml(returnData.customer_name || "Walk-in Customer")}</span></div>
+    ${returnData.customer_phone ? `<div class="row"><span>Mobile</span><span>${escHtml(returnData.customer_phone)}</span></div>` : ""}
+  </div>
+
+  <div class="divider"></div>
+  <div class="row bold" style="font-size: 9.5px; text-transform: uppercase; margin-bottom: 4px;">
+    <span style="flex: 1;">ITEM RETURNED</span>
+    <span style="width: 30px; text-align: center;">QTY</span>
+    <span style="width: 60px; text-align: right;">VALUE</span>
+  </div>
   ${itemRows}
 
-  <div class="divider"></div>
+  <div class="dashed-divider"></div>
 
-  <div style="font-size: 11px; line-height: 1.4;">
-    <div class="row"><span>Total Units Restocked:</span><span class="bold">+${totalItemsCount}</span></div>
-    <div class="row" style="font-size: 12px; font-weight: 900; margin-top: 2px;">
-      <span>TOTAL CREDIT ISSUED:</span>
-      <span>₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</span>
+  <div style="font-size: 10.5px; line-height: 1.45;">
+    <div class="row"><span>Total Units Restocked</span><span class="bold">+${totalItemsCount}</span></div>
+    <div class="row" style="font-size: 12px; font-weight: 900; margin-top: 3px;">
+      <span>TOTAL EXCHANGE CREDIT</span>
+      <span style="color: #059669;">₹${Number(returnData.refund_amount).toLocaleString("en-IN")}</span>
     </div>
-    <div class="row" style="font-size: 10px; margin-top: 1px;">
-      <span>Credit Used:</span>
-      <span>₹${Number(returnData.credit_used ?? 0).toLocaleString("en-IN")}</span>
-    </div>
-    <div class="row" style="font-size: 11px; font-weight: 800; color: #000; margin-top: 1px;">
-      <span>REMAINING BALANCE:</span>
-      <span>₹${Number(returnData.credit_balance ?? Math.max(0, returnData.refund_amount - (returnData.credit_used ?? 0))).toLocaleString("en-IN")}</span>
-    </div>
-    ${returnData.linked_sale_id ? `<div class="row" style="font-size: 10px; margin-top: 1px;"><span>Linked Sale:</span><span class="bold">#${escHtml(String(returnData.linked_sale_id).substring(0, 8).toUpperCase())}</span></div>` : ""}
     <div class="row" style="font-size: 10px; margin-top: 2px;">
-      <span>Settlement Mode:</span>
-      <span class="bold">${escHtml(isExchangeCredit ? "Store Credit Voucher" : returnData.refund_method || "Return")}</span>
+      <span style="color: #991b1b; font-weight: 700;">Settlement Mode</span>
+      <span class="bold" style="color: #991b1b; text-transform: uppercase;">${escHtml(isExchangeCredit ? "EXCHANGE CREDIT VOUCHER" : returnData.refund_method || "Return")}</span>
     </div>
-    ${returnData.return_reason ? `<div class="row" style="font-size: 10px;"><span>Reason:</span><span>${escHtml(returnData.return_reason)}</span></div>` : ""}
-    ${returnData.notes ? `<div style="font-size: 9px; font-style: italic; margin-top: 2px;">Note: ${escHtml(returnData.notes)}</div>` : ""}
+    ${returnData.return_reason ? `<div class="row" style="font-size: 10px;"><span>Reason</span><span style="text-align: right; max-width: 60%;">${escHtml(returnData.return_reason)}</span></div>` : ""}
   </div>
 
   <div class="divider"></div>
 
-  <div class="text-center" style="font-size: 9px; color: #222; line-height: 1.4; margin-top: 4px;">
-    <div style="font-weight: 700; color: #000;">✓ Inventory Restocked</div>
-    <div style="margin-top: 2px;">Policy: Store credit voucher is valid for purchasing any products at Zérah Baby &amp; Kids store.</div>
-    <div style="margin-top: 4px; font-weight: 700;">Thank you for visiting Zérah Baby &amp; Kids!</div>
+  <div class="text-center" style="font-size: 9px; color: #111; line-height: 1.4; margin-top: 4px;">
+    <div style="font-weight: 700; color: #047857;">✓ Inventory Restocked</div>
+    <div style="margin-top: 2px; color: #333;">Policy: We do not offer cash refunds. Store credit voucher is valid for purchasing any products at Zérah Baby &amp; Kids store.</div>
+    <div style="margin-top: 4px; font-weight: 600;">Thank you for visiting Zérah Baby &amp; Kids!</div>
   </div>
 </body>
 </html>`;
@@ -309,8 +309,8 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
       >
         {/* ── Screen header (hidden during print) ── */}
         <div className="thermal-no-print flex items-center justify-between border-b border-border px-5 py-4 bg-muted/20">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
@@ -332,7 +332,7 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 rounded-full bg-[#8B2020] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#7a1c1c] transition shadow-xs cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
               Print Slip
@@ -343,75 +343,44 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
         {/* ── Printable receipt body ── */}
         <div className="thermal-body overflow-y-auto max-h-[80vh] p-5 font-mono text-xs text-foreground bg-card">
           {/* Store header */}
-          <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            <p className="text-sm font-black tracking-tight text-foreground">
-              ZÉRAH BABY &amp; KIDS
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Offline POS Returns &amp; Exchange
-            </p>
+          <div className="text-center pb-2">
             <p className="text-[10px] text-muted-foreground">Kota, Rajasthan 324001</p>
             <p className="text-[10px] text-muted-foreground">Support: +91 90570 74777</p>
-            <div className="mt-2 inline-block rounded border border-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+            <div className="mt-2 inline-block rounded border border-gray-900 px-3 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-foreground">
               {isExchangeCredit ? "STORE CREDIT / EXCHANGE VOUCHER" : "RETURN RECEIPT"}
             </div>
           </div>
 
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
+
           {/* Prominent Exchange Voucher Box */}
           {isExchangeCredit && (
-            <div className="my-2.5 rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-500/10 p-3 text-center print:border-black print:bg-transparent">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 print:text-black">
+            <>
+              <div className="rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-center print:border-black print:bg-transparent">
+                <div className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 print:text-black">
                   AVAILABLE STORE CREDIT VALUE
-                </span>
-                {returnData.is_offline_queued ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[9px] font-bold">
-                    <AlertTriangle className="size-2.5" /> OFFLINE QUEUED
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-bold">
-                    <CheckCircle className="size-2.5" /> CONFIRMED
-                  </span>
-                )}
-              </div>
-              <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 print:text-black block mt-0.5">
-                {formatPrice(returnData.refund_amount)}
-              </span>
-              {returnData.credit_token && (
-                <div className="mt-2 bg-background print:bg-transparent border border-emerald-500/40 rounded-xl p-2.5 flex flex-col items-center justify-center">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Store Credit Voucher Token
-                  </span>
-                  <div className="font-mono text-sm font-black text-foreground tracking-widest my-1">
-                    {returnData.credit_token}
-                  </div>
-                  <div className="w-full flex justify-center py-1 overflow-hidden">
-                    <Barcode
-                      value={returnData.credit_token}
-                      format="CODE128"
-                      width={1.2}
-                      height={36}
-                      fontSize={10}
-                      margin={0}
-                      displayValue={false}
-                      background="transparent"
-                      lineColor="currentColor"
-                    />
-                  </div>
-                  <span className="text-[9px] text-muted-foreground">
-                    Scan barcode at POS to redeem immediately
-                  </span>
                 </div>
-              )}
-              <div className="flex items-center justify-between text-[9px] font-bold text-emerald-900 dark:text-emerald-200 print:text-black mt-2 pt-1.5 border-t border-emerald-500/20">
-                <span>Valid: 90 Days</span>
-                <span>Customer-Linked Entitlement</span>
+                <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 print:text-black block my-1">
+                  {formatPrice(returnData.refund_amount)}
+                </span>
+                {returnData.credit_token && (
+                  <div className="my-2 bg-white dark:bg-background print:bg-transparent border border-emerald-500 rounded-full py-1.5 px-3 flex items-center justify-center shadow-xs">
+                    <span className="font-mono text-xs font-black text-emerald-950 dark:text-emerald-200 tracking-wider">
+                      TOKEN: {returnData.credit_token}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-[9px] font-bold text-emerald-800 dark:text-emerald-300 print:text-black mt-2 pt-1 border-t border-dashed border-emerald-400/40">
+                  <span>Expiry: NEVER / NO EXPIRY</span>
+                  <span>All Store Items</span>
+                </div>
               </div>
-            </div>
+              <div className="border-t border-dotted border-gray-400 my-2.5" />
+            </>
           )}
 
           {/* Return details */}
-          <div className="text-[11px] space-y-0.5 mb-3">
+          <div className="text-[11px] space-y-0.5 mb-2.5">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Return Number</span>
               <span className="font-bold text-foreground">{returnData.return_number}</span>
@@ -437,17 +406,19 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             <div className="flex justify-between">
               <span className="text-muted-foreground">Time</span>
               <span className="text-foreground">
-                {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
               </span>
             </div>
           </div>
 
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
+
           {/* Customer */}
-          <div className="border-t border-dashed border-gray-400 pt-2 pb-2 mb-2 text-[11px]">
+          <div className="text-[11px] space-y-0.5">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Customer</span>
               <span className="font-semibold text-foreground text-right max-w-[55%] truncate">
-                {returnData.customer_name}
+                {returnData.customer_name || "Walk-in Customer"}
               </span>
             </div>
             {returnData.customer_phone && returnData.customer_phone.trim() !== "" && (
@@ -458,12 +429,14 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             )}
           </div>
 
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
+
           {/* Items Header */}
-          <div className="border-t border-dashed border-gray-400 pt-2 pb-1">
+          <div className="pb-1">
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
-              <span className="w-[50%]">Item Returned</span>
-              <span className="w-[20%] text-center">Qty</span>
-              <span className="w-[30%] text-right">Value</span>
+              <span className="w-[50%]">ITEM RETURNED</span>
+              <span className="w-[20%] text-center">QTY</span>
+              <span className="w-[30%] text-right">VALUE</span>
             </div>
           </div>
 
@@ -493,27 +466,29 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
           </div>
 
           {/* Refund Totals & Method */}
-          <div className="border-t-2 border-dashed border-gray-900 mt-2 pt-2 space-y-1 text-[11px]">
+          <div className="border-t border-dashed border-gray-400 my-2 pt-2 space-y-1 text-[11px]">
             <div className="flex justify-between text-muted-foreground">
               <span>Total Units Restocked</span>
               <span className="font-bold text-foreground">+{totalItemsCount}</span>
             </div>
-            <div className="flex justify-between text-[13px] font-black text-foreground pt-1 border-t border-dashed border-border">
+            <div className="flex justify-between text-[12px] font-black text-foreground pt-1">
               <span>{isExchangeCredit ? "TOTAL EXCHANGE CREDIT" : "TOTAL REFUNDED"}</span>
-              <span className={isExchangeCredit ? "text-emerald-600 dark:text-emerald-400" : ""}>
+              <span className="text-emerald-600 dark:text-emerald-400 font-black">
                 {formatPrice(returnData.refund_amount)}
               </span>
             </div>
-            <div className="flex justify-between text-[11px] font-bold text-primary">
+            <div className="flex justify-between text-[11px] font-bold text-[#8B2020] dark:text-red-400">
               <span>Settlement Mode</span>
               <span className="uppercase">
-                {isExchangeCredit ? "Exchange Credit Voucher" : returnData.refund_method}
+                {isExchangeCredit ? "EXCHANGE CREDIT VOUCHER" : returnData.refund_method}
               </span>
             </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
-              <span>Reason</span>
-              <span className="text-right max-w-[60%] truncate">{returnData.return_reason}</span>
-            </div>
+            {returnData.return_reason && (
+              <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
+                <span>Reason</span>
+                <span className="text-right max-w-[60%] truncate">{returnData.return_reason}</span>
+              </div>
+            )}
             {returnData.notes && (
               <div className="text-[9px] text-muted-foreground italic pt-0.5">
                 Note: {returnData.notes}
@@ -521,16 +496,18 @@ export function POSReturnReceipt({ returnData, onClose, onPrint, autoPrint }: Pr
             )}
           </div>
 
+          <div className="border-t border-dotted border-gray-400 my-2.5" />
+
           {/* Footer Note & Exchange Policy */}
-          <div className="border-t border-dashed border-gray-400 mt-3 pt-2 text-center text-[10px] text-muted-foreground space-y-1">
+          <div className="text-center text-[10px] text-muted-foreground space-y-1">
             <p className="font-semibold text-emerald-700 dark:text-emerald-400">
               ✓ Inventory Restocked
             </p>
-            <p className="text-[9px] text-foreground font-medium">
+            <p className="text-[9px] text-foreground font-normal leading-relaxed">
               Policy: We do not offer cash refunds. Store credit voucher is valid for purchasing any
               products at Zérah Baby &amp; Kids store.
             </p>
-            <p className="pt-1">Thank you for visiting Zérah Baby &amp; Kids!</p>
+            <p className="pt-1 text-[10px] text-foreground">Thank you for visiting Zérah Baby &amp; Kids!</p>
           </div>
         </div>
       </div>
