@@ -709,8 +709,8 @@ export function useProcessOfflineReturn() {
           _original_sale_id: input.original_sale_id || null,
           _items: input.items,
           _idempotency_key: input.idempotency_key,
-          _offline_return_number: clientReturnNumber,
-          _offline_credit_token: clientCreditCode,
+          _custom_return_number: clientReturnNumber,
+          _custom_credit_token: clientCreditCode,
         });
 
         if (error) {
