@@ -4621,14 +4621,6 @@ export function POSTab() {
                           {formatPrice(subtotal)}
                         </span>
                       </div>
-                      {productSavings > 0 && (
-                        <div className="flex justify-between text-teal-600 dark:text-teal-400 font-medium">
-                          <span className="text-muted-foreground font-normal">MRP Savings</span>
-                          <span className="font-bold">
-                            −{formatPrice(productSavings)}
-                          </span>
-                        </div>
-                      )}
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-teal-700 dark:text-teal-300 font-bold">
                           <span>
