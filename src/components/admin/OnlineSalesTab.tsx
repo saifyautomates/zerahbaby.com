@@ -1131,9 +1131,9 @@ export function OnlineSalesTab() {
 
       {!isLoading && orders.length === 0 && (
         <div className="rounded-3xl border border-dashed border-border p-12 text-center">
-          <p className="text-sm font-semibold text-muted-foreground">No transactions found</p>
+          <p className="text-sm font-semibold text-muted-foreground">No online orders found</p>
           <p className="mt-1 text-xs text-gray-400">
-            Online and POS transactions will appear here automatically.
+            Online store orders and fulfillments will appear here automatically.
           </p>
         </div>
       )}

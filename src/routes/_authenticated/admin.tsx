@@ -369,6 +369,52 @@ export function AdminPage() {
     clearAllNotifications,
   } = useAdminNotifications({ enabled: Boolean(isAdmin && user?.id) });
 
+  const [notifChannelFilter, setNotifChannelFilter] = useState<"all" | "online" | "offline">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const curTab = p.get("tab");
+      if (curTab === "billing") return "offline";
+      if (curTab === "orders" || curTab === "returns") return "online";
+    }
+    return "all";
+  });
+
+  // Sync notification filter when active tab changes
+  useEffect(() => {
+    if (tab === "billing") {
+      setNotifChannelFilter("offline");
+    } else if (tab === "orders" || tab === "returns") {
+      setNotifChannelFilter("online");
+    }
+  }, [tab]);
+
+  const isOfflineNotif = (n: typeof notifications[0]) =>
+    n.type === "pos_sale" || n.type === "pos_return" || n.tab === "billing";
+
+  const isOnlineNotif = (n: typeof notifications[0]) =>
+    n.type === "order_new" ||
+    n.type === "order_cancelled" ||
+    n.type === "order_failed" ||
+    n.type === "online_return" ||
+    n.tab === "orders" ||
+    n.tab === "returns";
+
+  const onlineUnreadCount = useMemo(
+    () => notifications.filter((n) => !n.read && isOnlineNotif(n)).length,
+    [notifications],
+  );
+
+  const offlineUnreadCount = useMemo(
+    () => notifications.filter((n) => !n.read && isOfflineNotif(n)).length,
+    [notifications],
+  );
+
+  const filteredNotifications = useMemo(() => {
+    if (notifChannelFilter === "online") return notifications.filter(isOnlineNotif);
+    if (notifChannelFilter === "offline") return notifications.filter(isOfflineNotif);
+    return notifications;
+  }, [notifications, notifChannelFilter]);
+
   // Detect OS for shortcut badge
   const isMac = useMemo(() => {
     if (typeof window === "undefined" || typeof navigator === "undefined") return false;
@@ -487,35 +533,46 @@ export function AdminPage() {
     staleTime: 1000 * 60 * 3, // 3 minutes cache
   });
 
-  const [lastViewedOrdersTime, setLastViewedOrdersTime] = useState<number>(() => {
-    return parseInt(localStorage.getItem("admin_last_viewed_orders") || "0", 10);
+  const [lastViewedOnlineOrdersTime, setLastViewedOnlineOrdersTime] = useState<number>(() => {
+    return parseInt(localStorage.getItem("admin_last_viewed_online_orders") || "0", 10);
+  });
+
+  const [lastViewedOfflineOrdersTime, setLastViewedOfflineOrdersTime] = useState<number>(() => {
+    return parseInt(localStorage.getItem("admin_last_viewed_offline_orders") || "0", 10);
   });
 
   useEffect(() => {
-    if (tab === "orders" || tab === "billing") {
-      const now = Date.now();
-      setLastViewedOrdersTime(now);
-      localStorage.setItem("admin_last_viewed_orders", now.toString());
+    const now = Date.now();
+    if (tab === "orders") {
+      setLastViewedOnlineOrdersTime(now);
+      localStorage.setItem("admin_last_viewed_online_orders", now.toString());
+    } else if (tab === "billing") {
+      setLastViewedOfflineOrdersTime(now);
+      localStorage.setItem("admin_last_viewed_offline_orders", now.toString());
     }
   }, [tab]);
 
-  const unseenOrdersCount = useMemo(() => {
-    const newOnline = onlineOrdersSummary.filter((o) => {
+  // Online Orders Badge Count (strictly online store orders)
+  const unseenOnlineOrdersCount = useMemo(() => {
+    return onlineOrdersSummary.filter((o) => {
       const t = new Date(o.created_at).getTime();
       const isPaidOrCod = o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid";
       return (
-        t > lastViewedOrdersTime &&
+        t > lastViewedOnlineOrdersTime &&
         o.status !== "cancelled" &&
         isPaidOrCod &&
         (o.status === "placed" || o.status === "processing" || o.status === "pending")
       );
     }).length;
-    const newOffline = posSales.filter((o) => {
+  }, [onlineOrdersSummary, lastViewedOnlineOrdersTime]);
+
+  // Offline POS Badge Count (strictly offline billing transactions)
+  const unseenOfflineOrdersCount = useMemo(() => {
+    return posSales.filter((o) => {
       const t = new Date(o.created_at).getTime();
-      return t > lastViewedOrdersTime && (o as { status?: string }).status !== "cancelled";
+      return t > lastViewedOfflineOrdersTime && (o as { status?: string }).status !== "cancelled";
     }).length;
-    return newOnline + newOffline;
-  }, [onlineOrdersSummary, posSales, lastViewedOrdersTime]);
+  }, [posSales, lastViewedOfflineOrdersTime]);
 
   const { data: newQueriesCount = 0 } = useQuery({
     queryKey: ["admin-new-queries-count"],
@@ -619,12 +676,17 @@ export function AdminPage() {
 
   const NAVIGATION: Array<{ key: Tab; label: string; icon: typeof BarChart3; badge?: string }> = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { key: "billing", label: "Offline Billing", icon: Settings2 },
+    {
+      key: "billing",
+      label: "Offline Billing",
+      icon: Settings2,
+      badge: unseenOfflineOrdersCount > 0 ? unseenOfflineOrdersCount.toString() : undefined,
+    },
     {
       key: "orders",
       label: "Online Orders",
       icon: ShoppingBag,
-      badge: unseenOrdersCount > 0 ? unseenOrdersCount.toString() : undefined,
+      badge: unseenOnlineOrdersCount > 0 ? unseenOnlineOrdersCount.toString() : undefined,
     },
     {
       key: "returns",
@@ -932,126 +994,207 @@ export function AdminPage() {
                 <div
                   role="region"
                   aria-label="Notification Center"
-                  className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-11 z-50 sm:w-[400px] max-w-[420px] overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150"
+                  className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-11 z-50 sm:w-[420px] max-w-[440px] overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-150"
                 >
-                  <div className="flex items-center justify-between border-b border-border p-4 bg-muted/20">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-foreground">Notifications</h4>
-                      {unreadCount > 0 && (
-                        <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                          {unreadCount} unread
-                        </span>
-                      )}
+                  <div className="border-b border-border bg-muted/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-foreground">Notifications</h4>
+                        {unreadCount > 0 && (
+                          <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                            {unreadCount} unread
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {unreadCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={markAllAsRead}
+                            className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                          >
+                            Mark read
+                          </button>
+                        )}
+                        {notifications.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={clearAllNotifications}
+                            className="text-xs font-semibold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer flex items-center gap-1"
+                            title="Clear all notifications"
+                          >
+                            <Trash2 className="size-3" /> Clear all
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {unreadCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={markAllAsRead}
-                          className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                        >
-                          Mark read
-                        </button>
-                      )}
-                      {notifications.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={clearAllNotifications}
-                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer flex items-center gap-1"
-                          title="Clear all notifications"
-                        >
-                          <Trash2 className="size-3" /> Clear all
-                        </button>
-                      )}
+
+                    {/* Section Channel Filters (Online vs Offline) */}
+                    <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-2xl border border-border/50 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setNotifChannelFilter("all")}
+                        className={`flex-1 py-1 px-2 rounded-xl text-center transition cursor-pointer ${
+                          notifChannelFilter === "all"
+                            ? "bg-card text-foreground shadow-xs font-bold"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifChannelFilter("online")}
+                        className={`flex-1 py-1 px-2 rounded-xl text-center transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          notifChannelFilter === "online"
+                            ? "bg-card text-foreground shadow-xs font-bold"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>Online</span>
+                        {onlineUnreadCount > 0 && (
+                          <span className="size-4 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold">
+                            {onlineUnreadCount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifChannelFilter("offline")}
+                        className={`flex-1 py-1 px-2 rounded-xl text-center transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          notifChannelFilter === "offline"
+                            ? "bg-card text-foreground shadow-xs font-bold"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>Offline POS</span>
+                        {offlineUnreadCount > 0 && (
+                          <span className="size-4 rounded-full bg-emerald-600 text-white text-[9px] flex items-center justify-center font-bold">
+                            {offlineUnreadCount}
+                          </span>
+                        )}
+                      </button>
                     </div>
                   </div>
 
                   <div className="max-h-[min(440px,calc(100vh-140px))] overflow-y-auto p-2 divide-y divide-border/30">
-                    {notifications.length === 0 ? (
+                    {filteredNotifications.length === 0 ? (
                       <div className="py-8 text-center">
                         <Bell className="mx-auto size-6 text-muted-foreground/40" />
-                        <p className="mt-2 text-xs font-semibold text-foreground">All caught up!</p>
+                        <p className="mt-2 text-xs font-semibold text-foreground">
+                          {notifChannelFilter === "online"
+                            ? "No online order notifications"
+                            : notifChannelFilter === "offline"
+                              ? "No offline POS notifications"
+                              : "All caught up!"}
+                        </p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                          No recent alerts or pending order actions.
+                          {notifChannelFilter === "online"
+                            ? "Online store orders and returns will appear here."
+                            : notifChannelFilter === "offline"
+                              ? "In-store POS sales and returns will appear here."
+                              : "No recent alerts or pending actions."}
                         </p>
                       </div>
                     ) : (
                       <ul className="space-y-1">
-                        {notifications.map((notif) => (
-                          <li
-                            key={notif.id}
-                            className="group relative flex items-center gap-1 rounded-2xl transition hover:bg-muted/40 p-1"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                markAsRead(notif.id);
-                                if (notif.tab === "billing" && notif.filter) {
-                                  localStorage.setItem("zerah_admin_active_subtab", notif.filter);
-                                  const url = new URL(window.location.href);
-                                  url.searchParams.set("tab", "billing");
-                                  url.searchParams.set("subtab", notif.filter);
-                                  window.history.replaceState({}, "", url.toString());
-                                } else if (notif.tab) {
-                                  const url = new URL(window.location.href);
-                                  url.searchParams.set("tab", notif.tab);
-                                  if (notif.filter) {
-                                    url.searchParams.set("status", notif.filter);
-                                  }
-                                  window.history.replaceState({}, "", url.toString());
-                                }
-                                setTab(notif.tab as Tab);
-                                setIsNotifOpen(false);
-                              }}
-                              className={`flex flex-1 items-start gap-3 rounded-2xl p-2.5 text-left transition cursor-pointer ${
-                                notif.read
-                                  ? "opacity-60 hover:opacity-100"
-                                  : "bg-muted/40 hover:bg-muted"
-                              }`}
+                        {filteredNotifications.map((notif) => {
+                          const isOffline = isOfflineNotif(notif);
+                          return (
+                            <li
+                              key={notif.id}
+                              className="group relative flex items-center gap-1 rounded-2xl transition hover:bg-muted/40 p-1"
                             >
-                              <div
-                                className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs ${
-                                  notif.priority === "high"
-                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
-                                    : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  markAsRead(notif.id);
+                                  if (isOffline) {
+                                    const subtabTarget =
+                                      notif.type === "pos_return" ? "returns" : "sales";
+                                    localStorage.setItem(
+                                      "zerah_admin_active_subtab",
+                                      notif.filter || subtabTarget,
+                                    );
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set("tab", "billing");
+                                    url.searchParams.set("subtab", notif.filter || subtabTarget);
+                                    window.history.replaceState({}, "", url.toString());
+                                    setTab("billing");
+                                  } else if (notif.tab) {
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set("tab", notif.tab);
+                                    if (notif.filter) {
+                                      url.searchParams.set("status", notif.filter);
+                                    }
+                                    window.history.replaceState({}, "", url.toString());
+                                    setTab(notif.tab as Tab);
+                                  }
+                                  setIsNotifOpen(false);
+                                }}
+                                className={`flex flex-1 items-start gap-3 rounded-2xl p-2.5 text-left transition cursor-pointer ${
+                                  notif.read
+                                    ? "opacity-60 hover:opacity-100"
+                                    : "bg-muted/40 hover:bg-muted"
                                 }`}
                               >
-                                <AlertCircle className="size-3.5" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <p className="truncate text-xs font-bold text-foreground">
-                                    {notif.title}
-                                  </p>
-                                  <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
-                                    {new Date(notif.timestamp).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </span>
+                                <div
+                                  className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs ${
+                                    isOffline
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                                      : notif.priority === "high"
+                                        ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                  }`}
+                                >
+                                  <AlertCircle className="size-3.5" />
                                 </div>
-                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 break-words">
-                                  {notif.message}
-                                </p>
-                              </div>
-                              {!notif.read && (
-                                <span className="size-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(notif.id);
-                              }}
-                              title="Delete notification"
-                              aria-label="Delete notification"
-                              className="p-2 text-muted-foreground/50 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition cursor-pointer shrink-0"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
-                          </li>
-                        ))}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                                    <div className="flex items-center gap-1.5 truncate">
+                                      <p className="truncate text-xs font-bold text-foreground">
+                                        {notif.title}
+                                      </p>
+                                      <span
+                                        className={`rounded-md px-1.5 py-0.2 text-[9px] font-bold shrink-0 ${
+                                          isOffline
+                                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                            : "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                        }`}
+                                      >
+                                        {isOffline ? "Offline POS" : "Online"}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
+                                      {new Date(notif.timestamp).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 break-words">
+                                    {notif.message}
+                                  </p>
+                                </div>
+                                {!notif.read && (
+                                  <span className="size-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteNotification(notif.id);
+                                }}
+                                title="Delete notification"
+                                aria-label="Delete notification"
+                                className="p-2 text-muted-foreground/50 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition cursor-pointer shrink-0"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </div>
