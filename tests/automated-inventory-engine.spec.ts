@@ -18,6 +18,13 @@ const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
 test.describe
   .serial("Automated Inventory Management Engine (Online + POS + Returns + Exchanges + Cancellations)", () => {
+  test.beforeAll(async () => {
+    await anonClient.auth.signInWithPassword({
+      email: "test.admin.1788005903879@example.com",
+      password: "ZerahTest2026!Staff",
+    });
+  });
+
   // Test 1: POS Sale Atomic Decrement & Variant Isolation
   test("1. POS Sale: Atomic Decrement on Exact Variant, Parent Alignment, Sibling Isolation", async () => {
     const { data: prods } = await anonClient
@@ -614,8 +621,9 @@ test.describe
     expect(saleErr).toBeNull();
     expect(saleRes?.sale_id).toBeTruthy();
 
-    // 2. Query storefront / anon products: product MUST be hidden from active catalog
-    const { data: activeCatalogCheck } = await anonClient
+    // 2. Query storefront / anon products: product MUST be hidden from active catalog for public users
+    const storefrontClient = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: activeCatalogCheck } = await storefrontClient
       .from("products")
       .select("id, is_active")
       .eq("id", prod.id);

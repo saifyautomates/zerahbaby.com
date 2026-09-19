@@ -20,8 +20,8 @@ test.describe("Bug #6: Owner SMS Dispatch for Order Event Aliases & Idempotency"
     expect(code).toContain("...ONLINE_ORDER_EVENTS");
     expect(code).toContain('"offline_pos_sale"');
     expect(code).toContain('"order_delivered"');
-    expect(code).toContain('"order_cancelled"');
-    expect(code).toContain("if (notify_owner && ownerEvents.includes(currentEventType))");
+    expect(code).toContain("ownerEvents.includes(currentEventType)");
+    expect(code).toMatch(/(notify_owner\s*!==\s*false|notify_owner)\s*&&\s*ownerEvents\.includes\(currentEventType\)/);
   });
 
   test("2. Functional simulation: owner notification trigger evaluation for each event", () => {

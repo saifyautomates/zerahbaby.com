@@ -17,6 +17,13 @@ const supabaseAnonKey =
 const anonClient = createClient(supabaseUrl, supabaseAnonKey);
 
 test.describe.serial("Stock Lifecycle & Inventory Precision Engine", () => {
+  test.beforeAll(async () => {
+    await anonClient.auth.signInWithPassword({
+      email: "test.admin.1788005903879@example.com",
+      password: "ZerahTest2026!Staff",
+    });
+  });
+
   test("1. Catalog Stock Summation: 100% Mathematical Precision (Parent === SUM(variants))", async () => {
     const { data: products, error: fetchErr } = await anonClient
       .from("products")
