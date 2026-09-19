@@ -77,6 +77,13 @@ type SaleItem = {
   product_slug?: string | null;
   mrp_snapshot?: number | null;
   barcode_snapshot?: string | null;
+  quantity?: number;
+  quantity_sold?: number;
+  quantity_returned?: number;
+  returned_quantity?: number;
+  return_status?: string | null;
+  cost_price?: number | null;
+  buying_price?: number | null;
 };
 
 type Sale = {
@@ -106,6 +113,9 @@ type Sale = {
   is_voided?: boolean | null;
   void_reason?: string | null;
   voided_at?: string | null;
+  return_status?: "none" | "partially_returned" | "returned" | null;
+  returned_amount?: number | null;
+  returned_units?: number | null;
   offline_sale_items?: SaleItem[];
 };
 
@@ -429,9 +439,63 @@ export function OfflineAnalyticsTab() {
     setCurrentPage(1);
   }, [searchQuery, paymentFilter]);
 
-  // Authoritative business accounting: strictly completed transactions only!
+  // Helper to determine if a sale is completely returned
+  const isSaleFullyReturned = (s: {
+    return_status?: string | null;
+    offline_sale_items?: Array<{
+      qty?: number;
+      quantity?: number;
+      quantity_sold?: number;
+      quantity_returned?: number;
+      returned_quantity?: number;
+      return_status?: string | null;
+    }> | null;
+  }) => {
+    if (s.return_status === "returned") return true;
+    const items = s.offline_sale_items;
+    if (!items || items.length === 0) return false;
+    return items.every((item) => {
+      const sold = Number(item.quantity_sold ?? item.qty ?? item.quantity ?? 1);
+      const ret = Number(
+        item.quantity_returned ??
+          item.returned_quantity ??
+          (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
+      );
+      return sold - ret <= 0;
+    });
+  };
+
+  // Helper to extract only active (unreturned) items for a sale
+  const getActiveSaleItems = (sale: {
+    offline_sale_items?: Array<SaleItem> | null;
+  }): SaleItem[] => {
+    return (sale.offline_sale_items ?? [])
+      .map((item) => {
+        const sold = Number(item.quantity_sold ?? item.qty ?? (item as any).quantity ?? 1);
+        const ret = Number(
+          item.quantity_returned ??
+            item.returned_quantity ??
+            (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
+        );
+        const activeQty = Math.max(0, sold - ret);
+        if (activeQty <= 0) return null;
+        if (activeQty === sold) return item;
+        const unitPrice = item.qty > 0 ? Number(item.subtotal) / item.qty : Number(item.price);
+        return {
+          ...item,
+          qty: activeQty,
+          subtotal: unitPrice * activeQty,
+        };
+      })
+      .filter((it): it is SaleItem => it !== null);
+  };
+
+  // Authoritative business accounting: strictly completed transactions only (excluding cancelled, voided, and returned sales)!
   const activeSales = useMemo(
-    () => (sales ?? []).filter(isValidPOSSale) as unknown as Sale[],
+    () =>
+      (sales ?? []).filter(
+        (s) => isValidPOSSale(s) && !isSaleFullyReturned(s),
+      ) as unknown as Sale[],
     [sales],
   );
 
@@ -472,13 +536,14 @@ export function OfflineAnalyticsTab() {
       );
     } else {
       // In active sales views ("all", "cash", "upi", "card"):
-      // Strictly exclude cancelled/voided transactions
+      // Strictly exclude cancelled/voided transactions AND fully returned transactions
       list = list.filter(
         (s) =>
           s.status !== "cancelled" &&
           s.status !== "voided" &&
           !s.is_voided &&
-          !(s.notes && s.notes.startsWith("[VOIDED]")),
+          !(s.notes && s.notes.startsWith("[VOIDED]")) &&
+          !isSaleFullyReturned(s),
       );
 
       if (paymentFilter !== "all") {
@@ -495,7 +560,7 @@ export function OfflineAnalyticsTab() {
       const matchesCustomerPhone = (s.customer_phone || "").toLowerCase().includes(q);
       const matchesCustomerEmail = (s.customer_email || "").toLowerCase().includes(q);
       const matchesToken = s.pos_token_number != null && String(s.pos_token_number).includes(q);
-      const matchesItem = (s.offline_sale_items ?? []).some(
+      const matchesItem = getActiveSaleItems(s).some(
         (item: SaleItem) =>
           (item.name || "").toLowerCase().includes(q) || (item.sku || "").toLowerCase().includes(q),
       );
@@ -592,7 +657,22 @@ export function OfflineAnalyticsTab() {
     [returnsList, inCurrentPeriod],
   );
 
-  const grossSalesRevenue = periodActiveSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  // All completed sales in period before returns (for gross baseline accounting)
+  const periodAllCompletedSales = useMemo(
+    () =>
+      (sales ?? []).filter(
+        (s) =>
+          isValidPOSSale(s) &&
+          inCurrentPeriod(s.created_at) &&
+          s.status !== "cancelled" &&
+          s.status !== "voided" &&
+          !s.is_voided &&
+          !(s.notes && s.notes.startsWith("[VOIDED]")),
+      ),
+    [sales, inCurrentPeriod],
+  );
+
+  const grossSalesRevenue = periodAllCompletedSales.reduce((sum, sale) => sum + Number(sale.total), 0);
   const totalSalesRevenue = Math.max(0, grossSalesRevenue - periodReturnsAmount);
   const grossRevenue = grossSalesRevenue;
   const totalSalesCount = periodActiveSales.length;
@@ -616,7 +696,7 @@ export function OfflineAnalyticsTab() {
   const todaySalesRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
   const todayRevenue = Math.max(0, todaySalesRevenue - todayReturnsAmount);
 
-  // Top products with rich metadata (period synchronized, net of returns)
+  // Top products with rich metadata (period synchronized, strictly active unreturned items)
   const topProducts = useMemo(() => {
     const map = new Map<
       string,
@@ -630,7 +710,7 @@ export function OfflineAnalyticsTab() {
       }
     >();
     for (const sale of (activeSales ?? []).filter((s) => inCurrentPeriod(s.created_at))) {
-      for (const item of sale.offline_sale_items ?? []) {
+      for (const item of getActiveSaleItems(sale)) {
         const key = item.sku || item.name;
         const cur = map.get(key) ?? {
           name: item.name,
@@ -1181,6 +1261,27 @@ export function OfflineAnalyticsTab() {
           </div>
         </div>
 
+        {/* Returns & Exchange Navigation Notice */}
+        {periodReturnsAmount > 0 && (
+          <div className="mx-4 sm:mx-6 mt-3 px-4 py-2.5 rounded-xl border border-purple-500/20 bg-purple-500/5 text-purple-900 dark:text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span>
+                Sales table strictly displays active sales. Returned products &amp; orders are tracked under <strong>Return History</strong> ({formatPrice(periodReturnsAmount)} returned in period).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("billing-tab-change", { detail: "returns" }));
+              }}
+              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] transition shrink-0 cursor-pointer shadow-2xs self-start sm:self-auto"
+            >
+              View Return History →
+            </button>
+          </div>
+        )}
+
         {/* Uncommitted Local Sales Banner */}
         {uncommittedSales.length > 0 && (
           <div className="mx-6 mt-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
@@ -1454,7 +1555,7 @@ export function OfflineAnalyticsTab() {
                       {/* Product thumbnails & names */}
                       <td className="px-5 py-4 whitespace-normal">
                         <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[280px]">
-                          {(sale.offline_sale_items ?? []).map((item: SaleItem, i: number) => {
+                          {getActiveSaleItems(sale).map((item: SaleItem, i: number) => {
                             const prod = resolveProduct(item);
                             const itemImg = imageFor(
                               prod?.category || "clothing",
@@ -1488,7 +1589,7 @@ export function OfflineAnalyticsTab() {
                               </div>
                             );
                           })}
-                          {(!sale.offline_sale_items || sale.offline_sale_items.length === 0) && (
+                          {getActiveSaleItems(sale).length === 0 && (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </div>
@@ -1590,7 +1691,7 @@ export function OfflineAnalyticsTab() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/40">
-                                {(sale.offline_sale_items ?? []).map((item: SaleItem) => {
+                                {getActiveSaleItems(sale).map((item: SaleItem) => {
                                   const prod = resolveProduct(item);
                                   const itemImg = imageFor(
                                     prod?.category || "clothing",

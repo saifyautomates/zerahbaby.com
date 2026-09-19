@@ -186,11 +186,24 @@ export function CustomerHistoryPanel() {
     }
 
     for (const sale of rawSales) {
+      const isFullyReturned =
+        sale.return_status === "returned" ||
+        (Boolean(sale.offline_sale_items?.length) &&
+          sale.offline_sale_items!.every((item) => {
+            const sold = Number(item.qty || (item as any).quantity_sold || 1);
+            const ret = Number(
+              item.quantity_returned ??
+                item.returned_quantity ??
+                (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
+            );
+            return sold - ret <= 0;
+          }));
+
       if (
         sale.status === "cancelled" ||
         sale.status === "voided" ||
         (sale as { is_voided?: boolean }).is_voided ||
-        sale.return_status === "returned"
+        isFullyReturned
       )
         continue;
 
@@ -832,8 +845,24 @@ export function CustomerHistoryPanel() {
                           {formatPrice(sale.total)}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {(sale.offline_sale_items ?? []).filter((i) => Number(i.qty || 1) - Number(i.quantity_returned || (i.return_status === "RETURNED" ? i.qty : 0)) > 0).length} item
-                          {(sale.offline_sale_items ?? []).filter((i) => Number(i.qty || 1) - Number(i.quantity_returned || (i.return_status === "RETURNED" ? i.qty : 0)) > 0).length !== 1 ? "s" : ""}
+                          {(sale.offline_sale_items ?? []).filter((i) => {
+                            const sold = Number(i.qty || (i as any).quantity_sold || 1);
+                            const ret = Number(
+                              i.quantity_returned ??
+                                (i as any).returned_quantity ??
+                                (i.return_status === "RETURNED" || i.return_status === "returned" ? sold : 0),
+                            );
+                            return sold - ret > 0;
+                          }).length} item
+                          {(sale.offline_sale_items ?? []).filter((i) => {
+                            const sold = Number(i.qty || (i as any).quantity_sold || 1);
+                            const ret = Number(
+                              i.quantity_returned ??
+                                (i as any).returned_quantity ??
+                                (i.return_status === "RETURNED" || i.return_status === "returned" ? sold : 0),
+                            );
+                            return sold - ret > 0;
+                          }).length !== 1 ? "s" : ""}
                         </p>
                       </div>
 
@@ -871,7 +900,15 @@ export function CustomerHistoryPanel() {
                           </thead>
                           <tbody className="divide-y divide-border/40">
                             {(sale.offline_sale_items ?? [])
-                              .filter((item) => Number(item.qty || 1) - Number(item.quantity_returned || (item.return_status === "RETURNED" ? item.qty : 0)) > 0)
+                              .filter((item) => {
+                                const sold = Number(item.qty || (item as any).quantity_sold || 1);
+                                const ret = Number(
+                                  item.quantity_returned ??
+                                    (item as any).returned_quantity ??
+                                    (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
+                                );
+                                return sold - ret > 0;
+                              })
                               .map((item) => {
                               const itemImg = resolveItemImage(item);
                               return (

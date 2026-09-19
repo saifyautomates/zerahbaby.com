@@ -53,6 +53,18 @@ export function BillingCenterTab({ initialSubTab = "pos" }: { initialSubTab?: Bi
     }
   };
 
+  // Support programmatic switching to returns or other sub-tabs via event
+  useEffect(() => {
+    const handleTabChange = (e: Event) => {
+      const detail = (e as CustomEvent<BillingTab>).detail;
+      if (detail && ["pos", "returns", "labels", "sales", "customers"].includes(detail)) {
+        setActiveTab(detail);
+      }
+    };
+    window.addEventListener("billing-tab-change", handleTabChange);
+    return () => window.removeEventListener("billing-tab-change", handleTabChange);
+  }, []);
+
   // Global hardware barcode scanner logic:
   // When in Returns tab, DO NOT switch to POS! Returns has its own dedicated return scanner!
   useEffect(() => {
