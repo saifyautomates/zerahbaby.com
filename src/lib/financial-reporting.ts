@@ -84,6 +84,7 @@ export interface ReportPOSSale {
   is_voided?: boolean | null;
   void_reason?: string | null;
   voided_at?: string | null;
+  notes?: string | null;
 }
 
 export interface ReportReturnItem {
@@ -183,6 +184,7 @@ export function isValidOnlineOrder(o: ReportOrder): boolean {
 export function isValidPOSSale(s: ReportPOSSale): boolean {
   if (!s) return false;
   if (s.status === "cancelled" || s.status === "voided" || s.is_voided === true) return false;
+  if (s.notes && s.notes.startsWith("[VOIDED]")) return false;
   if (s.status === "sync_failed" || s.status === "FAILED_REQUIRES_ACTION" || s.status === "failed")
     return false;
   const isCompleted =
