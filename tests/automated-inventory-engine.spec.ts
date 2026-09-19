@@ -32,10 +32,12 @@ test.describe
       .select("id, name, slug, stock, product_variants(id, name, stock)")
       .eq("is_active", true)
       .gt("stock", 5)
-      .limit(1);
+      .limit(5);
 
     expect(prods && prods.length > 0).toBeTruthy();
-    const prod = prods![0];
+    const projName = test.info().project.name;
+    const projIdx = projName.includes("Desktop") ? 0 : projName.includes("Tablet") ? 1 : 2;
+    const prod = prods![projIdx] || prods![0];
     const targetVariant = prod.product_variants[0];
     const initialVarStock = targetVariant.stock;
     const initialParentStock = prod.stock;

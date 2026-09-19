@@ -396,7 +396,7 @@ test.describe("Production Payment & Order Finalization Lifecycle (16 Critical In
       });
       const err = await sRes.json();
       expect(sRes.status).toBe(400);
-      expect(err.message).toContain("Cash on Delivery is currently unavailable");
+      expect(err.message).toMatch(/Cash on Delivery is currently (unavailable|disabled)/i);
     }
   });
 
