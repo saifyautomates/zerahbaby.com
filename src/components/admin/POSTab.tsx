@@ -4560,7 +4560,7 @@ export function POSTab() {
                     <div className="flex items-center justify-between border-b border-border/60 pb-3.5">
                       <h3 className="text-base font-bold text-foreground">Order Summary</h3>
                       <span className="text-sm font-semibold text-muted-foreground">
-                        {totalItems} items
+                        {totalItems} {totalItems === 1 ? "item" : "items"}
                       </span>
                     </div>
 
@@ -4569,29 +4569,42 @@ export function POSTab() {
                       {cart.map((item) => (
                         <div
                           key={item.product_id}
-                          className="flex items-start justify-between gap-2"
+                          className="flex items-center justify-between gap-3"
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="size-14 rounded-xl overflow-hidden bg-muted/40 shrink-0 border border-border/60 flex items-center justify-center">
+                              {item.image_url ? (
+                                <img
+                                  src={item.image_url}
+                                  alt={item.name}
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                <Package className="size-6 text-muted-foreground/60" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
                               <p className="font-bold truncate text-foreground text-sm">
                                 {item.name}
                               </p>
-                              {item.sales_channel === "OFFLINE_ONLY" ? (
-                                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200">
-                                  🏪 Offline Only
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-blue-100/70 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80">
-                                  🌐 Online + POS
-                                </span>
-                              )}
+                              <div className="mt-1">
+                                {item.sales_channel === "OFFLINE_ONLY" ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200">
+                                    🏪 Offline Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-blue-100/70 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80">
+                                    🌐 Online + POS
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-xs mt-1">
+                                {item.qty} × {formatPrice(item.price)}
+                                {item.isCustom && (
+                                  <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
+                                )}
+                              </p>
                             </div>
-                            <p className="text-muted-foreground text-xs mt-1">
-                              {item.qty} × {formatPrice(item.price)}
-                              {item.isCustom && (
-                                <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
-                              )}
-                            </p>
                           </div>
                           <span className="font-bold text-foreground shrink-0 text-sm">
                             {formatPrice(item.price * item.qty)}
@@ -4624,22 +4637,22 @@ export function POSTab() {
                           <span>−{formatPrice(discountAmount)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between font-bold text-foreground">
-                        <span>Sale Total</span>
-                        <span>{formatPrice(total)}</span>
-                      </div>
                       {effectiveCreditUsed > 0 && (
                         <div className="flex justify-between text-teal-700 font-bold bg-teal-500/10 p-2 rounded-xl border border-teal-500/20">
                           <span>Store Credit Applied</span>
                           <span>−{formatPrice(effectiveCreditUsed)}</span>
                         </div>
                       )}
+                      <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/40">
+                        <span>Sale Total</span>
+                        <span>{formatPrice(total)}</span>
+                      </div>
                     </div>
 
-                    {/* Customer Payable */}
-                    <div className="flex items-baseline justify-between border-t border-border/60 pt-3.5 pb-1">
-                      <span className="text-xl font-bold text-foreground tracking-tight">Customer Payable</span>
-                      <span className="font-black text-3xl text-[#8B3A3A] tracking-tight">
+                    {/* Customer Payable Banner */}
+                    <div className="rounded-2xl bg-[#FCF0EE] dark:bg-rose-950/20 border border-[#F5D8D2] dark:border-rose-900/30 px-5 py-4 flex items-center justify-between my-2">
+                      <span className="text-xl font-bold text-[#8B3A3A] dark:text-rose-400 tracking-tight">Customer Payable</span>
+                      <span className="font-black text-3xl text-[#8B3A3A] dark:text-rose-400 tracking-tight">
                         {formatPrice(payableAfterCredit)}
                       </span>
                     </div>
@@ -4655,37 +4668,31 @@ export function POSTab() {
                     {/* ── Admin-only Profit Indicator ── */}
                     {profitCalc.hasCostData ? (
                       <div
-                        className={`rounded-2xl border p-4 space-y-2 ${
+                        className={`rounded-2xl border p-4 space-y-2.5 ${
                           profitCalc.profit >= 0
                             ? "bg-[#EAF8F2] border-[#C1EAD7] dark:bg-emerald-950/20 dark:border-emerald-800/40"
                             : "bg-red-500/8 border-red-500/25"
                         }`}
                       >
                         <p className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                          <span>📊</span> ADMIN PROFIT VIEW
+                          <span>📊</span> ADMIN PROFIT
                         </p>
                         <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>Total Cost (COGS)</span>
+                          <span>Cost of product</span>
                           <span className="font-bold text-foreground">
                             {formatPrice(profitCalc.totalCost)}
                           </span>
                         </div>
                         <div
-                          className={`flex justify-between text-base font-bold ${
+                          className={`flex justify-between text-base font-bold pt-2 border-t border-emerald-200/50 dark:border-emerald-800/30 ${
                             profitCalc.profit >= 0
                               ? "text-teal-700 dark:text-teal-300"
                               : "text-red-600 dark:text-red-400"
                           }`}
                         >
-                          <span>{profitCalc.profit >= 0 ? "✓ Profit" : "⚠ Loss"}</span>
+                          <span>{profitCalc.profit >= 0 ? "Your profit" : "Loss"}</span>
                           <span>
-                            {profitCalc.profit >= 0 ? "+" : ""}
                             {formatPrice(profitCalc.profit)}
-                            {profitCalc.marginPct !== null && (
-                              <span className="ml-1 text-sm font-semibold opacity-90">
-                                ({profitCalc.marginPct.toFixed(1)}% margin)
-                              </span>
-                            )}
                           </span>
                         </div>
                         {discountAmount > 0 && (
