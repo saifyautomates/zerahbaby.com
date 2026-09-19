@@ -167,6 +167,15 @@ export function POSReturnsTab() {
     >();
 
     pastSalesWithMetrics.forEach((sale) => {
+      if (
+        sale.status === "cancelled" ||
+        sale.status === "voided" ||
+        (sale as { is_voided?: boolean }).is_voided ||
+        (typeof sale.notes === "string" && sale.notes.toUpperCase().startsWith("[VOIDED]"))
+      ) {
+        return;
+      }
+
       const key =
         sale.customer_phone ||
         (sale.customer_name !== "Walk-in Customer" ? sale.customer_name : null) ||
@@ -942,7 +951,7 @@ export function POSReturnsTab() {
                                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-bold">
                                       Eligible for Return
                                     </span>
-                                  ) : group.total_returned_count >= group.total_sold_count && group.total_returned_count > 0 ? (
+                                  ) : group.total_returned_count >= group.total_sold_count && group.total_returned_count > 0 && group.total_sold_count > 0 ? (
                                     <span className="inline-flex items-center gap-1 rounded-md bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-bold">
                                       Fully Returned
                                     </span>

@@ -484,11 +484,11 @@ export function useOfflineSalesForReturnsLookup() {
   return useQuery<OfflineSaleWithReturnMetrics[]>({
     queryKey: ["offline-sales-with-return-metrics"],
     queryFn: async () => {
-      // 1. Fetch offline sales with items
+      // 1. Fetch offline sales with items (excluding cancelled and voided sales)
       const { data: rawSales, error: salesErr } = await (supabase as any)
         .from("offline_sales")
         .select("*, offline_sale_items(*)")
-        .neq("status", "cancelled")
+        .not("status", "in", '("cancelled","voided")')
         .order("created_at", { ascending: false })
         .limit(300);
 
@@ -511,8 +511,17 @@ export function useOfflineSalesForReturnsLookup() {
         },
       );
 
+      // Filter out voided/cancelled sales defensively in memory
+      const validSales = (rawSales as any[]).filter(
+        (s) =>
+          s.status !== "cancelled" &&
+          s.status !== "voided" &&
+          !s.is_voided &&
+          !(typeof s.notes === "string" && s.notes.toUpperCase().startsWith("[VOIDED]")),
+      );
+
       // 3. Enrich sales with item-level returnable calculations
-      const enriched: OfflineSaleWithReturnMetrics[] = (rawSales as any[]).map((s) => {
+      const enriched: OfflineSaleWithReturnMetrics[] = validSales.map((s) => {
         let totalReturnableCount = 0;
         let totalItemsCount = 0;
 
