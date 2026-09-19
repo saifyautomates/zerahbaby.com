@@ -4687,11 +4687,6 @@ export function POSTab() {
                             {formatPrice(profitCalc.profit)}
                           </span>
                         </div>
-                        {discountAmount > 0 && (
-                          <p className="text-xs text-muted-foreground/80">
-                            Includes {formatPrice(discountAmount)} discount applied
-                          </p>
-                        )}
                       </div>
                     ) : cart.length > 0 ? (
                       <div className="rounded-2xl border border-dashed border-border p-3 text-center">
@@ -4706,7 +4701,8 @@ export function POSTab() {
                       <div className="flex items-center justify-between text-sm font-bold text-foreground">
                         <span>Automatic Printer Target</span>
                         <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-                          {printFormat === "a4" ? "📄 A4 Laser / Desktop" : "🧾 80mm Thermal Slip"}
+                          <Printer className="size-3.5" />
+                          <span>{printFormat === "a4" ? "A4 Tax Invoice" : "80mm Thermal Slip"}</span>
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
