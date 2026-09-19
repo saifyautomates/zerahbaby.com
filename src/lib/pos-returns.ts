@@ -230,8 +230,10 @@ export function parseReturnScanCode(raw: string): { type: ScanCodeType; value: s
     return { type: "invoice_qr", value: trimmed.toUpperCase() };
   }
 
-  // 2. Store Credit Token format (e.g. ZRH-7B89-K29P, A123, P258, or legacy ZCR-..., CR-...)
+  // 2. Store Credit Token format (e.g. 4-character tokens like 7J5X, K9M2, or legacy ZRH-..., A123, P258)
   if (
+    /^[2-9A-HJ-NP-Z]{4}$/i.test(trimmed) ||
+    /^[A-Z0-9]{4}$/i.test(trimmed) ||
     /^ZRH-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(trimmed) ||
     /^ZRH-[A-Z0-9-]+/i.test(trimmed) ||
     /^[A-Z][0-9]{3}$/i.test(trimmed) ||

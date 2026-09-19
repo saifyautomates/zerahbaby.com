@@ -494,13 +494,11 @@ export async function pruneObsoleteTestDrafts(): Promise<number> {
 
 export function generateClientStoreCreditCode(): string {
   const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-  let p1 = "";
-  let p2 = "";
+  let code = "";
   for (let i = 0; i < 4; i++) {
-    p1 += chars.charAt(Math.floor(Math.random() * chars.length));
-    p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return `ZRH-${p1}-${p2}`;
+  return code;
 }
 
 export function generateClientReturnNumber(): string {

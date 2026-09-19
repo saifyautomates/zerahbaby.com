@@ -6,12 +6,12 @@ import {
 import { parseReturnScanCode } from "../src/lib/pos-returns";
 
 test.describe("World-Class Return, Refund & Store-Credit Hardening Suite", () => {
-  test("1. Store Credit Voucher Format — Standard ZRH-XXXX-XXXX", () => {
+  test("1. Store Credit Voucher Format — Standard 4-Character Token (e.g. 7J5X)", () => {
     for (let i = 0; i < 25; i++) {
       const token = generateClientStoreCreditCode();
-      // Must match ZRH-XXXX-XXXX where X is alphanumeric excluding ambiguous 0, O, 1, I
-      expect(token).toMatch(/^ZRH-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
-      expect(token.length).toBe(13);
+      // Must match 4 characters alphanumeric excluding ambiguous 0, O, 1, I
+      expect(token).toMatch(/^[2-9A-HJ-NP-Z]{4}$/);
+      expect(token.length).toBe(4);
     }
   });
 
@@ -21,15 +21,20 @@ test.describe("World-Class Return, Refund & Store-Credit Hardening Suite", () =>
   });
 
   test("3. Barcode & QR Code Scanner Token Disambiguation", () => {
-    // 1. ZRH standard format
+    // 1. 4-character voucher token format
+    const tokenScan4 = parseReturnScanCode("7J5X");
+    expect(tokenScan4.type).toBe("credit_token");
+    expect(tokenScan4.value).toBe("7J5X");
+
+    // 2. Legacy ZRH standard format
     const tokenScan = parseReturnScanCode("ZRH-7B89-K29P");
     expect(tokenScan.type).toBe("credit_token");
     expect(tokenScan.value).toBe("ZRH-7B89-K29P");
 
-    // 2. Lowercase ZRH token scan normalized
-    const lowerTokenScan = parseReturnScanCode("zrh-7b89-k29p");
+    // 3. Lowercase 4-character token scan normalized
+    const lowerTokenScan = parseReturnScanCode("7j5x");
     expect(lowerTokenScan.type).toBe("credit_token");
-    expect(lowerTokenScan.value).toBe("ZRH-7B89-K29P");
+    expect(lowerTokenScan.value).toBe("7J5X");
 
     // 3. Invoice Number QR
     const invScan = parseReturnScanCode("POS-2609-00123");

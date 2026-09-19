@@ -589,13 +589,18 @@ export function POSTab() {
     return Math.max(Number(customerCreditData?.available_credit) || 0, activeReturnsBalance);
   }, [creditTokenInput, voucherData, customerCreditData]);
 
+  // Reset manual dismissal when customer selection changes
+  useEffect(() => {
+    setCreditDismissedManually(false);
+  }, [customerId, customerPhone]);
+
   // Auto-sync customer's active return voucher token to input if empty
   useEffect(() => {
     if (!creditDismissedManually && customerCreditData) {
       const activeToken =
         customerCreditData.credit_token ||
         (customerCreditData.active_returns as any[])?.[0]?.credit_token;
-      if (activeToken && !creditTokenInput) {
+      if (activeToken && (!creditTokenInput || creditTokenInput !== activeToken.toUpperCase())) {
         setCreditTokenInput(activeToken.toUpperCase());
       }
     }
@@ -4148,6 +4153,51 @@ export function POSTab() {
                       </span>
                     </div>
 
+                    {/* Customer Active Vouchers Auto-Detected Chips */}
+                    {customerCreditData?.active_returns && (customerCreditData.active_returns as any[]).length > 0 && (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                            <Sparkles className="size-3.5" />
+                            <span>Available Customer Vouchers ({(customerCreditData.active_returns as any[]).length})</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">Tap voucher to apply</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(customerCreditData.active_returns as any[]).map((ret: any) => {
+                            const isSelected = creditTokenInput.trim().toUpperCase() === ret.credit_token?.toUpperCase();
+                            const val = Number(ret.credit_balance) || 0;
+                            return (
+                              <button
+                                key={ret.id || ret.credit_token}
+                                type="button"
+                                onClick={() => {
+                                  setCreditDismissedManually(false);
+                                  setCreditTokenInput(ret.credit_token.toUpperCase());
+                                  setStoreCreditApplied(Math.min(val, total));
+                                  toast.success(`Applied Voucher ${ret.credit_token.toUpperCase()} (${formatPrice(Math.min(val, total))})`);
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                                  isSelected && effectiveCreditUsed > 0
+                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                    : "bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-foreground"
+                                }`}
+                              >
+                                <Tag className="size-3" />
+                                <span className="tracking-wider">{ret.credit_token}</span>
+                                <span className="font-sans font-black text-emerald-700 dark:text-emerald-300">
+                                  {formatPrice(val)}
+                                </span>
+                                {isSelected && effectiveCreditUsed > 0 && (
+                                  <Check className="size-3.5 ml-0.5 text-white" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Walk-in Voucher Code Search Input */}
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -4183,7 +4233,7 @@ export function POSTab() {
                               }
                             }
                           }}
-                          placeholder="Enter or scan Voucher Token (e.g. ZRH-7B89-K29P) or Coupon Code..."
+                          placeholder="Enter or scan 4-digit Voucher Token (e.g. 7J5X) or Coupon..."
                           className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-mono font-bold uppercase outline-none focus:border-primary transition-all"
                         />
                       </div>
@@ -4249,13 +4299,11 @@ export function POSTab() {
                         <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold">
-                            {voucherData.error || (voucherData.ownership_mismatch ? "This voucher is not available for this customer." : "Invalid or ineligible voucher")}
+                            {voucherData.error || "Invalid or ineligible voucher"}
                           </p>
-                          {!voucherData.ownership_mismatch && (
-                            <p className="text-[11px] opacity-80 mt-0.5">
-                              Store credit vouchers expire 90 days after issuance and cannot be re-used after full redemption.
-                            </p>
-                          )}
+                          <p className="text-[11px] opacity-80 mt-0.5">
+                            Store credit vouchers expire 90 days after issuance and cannot be re-used after full redemption.
+                          </p>
                         </div>
                       </div>
                     )}
