@@ -146,6 +146,9 @@ export interface DrillDownProduct {
   image_url?: string;
   product_images?: Array<{ public_url?: string; sort_order?: number; is_primary?: boolean }>;
   product_costs?: { buying_price?: number } | Array<{ buying_price?: number }> | null;
+  buyingPrice?: number | null;
+  buying_price?: number | null;
+  cost_price?: number | null;
   stock?: number;
   low_stock_at?: number;
   is_active?: boolean;
@@ -953,8 +956,23 @@ export function DashboardDrillDown({
 
     const getBuyingPrice = (p: DrillDownProduct | undefined) => {
       if (!p) return 0;
+      if (p.buyingPrice !== undefined && p.buyingPrice !== null && Number(p.buyingPrice) > 0) {
+        return Number(p.buyingPrice);
+      }
+      if (p.buying_price !== undefined && p.buying_price !== null && Number(p.buying_price) > 0) {
+        return Number(p.buying_price);
+      }
+      if ((p as any).cost_price !== undefined && (p as any).cost_price !== null && Number((p as any).cost_price) > 0) {
+        return Number((p as any).cost_price);
+      }
       const costs = p.product_costs;
-      return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
+      if (Array.isArray(costs) && costs.length > 0) {
+        return Number(costs[0]?.buying_price ?? (costs[0] as any)?.cost_price ?? 0);
+      }
+      if (costs && typeof costs === "object") {
+        return Number((costs as any)?.buying_price ?? (costs as any)?.cost_price ?? 0);
+      }
+      return 0;
     };
 
     const getProductImage = (p: DrillDownProduct | undefined) => {
@@ -1172,7 +1190,12 @@ export function DashboardDrillDown({
         );
         orderItems.forEach((item) => {
           const p = getProduct(item.product_slug || item.product_id || "");
-          const historicalBp = Number(item.buying_price || 0);
+          const historicalBp = Number(
+            (item as any).cost_price ??
+            item.buying_price ??
+            (item as any).buyingPrice ??
+            0,
+          );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const itemQty = item.qty || item.quantity || 1;
           const rawItemTotal = (item.price || 0) * itemQty;
@@ -1212,7 +1235,12 @@ export function DashboardDrillDown({
           if (netQty <= 0) return; // Completely returned product: remove from My Cost and Profit analysis!
 
           const p = getProduct(item.product_id || item.product_slug || "");
-          const historicalBp = Number(item.buying_price || 0);
+          const historicalBp = Number(
+            (item as any).cost_price ??
+            item.buying_price ??
+            (item as any).buyingPrice ??
+            0,
+          );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const rawItemTotal = (item.price || 0) * netQty;
           const rev =
@@ -1235,6 +1263,11 @@ export function DashboardDrillDown({
       });
       allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+      // Canonical Aggregate Derivation: Top summary cards MUST strictly match product row totals!
+      const summaryTotalSales = allItems.reduce((acc, it) => acc + it.rev, 0);
+      const summaryMyCost = allItems.reduce((acc, it) => acc + it.cogs, 0);
+      const summaryTotalProfit = summaryTotalSales - summaryMyCost;
+
       return {
         title: "Total Profit Analysis",
         icon: TrendingUp,
@@ -1247,7 +1280,7 @@ export function DashboardDrillDown({
                   Total Sales
                 </p>
                 <p className="text-xl font-bold mt-1 text-foreground">
-                  {formatPrice(metrics.totalSales)}
+                  {formatPrice(summaryTotalSales)}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Total customer sales</p>
               </div>
@@ -1256,7 +1289,7 @@ export function DashboardDrillDown({
                   My Cost
                 </p>
                 <p className="text-xl font-bold mt-1 text-slate-700 dark:text-slate-300">
-                  {formatPrice(metrics.myCost)}
+                  {formatPrice(summaryMyCost)}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Cost of sold items</p>
               </div>
@@ -1265,7 +1298,7 @@ export function DashboardDrillDown({
                   Total Profit
                 </p>
                 <p className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
-                  {formatPrice(metrics.totalProfit)}
+                  {formatPrice(summaryTotalProfit)}
                 </p>
                 <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
                   Sales − My Cost
@@ -1664,8 +1697,23 @@ function StockDrillDownView({ products }: { products: DrillDownProduct[] }) {
   };
 
   const getBuyingPrice = (p: DrillDownProduct) => {
+    if (p.buyingPrice !== undefined && p.buyingPrice !== null && Number(p.buyingPrice) > 0) {
+      return Number(p.buyingPrice);
+    }
+    if (p.buying_price !== undefined && p.buying_price !== null && Number(p.buying_price) > 0) {
+      return Number(p.buying_price);
+    }
+    if ((p as any).cost_price !== undefined && (p as any).cost_price !== null && Number((p as any).cost_price) > 0) {
+      return Number((p as any).cost_price);
+    }
     const costs = p.product_costs;
-    return Number((Array.isArray(costs) ? costs[0]?.buying_price : costs?.buying_price) || 0);
+    if (Array.isArray(costs) && costs.length > 0) {
+      return Number(costs[0]?.buying_price ?? (costs[0] as any)?.cost_price ?? 0);
+    }
+    if (costs && typeof costs === "object") {
+      return Number((costs as any)?.buying_price ?? (costs as any)?.cost_price ?? 0);
+    }
+    return 0;
   };
 
   const invSelection = useTableSelection<DrillDownProduct>({

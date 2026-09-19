@@ -35,7 +35,9 @@ export interface ReportOrderItem {
   quantity?: number;
   price?: number;
   subtotal?: number;
-  buying_price?: number;
+  cost_price?: number | null;
+  buying_price?: number | null;
+  buyingPrice?: number | null;
 }
 
 export interface ReportOrder {
@@ -61,7 +63,9 @@ export interface ReportPOSItem {
   quantity?: number;
   price?: number;
   subtotal?: number;
+  cost_price?: number | null;
   buying_price?: number | null;
+  buyingPrice?: number | null;
   quantity_sold?: number;
   quantity_returned?: number;
   returned_quantity?: number;
@@ -256,13 +260,28 @@ export function isValidReturn(r: ReportReturn): boolean {
 /**
  * Resolve buying price of a product for COGS computation
  */
-export function getProductBuyingPrice(product?: ReportProduct): number {
-  if (!product?.product_costs) return 0;
-  const costs = product.product_costs;
-  if (Array.isArray(costs)) {
-    return Number(costs[0]?.buying_price || 0);
+export function getProductBuyingPrice(product?: ReportProduct | any): number {
+  if (!product) return 0;
+  if (product.buyingPrice !== undefined && product.buyingPrice !== null && Number(product.buyingPrice) > 0) {
+    return Number(product.buyingPrice);
   }
-  return Number((costs as ReportItemCost)?.buying_price || 0);
+  if (product.buying_price !== undefined && product.buying_price !== null && Number(product.buying_price) > 0) {
+    return Number(product.buying_price);
+  }
+  if (product.cost_price !== undefined && product.cost_price !== null && Number(product.cost_price) > 0) {
+    return Number(product.cost_price);
+  }
+  if (product.product_costs) {
+    const costs = product.product_costs;
+    if (Array.isArray(costs) && costs.length > 0) {
+      const val = Number(costs[0]?.buying_price ?? (costs[0] as any)?.cost_price ?? 0);
+      if (val > 0) return val;
+    } else if (typeof costs === "object") {
+      const val = Number((costs as any)?.buying_price ?? (costs as any)?.cost_price ?? 0);
+      if (val > 0) return val;
+    }
+  }
+  return 0;
 }
 
 /**
@@ -303,7 +322,7 @@ export function calculateFinancialMetrics({
 
   // 5. Units Sold & Historical Cost of Goods Sold (My Cost)
   // CRITICAL MANDATE: Never use current catalog cost for past transactions.
-  // Historical line items store their immutable buying_price snapshot at time of sale.
+  // Historical line items store their immutable cost snapshot (cost_price / buying_price) at time of sale.
   let onlineUnitsSold = 0;
   let onlineCogs = 0;
   validOrders.forEach((o) => {
@@ -311,15 +330,19 @@ export function calculateFinancialMetrics({
       const qty = Number(item.qty || item.quantity || 1);
       onlineUnitsSold += qty;
 
-      const historicalBp = Number(item.buying_price || 0);
-      const bp =
-        historicalBp > 0
-          ? historicalBp
-          : getProductBuyingPrice(
-              products.find(
-                (prod) => prod.slug === item.product_slug || prod.id === item.product_id,
-              ),
-            );
+      const prod = products.find(
+        (p) =>
+          (item.product_id && (p.id === item.product_id || p.slug === item.product_id)) ||
+          (item.product_slug && (p.slug === item.product_slug || p.id === item.product_slug)) ||
+          (item.name && p.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
+      );
+      const historicalBp = Number(
+        item.cost_price ??
+        item.buying_price ??
+        item.buyingPrice ??
+        0,
+      );
+      const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(prod);
       onlineCogs += bp * qty;
     });
   });
@@ -341,15 +364,19 @@ export function calculateFinancialMetrics({
       );
       const netQty = Math.max(0, qty - retQty);
 
-      const historicalBp = Number(item.buying_price || 0);
-      const bp =
-        historicalBp > 0
-          ? historicalBp
-          : getProductBuyingPrice(
-              products.find(
-                (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
-              ),
-            );
+      const prod = products.find(
+        (p) =>
+          (item.product_id && (p.id === item.product_id || p.slug === item.product_id)) ||
+          (item.product_slug && (p.slug === item.product_slug || p.id === item.product_slug)) ||
+          (item.name && p.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
+      );
+      const historicalBp = Number(
+        item.cost_price ??
+        item.buying_price ??
+        item.buyingPrice ??
+        0,
+      );
+      const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(prod);
 
       if (retQty > 0) {
         itemLevelReturnedCogs += bp * Math.min(qty, retQty);
@@ -370,9 +397,18 @@ export function calculateFinancialMetrics({
       totalUnitsReturned += retQty;
 
       const p = products.find(
-        (prod) => prod.id === item.product_id || prod.slug === item.product_slug,
+        (prod) =>
+          (item.product_id && (prod.id === item.product_id || prod.slug === item.product_id)) ||
+          (item.product_slug && (prod.slug === item.product_slug || prod.id === item.product_slug)) ||
+          (item.name && prod.name && prod.name.trim().toLowerCase() === item.name.trim().toLowerCase()),
       );
-      const bp = getProductBuyingPrice(p);
+      const historicalBp = Number(
+        (item as any).cost_price ??
+        (item as any).buying_price ??
+        (item as any).buyingPrice ??
+        0,
+      );
+      const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(p);
       returnRecordsCogs += bp * retQty;
     });
   });

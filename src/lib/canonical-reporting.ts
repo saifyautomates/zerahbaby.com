@@ -18,6 +18,7 @@ export interface CanonicalPOSSaleItem {
   price: number;
   qty: number;
   subtotal: number;
+  cost_price?: number | null;
   buying_price?: number | null;
   product_id?: string | null;
   product_slug?: string | null;
@@ -157,6 +158,12 @@ export async function fetchCanonicalPOSSales(): Promise<CanonicalPOSSale[]> {
       store_credit_used: 0,
       offline_sale_items: (q.items || []).map((it, idx: number) => {
         const itAny = it as Record<string, unknown>;
+        const costVal = Number(
+          itAny.cost_price ??
+          itAny.buying_price ??
+          itAny.buyingPrice ??
+          0
+        );
         return {
           id: (itAny.id as string) || `queued-item-${q.operation_id}-${idx}`,
           sale_id: q.operation_id,
@@ -165,7 +172,8 @@ export async function fetchCanonicalPOSSales(): Promise<CanonicalPOSSale[]> {
           price: it.custom_price || it.price || 0,
           qty: it.qty || 1,
           subtotal: (it.custom_price || it.price || 0) * (it.qty || 1),
-          buying_price: Number(itAny.buying_price || 0),
+          cost_price: costVal,
+          buying_price: costVal,
           product_id: it.product_id || null,
           product_slug: it.product_slug || null,
           variant_id: it.variant_id || null,
