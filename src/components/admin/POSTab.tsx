@@ -568,7 +568,7 @@ export function POSTab() {
 
   // Authoritative Available Credit:
   // When a voucher/coupon token is entered, check voucherData and customer active returns.
-  // Otherwise, use the customer's account store credit balance or active returns.
+  // Otherwise, use the customer's verified account store credit balance or active returns.
   const availableCredit = useMemo(() => {
     if (creditTokenInput && creditTokenInput.trim().length >= 3) {
       if (voucherData) {
@@ -586,7 +586,8 @@ export function POSTab() {
         0,
       ) ?? 0;
 
-    return Math.max(Number(customerCreditData?.available_credit) || 0, activeReturnsBalance);
+    const accountAvail = Number(customerCreditData?.available_credit) || 0;
+    return Math.max(0, activeReturnsBalance > 0 ? activeReturnsBalance : accountAvail);
   }, [creditTokenInput, voucherData, customerCreditData]);
 
   // Reset manual dismissal when customer selection changes
@@ -594,17 +595,19 @@ export function POSTab() {
     setCreditDismissedManually(false);
   }, [customerId, customerPhone]);
 
-  // Auto-sync customer's active return voucher token to input if empty
+  // Auto-sync customer's active return voucher token to input if positive credit exists
   useEffect(() => {
-    if (!creditDismissedManually && customerCreditData) {
+    if (!creditDismissedManually && customerCreditData && availableCredit > 0) {
       const activeToken =
         customerCreditData.credit_token ||
         (customerCreditData.active_returns as any[])?.[0]?.credit_token;
       if (activeToken && (!creditTokenInput || creditTokenInput !== activeToken.toUpperCase())) {
         setCreditTokenInput(activeToken.toUpperCase());
       }
+    } else if (availableCredit === 0 && storeCreditApplied > 0) {
+      setStoreCreditApplied(0);
     }
-  }, [customerCreditData, creditDismissedManually, creditTokenInput]);
+  }, [customerCreditData, creditDismissedManually, creditTokenInput, availableCredit, storeCreditApplied]);
 
   // Auto-apply store credit as soon as a valid voucher token or customer account balance is resolved
   // Do NOT re-apply if the cashier explicitly removed/dismissed the credit for this session
