@@ -511,8 +511,17 @@ export function OfflineAnalyticsTab() {
     [activeSales, inCurrentPeriod],
   );
 
-  const totalSalesRevenue = periodActiveSales.reduce((sum, sale) => sum + Number(sale.total), 0);
-  const grossRevenue = totalSalesRevenue;
+  const periodReturnsAmount = useMemo(
+    () =>
+      returnsList
+        .filter((r) => inCurrentPeriod(r.created_at))
+        .reduce((sum, r) => sum + Number(r.refund_amount || 0), 0),
+    [returnsList, inCurrentPeriod],
+  );
+
+  const grossSalesRevenue = periodActiveSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const totalSalesRevenue = Math.max(0, grossSalesRevenue - periodReturnsAmount);
+  const grossRevenue = grossSalesRevenue;
   const totalSalesCount = periodActiveSales.length;
   const cashSales = periodActiveSales.filter((s) => s.payment_method === "cash");
   const upiSales = periodActiveSales.filter((s) => s.payment_method === "upi");
@@ -532,9 +541,9 @@ export function OfflineAnalyticsTab() {
 
   // Today's revenue
   const todaySalesRevenue = todaySales.reduce((s, o) => s + Number(o.total), 0);
-  const todayRevenue = todaySalesRevenue;
+  const todayRevenue = Math.max(0, todaySalesRevenue - todayReturnsAmount);
 
-  // Top products with rich metadata (period synchronized)
+  // Top products with rich metadata (period synchronized, net of returns)
   const topProducts = useMemo(() => {
     const map = new Map<
       string,
@@ -568,10 +577,27 @@ export function OfflineAnalyticsTab() {
         });
       }
     }
+    // Deduct returns in period
+    for (const ret of (returnsList ?? []).filter((r) => inCurrentPeriod(r.created_at))) {
+      for (const item of (ret as any).offline_return_items ?? []) {
+        const key = item.sku || item.name || item.product_name;
+        if (key && map.has(key)) {
+          const cur = map.get(key)!;
+          const retQty = Number(item.qty || item.quantity || 1);
+          const retRev = Number(item.subtotal || item.refund_price || 0) * retQty;
+          map.set(key, {
+            ...cur,
+            qty: Math.max(0, cur.qty - retQty),
+            revenue: Math.max(0, cur.revenue - retRev),
+          });
+        }
+      }
+    }
     return Array.from(map.values())
+      .filter((p) => p.qty > 0)
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  }, [activeSales, inCurrentPeriod]);
+  }, [activeSales, returnsList, inCurrentPeriod]);
 
   const handleClearDummyData = async () => {
     if (
@@ -880,15 +906,15 @@ export function OfflineAnalyticsTab() {
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:shadow-md">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <BarChart3 className="size-4 text-emerald-600" /> Period Sales Value
+            <BarChart3 className="size-4 text-emerald-600" /> Net Period Sales Value
           </p>
           <p className="mt-2 text-3xl font-extrabold tracking-tight text-primary">
             {formatPrice(totalSalesRevenue)}
           </p>
           <div className="mt-1 space-y-0.5 text-xs">
-            {totalReturnsAmount > 0 && (
+            {periodReturnsAmount > 0 && (
               <p className="text-amber-600 dark:text-amber-400 font-semibold">
-                Returns Issued: {formatPrice(totalReturnsAmount)}
+                Gross: {formatPrice(grossSalesRevenue)} • Returns: −{formatPrice(periodReturnsAmount)}
               </p>
             )}
             {totalDiscount > 0 && (

@@ -346,9 +346,9 @@ export function calculateFinancialMetrics({
   const totalUnitsSold = onlineUnitsSold + posUnitsSold;
   const totalCogs = onlineCogs + offlineCogs;
 
-  // 6. Simple Normal Business Profit & Cost: Total Profit = Total Sales - My Cost
+  // 6. Simple Normal Business Profit & Cost: Total Profit = Net Sales (Total Sales) - My Cost
   const myCost = totalCogs;
-  const totalProfit = grossRevenue - totalCogs;
+  const totalProfit = Math.max(0, netRevenue - totalCogs);
   const grossProfit = totalProfit;
   const netProfit = totalProfit;
 
@@ -379,10 +379,9 @@ export function calculateFinancialMetrics({
   const totalCatalogCost = stockValuation.costValue;
 
   // 10. Canonical Store Credit & Exchange Metrics
-  // Note: Normal POS returns issue 100% exchange store credit vouchers.
-  // Store credit used in sales is a settlement/tender method, NEVER deducted twice from revenue!
+  // Note: When products are returned, totalSales on dashboard decreases by the returned amount (Net Sales).
   const grossSales = grossRevenue;
-  const totalSales = grossRevenue;
+  const totalSales = netRevenue; // Net Sales: Gross Sales minus Returns
   const netSales = netRevenue;
   const returnsExchangeCredit = totalReturns;
   const returnedItemsCount = totalUnitsReturned;
