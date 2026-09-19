@@ -600,54 +600,6 @@ export function OnlineSalesTab() {
 
   return (
     <div className="space-y-6">
-      {/* ─── LIVE LOGISTICS & GATEWAY STATUS BAR ──────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-2.5 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
-          {/* Shiprocket Status */}
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-indigo-500 animate-pulse" />
-            <span className="text-foreground font-bold flex items-center gap-1">
-              <Truck className="size-3.5 text-indigo-600" />
-              Shiprocket Logistics:
-            </span>
-            <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/30 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
-              100% In-App Connected
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-border" />
-
-          {/* Razorpay Status */}
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-foreground font-bold flex items-center gap-1">
-              <CheckCircle2 className="size-3.5 text-emerald-600" />
-              Razorpay Payments:
-            </span>
-            <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-              HMAC Verified • Auto-Refunds Active
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                const url = new URL(window.location.href);
-                url.searchParams.set("tab", "settings");
-                window.history.pushState({}, "", url.toString());
-                window.dispatchEvent(new PopStateEvent("popstate"));
-              }
-            }}
-            className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
-          >
-            <span>Integration Settings &amp; Warehouse</span>
-            <ExternalLink className="size-3" />
-          </button>
-        </div>
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* New Orders in last 24 hours */}
