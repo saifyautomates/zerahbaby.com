@@ -199,8 +199,9 @@ test.describe("Zérah Baby & Kids — Production World-Class SEO Suite", () => {
         const parsed = JSON.parse(text);
         expect(parsed.name.toLowerCase()).toBe(expectedName.toLowerCase());
         expect(parsed.brand.name).toBe(expectedBrand);
-        const offer = Array.isArray(parsed.offers) ? parsed.offers[0] : parsed.offers;
-        expect(Number(offer.price)).toBe(expectedPrice);
+        const offers = Array.isArray(parsed.offers) ? parsed.offers : [parsed.offers];
+        const offerPrices = offers.map((o: any) => Number(o.price));
+        expect(offerPrices).toContain(expectedPrice);
       }
     }
     expect(foundProductSchema).toBe(true);

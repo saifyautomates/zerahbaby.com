@@ -103,6 +103,7 @@ test.describe.serial("Stock Lifecycle & Inventory Precision Engine", () => {
         _customer_name: "Playwright Automated Test",
         _customer_phone: "9988776655",
         _payment_method: "cash",
+        _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
         _items: [
           {
             product_id: prod!.id,
@@ -140,6 +141,7 @@ test.describe.serial("Stock Lifecycle & Inventory Precision Engine", () => {
           _original_sale_id: saleRes.sale_id,
           _customer_name: "Playwright Automated Test",
           _customer_phone: "9988776655",
+          _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
           _items: [
             {
               product_id: prod!.id,

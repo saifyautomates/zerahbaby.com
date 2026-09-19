@@ -2426,6 +2426,8 @@ export function DashboardTab({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
+          aria-label="Order Details"
+          data-testid="omnichannel-order-details-modal"
           onClick={() => setSelectedSale(null)}
         >
           <div

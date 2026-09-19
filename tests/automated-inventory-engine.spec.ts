@@ -48,6 +48,7 @@ test.describe
       _customer_name: "Automated Inventory Test User",
       _customer_phone: "9876543210",
       _payment_method: "cash",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: [
         {
           product_id: prod.id,
@@ -83,6 +84,7 @@ test.describe
       _original_sale_id: saleRes.sale_id,
       _customer_name: "Automated Inventory Test User",
       _customer_phone: "9876543210",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: [
         {
           product_id: prod.id,
@@ -133,6 +135,7 @@ test.describe
       _customer_name: "Double Click Test",
       _customer_phone: "9876543210",
       _payment_method: "cash",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: [
         {
           product_id: prod.id,
@@ -155,6 +158,7 @@ test.describe
       _customer_name: "Double Click Test",
       _customer_phone: "9876543210",
       _payment_method: "cash",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: [
         {
           product_id: prod.id,
@@ -450,6 +454,7 @@ test.describe
       _customer_name: "Exchange User",
       _customer_phone: "9876543210",
       _payment_method: "cash",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: [
         {
           product_id: prod.id,
@@ -503,6 +508,7 @@ test.describe
       _customer_name: "Exchange User",
       _customer_phone: "9876543210",
       _payment_method: "store_credit",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _credit_token: exchReturn.credit_token,
       _store_credit_used: 600,
       _items: [
@@ -616,6 +622,7 @@ test.describe
       _customer_name: "Soldout Tester",
       _customer_phone: "9876543210",
       _payment_method: "cash",
+      _created_by: "57360b7b-9a4f-405e-bc8a-0078828bd6ab",
       _items: itemsToSell,
       _idempotency_key: idempotencyKey,
     });

@@ -73,7 +73,7 @@ test.describe("Omnichannel Order Click & Inspection Flow", () => {
     await detailsButton.click();
 
     // 7. Verify the Omnichannel Order Details Modal opens
-    const modal = page.locator("div[role='dialog']");
+    const modal = page.getByRole("dialog", { name: "Order Details" });
     await expect(modal).toBeVisible({ timeout: 10000 });
     await expect(modal).toContainText("#CC461D36");
     await expect(modal).toContainText("COD Real Customer");

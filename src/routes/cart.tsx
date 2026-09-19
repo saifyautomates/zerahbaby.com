@@ -133,7 +133,7 @@ function CartPage() {
           </li>
         </ul>
 
-        <aside className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-md lg:sticky lg:top-24">
+        <aside aria-label="Order summary" className="h-fit rounded-3xl border border-border/60 bg-card p-6 shadow-premium-md lg:sticky lg:top-24">
           {/* Order Summary Header */}
           <div className="flex items-center gap-4">
             <div className="grid size-12 shrink-0 place-items-center rounded-full bg-primary/5 text-primary border border-primary/10">

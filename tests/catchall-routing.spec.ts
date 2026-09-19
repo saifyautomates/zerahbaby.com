@@ -34,7 +34,13 @@ test.describe("Permanent 404 Prevention & Smart Routing", () => {
     ];
 
     for (const { from, expectedPath } of redirects) {
-      await page.goto(from, { waitUntil: "domcontentloaded" });
+      try {
+        await page.goto(from, { waitUntil: "domcontentloaded" });
+      } catch (err: any) {
+        if (!err?.message?.includes("interrupted by another navigation")) {
+          throw err;
+        }
+      }
       await page.waitForTimeout(600);
       const currentUrl = page.url();
       expect(currentUrl).toContain(expectedPath);

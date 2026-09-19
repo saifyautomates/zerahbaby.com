@@ -88,7 +88,7 @@ test.describe("Full Comprehensive E2E Test Suite - Zerah Baby & Kids", () => {
     await expect(page.getByRole("heading", { name: /Your bag/i })).toBeVisible({ timeout: 10000 });
 
     // Verify summary subtotal if aside is visible
-    const aside = page.locator("aside");
+    const aside = page.locator("aside").filter({ hasText: "Order Summary" });
     if (await aside.isVisible()) {
       await expect(aside.getByText("Order summary")).toBeVisible();
       await expect(aside.getByText("Subtotal")).toBeVisible();
