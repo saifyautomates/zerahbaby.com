@@ -223,6 +223,12 @@ export function invalidateCanonicalReportingQueries(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
   qc.invalidateQueries({ queryKey: ["inventory-transactions"] });
   qc.invalidateQueries({ queryKey: ["admin-database-notifications"] });
+  qc.invalidateQueries({ queryKey: ["pos-customer-credit"] });
+  qc.invalidateQueries({ queryKey: ["pos-store-credit-voucher"] });
+  qc.invalidateQueries({ queryKey: ["pos-customer-intel"] });
+  qc.invalidateQueries({ queryKey: ["pos-customers"] });
+  qc.invalidateQueries({ queryKey: ["admin-customers"] });
+  qc.invalidateQueries({ queryKey: ["store-credit-ledger"] });
 }
 
 /**
