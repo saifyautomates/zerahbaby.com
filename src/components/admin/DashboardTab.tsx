@@ -530,11 +530,7 @@ export function DashboardTab({
   // Omnichannel Sales History Ledger (Combined Online + Offline POS)
   const allSalesHistory = useMemo(() => {
     const onlineMapped = orders
-      .filter((o) => {
-        const s = (o.status || "").toLowerCase();
-        const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
-        return s !== "cancelled" && s !== "returned" && s !== "refunded" && retStatus !== "COMPLETED";
-      })
+      .filter(isValidOnlineOrder)
       .map((o) => ({
         key: `online-${o.id}`,
         id: `#${o.id.toString().substring(0, 8).toUpperCase()}`,
