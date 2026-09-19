@@ -108,12 +108,6 @@ import {
 
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
 import { ProductPhotosModal } from "@/components/admin/ProductPhotosModal";
-import {
-  INVOICE_PAPER_SIZES,
-  INVOICE_PAPER_SIZES_LIST,
-  type InvoicePaperSize,
-  getPaperSizeSpec,
-} from "@/lib/print-settings";
 
 const HeroMediaManager = safeLazy(() =>
   import("@/components/admin/HeroMediaManager").then((m) => ({ default: m.HeroMediaManager })),

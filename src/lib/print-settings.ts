@@ -19,133 +19,6 @@
 
 export type PrintProfile = "INVOICE_A4" | "THERMAL_BARCODE_LABEL";
 
-/** Supported paper formats on standard laser/inkjet/desktop printers */
-export type InvoicePaperSize =
-  | "a4-landscape"
-  | "a4-portrait"
-  | "a5-landscape"
-  | "a5-portrait"
-  | "letter-landscape"
-  | "letter-portrait"
-  | "auto";
-
-export interface PaperSizeSpec {
-  id: InvoicePaperSize;
-  name: string;
-  badge: string;
-  dimensions: string;
-  cssSize: string;
-  marginMm: number;
-  maxWidth: string;
-  isPortrait: boolean;
-  iframeWidth: string;
-  iframeHeight: string;
-  description: string;
-}
-
-export const INVOICE_PAPER_SIZES: Record<InvoicePaperSize, PaperSizeSpec> = {
-  "a4-landscape": {
-    id: "a4-landscape",
-    name: "A4 Landscape",
-    badge: "A4 Landscape (Recommended)",
-    dimensions: "297 × 210 mm",
-    cssSize: "A4 landscape",
-    marginMm: 10,
-    maxWidth: "277mm",
-    isPortrait: false,
-    iframeWidth: "297mm",
-    iframeHeight: "210mm",
-    description: "Standard full sheet horizontal layout — ideal for comprehensive invoice tables.",
-  },
-  "a4-portrait": {
-    id: "a4-portrait",
-    name: "A4 Portrait",
-    badge: "A4 Portrait (Full Sheet)",
-    dimensions: "210 × 297 mm",
-    cssSize: "A4 portrait",
-    marginMm: 10,
-    maxWidth: "190mm",
-    isPortrait: true,
-    iframeWidth: "210mm",
-    iframeHeight: "297mm",
-    description: "Standard vertical A4 page for normal laser and inkjet printers.",
-  },
-  "a5-landscape": {
-    id: "a5-landscape",
-    name: "A5 Landscape",
-    badge: "A5 Half-Sheet (Landscape)",
-    dimensions: "210 × 148 mm",
-    cssSize: "A5 landscape",
-    marginMm: 6,
-    maxWidth: "198mm",
-    isPortrait: false,
-    iframeWidth: "210mm",
-    iframeHeight: "148mm",
-    description: "Half of an A4 sheet horizontal — saves 50% paper, ideal for retail counter bills.",
-  },
-  "a5-portrait": {
-    id: "a5-portrait",
-    name: "A5 Portrait",
-    badge: "A5 Half-Sheet (Portrait)",
-    dimensions: "148 × 210 mm",
-    cssSize: "A5 portrait",
-    marginMm: 6,
-    maxWidth: "136mm",
-    isPortrait: true,
-    iframeWidth: "148mm",
-    iframeHeight: "210mm",
-    description: "Compact half A4 vertical invoice — fits small retail sheets.",
-  },
-  "letter-landscape": {
-    id: "letter-landscape",
-    name: "Letter Landscape",
-    badge: "Letter (Landscape)",
-    dimensions: "11 × 8.5 in",
-    cssSize: "letter landscape",
-    marginMm: 10,
-    maxWidth: "259mm",
-    isPortrait: false,
-    iframeWidth: "11in",
-    iframeHeight: "8.5in",
-    description: "Standard North American letter paper in wide orientation.",
-  },
-  "letter-portrait": {
-    id: "letter-portrait",
-    name: "Letter Portrait",
-    badge: "Letter (Portrait)",
-    dimensions: "8.5 × 11 in",
-    cssSize: "letter portrait",
-    marginMm: 10,
-    maxWidth: "195mm",
-    isPortrait: true,
-    iframeWidth: "8.5in",
-    iframeHeight: "11in",
-    description: "Standard North American letter paper in vertical orientation.",
-  },
-  auto: {
-    id: "auto",
-    name: "Auto / Any Paper",
-    badge: "Auto (Fit to Printer Tray)",
-    dimensions: "Dynamic Scale",
-    cssSize: "auto",
-    marginMm: 8,
-    maxWidth: "100%",
-    isPortrait: false,
-    iframeWidth: "100%",
-    iframeHeight: "100%",
-    description: "Automatically scales to whatever paper size is loaded in your printer tray.",
-  },
-};
-
-export const INVOICE_PAPER_SIZES_LIST: PaperSizeSpec[] = Object.values(INVOICE_PAPER_SIZES);
-
-export function getPaperSizeSpec(size?: InvoicePaperSize | string | null): PaperSizeSpec {
-  if (size && size in INVOICE_PAPER_SIZES) {
-    return INVOICE_PAPER_SIZES[size as InvoicePaperSize];
-  }
-  return INVOICE_PAPER_SIZES["a4-landscape"];
-}
-
 export interface InvoicePrintSettings {
   /** Human-readable name of the A4 invoice printer (informational only in browser) */
   printerName: string;
@@ -153,8 +26,6 @@ export interface InvoicePrintSettings {
   copies: number;
   /** Whether to auto-print invoice immediately after POS sale completion */
   autoPrint: boolean;
-  /** Selected paper size profile for normal printers */
-  paperSize: InvoicePaperSize;
 }
 
 export interface ThermalLabelSettings {
@@ -182,17 +53,16 @@ export const DEFAULT_INVOICE_SETTINGS: InvoicePrintSettings = {
   printerName: "Default A4 Printer",
   copies: 1,
   autoPrint: true,
-  paperSize: "a4-landscape",
 };
 
 export const DEFAULT_THERMAL_SETTINGS: ThermalLabelSettings = {
   printerName: "HPRT HT300",
-  widthMm: 58,
-  heightMm: 50,
+  widthMm: 50,
+  heightMm: 25,
   dpi: 203,
   copies: 1,
   labelType: "full",
-  showDiscount: true,
+  showDiscount: false,
 };
 
 /* ------------------------------------------------------------------ */
@@ -205,7 +75,6 @@ export const PRINT_SETTING_KEYS = {
   invoicePrinterName: "print_invoice_printer_name",
   invoiceCopies: "print_invoice_copies",
   invoiceAutoPrint: "print_invoice_auto_print",
-  invoicePaperSize: "print_invoice_paper_size",
   // Thermal label
   thermalPrinterName: "print_thermal_printer_name",
   labelWidthMm: "print_label_width_mm",
@@ -224,16 +93,10 @@ export function parseInvoiceSettings(
   raw: Record<string, string> | null | undefined,
 ): InvoicePrintSettings {
   if (!raw) return { ...DEFAULT_INVOICE_SETTINGS };
-  const rawPaper = raw[PRINT_SETTING_KEYS.invoicePaperSize];
-  const paperSize: InvoicePaperSize =
-    rawPaper && rawPaper in INVOICE_PAPER_SIZES
-      ? (rawPaper as InvoicePaperSize)
-      : DEFAULT_INVOICE_SETTINGS.paperSize;
   return {
     printerName: raw[PRINT_SETTING_KEYS.invoicePrinterName] || DEFAULT_INVOICE_SETTINGS.printerName,
     copies: parseInt(raw[PRINT_SETTING_KEYS.invoiceCopies] || "1", 10) || 1,
     autoPrint: raw[PRINT_SETTING_KEYS.invoiceAutoPrint] !== "false",
-    paperSize,
   };
 }
 
@@ -244,12 +107,12 @@ export function parseThermalSettings(
   const labelType = raw[PRINT_SETTING_KEYS.labelType];
   return {
     printerName: raw[PRINT_SETTING_KEYS.thermalPrinterName] || DEFAULT_THERMAL_SETTINGS.printerName,
-    widthMm: parseFloat(raw[PRINT_SETTING_KEYS.labelWidthMm] || "58") || 58,
-    heightMm: parseFloat(raw[PRINT_SETTING_KEYS.labelHeightMm] || "50") || 50,
+    widthMm: parseFloat(raw[PRINT_SETTING_KEYS.labelWidthMm] || "50") || 50,
+    heightMm: parseFloat(raw[PRINT_SETTING_KEYS.labelHeightMm] || "25") || 25,
     dpi: parseInt(raw[PRINT_SETTING_KEYS.labelDpi] || "203", 10) || 203,
     copies: parseInt(raw[PRINT_SETTING_KEYS.labelCopies] || "1", 10) || 1,
     labelType: labelType === "barcode-only" ? "barcode-only" : "full",
-    showDiscount: raw[PRINT_SETTING_KEYS.labelShowDiscount] !== "false",
+    showDiscount: raw[PRINT_SETTING_KEYS.labelShowDiscount] === "true",
   };
 }
 
@@ -324,7 +187,6 @@ export async function detectQZTray(): Promise<boolean> {
 export function buildTSPLLabel(params: {
   productName: string;
   sku: string;
-  artNo?: string;
   barcode: string;
   price: number;
   mrp?: number;
@@ -333,8 +195,6 @@ export function buildTSPLLabel(params: {
   dpi?: number;
   copies?: number;
   storeName?: string;
-  brand?: string;
-  size?: string;
   showDiscount?: boolean;
   showMrp?: boolean;
   showSellPrice?: boolean;
@@ -343,19 +203,17 @@ export function buildTSPLLabel(params: {
   const {
     productName,
     sku,
-    artNo,
     barcode,
     price,
     mrp,
     widthMm,
     heightMm,
     copies = 1,
-    storeName = "ZERAH",
-    brand,
-    size = "--",
+    storeName = "ZÉRAH BABY & KIDS",
     showDiscount = true,
     showMrp = true,
-    showSellPrice = false,
+    showSellPrice = true,
+    separatePriceLine = false,
   } = params;
 
   // TSPL unit = dots. 203 DPI → 1mm ≈ 8 dots
@@ -363,13 +221,9 @@ export function buildTSPLLabel(params: {
   const w = Math.round(widthMm * dotsPerMm);
 
   // Sanitize strings for TSPL (no quotes in values)
-  const safeArtNo = (artNo || sku || barcode).replace(/"/g, "").substring(0, 24);
-  const safeName = productName.replace(/"/g, "").toUpperCase().substring(0, 26);
-  const safeBrand = (brand || storeName || "ZERAH")
-    .replace(/"/g, "")
-    .toUpperCase()
-    .substring(0, 20);
-  const safeSize = (size || "--").replace(/"/g, "").substring(0, 10);
+  const safeName = productName.replace(/"/g, "").substring(0, 24);
+  const safeStore = storeName.replace(/"/g, "").substring(0, 28);
+  const safeSku = sku.replace(/"/g, "").substring(0, 22);
   const safeBarcode = (barcode || sku).replace(/"/g, "").substring(0, 30);
   const mrpVal = typeof mrp === "number" && mrp > 0 ? mrp : price;
   const hasDiscount = mrpVal > price;
@@ -381,21 +235,41 @@ export function buildTSPLLabel(params: {
     `GAP 2 mm, 0 mm`,
     `DIRECTION 1`,
     `CLS`,
-    // Row 1: Brand Header
-    `TEXT ${Math.round(w / 2)},12,"2",0,1,1,2,"ZERAH BABY & KIDS"`,
-    // Row 2: Product Name
-    `TEXT ${Math.round(w / 2)},38,"2",0,1,1,2,"${safeName}"`,
-    // Row 3: Selling Price & MRP
-    mrpVal > price
-      ? `TEXT ${Math.round(w / 2)},68,"3",0,1,1,2,"Rs.${price}  Rs.${mrpVal}"`
-      : `TEXT ${Math.round(w / 2)},68,"3",0,1,1,2,"Rs.${price}"`,
-    // Row 4: Barcode centered (Code 128, height 60 dots, readable number below)
-    `BARCODE ${Math.round(w / 2)},100,"128",60,1,0,2,2,"${safeBarcode}"`,
-    // Row 5: SKU Footer centered
-    `TEXT ${Math.round(w / 2)},180,"2",0,1,1,2,"SKU: ${safeArtNo}"`,
-    `PRINT ${copies},1`,
-    `END`,
+    // Row 1: Store name — top centered
+    `TEXT ${Math.round(w / 2)},8,"3",0,1,1,2,"${safeStore}"`,
   ];
+
+  if (separatePriceLine && (showMrp || showSellPrice)) {
+    // Dedicated line for product name, dedicated line for price
+    lines.push(`TEXT ${Math.round(w / 2)},28,"2",0,1,1,2,"${safeName}"`);
+    let priceLine = "";
+    if (showMrp && showSellPrice) {
+      priceLine = `MRP: Rs.${mrpVal}  Price: Rs.${price}${discStr}`;
+    } else if (showSellPrice) {
+      priceLine = `Price: Rs.${price}`;
+    } else if (showMrp) {
+      priceLine = `MRP: Rs.${mrpVal}${discStr}`;
+    }
+    lines.push(`TEXT ${Math.round(w / 2)},48,"2",0,1,1,2,"${priceLine}"`);
+  } else {
+    // Standard inline: Product Name on left, price on right
+    lines.push(`TEXT 12,38,"2",0,1,1,"${safeName}"`);
+    if (showMrp && showSellPrice) {
+      lines.push(`TEXT ${w - 12},28,"1",0,1,1,3,"MRP: Rs.${mrpVal}"`);
+      lines.push(`TEXT ${w - 12},46,"2",0,1,1,3,"Price: Rs.${price}${discStr}"`);
+    } else if (showSellPrice) {
+      lines.push(`TEXT ${w - 12},38,"2",0,1,1,3,"Price: Rs.${price}"`);
+    } else if (showMrp) {
+      lines.push(`TEXT ${w - 12},38,"2",0,1,1,3,"MRP: Rs.${mrpVal}${discStr}"`);
+    }
+  }
+
+  // Row 3: Barcode centered (Code 128, height 48 dots, readable number below)
+  lines.push(`BARCODE ${Math.round(w / 2)},68,"128",48,1,0,2,2,"${safeBarcode}"`);
+  // Row 4: SKU centered
+  lines.push(`TEXT ${Math.round(w / 2)},158,"1",0,1,1,2,"SKU: ${safeSku}"`);
+  lines.push(`PRINT ${copies},1`);
+  lines.push(`END`);
 
   return lines.join("\n");
 }
@@ -438,7 +312,7 @@ export async function sendTSPLViaQZTray(
 export async function sendHTMLViaQZTray(
   printerName: string,
   htmlData: string,
-  options?: { isThermal?: boolean; widthMm?: number; heightMm?: number },
+  options?: { isThermal?: boolean; widthMm?: number },
 ): Promise<{ success: boolean; error?: string; fallback?: "window.print" }> {
   const isActive = await connectQZTray();
   if (!isActive) {
@@ -453,10 +327,7 @@ export async function sendHTMLViaQZTray(
     const qzConfig: Record<string, unknown> = {
       margins: options?.isThermal ? 0 : 0, // Let CSS handle margins
     };
-    if (options?.widthMm && options?.heightMm) {
-      qzConfig.size = { width: options.widthMm, height: options.heightMm };
-      qzConfig.units = "mm";
-    }
+    // If it's thermal, we might specify width, otherwise rely on printer defaults (A4).
     const config = qz.configs.create(printerName, qzConfig);
     const data = [
       {
