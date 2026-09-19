@@ -439,43 +439,37 @@ export function OfflineAnalyticsTab() {
     setCurrentPage(1);
   }, [searchQuery, paymentFilter]);
 
-  // Helper to determine if a sale is completely returned
-  const isSaleFullyReturned = (s: {
-    return_status?: string | null;
-    offline_sale_items?: Array<{
-      qty?: number;
-      quantity?: number;
-      quantity_sold?: number;
-      quantity_returned?: number;
-      returned_quantity?: number;
-      return_status?: string | null;
-    }> | null;
-  }) => {
-    if (s.return_status === "returned") return true;
-    const items = s.offline_sale_items;
-    if (!items || items.length === 0) return false;
-    return items.every((item) => {
-      const sold = Number(item.quantity_sold ?? item.qty ?? item.quantity ?? 1);
-      const ret = Number(
-        item.quantity_returned ??
-          item.returned_quantity ??
-          (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
-      );
-      return sold - ret <= 0;
-    });
-  };
+  // Authoritative returns list from cloud ledger
+  const { data: returnsList = [] } = useOfflineReturnsList();
+
+  // Fast map of returned quantities by original sale item ID from returns ledger
+  const returnsBySaleItemId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ret of returnsList) {
+      for (const item of (ret as { offline_return_items?: Array<{ original_sale_item_id?: string | null; quantity?: number; qty?: number }> }).offline_return_items ?? []) {
+        if (item.original_sale_item_id) {
+          const prev = map.get(item.original_sale_item_id) || 0;
+          map.set(item.original_sale_item_id, prev + Number(item.quantity || item.qty || 1));
+        }
+      }
+    }
+    return map;
+  }, [returnsList]);
 
   // Helper to extract only active (unreturned) items for a sale
   const getActiveSaleItems = (sale: {
+    id?: string;
     offline_sale_items?: Array<SaleItem> | null;
   }): SaleItem[] => {
     return (sale.offline_sale_items ?? [])
       .map((item) => {
-        const sold = Number(item.quantity_sold ?? item.qty ?? (item as any).quantity ?? 1);
-        const ret = Number(
-          item.quantity_returned ??
-            item.returned_quantity ??
-            (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
+        const sold = Number(item.quantity_sold ?? item.qty ?? (item as unknown as Record<string, unknown>).quantity ?? 1);
+        const retFromList = item.id ? (returnsBySaleItemId.get(item.id) || 0) : 0;
+        const ret = Math.max(
+          Number(item.quantity_returned ?? 0),
+          Number(item.returned_quantity ?? 0),
+          retFromList,
+          item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0,
         );
         const activeQty = Math.max(0, sold - ret);
         if (activeQty <= 0) return null;
@@ -490,13 +484,32 @@ export function OfflineAnalyticsTab() {
       .filter((it): it is SaleItem => it !== null);
   };
 
+  // Helper to determine if a sale is completely returned
+  const isSaleFullyReturned = (s: {
+    id?: string;
+    sale_number?: string;
+    return_status?: string | null;
+    offline_sale_items?: Array<SaleItem> | null;
+  }) => {
+    const statusLower = (s.return_status || "").toLowerCase().trim();
+    if (
+      statusLower === "returned" ||
+      statusLower === "fully_returned" ||
+      statusLower === "completed"
+    ) {
+      return true;
+    }
+    const activeItems = getActiveSaleItems(s);
+    return activeItems.length === 0;
+  };
+
   // Authoritative business accounting: strictly completed transactions only (excluding cancelled, voided, and returned sales)!
   const activeSales = useMemo(
     () =>
       (sales ?? []).filter(
-        (s) => isValidPOSSale(s) && !isSaleFullyReturned(s),
+        (s) => isValidPOSSale(s) && !isSaleFullyReturned(s as unknown as Sale),
       ) as unknown as Sale[],
-    [sales],
+    [sales, returnsBySaleItemId],
   );
 
   // Cancelled or voided transactions in reporting period
@@ -627,8 +640,6 @@ export function OfflineAnalyticsTab() {
       ),
     [hourlyFootfall],
   );
-
-  const { data: returnsList = [] } = useOfflineReturnsList();
 
   // Returns calculations
   const totalReturnsAmount = useMemo(
@@ -1470,14 +1481,6 @@ export function OfflineAnalyticsTab() {
                       <td className="px-5 py-4 font-bold text-foreground font-mono">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span>{sale.sale_number}</span>
-                          {sale.return_status === "returned" && (
-                            <span
-                              className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30"
-                              title="Original sale has been 100% returned"
-                            >
-                              Returned
-                            </span>
-                          )}
                           {sale.return_status === "partially_returned" && (
                             <span
                               className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
@@ -1650,7 +1653,28 @@ export function OfflineAnalyticsTab() {
                         )}
                       </td>
                       <td className="px-5 py-4 text-right font-bold text-primary">
-                        {formatPrice(Number(sale.total))}
+                        {(() => {
+                          const activeItems = getActiveSaleItems(sale);
+                          const isPartiallyReturned =
+                            sale.return_status === "partially_returned" ||
+                            (activeItems.length > 0 &&
+                              activeItems.length < (sale.offline_sale_items?.length || 0));
+                          const returnedDeduction = Number(sale.returned_amount || 0);
+                          const activeTotal = isPartiallyReturned && returnedDeduction > 0
+                            ? Math.max(0, Number(sale.total) - returnedDeduction)
+                            : Number(sale.total);
+
+                          return (
+                            <div>
+                              <span>{formatPrice(activeTotal)}</span>
+                              {isPartiallyReturned && returnedDeduction > 0 && (
+                                <div className="text-[10px] font-normal text-muted-foreground">
+                                  Net (Orig: {formatPrice(Number(sale.total))})
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1.5 justify-end">
@@ -2208,72 +2232,98 @@ export function OfflineAnalyticsTab() {
       )}
 
       {/* ── REPRINT / DOWNLOAD THERMAL RECEIPT MODAL ── */}
-      {thermalReceiptSale && (
-        <ThermalReceipt
-          sale={{
-            sale_number: thermalReceiptSale.sale_number,
-            customer_name: thermalReceiptSale.customer_name || "Walk-in Customer",
-            customer_phone: thermalReceiptSale.customer_phone,
-            subtotal: Number(thermalReceiptSale.subtotal || thermalReceiptSale.total),
-            discount: Number(thermalReceiptSale.discount || 0),
-            discount_type: thermalReceiptSale.discount_type || "fixed",
-            discount_value: Number(thermalReceiptSale.discount_value || 0),
-            total: Number(thermalReceiptSale.total),
-            store_credit_used: Number(
-              (thermalReceiptSale as unknown as Record<string, unknown>).store_credit_used || 0,
-            ),
-            credit_token_used: (thermalReceiptSale as unknown as Record<string, unknown>)
-              .credit_token_used as string | null,
-            payment_method: thermalReceiptSale.payment_method || "cash",
-            pos_token_number: thermalReceiptSale.pos_token_number,
-            status: thermalReceiptSale.status === "sync_pending" ? "pending_sync" : "completed",
-          }}
-          items={(thermalReceiptSale.offline_sale_items ?? []).map((item) => ({
-            name: item.name,
-            sku: item.sku || undefined,
-            barcode: item.barcode_snapshot || undefined,
-            price: Number(item.price),
-            mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
-            qty: Number(item.qty),
-          }))}
-          saleDate={new Date(thermalReceiptSale.created_at)}
-          onClose={() => setThermalReceiptSale(null)}
-        />
-      )}
+      {thermalReceiptSale && (() => {
+        const activeItems = getActiveSaleItems(thermalReceiptSale);
+        const activeSubtotal = activeItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+        const isPartiallyReturned =
+          thermalReceiptSale.return_status === "partially_returned" ||
+          (activeItems.length > 0 &&
+            activeItems.length < (thermalReceiptSale.offline_sale_items?.length || 0));
+        const returnedDeduction = Number(thermalReceiptSale.returned_amount || 0);
+        const activeTotal = isPartiallyReturned && returnedDeduction > 0
+          ? Math.max(0, Number(thermalReceiptSale.total) - returnedDeduction)
+          : Number(thermalReceiptSale.total);
+
+        return (
+          <ThermalReceipt
+            sale={{
+              sale_number: thermalReceiptSale.sale_number,
+              customer_name: thermalReceiptSale.customer_name || "Walk-in Customer",
+              customer_phone: thermalReceiptSale.customer_phone,
+              subtotal: activeSubtotal > 0 ? activeSubtotal : Number(thermalReceiptSale.subtotal || thermalReceiptSale.total),
+              discount: Number(thermalReceiptSale.discount || 0),
+              discount_type: thermalReceiptSale.discount_type || "fixed",
+              discount_value: Number(thermalReceiptSale.discount_value || 0),
+              total: activeTotal,
+              store_credit_used: Number(
+                (thermalReceiptSale as unknown as Record<string, unknown>).store_credit_used || 0,
+              ),
+              credit_token_used: (thermalReceiptSale as unknown as Record<string, unknown>)
+                .credit_token_used as string | null,
+              payment_method: thermalReceiptSale.payment_method || "cash",
+              pos_token_number: thermalReceiptSale.pos_token_number,
+              status: thermalReceiptSale.status === "sync_pending" ? "pending_sync" : "completed",
+            }}
+            items={activeItems.map((item) => ({
+              name: item.name,
+              sku: item.sku || undefined,
+              barcode: item.barcode_snapshot || undefined,
+              price: Number(item.price),
+              mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
+              qty: Number(item.qty),
+            }))}
+            saleDate={new Date(thermalReceiptSale.created_at)}
+            onClose={() => setThermalReceiptSale(null)}
+          />
+        );
+      })()}
 
       {/* ── REPRINT / DOWNLOAD A4 INVOICE MODAL ── */}
-      {a4InvoiceSale && (
-        <A4Invoice
-          sale={{
-            sale_number: a4InvoiceSale.sale_number,
-            customer_name: a4InvoiceSale.customer_name || "Walk-in Customer",
-            customer_phone: a4InvoiceSale.customer_phone,
-            customer_email: a4InvoiceSale.customer_email || undefined,
-            subtotal: Number(a4InvoiceSale.subtotal || a4InvoiceSale.total),
-            discount: Number(a4InvoiceSale.discount || 0),
-            discount_type: a4InvoiceSale.discount_type || "fixed",
-            discount_value: Number(a4InvoiceSale.discount_value || 0),
-            total: Number(a4InvoiceSale.total),
-            store_credit_used: Number(
-              (a4InvoiceSale as unknown as Record<string, unknown>).store_credit_used || 0,
-            ),
-            credit_token_used: (a4InvoiceSale as unknown as Record<string, unknown>)
-              .credit_token_used as string | null,
-            payment_method: a4InvoiceSale.payment_method || "cash",
-            sale_date: new Date(a4InvoiceSale.created_at),
-            status: a4InvoiceSale.status === "sync_pending" ? "pending_sync" : "completed",
-          }}
-          items={(a4InvoiceSale.offline_sale_items ?? []).map((item) => ({
-            name: item.name,
-            sku: item.sku || undefined,
-            barcode: item.barcode_snapshot || undefined,
-            price: Number(item.price),
-            mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
-            qty: Number(item.qty),
-          }))}
-          onClose={() => setA4InvoiceSale(null)}
-        />
-      )}
+      {a4InvoiceSale && (() => {
+        const activeItems = getActiveSaleItems(a4InvoiceSale);
+        const activeSubtotal = activeItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+        const isPartiallyReturned =
+          a4InvoiceSale.return_status === "partially_returned" ||
+          (activeItems.length > 0 &&
+            activeItems.length < (a4InvoiceSale.offline_sale_items?.length || 0));
+        const returnedDeduction = Number(a4InvoiceSale.returned_amount || 0);
+        const activeTotal = isPartiallyReturned && returnedDeduction > 0
+          ? Math.max(0, Number(a4InvoiceSale.total) - returnedDeduction)
+          : Number(a4InvoiceSale.total);
+
+        return (
+          <A4Invoice
+            sale={{
+              sale_number: a4InvoiceSale.sale_number,
+              customer_name: a4InvoiceSale.customer_name || "Walk-in Customer",
+              customer_phone: a4InvoiceSale.customer_phone,
+              customer_email: a4InvoiceSale.customer_email || undefined,
+              subtotal: activeSubtotal > 0 ? activeSubtotal : Number(a4InvoiceSale.subtotal || a4InvoiceSale.total),
+              discount: Number(a4InvoiceSale.discount || 0),
+              discount_type: a4InvoiceSale.discount_type || "fixed",
+              discount_value: Number(a4InvoiceSale.discount_value || 0),
+              total: activeTotal,
+              store_credit_used: Number(
+                (a4InvoiceSale as unknown as Record<string, unknown>).store_credit_used || 0,
+              ),
+              credit_token_used: (a4InvoiceSale as unknown as Record<string, unknown>)
+                .credit_token_used as string | null,
+              payment_method: a4InvoiceSale.payment_method || "cash",
+              sale_date: new Date(a4InvoiceSale.created_at),
+              status: a4InvoiceSale.status === "sync_pending" ? "pending_sync" : "completed",
+            }}
+            items={activeItems.map((item) => ({
+              name: item.name,
+              sku: item.sku || undefined,
+              barcode: item.barcode_snapshot || undefined,
+              price: Number(item.price),
+              mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
+              qty: Number(item.qty),
+            }))}
+            onClose={() => setA4InvoiceSale(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

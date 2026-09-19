@@ -527,27 +527,39 @@ export function DashboardTab({
 
   // Omnichannel Sales History Ledger (Combined Online + Offline POS)
   const allSalesHistory = useMemo(() => {
-    const onlineMapped = orders.map((o) => ({
-      key: `online-${o.id}`,
-      id: `#${o.id.toString().substring(0, 8).toUpperCase()}`,
-      rawId: o.id,
-      customer: o.full_name || o.email || "Online Buyer",
-      phone: o.phone || "",
-      amount: Number(o.total || 0),
-      payment_method: o.payment_method || "Online",
-      status: o.status || "placed",
-      source: "Online" as const,
-      created_at: o.created_at,
-      itemCount: o.order_items?.length || 1,
-      itemsSummary:
-        o.order_items
-          ?.map((i) => i.name)
-          .filter(Boolean)
-          .join(", ") || "Order items",
-    }));
+    const onlineMapped = orders
+      .filter((o) => {
+        const s = (o.status || "").toLowerCase();
+        const retStatus = ((o as unknown as Record<string, unknown>).return_status as string || "").toUpperCase();
+        return s !== "cancelled" && s !== "returned" && retStatus !== "COMPLETED";
+      })
+      .map((o) => ({
+        key: `online-${o.id}`,
+        id: `#${o.id.toString().substring(0, 8).toUpperCase()}`,
+        rawId: o.id,
+        customer: o.full_name || o.email || "Online Buyer",
+        phone: o.phone || "",
+        amount: Number(o.total || 0),
+        payment_method: o.payment_method || "Online",
+        status: o.status || "placed",
+        source: "Online" as const,
+        created_at: o.created_at,
+        itemCount: o.order_items?.length || 1,
+        itemsSummary:
+          o.order_items
+            ?.map((i) => i.name)
+            .filter(Boolean)
+            .join(", ") || "Order items",
+      }));
 
     const posMapped = posSales
-      .filter((s) => s.return_status !== "returned")
+      .filter((s) => {
+        const statusLower = (s.return_status || "").toLowerCase().trim();
+        if (statusLower === "returned" || statusLower === "fully_returned" || statusLower === "completed") {
+          return false;
+        }
+        return true;
+      })
       .map((s) => {
         const activeItems = (s.offline_sale_items || []).filter((item) => {
           const qty = Number(item.qty || item.quantity || 1);
@@ -559,13 +571,18 @@ export function DashboardTab({
           return qty - retQty > 0;
         });
 
+        const activeSubtotal = activeItems.reduce(
+          (sum, i) => sum + Number(i.subtotal || Number(i.price || 0) * (Number(i.qty) || 1)),
+          0,
+        );
+
         return {
           key: `pos-${s.id}`,
           id: s.sale_number || `#${s.id.toString().substring(0, 8).toUpperCase()}`,
           rawId: s.id,
           customer: s.customer_name || "Walk-in Customer",
           phone: s.customer_phone || "",
-          amount: Number(s.total || 0),
+          amount: activeSubtotal > 0 ? activeSubtotal : Number(s.total || 0),
           payment_method: s.payment_method || "Cash",
           status: s.status || "completed",
           source: "POS" as const,
@@ -575,7 +592,7 @@ export function DashboardTab({
             activeItems
               .map((i) => i.name || i.product_slug)
               .filter(Boolean)
-              .join(", ") || (s.return_status === "returned" ? "Returned" : "POS items"),
+              .join(", "),
         };
       })
       .filter((s) => s.itemCount > 0);

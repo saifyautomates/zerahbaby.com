@@ -186,14 +186,17 @@ export function CustomerHistoryPanel() {
     }
 
     for (const sale of rawSales) {
+      const statusLower = (sale.return_status || "").toLowerCase().trim();
       const isFullyReturned =
-        sale.return_status === "returned" ||
+        statusLower === "returned" ||
+        statusLower === "fully_returned" ||
+        statusLower === "completed" ||
         (Boolean(sale.offline_sale_items?.length) &&
           sale.offline_sale_items!.every((item) => {
-            const sold = Number(item.qty || (item as any).quantity_sold || 1);
+            const sold = Number(item.qty || (item as unknown as Record<string, unknown>).quantity_sold || 1);
             const ret = Number(
               item.quantity_returned ??
-                item.returned_quantity ??
+                (item as unknown as Record<string, unknown>).returned_quantity ??
                 (item.return_status === "RETURNED" || item.return_status === "returned" ? sold : 0),
             );
             return sold - ret <= 0;
