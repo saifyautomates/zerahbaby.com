@@ -99,7 +99,7 @@ const STORE = {
 /*  A4 HTML Builder (self-contained, no Tailwind)                      */
 /* ------------------------------------------------------------------ */
 
-function buildA4HTML(
+export function buildA4HTML(
   sale: A4InvoiceSale,
   items: A4InvoiceItem[],
   store: ReturnType<typeof useSettings>,
@@ -171,6 +171,8 @@ function buildA4HTML(
     color: #1a1a1a;
     background: #fff;
     line-height: 1.5;
+    max-width: 210mm;
+    margin: 0 auto;
   }
   /* ── Header ── */
   .header {
@@ -363,7 +365,7 @@ function buildA4HTML(
 <div class="header">
   <div class="header-left">
     <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px;">
-      <img loading="lazy" decoding="async" src="${window.location.origin}/logo.png" style="width:54px;height:54px;object-fit:contain;" alt="Zerah Logo"/>
+      <img loading="lazy" decoding="async" src="${typeof window !== "undefined" && window.location ? window.location.origin : ""}/logo.png" style="width:54px;height:54px;object-fit:contain;" alt="Zerah Logo"/>
       <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
     </div>
     <div class="brand-contact">

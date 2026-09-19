@@ -4,7 +4,286 @@ import { FileText, Printer, X } from "lucide-react";
 import { formatPrice } from "@/lib/store";
 import type { Order } from "@/lib/orders";
 import { useSettings } from "@/lib/store";
-import logo from "@/assets/zerah-logo-official.png";
+
+const logo = "/logo.png";
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function buildOrderA4HTML(
+  order: Order,
+  store: {
+    brandName?: string;
+    storeAddress?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+  } = {},
+): string {
+  const brandName = store.brandName || "ZÉRAH BABY & KIDS";
+  const storeAddress =
+    store.storeAddress ||
+    "Shop No. 4-E-21, 80Ft. Road, Atwal Nagar, Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001";
+  const contactPhone = store.contactPhone || "9057074777";
+  const contactEmail = store.contactEmail || "hello@zerahkids.com";
+
+  const dateFormatted = new Date(order.created_at).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const paymentDisplay = order.payment_method
+    ? order.payment_method.toUpperCase()
+    : "COD";
+
+  const rowsHtml = (order.order_items || [])
+    .map((item, idx) => {
+      const linePrice = Number(item.price || item.price_at_time || 0);
+      const lineTotal = linePrice * item.qty;
+      const variantInfo = [item.color, item.size].filter(Boolean).join(" / ");
+      return `<tr>
+        <td class="center">${idx + 1}</td>
+        <td>
+          <div class="bold">${escapeHtml(item.name)}</div>
+          ${variantInfo ? `<div style="font-size: 9px; color: #555;">${escapeHtml(variantInfo)}</div>` : ""}
+          ${item.sku_snapshot ? `<div style="font-size: 8.5px; color: #777;">SKU: ${escapeHtml(item.sku_snapshot)}</div>` : ""}
+        </td>
+        <td class="center">${item.qty}</td>
+        <td class="right">₹${linePrice.toLocaleString("en-IN")}</td>
+        <td class="right bold">₹${lineTotal.toLocaleString("en-IN")}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Invoice ${escapeHtml(order.invoice_no || order.id)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 15mm 12mm;
+  }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11px;
+    color: #1a1a1a;
+    background: #fff;
+    line-height: 1.5;
+  }
+  .invoice-container {
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 0;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #8B2020;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+  }
+  .brand-name {
+    font-size: 22px;
+    font-weight: 900;
+    color: #8B2020;
+    text-transform: uppercase;
+  }
+  .brand-contact {
+    font-size: 10.5px;
+    color: #555;
+    margin-top: 3px;
+  }
+  .header-right {
+    text-align: right;
+  }
+  .invoice-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #8B2020;
+    text-transform: uppercase;
+  }
+  .invoice-number {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    margin-top: 2px;
+  }
+  .invoice-date {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .info-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #f8fafc;
+  }
+  .info-title {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #8B2020;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+  }
+  th {
+    background: #8B2020;
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 7px 8px;
+    border: 1px solid #8B2020;
+  }
+  td {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 10.5px;
+  }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: 700; }
+  .totals {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+  }
+  .totals-table {
+    width: 260px;
+    border-collapse: collapse;
+  }
+  .totals-table td {
+    padding: 4px 8px;
+    border: none;
+    font-size: 10.5px;
+  }
+  .grand-total {
+    font-size: 13px;
+    font-weight: 900;
+    color: #8B2020;
+    border-top: 2px solid #8B2020 !important;
+  }
+  .footer {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 12px;
+    text-align: center;
+    font-size: 9.5px;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+<div class="invoice-container">
+  <div class="header">
+    <div class="header-left">
+      <img src="/logo.png" alt="Logo" class="header-logo" />
+      <div>
+        <div class="brand-name">${escapeHtml(brandName)}</div>
+        <div class="brand-contact">${escapeHtml(storeAddress)}<br/>Phone: ${escapeHtml(contactPhone)} · Email: ${escapeHtml(contactEmail)}</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="invoice-title">Tax Invoice</div>
+      <div class="invoice-number">${escapeHtml(order.invoice_no || order.id)}</div>
+      <div class="invoice-date">${escapeHtml(dateFormatted)}</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-title">Billed To</div>
+      <div class="bold">${escapeHtml(order.full_name || "Customer")}</div>
+      <div>${escapeHtml(order.address || "")} ${order.address_line2 ? escapeHtml(order.address_line2) : ""}</div>
+      <div>${escapeHtml([order.city, order.state, order.pincode].filter(Boolean).join(", "))}</div>
+      <div>Phone: ${escapeHtml(order.phone || "—")}</div>
+      ${order.email ? `<div>Email: ${escapeHtml(order.email)}</div>` : ""}
+    </div>
+    <div class="info-card">
+      <div class="info-title">Order Summary</div>
+      <div><span class="bold">Order ID:</span> #${escapeHtml(order.id.slice(0, 8).toUpperCase())}</div>
+      <div><span class="bold">Status:</span> ${escapeHtml(order.status || "Pending")}</div>
+      <div><span class="bold">Payment:</span> ${escapeHtml(paymentDisplay)}</div>
+      ${order.notes ? `<div><span class="bold">Notes:</span> ${escapeHtml(order.notes)}</div>` : ""}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30px;">#</th>
+        <th>Item Description</th>
+        <th style="width: 50px;">Qty</th>
+        <th style="width: 80px;" class="right">Rate</th>
+        <th style="width: 90px;" class="right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div style="width: 260px;">
+      <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px;">
+        <span>Subtotal</span>
+        <span class="right">₹${Number(order.subtotal || 0).toLocaleString("en-IN")}</span>
+      </div>
+      ${Number(order.discount || 0) > 0 ? `<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px; color: #15803d;">
+        <span>Discount ${order.coupon_code ? `(${escapeHtml(order.coupon_code)})` : ""}</span>
+        <span class="right">-₹${Number(order.discount).toLocaleString("en-IN")}</span>
+      </div>` : ""}
+      <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 10.5px;">
+        <span>Delivery</span>
+        <span class="right">${Number(order.shipping || 0) === 0 ? "FREE" : `₹${Number(order.shipping).toLocaleString("en-IN")}`}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0 0; font-size: 13px; font-weight: 900; color: #8B2020; border-top: 2px solid #8B2020;">
+        <span>Total Paid</span>
+        <span class="right">₹${Number(order.total || 0).toLocaleString("en-IN")}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Thank you for shopping with ${escapeHtml(brandName)}!</p>
+    <p style="margin-top: 2px;">This is a computer generated invoice and requires no physical signature.</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
 
 /** Small clickable invoice chip — opens the full printable invoice. */
 export function InvoiceBox({

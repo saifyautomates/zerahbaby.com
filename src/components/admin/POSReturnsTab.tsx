@@ -161,6 +161,8 @@ export function POSReturnsTab() {
         total_orders: number;
         sales: OfflineSaleWithReturnMetrics[];
         has_returnable_items: boolean;
+        total_sold_count: number;
+        total_returned_count: number;
       }
     >();
 
@@ -181,6 +183,8 @@ export function POSReturnsTab() {
           total_orders: 0,
           sales: [],
           has_returnable_items: false,
+          total_sold_count: 0,
+          total_returned_count: 0,
         });
       }
 
@@ -191,6 +195,10 @@ export function POSReturnsTab() {
       if (sale.has_returnable_items) {
         group.has_returnable_items = true;
       }
+      (sale.offline_sale_items || []).forEach((item) => {
+        group.total_sold_count += item.quantity_sold || item.qty || 1;
+        group.total_returned_count += item.already_returned_qty || 0;
+      });
     });
 
     let groups = Array.from(customerMap.values());
@@ -934,9 +942,17 @@ export function POSReturnsTab() {
                                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-bold">
                                       Eligible for Return
                                     </span>
-                                  ) : (
+                                  ) : group.total_returned_count >= group.total_sold_count && group.total_returned_count > 0 ? (
                                     <span className="inline-flex items-center gap-1 rounded-md bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-bold">
                                       Fully Returned
+                                    </span>
+                                  ) : group.total_returned_count > 0 ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-bold">
+                                      Partially Returned
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-bold">
+                                      No Returnable Items
                                     </span>
                                   )}
                                 </div>
@@ -1041,7 +1057,9 @@ export function POSReturnsTab() {
                                               >
                                                 {item.returnable_qty > 0
                                                   ? `Returnable: ${item.returnable_qty} of ${item.quantity_sold || item.qty}`
-                                                  : "Already Fully Returned"}
+                                                  : item.already_returned_qty > 0
+                                                    ? "Already Fully Returned"
+                                                    : "Non-Returnable"}
                                               </span>
                                             </div>
                                           </div>

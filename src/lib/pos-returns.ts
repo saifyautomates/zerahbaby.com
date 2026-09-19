@@ -532,13 +532,20 @@ export function useOfflineSalesForReturnsLookup() {
             const dbUnitSelling = Number(it.unit_selling_price) || Number(it.price) || 0;
             let dbAllocBill = Number(it.allocated_bill_discount) || 0;
             const dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
-            const dbQuantitySold = Number(it.quantity_sold) || itemQty;
-            const dbQuantityReturned = Number(it.quantity_returned) || alreadyReturned;
-            // quantity_returnable: prefer DB computed value, fallback to client-side math
+            const dbQuantitySold = Math.max(1, Number(it.quantity_sold) || Number(it.quantity) || itemQty);
+            const dbQuantityReturned = Math.max(0, Math.max(Number(it.quantity_returned) || 0, alreadyReturned));
+
+            // Strict quantity math: remaining returnable quantity is sold minus valid returned
+            const calculatedReturnable = Math.max(0, dbQuantitySold - dbQuantityReturned);
+            const rawReturnable = it.quantity_returnable != null ? Number(it.quantity_returnable) : null;
+
+            // Defensive fallback: If rawReturnable from DB is 0 but NO return was ever recorded (dbQuantityReturned === 0),
+            // do NOT allow schema default 0 to falsely claim the item was returned!
             const dbQuantityReturnable =
-              it.quantity_returnable != null
-                ? Number(it.quantity_returnable)
-                : Math.max(0, dbQuantitySold - dbQuantityReturned);
+              rawReturnable != null && (dbQuantityReturned > 0 || rawReturnable > 0)
+                ? Math.min(rawReturnable, calculatedReturnable)
+                : calculatedReturnable;
+
             totalReturnableCount += dbQuantityReturnable;
 
             const saleSubtotal = Number(s.subtotal) || Number(s.total) || 0;
@@ -578,7 +585,7 @@ export function useOfflineSalesForReturnsLookup() {
               created_at: it.created_at || s.created_at,
               already_returned_qty: dbQuantityReturned,
               returnable_qty: dbQuantityReturnable,
-              is_fully_returned: dbQuantityReturnable <= 0,
+              is_fully_returned: dbQuantityReturned >= dbQuantitySold && dbQuantityReturned > 0,
               // ── Historical Pricing Snapshot ──
               unit_mrp: dbUnitMrp,
               unit_selling_price: dbUnitSelling,

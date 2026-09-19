@@ -160,8 +160,8 @@ export function buildThermalHTML(
     line-height: 1.35;
     color: #000;
     background: #fff;
-    width: 74mm;
-    max-width: 74mm;
+    width: 76mm;
+    max-width: 76mm;
     padding: 2mm 1mm;
     margin: 0 auto;
   }
