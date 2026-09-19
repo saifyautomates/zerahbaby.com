@@ -357,20 +357,107 @@ export function calculateFinancialMetrics({
   });
 
   let posUnitsSold = 0;
+  // Build return lookup maps for accurate item-level and sale-level return deduction
+  const retByItemId = new Map<string, number>();
+  const retBySaleAndProd = new Map<string, number>();
+  const refundsBySale = new Map<string, number>();
+
+  for (const ret of validReturns) {
+    const saleKeys = [
+      (ret as any).sale_id,
+      (ret as any).original_sale_id,
+      (ret as any).original_sale_number,
+    ].filter(Boolean) as string[];
+
+    for (const sKey of saleKeys) {
+      refundsBySale.set(sKey, (refundsBySale.get(sKey) || 0) + Number(ret.refund_amount || 0));
+    }
+
+    for (const item of ret.offline_return_items ?? []) {
+      const retQty = Number(item.qty ?? item.quantity ?? 1);
+      if ((item as any).original_sale_item_id) {
+        retByItemId.set(
+          (item as any).original_sale_item_id,
+          (retByItemId.get((item as any).original_sale_item_id) || 0) + retQty,
+        );
+      }
+      for (const sKey of saleKeys) {
+        if (item.product_id) {
+          const k = `${sKey}_${item.product_id}`;
+          retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+        }
+        if (item.product_slug) {
+          const k = `${sKey}_${item.product_slug}`;
+          retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+        }
+        if (item.name) {
+          const k = `${sKey}_${item.name.toLowerCase().trim()}`;
+          retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+        }
+        if (item.sku) {
+          const k = `${sKey}_${item.sku.toLowerCase().trim()}`;
+          retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+        }
+      }
+    }
+  }
+
   let offlineCogs = 0;
   let itemLevelReturnedCogs = 0;
 
   validPos.forEach((s) => {
     // If entire sale was returned, skip all items from active sold count and cost
     const retStatus = (s.return_status || "").toLowerCase().trim();
-    if (retStatus === "returned" || retStatus === "fully_returned" || retStatus === "completed") return;
+    const sNum = s.sale_number || "";
+    const refundFromList = Math.max(
+      refundsBySale.get(s.id) || 0,
+      sNum ? refundsBySale.get(sNum) || 0 : 0,
+    );
+    const totalReturnedAmt = Math.max(Number((s as any).returned_amount || 0), refundFromList);
+    const isFullyRefunded = totalReturnedAmt >= Number(s.total || 0) && Number(s.total || 0) > 0;
+    if (
+      retStatus === "returned" ||
+      retStatus === "fully_returned" ||
+      retStatus === "completed" ||
+      isFullyRefunded
+    ) {
+      return;
+    }
+
+    const isSingleItem = (s.offline_sale_items || []).length === 1;
 
     s.offline_sale_items?.forEach((item) => {
       const qty = Number(item.qty || item.quantity || 1);
-      const retQty = Number(
-        item.quantity_returned ||
-        item.returned_quantity ||
-        (item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0),
+      const retFromItemId = item.id ? retByItemId.get(item.id) || 0 : 0;
+      const sKey = s.id;
+      const retFromProdId = Math.max(
+        item.product_id ? retBySaleAndProd.get(`${sKey}_${item.product_id}`) || 0 : 0,
+        item.product_id && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_id}`) || 0 : 0,
+      );
+      const retFromSlug = Math.max(
+        item.product_slug ? retBySaleAndProd.get(`${sKey}_${item.product_slug}`) || 0 : 0,
+        item.product_slug && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0,
+      );
+      const retFromName = Math.max(
+        item.name ? retBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+        item.name && sNum ? retBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+      );
+      const retFromSku = Math.max(
+        item.sku ? retBySaleAndProd.get(`${sKey}_${item.sku.toLowerCase().trim()}`) || 0 : 0,
+        item.sku && sNum ? retBySaleAndProd.get(`${sNum}_${item.sku.toLowerCase().trim()}`) || 0 : 0,
+      );
+      const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? qty : 0;
+
+      const retQty = Math.max(
+        Number(item.quantity_returned || 0),
+        Number(item.returned_quantity || 0),
+        retFromItemId,
+        retFromProdId,
+        retFromSlug,
+        retFromName,
+        retFromSku,
+        retFromSingle,
+        item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0,
       );
       const netQty = Math.max(0, qty - retQty);
 
@@ -440,7 +527,22 @@ export function calculateFinancialMetrics({
 
   // 7. Counts & Averages
   const validOnlineOrdersCount = validOrders.length;
-  const validPosSalesCount = validPos.length;
+  const validPosSalesCount = validPos.filter((s) => {
+    const retStatus = (s.return_status || "").toLowerCase().trim();
+    const sNum = s.sale_number || "";
+    const refundFromList = Math.max(
+      refundsBySale.get(s.id) || 0,
+      sNum ? refundsBySale.get(sNum) || 0 : 0,
+    );
+    const totalReturnedAmt = Math.max(Number((s as any).returned_amount || 0), refundFromList);
+    const isFullyRefunded = totalReturnedAmt >= Number(s.total || 0) && Number(s.total || 0) > 0;
+    return (
+      retStatus !== "returned" &&
+      retStatus !== "fully_returned" &&
+      retStatus !== "completed" &&
+      !isFullyRefunded
+    );
+  }).length;
   const totalTransactionsCount = validOnlineOrdersCount + validPosSalesCount;
   const returnsCount = validReturns.length;
 

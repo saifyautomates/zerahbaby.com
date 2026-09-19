@@ -1380,6 +1380,52 @@ export function DashboardDrillDown({
         products,
       });
 
+      // Build return lookup maps for accurate item-level and sale-level return deduction
+      const profitRetByItemId = new Map<string, number>();
+      const profitRetBySaleAndProd = new Map<string, number>();
+      const profitRefundsBySale = new Map<string, number>();
+
+      for (const ret of validReturns) {
+        if (ret.status === "cancelled" || ret.refund_status === "cancelled") continue;
+        const saleKeys = [
+          (ret as any).sale_id,
+          (ret as any).original_sale_id,
+          (ret as any).original_sale_number,
+        ].filter(Boolean) as string[];
+
+        for (const sKey of saleKeys) {
+          profitRefundsBySale.set(sKey, (profitRefundsBySale.get(sKey) || 0) + Number(ret.refund_amount || 0));
+        }
+
+        for (const item of ret.offline_return_items ?? []) {
+          const retQty = Number(item.qty ?? (item as any).quantity ?? 1);
+          if (item.original_sale_item_id) {
+            profitRetByItemId.set(
+              item.original_sale_item_id,
+              (profitRetByItemId.get(item.original_sale_item_id) || 0) + retQty,
+            );
+          }
+          for (const sKey of saleKeys) {
+            if (item.product_id) {
+              const k = `${sKey}_${item.product_id}`;
+              profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
+            }
+            if (item.product_slug) {
+              const k = `${sKey}_${item.product_slug}`;
+              profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
+            }
+            if (item.name) {
+              const k = `${sKey}_${item.name.toLowerCase().trim()}`;
+              profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
+            }
+            if ((item as any).sku) {
+              const k = `${sKey}_${(item as any).sku.toLowerCase().trim()}`;
+              profitRetBySaleAndProd.set(k, (profitRetBySaleAndProd.get(k) || 0) + retQty);
+            }
+          }
+        }
+      }
+
       const allItems: Array<{
         date: string;
         product: string;
@@ -1392,12 +1438,25 @@ export function DashboardDrillDown({
       }> = [];
 
       validOrders.forEach((o) => {
+        const s = (o.status || "").toLowerCase();
+        const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
+        if (s === "cancelled" || s === "returned" || s === "refunded" || retStatus === "COMPLETED" || retStatus === "REFUNDED") return;
+
         const orderItems = o.order_items || [];
         const orderSubtotal = orderItems.reduce(
           (sum, it) => sum + (it.price || 0) * (it.qty || it.quantity || 1),
           0,
         );
         orderItems.forEach((item) => {
+          const itemQty = item.qty || item.quantity || 1;
+          const retQty = Number(
+            (item as any).quantity_returned ||
+            (item as any).returned_quantity ||
+            ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? itemQty : 0)
+          );
+          const netQty = Math.max(0, itemQty - retQty);
+          if (netQty <= 0) return;
+
           const p = getProduct(item.product_slug || item.product_id || "");
           const historicalBp = Number(
             (item as any).cost_price ??
@@ -1406,40 +1465,84 @@ export function DashboardDrillDown({
             0,
           );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
-          const itemQty = item.qty || item.quantity || 1;
-          const rawItemTotal = (item.price || 0) * itemQty;
+          const rawItemTotal = (item.price || 0) * netQty;
           const rev =
             orderSubtotal > 0
               ? (rawItemTotal / orderSubtotal) * Number(o.total || 0)
               : rawItemTotal;
-          const cogs = bp * itemQty;
+          const cogs = bp * netQty;
           const profit = rev - cogs;
           allItems.push({
             date: o.created_at,
             product: item.product_name || p?.name || "Product",
             slug: item.product_slug || p?.slug,
             image: getProductImage(p),
-            qty: itemQty,
+            qty: netQty,
             rev,
             cogs,
             profit,
           });
         });
       });
+
       validPosSales.forEach((s) => {
         const retStatus = (s.return_status || "").toLowerCase().trim();
-        if (retStatus === "returned" || retStatus === "fully_returned" || retStatus === "completed") return; // Completely returned sale!
+        const sNum = s.sale_number || "";
+        const refundFromList = Math.max(
+          profitRefundsBySale.get(s.id) || 0,
+          sNum ? profitRefundsBySale.get(sNum) || 0 : 0
+        );
+        const totalReturnedAmt = Math.max(Number((s as any).returned_amount || 0), refundFromList);
+        const isFullyRefunded = totalReturnedAmt >= Number(s.total || 0) && Number(s.total || 0) > 0;
+        if (
+          retStatus === "returned" ||
+          retStatus === "fully_returned" ||
+          retStatus === "completed" ||
+          isFullyRefunded
+        ) {
+          return; // Completely returned sale!
+        }
+
         const saleItems = s.offline_sale_items || [];
+        const isSingleItem = saleItems.length === 1;
+        const netSaleTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
         const saleSubtotal = saleItems.reduce(
           (sum, it) => sum + (it.price ? it.price * (it.qty || it.quantity || 1) : 0),
           0,
         );
+
         saleItems.forEach((item) => {
-          const itemQty = item.qty || item.quantity || 1;
-          const retQty = Number(
-            item.quantity_returned ||
-            item.returned_quantity ||
-            (item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0)
+          const itemQty = Number(item.qty || item.quantity || 1);
+          const retFromItemId = item.id ? profitRetByItemId.get(item.id) || 0 : 0;
+          const sKey = s.id;
+          const retFromProdId = Math.max(
+            item.product_id ? profitRetBySaleAndProd.get(`${sKey}_${item.product_id}`) || 0 : 0,
+            item.product_id && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_id}`) || 0 : 0
+          );
+          const retFromSlug = Math.max(
+            item.product_slug ? profitRetBySaleAndProd.get(`${sKey}_${item.product_slug}`) || 0 : 0,
+            item.product_slug && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0
+          );
+          const retFromName = Math.max(
+            item.name ? profitRetBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+            item.name && sNum ? profitRetBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0
+          );
+          const retFromSku = Math.max(
+            (item as any).sku ? profitRetBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
+            (item as any).sku && sNum ? profitRetBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0
+          );
+          const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? itemQty : 0;
+
+          const retQty = Math.max(
+            Number(item.quantity_returned || 0),
+            Number(item.returned_quantity || 0),
+            retFromItemId,
+            retFromProdId,
+            retFromSlug,
+            retFromName,
+            retFromSku,
+            retFromSingle,
+            item.return_status === "RETURNED" || item.return_status === "returned" ? itemQty : 0
           );
           const netQty = Math.max(0, itemQty - retQty);
           if (netQty <= 0) return; // Completely returned product: remove from My Cost and Profit analysis!
@@ -1453,7 +1556,6 @@ export function DashboardDrillDown({
           );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
           const rawItemTotal = (item.price || 0) * netQty;
-          const netSaleTotal = Math.max(0, Number(s.total || 0) - Number((s as any).returned_amount || 0));
           const rev =
             saleSubtotal > 0
               ? (rawItemTotal / saleSubtotal) * netSaleTotal

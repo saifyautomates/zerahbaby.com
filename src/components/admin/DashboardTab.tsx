@@ -285,12 +285,16 @@ export function DashboardTab({
     Array<{
       id: string;
       return_number?: string;
+      sale_id?: string | null;
+      original_sale_id?: string | null;
+      original_sale_number?: string | null;
       refund_amount: number;
       created_at: string;
       status: string;
       refund_status: string;
       offline_return_items?: Array<{
         id: string;
+        original_sale_item_id?: string | null;
         product_id?: string | null;
         product_slug?: string;
         name?: string;
@@ -306,7 +310,7 @@ export function DashboardTab({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("offline_returns")
-        .select("id, return_number, refund_amount, created_at, status, refund_status, offline_return_items(id, product_id, product_slug, name, sku, qty, refund_price, subtotal)")
+        .select("*, offline_return_items(*)")
         .order("created_at", { ascending: false })
         .limit(1500);
       if (error) {
@@ -550,26 +554,120 @@ export function DashboardTab({
             .join(", ") || "Order items",
       }));
 
+    // Fast lookup maps for return deductions
+    const retByItemId = new Map<string, number>();
+    const retBySaleAndProd = new Map<string, number>();
+    const refundsBySale = new Map<string, number>();
+
+    for (const ret of offlineReturns) {
+      if (ret.status === "cancelled" || ret.refund_status === "cancelled") continue;
+      const saleKeys = [
+        ret.sale_id,
+        (ret as any).original_sale_id,
+        (ret as any).original_sale_number,
+      ].filter(Boolean) as string[];
+
+      for (const sKey of saleKeys) {
+        refundsBySale.set(sKey, (refundsBySale.get(sKey) || 0) + Number(ret.refund_amount || 0));
+      }
+
+      for (const item of ret.offline_return_items ?? []) {
+        const retQty = Number(item.qty ?? 1);
+        if (item.original_sale_item_id) {
+          retByItemId.set(
+            item.original_sale_item_id,
+            (retByItemId.get(item.original_sale_item_id) || 0) + retQty,
+          );
+        }
+        for (const sKey of saleKeys) {
+          if (item.product_id) {
+            const k = `${sKey}_${item.product_id}`;
+            retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+          }
+          if (item.product_slug) {
+            const k = `${sKey}_${item.product_slug}`;
+            retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+          }
+          if (item.name) {
+            const k = `${sKey}_${item.name.toLowerCase().trim()}`;
+            retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+          }
+          if ((item as any).sku) {
+            const k = `${sKey}_${(item as any).sku.toLowerCase().trim()}`;
+            retBySaleAndProd.set(k, (retBySaleAndProd.get(k) || 0) + retQty);
+          }
+        }
+      }
+    }
+
     const posMapped = posSales
       .filter((s) => {
         const statusLower = (s.return_status || "").toLowerCase().trim();
-        if (statusLower === "returned" || statusLower === "fully_returned" || statusLower === "completed") {
+        const sNum = s.sale_number || "";
+        const refundFromList = Math.max(
+          refundsBySale.get(s.id) || 0,
+          sNum ? refundsBySale.get(sNum) || 0 : 0,
+        );
+        const totalReturnedAmt = Math.max(Number((s as any).returned_amount || 0), refundFromList);
+        const isFullyRefunded =
+          totalReturnedAmt >= Number(s.total || 0) && Number(s.total || 0) > 0;
+
+        if (
+          statusLower === "returned" ||
+          statusLower === "fully_returned" ||
+          statusLower === "completed" ||
+          isFullyRefunded
+        ) {
           return false;
         }
         return true;
       })
       .map((s) => {
+        const sNum = s.sale_number || "";
+        const refundFromList = Math.max(
+          refundsBySale.get(s.id) || 0,
+          sNum ? refundsBySale.get(sNum) || 0 : 0,
+        );
+        const totalReturnedAmt = Math.max(Number((s as any).returned_amount || 0), refundFromList);
+        const isSingleItem = (s.offline_sale_items || []).length === 1;
+
         const activeItems = (s.offline_sale_items || []).filter((item) => {
           const qty = Number(item.qty || item.quantity || 1);
-          const retQty = Number(
-            item.quantity_returned ||
-            item.returned_quantity ||
-            (item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0),
+          const retFromItemId = item.id ? retByItemId.get(item.id) || 0 : 0;
+          const sKey = s.id;
+          const retFromProdId = Math.max(
+            item.product_id ? retBySaleAndProd.get(`${sKey}_${item.product_id}`) || 0 : 0,
+            item.product_id && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_id}`) || 0 : 0,
+          );
+          const retFromSlug = Math.max(
+            item.product_slug ? retBySaleAndProd.get(`${sKey}_${item.product_slug}`) || 0 : 0,
+            item.product_slug && sNum ? retBySaleAndProd.get(`${sNum}_${item.product_slug}`) || 0 : 0,
+          );
+          const retFromName = Math.max(
+            item.name ? retBySaleAndProd.get(`${sKey}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+            item.name && sNum ? retBySaleAndProd.get(`${sNum}_${item.name.toLowerCase().trim()}`) || 0 : 0,
+          );
+          const retFromSku = Math.max(
+            (item as any).sku ? retBySaleAndProd.get(`${sKey}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
+            (item as any).sku && sNum ? retBySaleAndProd.get(`${sNum}_${(item as any).sku.toLowerCase().trim()}`) || 0 : 0,
+          );
+          const retFromSingle = isSingleItem && totalReturnedAmt > 0 ? qty : 0;
+
+          const retQty = Math.max(
+            Number(item.quantity_returned || 0),
+            Number(item.returned_quantity || 0),
+            retFromItemId,
+            retFromProdId,
+            retFromSlug,
+            retFromName,
+            retFromSku,
+            retFromSingle,
+            item.return_status === "RETURNED" || item.return_status === "returned" ? qty : 0,
           );
           return qty - retQty > 0;
         });
 
-        const netSaleTotal = Math.max(0, Number(s.total || 0) - Number((s as any).returned_amount || 0));
+        const netSaleTotal = Math.max(0, Number(s.total || 0) - totalReturnedAmt);
 
         return {
           key: `pos-${s.id}`,
@@ -617,7 +715,7 @@ export function DashboardTab({
     }
 
     return combined;
-  }, [orders, posSales, salesChannelFilter, salesSearchQuery]);
+  }, [orders, posSales, offlineReturns, salesChannelFilter, salesSearchQuery]);
 
   // Recent Orders List (Top 5)
   const recentOrders = useMemo(() => {
