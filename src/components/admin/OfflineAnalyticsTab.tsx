@@ -694,10 +694,19 @@ export function OfflineAnalyticsTab() {
     (s) => !["cash", "upi", "card"].includes(s.payment_method),
   );
 
-  const cashTotal = cashSales.reduce((s, o) => s + Number(o.total), 0);
-  const upiTotal = upiSales.reduce((s, o) => s + Number(o.total), 0);
-  const cardTotal = cardSales.reduce((s, o) => s + Number(o.total), 0);
-  const otherTotal = otherSales.reduce((s, o) => s + Number(o.total), 0);
+  const getSaleNetRevenue = (s: Sale | CanonicalPOSSale) => {
+    const isPartiallyReturned = s.return_status === "partially_returned";
+    const returnedDeduction = Number(s.returned_amount || 0);
+    if (isPartiallyReturned && returnedDeduction > 0) {
+      return Math.max(0, Number(s.total) - returnedDeduction);
+    }
+    return Number(s.total);
+  };
+
+  const cashTotal = cashSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
+  const upiTotal = upiSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
+  const cardTotal = cardSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
+  const otherTotal = otherSales.reduce((s, o) => s + getSaleNetRevenue(o), 0);
   const totalDiscount = periodActiveSales.reduce(
     (sum, sale) => sum + Number(sale.discount ?? 0),
     0,

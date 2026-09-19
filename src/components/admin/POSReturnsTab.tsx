@@ -199,7 +199,7 @@ export function POSReturnsTab() {
 
       const group = customerMap.get(key)!;
       group.sales.push(sale);
-      group.total_spent += sale.total;
+      group.total_spent += Math.max(0, sale.total - (sale.returned_amount || 0));
       group.total_orders += 1;
       if (sale.has_returnable_items) {
         group.has_returnable_items = true;

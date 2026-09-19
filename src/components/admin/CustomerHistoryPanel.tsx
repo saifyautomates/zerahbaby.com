@@ -70,6 +70,7 @@ type OfflineSaleRecord = {
   pos_token_date: string | null;
   status: string;
   return_status?: string | null;
+  returned_amount?: number | null;
   created_at: string;
   offline_sale_items?: SaleItem[];
 };
@@ -223,10 +224,12 @@ export function CustomerHistoryPanel() {
         (phone ? creditMap.get(`phone:${phone}`) : undefined) ??
         0;
 
+      const netSaleSpend = Math.max(0, Number(sale.total || 0) - Number(sale.returned_amount || 0));
+
       const existing = map.get(key);
       if (existing) {
         existing.total_purchases += 1;
-        existing.total_spend += Number(sale.total || 0);
+        existing.total_spend += netSaleSpend;
         existing.sales.push(sale);
         if (!existing.email && email) existing.email = email;
         if (existing.name === "Walk-in Customer" && name !== "Walk-in Customer") {
@@ -247,7 +250,7 @@ export function CustomerHistoryPanel() {
           phone,
           email,
           total_purchases: 1,
-          total_spend: Number(sale.total || 0),
+          total_spend: netSaleSpend,
           store_credit_balance: creditBal,
           last_visit: sale.created_at,
           last_sale_number: sale.sale_number,
@@ -845,8 +848,13 @@ export function CustomerHistoryPanel() {
 
                       <div className="text-right shrink-0">
                         <p className="font-black text-primary text-base">
-                          {formatPrice(sale.total)}
+                          {formatPrice(Math.max(0, Number(sale.total || 0) - Number(sale.returned_amount || 0)))}
                         </p>
+                        {Number(sale.returned_amount || 0) > 0 && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            Net of -{formatPrice(Number(sale.returned_amount))} ret.
+                          </p>
+                        )}
                         <p className="text-[11px] text-muted-foreground">
                           {(sale.offline_sale_items ?? []).filter((i) => {
                             const sold = Number(i.qty || (i as any).quantity_sold || 1);

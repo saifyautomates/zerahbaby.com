@@ -202,6 +202,7 @@ export type OfflineSaleWithReturnMetrics = {
   customer_email?: string;
   customer_id: string | null;
   total: number;
+  returned_amount?: number;
   subtotal: number;
   discount: number;
   tax?: number;
@@ -618,6 +619,7 @@ export function useOfflineSalesForReturnsLookup() {
           customer_email: s.customer_email || "",
           customer_id: s.customer_id || null,
           total: Number(s.total) || 0,
+          returned_amount: Number(s.returned_amount || 0),
           subtotal: Number(s.subtotal) || Number(s.total) || 0,
           discount: Number(s.discount) || 0,
           tax: Number(s.tax || 0),

@@ -353,7 +353,8 @@ export function calculateFinancialMetrics({
 
   validPos.forEach((s) => {
     // If entire sale was returned, skip all items from active sold count and cost
-    if (s.return_status === "returned") return;
+    const retStatus = (s.return_status || "").toLowerCase().trim();
+    if (retStatus === "returned" || retStatus === "fully_returned" || retStatus === "completed") return;
 
     s.offline_sale_items?.forEach((item) => {
       const qty = Number(item.qty || item.quantity || 1);
