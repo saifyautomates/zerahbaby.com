@@ -129,6 +129,8 @@ export interface FinancialMetrics {
   onlineGrossRevenue: number;
   offlineGrossRevenue: number;
   grossRevenue: number;
+  onlineNetRevenue: number;
+  offlineNetRevenue: number;
 
   // Returns / Deductions
   onlineReturns: number;
@@ -322,6 +324,8 @@ export function calculateFinancialMetrics({
 
   // 4. Net Revenue
   const netRevenue = Math.max(0, grossRevenue - totalReturns);
+  const offlineNetRevenue = Math.max(0, offlineGrossRevenue - offlineReturns);
+  const onlineNetRevenue = Math.max(0, onlineGrossRevenue - onlineReturns);
 
   // 5. Units Sold & Historical Cost of Goods Sold (My Cost)
   // CRITICAL MANDATE: Never use current catalog cost for past transactions.
@@ -476,6 +480,8 @@ export function calculateFinancialMetrics({
     onlineGrossRevenue,
     offlineGrossRevenue,
     grossRevenue,
+    onlineNetRevenue,
+    offlineNetRevenue,
     onlineReturns,
     offlineReturns,
     totalReturns,
