@@ -530,8 +530,8 @@ export function DashboardTab({
     const onlineMapped = orders
       .filter((o) => {
         const s = (o.status || "").toLowerCase();
-        const retStatus = ((o as unknown as Record<string, unknown>).return_status as string || "").toUpperCase();
-        return s !== "cancelled" && s !== "returned" && retStatus !== "COMPLETED";
+        const retStatus = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase();
+        return s !== "cancelled" && s !== "returned" && s !== "refunded" && retStatus !== "COMPLETED";
       })
       .map((o) => ({
         key: `online-${o.id}`,
@@ -571,10 +571,7 @@ export function DashboardTab({
           return qty - retQty > 0;
         });
 
-        const activeSubtotal = activeItems.reduce(
-          (sum, i) => sum + Number(i.subtotal || Number(i.price || 0) * (Number(i.qty) || 1)),
-          0,
-        );
+        const netSaleTotal = Math.max(0, Number(s.total || 0) - Number((s as any).returned_amount || 0));
 
         return {
           key: `pos-${s.id}`,
@@ -582,7 +579,7 @@ export function DashboardTab({
           rawId: s.id,
           customer: s.customer_name || "Walk-in Customer",
           phone: s.customer_phone || "",
-          amount: activeSubtotal > 0 ? activeSubtotal : Number(s.total || 0),
+          amount: netSaleTotal,
           payment_method: s.payment_method || "Cash",
           status: s.status || "completed",
           source: "POS" as const,
