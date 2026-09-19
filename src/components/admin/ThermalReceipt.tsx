@@ -89,8 +89,6 @@ export function buildThermalHTML(
 ): string {
   const itemRows = items
     .map((item) => {
-      const hasMRP = item.mrp && item.mrp > item.price;
-      const savings = hasMRP ? (item.mrp! - item.price) * item.qty : 0;
       const variantDetails = [
         item.color ? `Color: ${escHtml(item.color)}` : "",
         item.size ? `Size: ${escHtml(item.size)}` : "",
@@ -99,14 +97,7 @@ export function buildThermalHTML(
         .filter(Boolean)
         .join(" · ");
 
-      let priceInfo = `<div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${variantDetails ? ` · ${variantDetails}` : ""}</div>`;
-      if (hasMRP) {
-        priceInfo += `
-        <div style="font-size:10px;color:#666;margin-top:2px;">
-          <span style="text-decoration:line-through;margin-right:6px;">MRP ₹${item.mrp!.toLocaleString("en-IN")}</span>
-          <span style="color:#15803d;font-weight:600;">Save ₹${savings.toLocaleString("en-IN")}</span>
-        </div>`;
-      }
+      const priceInfo = `<div style="font-size:10px;color:#666;">₹${item.price.toLocaleString("en-IN")} × ${item.qty}${variantDetails ? ` · ${variantDetails}` : ""}</div>`;
 
       return `
     <div style="margin-bottom:6px;">
@@ -499,14 +490,7 @@ export function ThermalReceipt({
                   {formatPrice(item.price)} × {item.qty}
                   {item.sku && ` · SKU: ${item.sku}`}
                 </div>
-                {item.mrp && item.mrp > item.price && (
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
-                    <span className="line-through mr-1.5">{formatPrice(item.mrp)}</span>
-                    <span className="text-emerald-700 font-semibold">
-                      Save {formatPrice((item.mrp - item.price) * item.qty)}
-                    </span>
-                  </div>
-                )}
+
               </div>
             ))}
           </div>
