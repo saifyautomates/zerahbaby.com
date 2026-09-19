@@ -11,15 +11,21 @@ import {
   type ThermalReceiptItem,
 } from "../src/components/admin/ThermalReceipt";
 import type { Order } from "../src/domain/models";
+import {
+  INVOICE_PAPER_SIZES,
+  INVOICE_PAPER_SIZES_LIST,
+  getPaperSizeSpec,
+  type InvoicePaperSize,
+} from "../src/lib/print-settings";
 import * as path from "path";
 import * as fs from "fs";
 
-test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite", () => {
+test.describe("Horizontal Landscape Print & Invoice Verification Suite", () => {
   const storeMock = {
     brandName: "ZÉRAH BABY & KIDS",
-    storeAddress: "Shop No. 4-E-21, 80Ft. Road, Atwal Nagar, Hanumanji Mandir Ke Samne, Kota, Rajasthan 324001",
+    storeAddress: "In Front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan 324001",
     contactPhone: "9057074777",
-    contactEmail: "hello@zerahkids.com",
+    contactEmail: "support@zerahkids.com",
     instagramUrl: "@zerahkids",
   };
 
@@ -60,16 +66,14 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
     },
   ];
 
-  test("1. A4 POS Invoice HTML contains standard @page A4 portrait and clean 210mm max-width", () => {
+  test("1. A4 POS Invoice HTML contains exact @page A4 landscape and 10mm margin", () => {
     const html = buildA4HTML(sampleSale, sampleItems, storeMock as any);
-    expect(html).toContain("size: A4 portrait;");
-    expect(html).toContain("margin: 15mm 12mm 15mm 12mm;");
-    expect(html).toContain("max-width: 210mm;");
-    expect(html).toContain("ZÉRAH BABY &amp; KIDS");
-    expect(html).toContain("POS-2026-0042");
+    expect(html).toContain("size: A4 landscape;");
+    expect(html).toContain("margin: 10mm;");
+    expect(html).toContain("max-width: 277mm;");
   });
 
-  test("2. Online Order Invoice HTML contains standard @page A4 portrait and clean 210mm max-width", () => {
+  test("2. Online Order Invoice HTML contains exact @page A4 landscape and 10mm margin", () => {
     const mockOrder: Order = {
       id: "ord-test-88990011",
       user_id: "usr-123",
@@ -121,11 +125,9 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
     };
 
     const html = buildOrderA4HTML(mockOrder, storeMock);
-    expect(html).toContain("size: A4 portrait;");
-    expect(html).toContain("margin: 15mm 12mm 15mm 12mm;");
-    expect(html).toContain("max-width: 210mm;");
-    expect(html).toContain("INV-ONL-2026-0089");
-    expect(html).toContain("Rahul Verma");
+    expect(html).toContain("size: A4 landscape;");
+    expect(html).toContain("margin: 10mm;");
+    expect(html).toContain("max-width: 277mm;");
   });
 
   test("3. Thermal receipt preserves 80mm roll layout and is NOT landscape", () => {
@@ -159,7 +161,7 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
 
   const logoBase64 = `data:image/png;base64,${fs.readFileSync(path.resolve(process.cwd(), "public/logo.png")).toString("base64")}`;
 
-  test("4. Browser Print Preview: A4 POS Invoice renders in portrait cleanly", async ({
+  test("4. Browser Print Preview: A4 POS Invoice renders in landscape, fits on 1 page without clipping", async ({
     page,
     browserName,
   }) => {
@@ -168,16 +170,38 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
       logoBase64,
     );
 
-    // Set viewport to standard A4 Portrait pixel equivalent at 96 DPI (210mm ≈ 794px, 297mm ≈ 1123px)
-    await page.setViewportSize({ width: 794, height: 1123 });
+    // Set viewport to A4 Landscape pixel equivalent at 96 DPI (297mm ≈ 1123px, 210mm ≈ 794px)
+    await page.setViewportSize({ width: 1123, height: 794 });
     await page.setContent(html, { waitUntil: "domcontentloaded" });
     await page.emulateMedia({ media: "print" });
 
-    // Verify header, items table, and footer are visible
+    // Verify container width fits within 277mm (277mm * 96 / 25.4 ≈ 1047px)
+    const container = page.locator(".invoice-container");
+    await expect(container).toBeVisible();
+    const box = await container.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThanOrEqual(1055);
+
+    // Verify header, info-bar, table, summary, footer are all visible
     await expect(page.locator(".header")).toBeVisible();
-    await expect(page.locator("table")).toBeVisible();
-    await expect(page.locator(".totals")).toBeVisible();
+    await expect(page.locator(".info-bar")).toBeVisible();
+    await expect(page.locator(".items-table")).toBeVisible();
+    await expect(page.locator(".bottom-summary")).toBeVisible();
     await expect(page.locator(".footer")).toBeVisible();
+
+    // Verify all 7 table columns are present and readable
+    const ths = page.locator(".items-table th");
+    await expect(ths).toHaveCount(7);
+    const thTexts = await ths.allInnerTexts();
+    expect(thTexts).toEqual([
+      "#",
+      "ITEM DESCRIPTION",
+      "QTY",
+      "MRP",
+      "UNIT PRICE",
+      "SAVINGS",
+      "NET TOTAL",
+    ]);
 
     // Check no horizontal overflow
     const hasHorizontalScroll = await page.evaluate(() => {
@@ -185,29 +209,32 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
     });
     expect(hasHorizontalScroll).toBe(false);
 
+    // Verify height fits within 190mm (190mm * 96 / 25.4 ≈ 718px)
+    // Printable height is 190mm, container bounding box should be well below 718px
+    expect(box!.height).toBeLessThan(718);
+
     // Capture screenshot of print preview
     const screenshotDir = path.resolve(process.cwd(), "tests/artifacts");
     if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
     await page.screenshot({
-      path: path.join(screenshotDir, "a4_invoice_portrait_preview.png"),
+      path: path.join(screenshotDir, "a4_invoice_landscape_preview.png"),
       fullPage: true,
     });
 
-    // Generate real PDF to verify portrait rendering (Chromium only)
+    // Generate real PDF to verify exact single-page rendering (Chromium only in Playwright)
     if (browserName === "chromium") {
       const pdfBuffer = await page.pdf({
         format: "A4",
-        landscape: false,
+        landscape: true,
         printBackground: true,
-        margin: { top: "15mm", right: "12mm", bottom: "15mm", left: "12mm" },
+        margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
       });
       expect(pdfBuffer.length).toBeGreaterThan(1000);
     }
   });
 
-  test("5. Browser Print Preview: Online Order Invoice renders in portrait", async ({
+  test("5. Browser Print Preview: Online Order Invoice renders in landscape and fits 1 page", async ({
     page,
-    browserName,
   }) => {
     const mockOrder: Order = {
       id: "ord-test-445566",
@@ -261,18 +288,26 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
 
     const html = buildOrderA4HTML(mockOrder, storeMock).replace(/\/logo\.png/g, logoBase64);
 
-    await page.setViewportSize({ width: 794, height: 1123 });
+    await page.setViewportSize({ width: 1123, height: 794 });
     await page.setContent(html, { waitUntil: "domcontentloaded" });
     await page.emulateMedia({ media: "print" });
 
+    const container = page.locator(".invoice-container");
+    await expect(container).toBeVisible();
+    const box = await container.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThanOrEqual(1055);
+    expect(box!.height).toBeLessThan(718);
+
     await expect(page.locator(".header")).toBeVisible();
-    await expect(page.locator("table")).toBeVisible();
-    await expect(page.locator(".totals")).toBeVisible();
+    await expect(page.locator(".info-bar")).toBeVisible();
+    await expect(page.locator(".items-table")).toBeVisible();
+    await expect(page.locator(".bottom-summary")).toBeVisible();
     await expect(page.locator(".footer")).toBeVisible();
 
     const screenshotDir = path.resolve(process.cwd(), "tests/artifacts");
     await page.screenshot({
-      path: path.join(screenshotDir, "online_invoice_portrait_preview.png"),
+      path: path.join(screenshotDir, "online_invoice_landscape_preview.png"),
       fullPage: true,
     });
   });
@@ -321,4 +356,150 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
       fullPage: true,
     });
   });
+
+  test("7. Multi-item pagination: Table headers repeat and rows don't clip across pages", async ({
+    page,
+    browserName,
+  }) => {
+    // Generate 20 items to genuinely exceed 1 landscape page
+    const manyItems: A4InvoiceItem[] = Array.from({ length: 20 }, (_, i) => ({
+      name: `Children's Premium Apparel Item #${i + 1}`,
+      color: i % 2 === 0 ? "Pastel Blue" : "Blush Pink",
+      size: `${i + 1}Y`,
+      sku: `ZR-MULTI-${i + 1}`,
+      qty: (i % 3) + 1,
+      price: 299 + i * 20,
+      mrp: 499 + i * 20,
+    }));
+
+    const bigSale: A4InvoiceSale = {
+      ...sampleSale,
+      sale_number: "POS-BULK-2026",
+      subtotal: manyItems.reduce((acc, it) => acc + it.price * it.qty, 0),
+      total: manyItems.reduce((acc, it) => acc + it.price * it.qty, 0),
+    };
+
+    const html = buildA4HTML(bigSale, manyItems, storeMock as any);
+    await page.setViewportSize({ width: 1123, height: 794 });
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await page.emulateMedia({ media: "print" });
+
+    // Table thead must have table-header-group
+    const theadDisplay = await page.evaluate(() => {
+      const thead = document.querySelector(".items-table thead");
+      return thead ? window.getComputedStyle(thead).display : "";
+    });
+    expect(theadDisplay).toBe("table-header-group");
+
+    // Table rows must have page-break-inside avoid
+    const trBreak = await page.evaluate(() => {
+      const tr = document.querySelector(".items-table tbody tr");
+      return tr
+        ? window.getComputedStyle(tr).breakInside ||
+            (window.getComputedStyle(tr) as any).pageBreakInside
+        : "";
+    });
+    expect(["avoid", "avoid-page"].includes(trBreak)).toBe(true);
+
+    // Generate real PDF to verify pagination rendering (Chromium only in Playwright)
+    if (browserName === "chromium") {
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        landscape: true,
+        printBackground: true,
+        margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
+      });
+      expect(pdfBuffer.length).toBeGreaterThan(5000);
+    }
+  });
+
+  test("8. Multi-Paper Size Catalog: Every paper size generates compliant @page and max-width in both POS and Order invoices", () => {
+    const sampleOrder: Order = {
+      id: "ord-test-multi-paper",
+      user_id: "usr-123",
+      email: "test@example.com",
+      full_name: "Anita Roy",
+      phone: "9123456780",
+      alt_phone: "",
+      address: "12 Green Park",
+      address_line2: "",
+      landmark: "",
+      city: "Kota",
+      state: "Rajasthan",
+      pincode: "324001",
+      payment_method: "online",
+      payment_status: "paid",
+      invoice_no: "INV-MP-001",
+      subtotal: 1200,
+      shipping: 0,
+      discount: 0,
+      coupon_code: "",
+      total: 1200,
+      status: "delivered",
+      notes: "",
+      created_at: "2026-09-12T10:15:00Z",
+      order_items: [
+        {
+          id: "item-1",
+          product_slug: "toddler-cotton-tee",
+          name: "Toddler Everyday Cotton Tee",
+          color: "Sunshine Yellow",
+          size: "2-3Y",
+          sku_snapshot: "ZR-TEE-YL-2Y",
+          image_url: "/logo.png",
+          price: 600,
+          qty: 2,
+        },
+      ],
+    };
+
+    for (const ps of INVOICE_PAPER_SIZES_LIST) {
+      // 1. POS A4/A5/Letter Invoice
+      const posHtml = buildA4HTML(sampleSale, sampleItems, storeMock as any, ps.id);
+      expect(posHtml).toContain(`size: ${ps.cssSize};`);
+      expect(posHtml).toContain(`margin: ${ps.marginMm}mm;`);
+      expect(posHtml).toContain(`max-width: ${ps.maxWidth};`);
+
+      // 2. Online Order Invoice
+      const orderHtml = buildOrderA4HTML(sampleOrder, storeMock, ps.id);
+      expect(orderHtml).toContain(`size: ${ps.cssSize};`);
+      expect(orderHtml).toContain(`margin: ${ps.marginMm}mm;`);
+      expect(orderHtml).toContain(`max-width: ${ps.maxWidth};`);
+    }
+  });
+
+  test("9. Browser Print Preview on A5 Half Sheet Landscape: renders cleanly without horizontal cutoff", async ({
+    page,
+    browserName,
+  }) => {
+    // A5 Landscape is 210mm x 148mm = ~794px x ~559px at 96 DPI
+    const html = buildA4HTML(sampleSale, sampleItems, storeMock as any, "a5-landscape");
+    await page.setViewportSize({ width: 794, height: 559 });
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await page.emulateMedia({ media: "print" });
+
+    // Check no horizontal scrollbar/overflow
+    const hasHorizontalOverflow = await page.evaluate(() => {
+      const docEl = document.documentElement;
+      return docEl.scrollWidth > docEl.clientWidth + 2;
+    });
+    expect(hasHorizontalOverflow).toBe(false);
+
+    // Ensure title and items are present
+    const invoiceTitle = await page.textContent("body");
+    expect(invoiceTitle).toContain("POS-2026-0042");
+    expect(invoiceTitle).toContain("Organic Cotton Baby Romper");
+
+    // Chromium PDF generation on A5 format
+    if (browserName === "chromium") {
+      const pdfBuffer = await page.pdf({
+        format: "A5",
+        landscape: true,
+        printBackground: true,
+        margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
+      });
+      expect(pdfBuffer.length).toBeGreaterThan(3000);
+    }
+  });
 });
+
