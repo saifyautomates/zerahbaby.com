@@ -338,6 +338,16 @@ const toDraft = (
             (!v.color || !v.color.trim()) &&
             (!v.size || !v.size.trim()) &&
             (!v.name || v.name.trim() === "Default");
+          const hasDistinctPrice =
+            !isDefault &&
+            v.priceOverride != null &&
+            Number(v.priceOverride) > 0 &&
+            Number(v.priceOverride) !== Number(p?.price);
+          const hasDistinctMrp =
+            hasDistinctPrice &&
+            v.mrpOverride != null &&
+            Number(v.mrpOverride) > 0 &&
+            Number(v.mrpOverride) !== Number(p?.mrp);
           return {
             id: v.id,
             name: v.name,
@@ -346,8 +356,8 @@ const toDraft = (
             sku: v.sku ?? "",
             barcode: v.barcode ?? null,
             stock: v.stock,
-            price_override: isDefault ? null : (v.priceOverride ?? null),
-            mrp_override: isDefault ? null : (v.mrpOverride ?? null),
+            price_override: hasDistinctPrice ? Number(v.priceOverride) : null,
+            mrp_override: hasDistinctMrp ? Number(v.mrpOverride) : null,
             image_url: v.imageUrl ?? null,
           };
         })
@@ -1032,20 +1042,37 @@ export function ProductForm({
         Boolean(v.size && v.size.trim()) ||
         Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
     );
-    const cleanedVariants = hasRealVariants
-      ? (draft.variants || []).filter(
-          (v) =>
-            !(
+    const cleanedVariants = (draft.variants || [])
+      .filter((v) =>
+        hasRealVariants
+          ? !(
               (!v.color || !v.color.trim()) &&
               (!v.size || !v.size.trim()) &&
               (!v.name || v.name.trim() === "Default")
-            ),
-        )
-      : (draft.variants || []).map((v) => ({
+            )
+          : true
+      )
+      .map((v) => {
+        const isDefault =
+          (!v.color || !v.color.trim()) &&
+          (!v.size || !v.size.trim()) &&
+          (!v.name || v.name.trim() === "Default");
+        const hasDistinctPrice =
+          !isDefault &&
+          v.price_override != null &&
+          Number(v.price_override) > 0 &&
+          Number(v.price_override) !== Number(draft.price);
+        const hasDistinctMrp =
+          hasDistinctPrice &&
+          v.mrp_override != null &&
+          Number(v.mrp_override) > 0 &&
+          Number(v.mrp_override) !== Number(finalMrp);
+        return {
           ...v,
-          price_override: null,
-          mrp_override: null,
-        }));
+          price_override: hasDistinctPrice ? Number(v.price_override) : null,
+          mrp_override: hasDistinctMrp ? Number(v.mrp_override) : null,
+        };
+      });
 
     const finalStock = cleanedVariants.length > 0
       ? cleanedVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
@@ -1795,18 +1822,12 @@ export function ProductForm({
                       onChange={(e) => {
                         const newMrp =
                           e.target.value === "" ? 0 : Math.max(0, Number(e.target.value));
-                        const oldMrp = draft.mrp;
                         setDraft((prev) => ({
                           ...prev,
                           mrp: newMrp,
                           variants: (prev.variants || []).map((v) => {
-                            const isDefault =
-                              (!v.color || !v.color.trim()) &&
-                              (!v.size || !v.size.trim()) &&
-                              (!v.name || v.name.trim() === "Default");
-                            if (isDefault) return { ...v, mrp_override: null };
-                            if (v.mrp_override === null || v.mrp_override === oldMrp) {
-                              return { ...v, mrp_override: newMrp };
+                            if (!v.price_override || Number(v.price_override) === Number(prev.price)) {
+                              return { ...v, price_override: null, mrp_override: null };
                             }
                             return v;
                           }),
@@ -1817,7 +1838,19 @@ export function ProductForm({
                       <div className="flex flex-wrap items-center gap-1 mt-1.5">
                         <button
                           type="button"
-                          onClick={() => set("mrp", Math.round(draft.price * 1.3))}
+                          onClick={() => {
+                            const newMrp = Math.round(draft.price * 1.3);
+                            setDraft((prev) => ({
+                              ...prev,
+                              mrp: newMrp,
+                              variants: (prev.variants || []).map((v) => {
+                                if (!v.price_override || Number(v.price_override) === Number(prev.price)) {
+                                  return { ...v, price_override: null, mrp_override: null };
+                                }
+                                return v;
+                              }),
+                            }));
+                          }}
                           className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-muted/80 hover:text-foreground transition cursor-pointer"
                           title="Set MRP 30% higher than selling price"
                         >
@@ -1825,7 +1858,19 @@ export function ProductForm({
                         </button>
                         <button
                           type="button"
-                          onClick={() => set("mrp", Math.round(draft.price * 1.5))}
+                          onClick={() => {
+                            const newMrp = Math.round(draft.price * 1.5);
+                            setDraft((prev) => ({
+                              ...prev,
+                              mrp: newMrp,
+                              variants: (prev.variants || []).map((v) => {
+                                if (!v.price_override || Number(v.price_override) === Number(prev.price)) {
+                                  return { ...v, price_override: null, mrp_override: null };
+                                }
+                                return v;
+                              }),
+                            }));
+                          }}
                           className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground hover:bg-muted/80 hover:text-foreground transition cursor-pointer"
                           title="Set MRP 50% higher than selling price"
                         >
@@ -1833,7 +1878,19 @@ export function ProductForm({
                         </button>
                         <button
                           type="button"
-                          onClick={() => set("mrp", Math.round(draft.price * 2))}
+                          onClick={() => {
+                            const newMrp = Math.round(draft.price * 2);
+                            setDraft((prev) => ({
+                              ...prev,
+                              mrp: newMrp,
+                              variants: (prev.variants || []).map((v) => {
+                                if (!v.price_override || Number(v.price_override) === Number(prev.price)) {
+                                  return { ...v, price_override: null, mrp_override: null };
+                                }
+                                return v;
+                              }),
+                            }));
+                          }}
                           className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
                           title="Double the selling price (50% Flat Discount)"
                         >

@@ -98,8 +98,26 @@ export async function searchPOSProducts(query: string, limit = 20): Promise<POSS
               sku: v.sku || p.sku,
               barcode: v.barcode || null,
               stock: Number(v.stock ?? p.stock ?? 0),
-              price: Number(v.price_override ?? v.priceOverride ?? p.price ?? 0),
-              mrp: Number(v.mrp_override ?? v.mrpOverride ?? p.mrp ?? p.price ?? 0),
+              price: Number(
+                v.price_override && Number(v.price_override) !== Number(p.price)
+                  ? v.price_override
+                  : v.priceOverride && Number(v.priceOverride) !== Number(p.price)
+                    ? v.priceOverride
+                    : p.price ?? 0,
+              ),
+              mrp: Number(
+                v.price_override &&
+                  Number(v.price_override) !== Number(p.price) &&
+                  v.mrp_override &&
+                  Number(v.mrp_override) !== Number(p.mrp)
+                  ? v.mrp_override
+                  : v.priceOverride &&
+                      Number(v.priceOverride) !== Number(p.price) &&
+                      v.mrpOverride &&
+                      Number(v.mrpOverride) !== Number(p.mrp)
+                    ? v.mrpOverride
+                    : p.mrp ?? p.price ?? 0,
+              ),
               color: v.color || null,
               size: v.size || null,
               image_url: v.image_url || v.imageUrl || p.image || null,

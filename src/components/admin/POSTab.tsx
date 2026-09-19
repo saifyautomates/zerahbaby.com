@@ -1620,9 +1620,13 @@ export function POSTab() {
         // If stock is <= 0 in memory, do NOT abort immediately!
         // Fall through to Priority 2 (authoritative server lookupBarcode) to verify live database stock.
         if (stock > 0) {
-          const price = variant?.priceOverride ?? (variant as any)?.price_override ?? product.price;
-          const mrp =
-            variant?.mrpOverride ?? (variant as any)?.mrp_override ?? product.mrp ?? product.price;
+          const vPrice = variant?.priceOverride ?? (variant as any)?.price_override;
+          const hasCustomPrice = vPrice != null && Number(vPrice) > 0 && Number(vPrice) !== Number(product.price);
+          const price = hasCustomPrice ? Number(vPrice) : product.price;
+
+          const vMrp = variant?.mrpOverride ?? (variant as any)?.mrp_override;
+          const hasCustomMrp = hasCustomPrice && vMrp != null && Number(vMrp) > 0 && Number(vMrp) !== Number(product.mrp);
+          const mrp = hasCustomMrp ? Number(vMrp) : (product.mrp ?? product.price);
           const sku = variant?.sku || product.sku || "";
           const barcode = variant?.barcode || product.barcode || cleanCode;
           const buyingPrice = Number(product.buyingPrice ?? product.buying_price ?? 0) || null;
@@ -1781,8 +1785,13 @@ export function POSTab() {
               return;
             }
 
-            const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
-            const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+            const rawVPrice = v?.price_override ?? v?.priceOverride;
+            const hasCustomPrice = rawVPrice != null && Number(rawVPrice) > 0 && Number(rawVPrice) !== Number(offline.price);
+            const price = hasCustomPrice ? Number(rawVPrice) : Number(offline.price ?? 0);
+
+            const rawVMrp = v?.mrp_override ?? v?.mrpOverride;
+            const hasCustomMrp = hasCustomPrice && rawVMrp != null && Number(rawVMrp) > 0 && Number(rawVMrp) !== Number(offline.mrp);
+            const mrp = hasCustomMrp ? Number(rawVMrp) : Number(offline.mrp ?? price);
             const sku = String(v?.sku || offline.sku || "");
             const barcode = String(v?.barcode || offline.barcode || cleanCode);
             const buyingPrice = Number(offline.buying_price ?? offline.buyingPrice ?? 0) || null;
@@ -1974,8 +1983,17 @@ export function POSTab() {
       name: `${product.name}${varName}`,
       brand: product.brand,
       category: product.category,
-      price: selectedVar?.priceOverride || product.price,
-      mrp: selectedVar?.mrpOverride || product.mrp,
+      price:
+        selectedVar?.priceOverride && selectedVar.priceOverride !== product.price
+          ? selectedVar.priceOverride
+          : product.price,
+      mrp:
+        selectedVar?.priceOverride &&
+        selectedVar.priceOverride !== product.price &&
+        selectedVar?.mrpOverride &&
+        selectedVar.mrpOverride !== product.mrp
+          ? selectedVar.mrpOverride
+          : product.mrp || product.price,
       stock: stock,
       sku: selectedVar?.sku || product.sku,
       barcode: selectedVar?.barcode || product.barcode,

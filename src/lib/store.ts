@@ -403,6 +403,21 @@ export const mapProduct = (row: ProductRow): Product => {
         (!v.size || !v.size.trim()) &&
         (!v.name || v.name.trim() === "Default");
 
+      // Variant only has a genuine price override if it actually differs from parent product price
+      const hasDistinctPrice =
+        !isDefault &&
+        v.price_override != null &&
+        Number(v.price_override) > 0 &&
+        Number(v.price_override) !== Number(row.price);
+
+      // Variant only has a genuine MRP override if it has a custom price and a distinct MRP
+      const hasDistinctMrp =
+        !isDefault &&
+        hasDistinctPrice &&
+        v.mrp_override != null &&
+        Number(v.mrp_override) > 0 &&
+        Number(v.mrp_override) !== Number(row.mrp);
+
       return {
         id: v.id,
         name: v.name,
@@ -411,8 +426,8 @@ export const mapProduct = (row: ProductRow): Product => {
         sku: v.sku,
         barcode: v.barcode ?? null,
         stock: v.stock,
-        priceOverride: isDefault ? undefined : (v.price_override ?? undefined),
-        mrpOverride: isDefault ? undefined : (v.mrp_override ?? undefined),
+        priceOverride: hasDistinctPrice ? Number(v.price_override) : undefined,
+        mrpOverride: hasDistinctMrp ? Number(v.mrp_override) : undefined,
         imageUrl: v.image_url ?? vImages[0] ?? null,
         images: vImages.length > 0 ? vImages : v.image_url ? [v.image_url] : undefined,
         conflictReconciliationNeeded: v.conflict_reconciliation_needed,

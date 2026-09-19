@@ -59,6 +59,7 @@ export function broadcastCatalogueChange() {
 }
 
 export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
+  broadcastCatalogueChange();
   invalidateDeliveryFeesCache();
   qc.invalidateQueries({ queryKey: ["products"] });
   qc.invalidateQueries({ queryKey: ["product"] });
@@ -332,6 +333,18 @@ export function useSaveProduct() {
               (!v.size || !v.size.trim()) &&
               (!v.name || v.name.trim() === "Default");
 
+            const hasDistinctPrice =
+              !isDefaultVariant &&
+              v.price_override != null &&
+              Number(v.price_override) > 0 &&
+              Number(v.price_override) !== Number(draft.price);
+
+            const hasDistinctMrp =
+              hasDistinctPrice &&
+              v.mrp_override != null &&
+              Number(v.mrp_override) > 0 &&
+              Number(v.mrp_override) !== Number(draft.mrp);
+
             const base: Record<string, unknown> = {
               product_id: productId,
               name: variantName || "Default",
@@ -340,8 +353,8 @@ export function useSaveProduct() {
               sku: v.sku ? v.sku.trim() : draft.sku,
               barcode: v.barcode ? v.barcode.trim() : null,
               stock: Number(v.stock) || 0,
-              price_override: isDefaultVariant ? null : v.price_override,
-              mrp_override: isDefaultVariant ? null : (v.mrp_override ?? null),
+              price_override: hasDistinctPrice ? Number(v.price_override) : null,
+              mrp_override: hasDistinctMrp ? Number(v.mrp_override) : null,
               image_url: v.image_url ?? null,
               is_active: true,
             };

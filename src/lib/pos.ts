@@ -423,8 +423,13 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
         imageUrl?: string | null;
       } | null;
 
-      const price = Number(v?.price_override ?? v?.priceOverride ?? offline.price ?? 0);
-      const mrp = Number(v?.mrp_override ?? v?.mrpOverride ?? offline.mrp ?? price);
+      const rawVPrice = v?.price_override ?? v?.priceOverride;
+      const hasCustomPrice = rawVPrice != null && Number(rawVPrice) > 0 && Number(rawVPrice) !== Number(offline.price);
+      const price = hasCustomPrice ? Number(rawVPrice) : Number(offline.price ?? 0);
+
+      const rawVMrp = v?.mrp_override ?? v?.mrpOverride;
+      const hasCustomMrp = hasCustomPrice && rawVMrp != null && Number(rawVMrp) > 0 && Number(rawVMrp) !== Number(offline.mrp);
+      const mrp = hasCustomMrp ? Number(rawVMrp) : Number(offline.mrp ?? price);
       const stock = Number(v ? (v.stock ?? 0) : (offline.stock ?? 0));
       const sku = String(v?.sku || offline.sku || "");
       const barcode = String(v?.barcode || offline.barcode || clean);
