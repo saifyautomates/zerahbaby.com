@@ -376,7 +376,10 @@ export function OnlineSalesTab() {
     } else {
       pool = orders;
     }
-    return pool.filter((o) => o.status !== "cancelled");
+    return pool.filter((o) => {
+      const s = (o.status || "").toLowerCase().trim();
+      return s !== "cancelled" && s !== "returned" && s !== "refunded";
+    });
   }, [cancelTargetMode, selection.selectedItems, visibleOrders, orders]);
 
   function handleOpenCancelModal(mode: "selected" | "visible" | "all") {

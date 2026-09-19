@@ -457,8 +457,8 @@ export function DashboardTab({
 
       return {
         dateStr: format(d, "MMM dd"),
-        online: dayMetrics.onlineGrossRevenue,
-        offline: dayMetrics.offlineGrossRevenue,
+        online: dayMetrics.onlineNetRevenue ?? dayMetrics.onlineGrossRevenue,
+        offline: dayMetrics.offlineNetRevenue ?? dayMetrics.offlineGrossRevenue,
         visitors: dayVis,
       };
     });

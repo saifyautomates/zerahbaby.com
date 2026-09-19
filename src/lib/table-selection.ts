@@ -287,13 +287,29 @@ export function getRevenueSelectionMetrics(
   let totalQty = 0;
   let grossRevenue = 0;
   let totalDiscount = 0;
+  let totalReturns = 0;
   let totalCogs = 0;
 
   selectedRows.forEach((row) => {
     const rowTotal = Number(row.total || 0);
     const rowDiscount = Number(row.discount || 0);
+    const rowRetStatus = (((row as any).return_status as string) || "").toLowerCase().trim();
+    const isFullyReturned =
+      rowRetStatus === "returned" ||
+      rowRetStatus === "fully_returned" ||
+      rowRetStatus === "completed";
+
+    const returnedAmount = Number((row as any).returned_amount || 0);
+
     grossRevenue += rowTotal;
     totalDiscount += rowDiscount;
+
+    if (isFullyReturned) {
+      totalReturns += rowTotal;
+      return; // Skip COGS and net item count for fully returned orders
+    } else if (returnedAmount > 0) {
+      totalReturns += returnedAmount;
+    }
 
     const items = row.order_items || row.offline_sale_items;
     if (items && items.length > 0) {
@@ -304,7 +320,7 @@ export function getRevenueSelectionMetrics(
           (item as any).returned_quantity ||
           ((item as any).return_status === "RETURNED" || (item as any).return_status === "returned" ? qty : 0)
         );
-        const netQty = (row as any).return_status === "returned" ? 0 : Math.max(0, qty - retQty);
+        const netQty = Math.max(0, qty - retQty);
         if (netQty <= 0) return;
 
         totalQty += netQty;
@@ -322,7 +338,7 @@ export function getRevenueSelectionMetrics(
     }
   });
 
-  const netRevenue = grossRevenue;
+  const netRevenue = Math.max(0, grossRevenue - totalReturns);
   const netProfit = Math.max(0, netRevenue - totalCogs);
 
   const metrics: SummaryMetric[] = [
@@ -340,6 +356,15 @@ export function getRevenueSelectionMetrics(
       label: "Discounts",
       value: formatPrice(roundCurrencyInt(totalDiscount)),
       highlight: "warning",
+      isCurrency: true,
+    });
+  }
+
+  if (totalReturns > 0) {
+    metrics.push({
+      label: "Returns Deducted",
+      value: `-${formatPrice(roundCurrencyInt(totalReturns))}`,
+      highlight: "danger",
       isCurrency: true,
     });
   }
@@ -376,15 +401,30 @@ export function getPOSSelectionMetrics(
   let totalQty = 0;
   let subtotal = 0;
   let discount = 0;
-  let total = 0;
+  let grossTotal = 0;
+  let returnsAmount = 0;
   let totalCogs = 0;
 
   selectedSales.forEach((s) => {
+    const statusLower = (((s as any).return_status as string) || "").toLowerCase().trim();
+    const isFullyReturned =
+      statusLower === "returned" ||
+      statusLower === "fully_returned" ||
+      statusLower === "completed";
+
+    const returnedDeduction = Number((s as any).returned_amount || 0);
+    const saleTotal = Number(s.total || 0);
+
     subtotal += Number(s.subtotal || 0);
     discount += Number(s.discount || 0);
-    total += Number(s.total || 0);
+    grossTotal += saleTotal;
 
-    if ((s as any).return_status === "returned") return;
+    if (isFullyReturned) {
+      returnsAmount += saleTotal;
+      return;
+    } else if (returnedDeduction > 0) {
+      returnsAmount += returnedDeduction;
+    }
 
     s.offline_sale_items?.forEach((item) => {
       const qty = Number(item.qty || 1);
@@ -406,7 +446,8 @@ export function getPOSSelectionMetrics(
     });
   });
 
-  const profit = Math.max(0, total - totalCogs);
+  const netTotal = Math.max(0, grossTotal - returnsAmount);
+  const profit = Math.max(0, netTotal - totalCogs);
 
   const metrics: SummaryMetric[] = [
     { label: "Items Sold", value: totalQty, highlight: "default" },
@@ -427,9 +468,18 @@ export function getPOSSelectionMetrics(
     });
   }
 
+  if (returnsAmount > 0) {
+    metrics.push({
+      label: "Returns Deducted",
+      value: `-${formatPrice(roundCurrencyInt(returnsAmount))}`,
+      highlight: "danger",
+      isCurrency: true,
+    });
+  }
+
   metrics.push({
-    label: "Total Sales",
-    value: formatPrice(roundCurrencyInt(total)),
+    label: "Net Sales",
+    value: formatPrice(roundCurrencyInt(netTotal)),
     highlight: "brand",
     isCurrency: true,
   });

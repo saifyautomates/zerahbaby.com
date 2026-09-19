@@ -190,6 +190,8 @@ export function isValidOnlineOrder(o: ReportOrder): boolean {
   if (s === "cancelled" || s === "returned" || s === "refunded") return false;
   const ps = (o.payment_status || "").toLowerCase().trim();
   if (ps === "failed" || ps === "refunded") return false;
+  const rs = (((o as unknown as Record<string, unknown>).return_status as string) || "").toUpperCase().trim();
+  if (rs === "COMPLETED" || rs === "REFUNDED") return false;
   return true;
 }
 

@@ -517,14 +517,23 @@ function SalesChannelDrillDown({
   }, [validOrders, products, getProductImage]);
 
   const offlineSales = useMemo(() => {
-    return validPosSales.map((s) => ({
-      sale_id: s.id,
-      date: s.created_at,
-      id: s.sale_number || s.id.substring(0, 8),
-      customer: s.customer_name || "Walk-in Customer",
-      source: "POS" as const,
-      total: s.total || 0,
-    }));
+    return validPosSales
+      .filter((s) => {
+        const retStatus = (s.return_status || "").toLowerCase().trim();
+        return retStatus !== "returned" && retStatus !== "fully_returned" && retStatus !== "completed";
+      })
+      .map((s) => {
+        const returnedAmount = Number((s as any).returned_amount || 0);
+        const netTotal = Math.max(0, Number(s.total || 0) - returnedAmount);
+        return {
+          sale_id: s.id,
+          date: s.created_at,
+          id: s.sale_number || s.id.substring(0, 8),
+          customer: s.customer_name || "Walk-in Customer",
+          source: "POS" as const,
+          total: netTotal,
+        };
+      });
   }, [validPosSales]);
 
   const offlineRevenueItems = useMemo(() => {
