@@ -407,12 +407,64 @@ function ProductPage() {
   const [isStickyVisible, setIsStickyVisible] = useState(false);
 
   const handleNext = useCallback(() => {
+    if (gallery.length < 2) return;
     setActiveImage((prev) => (prev + 1) % gallery.length);
   }, [gallery.length]);
 
   const handlePrev = useCallback(() => {
+    if (gallery.length < 2) return;
     setActiveImage((prev) => (prev - 1 + gallery.length) % gallery.length);
   }, [gallery.length]);
+
+  // Mobile swipe support for the existing product gallery.
+  // Horizontal swipes change the active image; vertical gestures remain page scrolling.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressImageClickRef = useRef(false);
+
+  const handleGalleryTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (gallery.length < 2) return;
+
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+      suppressImageClickRef.current = false;
+    },
+    [gallery.length],
+  );
+
+  const handleGalleryTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = touchStartRef.current;
+      const touch = e.changedTouches[0];
+
+      touchStartRef.current = null;
+
+      if (!start || !touch || gallery.length < 2) return;
+
+      const diffX = touch.clientX - start.x;
+      const diffY = touch.clientY - start.y;
+
+      // Ignore taps and mostly-vertical gestures so normal page scrolling is preserved.
+      if (Math.abs(diffX) < 50 || Math.abs(diffX) <= Math.abs(diffY)) {
+        return;
+      }
+
+      // A swipe should change the image, not also open the lightbox.
+      suppressImageClickRef.current = true;
+
+      if (diffX < 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    },
+    [gallery.length, handleNext, handlePrev],
+  );
 
 
 
@@ -786,7 +838,17 @@ function ProductPage() {
 
                 {/* Main Image */}
                 <button
-                  onClick={() => setShowLightbox(true)}
+                  onClick={() => {
+                    if (suppressImageClickRef.current) {
+                      suppressImageClickRef.current = false;
+                      return;
+                    }
+
+                    setShowLightbox(true);
+                  }}
+                  onTouchStart={handleGalleryTouchStart}
+                  onTouchEnd={handleGalleryTouchEnd}
+                  style={{ touchAction: "pan-y" }}
                   className={`w-full h-full flex items-center justify-center p-2 sm:p-3.5 overflow-hidden ${featMagnifier ? "cursor-zoom-in" : "cursor-pointer"}`}
                   aria-label="View full screen"
                   onMouseMove={featMagnifier ? handleMouseMove : undefined}
@@ -1388,6 +1450,9 @@ function ProductPage() {
             <div
               className="relative w-full max-w-5xl max-h-[85vh] flex items-center justify-center animate-in zoom-in-95 duration-300"
               onClick={(e) => e.stopPropagation()}
+              onTouchStart={handleGalleryTouchStart}
+              onTouchEnd={handleGalleryTouchEnd}
+              style={{ touchAction: "pan-y" }}
             >
               {(() => {
                 const activeUrl = gallery[activeImage] ?? product.image;
