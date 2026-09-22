@@ -2,8 +2,8 @@
  * PrintLabelsModal.tsx — Advanced / Manual Label Configuration Modal.
  *
  * Provides a live visual sticker preview (identical to physical thermal print)
- * with 50×25mm 1-Up Thermal automatic default, fully clickable Barcode-Only
- * and Show Discount % toggles, and quantity controls.
+ * with 50×25mm 1-Up Thermal automatic default, independent 0°/90°/180°/270°
+ * rotation, custom saved label sizes, fully clickable label toggles, and quantity controls.
  */
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -16,6 +16,43 @@ import {
   type LabelType,
   type LabelLayout,
 } from "./LabelPrintEngine";
+const SAVED_CUSTOM_LABEL_SIZES_KEY = "zerah_saved_custom_label_sizes_v1";
+
+type SavedCustomLabelSize = {
+  id: string;
+  widthMm: number;
+  heightMm: number;
+  name: string;
+};
+
+function readSavedCustomLabelSizes(): SavedCustomLabelSize[] {
+  try {
+    const raw = localStorage.getItem(SAVED_CUSTOM_LABEL_SIZES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is SavedCustomLabelSize =>
+        item &&
+        typeof item.id === "string" &&
+        typeof item.widthMm === "number" &&
+        typeof item.heightMm === "number" &&
+        Number.isFinite(item.widthMm) &&
+        Number.isFinite(item.heightMm),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedCustomLabelSizes(sizes: SavedCustomLabelSize[]) {
+  try {
+    localStorage.setItem(SAVED_CUSTOM_LABEL_SIZES_KEY, JSON.stringify(sizes));
+  } catch {
+    // Ignore localStorage failures; normal label settings still work.
+  }
+}
+
 import {
   getSavedLabelProfile,
   setSavedLabelProfile,
@@ -54,6 +91,9 @@ export function PrintLabelsModal({
   );
   const [layout, setLayout] = useState<LabelLayout>(() => getSavedLabelProfile());
   const [customDims, setCustomDims] = useState(() => getSavedCustomDimensions());
+  const [savedCustomSizes, setSavedCustomSizes] = useState<SavedCustomLabelSize[]>(() =>
+    readSavedCustomLabelSizes(),
+  );
   const [labelType, setLabelType] = useState<LabelType>(() => getSavedLabelType());
   const [showDiscount, setShowDiscount] = useState<boolean>(() => getSavedShowDiscount());
   const [showMrp, setShowMrp] = useState<boolean>(() => getSavedShowMrp());
@@ -64,6 +104,50 @@ export function PrintLabelsModal({
   );
   const [rotation, setRotation] = useState<LabelRotation>(() => getSavedLabelRotation());
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const persistSavedCustomSizes = (sizes: SavedCustomLabelSize[]) => {
+    setSavedCustomSizes(sizes);
+    writeSavedCustomLabelSizes(sizes);
+  };
+
+  const saveCurrentCustomSize = () => {
+    const widthMm = Math.max(20, Math.min(200, Math.round(Number(customDims.widthMm) || 50)));
+    const heightMm = Math.max(15, Math.min(200, Math.round(Number(customDims.heightMm) || 50)));
+    const existing = savedCustomSizes.find(
+      (size) => size.widthMm === widthMm && size.heightMm === heightMm,
+    );
+
+    if (existing) {
+      toast.success(`${widthMm} × ${heightMm} mm is already saved`);
+      return;
+    }
+
+    const next: SavedCustomLabelSize = {
+      id: `${widthMm}x${heightMm}-${Date.now()}`,
+      widthMm,
+      heightMm,
+      name: `${widthMm} × ${heightMm} mm`,
+    };
+
+    persistSavedCustomSizes([...savedCustomSizes, next]);
+    setCustomDims({ widthMm, heightMm });
+    setSavedCustomDimensions(widthMm, heightMm);
+    toast.success(`Saved ${next.name}`);
+  };
+
+  const deleteSavedCustomSize = (id: string) => {
+    const target = savedCustomSizes.find((size) => size.id === id);
+    persistSavedCustomSizes(savedCustomSizes.filter((size) => size.id !== id));
+    if (target) toast.success(`Deleted ${target.name}`);
+  };
+
+  const selectSavedCustomSize = (size: SavedCustomLabelSize) => {
+    const next = { widthMm: size.widthMm, heightMm: size.heightMm };
+    setLayout("custom");
+    setSavedLabelProfile("custom");
+    setCustomDims(next);
+    setSavedCustomDimensions(next.widthMm, next.heightMm);
+  };
 
   const handleRotationChange = (newRot: LabelRotation) => {
     setRotation(newRot);
@@ -357,103 +441,149 @@ export function PrintLabelsModal({
               </button>
             </div>
 
-            {/* If Custom is selected, show Shape Selectors and Width/Height inputs */}
+            {/* Custom size controls */}
             {layout === "custom" && (
-              <div className="flex flex-wrap items-center gap-1.5 bg-card px-2.5 py-1 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
-                <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
-                  Shape:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDims((prev) => {
-                      const size = prev.widthMm || 50;
-                      const next = { widthMm: size, heightMm: size };
-                      setSavedCustomDimensions(next.widthMm, next.heightMm);
-                      return next;
-                    });
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                    customDims.widthMm === customDims.heightMm
-                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  Square
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDims((prev) => {
-                      const h = prev.heightMm > prev.widthMm ? prev.heightMm : Math.round(prev.widthMm * 1.5);
-                      const next = { widthMm: prev.widthMm, heightMm: Math.min(200, Math.max(20, h)) };
-                      setSavedCustomDimensions(next.widthMm, next.heightMm);
-                      return next;
-                    });
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                    customDims.heightMm > customDims.widthMm
-                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  Portrait
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDims((prev) => {
-                      const h = prev.widthMm > prev.heightMm ? prev.heightMm : Math.round(prev.widthMm * 0.7);
-                      const next = { widthMm: prev.widthMm, heightMm: Math.max(15, Math.min(prev.widthMm - 5, h)) };
-                      setSavedCustomDimensions(next.widthMm, next.heightMm);
-                      return next;
-                    });
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                    customDims.widthMm > customDims.heightMm
-                      ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                      : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  Landscape
-                </button>
+              <div className="flex w-full flex-col gap-2 bg-card px-2.5 py-2 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
+                    Shape:
+                  </span>
 
-                <div className="h-3.5 w-px bg-border mx-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomDims((prev) => {
+                        const size = prev.widthMm || 50;
+                        const next = { widthMm: size, heightMm: size };
+                        setSavedCustomDimensions(next.widthMm, next.heightMm);
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                      customDims.widthMm === customDims.heightMm
+                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
+                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <span className="inline-block h-3.5 w-3.5 rounded-[2px] border border-current" />
+                    Square
+                  </button>
 
-                <span className="text-[11px] font-semibold text-muted-foreground">W:</span>
-                <input
-                  type="number"
-                  min={20}
-                  max={200}
-                  value={customDims.widthMm}
-                  onChange={(e) => {
-                    const val = Math.max(20, Math.min(200, parseInt(e.target.value) || 50));
-                    setCustomDims((prev) => {
-                      const next = { ...prev, widthMm: val };
-                      setSavedCustomDimensions(next.widthMm, next.heightMm);
-                      return next;
-                    });
-                  }}
-                  className="w-12 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
-                />
-                <span className="text-[11px] text-muted-foreground font-semibold">×</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">H:</span>
-                <input
-                  type="number"
-                  min={15}
-                  max={200}
-                  value={customDims.heightMm}
-                  onChange={(e) => {
-                    const val = Math.max(15, Math.min(200, parseInt(e.target.value) || 50));
-                    setCustomDims((prev) => {
-                      const next = { ...prev, heightMm: val };
-                      setSavedCustomDimensions(next.widthMm, next.heightMm);
-                      return next;
-                    });
-                  }}
-                  className="w-12 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
-                />
-                <span className="text-[10px] text-muted-foreground font-bold">mm</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomDims((prev) => {
+                        const h = prev.heightMm > prev.widthMm ? prev.heightMm : Math.round(prev.widthMm * 1.5);
+                        const next = { widthMm: prev.widthMm, heightMm: Math.min(200, Math.max(20, h)) };
+                        setSavedCustomDimensions(next.widthMm, next.heightMm);
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                      customDims.heightMm > customDims.widthMm
+                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
+                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <span className="inline-block h-4 w-2.5 rounded-[2px] border border-current" />
+                    Vertical
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomDims((prev) => {
+                        const h = prev.widthMm > prev.heightMm ? prev.heightMm : Math.max(15, Math.round(prev.widthMm * 0.7));
+                        const next = { widthMm: prev.widthMm, heightMm: Math.max(15, Math.min(200, h)) };
+                        setSavedCustomDimensions(next.widthMm, next.heightMm);
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                      customDims.widthMm > customDims.heightMm
+                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
+                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <span className="inline-block h-2.5 w-4 rounded-[2px] border border-current" />
+                    Horizontal
+                  </button>
+
+                  <div className="h-3.5 w-px bg-border mx-1" />
+
+                  <span className="text-[11px] font-semibold text-muted-foreground">W:</span>
+                  <input
+                    type="number"
+                    min={20}
+                    max={200}
+                    value={customDims.widthMm}
+                    onChange={(e) => {
+                      const val = Math.max(20, Math.min(200, parseInt(e.target.value) || 50));
+                      setCustomDims((prev) => ({ ...prev, widthMm: val }));
+                    }}
+                    onBlur={() => setSavedCustomDimensions(customDims.widthMm, customDims.heightMm)}
+                    className="w-14 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
+                  />
+                  <span className="text-[11px] text-muted-foreground font-semibold">×</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground">H:</span>
+                  <input
+                    type="number"
+                    min={15}
+                    max={200}
+                    value={customDims.heightMm}
+                    onChange={(e) => {
+                      const val = Math.max(15, Math.min(200, parseInt(e.target.value) || 50));
+                      setCustomDims((prev) => ({ ...prev, heightMm: val }));
+                    }}
+                    onBlur={() => setSavedCustomDimensions(customDims.widthMm, customDims.heightMm)}
+                    className="w-14 text-center text-xs font-black rounded border border-border py-0.5 bg-background"
+                  />
+                  <span className="text-[10px] text-muted-foreground font-bold">mm</span>
+
+                  <button
+                    type="button"
+                    onClick={saveCurrentCustomSize}
+                    className="ml-auto px-2.5 py-1 rounded-lg bg-[#8B2020] text-white text-xs font-extrabold hover:bg-[#7a1c1c] active:scale-95 transition cursor-pointer"
+                  >
+                    Save Size
+                  </button>
+                </div>
+
+                {savedCustomSizes.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/60">
+                    <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
+                      Saved:
+                    </span>
+                    {savedCustomSizes.map((size) => (
+                      <div
+                        key={size.id}
+                        className="flex items-center rounded-lg border border-border bg-muted/40 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectSavedCustomSize(size)}
+                          className={`px-2 py-1 text-[11px] font-bold transition cursor-pointer hover:bg-muted ${
+                            customDims.widthMm === size.widthMm && customDims.heightMm === size.heightMm
+                              ? "text-[#8B2020] bg-[#8B2020]/10"
+                              : "text-foreground"
+                          }`}
+                          title={`Use ${size.name}`}
+                        >
+                          {size.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteSavedCustomSize(size.id)}
+                          className="px-1.5 py-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer border-l border-border"
+                          title={`Delete ${size.name}`}
+                          aria-label={`Delete saved size ${size.name}`}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
