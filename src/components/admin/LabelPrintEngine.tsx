@@ -103,20 +103,30 @@ function SingleStickerPreview({
   const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
   const mrpVal = typeof product.mrp === "number" && product.mrp > 0 ? product.mrp : product.price;
 
-  // Compute screen preview dimensions maintaining exact physical aspect ratio
-  const previewW = cfg.isSheet
+  // Compute screen preview dimensions maintaining the label\'s physical aspect ratio.
+  // For 90°/270° the physical page itself is rotated, so the outer preview
+  // dimensions must also swap. This keeps the screen preview in sync with print.
+  const basePreviewW = cfg.isSheet
     ? 220
     : Math.max(180, Math.min(260, Math.round(cfg.labelWidthMm * 4.4)));
-  const previewH = Math.max(
-    85,
-    Math.round(previewW * (cfg.labelHeightMm / cfg.labelWidthMm)),
-  );
+  const basePreviewH = cfg.isSheet
+    ? Math.max(
+        85,
+        Math.round(basePreviewW * (cfg.labelHeightMm / cfg.labelWidthMm)),
+      )
+    : Math.max(
+        85,
+        Math.round(basePreviewW * (cfg.labelHeightMm / cfg.labelWidthMm)),
+      );
 
   const isCompact = cfg.labelHeightMm <= 35;
   const isRotated = rotation === 90 || rotation === 270;
+  const previewW = !cfg.isSheet && isRotated ? basePreviewH : basePreviewW;
+  const previewH = !cfg.isSheet && isRotated ? basePreviewW : basePreviewH;
+
   const bcHeight = isRotated
-    ? Math.min(26, Math.max(20, Math.round(previewW * 0.12)))
-    : (isCompact ? 24 : Math.max(28, Math.min(48, Math.round(previewH * 0.18))));
+    ? Math.min(26, Math.max(20, Math.round(basePreviewW * 0.12)))
+    : (isCompact ? 24 : Math.max(28, Math.min(48, Math.round(basePreviewH * 0.18))));
 
   const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price && product.price > 0;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
@@ -133,8 +143,8 @@ function SingleStickerPreview({
         position: "absolute",
         left: "50%",
         top: "50%",
-        width: previewH,
-        height: previewW,
+        width: basePreviewW,
+        height: basePreviewH,
         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
         transformOrigin: "center center",
         padding: isCompact ? "4px 6px" : "10px 8px",
