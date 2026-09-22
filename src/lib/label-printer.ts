@@ -1136,21 +1136,6 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   } = params;
 
   const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
-  const isQuarterTurn = rotation === 90 || rotation === 270;
-
-  // A 90°/270° rotation must swap the physical page dimensions as well as
-  // rotate the label content. This keeps the complete label inside the
-  // selected physical media instead of rotating it inside the old rectangle.
-  const printPageWidthMm = cfg.isSheet
-    ? cfg.pageWidthMm
-    : isQuarterTurn
-      ? cfg.pageHeightMm
-      : cfg.pageWidthMm;
-  const printPageHeightMm = cfg.isSheet
-    ? cfg.pageHeightMm
-    : isQuarterTurn
-      ? cfg.pageWidthMm
-      : cfg.pageHeightMm;
 
   const rawProducts = Array.isArray(products) ? products : [products];
 
@@ -1317,7 +1302,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   // transpose width/height causing height overflow and skipped blank stickers.
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : `${printPageWidthMm}mm ${printPageHeightMm}mm`;
+    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
@@ -1336,9 +1321,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     /* ── Label Container & Typography ── */
     .label-page {
       position: relative;
-      width: ${printPageWidthMm}mm;
-      height: ${printPageHeightMm}mm;
-      max-height: ${printPageHeightMm}mm;
+      width: ${cfg.pageWidthMm}mm;
+      height: ${cfg.pageHeightMm}mm;
+      max-height: ${cfg.pageHeightMm}mm;
       box-sizing: border-box;
       background: #ffffff;
       overflow: hidden;
@@ -1362,10 +1347,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: ${cfg.pageWidthMm}mm;
-      height: ${cfg.pageHeightMm}mm;
-      max-width: ${cfg.pageWidthMm}mm;
-      max-height: ${cfg.pageHeightMm}mm;
+      width: ${cfg.pageHeightMm}mm;
+      height: ${cfg.pageWidthMm}mm;
+      max-width: ${cfg.pageHeightMm}mm;
+      max-height: ${cfg.pageWidthMm}mm;
       transform: translate(-50%, -50%) rotate(${rotation}deg);
       transform-origin: center center;
       ` : rotation === 180 ? `
@@ -1699,7 +1684,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       }
 
       html, body {
-        width: ${printPageWidthMm}mm !important;
+        width: ${cfg.pageWidthMm}mm !important;
         height: auto !important;
         min-height: 0 !important;
         margin: 0 !important;
@@ -1718,7 +1703,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         padding: 0 !important;
         margin: 0 !important;
         border: 0 !important;
-        width: ${printPageWidthMm}mm !important;
+        width: ${cfg.pageWidthMm}mm !important;
       }
 
       .sticker-preview-wrapper,
@@ -1734,9 +1719,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
-        width: ${printPageWidthMm}mm !important;
-        height: ${printPageHeightMm}mm !important;
-        max-height: ${printPageHeightMm}mm !important;
+        width: ${cfg.pageWidthMm}mm !important;
+        height: ${cfg.pageHeightMm}mm !important;
+        max-height: ${cfg.pageHeightMm}mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -2203,6 +2188,7 @@ export function useDirectLabelPrint() {
         showMrp: options?.showMrp,
         showSellPrice: options?.showSellPrice,
         separatePriceLine: options?.separatePriceLine,
+        rotation: options?.rotation,
         onDone: () => setIsPrinting(false),
       });
     },
