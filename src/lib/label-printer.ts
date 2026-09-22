@@ -106,10 +106,9 @@ export const LABEL_SIZE_OPTIONS: Array<{
   category: "thermal" | "sheet" | "custom";
   subcategory?: "square" | "portrait" | "landscape";
 }> = [
-  { id: "58x50", label: "58 × 50 mm", description: "Horizontal Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "50x58", label: "50 × 58 mm", description: "Vertical Thermal", category: "thermal", subcategory: "portrait" },
-  { id: "3x2", label: "3 × 2 inch (76 × 50 mm)", description: "3×2 Landscape Thermal", category: "thermal", subcategory: "landscape" },
-  { id: "58x75", label: "58 × 75 mm", description: "Portrait Thermal", category: "thermal", subcategory: "portrait" },
+  { id: "58x50", label: "Horizontal", description: "58 × 50 mm", category: "thermal", subcategory: "landscape" },
+  { id: "50x58", label: "Vertical", description: "50 × 58 mm", category: "thermal", subcategory: "portrait" },
+  { id: "custom", label: "Custom", description: "Your saved size", category: "custom" },
 ];
 
 export const PRINT_FORMAT_CONFIG: Record<string, PrintFormatConfig> = {
@@ -1137,6 +1136,11 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
   const cfg = resolvePrintFormatConfig(layout, customWidthMm, customHeightMm);
 
+  // Rotation is independent from the selected physical label format.
+  // The media size stays exactly as selected; only the label content rotates.
+  const printPageWidthMm = cfg.pageWidthMm;
+  const printPageHeightMm = cfg.pageHeightMm;
+
   const rawProducts = Array.isArray(products) ? products : [products];
 
   // Isolated print mode class
@@ -1302,7 +1306,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
   // transpose width/height causing height overflow and skipped blank stickers.
   const pageSizeDecl = cfg.isSheet
     ? "A4 portrait"
-    : `${cfg.pageWidthMm}mm ${cfg.pageHeightMm}mm`;
+    : `${printPageWidthMm}mm ${printPageHeightMm}mm`;
   const pageMarginDecl = cfg.isSheet ? `${cfg.pageMarginMm}mm 6mm` : "0";
 
   const css = `
@@ -1321,9 +1325,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
     /* ── Label Container & Typography ── */
     .label-page {
       position: relative;
-      width: ${cfg.pageWidthMm}mm;
-      height: ${cfg.pageHeightMm}mm;
-      max-height: ${cfg.pageHeightMm}mm;
+      width: ${printPageWidthMm}mm;
+      height: ${printPageHeightMm}mm;
+      max-height: ${printPageHeightMm}mm;
       box-sizing: border-box;
       background: #ffffff;
       overflow: hidden;
@@ -1347,10 +1351,10 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: ${cfg.pageHeightMm}mm;
-      height: ${cfg.pageWidthMm}mm;
-      max-width: ${cfg.pageHeightMm}mm;
-      max-height: ${cfg.pageWidthMm}mm;
+      width: ${cfg.pageWidthMm}mm;
+      height: ${cfg.pageHeightMm}mm;
+      max-width: ${cfg.pageWidthMm}mm;
+      max-height: ${cfg.pageHeightMm}mm;
       transform: translate(-50%, -50%) rotate(${rotation}deg);
       transform-origin: center center;
       ` : rotation === 180 ? `
@@ -1684,7 +1688,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       }
 
       html, body {
-        width: ${cfg.pageWidthMm}mm !important;
+        width: ${printPageWidthMm}mm !important;
         height: auto !important;
         min-height: 0 !important;
         margin: 0 !important;
@@ -1703,7 +1707,7 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
         padding: 0 !important;
         margin: 0 !important;
         border: 0 !important;
-        width: ${cfg.pageWidthMm}mm !important;
+        width: ${printPageWidthMm}mm !important;
       }
 
       .sticker-preview-wrapper,
@@ -1719,9 +1723,9 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
       /* ── Thermal Roll Page Breaks & Physical Sizing ── */
       .label-page {
-        width: ${cfg.pageWidthMm}mm !important;
-        height: ${cfg.pageHeightMm}mm !important;
-        max-height: ${cfg.pageHeightMm}mm !important;
+        width: ${printPageWidthMm}mm !important;
+        height: ${printPageHeightMm}mm !important;
+        max-height: ${printPageHeightMm}mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
