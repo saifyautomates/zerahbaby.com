@@ -249,6 +249,7 @@ export function buildTSPLLabel(params: {
   showMrp?: boolean;
   showSellPrice?: boolean;
   separatePriceLine?: boolean;
+  rotation?: 0 | 90 | 180 | 270;
 }): string {
   const {
     productName,
@@ -265,6 +266,7 @@ export function buildTSPLLabel(params: {
     showMrp = true,
     showSellPrice = true,
     separatePriceLine = false,
+    rotation = 0,
   } = params;
 
   /*
@@ -344,163 +346,159 @@ export function buildTSPLLabel(params: {
   /*  Label layout                                                    */
   /* ---------------------------------------------------------------- */
 
+  /*
+   * Rotation is applied to the CONTENT only. The physical media size
+   * remains exactly widthMm × heightMm, so format and rotation remain
+   * independent.
+   *
+   * TSPL supports 0/90/180/270° rotation for text and barcodes.
+   * We rotate each element around the physical label centre and
+   * transform its coordinates, which keeps rotated content inside the
+   * same label instead of changing the label dimensions.
+   */
+  const safeRotation: 0 | 90 | 180 | 270 =
+    rotation === 90 || rotation === 180 || rotation === 270 ? rotation : 0;
+
+  const minPad = Math.max(4, Math.round(dotsPerMm * 0.8));
+
+  const clamp = (value: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, Math.round(value)));
+
+  /* Keep the existing look on normal labels, but make small custom
+   * labels (for example 25 × 20mm) physically fit. */
+  const compact = h <= Math.round(dotsPerMm * 25);
+  const veryCompact = h <= Math.round(dotsPerMm * 21);
+  const storeFont = veryCompact ? "1" : compact ? "1" : "3";
+  const nameFont = veryCompact ? "1" : compact ? "1" : "2";
+  const priceFont = veryCompact ? "1" : compact ? "1" : "2";
+  const skuFont = "1";
+  const textScale = veryCompact ? 1 : compact ? 1 : 1;
+
+  const topY = clamp(h * 0.045, minPad, Math.max(minPad, h - 12));
+  const nameY = clamp(h * 0.18, topY + 14, Math.max(topY + 14, h - 90));
+  const price1Y = clamp(h * 0.31, nameY + 14, Math.max(nameY + 14, h - 68));
+  const price2Y = clamp(h * 0.40, price1Y + 14, Math.max(price1Y + 14, h - 52));
+
+  /* Barcode height is proportional to the physical label height. */
+  const barcodeHeight = clamp(
+    h * (veryCompact ? 0.23 : compact ? 0.27 : 0.30),
+    veryCompact ? 28 : 38,
+    Math.max(28, h - 70),
+  );
+
+  const barcodeY = clamp(
+    h * (veryCompact ? 0.50 : compact ? 0.47 : 0.49),
+    price2Y + 8,
+    Math.max(price2Y + 8, h - barcodeHeight - 22),
+  );
+
+  const skuY = clamp(
+    h - Math.max(14, Math.round(h * 0.075)),
+    barcodeY + barcodeHeight + 8,
+    Math.max(barcodeY + barcodeHeight + 8, h - 6),
+  );
+
+  const textPoint = (x: number, y: number) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    const dx = x - cx;
+    const dy = y - cy;
+
+    switch (safeRotation) {
+      case 90:
+        return { x: Math.round(cx - dy), y: Math.round(cy + dx) };
+      case 180:
+        return { x: Math.round(cx - dx), y: Math.round(cy - dy) };
+      case 270:
+        return { x: Math.round(cx + dy), y: Math.round(cy - dx) };
+      default:
+        return { x: Math.round(x), y: Math.round(y) };
+    }
+  };
+
+  const textCmd = (x: number, y: number, font: string, value: string) => {
+    const point = textPoint(x, y);
+    return `TEXT ${point.x},${point.y},"${font}",${safeRotation},${textScale},${textScale},2,"${value}"`;
+  };
+
+  /*
+   * Barcode command uses x/y as the barcode's top-left anchor. Rotate
+   * its centre and then convert the rotated bounding box back to a
+   * top-left coordinate so 90°/270° stay completely inside the label.
+   */
+  const barcodeCharacters = Math.max(1, safeBarcode.length);
+  const barcodeModules = 35 + barcodeCharacters * 11;
+  const availableBarcodeWidth = Math.max(40, w - minPad * 2);
+  const narrowBarWidth = Math.max(1, Math.min(2, Math.floor(availableBarcodeWidth / barcodeModules)));
+  const estimatedBarcodeWidth = barcodeModules * narrowBarWidth;
+  const barcodeWidth = Math.min(estimatedBarcodeWidth, availableBarcodeWidth);
+
+  const barcodeCenterX = w / 2;
+  const barcodeCenterY = barcodeY + barcodeHeight / 2;
+
+  const barcodeCenter = textPoint(barcodeCenterX, barcodeCenterY);
+  const rotatedBarcodeWidth = safeRotation === 90 || safeRotation === 270
+    ? barcodeHeight
+    : barcodeWidth;
+  const rotatedBarcodeHeight = safeRotation === 90 || safeRotation === 270
+    ? barcodeWidth
+    : barcodeHeight;
+
+  const barcodeX = clamp(
+    barcodeCenter.x - rotatedBarcodeWidth / 2,
+    minPad,
+    Math.max(minPad, w - rotatedBarcodeWidth - minPad),
+  );
+  const finalBarcodeY = clamp(
+    barcodeCenter.y - rotatedBarcodeHeight / 2,
+    minPad,
+    Math.max(minPad, h - rotatedBarcodeHeight - minPad),
+  );
+
   const lines: string[] = [
     `SIZE ${widthMm} mm, ${heightMm} mm`,
     `GAP 2 mm, 0 mm`,
     `DIRECTION 1`,
     `CLS`,
-
-    /*
-     * Store name — CENTER
-     */
-    `TEXT ${centerX},8,"3",0,1,1,2,"${safeStore}"`,
+    textCmd(centerX, topY, storeFont, safeStore),
   ];
 
-  /*
-   * Product + pricing.
-   *
-   * Both variants are now centered.
-   */
   if (separatePriceLine && (showMrp || showSellPrice)) {
-    /*
-     * Product name — CENTER
-     */
-    lines.push(
-      `TEXT ${centerX},28,"2",0,1,1,2,"${safeName}"`,
-    );
+    lines.push(textCmd(centerX, nameY, nameFont, safeName));
 
     let priceLine = "";
-
     if (showMrp && showSellPrice) {
-      priceLine =
-        `MRP: Rs.${mrpVal}  Price: Rs.${price}${discStr}`;
+      priceLine = `MRP: Rs.${mrpVal}  Price: Rs.${price}${discStr}`;
     } else if (showSellPrice) {
-      priceLine =
-        `Price: Rs.${price}`;
+      priceLine = `Price: Rs.${price}`;
     } else if (showMrp) {
-      priceLine =
-        `MRP: Rs.${mrpVal}${discStr}`;
+      priceLine = `MRP: Rs.${mrpVal}${discStr}`;
     }
 
-    /*
-     * Price — CENTER
-     */
-    lines.push(
-      `TEXT ${centerX},48,"2",0,1,1,2,"${priceLine}"`,
-    );
+    lines.push(textCmd(centerX, price1Y, priceFont, priceLine));
   } else {
-    /*
-     * Previously the product name was left aligned and price was
-     * right aligned. That is intentionally removed.
-     *
-     * Everything is CENTER aligned now.
-     */
-
-    lines.push(
-      `TEXT ${centerX},38,"2",0,1,1,2,"${safeName}"`,
-    );
+    lines.push(textCmd(centerX, nameY, nameFont, safeName));
 
     if (showMrp && showSellPrice) {
-      lines.push(
-        `TEXT ${centerX},58,"1",0,1,1,2,"MRP: Rs.${mrpVal}"`,
-      );
-
-      lines.push(
-        `TEXT ${centerX},74,"2",0,1,1,2,"Price: Rs.${price}${discStr}"`,
-      );
+      lines.push(textCmd(centerX, price1Y, skuFont, `MRP: Rs.${mrpVal}`));
+      lines.push(textCmd(centerX, price2Y, priceFont, `Price: Rs.${price}${discStr}`));
     } else if (showSellPrice) {
-      lines.push(
-        `TEXT ${centerX},58,"2",0,1,1,2,"Price: Rs.${price}"`,
-      );
+      lines.push(textCmd(centerX, price1Y, priceFont, `Price: Rs.${price}`));
     } else if (showMrp) {
-      lines.push(
-        `TEXT ${centerX},58,"2",0,1,1,2,"MRP: Rs.${mrpVal}${discStr}"`,
-      );
+      lines.push(textCmd(centerX, price1Y, priceFont, `MRP: Rs.${mrpVal}${discStr}`));
     }
   }
 
-  /* ---------------------------------------------------------------- */
-  /*  Barcode                                                         */
-  /* ---------------------------------------------------------------- */
-
-  /*
-   * BARCODE x-coordinate is the LEFT edge of the barcode.
-   *
-   * The old code used:
-   *     BARCODE centerX,...
-   *
-   * That means the barcode STARTED at the center and extended to the
-   * right — it was NOT actually centered.
-   *
-   * Calculate an approximate Code 128 width and place its LEFT edge
-   * so the complete barcode is centered.
-   */
-
-  const barcodeCharacters = Math.max(
-    1,
-    safeBarcode.length,
-  );
-
-  /*
-   * Approximate Code 128 module count:
-   *  - start + checksum + stop + character patterns
-   *  - 11 modules per encoded character
-   */
-  const barcodeModules =
-    35 + barcodeCharacters * 11;
-
-  /*
-   * "2" is the narrow bar width used below.
-   */
-  const narrowBarWidth = 2;
-
-  const estimatedBarcodeWidth =
-    barcodeModules * narrowBarWidth;
-
-  const barcodeX = Math.max(
-    4,
-    Math.round(
-      (w - estimatedBarcodeWidth) / 2,
-    ),
-  );
-
-  /*
-   * Prevent barcode from exceeding the label width.
-   */
-  const finalBarcodeX = Math.min(
-    barcodeX,
-    Math.max(
-      4,
-      w - estimatedBarcodeWidth - 4,
-    ),
+  lines.push(
+    `BARCODE ${barcodeX},${finalBarcodeY},"128",${barcodeHeight},1,${safeRotation},${narrowBarWidth},${narrowBarWidth},"${safeBarcode}"`,
   );
 
   lines.push(
-    `BARCODE ${finalBarcodeX},92,"128",48,1,0,${narrowBarWidth},${narrowBarWidth},"${safeBarcode}"`,
+    textCmd(centerX, skuY, skuFont, `SKU: ${safeSku}`),
   );
 
-  /* ---------------------------------------------------------------- */
-  /*  SKU                                                              */
-  /* ---------------------------------------------------------------- */
-
-  /*
-   * SKU — CENTER
-   */
-  lines.push(
-    `TEXT ${centerX},158,"1",0,1,1,2,"SKU: ${safeSku}"`,
-  );
-
-  /* ---------------------------------------------------------------- */
-  /*  Print                                                            */
-  /* ---------------------------------------------------------------- */
-
-  lines.push(
-    `PRINT ${copies},1`,
-  );
-
-  lines.push(
-    `END`,
-  );
+  lines.push(`PRINT ${copies},1`);
+  lines.push(`END`);
 
   return lines.join("\n");
 }
