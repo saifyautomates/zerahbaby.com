@@ -2,8 +2,9 @@
  * PrintLabelsModal.tsx — Advanced / Manual Label Configuration Modal.
  *
  * Provides a live visual sticker preview (identical to physical thermal print)
- * with 50×25mm 1-Up Thermal automatic default, independent 0°/90°/180°/270°
- * rotation, custom saved label sizes, fully clickable label toggles, and quantity controls.
+ * with three user-facing formats — Horizontal, Vertical, and Custom — plus
+ * independent 0°/90°/180°/270° rotation, saved custom label sizes,
+ * fully clickable label toggles, and quantity controls.
  */
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -53,13 +54,23 @@ function writeSavedCustomLabelSizes(sizes: SavedCustomLabelSize[]) {
   }
 }
 
+/**
+ * The UI intentionally exposes only three format choices.
+ * Legacy / previously-saved profiles are normalized to their closest
+ * supported user-facing format so an old setting can never reappear in the UI.
+ */
+function normalizeLabelLayout(profile: LabelLayout): Extract<LabelLayout, "58x50" | "50x58" | "custom"> {
+  if (profile === "50x58") return "50x58";
+  if (profile === "custom") return "custom";
+  return "58x50";
+}
+
 import {
   getSavedLabelProfile,
   setSavedLabelProfile,
   getSavedCustomDimensions,
   setSavedCustomDimensions,
   resolvePrintFormatConfig,
-  LABEL_SIZE_OPTIONS,
   getSavedLabelType,
   setSavedLabelType,
   getSavedShowDiscount,
@@ -89,7 +100,9 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid || p.id, 1])),
   );
-  const [layout, setLayout] = useState<LabelLayout>(() => getSavedLabelProfile());
+  const [layout, setLayout] = useState<LabelLayout>(() =>
+    normalizeLabelLayout(getSavedLabelProfile()),
+  );
   const [customDims, setCustomDims] = useState(() => getSavedCustomDimensions());
   const [savedCustomSizes, setSavedCustomSizes] = useState<SavedCustomLabelSize[]>(() =>
     readSavedCustomLabelSizes(),
@@ -130,6 +143,8 @@ export function PrintLabelsModal({
     };
 
     persistSavedCustomSizes([...savedCustomSizes, next]);
+    setLayout("custom");
+    setSavedLabelProfile("custom");
     setCustomDims({ widthMm, heightMm });
     setSavedCustomDimensions(widthMm, heightMm);
     toast.success(`Saved ${next.name}`);
@@ -157,28 +172,6 @@ export function PrintLabelsModal({
   const cycleRotation = () => {
     const nextRot: Record<LabelRotation, LabelRotation> = { 0: 90, 90: 180, 180: 270, 270: 0 };
     handleRotationChange(nextRot[rotation] ?? 0);
-  };
-
-  const handleFlipDimensions = () => {
-    if (layout === "custom") {
-      setCustomDims((prev) => {
-        const next = { widthMm: prev.heightMm, heightMm: prev.widthMm };
-        setSavedCustomDimensions(next.widthMm, next.heightMm);
-        return next;
-      });
-    } else if (layout === "58x50") {
-      setLayout("50x58");
-      setSavedLabelProfile("50x58");
-    } else if (layout === "50x58") {
-      setLayout("58x50");
-      setSavedLabelProfile("58x50");
-    } else {
-      const next = { widthMm: activeCfg.pageHeightMm, heightMm: activeCfg.pageWidthMm };
-      setLayout("custom");
-      setSavedLabelProfile("custom");
-      setCustomDims(next);
-      setSavedCustomDimensions(next.widthMm, next.heightMm);
-    }
   };
 
   const handleLabelTypeChange = (newType: LabelType) => {
@@ -387,18 +380,17 @@ export function PrintLabelsModal({
             <div className="relative">
               <select
                 value={layout}
+                aria-label="Label format"
                 onChange={(e) => {
-                  const newLayout = e.target.value as LabelLayout;
+                  const newLayout = normalizeLabelLayout(e.target.value as LabelLayout);
                   setLayout(newLayout);
                   setSavedLabelProfile(newLayout);
                 }}
                 className="bg-card text-foreground font-bold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-border focus:ring-2 focus:ring-[#8B2020] focus:border-[#8B2020] shadow-2xs cursor-pointer appearance-none outline-none"
               >
-                {LABEL_SIZE_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label} ({o.description})
-                  </option>
-                ))}
+                <option value="58x50">Horizontal (58 × 50 mm)</option>
+                <option value="50x58">Vertical (50 × 58 mm)</option>
+                <option value="custom">Custom</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
                 <ChevronDown className="size-3.5" />
@@ -430,15 +422,7 @@ export function PrintLabelsModal({
                   {deg}°
                 </button>
               ))}
-              <div className="h-3.5 w-px bg-border mx-0.5" />
-              <button
-                type="button"
-                onClick={handleFlipDimensions}
-                title="Swap Width and Height (Landscape ⇄ Portrait)"
-                className="px-2 py-0.5 rounded-lg text-xs font-bold bg-muted/50 text-foreground hover:bg-muted border border-border transition cursor-pointer"
-              >
-                ⇄ Flip
-              </button>
+
             </div>
 
             {/* Custom size controls */}
@@ -446,70 +430,8 @@ export function PrintLabelsModal({
               <div className="flex w-full flex-col gap-2 bg-card px-2.5 py-2 rounded-xl border border-border shadow-2xs animate-in fade-in duration-150">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider mr-0.5">
-                    Shape:
+                    Size:
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomDims((prev) => {
-                        const size = prev.widthMm || 50;
-                        const next = { widthMm: size, heightMm: size };
-                        setSavedCustomDimensions(next.widthMm, next.heightMm);
-                        return next;
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                      customDims.widthMm === customDims.heightMm
-                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    <span className="inline-block h-3.5 w-3.5 rounded-[2px] border border-current" />
-                    Square
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomDims((prev) => {
-                        const h = prev.heightMm > prev.widthMm ? prev.heightMm : Math.round(prev.widthMm * 1.5);
-                        const next = { widthMm: prev.widthMm, heightMm: Math.min(200, Math.max(20, h)) };
-                        setSavedCustomDimensions(next.widthMm, next.heightMm);
-                        return next;
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                      customDims.heightMm > customDims.widthMm
-                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    <span className="inline-block h-4 w-2.5 rounded-[2px] border border-current" />
-                    Vertical
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomDims((prev) => {
-                        const h = prev.widthMm > prev.heightMm ? prev.heightMm : Math.max(15, Math.round(prev.widthMm * 0.7));
-                        const next = { widthMm: prev.widthMm, heightMm: Math.max(15, Math.min(200, h)) };
-                        setSavedCustomDimensions(next.widthMm, next.heightMm);
-                        return next;
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                      customDims.widthMm > customDims.heightMm
-                        ? "bg-[#8B2020] text-white border-[#8B2020] shadow-2xs"
-                        : "bg-muted/50 text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    <span className="inline-block h-2.5 w-4 rounded-[2px] border border-current" />
-                    Horizontal
-                  </button>
-
-                  <div className="h-3.5 w-px bg-border mx-1" />
 
                   <span className="text-[11px] font-semibold text-muted-foreground">W:</span>
                   <input
