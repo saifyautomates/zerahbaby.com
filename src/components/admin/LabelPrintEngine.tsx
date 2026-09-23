@@ -224,11 +224,36 @@ function SingleStickerPreview({
           )}
 
           {(showSellPrice || showMrp || showDiscount) && (
-            <div className="flex items-center justify-center gap-2 mt-1">
-              {showSellPrice && (
-                <span className="font-black text-2xl text-black tracking-tight">{priceFormatted}</span>
+            <div className="flex flex-col items-center justify-center mt-1">
+              {separatePriceLine ? (
+                <div className="flex items-center justify-center gap-2">
+                  {showSellPrice && (
+                    <span className="font-black text-2xl text-black tracking-tight">{priceFormatted}</span>
+                  )}
+                  {showSellPrice && (showMrp || (showDiscount && discountPct > 0)) && (
+                    <div className="h-5 w-px bg-slate-300 mx-0.5" />
+                  )}
+                  {showMrp && mrpVal > 0 && (
+                    <span className="text-sm font-bold text-slate-500 line-through">
+                      {mrpFormatted}
+                    </span>
+                  )}
+                  {showDiscount && discountPct > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#ff5500] text-white shadow-2xs uppercase tracking-wider">
+                      {discountPct}% OFF
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-slate-600">
+                  {showSellPrice ? `Sell ${priceFormatted}` : ""}
+                  {showSellPrice && showMrp ? " · " : ""}
+                  {showMrp ? `MRP ${mrpFormatted}` : ""}
+                  {showDiscount && discountPct > 0 ? ` · ${discountPct}% OFF` : ""}
+                </p>
               )}
-              {showSellPrice && ((showMrp && mrpVal > product.price) || (showDiscount && discountPct > 0)) && (
+            </div>
+          )}             {showSellPrice && ((showMrp && mrpVal > product.price) || (showDiscount && discountPct > 0)) && (
                 <div className="h-5 w-px bg-slate-300 mx-0.5" />
               )}
               {showMrp && mrpVal > 0 && (
