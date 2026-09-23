@@ -481,7 +481,7 @@ export function ProductForm({
     setInitialJobs,
     isUploading,
   } = useUploader({
-    concurrency: 5,
+    concurrency: 8,
     prefix: product ? product.uuid : "drafts",
     onSuccess: async (job) => {
       // Immediate database save for existing products
