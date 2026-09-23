@@ -61,8 +61,9 @@ import {
 import { safeLazy } from "@/lib/safe-lazy";
 import { Suspense } from "react";
 import { useAdminMode } from "@/lib/admin-mode";
-import { useProfile, useSaveProfile, usePlaceOrder } from "@/lib/orders";
+import { useProfile, useSaveProfile } from "@/lib/orders";
 import { calculateCartFinancials } from "@/lib/pricing-engine";
+import { createCheckoutSession, cancelCheckoutSession } from "@/lib/checkout-session";
 import { dispatchSaleNotifications } from "@/lib/sale-notifications";
 import { buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { supabase } from "@/integrations/supabase/client";
@@ -1968,7 +1969,6 @@ function BuyNowModal({
   const navigate = useNavigate();
   const { data: profile } = useProfile(user?.id);
   const saveProfile = useSaveProfile(user?.id);
-  const placeOrder = usePlaceOrder();
 
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -2051,7 +2051,7 @@ function BuyNowModal({
 
     setSubmitting(true);
 
-    let orderId = "";
+
     try {
       // Save profile address changes (non-blocking)
       try {
@@ -2067,11 +2067,19 @@ function BuyNowModal({
         console.warn("[BuyNow] Profile auto-save non-blocking notice:", profileErr);
       }
 
-      // Place single-item order securely via server RPC
-      orderId = await placeOrder.mutateAsync({
-        userId: user.id,
-        email: user.email ?? "",
+      // Use the same authoritative checkout-session flow as the main Checkout page.
+      // No order is created before Razorpay payment verification succeeds.
+      const sessionResult = await createCheckoutSession({
+        items: [
+          {
+            variant_id: variant?.id || (product.variants?.length ? product.variants[0].id : undefined),
+            product_slug: product.id,
+            product_id: product.uuid || product.id,
+            qty,
+          },
+        ],
         full_name: form.full_name.trim(),
+        email: user.email ?? "",
         phone: form.phone.trim(),
         alt_phone: form.alt_phone.trim(),
         address: form.address.trim(),
@@ -2080,26 +2088,14 @@ function BuyNowModal({
         city: form.city.trim(),
         state: form.state.trim(),
         pincode: form.pincode.trim(),
-        payment_method: "online",
         notes: form.notes.trim(),
-        subtotal,
-        shipping,
-        discount: 0,
+        payment_method: "online",
         idempotency_key:
           typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        items: [
-          {
-            variant_id: variant?.id || (product.variants?.length ? product.variants[0].id : ""),
-            product_slug: product.id,
-            name: `${product.name}${variant && variant.name !== "Default" ? ` - ${variant.name}` : ""}`,
-            image_url: swatchImg,
-            price: price,
-            qty,
-          },
-        ],
       });
+      const sessionId = sessionResult.session_id;
 
       // Load Razorpay Script
       await new Promise((resolve, reject) => {
@@ -2121,7 +2117,7 @@ function BuyNowModal({
       try {
         const { data: createData, error: createError } = await supabase.functions.invoke(
           "create-razorpay-order",
-          { body: { orderId } },
+          { body: { sessionId } },
         );
         if (createError) {
           let msg = createError.message;
@@ -2207,6 +2203,7 @@ function BuyNowModal({
                   razorpay_order_id: orderRef,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
+                  session_id: sessionId,
                 },
               },
             );
@@ -2229,8 +2226,8 @@ function BuyNowModal({
 
             trackEvent("order_created", {
               metadata: {
-                orderId,
-                total: finalTotal,
+                orderId: verifyData.order_id,
+                total: sessionResult.total,
                 payment: "online",
                 source: "buy_now",
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -2238,14 +2235,6 @@ function BuyNowModal({
             });
 
             // Trigger Authoritative Multi-Channel Sale Notifications (Customer SMS + Admin SMS + Admin Email + Customer Email) (non-blocking)
-            if (orderId) {
-              dispatchSaleNotifications({
-                sale_type: "online",
-                sale_id: orderId,
-              }).catch((notifyErr) => {
-                console.warn("[BuyNow] Sale notifications dispatcher error:", notifyErr);
-              });
-            }
 
             toast.success("Payment successful! Your order has been placed.", {
               id: "buy-now-verify",
@@ -2267,13 +2256,7 @@ function BuyNowModal({
         modal: {
           ondismiss: async () => {
             setSubmitting(false);
-            if (orderId) {
-              try {
-                await supabase.rpc("cancel_abandoned_order", { order_id: orderId });
-              } catch (cancelErr) {
-                console.warn("[BuyNow] Failed to cancel order after dismiss:", cancelErr);
-              }
-            }
+            await cancelCheckoutSession(sessionId, "Customer closed payment modal");
             toast.error("Payment window closed. You can retry payment anytime.");
           },
         },
@@ -2301,12 +2284,8 @@ function BuyNowModal({
       const rawMessage = (err as Error).message || "Could not start payment";
       console.error("[BuyNow] Payment initiation error:", rawMessage);
 
-      if (orderId) {
-        try {
-          await supabase.rpc("cancel_abandoned_order", { order_id: orderId });
-        } catch (cancelErr) {
-          console.warn("[BuyNow] Failed to cancel order after error:", cancelErr);
-        }
+      if (typeof sessionId !== "undefined") {
+        await cancelCheckoutSession(sessionId, "Payment initialization failed");
       }
 
       toast.error(
