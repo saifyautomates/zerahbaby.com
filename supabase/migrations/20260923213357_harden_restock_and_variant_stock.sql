@@ -1,0 +1,5 @@
+-- Production migration history marker.
+-- This migration version is already recorded in the production Supabase
+-- migration history. Its restock/variant-stock hardening is represented by
+-- subsequent canonical inventory/return migrations in this repository.
+-- Kept as a no-op marker so local migration history matches production.
