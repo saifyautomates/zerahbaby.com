@@ -1208,8 +1208,8 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
       <div class="lbl-price-row">
         ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}
         ${showSellPrice && ((showMrp && hasMrpDiff) || (showDiscount && discountPct > 0)) ? `<span class="lbl-price-divider"></span>` : ""}
-        ${showMrp && hasMrpDiff ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
-        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-badge">${discountPct}% OFF</span>` : ""}
+        ${showMrp && effectiveMrp > 0 ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
+        ${showDiscount ? `<span class="lbl-discount-badge">${discountPct}% OFF</span>` : ""}
       </div>`;
     }
 
