@@ -245,12 +245,30 @@ export function PrintLabelsModal({
         price: variant?.priceOverride ?? p.price,
         mrp: variant?.mrpOverride ?? p.mrp ?? p.price,
         stock: variant?.stock ?? p.stock ?? 1,
-        size:
-          variant?.size ||
-          variant?.color ||
-          (p as any).size ||
-          (p as any).ageGroup ||
-          "--",
+        size: (() => {
+          const ageOrSize =
+            (variant as any)?.ageGroup ||
+            variant?.size ||
+            (p as any).ageGroup ||
+            (p as any).size ||
+            "";
+
+          const color = variant?.color || "";
+
+          if (ageOrSize && color) {
+            return `Age/Size: ${ageOrSize} | Color: ${color}`;
+          }
+
+          if (ageOrSize) {
+            return `Age/Size: ${ageOrSize}`;
+          }
+
+          if (color) {
+            return `Color: ${color}`;
+          }
+
+          return "--";
+        })(),
         variants: undefined,
       }));
     });
