@@ -415,6 +415,9 @@ export function ProductForm({
     const initialSize = toDraft(product, defaultCategory, defaultSalesChannel).size?.trim() || "";
     return PRODUCT_SIZE_OPTIONS.includes(initialSize) ? initialSize : initialSize ? "custom" : "";
   });
+  // Variant rows stay hidden for a new simple product until the admin explicitly adds one.
+  const [showVariantEditor, setShowVariantEditor] = useState(Boolean(product));
+
 
   useEffect(() => {
     async function loadRelated() {
@@ -484,6 +487,12 @@ export function ProductForm({
   }, [dbSections, sectionSearch]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const variantFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const variantUploadTargetRef = useRef<{
+    sku: string;
+    id: string | null;
+    color: string | null;
+  } | null>(null);
 
   const {
     jobs,
@@ -508,10 +517,14 @@ export function ProductForm({
               sort_order: 99,
             });
           } else {
+            const variantTarget = variantUploadTargetRef.current;
             await supabase.from("product_images").insert({
               product_id: product.uuid,
               public_url: job.publicUrl,
               sort_order: 99,
+              variant_id: variantTarget?.id ?? null,
+              variant_sku: variantTarget?.sku ?? null,
+              color: variantTarget?.color ?? null,
             });
           }
         } catch (e) {
@@ -557,12 +570,15 @@ export function ProductForm({
         const existingMap = new Map((d.productImages || []).map((img) => [img.public_url, img]));
         const updatedProductImages = urls.map((u, i) => {
           const matched = existingMap.get(u);
+          const variantTarget = variantUploadTargetRef.current;
           return {
             public_url: u,
             is_primary: i === 0,
             sort_order: i,
-            color: matched?.color ?? null,
+            color: matched?.color ?? variantTarget?.color ?? null,
             alt_text: matched?.alt_text || d.name,
+            variant_id: matched?.variant_id ?? variantTarget?.id ?? null,
+            variant_sku: matched?.variant_sku ?? variantTarget?.sku ?? null,
           };
         });
 
@@ -575,6 +591,13 @@ export function ProductForm({
       });
     }
   }, [jobs, draft.images]);
+  
+  useEffect(() => {
+    if (!isUploading) {
+      variantUploadTargetRef.current = null;
+    }
+  }, [isUploading]);
+
 
   const [activeColorTab, setActiveColorTab] = useState<string>("ALL");
   const [newColorName, setNewColorName] = useState<string>("");
@@ -711,6 +734,7 @@ export function ProductForm({
       variants: newVariants,
       stock: newVariants.reduce((sum, v) => sum + v.stock, 0),
     }));
+    setShowVariantEditor(true);
     toast.success(`Generated ${newVariants.length} Color × Size variants!`);
   };
 
@@ -752,6 +776,19 @@ export function ProductForm({
       startUploads(filesArray);
     },
     [jobs.length, startUploads],
+  );
+
+  const handleVariantPhotosUpload = useCallback(
+    (variant: ProductVariantDraft, files: FileList | null) => {
+      if (!files || files.length === 0 || isUploading) return;
+      variantUploadTargetRef.current = {
+        sku: variant.sku,
+        id: variant.id ?? null,
+        color: variant.color ?? null,
+      };
+      void startUploads(Array.from(files));
+    },
+    [isUploading, startUploads],
   );
 
   // 1-Click Clipboard Paste (Ctrl+V) anywhere inside the form
@@ -2131,6 +2168,7 @@ export function ProductForm({
 
                       const updated = isSolePlaceholder ? [newVar] : [...draft.variants, newVar];
                       set("variants", updated);
+                      setShowVariantEditor(true);
                       set(
                         "stock",
                         updated.reduce((sum, val) => sum + val.stock, 0),
@@ -2142,6 +2180,8 @@ export function ProductForm({
                   </button>
                 </div>
 
+                {showVariantEditor && (
+                  <>
                 {/* Quick Matrix Generator Box */}
                 <div className="mb-4 rounded-xl border border-border/80 bg-background p-3.5 shadow-2xs">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
@@ -2310,6 +2350,29 @@ export function ProductForm({
                           <span className="text-[8px] text-muted-foreground font-semibold mt-0.5">
                             {matchingVarImages.length > 0 ? `${matchingVarImages.length} media` : "0 media"}
                           </span>
+
+                          <button
+                            type="button"
+                            disabled={isUploading}
+                            onClick={() => variantFileInputRefs.current[String(idx)]?.click()}
+                            className="mt-1 rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[9px] font-bold text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
+                          >
+                            + Photos
+                          </button>
+                          <input
+                            ref={(el) => {
+                              variantFileInputRefs.current[String(idx)] = el;
+                            }}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={saving || isUploading}
+                            onChange={(e) => {
+                              handleVariantPhotosUpload(v, e.target.files);
+                              e.target.value = "";
+                            }}
+                          />
                         </div>
 
                         {/* Color (Editable Input + Dropdown Datalist) */}
@@ -2482,6 +2545,15 @@ export function ProductForm({
                               });
                             }
                             set("variants", updated);
+                            if (
+                              !product &&
+                              updated.length === 1 &&
+                              updated[0].name === "Default" &&
+                              !updated[0].color &&
+                              !updated[0].size
+                            ) {
+                              setShowVariantEditor(false);
+                            }
                             set(
                               "stock",
                               updated.reduce((sum, val) => sum + val.stock, 0),
@@ -2496,6 +2568,8 @@ export function ProductForm({
                     );
                   })}
                 </div>
+                  </>
+                )}
               </div>
               {/* Description & Key Highlights (2-Column Grid) */}
               <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
