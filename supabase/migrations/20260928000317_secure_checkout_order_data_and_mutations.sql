@@ -520,10 +520,14 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $$
+AS $
 DECLARE
   uid uuid := auth.uid();
   is_authorized boolean := false;
+  v_id uuid;
+  v_res jsonb;
+  v_cancelled_count int := 0;
+  v_skipped_count int := 0;
 BEGIN
   IF auth.role() = 'service_role' THEN
     is_authorized := true;
@@ -533,14 +537,9 @@ BEGIN
       OR public.has_role(uid, 'owner')
       OR public.has_role(uid, 'manager')
       OR public.has_role(uid, 'staff')
+      OR EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND is_admin = true)
       OR EXISTS (
-        SELECT 1
-        FROM public.profiles
-        WHERE id = uid AND is_admin = true
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM auth.users u
+        SELECT 1 FROM auth.users u
         JOIN public.admin_allowlist a ON lower(u.email) = lower(a.email)
         WHERE u.id = uid
       )
@@ -551,9 +550,27 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized: Administrator privileges required';
   END IF;
 
-  RETURN public.admin_cancel_orders_bulk_legacy_v00317(_order_ids, _reason);
+  FOREACH v_id IN ARRAY _order_ids LOOP
+    BEGIN
+      v_res := public.admin_cancel_order_legacy_v00317(v_id, COALESCE(NULLIF(trim(_reason), ''), 'Bulk cancelled by Admin'));
+      IF COALESCE((v_res->>'success')::boolean, false) THEN
+        v_cancelled_count := v_cancelled_count + 1;
+      ELSE
+        v_skipped_count := v_skipped_count + 1;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      v_skipped_count := v_skipped_count + 1;
+    END;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'cancelled_count', v_cancelled_count,
+    'skipped_count', v_skipped_count,
+    'total_requested', COALESCE(array_length(_order_ids, 1), 0)
+  );
 END;
-$$;
+$;
 
 CREATE OR REPLACE FUNCTION public.admin_delete_order(
   _order_id uuid,
@@ -617,10 +634,13 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $$
+AS $
 DECLARE
   uid uuid := auth.uid();
   is_authorized boolean := false;
+  v_id uuid;
+  v_res jsonb;
+  v_deleted_count int := 0;
 BEGIN
   IF auth.role() = 'service_role' THEN
     is_authorized := true;
@@ -630,14 +650,9 @@ BEGIN
       OR public.has_role(uid, 'owner')
       OR public.has_role(uid, 'manager')
       OR public.has_role(uid, 'staff')
+      OR EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND is_admin = true)
       OR EXISTS (
-        SELECT 1
-        FROM public.profiles
-        WHERE id = uid AND is_admin = true
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM auth.users u
+        SELECT 1 FROM auth.users u
         JOIN public.admin_allowlist a ON lower(u.email) = lower(a.email)
         WHERE u.id = uid
       )
@@ -648,9 +663,24 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized: Administrator privileges required';
   END IF;
 
-  RETURN public.delete_cancelled_orders_bulk_legacy_v00317(_order_ids, _force);
+  FOREACH v_id IN ARRAY _order_ids LOOP
+    BEGIN
+      v_res := public.admin_delete_order_legacy_v00317(v_id, _force);
+      IF COALESCE((v_res->>'success')::boolean, false) THEN
+        v_deleted_count := v_deleted_count + 1;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      -- Preserve legacy bulk behavior: continue processing remaining orders.
+    END;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'deleted_count', v_deleted_count,
+    'total_requested', COALESCE(array_length(_order_ids, 1), 0)
+  );
 END;
-$$;
+$;
 
 CREATE OR REPLACE FUNCTION public.delete_cancelled_orders_bulk(_order_ids uuid[])
 RETURNS jsonb
