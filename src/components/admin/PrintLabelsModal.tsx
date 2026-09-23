@@ -100,6 +100,21 @@ export function PrintLabelsModal({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(products.map((p) => [p.uuid || p.id, 1])),
   );
+  const [selectedVariantKeys, setSelectedVariantKeys] = useState<Record<string, boolean>>(() => {
+    const next: Record<string, boolean> = {};
+
+    for (const p of products) {
+      const parentKey = p.uuid || p.id;
+      const variants = p.variants?.length ? p.variants : [null];
+
+      for (const variant of variants) {
+        const key = variant ? parentKey + "-" + variant.id : parentKey;
+        next[key] = true;
+      }
+    }
+
+    return next;
+  });
   const [layout, setLayout] = useState<LabelLayout>(() =>
     normalizeLabelLayout(getSavedLabelProfile()),
   );
@@ -233,9 +248,15 @@ export function PrintLabelsModal({
 
   const preparedProducts = useMemo(() => {
     return printableProducts.flatMap((p) => {
+      const parentKey = p.uuid || p.id;
       const variants = p.variants?.length ? p.variants : [null];
 
-      return variants.map((variant) => ({
+      return variants
+        .filter((variant) => {
+          const key = variant ? parentKey + "-" + variant.id : parentKey;
+          return selectedVariantKeys[key] !== false;
+        })
+        .map((variant) => ({
         ...p,
         uuid: variant ? `${p.uuid || p.id}-${variant.id}` : p.uuid || p.id,
         brand: p.brand || "ZERAH",
@@ -272,7 +293,7 @@ export function PrintLabelsModal({
         variants: undefined,
       }));
     });
-  }, [printableProducts]);
+  }, [printableProducts, selectedVariantKeys]);
 
   const variantQuantities = useMemo(() => {
     const next: Record<string, number> = {};
@@ -406,7 +427,7 @@ export function PrintLabelsModal({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isPrinting || printableProducts.length === 0}
+              disabled={isPrinting || preparedProducts.length === 0}
               className="flex items-center gap-2 rounded-xl bg-[#8B2020] px-5 py-2.5 text-sm font-bold text-white shadow-premium-sm hover:bg-[#7a1c1c] active:scale-95 transition cursor-pointer disabled:opacity-50"
             >
               <Printer className="size-4" />
@@ -666,7 +687,7 @@ export function PrintLabelsModal({
           </div>
         </div>
 
-        {/* Quantities Quick Selector */}
+        {/* Quantities & Variant Selection */}
         <div className="shrink-0 px-4 py-2.5 bg-muted/10 border-b border-border/40 flex flex-wrap items-center gap-2 print:hidden">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground mr-1">
             Quantities:
@@ -712,6 +733,53 @@ export function PrintLabelsModal({
               </div>
             );
           })}
+
+          {printableProducts.some((p) => p.variants?.length) && (
+            <div className="w-full mt-1 pt-2 border-t border-border/50 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground mr-1">
+                Variants:
+              </span>
+
+              {printableProducts.flatMap((p) => {
+                const parentKey = p.uuid || p.id;
+                const variants = p.variants?.length ? p.variants : [];
+
+                return variants.map((variant) => {
+                  const key = parentKey + "-" + variant.id;
+                  const isVariantSelected = selectedVariantKeys[key] !== false;
+                  const variantLabel =
+                    [variant.name && variant.name !== "Default" ? variant.name : "", variant.size, variant.color]
+                      .filter(Boolean)
+                      .join(" • ") ||
+                    variant.sku ||
+                    "Variant";
+
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground cursor-pointer select-none"
+                      title={p.name + " — " + variantLabel}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isVariantSelected}
+                        onChange={(e) => {
+                          setSelectedVariantKeys((prev) => ({
+                            ...prev,
+                            [key]: e.target.checked,
+                          }));
+                        }}
+                        className="size-3.5 rounded border-border text-[#8B2020] focus:ring-[#8B2020] cursor-pointer"
+                      />
+                      <span className="max-w-[180px] truncate">
+                        {p.name}: {variantLabel}
+                      </span>
+                    </label>
+                  );
+                });
+              })}
+            </div>
+          )}
         </div>
 
         {/* Live Sticker Preview Center Area — Full Prominent View */}
@@ -754,7 +822,7 @@ export function PrintLabelsModal({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isPrinting || printableProducts.length === 0}
+              disabled={isPrinting || preparedProducts.length === 0}
               className="flex items-center gap-1.5 font-bold text-[#8B2020] hover:underline cursor-pointer disabled:opacity-50 transition"
             >
               <Printer className="size-3.5" />
