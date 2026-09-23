@@ -71,57 +71,25 @@ export function QuickVariantStockModal({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 1. Delete removed variants if any
-      if (deletedVariantIds.length > 0) {
-        const { error: delErr } = await supabase
-          .from("product_variants")
-          .delete()
-          .in("id", deletedVariantIds);
-        if (delErr) throw delErr;
-      }
-
-      // If this product has real variants, ensure any lingering phantom "Default" variant
-      // in the DB is deactivated and zeroed out so it never contributes to stock or reappears
-      const hasRealVariants = variants.some(
-        (v) =>
-          Boolean(v.color && v.color.trim()) ||
-          Boolean(v.size && v.size.trim()) ||
-          Boolean(v.name && v.name.trim() !== "" && v.name.trim() !== "Default"),
-      );
-      if (hasRealVariants && product.uuid) {
-        await supabase
-          .from("product_variants")
-          .update({ is_active: false, stock: 0 })
-          .eq("product_id", product.uuid)
-          .eq("name", "Default")
-          .is("color", null)
-          .is("size", null);
-      }
-
-      // 2. Update each remaining variant in product_variants
-      const updatePromises = variants.map((v) =>
-        supabase
-          .from("product_variants")
-          .update({ stock: Number(v.stock) || 0 })
-          .eq("id", v.id),
+      const { data, error } = await (supabase.rpc as any)(
+        "admin_replace_product_variant_stock",
+        {
+          _product_id: product.uuid,
+          _variants: variants.map((v) => ({
+            variant_id: v.id,
+            new_stock: Math.max(0, Number(v.stock) || 0),
+          })),
+          _delete_variant_ids: deletedVariantIds,
+        },
       );
 
-      const results = await Promise.all(updatePromises);
-      for (const res of results) {
-        if (res.error) throw res.error;
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to update inventory");
       }
 
-      // 3. Update the parent product total stock
-      const { error: prodErr } = await supabase
-        .from("products")
-        .update({
-          stock: Math.max(0, totalStock),
-        })
-        .eq("id", product.uuid);
+      const finalTotal = Number(data.stock) || 0;
 
-      if (prodErr) throw prodErr;
-
-      // 4. Optimistically update local cache to prevent UI lag
       const previousAdminProducts = qc.getQueryData<any[]>(["admin-products"]);
       if (previousAdminProducts) {
         qc.setQueryData(
@@ -130,48 +98,49 @@ export function QuickVariantStockModal({
             if (p.uuid === product.uuid || p.id === product.uuid) {
               return {
                 ...p,
-                stock: totalStock,
-                variants: p.variants?.map((v: any) => {
-                  const updatedV = variants.find((uv) => uv.id === v.id);
-                  if (updatedV) {
-                    return { ...v, stock: Number(updatedV.stock) || 0 };
-                  }
-                  return v;
-                })
+                stock: finalTotal,
+                variants: p.variants
+                  ?.filter((v: any) => !deletedVariantIds.includes(v.id))
+                  .map((v: any) => {
+                    const updatedV = variants.find((uv) => uv.id === v.id);
+                    return updatedV
+                      ? { ...v, stock: Number(updatedV.stock) || 0 }
+                      : v;
+                  }),
               };
             }
             return p;
-          })
+          }),
         );
       }
 
-      // 5. Invalidate all dependent surfaces across store, PDP, POS, and Admin
       invalidateCatalogue(qc);
 
-      // 6. Synchronize offline IndexedDB catalog cache
       import("@/lib/offline-sync-engine")
-        .then((m) => {
-          m.updateOfflineCatalogProduct({
-            id: product.uuid,
-            uuid: product.uuid,
-            stock: totalStock,
-            variants: variants.map((v) => ({
-              id: v.id,
-              name: v.name,
-              stock: Number(v.stock) || 0,
-              color: v.color,
-              size: v.size,
-              sku: v.sku,
-              barcode: v.barcode,
-            })),
-          }).catch(console.error);
-        })
+        .then((m) =>
+          m
+            .updateOfflineCatalogProduct({
+              id: product.uuid,
+              uuid: product.uuid,
+              stock: finalTotal,
+              variants: variants.map((v) => ({
+                id: v.id,
+                name: v.name,
+                stock: Number(v.stock) || 0,
+                color: v.color,
+                size: v.size,
+                sku: v.sku,
+                barcode: v.barcode,
+              })),
+            })
+            .catch(console.error),
+        )
         .catch(console.error);
 
       toast.success(
-        `Stock updated for ${product.name}: ${totalStock} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
+        `Stock updated for ${product.name}: ${finalTotal} units across ${variants.length} variant${variants.length === 1 ? "" : "s"}`,
       );
-      if (onSuccess) onSuccess();
+      onSuccess?.();
       onClose();
     } catch (err: any) {
       console.error("Failed to update variant stock:", err);
