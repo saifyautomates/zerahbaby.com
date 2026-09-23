@@ -323,7 +323,7 @@ const toDraft = (
         !img.public_url.startsWith("blob:") &&
         !img.public_url.startsWith("data:"),
     ),
-    stock: p?.stock ?? 10,
+    stock: p?.stock ?? 1,
     lowStockAt: p?.lowStockAt ?? 5,
     deliveryFee:
       (p?.salesChannel ?? defaultSalesChannel) === "OFFLINE_ONLY"
@@ -377,7 +377,7 @@ const toDraft = (
             size: null,
             sku: p?.sku || generateSKU(p?.category || defaultCategory || "clothing"),
             barcode: p?.barcode || generateBarcode(),
-            stock: p?.stock ?? 10,
+            stock: p?.stock ?? 1,
             price_override: null,
             mrp_override: null,
             image_url: null,
@@ -692,7 +692,7 @@ export function ProductForm({
             size: sizeName,
             sku: generateSKU(draft.category, colorName, sizeName),
             barcode: generateVariantBarcode(draft.category, colorName, sizeName),
-            stock: 10,
+            stock: 1,
             price_override: null,
             mrp_override: null,
             image_url: colorName
@@ -1137,7 +1137,7 @@ export function ProductForm({
           price: 0,
           buyingPrice: 0,
           mrp: 0,
-          stock: 10,
+          stock: 1,
           sku: "",
           barcode: "",
           imageUrl: "",
@@ -1160,7 +1160,7 @@ export function ProductForm({
               size: null,
               sku: generateSKU("clothing"),
               barcode: generateBarcode(),
-              stock: 10,
+              stock: 1,
               price_override: null,
             },
           ],
@@ -2125,7 +2125,7 @@ export function ProductForm({
                         size: "M",
                         sku: generateSKU(draft.category, draft.colors[0], "M"),
                         barcode: generateVariantBarcode(draft.category, draft.colors[0], "M"),
-                        stock: 10,
+                        stock: 1,
                         price_override: null,
                       };
 
@@ -2477,7 +2477,7 @@ export function ProductForm({
                                 size: null,
                                 sku: generateSKU(draft.category),
                                 barcode: generateBarcode(),
-                                stock: 10,
+                                stock: 1,
                                 price_override: null,
                               });
                             }
