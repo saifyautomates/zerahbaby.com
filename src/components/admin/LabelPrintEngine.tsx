@@ -128,7 +128,7 @@ function SingleStickerPreview({
     ? Math.min(26, Math.max(20, Math.round(basePreviewW * 0.12)))
     : (isCompact ? 24 : Math.max(28, Math.min(48, Math.round(basePreviewH * 0.18))));
 
-  const hasDiscount = typeof product.mrp === "number" && product.mrp > product.price && product.price > 0;
+  const hasDiscount = mrpVal > product.price && product.price > 0;
   const discountPct = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
 
   const artNoVal = (product.artNo || product.sku || product.barcode || "—").toString().trim();
@@ -231,12 +231,12 @@ function SingleStickerPreview({
               {showSellPrice && ((showMrp && mrpVal > product.price) || (showDiscount && discountPct > 0)) && (
                 <div className="h-5 w-px bg-slate-300 mx-0.5" />
               )}
-              {showMrp && mrpVal > product.price && (
+              {showMrp && mrpVal > 0 && (
                 <span className="text-sm font-bold text-slate-500 line-through">
                   {mrpFormatted}
                 </span>
               )}
-              {showDiscount && discountPct > 0 && (
+              {showDiscount && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#ff5500] text-white shadow-2xs uppercase tracking-wider">
                   {discountPct}% OFF
                 </span>
