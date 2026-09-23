@@ -1204,13 +1204,19 @@ export function buildLabelPrintParts(params: BuildLabelPrintOptions): {
 
     let priceHtml = "";
     if (showSellPrice || showMrp || showDiscount) {
-      priceHtml = `
-      <div class="lbl-price-row">
+      const priceRow = `
         ${showSellPrice ? `<span class="lbl-selling-price">${priceFormatted}</span>` : ""}
-        ${showSellPrice && ((showMrp && hasMrpDiff) || (showDiscount && discountPct > 0)) ? `<span class="lbl-price-divider"></span>` : ""}
+        ${showSellPrice && (showMrp || (showDiscount && discountPct > 0)) ? `<span class="lbl-price-divider"></span>` : ""}
         ${showMrp && effectiveMrp > 0 ? `<span class="lbl-mrp-price">${mrpFormatted}</span>` : ""}
-        ${showDiscount ? `<span class="lbl-discount-badge">${discountPct}% OFF</span>` : ""}
-      </div>`;
+        ${showDiscount && discountPct > 0 ? `<span class="lbl-discount-badge">${discountPct}% OFF</span>` : ""}
+      `;
+      priceHtml = separatePriceLine
+        ? `<div class="lbl-price-row">${priceRow}</div>`
+        : `<div class="lbl-product-meta-line">${[
+            showSellPrice ? priceFormatted : "",
+            showMrp && effectiveMrp > 0 ? `MRP ${mrpFormatted}` : "",
+            showDiscount && discountPct > 0 ? `${discountPct}% OFF` : "",
+          ].filter(Boolean).join(" · ")}</div>`;
     }
 
     return [
