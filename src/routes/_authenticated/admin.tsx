@@ -1349,7 +1349,7 @@ function ProductsTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, age_group, size, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
           .order("sort_order"),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
