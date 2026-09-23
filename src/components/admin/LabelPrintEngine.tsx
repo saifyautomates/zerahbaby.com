@@ -253,20 +253,6 @@ function SingleStickerPreview({
                 </p>
               )}
             </div>
-          )}             {showSellPrice && ((showMrp && mrpVal > product.price) || (showDiscount && discountPct > 0)) && (
-                <div className="h-5 w-px bg-slate-300 mx-0.5" />
-              )}
-              {showMrp && mrpVal > 0 && (
-                <span className="text-sm font-bold text-slate-500 line-through">
-                  {mrpFormatted}
-                </span>
-              )}
-              {showDiscount && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#ff5500] text-white shadow-2xs uppercase tracking-wider">
-                  {discountPct}% OFF
-                </span>
-              )}
-            </div>
           )}
         </div>
 
