@@ -2275,7 +2275,12 @@ function BuyNowModal({
           Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
         }
       ).Razorpay(options);
-      rzp.on("payment.failed", (response: { error: { description: string } }) => {
+      rzp.on("payment.failed", async (response: { error: { description: string } }) => {
+        setSubmitting(false);
+        await cancelCheckoutSession(
+          sessionId,
+          response.error?.description || "Payment failed at gateway",
+        );
         toast.error(response.error?.description || "Payment failed at gateway");
       });
       rzp.open();
