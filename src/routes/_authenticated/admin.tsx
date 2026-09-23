@@ -1349,9 +1349,9 @@ function ProductsTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, age_group, size, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
-          .order("sort_order"),
+          .order("created_at", { ascending: false }),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
           () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
         ),
@@ -2292,6 +2292,7 @@ function ProductsTab() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
+                <th className="w-10 px-3 py-4 text-center">#</th>
                 <th className="w-10 px-4 py-4">
                   <div className="flex items-center">
                     <input
@@ -2326,6 +2327,9 @@ function ProductsTab() {
                         : "hover:bg-muted/50"
                     } ${!p.isActive ? "opacity-60" : ""}`}
                   >
+                    <td className="w-10 px-3 py-4 text-center font-semibold text-muted-foreground">
+                      {list.indexOf(p) + 1}
+                    </td>
                     <td className="w-10 px-4 py-4">
                       <div className="flex items-center">
                         <input
@@ -2910,9 +2914,87 @@ function ProductsTab() {
               setEditing(null);
             }}
             onSave={async (draft: ProductDraft) => {
-              const res = await saveProductMutation.mutateAsync(
-                editing ? { draft, uuid: editing.uuid } : { draft },
-              );
+              if (!editing) {
+                // Show the newly added product in the admin table immediately.
+                const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const tempSlug = (draft.slug || draft.name)
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[^a-z0-9]+/g, "-")
+                  .replace(/(^-|-$)/g, "") || tempId;
+
+                const optimisticProduct: Product = {
+                  uuid: tempId,
+                  id: tempSlug,
+                  slug: tempSlug,
+                  name: draft.name.trim(),
+                  brand: draft.brand || "Zérah",
+                  category: draft.category,
+                  price: Number(draft.price) || 0,
+                  mrp: Number(draft.mrp) || 0,
+                  rating: 5,
+                  reviews: 0,
+                  ageGroup: draft.ageGroup || "",
+                  size: draft.size || null,
+                  image: draft.imageUrl || draft.images?.[0] || "",
+                  imageUrl: draft.imageUrl || draft.images?.[0] || null,
+                  description: draft.description || "",
+                  highlights: Array.isArray(draft.highlights)
+                    ? draft.highlights
+                    : (draft.highlights || "")
+                        .split("\n")
+                        .map((h) => h.trim())
+                        .filter(Boolean),
+                  isFeatured: Boolean(draft.isFeatured),
+                  isActive: Boolean(draft.isActive),
+                  sortOrder: Number(draft.sortOrder) || 0,
+                  stock: Math.max(0, Number(draft.stock) || 0),
+                  lowStockAt: Number(draft.lowStockAt) || 2,
+                  sku: draft.sku?.trim() || tempId,
+                  barcode: draft.barcode?.trim() || tempId,
+                  buyingPrice: Number(draft.buyingPrice) || 0,
+                  deliveryFee: Number(draft.deliveryFee) || 65,
+                  salesChannel: draft.salesChannel,
+                  sales_channel: draft.salesChannel,
+                  variants: (draft.variants || []).map((v) => ({
+                    id: v.id || `${tempId}-${v.sku}`,
+                    name: v.name || "Default",
+                    color: v.color ?? null,
+                    size: v.size ?? null,
+                    sku: v.sku,
+                    barcode: v.barcode ?? null,
+                    stock: Number(v.stock) || 0,
+                    priceOverride: v.price_override ?? undefined,
+                    mrpOverride: v.mrp_override ?? undefined,
+                    imageUrl: v.image_url ?? null,
+                  })),
+                };
+
+                await qc.cancelQueries({ queryKey: ["admin-products"] });
+                const previous = qc.getQueryData<Product[]>(["admin-products"]) || [];
+                qc.setQueryData<Product[]>(["admin-products"], [
+                  optimisticProduct,
+                  ...previous.filter((p) => !p.uuid.startsWith("optimistic-")),
+                ]);
+
+                // Close the editor now; the actual DB write continues in the background.
+                setCreating(false);
+                setEditing(null);
+
+                try {
+                  const res = await saveProductMutation.mutateAsync({ draft });
+                  invalidate();
+                  return res;
+                } catch (error) {
+                  qc.setQueryData<Product[]>(["admin-products"], previous);
+                  throw error;
+                }
+              }
+
+              const res = await saveProductMutation.mutateAsync({
+                draft,
+                uuid: editing.uuid,
+              });
               invalidate();
               return res;
             }}

@@ -50,6 +50,7 @@ type ProductRow = {
   rating: number;
   reviews: number;
   age_group: string;
+  size?: string | null;
   description: string;
   highlights: string[];
   is_featured: boolean;
@@ -349,6 +350,7 @@ export const mapProduct = (row: ProductRow): Product => {
     rating: Number(row.rating),
     reviews: row.reviews,
     ageGroup: row.age_group,
+    size: row.size ?? null,
     image: media.primaryImage,
     imageUrl: media.imageUrl,
     description: row.description,

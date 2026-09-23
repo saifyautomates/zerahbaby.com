@@ -46,6 +46,7 @@ export interface Product {
   rating: number;
   reviews: number;
   ageGroup: string;
+  size?: string | null;
   image: string;
   imageUrl: string | null;
   description: string;

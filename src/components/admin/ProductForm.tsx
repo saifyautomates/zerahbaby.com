@@ -70,6 +70,7 @@ export type ProductDraft = {
   rating?: number;
   reviews?: number;
   ageGroup: string;
+  size?: string | null;
   imageUrl: string;
   images: string[];
   productImages: {
@@ -134,6 +135,8 @@ const MATRIX_AVAILABLE_SIZES = [
   "Free Size",
 ];
 
+const PRODUCT_SIZE_OPTIONS = ["1", "2", "3", "4"];
+
 const SIZE_PRESETS = [
   { label: "👶 Baby (0-2Y)", sizes: ["0-3m", "3-6m", "6-12m", "1-2Y", "2-3Y"] },
   { label: "🧒 Kids (3-8Y)", sizes: ["3-4Y", "4-5Y", "5-6Y", "6-7Y", "7-8Y"] },
@@ -182,6 +185,11 @@ function generateSKU(category: string, color?: string | null, size?: string | nu
 /** Generate a unique 12-digit numeric barcode */
 function generateBarcode(): string {
   return Math.floor(100000000000 + Math.random() * 900000000000).toString();
+}
+
+/** New variant barcodes deliberately encode the variant SKU so scanning/printing identifies the exact variant. */
+function generateVariantBarcode(category: string, color?: string | null, size?: string | null): string {
+  return generateSKU(category, color, size);
 }
 
 const QUICK_TEMPLATES = [
@@ -294,6 +302,7 @@ const toDraft = (
     rating: p?.rating ?? 0,
     reviews: p?.reviews ?? 0,
     ageGroup: p?.ageGroup ?? "0-6m",
+    size: p?.size ?? "",
     imageUrl:
       p?.imageUrl && !p.imageUrl.startsWith("blob:") && !p.imageUrl.startsWith("data:")
         ? p.imageUrl
@@ -314,7 +323,7 @@ const toDraft = (
         !img.public_url.startsWith("blob:") &&
         !img.public_url.startsWith("data:"),
     ),
-    stock: p?.stock ?? 10,
+    stock: p?.stock ?? 1,
     lowStockAt: p?.lowStockAt ?? 5,
     deliveryFee:
       (p?.salesChannel ?? defaultSalesChannel) === "OFFLINE_ONLY"
@@ -368,7 +377,7 @@ const toDraft = (
             size: null,
             sku: p?.sku || generateSKU(p?.category || defaultCategory || "clothing"),
             barcode: p?.barcode || generateBarcode(),
-            stock: p?.stock ?? 10,
+            stock: p?.stock ?? 1,
             price_override: null,
             mrp_override: null,
             image_url: null,
@@ -402,6 +411,13 @@ export function ProductForm({
   const [draft, setDraft] = useState<ProductDraft>(
     toDraft(product, defaultCategory, defaultSalesChannel),
   );
+  const [productSizeMode, setProductSizeMode] = useState(() => {
+    const initialSize = toDraft(product, defaultCategory, defaultSalesChannel).size?.trim() || "";
+    return PRODUCT_SIZE_OPTIONS.includes(initialSize) ? initialSize : initialSize ? "custom" : "";
+  });
+  // Variant rows stay hidden for a new simple product until the admin explicitly adds one.
+  const [showVariantEditor, setShowVariantEditor] = useState(Boolean(product));
+
 
   useEffect(() => {
     async function loadRelated() {
@@ -471,6 +487,12 @@ export function ProductForm({
   }, [dbSections, sectionSearch]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const variantFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const variantUploadTargetRef = useRef<{
+    sku: string;
+    id: string | null;
+    color: string | null;
+  } | null>(null);
 
   const {
     jobs,
@@ -495,10 +517,14 @@ export function ProductForm({
               sort_order: 99,
             });
           } else {
+            const variantTarget = variantUploadTargetRef.current;
             await supabase.from("product_images").insert({
               product_id: product.uuid,
               public_url: job.publicUrl,
               sort_order: 99,
+              variant_id: variantTarget?.id ?? null,
+              variant_sku: variantTarget?.sku ?? null,
+              color: variantTarget?.color ?? null,
             });
           }
         } catch (e) {
@@ -544,12 +570,15 @@ export function ProductForm({
         const existingMap = new Map((d.productImages || []).map((img) => [img.public_url, img]));
         const updatedProductImages = urls.map((u, i) => {
           const matched = existingMap.get(u);
+          const variantTarget = variantUploadTargetRef.current;
           return {
             public_url: u,
             is_primary: i === 0,
             sort_order: i,
-            color: matched?.color ?? null,
+            color: matched?.color ?? variantTarget?.color ?? null,
             alt_text: matched?.alt_text || d.name,
+            variant_id: matched?.variant_id ?? variantTarget?.id ?? null,
+            variant_sku: matched?.variant_sku ?? variantTarget?.sku ?? null,
           };
         });
 
@@ -562,6 +591,13 @@ export function ProductForm({
       });
     }
   }, [jobs, draft.images]);
+  
+  useEffect(() => {
+    if (!isUploading) {
+      variantUploadTargetRef.current = null;
+    }
+  }, [isUploading]);
+
 
   const [activeColorTab, setActiveColorTab] = useState<string>("ALL");
   const [newColorName, setNewColorName] = useState<string>("");
@@ -678,8 +714,8 @@ export function ProductForm({
             color: colorName,
             size: sizeName,
             sku: generateSKU(draft.category, colorName, sizeName),
-            barcode: generateBarcode(),
-            stock: 10,
+            barcode: generateVariantBarcode(draft.category, colorName, sizeName),
+            stock: 1,
             price_override: null,
             mrp_override: null,
             image_url: colorName
@@ -698,6 +734,7 @@ export function ProductForm({
       variants: newVariants,
       stock: newVariants.reduce((sum, v) => sum + v.stock, 0),
     }));
+    setShowVariantEditor(true);
     toast.success(`Generated ${newVariants.length} Color × Size variants!`);
   };
 
@@ -739,6 +776,19 @@ export function ProductForm({
       startUploads(filesArray);
     },
     [jobs.length, startUploads],
+  );
+
+  const handleVariantPhotosUpload = useCallback(
+    (variant: ProductVariantDraft, files: FileList | null) => {
+      if (!files || files.length === 0 || isUploading) return;
+      variantUploadTargetRef.current = {
+        sku: variant.sku,
+        id: variant.id ?? null,
+        color: variant.color ?? null,
+      };
+      void startUploads(Array.from(files));
+    },
+    [isUploading, startUploads],
   );
 
   // 1-Click Clipboard Paste (Ctrl+V) anywhere inside the form
@@ -1124,7 +1174,7 @@ export function ProductForm({
           price: 0,
           buyingPrice: 0,
           mrp: 0,
-          stock: 10,
+          stock: 1,
           sku: "",
           barcode: "",
           imageUrl: "",
@@ -1147,7 +1197,7 @@ export function ProductForm({
               size: null,
               sku: generateSKU("clothing"),
               barcode: generateBarcode(),
-              stock: 10,
+              stock: 1,
               price_override: null,
             },
           ],
@@ -1659,7 +1709,7 @@ export function ProductForm({
                 </select>
               </label>
 
-              <label className="text-sm font-semibold sm:col-span-2">
+              <label className="text-sm font-semibold">
                 Age group
                 <input
                   className={input}
@@ -1705,6 +1755,90 @@ export function ProductForm({
                   <option value="Teens (8-16y)" />
                   <option value="All Ages" />
                 </datalist>
+              </label>
+
+              <label className="text-sm font-semibold">
+                Size
+                <select
+                  className={input}
+                  value={productSizeMode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setProductSizeMode(value);
+                    setDraft((current) => {
+                      const nextSize = value === "custom" ? "" : value;
+                      const isDefaultOnly =
+                        current.variants.length === 1 &&
+                        current.variants[0].name === "Default" &&
+                        !current.variants[0].color &&
+                        !current.variants[0].size;
+
+                      if (!isDefaultOnly) return { ...current, size: nextSize };
+
+                      const updatedVariant = { ...current.variants[0] };
+                      updatedVariant.size = nextSize || null;
+                      updatedVariant.name = nextSize || "Default";
+                      const previousSku = updatedVariant.sku;
+                      const newSku = generateSKU(current.category, null, nextSize || null);
+                      updatedVariant.sku = newSku;
+                      if (!updatedVariant.barcode || updatedVariant.barcode === previousSku) {
+                        updatedVariant.barcode = generateVariantBarcode(
+                          current.category,
+                          null,
+                          nextSize || null,
+                        );
+                      }
+                      return { ...current, size: nextSize, variants: [updatedVariant] };
+                    });
+                  }}
+                >
+                  <option value="">Select size</option>
+                  {PRODUCT_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                  <option value="custom">Custom size</option>
+                </select>
+
+                {productSizeMode === "custom" && (
+                  <input
+                    className={input + " mt-2"}
+                    placeholder="Enter custom size"
+                    value={draft.size || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDraft((current) => {
+                        const isDefaultOnly =
+                          current.variants.length === 1 &&
+                          current.variants[0].name === "Default" &&
+                          !current.variants[0].color &&
+                          !current.variants[0].size;
+
+                        if (!isDefaultOnly) return { ...current, size: value };
+
+                        const updatedVariant = { ...current.variants[0] };
+                        updatedVariant.size = value.trim() || null;
+                        updatedVariant.name = value.trim() || "Default";
+                        const previousSku = updatedVariant.sku;
+                        const newSku = generateSKU(
+                          current.category,
+                          null,
+                          value.trim() || null,
+                        );
+                        updatedVariant.sku = newSku;
+                        if (!updatedVariant.barcode || updatedVariant.barcode === previousSku) {
+                          updatedVariant.barcode = generateVariantBarcode(
+                            current.category,
+                            null,
+                            value.trim() || null,
+                          );
+                        }
+                        return { ...current, size: value, variants: [updatedVariant] };
+                      });
+                    }}
+                  />
+                )}
               </label>
 
               {/* Label & Barcode Preview directly above Pricing */}
@@ -2027,13 +2161,14 @@ export function ProductForm({
                         color: draft.colors[0] || null,
                         size: "M",
                         sku: generateSKU(draft.category, draft.colors[0], "M"),
-                        barcode: generateBarcode(),
-                        stock: 10,
+                        barcode: generateVariantBarcode(draft.category, draft.colors[0], "M"),
+                        stock: 1,
                         price_override: null,
                       };
 
                       const updated = isSolePlaceholder ? [newVar] : [...draft.variants, newVar];
                       set("variants", updated);
+                      setShowVariantEditor(true);
                       set(
                         "stock",
                         updated.reduce((sum, val) => sum + val.stock, 0),
@@ -2045,6 +2180,8 @@ export function ProductForm({
                   </button>
                 </div>
 
+                {showVariantEditor && (
+                  <>
                 {/* Quick Matrix Generator Box */}
                 <div className="mb-4 rounded-xl border border-border/80 bg-background p-3.5 shadow-2xs">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
@@ -2213,6 +2350,29 @@ export function ProductForm({
                           <span className="text-[8px] text-muted-foreground font-semibold mt-0.5">
                             {matchingVarImages.length > 0 ? `${matchingVarImages.length} media` : "0 media"}
                           </span>
+
+                          <button
+                            type="button"
+                            disabled={isUploading}
+                            onClick={() => variantFileInputRefs.current[String(idx)]?.click()}
+                            className="mt-1 rounded-md border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-[9px] font-bold text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
+                          >
+                            + Photos
+                          </button>
+                          <input
+                            ref={(el) => {
+                              variantFileInputRefs.current[String(idx)] = el;
+                            }}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            disabled={saving || isUploading}
+                            onChange={(e) => {
+                              handleVariantPhotosUpload(v, e.target.files);
+                              e.target.value = "";
+                            }}
+                          />
                         </div>
 
                         {/* Color (Editable Input + Dropdown Datalist) */}
@@ -2235,11 +2395,16 @@ export function ProductForm({
                                   newColor && updated[idx].size
                                     ? `${newColor} / ${updated[idx].size}`
                                     : newColor || updated[idx].size || "Default";
-                                updated[idx].sku = generateSKU(
+                                const previousSku = updated[idx].sku;
+                                const newSku = generateSKU(
                                   draft.category,
                                   newColor,
                                   updated[idx].size,
                                 );
+                                updated[idx].sku = newSku;
+                                if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                                  updated[idx].barcode = newSku;
+                                }
                                 set("variants", updated);
 
                                 if (
@@ -2280,11 +2445,16 @@ export function ProductForm({
                                 updated[idx].color && newSize
                                   ? `${updated[idx].color} / ${newSize}`
                                   : updated[idx].color || newSize || "Default";
-                              updated[idx].sku = generateSKU(
+                              const previousSku = updated[idx].sku;
+                              const newSku = generateSKU(
                                 draft.category,
                                 updated[idx].color,
                                 newSize,
                               );
+                              updated[idx].sku = newSku;
+                              if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                                updated[idx].barcode = newSku;
+                              }
                               set("variants", updated);
                             }}
                           />
@@ -2370,11 +2540,20 @@ export function ProductForm({
                                 size: null,
                                 sku: generateSKU(draft.category),
                                 barcode: generateBarcode(),
-                                stock: 10,
+                                stock: 1,
                                 price_override: null,
                               });
                             }
                             set("variants", updated);
+                            if (
+                              !product &&
+                              updated.length === 1 &&
+                              updated[0].name === "Default" &&
+                              !updated[0].color &&
+                              !updated[0].size
+                            ) {
+                              setShowVariantEditor(false);
+                            }
                             set(
                               "stock",
                               updated.reduce((sum, val) => sum + val.stock, 0),
@@ -2389,6 +2568,8 @@ export function ProductForm({
                     );
                   })}
                 </div>
+                  </>
+                )}
               </div>
               {/* Description & Key Highlights (2-Column Grid) */}
               <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
