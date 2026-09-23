@@ -70,6 +70,7 @@ export type ProductDraft = {
   rating?: number;
   reviews?: number;
   ageGroup: string;
+  size?: string | null;
   imageUrl: string;
   images: string[];
   productImages: {
@@ -134,6 +135,8 @@ const MATRIX_AVAILABLE_SIZES = [
   "Free Size",
 ];
 
+const PRODUCT_SIZE_OPTIONS = ["1", "2", "3", "4"];
+
 const SIZE_PRESETS = [
   { label: "👶 Baby (0-2Y)", sizes: ["0-3m", "3-6m", "6-12m", "1-2Y", "2-3Y"] },
   { label: "🧒 Kids (3-8Y)", sizes: ["3-4Y", "4-5Y", "5-6Y", "6-7Y", "7-8Y"] },
@@ -182,6 +185,11 @@ function generateSKU(category: string, color?: string | null, size?: string | nu
 /** Generate a unique 12-digit numeric barcode */
 function generateBarcode(): string {
   return Math.floor(100000000000 + Math.random() * 900000000000).toString();
+}
+
+/** New variant barcodes deliberately encode the variant SKU so scanning/printing identifies the exact variant. */
+function generateVariantBarcode(category: string, color?: string | null, size?: string | null): string {
+  return generateSKU(category, color, size);
 }
 
 const QUICK_TEMPLATES = [
@@ -294,6 +302,7 @@ const toDraft = (
     rating: p?.rating ?? 0,
     reviews: p?.reviews ?? 0,
     ageGroup: p?.ageGroup ?? "0-6m",
+    size: p?.size ?? "",
     imageUrl:
       p?.imageUrl && !p.imageUrl.startsWith("blob:") && !p.imageUrl.startsWith("data:")
         ? p.imageUrl
@@ -402,6 +411,10 @@ export function ProductForm({
   const [draft, setDraft] = useState<ProductDraft>(
     toDraft(product, defaultCategory, defaultSalesChannel),
   );
+  const [productSizeMode, setProductSizeMode] = useState(() => {
+    const initialSize = toDraft(product, defaultCategory, defaultSalesChannel).size?.trim() || "";
+    return PRODUCT_SIZE_OPTIONS.includes(initialSize) ? initialSize : initialSize ? "custom" : "";
+  });
 
   useEffect(() => {
     async function loadRelated() {
@@ -678,7 +691,7 @@ export function ProductForm({
             color: colorName,
             size: sizeName,
             sku: generateSKU(draft.category, colorName, sizeName),
-            barcode: generateBarcode(),
+            barcode: generateVariantBarcode(draft.category, colorName, sizeName),
             stock: 10,
             price_override: null,
             mrp_override: null,
@@ -1659,7 +1672,7 @@ export function ProductForm({
                 </select>
               </label>
 
-              <label className="text-sm font-semibold sm:col-span-2">
+              <label className="text-sm font-semibold">
                 Age group
                 <input
                   className={input}
@@ -1705,6 +1718,90 @@ export function ProductForm({
                   <option value="Teens (8-16y)" />
                   <option value="All Ages" />
                 </datalist>
+              </label>
+
+              <label className="text-sm font-semibold">
+                Size
+                <select
+                  className={input}
+                  value={productSizeMode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setProductSizeMode(value);
+                    setDraft((current) => {
+                      const nextSize = value === "custom" ? "" : value;
+                      const isDefaultOnly =
+                        current.variants.length === 1 &&
+                        current.variants[0].name === "Default" &&
+                        !current.variants[0].color &&
+                        !current.variants[0].size;
+
+                      if (!isDefaultOnly) return { ...current, size: nextSize };
+
+                      const updatedVariant = { ...current.variants[0] };
+                      updatedVariant.size = nextSize || null;
+                      updatedVariant.name = nextSize || "Default";
+                      const previousSku = updatedVariant.sku;
+                      const newSku = generateSKU(current.category, null, nextSize || null);
+                      updatedVariant.sku = newSku;
+                      if (!updatedVariant.barcode || updatedVariant.barcode === previousSku) {
+                        updatedVariant.barcode = generateVariantBarcode(
+                          current.category,
+                          null,
+                          nextSize || null,
+                        );
+                      }
+                      return { ...current, size: nextSize, variants: [updatedVariant] };
+                    });
+                  }}
+                >
+                  <option value="">Select size</option>
+                  {PRODUCT_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                  <option value="custom">Custom size</option>
+                </select>
+
+                {productSizeMode === "custom" && (
+                  <input
+                    className={input + " mt-2"}
+                    placeholder="Enter custom size"
+                    value={draft.size || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDraft((current) => {
+                        const isDefaultOnly =
+                          current.variants.length === 1 &&
+                          current.variants[0].name === "Default" &&
+                          !current.variants[0].color &&
+                          !current.variants[0].size;
+
+                        if (!isDefaultOnly) return { ...current, size: value };
+
+                        const updatedVariant = { ...current.variants[0] };
+                        updatedVariant.size = value.trim() || null;
+                        updatedVariant.name = value.trim() || "Default";
+                        const previousSku = updatedVariant.sku;
+                        const newSku = generateSKU(
+                          current.category,
+                          null,
+                          value.trim() || null,
+                        );
+                        updatedVariant.sku = newSku;
+                        if (!updatedVariant.barcode || updatedVariant.barcode === previousSku) {
+                          updatedVariant.barcode = generateVariantBarcode(
+                            current.category,
+                            null,
+                            value.trim() || null,
+                          );
+                        }
+                        return { ...current, size: value, variants: [updatedVariant] };
+                      });
+                    }}
+                  />
+                )}
               </label>
 
               {/* Label & Barcode Preview directly above Pricing */}
@@ -2027,7 +2124,7 @@ export function ProductForm({
                         color: draft.colors[0] || null,
                         size: "M",
                         sku: generateSKU(draft.category, draft.colors[0], "M"),
-                        barcode: generateBarcode(),
+                        barcode: generateVariantBarcode(draft.category, draft.colors[0], "M"),
                         stock: 10,
                         price_override: null,
                       };
@@ -2235,11 +2332,16 @@ export function ProductForm({
                                   newColor && updated[idx].size
                                     ? `${newColor} / ${updated[idx].size}`
                                     : newColor || updated[idx].size || "Default";
-                                updated[idx].sku = generateSKU(
+                                const previousSku = updated[idx].sku;
+                                const newSku = generateSKU(
                                   draft.category,
                                   newColor,
                                   updated[idx].size,
                                 );
+                                updated[idx].sku = newSku;
+                                if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                                  updated[idx].barcode = newSku;
+                                }
                                 set("variants", updated);
 
                                 if (
@@ -2280,11 +2382,16 @@ export function ProductForm({
                                 updated[idx].color && newSize
                                   ? `${updated[idx].color} / ${newSize}`
                                   : updated[idx].color || newSize || "Default";
-                              updated[idx].sku = generateSKU(
+                              const previousSku = updated[idx].sku;
+                              const newSku = generateSKU(
                                 draft.category,
                                 updated[idx].color,
                                 newSize,
                               );
+                              updated[idx].sku = newSku;
+                              if (!updated[idx].barcode || updated[idx].barcode === previousSku) {
+                                updated[idx].barcode = newSku;
+                              }
                               set("variants", updated);
                             }}
                           />
