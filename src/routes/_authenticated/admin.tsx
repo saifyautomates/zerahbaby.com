@@ -1351,7 +1351,7 @@ function ProductsTab() {
           .select(
             "id, name, slug, sku, barcode, price, mrp, stock, category, brand, age_group, size, is_active, sales_channel, sort_order, created_at, product_images(id, public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
-          .order("sort_order"),
+          .order("created_at", { ascending: false }),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
           () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
         ),
@@ -2292,6 +2292,7 @@ function ProductsTab() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-muted text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
               <tr>
+                <th className="w-10 px-3 py-4 text-center">#</th>
                 <th className="w-10 px-4 py-4">
                   <div className="flex items-center">
                     <input
@@ -2326,6 +2327,9 @@ function ProductsTab() {
                         : "hover:bg-muted/50"
                     } ${!p.isActive ? "opacity-60" : ""}`}
                   >
+                    <td className="w-10 px-3 py-4 text-center font-semibold text-muted-foreground">
+                      {list.indexOf(p) + 1}
+                    </td>
                     <td className="w-10 px-4 py-4">
                       <div className="flex items-center">
                         <input
