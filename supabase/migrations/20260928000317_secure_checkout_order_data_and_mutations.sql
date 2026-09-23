@@ -520,7 +520,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $
+AS $$
 DECLARE
   uid uuid := auth.uid();
   is_authorized boolean := false;
@@ -570,7 +570,7 @@ BEGIN
     'total_requested', COALESCE(array_length(_order_ids, 1), 0)
   );
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.admin_delete_order(
   _order_id uuid,
@@ -634,7 +634,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
-AS $
+AS $$
 DECLARE
   uid uuid := auth.uid();
   is_authorized boolean := false;
@@ -680,7 +680,7 @@ BEGIN
     'total_requested', COALESCE(array_length(_order_ids, 1), 0)
   );
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.delete_cancelled_orders_bulk(_order_ids uuid[])
 RETURNS jsonb
