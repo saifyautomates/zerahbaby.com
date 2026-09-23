@@ -359,6 +359,12 @@ export function useSaveProduct() {
               is_active: true,
             };
 
+            // New simple products already get their single Default variant
+            // from the database AFTER INSERT trigger. Do not create another one.
+            if (!uuid && !hasRealVariants && isDefaultVariant) {
+              continue;
+            }
+
             const variantId = v.id && v.id.trim() !== "" ? v.id : crypto.randomUUID();
             if (v.id && v.id.trim() !== "") {
               existingVariants.push({ ...base, id: variantId });
