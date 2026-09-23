@@ -688,7 +688,7 @@ export function PrintLabelsModal({
         </div>
 
         {/* Quantities & Variant Selection */}
-        <div className="shrink-0 px-4 py-2.5 bg-muted/10 border-b border-border/40 flex flex-wrap items-center gap-2 print:hidden">
+        <div className="min-h-0 max-h-[30vh] overflow-y-auto px-4 py-2.5 bg-muted/10 border-b border-border/40 flex flex-wrap items-start gap-2 print:hidden">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground mr-1">
             Quantities:
           </span>
