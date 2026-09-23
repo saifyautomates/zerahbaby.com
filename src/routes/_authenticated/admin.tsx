@@ -2914,9 +2914,87 @@ function ProductsTab() {
               setEditing(null);
             }}
             onSave={async (draft: ProductDraft) => {
-              const res = await saveProductMutation.mutateAsync(
-                editing ? { draft, uuid: editing.uuid } : { draft },
-              );
+              if (!editing) {
+                // Show the newly added product in the admin table immediately.
+                const tempId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const tempSlug = (draft.slug || draft.name)
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[^a-z0-9]+/g, "-")
+                  .replace(/(^-|-$)/g, "") || tempId;
+
+                const optimisticProduct: Product = {
+                  uuid: tempId,
+                  id: tempSlug,
+                  slug: tempSlug,
+                  name: draft.name.trim(),
+                  brand: draft.brand || "Zérah",
+                  category: draft.category,
+                  price: Number(draft.price) || 0,
+                  mrp: Number(draft.mrp) || 0,
+                  rating: 5,
+                  reviews: 0,
+                  ageGroup: draft.ageGroup || "",
+                  size: draft.size || null,
+                  image: draft.imageUrl || draft.images?.[0] || "",
+                  imageUrl: draft.imageUrl || draft.images?.[0] || null,
+                  description: draft.description || "",
+                  highlights: Array.isArray(draft.highlights)
+                    ? draft.highlights
+                    : (draft.highlights || "")
+                        .split("\n")
+                        .map((h) => h.trim())
+                        .filter(Boolean),
+                  isFeatured: Boolean(draft.isFeatured),
+                  isActive: Boolean(draft.isActive),
+                  sortOrder: Number(draft.sortOrder) || 0,
+                  stock: Math.max(0, Number(draft.stock) || 0),
+                  lowStockAt: Number(draft.lowStockAt) || 2,
+                  sku: draft.sku?.trim() || tempId,
+                  barcode: draft.barcode?.trim() || tempId,
+                  buyingPrice: Number(draft.buyingPrice) || 0,
+                  deliveryFee: Number(draft.deliveryFee) || 65,
+                  salesChannel: draft.salesChannel,
+                  sales_channel: draft.salesChannel,
+                  variants: (draft.variants || []).map((v) => ({
+                    id: v.id || `${tempId}-${v.sku}`,
+                    name: v.name || "Default",
+                    color: v.color ?? null,
+                    size: v.size ?? null,
+                    sku: v.sku,
+                    barcode: v.barcode ?? null,
+                    stock: Number(v.stock) || 0,
+                    priceOverride: v.price_override ?? undefined,
+                    mrpOverride: v.mrp_override ?? undefined,
+                    imageUrl: v.image_url ?? null,
+                  })),
+                };
+
+                await qc.cancelQueries({ queryKey: ["admin-products"] });
+                const previous = qc.getQueryData<Product[]>(["admin-products"]) || [];
+                qc.setQueryData<Product[]>(["admin-products"], [
+                  optimisticProduct,
+                  ...previous.filter((p) => !p.uuid.startsWith("optimistic-")),
+                ]);
+
+                // Close the editor now; the actual DB write continues in the background.
+                setCreating(false);
+                setEditing(null);
+
+                try {
+                  const res = await saveProductMutation.mutateAsync({ draft });
+                  invalidate();
+                  return res;
+                } catch (error) {
+                  qc.setQueryData<Product[]>(["admin-products"], previous);
+                  throw error;
+                }
+              }
+
+              const res = await saveProductMutation.mutateAsync({
+                draft,
+                uuid: editing.uuid,
+              });
               invalidate();
               return res;
             }}
