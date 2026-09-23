@@ -100,7 +100,7 @@ CREATE POLICY "restrict_customer_order_item_visibility"
 ALTER FUNCTION public.record_payment_attempt(text, text, numeric, text)
   RENAME TO record_payment_attempt_legacy_v00317;
 
-ALTER FUNCTION public.update_payment_attempt_status(text, text, text, jsonb)
+ALTER FUNCTION public.update_payment_attempt_status(text, text, text, jsonb, text)
   RENAME TO update_payment_attempt_status_legacy_v00317;
 
 ALTER FUNCTION public.finalize_paid_order(text, text, text, text, numeric)
@@ -109,7 +109,7 @@ ALTER FUNCTION public.finalize_paid_order(text, text, text, text, numeric)
 REVOKE EXECUTE ON FUNCTION public.record_payment_attempt_legacy_v00317(text, text, numeric, text)
   FROM PUBLIC, anon, authenticated, service_role;
 
-REVOKE EXECUTE ON FUNCTION public.update_payment_attempt_status_legacy_v00317(text, text, text, jsonb)
+REVOKE EXECUTE ON FUNCTION public.update_payment_attempt_status_legacy_v00317(text, text, text, jsonb, text)
   FROM PUBLIC, anon, authenticated, service_role;
 
 REVOKE EXECUTE ON FUNCTION public.finalize_paid_order_legacy_v00317(text, text, text, text, numeric)
@@ -144,7 +144,8 @@ CREATE OR REPLACE FUNCTION public.update_payment_attempt_status(
   _razorpay_order_id text,
   _status text,
   _failure_reason text DEFAULT NULL,
-  _gateway_response jsonb DEFAULT NULL
+  _gateway_response jsonb DEFAULT NULL,
+  _error_message text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -160,7 +161,8 @@ BEGIN
     _razorpay_order_id,
     _status,
     _failure_reason,
-    _gateway_response
+    _gateway_response,
+    _error_message
   );
 END;
 $$;
@@ -194,14 +196,14 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.record_payment_attempt(text, text, numeric, text)
   FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.update_payment_attempt_status(text, text, text, jsonb)
+REVOKE EXECUTE ON FUNCTION public.update_payment_attempt_status(text, text, text, jsonb, text)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.finalize_paid_order(text, text, text, text, numeric)
   FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.record_payment_attempt(text, text, numeric, text)
   TO service_role;
-GRANT EXECUTE ON FUNCTION public.update_payment_attempt_status(text, text, text, jsonb)
+GRANT EXECUTE ON FUNCTION public.update_payment_attempt_status(text, text, text, jsonb, text)
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.finalize_paid_order(text, text, text, text, numeric)
   TO service_role;
@@ -450,9 +452,6 @@ ALTER FUNCTION public.admin_delete_order(uuid, boolean)
 ALTER FUNCTION public.delete_cancelled_order(uuid)
   RENAME TO delete_cancelled_order_legacy_v00317;
 
-ALTER FUNCTION public.delete_cancelled_orders_bulk(uuid[], boolean)
-  RENAME TO delete_cancelled_orders_bulk_legacy_v00317;
-
 ALTER FUNCTION public.delete_cancelled_orders_bulk(uuid[])
   RENAME TO delete_cancelled_orders_bulk_legacy_single_v00317;
 
@@ -463,8 +462,6 @@ REVOKE EXECUTE ON FUNCTION public.admin_cancel_orders_bulk_legacy_v00317(uuid[],
 REVOKE EXECUTE ON FUNCTION public.admin_delete_order_legacy_v00317(uuid, boolean)
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.delete_cancelled_order_legacy_v00317(uuid)
-  FROM PUBLIC, anon, authenticated, service_role;
-REVOKE EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk_legacy_v00317(uuid[], boolean)
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk_legacy_single_v00317(uuid[])
   FROM PUBLIC, anon, authenticated, service_role;
@@ -627,8 +624,7 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_cancelled_orders_bulk(
-  _order_ids uuid[],
-  _force boolean DEFAULT true
+  _order_ids uuid[]
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -665,7 +661,7 @@ BEGIN
 
   FOREACH v_id IN ARRAY _order_ids LOOP
     BEGIN
-      v_res := public.admin_delete_order_legacy_v00317(v_id, _force);
+      v_res := public.admin_delete_order_legacy_v00317(v_id, true);
       IF COALESCE((v_res->>'success')::boolean, false) THEN
         v_deleted_count := v_deleted_count + 1;
       END IF;
@@ -730,8 +726,6 @@ REVOKE EXECUTE ON FUNCTION public.admin_delete_order(uuid, boolean)
   FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.delete_cancelled_order(uuid)
   FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk(uuid[], boolean)
-  FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk(uuid[])
   FROM PUBLIC, anon;
 
@@ -742,8 +736,6 @@ GRANT EXECUTE ON FUNCTION public.admin_cancel_orders_bulk(uuid[], text)
 GRANT EXECUTE ON FUNCTION public.admin_delete_order(uuid, boolean)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_cancelled_order(uuid)
-  TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk(uuid[], boolean)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.delete_cancelled_orders_bulk(uuid[])
   TO authenticated, service_role;
