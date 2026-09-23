@@ -21,6 +21,7 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     price: Number(draft.price),
     mrp: Number(draft.mrp),
     age_group: draft.ageGroup,
+    size: draft.size?.trim() || null,
     stock: effectiveStock,
     low_stock_at: Number(draft.lowStockAt),
     sku: draft.sku.trim(),
