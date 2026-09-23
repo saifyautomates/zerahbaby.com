@@ -31,9 +31,23 @@ async function compressImage(file: File): Promise<File> {
     return file; // Do not compress videos or gifs
   }
 
+  // FAST PATH:
+  // Small JPEG/WebP files are already lightweight enough.
+  // Avoid Image decode + Canvas + WebP conversion because that
+  // only adds unnecessary delay before the actual upload starts.
+  const FAST_UPLOAD_LIMIT = 1.5 * 1024 * 1024; // 1.5 MB
+
+  if (
+    file.size <= FAST_UPLOAD_LIMIT &&
+    (file.type === "image/jpeg" || file.type === "image/webp")
+  ) {
+    return file;
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+
     img.onload = () => {
       URL.revokeObjectURL(url);
 
@@ -48,7 +62,7 @@ async function compressImage(file: File): Promise<File> {
         file.size < 350 * 1024 &&
         (file.type === "image/webp" || file.type === "image/jpeg")
       ) {
-        return resolve(file); // Already lightweight webp/jpeg, upload immediately!
+        return resolve(file); // Already lightweight, upload immediately
       }
 
       const canvas = document.createElement("canvas");
@@ -65,23 +79,34 @@ async function compressImage(file: File): Promise<File> {
       canvas.toBlob(
         (blob) => {
           if (!blob) return resolve(file); // fallback
+
           const newName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-          resolve(new File([blob], newName, { type: "image/webp" }));
+
+          resolve(
+            new File([blob], newName, {
+              type: "image/webp",
+            }),
+          );
         },
         "image/webp",
         0.85,
       );
     };
+
     img.onerror = () => {
-      URL.revokeObjectURL(url); // prevent memory leak on failed loads
+      URL.revokeObjectURL(url);
       resolve(file); // fallback to original file
     };
+
     img.src = url;
   });
 }
 
 /** Uploads any media file (image or video) to storage and returns a public URL. */
-export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<string> {
+export async function uploadMedia(
+  rawFile: File,
+  pathPrefix?: string,
+): Promise<string> {
   // Validate MIME type
   if (!ALLOWED_MIME_TYPES.has(rawFile.type)) {
     throw new Error(
@@ -90,7 +115,9 @@ export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<s
   }
 
   const isVideo = rawFile.type.startsWith("video/");
-  const maxLimit = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+  const maxLimit = isVideo
+    ? 50 * 1024 * 1024
+    : 10 * 1024 * 1024;
 
   // Cap file size
   if (rawFile.size > maxLimit) {
@@ -101,10 +128,14 @@ export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<s
     );
   }
 
-  // Compress image to make upload "snap of a finger" fast (bypassed for video)
+  // Compress only when actually useful.
+  // Small JPEG/WebP files bypass this step entirely.
   const file = await compressImage(rawFile);
 
-  const ext = (file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg")).toLowerCase();
+  const ext = (
+    file.name.split(".").pop() ??
+    (isVideo ? "mp4" : "jpg")
+  ).toLowerCase();
 
   // Validate extension
   if (!ALLOWED_EXTENSIONS.has(ext)) {
@@ -112,16 +143,26 @@ export async function uploadMedia(rawFile: File, pathPrefix?: string): Promise<s
   }
 
   const filename = `${crypto.randomUUID()}.${ext}`;
-  const path = pathPrefix ? `${pathPrefix}/${filename}` : filename;
+  const path = pathPrefix
+    ? `${pathPrefix}/${filename}`
+    : filename;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: "31536000",
-    upsert: true,
-    contentType: file.type || (isVideo ? "video/mp4" : "image/jpeg"),
-  });
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, {
+      cacheControl: "31536000",
+      upsert: true,
+      contentType:
+        file.type ||
+        (isVideo ? "video/mp4" : "image/jpeg"),
+    });
+
   if (error) throw error;
 
   // Use public URL since bucket is public — no expiry issues
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const { data } = supabase.storage
+    .from(BUCKET)
+    .getPublicUrl(path);
+
   return data.publicUrl;
 }
