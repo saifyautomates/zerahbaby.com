@@ -2051,6 +2051,7 @@ function BuyNowModal({
 
     setSubmitting(true);
 
+    let sessionId: string | null = null;
 
     try {
       // Save profile address changes (non-blocking)
@@ -2095,7 +2096,7 @@ function BuyNowModal({
             ? crypto.randomUUID()
             : `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       });
-      const sessionId = sessionResult.session_id;
+      sessionId = sessionResult.session_id;
 
       // Load Razorpay Script
       await new Promise((resolve, reject) => {
@@ -2203,7 +2204,6 @@ function BuyNowModal({
                   razorpay_order_id: orderRef,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
-                  session_id: sessionId,
                   session_id: sessionId,
                 },
               },
