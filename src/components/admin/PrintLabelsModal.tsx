@@ -230,19 +230,52 @@ export function PrintLabelsModal({
   };
 
   const printableProducts = products.filter((p) => p.sku || p.barcode || p.name);
-  const totalLabels = printableProducts.reduce(
-    (sum, p) => sum + (quantities[p.uuid || p.id] ?? 1),
-    0,
-  );
 
   const preparedProducts = useMemo(() => {
-    return printableProducts.map((p) => ({
-      ...p,
-      brand: p.brand || "ZERAH",
-      artNo: (p as any).artNo || p.sku || p.barcode || "—",
-      size: (p as any).size || (p as any).ageGroup || p.variants?.[0]?.size || "--",
-    }));
+    return printableProducts.flatMap((p) => {
+      const variants = p.variants?.length ? p.variants : [null];
+
+      return variants.map((variant) => ({
+        ...p,
+        uuid: variant ? `${p.uuid || p.id}-${variant.id}` : p.uuid || p.id,
+        brand: p.brand || "ZERAH",
+        artNo: variant?.sku || (p as any).artNo || p.sku || p.barcode || "—",
+        sku: variant?.sku || p.sku || "",
+        barcode: variant?.barcode || p.barcode || variant?.sku || p.sku || "",
+        price: variant?.priceOverride ?? p.price,
+        mrp: variant?.mrpOverride ?? p.mrp ?? p.price,
+        stock: variant?.stock ?? p.stock ?? 1,
+        size:
+          variant?.size ||
+          variant?.color ||
+          (p as any).size ||
+          (p as any).ageGroup ||
+          "--",
+        variants: undefined,
+      }));
+    });
   }, [printableProducts]);
+
+  const variantQuantities = useMemo(() => {
+    const next: Record<string, number> = {};
+
+    for (const p of printableProducts) {
+      const parentKey = p.uuid || p.id;
+      const qty = quantities[parentKey] ?? 1;
+      const variants = p.variants?.length ? p.variants : [null];
+
+      for (const variant of variants) {
+        const key = variant ? `${parentKey}-${variant.id}` : parentKey;
+        next[key] = qty;
+      }
+    }
+
+    return next;
+  }, [printableProducts, quantities]);
+
+  const totalLabels = preparedProducts.reduce((sum, p) => {
+    return sum + (variantQuantities[p.uuid || p.id] ?? 1);
+  }, 0);
 
   const entries: LabelEntry[] = useMemo(() => {
     return preparedProducts.map((p) => ({
@@ -258,9 +291,9 @@ export function PrintLabelsModal({
         brand: p.brand,
         size: p.size,
       },
-      qty: quantities[p.uuid || p.id] ?? 1,
+      qty: variantQuantities[p.uuid || p.id] ?? 1,
     }));
-  }, [preparedProducts, quantities]);
+  }, [preparedProducts, variantQuantities]);
 
   const activeCfg = resolvePrintFormatConfig(layout, customDims.widthMm, customDims.heightMm);
 
@@ -271,7 +304,7 @@ export function PrintLabelsModal({
     try {
       printProductLabels({
         products: preparedProducts,
-        quantities,
+        quantities: variantQuantities,
         layout,
         customWidthMm: customDims.widthMm,
         customHeightMm: customDims.heightMm,
@@ -295,7 +328,7 @@ export function PrintLabelsModal({
     if (preparedProducts.length === 0) return;
     openLabelPrintInNewTab({
       products: preparedProducts,
-      quantities,
+      quantities: variantQuantities,
       layout,
       customWidthMm: customDims.widthMm,
       customHeightMm: customDims.heightMm,
