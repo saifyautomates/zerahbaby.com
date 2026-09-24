@@ -8,7 +8,7 @@ interface DeveloperContactModalProps {
   onClose: () => void;
 }
 
-const WHATSAPP_NUMBER = "919928010786";
+const WHATSAPP_NUMBER = "917014098198";
 const WHATSAPP_MESSAGE =
   "Hi Saify Automates, I am interested in your website development services.";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;

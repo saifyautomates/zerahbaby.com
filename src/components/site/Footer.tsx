@@ -217,17 +217,15 @@ export function Footer() {
           <span>
             © {new Date().getFullYear()} {brandName}. All rights reserved.
           </span>
-          <span className="hidden sm:inline">·</span>
-          <button
-            type="button"
-            onClick={() => setIsDevModalOpen(true)}
+          <a
+            href="https://wa.me/917014098198?text=Hi%20Saify%20Automates%2C%20I%20am%20interested%20in%20your%20website%20development%20services."
+            target="_blank"
+            rel="noopener noreferrer"
             id="developed-by-saify-automates-btn"
             className="font-medium transition hover:text-primary underline-offset-4 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
-            aria-haspopup="dialog"
-            aria-expanded={isDevModalOpen}
           >
             Developed by Saify Automates
-          </button>
+          </a>
         </div>
       </div>
 
