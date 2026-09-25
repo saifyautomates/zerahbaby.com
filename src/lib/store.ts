@@ -777,7 +777,7 @@ export const productsQueryOptions = (includeInactive = false) => ({
   queryKey: ["products", includeInactive] as const,
   queryFn: () => fetchProducts(includeInactive),
   staleTime: 1000 * 30, // 30 seconds caching for fast responsiveness
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false,
 });
 
 export const fallbackCategories: Category[] = [
