@@ -136,6 +136,8 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
       payment_method: "cash",
       subtotal: 499,
       discount: 0,
+      discount_type: "fixed",
+      discount_value: 0,
       total: 499,
       status: "completed",
     };
@@ -285,6 +287,8 @@ test.describe("Standard Portrait A4 Invoice & Thermal Receipt Verification Suite
       payment_method: "cash",
       subtotal: 899,
       discount: 100,
+      discount_type: "fixed",
+      discount_value: 100,
       total: 799,
       status: "completed",
     };

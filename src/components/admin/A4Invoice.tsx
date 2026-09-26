@@ -36,8 +36,8 @@ export type A4InvoiceSale = {
   customer_email?: string;
   subtotal: number;
   discount: number;
-  discount_type: string;
-  discount_value: number;
+  discount_type?: string;
+  discount_value?: number;
   total: number;
   store_credit_used?: number;
   credit_token_used?: string | null;
