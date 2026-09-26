@@ -2444,10 +2444,13 @@ export type Database = {
           created_at: string
           id: string
           is_primary: boolean
+          media_type: string | null
           product_id: string
           public_url: string
           sort_order: number
           storage_path: string
+          variant_id: string | null
+          variant_sku: string | null
         }
         Insert: {
           alt_text?: string
@@ -2455,10 +2458,13 @@ export type Database = {
           created_at?: string
           id?: string
           is_primary?: boolean
+          media_type?: string | null
           product_id: string
           public_url?: string
           sort_order?: number
           storage_path?: string
+          variant_id?: string | null
+          variant_sku?: string | null
         }
         Update: {
           alt_text?: string
@@ -2466,10 +2472,13 @@ export type Database = {
           created_at?: string
           id?: string
           is_primary?: boolean
+          media_type?: string | null
           product_id?: string
           public_url?: string
           sort_order?: number
           storage_path?: string
+          variant_id?: string | null
+          variant_sku?: string | null
         }
         Relationships: [
           {

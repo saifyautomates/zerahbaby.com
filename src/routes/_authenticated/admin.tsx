@@ -2938,6 +2938,7 @@ function ProductsTab() {
                   size: draft.size || null,
                   image: draft.imageUrl || draft.images?.[0] || "",
                   imageUrl: draft.imageUrl || draft.images?.[0] || null,
+                  images: draft.images || (draft.imageUrl ? [draft.imageUrl] : []),
                   description: draft.description || "",
                   highlights: Array.isArray(draft.highlights)
                     ? draft.highlights

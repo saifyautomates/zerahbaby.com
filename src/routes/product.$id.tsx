@@ -2257,7 +2257,9 @@ function BuyNowModal({
         modal: {
           ondismiss: async () => {
             setSubmitting(false);
-            await cancelCheckoutSession(sessionId, "Customer closed payment modal");
+            if (sessionId) {
+              await cancelCheckoutSession(sessionId, "Customer closed payment modal");
+            }
             toast.error("Payment window closed. You can retry payment anytime.");
           },
         },
@@ -2277,10 +2279,12 @@ function BuyNowModal({
       ).Razorpay(options);
       rzp.on("payment.failed", async (response: { error: { description: string } }) => {
         setSubmitting(false);
-        await cancelCheckoutSession(
-          sessionId,
-          response.error?.description || "Payment failed at gateway",
-        );
+        if (sessionId) {
+          await cancelCheckoutSession(
+            sessionId,
+            response.error?.description || "Payment failed at gateway",
+          );
+        }
         toast.error(response.error?.description || "Payment failed at gateway");
       });
       rzp.open();
