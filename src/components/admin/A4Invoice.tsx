@@ -138,9 +138,11 @@ export function buildA4HTML(
 
       const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
       const hasGst = item.gst_rate != null && item.gst_rate > 0;
-      const taxableValue = lineTotal;
-      const gstAmount = hasGst ? Math.round((taxableValue * (item.gst_rate! / 100)) * 100) / 100 : 0;
-      const lineTotalInclGst = taxableValue + gstAmount;
+      const taxableValue = hasGst
+        ? Math.round((lineTotal / (1 + item.gst_rate! / 100)) * 100) / 100
+        : lineTotal;
+      const gstAmount = hasGst ? Math.round((lineTotal - taxableValue) * 100) / 100 : 0;
+      const lineTotalInclGst = lineTotal;
       const gstRateStr = item.gst_rate != null ? `${item.gst_rate}%` : "—";
       const cgst = Math.round((gstAmount / 2) * 100) / 100;
       const sgst = Math.round((gstAmount - cgst) * 100) / 100;

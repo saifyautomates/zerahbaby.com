@@ -63,8 +63,9 @@ export function useGlobalRealtimeSync() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const channel = supabase
-      .channel("global-db-realtime-sync")
+    // 1. Public Catalog Realtime Channel (accessible to all visitors)
+    const catalogChannel = supabase
+      .channel("zerah-public-catalog-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, (payload) => {
         const { eventType, new: newRow, old: oldRow } = payload;
         notifyListeners("products", eventType, payload);
@@ -93,6 +94,7 @@ export function useGlobalRealtimeSync() {
         "postgres_changes",
         { event: "*", schema: "public", table: "product_variants" },
         (payload) => {
+          notifyListeners("product_variants", payload.eventType, payload);
           notifyListeners("products", payload.eventType, payload);
           debouncedInvalidate(qc, [
             ["products"],
@@ -118,70 +120,6 @@ export function useGlobalRealtimeSync() {
           ["homepage-sections"],
         ]);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
-        notifyListeners("orders", payload.eventType, payload);
-        debouncedInvalidate(qc, [
-          ["orders"],
-          ["admin-orders"],
-          ["admin-dashboard"],
-          ["my-orders"],
-          ["order-history"],
-          ["admin-unified-store-activities"],
-        ]);
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, (payload) => {
-        notifyListeners("order_items", payload.eventType, payload);
-        debouncedInvalidate(qc, [
-          ["admin-orders"],
-          ["admin-unified-store-activities"],
-        ]);
-      })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "offline_sales" },
-        (payload) => {
-          notifyListeners("offline_sales", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["offline-sales"],
-            ["offline-sales-badge-count"],
-            ["admin-dashboard"],
-            ["admin-offline-sales"],
-            ["admin-canonical-pos-sales"],
-            ["admin-unified-store-activities"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "offline_sale_items" },
-        (payload) => {
-          notifyListeners("offline_sale_items", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["offline-sales"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "analytics_events" },
-        (payload) => {
-          notifyListeners("analytics_events", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["admin-unified-store-activities"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "website_visitors" },
-        (payload) => {
-          notifyListeners("website_visitors", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["admin-visitor-analytics"],
-            ["admin-unified-store-activities"],
-          ]);
-        },
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "site_settings" },
@@ -195,23 +133,6 @@ export function useGlobalRealtimeSync() {
           ]);
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "payment_settings" },
-        (payload) => {
-          notifyListeners("payment_settings", payload.eventType, payload);
-          debouncedInvalidate(qc, [["payment-settings"], ["site_settings"], ["admin-settings"]]);
-        },
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
-        notifyListeners("profiles", payload.eventType, payload);
-        debouncedInvalidate(qc, [
-          ["profiles"],
-          ["user-profile"],
-          ["admin-customers"],
-          ["pos-customers"],
-        ]);
-      })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "product_relations" },
@@ -228,51 +149,10 @@ export function useGlobalRealtimeSync() {
           debouncedInvalidate(qc, [["product-videos"], ["product"], ["products"]]);
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pos_customers" },
-        (payload) => {
-          notifyListeners("pos_customers", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["pos-customers"],
-            ["offline-sales-customers-badge"],
-            ["offline-sales-customers-hub"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "store_credit_ledger" },
-        (payload) => {
-          notifyListeners("store_credit_ledger", payload.eventType, payload);
-          debouncedInvalidate(qc, [["pos-customers"], ["store-credit"], ["offline-sales"]]);
-        },
-      )
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, (payload) => {
         notifyListeners("reviews", payload.eventType, payload);
         debouncedInvalidate(qc, [["reviews"], ["product-reviews"], ["homepage-reviews"]]);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "coupons" }, (payload) => {
-        notifyListeners("coupons", payload.eventType, payload);
-        debouncedInvalidate(qc, [["coupons"], ["admin-coupons"], ["pos-coupons"]]);
-      })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "product_variants" },
-        (payload) => {
-          notifyListeners("product_variants", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["products"],
-            ["product"],
-            ["admin-products"],
-            ["admin-search-products"],
-            ["admin-products-count"],
-            ["inventory-products"],
-            ["pos-products"],
-            ["product-relations"],
-          ]);
-        },
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "product_images" },
@@ -302,59 +182,184 @@ export function useGlobalRealtimeSync() {
           debouncedInvalidate(qc, [["homepage-sections"]]);
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "inventory_transactions" },
-        (payload) => {
-          notifyListeners("inventory_transactions", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["inventory-products"],
-            ["admin-dashboard"],
-            ["inventory-transactions"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "offline_returns" },
-        (payload) => {
-          notifyListeners("offline_returns", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["offline-sales"],
-            ["offline-returns"],
-            ["pos-customers"],
-            ["admin-dashboard"],
-            ["admin-unified-store-activities"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "online_returns" },
-        (payload) => {
-          notifyListeners("online_returns", payload.eventType, payload);
-          debouncedInvalidate(qc, [
-            ["online-returns"],
-            ["orders"],
-            ["admin-orders"],
-            ["my-orders"],
-            ["admin-dashboard"],
-          ]);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "contact_messages" },
-        (payload) => {
-          notifyListeners("contact_messages", payload.eventType, payload);
-          debouncedInvalidate(qc, [["admin-queries"], ["contact-messages"], ["customer-queries"]]);
-        },
-      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          console.info("[RealtimeSync] Global real-time channel active.");
+          console.info("[RealtimeSync] Public catalog real-time channel active.");
         }
       });
+
+    // 2. Admin Operations Realtime Channel (only mounted for admin/staff/POS users)
+    const isAdminOrStaff =
+      window.location.pathname.startsWith("/admin") ||
+      localStorage.getItem("zerah_test_admin") === "true" ||
+      Object.keys(localStorage).some(
+        (k) => k.startsWith("zerah_is_admin_") && localStorage.getItem(k) === "true",
+      );
+
+    let adminChannel: ReturnType<typeof supabase.channel> | null = null;
+    if (isAdminOrStaff) {
+      adminChannel = supabase
+        .channel("zerah-admin-ops-sync")
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+          notifyListeners("orders", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["orders"],
+            ["admin-orders"],
+            ["admin-dashboard"],
+            ["my-orders"],
+            ["order-history"],
+            ["admin-unified-store-activities"],
+          ]);
+        })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "order_items" },
+          (payload) => {
+            notifyListeners("order_items", payload.eventType, payload);
+            debouncedInvalidate(qc, [["admin-orders"], ["admin-unified-store-activities"]]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "offline_sales" },
+          (payload) => {
+            notifyListeners("offline_sales", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["offline-sales"],
+              ["offline-sales-badge-count"],
+              ["admin-dashboard"],
+              ["admin-offline-sales"],
+              ["admin-canonical-pos-sales"],
+              ["admin-unified-store-activities"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "offline_sale_items" },
+          (payload) => {
+            notifyListeners("offline_sale_items", payload.eventType, payload);
+            debouncedInvalidate(qc, [["offline-sales"]]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "analytics_events" },
+          (payload) => {
+            notifyListeners("analytics_events", payload.eventType, payload);
+            debouncedInvalidate(qc, [["admin-unified-store-activities"]]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "website_visitors" },
+          (payload) => {
+            notifyListeners("website_visitors", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["admin-visitor-analytics"],
+              ["admin-unified-store-activities"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "payment_settings" },
+          (payload) => {
+            notifyListeners("payment_settings", payload.eventType, payload);
+            debouncedInvalidate(qc, [["payment-settings"], ["site_settings"], ["admin-settings"]]);
+          },
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
+          notifyListeners("profiles", payload.eventType, payload);
+          debouncedInvalidate(qc, [
+            ["profiles"],
+            ["user-profile"],
+            ["admin-customers"],
+            ["pos-customers"],
+          ]);
+        })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "pos_customers" },
+          (payload) => {
+            notifyListeners("pos_customers", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["pos-customers"],
+              ["offline-sales-customers-badge"],
+              ["offline-sales-customers-hub"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "store_credit_ledger" },
+          (payload) => {
+            notifyListeners("store_credit_ledger", payload.eventType, payload);
+            debouncedInvalidate(qc, [["pos-customers"], ["store-credit"], ["offline-sales"]]);
+          },
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "coupons" }, (payload) => {
+          notifyListeners("coupons", payload.eventType, payload);
+          debouncedInvalidate(qc, [["coupons"], ["admin-coupons"], ["pos-coupons"]]);
+        })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "inventory_transactions" },
+          (payload) => {
+            notifyListeners("inventory_transactions", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["inventory-products"],
+              ["admin-dashboard"],
+              ["inventory-transactions"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "offline_returns" },
+          (payload) => {
+            notifyListeners("offline_returns", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["offline-sales"],
+              ["offline-returns"],
+              ["pos-customers"],
+              ["admin-dashboard"],
+              ["admin-unified-store-activities"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "online_returns" },
+          (payload) => {
+            notifyListeners("online_returns", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["online-returns"],
+              ["orders"],
+              ["admin-orders"],
+              ["my-orders"],
+              ["admin-dashboard"],
+            ]);
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "contact_messages" },
+          (payload) => {
+            notifyListeners("contact_messages", payload.eventType, payload);
+            debouncedInvalidate(qc, [
+              ["admin-queries"],
+              ["contact-messages"],
+              ["customer-queries"],
+            ]);
+          },
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.info("[RealtimeSync] Admin operations real-time channel active.");
+          }
+        });
+    }
 
     // Instant cross-tab sync via BroadcastChannel (0ms delay within same browser)
     let bc: BroadcastChannel | null = null;
@@ -389,7 +394,10 @@ export function useGlobalRealtimeSync() {
     window.addEventListener("zerah:catalog-updated", onCustomCatalogUpdate);
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(catalogChannel);
+      if (adminChannel) {
+        supabase.removeChannel(adminChannel);
+      }
       if (bc) {
         try {
           bc.close();

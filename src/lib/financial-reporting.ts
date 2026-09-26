@@ -539,7 +539,6 @@ export function calculateFinancialMetrics({
     return (
       retStatus !== "returned" &&
       retStatus !== "fully_returned" &&
-      retStatus !== "completed" &&
       !isFullyRefunded
     );
   }).length;

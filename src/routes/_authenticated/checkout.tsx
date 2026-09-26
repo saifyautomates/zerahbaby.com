@@ -134,6 +134,36 @@ function CheckoutPage() {
 
   const finalTotal = total + codFee;
 
+  const gstBreakdown = useMemo(() => {
+    let totalTaxable = 0;
+    let totalGst = 0;
+
+    for (const item of items) {
+      const lineTotal = item.price * item.qty;
+      const rate = item.product?.gst_rate != null ? Number(item.product.gst_rate) : null;
+      if (rate != null && rate > 0) {
+        const taxable = Math.round((lineTotal / (1 + rate / 100)) * 100) / 100;
+        const gst = Math.round((lineTotal - taxable) * 100) / 100;
+        totalTaxable += taxable;
+        totalGst += gst;
+      }
+    }
+
+    const isInterState = Boolean(form.state && form.state.trim().toLowerCase() !== "rajasthan");
+    const cgst = isInterState ? 0 : Math.round((totalGst / 2) * 100) / 100;
+    const sgst = isInterState ? 0 : Math.round((totalGst - cgst) * 100) / 100;
+    const igst = isInterState ? totalGst : 0;
+
+    return {
+      totalTaxable,
+      totalGst,
+      cgst,
+      sgst,
+      igst,
+      isInterState,
+    };
+  }, [items, form.state]);
+
   useEffect(() => {
     trackEvent("checkout_started");
   }, []);
@@ -1149,6 +1179,14 @@ function CheckoutPage() {
                 <span className="text-[11px] text-muted-foreground block truncate">
                   Inclusive of all taxes
                 </span>
+                {gstBreakdown.totalGst > 0 && (
+                  <span className="text-[10px] text-muted-foreground block truncate">
+                    Includes ₹{gstBreakdown.totalGst.toFixed(2)} GST{" "}
+                    {gstBreakdown.isInterState
+                      ? `(IGST)`
+                      : `(CGST ₹${gstBreakdown.cgst.toFixed(2)} + SGST ₹${gstBreakdown.sgst.toFixed(2)})`}
+                  </span>
+                )}
               </div>
               <div className="text-right shrink-0">
                 <span className="text-2xl font-black font-display tracking-tight text-foreground tabular-nums block">
