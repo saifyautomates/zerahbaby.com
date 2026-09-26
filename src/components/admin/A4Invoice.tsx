@@ -45,7 +45,7 @@ export type A4InvoiceSale = {
   coupon_discount?: number;
   payment_method: string;
   notes?: string;
-  sale_date?: Date;
+  sale_date?: Date | string;
   status?: "completed" | "pending_sync" | "failed";
   is_offline_queued?: boolean;
   is_inter_state?: boolean;
@@ -107,68 +107,105 @@ export function buildA4HTML(
   items: A4InvoiceItem[],
   store: ReturnType<typeof useSettings>,
 ): string {
-  const date = sale.sale_date ?? new Date();
+  // Resolve real date and real timing
+  let date: Date;
+  if (sale.sale_date instanceof Date && !isNaN(sale.sale_date.getTime())) {
+    date = sale.sale_date;
+  } else if (typeof sale.sale_date === "string" && sale.sale_date.trim()) {
+    const raw = sale.sale_date.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const now = new Date();
+      date = new Date(`${raw}T${now.toTimeString().slice(0, 8)}`);
+    } else {
+      const parsed = new Date(raw);
+      date = isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+  } else {
+    date = new Date();
+  }
 
-  const dateStr = date.toLocaleDateString("en-IN", {
-    day: "2-digit",
+  // Real date e.g. "27 September 2026"
+  const dateStr = date.toLocaleDateString("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
     month: "long",
     year: "numeric",
   });
-  const timeStr = date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+
+  // Real timing e.g. "10:26 am"
+  const timeStr = date
+    .toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .toLowerCase();
 
   let totalTaxable = 0;
   let totalGstAmount = 0;
-  let totalCgst = 0;
-  let totalSgst = 0;
+
+  // Detect whether item prices are base rates (exclusive of GST) or gross totals (inclusive)
+  const isAdditive =
+    sale.total > (sale.subtotal - (sale.discount || 0)) ||
+    Math.round((sale.total - sale.subtotal) * 100) / 100 > 0;
 
   const itemRows = items
-    .map((item, i) => {
-      const lineTotal = item.price * item.qty;
-      const hasMRP = item.mrp && item.mrp > item.price;
+    .map((item, idx) => {
+      const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 0;
+      let unitRate: number;
+      let gstAmount: number;
+      let lineTotal: number;
+
+      if (isAdditive && gstRate > 0) {
+        // Exclusive rate mode (typical POS with additive GST)
+        unitRate = item.price;
+        const lineBase = unitRate * item.qty;
+        gstAmount = Math.round(lineBase * (gstRate / 100) * 100) / 100;
+        lineTotal = lineBase + gstAmount;
+        totalTaxable += lineBase;
+      } else if (gstRate > 0) {
+        // Inclusive rate mode
+        lineTotal = item.price * item.qty;
+        const taxable = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
+        gstAmount = Math.round((lineTotal - taxable) * 100) / 100;
+        unitRate = Math.round((taxable / item.qty) * 100) / 100;
+        totalTaxable += taxable;
+      } else {
+        unitRate = item.price;
+        gstAmount = 0;
+        lineTotal = unitRate * item.qty;
+        totalTaxable += lineTotal;
+      }
+
+      totalGstAmount += gstAmount;
+
       const variantDetails = [
         item.color ? `Color: ${escapeHtml(item.color)}` : "",
         item.size ? `Size: ${escapeHtml(item.size)}` : "",
-        item.sku ? `SKU: ${escapeHtml(item.sku)}` : "",
       ]
         .filter(Boolean)
         .join(" · ");
 
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
-      const hasGst = item.gst_rate != null && item.gst_rate > 0;
-      const taxableValue = hasGst
-        ? Math.round((lineTotal / (1 + item.gst_rate! / 100)) * 100) / 100
-        : lineTotal;
-      const gstAmount = hasGst ? Math.round((lineTotal - taxableValue) * 100) / 100 : 0;
-      const lineTotalInclGst = lineTotal;
-      const gstRateStr = item.gst_rate != null ? `${item.gst_rate}%` : "—";
-      const cgst = Math.round((gstAmount / 2) * 100) / 100;
-      const sgst = Math.round((gstAmount - cgst) * 100) / 100;
+      const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
+      const subInfo = [variantDetails, skuText].filter(Boolean).join(" · ");
 
-      totalTaxable += taxableValue;
-      totalGstAmount += gstAmount;
-      totalCgst += cgst;
-      totalSgst += sgst;
+      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
+      const gstRateStr = gstRate > 0 ? `${gstRate}%` : "0%";
 
       return `
-    <tr class="${i % 2 === 0 ? "even" : ""}">
-      <td>
-        <div class="item-name">${escapeHtml(item.name)}</div>
-        ${variantDetails ? `<div class="sku" style="font-size: 10px; color: #475569; margin-top: 2px;">${variantDetails}</div>` : ""}
+    <tr style="border-bottom: 1px solid #f3f4f6;">
+      <td style="padding: 10px 6px; text-align: center; font-weight: 700; color: #111; vertical-align: top;">${idx + 1}</td>
+      <td style="padding: 10px 8px; text-align: left; vertical-align: top;">
+        <div style="font-weight: 700; color: #111; font-size: 12px;">${escapeHtml(item.name)}</div>
+        ${subInfo ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 3px;">${subInfo}</div>` : ""}
       </td>
-      <td class="center font-mono">${hsnDisplay}</td>
-      <td class="center">${item.qty}</td>
-      <td class="right">
-        ${hasMRP ? `<div class="mrp-col">MRP: ₹${item.mrp!.toLocaleString("en-IN")}</div>` : ""}
-        <div class="bold">₹${item.price.toLocaleString("en-IN")}</div>
-        ${hasMRP ? `<div style="font-size: 9px; color: #15803d; margin-top: 2px;">Save: ₹${(item.mrp! - item.price).toLocaleString("en-IN")}</div>` : ""}
-      </td>
-      <td class="right">₹${taxableValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-      <td class="center">${gstRateStr}</td>
-      <td class="right">₹${gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-      <td class="right bold">₹${lineTotalInclGst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
+      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${unitRate.toFixed(2)}</td>
+      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 800; color: #111; vertical-align: top;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
     })
     .join("");
@@ -179,14 +216,17 @@ export function buildA4HTML(
       : "";
 
   const paymentDisplay = sale.payment_method
-    ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1)
+    ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1).toLowerCase()
     : "Cash";
+
+  const subtotalDisplay = (totalTaxable > 0 ? totalTaxable : sale.subtotal).toFixed(2);
+  const logoSrc = typeof window !== "undefined" && window.location ? `${window.location.origin}/logo.png` : "/logo.png";
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Invoice ${escapeHtml(sale.sale_number)}</title>
+<title>Tax Invoice ${escapeHtml(sale.sale_number)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page {
@@ -194,195 +234,36 @@ export function buildA4HTML(
     margin: 15mm 12mm 15mm 12mm;
   }
   body {
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 11px;
-    color: #1a1a1a;
+    color: #111;
     background: #fff;
-    line-height: 1.5;
+    line-height: 1.45;
     max-width: 210mm;
     margin: 0 auto;
+    padding: 0 2mm;
   }
-  /* ── Header ── */
   .header {
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .totals {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+  }
+  .footer {
+    border-top: 2px solid #dc2626;
+    margin-top: 28px;
+    padding-top: 12px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 3px solid #8B2020;
-    padding-bottom: 12px;
-    margin-bottom: 16px;
-  }
-  .header-left {
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    width: 100%;
-    text-align: center;
   }
-  .invoice-meta-container {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .brand-name {
-    font-size: 26px;
-    font-weight: 900;
-    color: #8B2020;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-  .brand-contact {
-    font-size: 11px;
-    color: #555;
-    margin-top: 6px;
-    line-height: 1.6;
-    text-align: center;
-  }
-  .invoice-meta {
-    text-align: right;
-  }
-  .invoice-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #8B2020;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .invoice-number {
-    font-size: 13px;
-    font-weight: 700;
-    margin-top: 4px;
-    color: #1a1a1a;
-  }
-  .invoice-date {
-    font-size: 10px;
-    color: #555;
-    margin-top: 3px;
-  }
-  /* ── Info rows ── */
-  .info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-  .info-card {
-    border: 1px solid #e5e5e5;
-    border-radius: 6px;
-    padding: 10px 12px;
-  }
-  .info-card-title {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #8B2020;
-    margin-bottom: 5px;
-  }
-  .info-card-value {
-    font-size: 11px;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-  .info-card-sub {
-    font-size: 10px;
-    color: #555;
-    margin-top: 1px;
-  }
-  /* ── Items table ── */
   table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 12px;
-  }
-  thead tr {
-    background: #8B2020;
-    color: #fff;
-  }
-  thead th {
-    padding: 7px 8px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  thead th.right { text-align: right; }
-  thead th.center { text-align: center; }
-  tbody tr.even { background: #faf8f8; }
-  tbody td {
-    padding: 7px 8px;
-    vertical-align: top;
-    border-bottom: 1px solid #efefef;
-  }
-  .item-name { font-weight: 600; }
-  .sku { font-size: 9px; color: #888; font-weight: 400; font-family: monospace; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: 700; }
-  .mrp-col { color: #999; text-decoration: line-through; }
-  /* ── Totals ── */
-  .totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-  }
-  .totals-box {
-    width: 220px;
-    border: 1px solid #e5e5e5;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .totals-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 10px;
-    font-size: 11px;
-  }
-  .totals-row.alt { background: #faf8f8; }
-  .totals-row.discount { color: #15803d; }
-  .totals-row.grand-total {
-    background: #8B2020;
-    color: #fff;
-    font-weight: 800;
-    font-size: 13px;
-    padding: 8px 10px;
-  }
-  /* ── Payment ── */
-  .payment-badge {
-    display: inline-block;
-    background: #f0fdf4;
-    border: 1px solid #86efac;
-    border-radius: 20px;
-    padding: 3px 10px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #15803d;
-    text-transform: uppercase;
-  }
-  /* ── Footer ── */
-  .footer {
-    border-top: 2px solid #8B2020;
-    padding-top: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-top: 20px;
-  }
-  .footer-policy {
-    font-size: 9px;
-    color: #666;
-    max-width: 300px;
-    line-height: 1.5;
-  }
-  .footer-thanks {
-    text-align: right;
-    font-size: 10px;
-    color: #8B2020;
-    font-weight: 700;
-  }
-  .footer-web {
-    font-size: 9px;
-    color: #555;
-    margin-top: 2px;
   }
   .no-print { display: none !important; }
 </style>
@@ -391,68 +272,79 @@ export function buildA4HTML(
 
 <!-- ── HEADER ── -->
 <div class="header">
-  <div class="header-left">
-    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px;">
-      <img loading="lazy" decoding="async" src="${typeof window !== "undefined" && window.location ? window.location.origin : ""}/logo.png" style="width:54px;height:54px;object-fit:contain;" alt="Zerah Logo"/>
-      <div class="brand-name">ZÉRAH BABY &amp; KIDS STORE</div>
-    </div>
-    <div class="brand-contact">
-      In Front of Hanumanji Temple,<br/>
-      Atwal Nagar, Kota, Rajasthan<br/>
-      Ph: ${escapeHtml(store.contactPhone)}<br/>
-      ${escapeHtml(store.contactEmail)}${store.settings?.["gstin"] || store.settings?.["store_gstin"] ? `<br/>GSTIN: ${escapeHtml(store.settings?.["gstin"] || store.settings?.["store_gstin"])}` : ""}
-    </div>
+  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px;">
+    <img loading="lazy" decoding="async" src="${logoSrc}" alt="ZÉRAH" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%;" />
+    <span style="font-size: 20px; font-weight: 900; color: #dc2626; letter-spacing: 0.5px; text-transform: uppercase;">ZÉRAH BABY &amp; KIDS STORE</span>
   </div>
-</div>
-<div class="invoice-meta-container">
-  <div>
-    <div class="invoice-title">${sale.status === "pending_sync" || sale.is_offline_queued ? "OFFLINE VOUCHER" : "TAX INVOICE"}</div>
-    <div class="invoice-number">${escapeHtml(sale.sale_number)}</div>
-    <div class="invoice-date">${dateStr}<br/>${timeStr}</div>
+  <div style="font-size: 11px; color: #111; line-height: 1.4;">
+    In front of Hanumanji Temple, Atwal Nagar, Kota, Rajasthan
   </div>
+  <div style="font-size: 11px; color: #111; line-height: 1.4;">
+    Ph: ${escapeHtml(store.contactPhone || "9057074777")} &nbsp;|&nbsp; ${escapeHtml(store.contactEmail || "hello@zerahkids.com")}
+  </div>
+  <div style="border-bottom: 2px solid #dc2626; margin-top: 10px; width: 100%;"></div>
 </div>
+
+<!-- ── INVOICE META ── -->
+<div style="margin: 12px 0 16px 0;">
+  <div style="color: #dc2626; font-size: 22px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.1;">TAX INVOICE</div>
+  <div style="color: #111; font-size: 15px; font-weight: 800; margin-top: 4px;">${escapeHtml(sale.sale_number)}</div>
+  <div style="color: #111; font-size: 11.5px; margin-top: 4px;">${dateStr}</div>
+  <div style="color: #111; font-size: 11.5px; margin-top: 2px;">${timeStr}</div>
+</div>
+
 ${
   sale.status === "pending_sync" || sale.is_offline_queued
     ? `<div style="margin: 10px 0; padding: 8px 12px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; text-align: center; color: #b45309; font-weight: 700; font-size: 11px;">
-        ⚡ PENDING CLOUD SYNCHRONIZATION — This sale was recorded offline and will be synchronized automatically.
+        ⚡ PENDING CLOUD SYNCHRONIZATION — Recorded offline, syncing automatically.
        </div>`
     : ""
 }
 
-<!-- ── BILLED TO / PAYMENT INFO ── -->
-<div class="info-grid">
-  <div class="info-card">
-    <div class="info-card-title">Billed To</div>
-    <div class="info-card-value">${escapeHtml(sale.customer_name)}</div>
-    ${sale.customer_phone ? `<div class="info-card-sub">Ph: ${escapeHtml(sale.customer_phone)}</div>` : ""}
-    ${sale.customer_email ? `<div class="info-card-sub">${escapeHtml(sale.customer_email)}</div>` : ""}
+<!-- ── BILLED TO & PAYMENT MODE CARDS ── -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+  <!-- BILLED TO -->
+  <div style="background: #fff5f5; border: 1px solid #fee2e2; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 12px;">
+    <div style="width: 34px; height: 34px; border-radius: 50%; background: #fee2e2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div>
+      <div style="color: #dc2626; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">BILLED TO</div>
+      <div style="color: #111; font-size: 14px; font-weight: 800; margin-top: 2px;">${escapeHtml(sale.customer_name || "Walk-in Customer")}</div>
+      <div style="color: #374151; font-size: 11px; margin-top: 2px;">Ph: ${escapeHtml(sale.customer_phone || "—")}</div>
+      ${sale.customer_email ? `<div style="color: #6b7280; font-size: 10px; margin-top: 1px;">${escapeHtml(sale.customer_email)}</div>` : ""}
+    </div>
   </div>
-  <div class="info-card">
-    <div class="info-card-title">Payment Mode</div>
-    <div style="margin-top:2px;"><span class="payment-badge">${escapeHtml(paymentDisplay)}</span></div>
-    ${
-      sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div class="info-card-sub" style="margin-top:4px; font-weight:700; color:#047857;">
-            Store Credit: ₹${sale.store_credit_used.toLocaleString("en-IN")} ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}
-           </div>`
-        : ""
-    }
-    <div class="info-card-sub" style="margin-top:4px;">Status: PAID</div>
+
+  <!-- PAYMENT MODE -->
+  <div style="background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 12px;">
+    <div style="width: 34px; height: 34px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+    </div>
+    <div>
+      <div style="color: #dc2626; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">PAYMENT MODE</div>
+      <div style="margin-top: 4px;">
+        <span style="border: 1.5px solid #16a34a; background: #fff; color: #16a34a; border-radius: 9999px; padding: 2px 14px; font-size: 11px; font-weight: 800; display: inline-block; text-transform: uppercase;">
+          ${escapeHtml(paymentDisplay)}
+        </span>
+      </div>
+      <div style="color: #374151; font-size: 11px; margin-top: 4px;">Status: PAID</div>
+    </div>
   </div>
 </div>
 
 <!-- ── ITEMS TABLE ── -->
 <table>
-  <thead>
+  <thead style="background: #fff5f5; border-bottom: 1.5px solid #fee2e2;">
     <tr>
-      <th style="text-align:left;">Product</th>
-      <th class="center">HSN</th>
-      <th class="center">Qty</th>
-      <th class="right">Rate</th>
-      <th class="right">Taxable Value</th>
-      <th class="center">GST Rate</th>
-      <th class="right">GST Amount</th>
-      <th class="right">Total</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 35px;">#</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: left;">PRODUCT</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">HSN</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 45px;">QTY</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 65px;">RATE</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">GST RATE</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">GST AMOUNT</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">TOTAL</th>
     </tr>
   </thead>
   <tbody>
@@ -462,89 +354,57 @@ ${
 
 <!-- ── TOTALS ── -->
 <div class="totals">
-  <div class="totals-box">
-    <div class="totals-row">
+  <div style="width: 250px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff;">
+    <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #374151;">
       <span>Subtotal</span>
-      <span>₹${sale.subtotal.toLocaleString("en-IN")}</span>
+      <span>₹${subtotalDisplay}</span>
     </div>
     ${
       totalGstAmount > 0
-        ? sale.is_inter_state
-          ? `<div class="totals-row alt" style="font-size: 10px; color: #475569;">
-        <span>Taxable Value</span>
-        <span>₹${totalTaxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>
-      <div class="totals-row" style="font-size: 10px; color: #475569;">
-        <span>IGST</span>
-        <span>₹${totalGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>
-      <div class="totals-row" style="font-size: 10px; font-weight: 700; color: #8B2020;">
-        <span>Total GST</span>
-        <span>₹${totalGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>`
-          : `<div class="totals-row alt" style="font-size: 10px; color: #475569;">
-        <span>Taxable Value</span>
-        <span>₹${totalTaxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>
-      <div class="totals-row" style="font-size: 10px; color: #475569;">
-        <span>CGST</span>
-        <span>₹${totalCgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>
-      <div class="totals-row alt" style="font-size: 10px; color: #475569;">
-        <span>SGST</span>
-        <span>₹${totalSgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>
-      <div class="totals-row" style="font-size: 10px; font-weight: 700; color: #8B2020;">
-        <span>Total GST</span>
-        <span>₹${totalGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      </div>`
+        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; background: #fef2f2; color: #dc2626; font-weight: 700; border-top: 1px solid #fee2e2; border-bottom: 1px solid #fee2e2;">
+            <span>Total GST</span>
+            <span>₹${totalGstAmount.toFixed(2)}</span>
+          </div>`
         : ""
     }
     ${
       sale.coupon_discount && sale.coupon_discount > 0
-        ? `<div class="totals-row alt discount">
-        <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
-        <span>−₹${sale.coupon_discount.toLocaleString("en-IN")}</span>
-      </div>`
+        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
+            <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
+            <span>−₹${sale.coupon_discount.toFixed(2)}</span>
+          </div>`
         : ""
     }
     ${
       sale.discount > 0
-        ? `<div class="totals-row alt discount">
-        <span>${escapeHtml(discountLabel)}</span>
-        <span>−₹${sale.discount.toLocaleString("en-IN")}</span>
-      </div>`
+        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
+            <span>${escapeHtml(discountLabel)}</span>
+            <span>−₹${sale.discount.toFixed(2)}</span>
+          </div>`
         : ""
     }
-    <div class="totals-row grand-total">
-      <span>TOTAL</span>
-      <span>₹${sale.total.toLocaleString("en-IN")}</span>
-    </div>
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div class="totals-row alt" style="color:#047857; font-weight:700; margin-top:4px; border-top:1px dashed #ccc; padding-top:4px;">
-            <span>Exchange Credit Tender ${sale.credit_token_used ? `[${escapeHtml(sale.credit_token_used)}]` : ""}</span>
-            <span>₹${sale.store_credit_used.toLocaleString("en-IN")}</span>
-          </div>
-          <div class="totals-row alt" style="font-weight:700;">
-            <span>Additional Paid (${escapeHtml(paymentDisplay)})</span>
-            <span>₹${Math.max(0, sale.total - sale.store_credit_used).toLocaleString("en-IN")}</span>
-          </div>
-          <div class="totals-row" style="font-size:10px; color:#555;">
-            <span>Total Settled</span>
-            <span>₹${sale.total.toLocaleString("en-IN")}</span>
+        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #047857; font-weight: 600;">
+            <span>Store Credit</span>
+            <span>−₹${sale.store_credit_used.toFixed(2)}</span>
           </div>`
-        : `<div class="totals-row alt" style="font-size:11px; color:#555; margin-top:2px;">
-            <span>Payment Method</span>
-            <span>${escapeHtml(paymentDisplay)}</span>
-          </div>`
+        : ""
     }
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+      <span style="font-size: 18px; font-weight: 900; color: #111;">TOTAL</span>
+      <span style="font-size: 18px; font-weight: 900; color: #111;">₹${sale.total.toFixed(2)}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #4b5563;">
+      <span>Payment Method</span>
+      <span>${escapeHtml(paymentDisplay)}</span>
+    </div>
   </div>
 </div>
 
 ${
   sale.notes
-    ? `<div style="margin-bottom:12px;font-size:10px;color:#555;">
+    ? `<div style="margin-top: 12px; font-size: 10px; color: #555;">
     <strong>Notes:</strong> ${escapeHtml(sale.notes)}
   </div>`
     : ""
@@ -552,16 +412,31 @@ ${
 
 <!-- ── FOOTER ── -->
 <div class="footer">
-  <div>
-    <div class="footer-policy">
-      <strong>Return &amp; Exchange Policy:</strong><br/>
-      Exchange/Return within 7 days with original receipt & tags intact.
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        <span style="font-size: 11px; font-weight: 800; color: #111;">Return &amp; Exchange Policy:</span>
+      </div>
+      <div style="font-size: 9.5px; color: #4b5563; margin-top: 2px; margin-left: 21px;">Exchange/Return within 7 days with original receipt &amp; tags intact.</div>
     </div>
-    <div style="margin-top:6px;font-size:9px;color:#aaa;">GST: Not Applicable</div>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      <span style="font-size: 10.5px; font-weight: 800; color: #111;">Website:</span>
+      <a href="https://zerahkids.com" style="font-size: 10.5px; font-weight: 800; color: #dc2626; text-decoration: none;">zerahkids.com</a>
+    </div>
   </div>
-  <div class="footer-thanks">
-    Thank You For Shopping!
-    <div class="footer-web">zerahkids.com · ${escapeHtml(store.instagramUrl)}</div>
+
+  <div style="width: 1.5px; height: 44px; background: #374151; margin: 0 16px;"></div>
+
+  <div style="text-align: right;">
+    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span style="font-size: 11.5px; font-weight: 800; color: #dc2626;">Thank You for Shopping!</span>
+    </div>
+    <div style="font-family: 'Brush Script MT', 'Caveat', 'Segoe Script', cursive, sans-serif; font-size: 32px; font-weight: bold; color: #dc2626; line-height: 1.1; margin-top: 3px;">
+      Visit Again <span style="font-size: 22px; vertical-align: middle;">&#9825;</span>
+    </div>
   </div>
 </div>
 
@@ -697,7 +572,12 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPrint]);
 
-  const date = sale.sale_date ?? new Date();
+  const date =
+    sale.sale_date instanceof Date
+      ? sale.sale_date
+      : sale.sale_date
+        ? new Date(sale.sale_date)
+        : new Date();
 
   const content = (
     <div

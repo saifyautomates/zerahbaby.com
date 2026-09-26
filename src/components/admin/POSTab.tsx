@@ -5367,6 +5367,7 @@ export function POSTab() {
         <A4Invoice
           sale={{
             sale_number: saleResult.sale_number,
+            sale_date: new Date(),
             customer_name: saleResult.customer_name,
             customer_phone: saleResult.customer_phone,
             subtotal: saleResult.subtotal,
