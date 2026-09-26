@@ -48,11 +48,18 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
   return row;
 };
 
+let lastBroadcastTimestamp = 0;
+
 export function broadcastCatalogueChange() {
   if (typeof window !== "undefined") {
+    const now = Date.now();
+    // Throttle to at most once every 500ms to eliminate event flooding
+    if (now - lastBroadcastTimestamp < 500) return;
+    lastBroadcastTimestamp = now;
+
     try {
       const bc = new BroadcastChannel("zerah_catalog_sync");
-      bc.postMessage({ type: "CATALOG_MUTATED", timestamp: Date.now() });
+      bc.postMessage({ type: "CATALOG_MUTATED", timestamp: now });
       bc.close();
     } catch {
       // BroadcastChannel unsupported or blocked
@@ -62,7 +69,6 @@ export function broadcastCatalogueChange() {
 }
 
 export function invalidateCatalogue(qc: ReturnType<typeof useQueryClient>) {
-  broadcastCatalogueChange();
   invalidateDeliveryFeesCache();
   qc.invalidateQueries({ queryKey: ["products"] });
   qc.invalidateQueries({ queryKey: ["product"] });

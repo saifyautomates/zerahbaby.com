@@ -2316,7 +2316,7 @@ function ProductsTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {list.map((p) => {
+              {list.map((p, idx) => {
                 const isSelected = selectedIds.has(p.uuid);
                 return (
                   <tr
@@ -2328,7 +2328,7 @@ function ProductsTab() {
                     } ${!p.isActive ? "opacity-60" : ""}`}
                   >
                     <td className="w-10 px-3 py-4 text-center font-semibold text-muted-foreground">
-                      {list.indexOf(p) + 1}
+                      {idx + 1}
                     </td>
                     <td className="w-10 px-4 py-4">
                       <div className="flex items-center">
