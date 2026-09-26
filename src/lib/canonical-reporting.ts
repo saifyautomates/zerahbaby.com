@@ -85,11 +85,20 @@ export async function fetchCanonicalPOSSales(): Promise<CanonicalPOSSale[]> {
     throw error;
   }
 
+  // Filter out any cancelled or voided records — cancelled sales must never be stored in history
+  const activeDbSales = (dbSales ?? []).filter(
+    (s: Record<string, unknown>) =>
+      s.status !== "cancelled" &&
+      s.status !== "voided" &&
+      !s.is_voided &&
+      !(typeof s.notes === "string" && s.notes.startsWith("[VOIDED]")),
+  );
+
   // 2. Auto-prune obsolete test drafts and reconcile locally queued items with cloud records
   try {
     await pruneObsoleteTestDrafts();
     await reconcileLocalQueueWithCloudSales(
-      (dbSales ?? []) as unknown as Parameters<typeof reconcileLocalQueueWithCloudSales>[0],
+      activeDbSales as unknown as Parameters<typeof reconcileLocalQueueWithCloudSales>[0],
     );
   } catch (err) {
     console.warn("[canonical-reporting] Local queue reconciliation warning:", err);
@@ -181,7 +190,7 @@ export async function fetchCanonicalPOSSales(): Promise<CanonicalPOSSale[]> {
       }),
     }));
 
-  return [...pendingLocal, ...(dbSales ?? [])] as CanonicalPOSSale[];
+  return [...pendingLocal, ...(activeDbSales ?? [])] as CanonicalPOSSale[];
 }
 
 /**

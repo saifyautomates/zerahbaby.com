@@ -266,7 +266,7 @@ export function OfflineAnalyticsTab() {
       return data;
     },
     onSuccess: (res) => {
-      toast.success(res?.message || "Sale cancelled & inventory restocked successfully.");
+      toast.success(res?.message || "Sale cancelled, inventory restocked, and removed from sales history.");
       salesSelection.clearSelection();
       invalidateCanonicalReportingQueries(qc);
       notifyPOSSaleChanged();
@@ -370,7 +370,7 @@ export function OfflineAnalyticsTab() {
       return { success: true, message: `${saleIds.length} record(s) processed.` };
     },
     onSuccess: (res) => {
-      toast.success(res?.message || "Selected POS sales voided successfully.");
+      toast.success(res?.message || "Selected POS sales cancelled, inventory restored, and removed from sales history.");
       salesSelection.clearSelection();
       invalidateCanonicalReportingQueries(qc);
       notifyPOSSaleChanged();
@@ -431,7 +431,7 @@ export function OfflineAnalyticsTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card" | "cancelled">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(50);
 
@@ -513,19 +513,7 @@ export function OfflineAnalyticsTab() {
     [sales, returnsBySaleItemId],
   );
 
-  // Cancelled or voided transactions in reporting period
-  const periodCancelledSales = useMemo(
-    () =>
-      (sales ?? []).filter(
-        (s) =>
-          inCurrentPeriod(s.created_at) &&
-          (s.status === "cancelled" ||
-            s.status === "voided" ||
-            s.is_voided === true ||
-            Boolean(s.notes && s.notes.startsWith("[VOIDED]"))),
-      ) as unknown as Sale[],
-    [sales, inCurrentPeriod],
-  );
+  // Cancelled or voided transactions are automatically deleted and never stored in sales history
 
   // Local transactions pending or failed cloud synchronization
   const uncommittedSales = useMemo(
@@ -540,29 +528,18 @@ export function OfflineAnalyticsTab() {
     // Strict date range filter based on canonical reporting bounds
     list = list.filter((s) => inCurrentPeriod(s.created_at));
 
-    if (paymentFilter === "cancelled") {
-      list = list.filter(
-        (s) =>
-          s.status === "cancelled" ||
-          s.status === "voided" ||
-          s.is_voided === true ||
-          Boolean(s.notes && s.notes.startsWith("[VOIDED]")),
-      );
-    } else {
-      // In active sales views ("all", "cash", "upi", "card"):
-      // Strictly exclude cancelled/voided transactions AND fully returned transactions
-      list = list.filter(
-        (s) =>
-          s.status !== "cancelled" &&
-          s.status !== "voided" &&
-          !s.is_voided &&
-          !(s.notes && s.notes.startsWith("[VOIDED]")) &&
-          !isSaleFullyReturned(s),
-      );
+    // Strictly exclude cancelled/voided transactions AND fully returned transactions
+    list = list.filter(
+      (s) =>
+        s.status !== "cancelled" &&
+        s.status !== "voided" &&
+        !s.is_voided &&
+        !(s.notes && s.notes.startsWith("[VOIDED]")) &&
+        !isSaleFullyReturned(s),
+    );
 
-      if (paymentFilter !== "all") {
-        list = list.filter((s) => s.payment_method === paymentFilter);
-      }
+    if (paymentFilter !== "all") {
+      list = list.filter((s) => s.payment_method === paymentFilter);
     }
 
     const q = deferredSearchQuery.trim().toLowerCase();
@@ -1246,13 +1223,12 @@ export function OfflineAnalyticsTab() {
               { id: "cash", label: `💵 Cash (${cashSales.length})` },
               { id: "upi", label: `📱 UPI (${upiSales.length})` },
               { id: "card", label: `💳 Card (${cardSales.length})` },
-              { id: "cancelled", label: `🚫 Cancelled (${periodCancelledSales.length})` },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() =>
-                  setPaymentFilter(tab.id as "all" | "cash" | "upi" | "card" | "cancelled")
+                  setPaymentFilter(tab.id as "all" | "cash" | "upi" | "card")
                 }
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer ${
                   paymentFilter === tab.id
@@ -1882,52 +1858,12 @@ export function OfflineAnalyticsTab() {
                                       }}
                                       disabled={voidSaleMutation.isPending}
                                       className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2 text-xs font-bold text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors disabled:opacity-50 cursor-pointer"
-                                      title="Cancel completed sale and automatically restore inventory stock"
+                                      title="Cancel completed sale, restore inventory stock, and automatically delete from sales history"
                                     >
                                       <RotateCcw className="size-4" />
                                       Cancel Sale
                                     </button>
                                   )}
-                                {(sale.status === "cancelled" ||
-                                  sale.status === "voided" ||
-                                  sale.is_voided ||
-                                  Boolean(sale.notes && sale.notes.startsWith("[VOIDED]"))) && (
-                                  <div className="flex flex-col items-end gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                                        <RotateCcw className="size-3.5" />
-                                        Cancelled
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (
-                                            confirm(
-                                              `Permanently delete cancelled POS sale #${sale.sale_number} from database? This cannot be undone.`,
-                                            )
-                                          ) {
-                                            await hardDeleteSalesMutation.mutateAsync({
-                                              saleIds: [sale.id],
-                                              restoreStock: false,
-                                            });
-                                          }
-                                        }}
-                                        disabled={hardDeleteSalesMutation.isPending}
-                                        className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
-                                        title="Permanently purge this sale record from database"
-                                      >
-                                        <Trash2 className="size-3.5" />
-                                        Delete Record
-                                      </button>
-                                    </div>
-                                    {sale.void_reason && (
-                                      <p className="text-[11px] text-muted-foreground italic max-w-xs text-right">
-                                        Reason: {sale.void_reason}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -1953,13 +1889,11 @@ export function OfflineAnalyticsTab() {
                         <p className="text-xs text-muted-foreground mt-1">
                           {searchQuery
                             ? `No sales matched "${searchQuery}". Try a different receipt number, customer name, or product.`
-                            : paymentFilter === "cancelled"
-                              ? "No cancelled transactions recorded in this period."
-                              : paymentFilter !== "all"
-                                ? `No transactions completed with ${paymentFilter.toUpperCase()} in this period.`
-                                : (sales?.length || 0) > 0
-                                  ? `You have ${sales?.length} total POS sale(s) in other periods. Switch to "All Time" or "Today" to view them.`
-                                  : "No counter sales recorded yet. Completed walk-in transactions punched in the POS terminal will appear here."}
+                            : paymentFilter !== "all"
+                              ? `No transactions completed with ${paymentFilter.toUpperCase()} in this period.`
+                              : (sales?.length || 0) > 0
+                                ? `You have ${sales?.length} total POS sale(s) in other periods. Switch to "All Time" or "Today" to view them.`
+                                : "No counter sales recorded yet. Completed walk-in transactions punched in the POS terminal will appear here."}
                         </p>
                       </div>
                       {searchQuery ? (
@@ -2130,9 +2064,9 @@ export function OfflineAnalyticsTab() {
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
               <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="size-4 shrink-0" />
-                Receipt Cancellation & Auto-Restock
+                Receipt Cancellation & Removal
               </p>
-              Cancelling this sale will automatically restore all item quantities back to inventory stock, remove this receipt from active sales and dashboard revenue, and move it to the Cancelled tab.
+              Cancelling this sale will automatically restore all item quantities back to inventory stock and permanently delete this sale from sales history.
             </div>
 
             <div className="space-y-3">
@@ -2218,7 +2152,7 @@ export function OfflineAnalyticsTab() {
                 {voidSaleMutation.isPending && (
                   <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 )}
-                <span>Confirm Cancellation</span>
+                <span>Confirm Cancellation & Delete</span>
               </button>
             </div>
           </div>
