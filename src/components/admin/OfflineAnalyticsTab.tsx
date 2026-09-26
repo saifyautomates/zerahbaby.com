@@ -3,7 +3,7 @@
  * per-sale receipt printing, sale details expansion, and top products view.
  * Includes Customer Footfall analytics powered by the POS token system.
  */
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice, imageFor, getProductUrl } from "@/lib/store";
@@ -430,6 +430,7 @@ export function OfflineAnalyticsTab() {
   const { data: sales, isLoading, refetch: refetchSales } = useCanonicalPOSSales();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "upi" | "card" | "cancelled">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "all">(50);
@@ -564,7 +565,7 @@ export function OfflineAnalyticsTab() {
       }
     }
 
-    const q = searchQuery.trim().toLowerCase();
+    const q = deferredSearchQuery.trim().toLowerCase();
     if (!q) return list;
 
     return list.filter((s) => {
@@ -587,7 +588,7 @@ export function OfflineAnalyticsTab() {
         matchesItem
       );
     });
-  }, [sales, searchQuery, paymentFilter, inCurrentPeriod]);
+  }, [sales, deferredSearchQuery, paymentFilter, inCurrentPeriod]);
 
   const salesSelection = useTableSelection({ items: filteredSales });
   const salesMetrics = useMemo(

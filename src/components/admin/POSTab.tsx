@@ -698,13 +698,20 @@ export function POSTab() {
         return prod;
       });
 
-      import("@/lib/offline-sync-engine")
-        .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
-            console.error,
-          );
-        })
-        .catch(console.error);
+      if (typeof window !== "undefined") {
+        const schedule =
+          (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
+            .requestIdleCallback || ((cb: () => void) => setTimeout(cb, 600));
+        schedule(() => {
+          import("@/lib/offline-sync-engine")
+            .then((m) => {
+              m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
+                console.error,
+              );
+            })
+            .catch(console.error);
+        });
+      }
       return mapped;
     },
   });

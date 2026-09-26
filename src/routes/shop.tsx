@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
@@ -421,6 +421,8 @@ function ShopPage() {
   });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const deferredQ = useDeferredValue(q);
+  const deferredMaxPrice = useDeferredValue(maxPrice);
 
   // Sync age parameter from URL search params into selectedAgeGroups state
   useEffect(() => {
@@ -477,7 +479,7 @@ function ShopPage() {
     selectedBrands.length > 0 || selectedAgeGroups.length > 0 || maxPrice < 20000 || inStockOnly;
 
   const visible = useMemo(() => {
-    const query = (q ?? "").trim().toLowerCase();
+    const query = (deferredQ ?? "").trim().toLowerCase();
     const filtered = list.filter(
       (p) =>
         (!category || p.category?.toLowerCase().trim() === category.toLowerCase().trim()) &&
@@ -486,7 +488,7 @@ function ShopPage() {
             matchesAgeGroup(p.ageGroup, target, p.variants),
           )) &&
         (selectedBrands.length === 0 || selectedBrands.includes(p.brand)) &&
-        p.price <= maxPrice &&
+        p.price <= deferredMaxPrice &&
         (!inStockOnly || p.stock > 0) &&
         (!query ||
           [p.name, p.brand, p.description, p.category]
@@ -500,7 +502,7 @@ function ShopPage() {
     if (sort === "popular") sorted.sort((a, b) => b.reviews - a.reviews);
     if (sort === "newest") sorted.sort((a, b) => (a.id < b.id ? 1 : -1));
     return sorted;
-  }, [list, category, q, selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
+  }, [list, category, deferredQ, selectedBrands, selectedAgeGroups, deferredMaxPrice, inStockOnly, sort]);
 
   const [displayLimit, setDisplayLimit] = useState(24);
 

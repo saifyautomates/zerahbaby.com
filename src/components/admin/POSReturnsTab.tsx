@@ -14,7 +14,7 @@
  * - Atomic inventory restock (+stock) and store credit ledger logging
  * - Thermal 80mm & A4 print vouchers
  */
-import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useRef, useCallback, useMemo, useEffect, useDeferredValue } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -86,6 +86,7 @@ export function POSReturnsTab() {
 
   // Search Inputs
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const deferredCustomerSearchQuery = useDeferredValue(customerSearchQuery);
   const [productScanQuery, setProductScanQuery] = useState("");
   const [invoiceScanQuery, setInvoiceScanQuery] = useState("");
 
@@ -128,6 +129,7 @@ export function POSReturnsTab() {
   // History Detail Modal
   const [selectedHistoryReturn, setSelectedHistoryReturn] = useState<OfflineReturn | null>(null);
   const [historySearch, setHistorySearch] = useState("");
+  const deferredHistorySearch = useDeferredValue(historySearch);
 
   // Queries
   const { data: pastSalesWithMetrics = [], isLoading: isSalesLoading } =
@@ -146,7 +148,7 @@ export function POSReturnsTab() {
   /*  DISCOVERY MODE 1: Customer Grouped Sales History                   */
   /* ------------------------------------------------------------------ */
   const groupedCustomerPurchases = useMemo(() => {
-    const q = customerSearchQuery.trim().toLowerCase();
+    const q = deferredCustomerSearchQuery.trim().toLowerCase();
 
     // Group all past sales by customer identity (phone or name)
     const customerMap = new Map<
@@ -239,7 +241,7 @@ export function POSReturnsTab() {
     }
 
     return groups;
-  }, [pastSalesWithMetrics, returnsList, customerSearchQuery]);
+  }, [pastSalesWithMetrics, returnsList, deferredCustomerSearchQuery]);
 
   /* ------------------------------------------------------------------ */
   /*  DISCOVERY MODE 2: Product Barcode Historical Sales Candidates     */
@@ -752,8 +754,8 @@ export function POSReturnsTab() {
 
   // Filtered Returns History
   const filteredHistory = useMemo(() => {
-    if (!historySearch.trim()) return returnsList;
-    const q = historySearch.toLowerCase();
+    if (!deferredHistorySearch.trim()) return returnsList;
+    const q = deferredHistorySearch.toLowerCase();
     return returnsList.filter(
       (r) =>
         r.return_number.toLowerCase().includes(q) ||
@@ -762,7 +764,7 @@ export function POSReturnsTab() {
         (r.credit_token && r.credit_token.toLowerCase().includes(q)) ||
         r.return_reason.toLowerCase().includes(q),
     );
-  }, [returnsList, historySearch]);
+  }, [returnsList, deferredHistorySearch]);
 
   const historySelection = useTableSelection<OfflineReturn>({ items: filteredHistory });
   const historyMetrics = useMemo(

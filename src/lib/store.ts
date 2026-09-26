@@ -514,13 +514,22 @@ async function fetchProducts(includeInactive: boolean): Promise<Product[]> {
       });
 
       // Synchronize offline IndexedDB catalog with current active products
-      import("@/lib/offline-sync-engine")
-        .then((m) => {
-          m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
-            console.error,
-          );
-        })
-        .catch(console.error);
+      if (typeof window !== "undefined") {
+        const scheduleCache = () => {
+          import("@/lib/offline-sync-engine")
+            .then((m) => {
+              m.cacheFullCatalog(mapped as unknown as Array<Record<string, unknown>>).catch(
+                console.error,
+              );
+            })
+            .catch(console.error);
+        };
+        if ("requestIdleCallback" in window) {
+          (window as any).requestIdleCallback(scheduleCache, { timeout: 4000 });
+        } else {
+          setTimeout(scheduleCache, 600);
+        }
+      }
 
       return mapped;
     }

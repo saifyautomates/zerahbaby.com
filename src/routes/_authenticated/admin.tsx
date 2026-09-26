@@ -1,6 +1,6 @@
 //
 import { createFileRoute, Link, useNavigate, Outlet, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy, Fragment } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, Suspense, lazy, Fragment, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -388,32 +388,38 @@ export function AdminPage() {
     }
   }, [tab]);
 
-  const isOfflineNotif = (n: typeof notifications[0]) =>
-    n.type === "pos_sale" || n.type === "pos_return" || n.tab === "billing";
+  const isOfflineNotif = useCallback(
+    (n: (typeof notifications)[0]) =>
+      n.type === "pos_sale" || n.type === "pos_return" || n.tab === "billing",
+    [],
+  );
 
-  const isOnlineNotif = (n: typeof notifications[0]) =>
-    n.type === "order_new" ||
-    n.type === "order_cancelled" ||
-    n.type === "order_failed" ||
-    n.type === "online_return" ||
-    n.tab === "orders" ||
-    n.tab === "returns";
+  const isOnlineNotif = useCallback(
+    (n: (typeof notifications)[0]) =>
+      n.type === "order_new" ||
+      n.type === "order_cancelled" ||
+      n.type === "order_failed" ||
+      n.type === "online_return" ||
+      n.tab === "orders" ||
+      n.tab === "returns",
+    [],
+  );
 
   const onlineUnreadCount = useMemo(
     () => notifications.filter((n) => !n.read && isOnlineNotif(n)).length,
-    [notifications],
+    [notifications, isOnlineNotif],
   );
 
   const offlineUnreadCount = useMemo(
     () => notifications.filter((n) => !n.read && isOfflineNotif(n)).length,
-    [notifications],
+    [notifications, isOfflineNotif],
   );
 
   const filteredNotifications = useMemo(() => {
     if (notifChannelFilter === "online") return notifications.filter(isOnlineNotif);
     if (notifChannelFilter === "offline") return notifications.filter(isOfflineNotif);
     return notifications;
-  }, [notifications, notifChannelFilter]);
+  }, [notifications, notifChannelFilter, isOnlineNotif, isOfflineNotif]);
 
   // Detect OS for shortcut badge
   const isMac = useMemo(() => {
@@ -1878,8 +1884,10 @@ function ProductsTab() {
     (p) => p.salesChannel !== "OFFLINE_ONLY",
   ).length;
 
+  const deferredSearch = useDeferredValue(search);
+
   const list = useMemo(() => {
-    const q = (search || "").trim().toLowerCase();
+    const q = (deferredSearch || "").trim().toLowerCase();
     return (data ?? []).filter((p) => {
       const searchBlob = [p.name, p.brand, p.category, p.id, p.uuid, p.sku, p.barcode]
         .filter(Boolean)
@@ -1913,7 +1921,7 @@ function ProductsTab() {
 
       return matchesSearch && matchesCat && matchesStatus && matchesChannel;
     });
-  }, [data, search, categoryFilter, statusFilter, channelTab]);
+  }, [data, deferredSearch, categoryFilter, statusFilter, channelTab]);
 
   // Handle header checkbox indeterminate state
   const isAllSelected = list.length > 0 && list.every((p) => selectedIds.has(p.uuid));
@@ -3681,6 +3689,7 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
   const { data: customers, isLoading } = useCustomers(true);
   const { data: orders } = useAllOrders(true);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [selectedCustomer, setSelectedCustomer] = useState<
     Database["public"]["Tables"]["profiles"]["Row"] | null
   >(null);
@@ -3745,7 +3754,7 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
       }
       return true;
     });
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (!q) return allowedCustomers;
     return allowedCustomers.filter(
       (c) =>
@@ -3755,7 +3764,7 @@ function CustomersTab({ currentEmail }: { currentEmail?: string } = {}) {
         (c.city && c.city.toLowerCase().includes(q)) ||
         (c.address && c.address.toLowerCase().includes(q)),
     );
-  }, [customers, search, currentEmail]);
+  }, [customers, deferredSearch, currentEmail]);
 
   const customerSelection = useTableSelection({ items: filtered });
   const customerMetrics = useMemo(() => {

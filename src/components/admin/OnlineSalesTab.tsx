@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useDeferredValue } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,6 +97,7 @@ export function OnlineSalesTab() {
     }
     return "";
   });
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   // Keep search term and status filter synchronized when URL changes or navigation occurs
   useEffect(() => {
@@ -291,51 +292,53 @@ export function OnlineSalesTab() {
     (o) => (o._type ? o._type === "online" : true) && o.status === "cancelled",
   ).length;
 
-  const orders = allData.filter((o) => {
-    // Filter by Search Query (ID, Customer Name, Phone, Email, City)
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase().trim().replace(/^#/, "");
-      const idShort = o.id.slice(0, 8).toLowerCase();
-      const idFull = o.id.toLowerCase();
-      const name = (o.full_name || o.customer_name || "").toLowerCase();
-      const email = (o.email || (o as any).customer_email || "").toLowerCase();
-      const phone = (o.phone || o.customer_phone || "").toLowerCase();
-      const city = (o.city || "").toLowerCase();
-      const match =
-        idShort.includes(q) ||
-        idFull.includes(q) ||
-        name.includes(q) ||
-        email.includes(q) ||
-        phone.includes(q) ||
-        city.includes(q);
-      if (!match) return false;
-    }
+  const orders = useMemo(() => {
+    return allData.filter((o) => {
+      // Filter by Search Query (ID, Customer Name, Phone, Email, City) using deferred search term
+      if (deferredSearchTerm.trim()) {
+        const q = deferredSearchTerm.toLowerCase().trim().replace(/^#/, "");
+        const idShort = o.id.slice(0, 8).toLowerCase();
+        const idFull = o.id.toLowerCase();
+        const name = (o.full_name || o.customer_name || "").toLowerCase();
+        const email = (o.email || (o as any).customer_email || "").toLowerCase();
+        const phone = (o.phone || o.customer_phone || "").toLowerCase();
+        const city = (o.city || "").toLowerCase();
+        const match =
+          idShort.includes(q) ||
+          idFull.includes(q) ||
+          name.includes(q) ||
+          email.includes(q) ||
+          phone.includes(q) ||
+          city.includes(q);
+        if (!match) return false;
+      }
 
-    if (filter === "new_orders") {
-      return isWithinLast24Hours(o.created_at);
-    }
-    if (filter === "all") return true;
-    if (filter === "paid") {
-      if (o._type === "offline") return o.status !== "cancelled";
-      return (
-        (o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid") &&
-        o.status !== "cancelled"
-      );
-    }
-    if (filter === "unpaid") {
-      return (
-        o._type === "online" &&
-        o.payment_method?.toLowerCase() !== "cod" &&
-        o.payment_status !== "paid" &&
-        o.status !== "cancelled"
-      );
-    }
-    if (filter === "cancelled") {
-      return o.status === "cancelled";
-    }
-    if (o._type === "offline" && filter === "completed") return o.status === "completed";
-    return o.status === filter;
-  });
+      if (filter === "new_orders") {
+        return isWithinLast24Hours(o.created_at);
+      }
+      if (filter === "all") return true;
+      if (filter === "paid") {
+        if (o._type === "offline") return o.status !== "cancelled";
+        return (
+          (o.payment_method?.toLowerCase() === "cod" || o.payment_status === "paid") &&
+          o.status !== "cancelled"
+        );
+      }
+      if (filter === "unpaid") {
+        return (
+          o._type === "online" &&
+          o.payment_method?.toLowerCase() !== "cod" &&
+          o.payment_status !== "paid" &&
+          o.status !== "cancelled"
+        );
+      }
+      if (filter === "cancelled") {
+        return o.status === "cancelled";
+      }
+      if (o._type === "offline" && filter === "completed") return o.status === "completed";
+      return o.status === filter;
+    });
+  }, [allData, deferredSearchTerm, filter]);
 
   // Smooth scroll to targeted order when searched or navigated directly
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useDeferredValue } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Sparkles,
@@ -60,6 +60,7 @@ export const AllProductsSection = memo(function AllProductsSection({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedAge, setSelectedAge] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
 
@@ -118,8 +119,8 @@ export const AllProductsSection = memo(function AllProductsSection({
     }
 
     // 3. Search Query Filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
+    if (deferredSearchQuery.trim()) {
+      const q = deferredSearchQuery.toLowerCase().trim();
       result = result.filter((p) => {
         const name = (p.name || "").toLowerCase();
         const desc = (p.description || "").toLowerCase();
@@ -167,7 +168,7 @@ export const AllProductsSection = memo(function AllProductsSection({
     }
 
     return result;
-  }, [products, selectedCategory, selectedAge, searchQuery, sortBy]);
+  }, [products, selectedCategory, selectedAge, deferredSearchQuery, sortBy]);
 
   // Paginated slice for current page
   const visibleProducts = useMemo(() => {
