@@ -16,7 +16,7 @@
  * - Printable receipt
  * - Double-submit prevention
  */
-import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -642,14 +642,6 @@ export function POSTab() {
     }
   }, [availableCredit, total, storeCreditApplied, voucherData]);
 
-  // Auto-clamp applied credit to available credit and final total
-  const effectiveCreditUsed = useMemo(() => {
-    return Math.min(storeCreditApplied, availableCredit, total);
-  }, [storeCreditApplied, availableCredit, total]);
-
-  const payableAfterCredit = Math.max(0, total - effectiveCreditUsed);
-  const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
-
   // Real-time Customer Intelligence Profile (Unified Online + Offline History, Total Spend, Recent Orders)
   const { data: customerIntel } = useQuery({
     queryKey: ["pos-customer-intel", customerId],
@@ -669,11 +661,6 @@ export function POSTab() {
     },
   });
 
-  const changeDue = useMemo(() => {
-    if (typeof cashTendered !== "number" || cashTendered < payableAfterCredit) return 0;
-    return Math.max(0, cashTendered - payableAfterCredit);
-  }, [cashTendered, payableAfterCredit]);
-
   // Products for manual search (active only, including offline-only items and all variants)
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products"],
@@ -684,7 +671,7 @@ export function POSTab() {
         supabase
           .from("products")
           .select(
-            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
+            "id, name, slug, sku, barcode, price, mrp, stock, category, brand, is_active, sales_channel, hsn_code, gst_rate, product_images(public_url, is_primary, sort_order, color, alt_text), product_variants(id, name, sku, stock, price_override, mrp_override, color, size, barcode, image_url)",
           )
           .eq("is_active", true),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
@@ -719,6 +706,95 @@ export function POSTab() {
       return mapped;
     },
   });
+
+  // POS Checkout GST / HSN Engine (Additive & Non-invasive, strictly GST-exclusive)
+  const gstCalculations = useMemo(() => {
+    const subtotalExclGst = subtotal;
+    const discount = discountAmount;
+    const taxableAmount = Math.max(0, subtotalExclGst - discount);
+    const discountRatio = subtotalExclGst > 0 ? taxableAmount / subtotalExclGst : 1;
+
+    let totalGstAmount = 0;
+    const itemsBreakdown = cart.map((item) => {
+      const catalogProd = products.find(
+        (p) =>
+          p.uuid === item.product_id ||
+          p.id === item.product_id ||
+          p.id === item.slug ||
+          p.uuid === item.slug,
+      );
+      const hsn = item.hsn_code ?? catalogProd?.hsn_code ?? null;
+      const gstRate =
+        item.gst_rate != null
+          ? Number(item.gst_rate)
+          : catalogProd?.gst_rate != null
+            ? Number(catalogProd.gst_rate)
+            : 0;
+
+      const rateExclTax = item.price;
+      const qty = item.qty;
+      const lineBase = rateExclTax * qty;
+      const itemTaxable = Math.round(lineBase * discountRatio * 100) / 100;
+      const itemGst = Math.round(itemTaxable * (gstRate / 100) * 100) / 100;
+      const itemTotal = itemTaxable + itemGst;
+
+      totalGstAmount += itemGst;
+
+      return {
+        item,
+        hsn,
+        gstRate,
+        rateExclTax,
+        qty,
+        itemTaxable,
+        itemGst,
+        itemTotal,
+      };
+    });
+
+    totalGstAmount = Math.round(totalGstAmount * 100) / 100;
+    const saleTotalInclGst = Math.round((taxableAmount + totalGstAmount) * 100) / 100;
+
+    // Determine state for IGST vs CGST/SGST if customer state information exists
+    const custState = (customerMode === "existing" ? (customerIntel?.state || "") : "").trim().toLowerCase();
+    const isInterState = Boolean(custState && custState !== "rajasthan");
+
+    // Group distinct positive GST rates for itemized breakdown
+    const rateGroups = new Map<number, { gstRate: number; taxable: number; gstAmount: number }>();
+    for (const b of itemsBreakdown) {
+      if (b.gstRate > 0) {
+        const cur = rateGroups.get(b.gstRate) || { gstRate: b.gstRate, taxable: 0, gstAmount: 0 };
+        cur.taxable += b.itemTaxable;
+        cur.gstAmount += b.itemGst;
+        rateGroups.set(b.gstRate, cur);
+      }
+    }
+    const distinctRates = Array.from(rateGroups.values());
+
+    return {
+      subtotalExclGst,
+      discount,
+      taxableAmount,
+      totalGstAmount,
+      saleTotalInclGst,
+      isInterState,
+      itemsBreakdown,
+      distinctRates,
+    };
+  }, [cart, subtotal, discountAmount, products, customerMode, customerIntel]);
+
+  // Auto-clamp applied credit to available credit and final total (including GST on checkout)
+  const effectiveCreditUsed = useMemo(() => {
+    return Math.min(storeCreditApplied, availableCredit, gstCalculations.saleTotalInclGst);
+  }, [storeCreditApplied, availableCredit, gstCalculations.saleTotalInclGst]);
+
+  const payableAfterCredit = Math.max(0, gstCalculations.saleTotalInclGst - effectiveCreditUsed);
+  const customerRemainingCredit = Math.max(0, availableCredit - effectiveCreditUsed);
+
+  const changeDue = useMemo(() => {
+    if (typeof cashTendered !== "number" || cashTendered < payableAfterCredit) return 0;
+    return Math.max(0, cashTendered - payableAfterCredit);
+  }, [cashTendered, payableAfterCredit]);
 
   // Derive live authoritative stock for any cart item directly from latest catalog query
   const getLiveItemStock = useCallback(
@@ -2018,6 +2094,8 @@ export function POSTab() {
           return Number((costs as { buying_price?: number }).buying_price || 0) || null;
         return null;
       })(),
+      hsn_code: product.hsn_code ?? null,
+      gst_rate: product.gst_rate != null ? Number(product.gst_rate) : null,
     });
     setProductSearch("");
     const isOfflineOnly = (product.sales_channel || product.salesChannel) === "OFFLINE_ONLY";
@@ -2261,31 +2339,35 @@ export function POSTab() {
         );
 
       const safeSlug = item.isCustom ? `custom-${Date.now()}` : item.slug || "item";
-      return {
-        product_id: item.isCustom || !isUuid ? undefined : item.product_id,
-        variant_id: isVariantUuid ? item.variant_id : undefined,
-        product_slug: safeSlug,
-        slug: safeSlug,
-        name: item.name || "Item",
-        sku: item.sku || "",
-        barcode: item.barcode || "",
-        variant_info:
-          item.variant_info || [item.color, item.size].filter(Boolean).join(" / ") || "",
-        qty: item.qty || 1,
-        custom_price: item.isCustom ? item.price : undefined,
-        price: item.price || 0,
-        mrp: item.mrp || item.price || 0,
-        cost_price: (() => {
-          if (item.buying_price && item.buying_price > 0) return item.buying_price;
-          const found = products.find(
-            (p) => p.uuid === item.product_id || p.id === item.product_id || p.id === item.slug,
-          );
-          return Number(found?.buyingPrice ?? found?.buying_price ?? 0);
-        })(),
-        hsn_code: item.hsn_code ?? undefined,
-        gst_rate: item.gst_rate != null ? Number(item.gst_rate) : undefined,
-      };
-    });
+        const catalogProd = products.find(
+          (p) =>
+            p.uuid === item.product_id ||
+            p.id === item.product_id ||
+            p.id === item.slug ||
+            p.uuid === item.slug,
+        );
+        return {
+          product_id: item.isCustom || !isUuid ? undefined : item.product_id,
+          variant_id: isVariantUuid ? item.variant_id : undefined,
+          product_slug: safeSlug,
+          slug: safeSlug,
+          name: item.name || "Item",
+          sku: item.sku || "",
+          barcode: item.barcode || "",
+          variant_info:
+            item.variant_info || [item.color, item.size].filter(Boolean).join(" / ") || "",
+          qty: item.qty || 1,
+          custom_price: item.isCustom ? item.price : undefined,
+          price: item.price || 0,
+          mrp: item.mrp || item.price || 0,
+          cost_price: (() => {
+            if (item.buying_price && item.buying_price > 0) return item.buying_price;
+            return Number(catalogProd?.buyingPrice ?? catalogProd?.buying_price ?? 0);
+          })(),
+          hsn_code: item.hsn_code ?? catalogProd?.hsn_code ?? undefined,
+          gst_rate: item.gst_rate != null ? Number(item.gst_rate) : (catalogProd?.gst_rate != null ? Number(catalogProd.gst_rate) : undefined),
+        };
+      });
 
     if (payableAfterCredit > 0 && paymentMethod === "cash") {
       if (typeof cashTendered === "number" && cashTendered < payableAfterCredit) {
@@ -2328,19 +2410,28 @@ export function POSTab() {
 
       // Snapshot cart items NOW before any reset for printing
       setSaleItems(
-        cart.map((c) => ({
-          name: c.name,
-          sku: c.sku,
-          price: c.price,
-          mrp: c.mrp,
-          qty: c.qty,
-          hsn_code: c.hsn_code ?? null,
-          gst_rate: c.gst_rate != null ? Number(c.gst_rate) : null,
-        })),
+        cart.map((c) => {
+          const catalogProd = products.find(
+            (p) =>
+              p.uuid === c.product_id ||
+              p.id === c.product_id ||
+              p.id === c.slug ||
+              p.uuid === c.slug,
+          );
+          return {
+            name: c.name,
+            sku: c.sku,
+            price: c.price,
+            mrp: c.mrp,
+            qty: c.qty,
+            hsn_code: c.hsn_code ?? catalogProd?.hsn_code ?? null,
+            gst_rate: c.gst_rate != null ? Number(c.gst_rate) : (catalogProd?.gst_rate != null ? Number(catalogProd.gst_rate) : null),
+          };
+        }),
       );
       setSaleResult({
         ...result,
-        total: Math.max(result.total || 0, subtotal - discountAmount),
+        total: Math.max(result.total || 0, gstCalculations.saleTotalInclGst),
         payment_method:
           result.payment_method || (payableAfterCredit === 0 ? "store_credit" : paymentMethod),
         store_credit_used: effectiveCreditUsed,
@@ -3546,7 +3637,7 @@ export function POSTab() {
                     <div className="flex items-center gap-1.5 justify-end">
                       {effectiveCreditUsed > 0 && (
                         <span className="text-xs text-muted-foreground line-through font-semibold">
-                          {formatPrice(total)}
+                          {formatPrice(gstCalculations.saleTotalInclGst)}
                         </span>
                       )}
                       <span
@@ -4581,80 +4672,205 @@ export function POSTab() {
                     </div>
 
                     {/* Items List Snapshot */}
-                    <div className="max-h-56 overflow-y-auto space-y-3 pr-1 text-xs">
-                      {cart.map((item) => (
-                        <div
-                          key={item.product_id}
-                          className="flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="size-14 rounded-xl overflow-hidden bg-muted/40 shrink-0 border border-border/60 flex items-center justify-center">
-                              {item.image_url ? (
-                                <img
-                                  src={item.image_url}
-                                  alt={item.name}
-                                  className="size-full object-cover"
-                                />
-                              ) : (
-                                <Package className="size-6 text-muted-foreground/60" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-bold truncate text-foreground text-sm">
-                                {item.name}
-                              </p>
-                              <div className="mt-1">
-                                {item.sales_channel === "OFFLINE_ONLY" ? (
-                                  <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200">
-                                    🏪 Offline Only
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-blue-100/70 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80">
-                                    🌐 Online + POS
-                                  </span>
-                                )}
+                    <div className="max-h-80 overflow-y-auto space-y-3 pr-1 text-xs">
+                      {gstCalculations.itemsBreakdown.map(
+                        ({
+                          item,
+                          hsn,
+                          gstRate,
+                          rateExclTax,
+                          qty,
+                          itemTaxable,
+                          itemGst,
+                          itemTotal,
+                        }) => (
+                          <div
+                            key={item.product_id + (item.variant_id || "")}
+                            className="p-3 rounded-2xl bg-muted/20 border border-border/60 space-y-2.5"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
+                                <div className="size-14 rounded-xl overflow-hidden bg-muted/40 shrink-0 border border-border/60 flex items-center justify-center">
+                                  {item.image_url ? (
+                                    <img
+                                      src={item.image_url}
+                                      alt={item.name}
+                                      className="size-full object-cover"
+                                    />
+                                  ) : (
+                                    <Package className="size-6 text-muted-foreground/60" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold truncate text-foreground text-sm">
+                                      {item.name}
+                                    </p>
+                                    {item.sales_channel === "OFFLINE_ONLY" ? (
+                                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-purple-100/80 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200">
+                                        🏪 Offline Only
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-blue-100/70 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80">
+                                        🌐 Online + POS
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-muted-foreground text-xs mt-1 font-medium">
+                                    <span className="font-bold text-foreground">HSN:</span> {hsn || "—"}{" "}
+                                    <span className="mx-1 text-border">|</span>{" "}
+                                    <span className="font-bold text-foreground">GST:</span> {gstRate}%
+                                  </p>
+                                  <p className="text-muted-foreground text-xs mt-0.5">
+                                    {qty} × {formatPrice(rateExclTax)} (excl. tax)
+                                    {item.isCustom && (
+                                      <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-muted-foreground text-xs mt-1">
-                                {item.qty} × {formatPrice(item.price)}
-                                {item.isCustom && (
-                                  <span className="ml-1 text-amber-600 font-bold">(Custom)</span>
-                                )}
-                              </p>
+                              <span className="font-bold text-foreground shrink-0 text-sm">
+                                {formatPrice(rateExclTax * qty)}
+                              </span>
+                            </div>
+
+                            {/* Mini Tax Breakdown Table */}
+                            <div className="rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/70 p-2.5">
+                              <div className="grid grid-cols-6 gap-2 text-center">
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  Rate (₹)<br />(Excl. Tax)
+                                </div>
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  Qty
+                                </div>
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  Taxable (₹)
+                                </div>
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  GST Rate
+                                </div>
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  GST Amt (₹)<br />(₹)
+                                </div>
+                                <div className="text-[10px] font-medium text-muted-foreground leading-tight">
+                                  Total (₹)<br />[a]
+                                </div>
+
+                                <div className="text-xs font-semibold text-foreground pt-1">
+                                  {rateExclTax.toFixed(2)}
+                                </div>
+                                <div className="text-xs font-semibold text-foreground pt-1">
+                                  {qty}
+                                </div>
+                                <div className="text-xs font-semibold text-foreground pt-1">
+                                  {itemTaxable.toFixed(2)}
+                                </div>
+                                <div className="text-xs font-semibold text-foreground pt-1">
+                                  {gstRate}%
+                                </div>
+                                <div className="text-xs font-semibold text-foreground pt-1">
+                                  {itemGst.toFixed(2)}
+                                </div>
+                                <div className="text-xs font-black text-[#8B3A3A] dark:text-rose-400 pt-1 border-b-2 border-[#8B3A3A] pb-0.5 inline-block mx-auto">
+                                  {itemTotal.toFixed(2)}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          <span className="font-bold text-foreground shrink-0 text-sm">
-                            {formatPrice(item.price * item.qty)}
-                          </span>
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
 
                     {/* Breakdown */}
                     <div className="space-y-2.5 text-sm pt-3 border-t border-border/60">
                       <div className="flex justify-between text-muted-foreground">
-                        <span>Items Subtotal</span>
+                        <span>Items Subtotal (Excl. GST)</span>
                         <span className="font-bold text-foreground">
-                          {formatPrice(subtotal)}
+                          {formatPrice(gstCalculations.subtotalExclGst)}
                         </span>
                       </div>
-                      {discountAmount > 0 && (
-                        <div className="flex justify-between text-teal-700 dark:text-teal-300 font-bold">
-                          <span>
-                            Discount {discountType === "percentage" ? `(${discountValue}%)` : ""}
-                          </span>
-                          <span>−{formatPrice(discountAmount)}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Discount</span>
+                        <span className={`font-bold ${discountAmount > 0 ? "text-teal-700 dark:text-teal-300" : "text-foreground"}`}>
+                          − {formatPrice(discountAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Taxable Amount</span>
+                        <span className="font-bold text-foreground">
+                          {formatPrice(gstCalculations.taxableAmount)}
+                        </span>
+                      </div>
+
+                      {/* GST Breakdown Box */}
+                      <div className="rounded-xl bg-[#EFF6FF] dark:bg-blue-950/20 border border-[#BFDBFE] dark:border-blue-900/40 p-3 space-y-1.5 text-xs">
+                        {gstCalculations.isInterState ? (
+                          gstCalculations.distinctRates.length > 0 ? (
+                            gstCalculations.distinctRates.map((r) => (
+                              <div
+                                key={r.gstRate}
+                                className="flex justify-between font-semibold text-blue-950 dark:text-blue-200"
+                              >
+                                <span>IGST @ {r.gstRate}%</span>
+                                <span>{formatPrice(r.gstAmount)}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                              <span>IGST @ 0%</span>
+                              <span>₹0.00</span>
+                            </div>
+                          )
+                        ) : gstCalculations.distinctRates.length > 0 ? (
+                          gstCalculations.distinctRates.map((r) => {
+                            const halfRate = r.gstRate / 2;
+                            const halfAmt = Math.round((r.gstAmount / 2) * 100) / 100;
+                            const otherHalf = Math.round((r.gstAmount - halfAmt) * 100) / 100;
+                            return (
+                              <Fragment key={r.gstRate}>
+                                <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                                  <span>CGST @ {halfRate}%</span>
+                                  <span>{formatPrice(halfAmt)}</span>
+                                </div>
+                                <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                                  <span>SGST @ {halfRate}%</span>
+                                  <span>{formatPrice(otherHalf)}</span>
+                                </div>
+                              </Fragment>
+                            );
+                          })
+                        ) : (
+                          <>
+                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                              <span>CGST @ 2.5%</span>
+                              <span>₹0.00</span>
+                            </div>
+                            <div className="flex justify-between font-semibold text-blue-950 dark:text-blue-200">
+                              <span>SGST @ 2.5%</span>
+                              <span>₹0.00</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between text-muted-foreground">
+                        <span className="font-semibold text-foreground">Total GST Amount</span>
+                        <span className="font-bold text-foreground">
+                          {formatPrice(gstCalculations.totalGstAmount)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/40">
+                        <span>Sale Total (Incl. GST)</span>
+                        <span>{formatPrice(gstCalculations.saleTotalInclGst)}</span>
+                      </div>
+
                       {effectiveCreditUsed > 0 && (
                         <div className="flex justify-between text-teal-700 font-bold bg-teal-500/10 p-2 rounded-xl border border-teal-500/20">
                           <span>Store Credit Applied</span>
                           <span>−{formatPrice(effectiveCreditUsed)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/40">
-                        <span>Sale Total</span>
-                        <span>{formatPrice(total)}</span>
-                      </div>
                     </div>
 
                     {/* Customer Payable Banner */}
@@ -4686,7 +4902,7 @@ export function POSTab() {
                           <span>📊</span> ADMIN PROFIT
                         </p>
                         <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>Cost of product</span>
+                          <span>Cost of product (Excl. Tax)</span>
                           <span className="font-bold text-foreground">
                             {formatPrice(profitCalc.totalCost)}
                           </span>
@@ -4698,7 +4914,7 @@ export function POSTab() {
                               : "text-red-600 dark:text-red-400"
                           }`}
                         >
-                          <span>{profitCalc.profit >= 0 ? "Your profit" : "Loss"}</span>
+                          <span>{profitCalc.profit >= 0 ? "Your profit (Excl. Tax)" : "Loss"}</span>
                           <span>
                             {formatPrice(profitCalc.profit)}
                           </span>
@@ -4972,6 +5188,7 @@ export function POSTab() {
             payment_method: saleResult.payment_method,
             store_credit_used: saleResult.store_credit_used,
             credit_token_used: saleResult.credit_token_used,
+            is_inter_state: gstCalculations.isInterState,
           }}
           items={
             saleItems.length > 0
