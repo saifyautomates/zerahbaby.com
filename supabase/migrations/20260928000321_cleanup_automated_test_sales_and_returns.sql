@@ -89,13 +89,67 @@ BEGIN
     returned_amount = 0,
     returned_units = 0;
 
-  -- 5. Ensure the 1 genuine sale item is linked to this sale
-  UPDATE public.offline_sale_items
-  SET sale_id = 'fdbd14d7-5806-45db-a512-7f9fffa69564',
-      return_status = 'NONE',
-      quantity_returned = 0,
-      returned_quantity = 0
-  WHERE id = 'f31f3cf2-bf22-4387-bc0b-5c16ccd1daff';
+  -- 5. Ensure the 1 genuine sale item is present and linked to this sale
+  INSERT INTO public.offline_sale_items (
+    id,
+    sale_id,
+    product_id,
+    product_slug,
+    name,
+    product_name,
+    sku,
+    barcode,
+    price,
+    qty,
+    quantity,
+    quantity_sold,
+    subtotal,
+    total,
+    line_gross_amount,
+    unit_selling_price,
+    final_unit_paid_price,
+    buying_price,
+    cost_price,
+    variant_id,
+    return_status,
+    quantity_returned,
+    returned_quantity,
+    quantity_returnable,
+    created_at,
+    updated_at
+  ) VALUES (
+    'f31f3cf2-bf22-4387-bc0b-5c16ccd1daff',
+    'fdbd14d7-5806-45db-a512-7f9fffa69564',
+    '2981a2ae-9d39-416a-9357-3560496f2486',
+    'girls-denim-frock',
+    'GIRLS DENIM FROCK',
+    'GIRLS DENIM FROCK',
+    'ZR-CL-28-9847',
+    'ZR-CL-M-1372',
+    750,
+    1,
+    1,
+    1,
+    750,
+    750,
+    750,
+    750,
+    750,
+    375,
+    375,
+    '14dc6bf8-f7d6-4e8b-b420-11960976abc4',
+    'NONE',
+    0,
+    0,
+    1,
+    '2026-09-26 13:39:48.866461+00',
+    '2026-09-26 13:39:48.866461+00'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    sale_id = 'fdbd14d7-5806-45db-a512-7f9fffa69564',
+    return_status = 'NONE',
+    quantity_returned = 0,
+    returned_quantity = 0;
 
 END $$;
 
@@ -191,13 +245,67 @@ BEGIN
     returned_amount = 0,
     returned_units = 0;
 
-  -- 5. Ensure the 1 genuine sale item is linked to this sale
-  UPDATE public.offline_sale_items
-  SET sale_id = 'fdbd14d7-5806-45db-a512-7f9fffa69564',
-      return_status = 'NONE',
-      quantity_returned = 0,
-      returned_quantity = 0
-  WHERE id = 'f31f3cf2-bf22-4387-bc0b-5c16ccd1daff';
+  -- 5. Ensure the 1 genuine sale item is present and linked to this sale
+  INSERT INTO public.offline_sale_items (
+    id,
+    sale_id,
+    product_id,
+    product_slug,
+    name,
+    product_name,
+    sku,
+    barcode,
+    price,
+    qty,
+    quantity,
+    quantity_sold,
+    subtotal,
+    total,
+    line_gross_amount,
+    unit_selling_price,
+    final_unit_paid_price,
+    buying_price,
+    cost_price,
+    variant_id,
+    return_status,
+    quantity_returned,
+    returned_quantity,
+    quantity_returnable,
+    created_at,
+    updated_at
+  ) VALUES (
+    'f31f3cf2-bf22-4387-bc0b-5c16ccd1daff',
+    'fdbd14d7-5806-45db-a512-7f9fffa69564',
+    '2981a2ae-9d39-416a-9357-3560496f2486',
+    'girls-denim-frock',
+    'GIRLS DENIM FROCK',
+    'GIRLS DENIM FROCK',
+    'ZR-CL-28-9847',
+    'ZR-CL-M-1372',
+    750,
+    1,
+    1,
+    1,
+    750,
+    750,
+    750,
+    750,
+    750,
+    375,
+    375,
+    '14dc6bf8-f7d6-4e8b-b420-11960976abc4',
+    'NONE',
+    0,
+    0,
+    1,
+    '2026-09-26 13:39:48.866461+00',
+    '2026-09-26 13:39:48.866461+00'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    sale_id = 'fdbd14d7-5806-45db-a512-7f9fffa69564',
+    return_status = 'NONE',
+    quantity_returned = 0,
+    returned_quantity = 0;
 
   RETURN jsonb_build_object(
     'success', true,
