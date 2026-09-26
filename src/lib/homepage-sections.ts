@@ -149,7 +149,10 @@ export async function fetchHomepageSections(isAdmin = false): Promise<HomepageSe
 
   const { data, error } = await query;
   if (error) {
-    console.error("[homepage-sections] Error fetching sections:", error);
+    console.warn("[homepage-sections] Error fetching sections:", error.message || error);
+    if (!isAdmin) {
+      return [];
+    }
     throw error;
   }
 

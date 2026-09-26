@@ -80,13 +80,15 @@ import { productsQueryOptions, categoriesQueryOptions, matchesAgeGroup } from "@
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     const [products, categories, sections] = await Promise.all([
-      context.queryClient.ensureQueryData(productsQueryOptions(false)),
-      context.queryClient.ensureQueryData(categoriesQueryOptions()),
-      context.queryClient.ensureQueryData({
-        queryKey: ["homepage-sections", false],
-        queryFn: () => fetchHomepageSections(false),
-      }),
-    ]).catch(() => [[], [], []]);
+      context.queryClient.ensureQueryData(productsQueryOptions(false)).catch(() => []),
+      context.queryClient.ensureQueryData(categoriesQueryOptions()).catch(() => []),
+      context.queryClient
+        .ensureQueryData({
+          queryKey: ["homepage-sections", false],
+          queryFn: () => fetchHomepageSections(false),
+        })
+        .catch(() => []),
+    ]);
     return {
       products,
       categories,
