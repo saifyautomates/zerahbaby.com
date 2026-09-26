@@ -98,6 +98,7 @@ import {
 } from "@/lib/pos";
 import { searchPOSProducts, type POSSearchResult, type POSSearchVariant } from "@/lib/pos-search";
 import { useCustomerStoreCredit, useStoreCreditVoucher } from "@/lib/pos-returns";
+import { HSN_GST_MASTER } from "@/components/admin/ProductForm";
 import { ThermalReceipt } from "@/components/admin/ThermalReceipt";
 import { A4Invoice, type A4InvoiceItem } from "@/components/admin/A4Invoice";
 import { PrintLabelsModal } from "@/components/admin/PrintLabelsModal";
@@ -513,6 +514,7 @@ export function POSTab() {
 
   // Product detail drawer
   const [selectedPOSItem, setSelectedPOSItem] = useState<POSCartItem | null>(null);
+  const [editingGstItemKey, setEditingGstItemKey] = useState<string | null>(null);
 
   // Calculations via Master Pricing Engine
   const posFinancials = useMemo(
@@ -2162,6 +2164,65 @@ export function POSTab() {
 
       return updated;
     });
+  }
+
+  async function updateItemGstHsn(
+    productId: string,
+    variantId: string | undefined,
+    hsnCode: string | null,
+    gstRate: number | null,
+    persistToProduct = true,
+  ) {
+    const cleanHsn = hsnCode ? hsnCode.trim() : null;
+    const cleanGst = gstRate != null ? Number(gstRate) : null;
+
+    setCart((prev) => {
+      const updated = prev.map((p) => {
+        if (p.product_id === productId && (p.variant_id || "") === (variantId || "")) {
+          return {
+            ...p,
+            hsn_code: cleanHsn,
+            gst_rate: cleanGst,
+          };
+        }
+        return p;
+      });
+
+      if (activeSessionId) {
+        setSessions((sPrev) => {
+          const sUpdated = sPrev.map((s) =>
+            s.id === activeSessionId
+              ? {
+                  ...s,
+                  items: [...updated],
+                  updated_at: new Date().toISOString(),
+                }
+              : s,
+          );
+          saveStoredSessionsLocal(sUpdated);
+          return sUpdated;
+        });
+      }
+
+      return updated;
+    });
+
+    if (persistToProduct && productId && !productId.startsWith("custom-")) {
+      try {
+        const { error } = await (supabase.from("products") as any)
+          .update({
+            hsn_code: cleanHsn,
+            gst_rate: cleanGst,
+          })
+          .or(`uuid.eq.${productId},id.eq.${productId}`);
+        if (!error) {
+          qc.invalidateQueries({ queryKey: ["pos-products"] });
+          qc.invalidateQueries({ queryKey: ["admin-products"] });
+        }
+      } catch (err) {
+        console.error("Failed to update product HSN/GST in database", err);
+      }
+    }
   }
 
   function handleAssignCustomer(
@@ -4716,11 +4777,29 @@ export function POSTab() {
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-muted-foreground text-xs mt-1 font-medium">
-                                    <span className="font-bold text-foreground">HSN:</span> {hsn || "—"}{" "}
-                                    <span className="mx-1 text-border">|</span>{" "}
-                                    <span className="font-bold text-foreground">GST:</span> {gstRate}%
-                                  </p>
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <p className="text-muted-foreground text-xs font-medium">
+                                      <span className="font-bold text-foreground">HSN:</span> {hsn || "—"}{" "}
+                                      <span className="mx-1 text-border">|</span>{" "}
+                                      <span className="font-bold text-foreground">GST:</span> {gstRate}%
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const itemKey = item.product_id + (item.variant_id || "");
+                                        setEditingGstItemKey(editingGstItemKey === itemKey ? null : itemKey);
+                                      }}
+                                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer border ${
+                                        !hsn || gstRate === 0
+                                          ? "bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-500/40 hover:bg-amber-500/25"
+                                          : "bg-muted text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted/80"
+                                      }`}
+                                      title="Edit or set HSN code and GST rate for this item"
+                                    >
+                                      <Tag className="size-3" />
+                                      <span>{!hsn || gstRate === 0 ? "⚡ Set GST / HSN" : "Edit GST / HSN"}</span>
+                                    </button>
+                                  </div>
                                   <p className="text-muted-foreground text-xs mt-0.5">
                                     {qty} × {formatPrice(rateExclTax)} (excl. tax)
                                     {item.isCustom && (
@@ -4733,6 +4812,109 @@ export function POSTab() {
                                 {formatPrice(rateExclTax * qty)}
                               </span>
                             </div>
+
+                            {/* Inline HSN & GST Editor for this item */}
+                            {editingGstItemKey === item.product_id + (item.variant_id || "") && (
+                              <div className="p-3 rounded-xl bg-background border border-primary/30 shadow-2xs space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <Sparkles className="size-3.5 text-primary" />
+                                    Set HSN &amp; GST for &ldquo;{item.name}&rdquo;
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingGstItemKey(null)}
+                                    className="text-[11px] text-muted-foreground hover:text-foreground font-bold cursor-pointer"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+
+                                {/* 1. Quick Fill from Reference Master */}
+                                <div>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                                    Quick fill from HSN / GST Reference Master
+                                  </label>
+                                  <select
+                                    className="w-full text-xs rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-foreground hover:bg-muted/70 cursor-pointer transition font-medium outline-none focus:border-primary"
+                                    value=""
+                                    onChange={(e) => {
+                                      const found = HSN_GST_MASTER.find((m) => m.label === e.target.value);
+                                      if (found) {
+                                        updateItemGstHsn(item.product_id, item.variant_id, found.hsn, found.gst);
+                                        toast.success(`Applied ${found.label}: HSN ${found.hsn} (${found.gst}% GST)`);
+                                      }
+                                    }}
+                                  >
+                                    <option value="">⚡ Quick fill from HSN / GST Reference Master (Optional)...</option>
+                                    {HSN_GST_MASTER.map((m) => (
+                                      <option key={m.label} value={m.label}>
+                                        {m.label} — HSN: {m.hsn} ({m.gst}% GST)
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* 2. HSN Code & GST Rate Inputs */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                                      HSN Code (Optional Text)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. 6111"
+                                      value={hsn || ""}
+                                      onChange={(e) => {
+                                        updateItemGstHsn(item.product_id, item.variant_id, e.target.value, gstRate);
+                                      }}
+                                      className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary transition"
+                                      list="pos-checkout-hsn-master-suggestions"
+                                    />
+                                    <datalist id="pos-checkout-hsn-master-suggestions">
+                                      {HSN_GST_MASTER.map((m) => (
+                                        <option key={`${m.label}-${m.hsn}`} value={m.hsn}>
+                                          {m.label} ({m.gst}%)
+                                        </option>
+                                      ))}
+                                    </datalist>
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                                      GST Rate
+                                    </label>
+                                    <select
+                                      value={gstRate != null ? String(gstRate) : "0"}
+                                      onChange={(e) => {
+                                        const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                        updateItemGstHsn(item.product_id, item.variant_id, hsn, val);
+                                      }}
+                                      className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus:border-primary transition cursor-pointer"
+                                    >
+                                      <option value="0">0% (None / Exempt)</option>
+                                      <option value="5">5% (Standard Garments)</option>
+                                      <option value="12">12%</option>
+                                      <option value="18">18% (Display / Skin Care)</option>
+                                      <option value="28">28%</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                                  <span className="text-[10px] text-muted-foreground">
+                                    ✓ Updates tax calculation in real time &amp; saves to product
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingGstItemKey(null)}
+                                    className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-2xs cursor-pointer"
+                                  >
+                                    Done
+                                  </button>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Mini Tax Breakdown Table */}
                             <div className="rounded-xl bg-muted/40 dark:bg-muted/20 border border-border/70 p-2.5">
