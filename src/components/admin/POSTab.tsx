@@ -1542,6 +1542,8 @@ export function POSTab() {
         buying_price: resBuyingPrice,
         sales_channel: (product.sales_channel || "ONLINE_AND_OFFLINE") as
           "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+        hsn_code: (matchedProd as any)?.hsn_code ?? (product as any).hsn_code ?? null,
+        gst_rate: (matchedProd as any)?.gst_rate != null ? Number((matchedProd as any).gst_rate) : (product as any).gst_rate != null ? Number((product as any).gst_rate) : null,
       });
 
       if (added) {
@@ -1656,6 +1658,8 @@ export function POSTab() {
             qty: 1,
             buying_price: buyingPrice,
             sales_channel: salesChannel,
+            hsn_code: product.hsn_code ?? null,
+            gst_rate: product.gst_rate != null ? Number(product.gst_rate) : null,
           });
 
           if (added) {
@@ -1730,6 +1734,8 @@ export function POSTab() {
               qty: 1,
               buying_price: scannedBuyingPrice,
               sales_channel: result.sales_channel || "ONLINE_AND_OFFLINE",
+              hsn_code: result.hsn_code ?? (matchedProd as any)?.hsn_code ?? null,
+              gst_rate: result.gst_rate != null ? Number(result.gst_rate) : (matchedProd as any)?.gst_rate != null ? Number((matchedProd as any).gst_rate) : null,
             });
 
             if (added) {
@@ -2276,6 +2282,8 @@ export function POSTab() {
           );
           return Number(found?.buyingPrice ?? found?.buying_price ?? 0);
         })(),
+        hsn_code: item.hsn_code ?? undefined,
+        gst_rate: item.gst_rate != null ? Number(item.gst_rate) : undefined,
       };
     });
 
@@ -2320,7 +2328,15 @@ export function POSTab() {
 
       // Snapshot cart items NOW before any reset for printing
       setSaleItems(
-        cart.map((c) => ({ name: c.name, sku: c.sku, price: c.price, mrp: c.mrp, qty: c.qty })),
+        cart.map((c) => ({
+          name: c.name,
+          sku: c.sku,
+          price: c.price,
+          mrp: c.mrp,
+          qty: c.qty,
+          hsn_code: c.hsn_code ?? null,
+          gst_rate: c.gst_rate != null ? Number(c.gst_rate) : null,
+        })),
       );
       setSaleResult({
         ...result,
@@ -4966,6 +4982,8 @@ export function POSTab() {
                   price: c.price,
                   mrp: c.mrp,
                   qty: c.qty,
+                  hsn_code: c.hsn_code ?? null,
+                  gst_rate: c.gst_rate != null ? Number(c.gst_rate) : null,
                 }))
           }
           autoPrint={true}

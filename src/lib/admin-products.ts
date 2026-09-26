@@ -36,6 +36,8 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     status: draft.isActive ? "active" : "archived",
     sort_order: Number(draft.sortOrder),
     sales_channel: draft.salesChannel,
+    hsn_code: draft.hsnCode !== undefined ? (draft.hsnCode?.trim() || null) : undefined,
+    gst_rate: draft.gstRate !== undefined ? (draft.gstRate != null ? Number(draft.gstRate) : null) : undefined,
   };
 
   if (isNew) {

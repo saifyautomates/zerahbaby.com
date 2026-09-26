@@ -351,6 +351,8 @@ export function CustomerHistoryPanel() {
             subtotal: i.subtotal || i.price * i.qty,
             mrp: i.mrp_snapshot || i.price,
             variant_info: i.variant_info,
+            hsn_code: (i as any).hsn_code ?? null,
+            gst_rate: (i as any).gst_rate != null ? Number((i as any).gst_rate) : null,
           }))}
           onClose={() => setA4InvoiceSale(null)}
         />

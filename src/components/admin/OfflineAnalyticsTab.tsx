@@ -2312,6 +2312,8 @@ export function OfflineAnalyticsTab() {
               price: Number(item.price),
               mrp: item.mrp_snapshot ? Number(item.mrp_snapshot) : undefined,
               qty: Number(item.qty),
+              hsn_code: (item as any).hsn_code ?? null,
+              gst_rate: (item as any).gst_rate != null ? Number((item as any).gst_rate) : null,
             }))}
             onClose={() => setA4InvoiceSale(null)}
           />

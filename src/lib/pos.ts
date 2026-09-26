@@ -38,6 +38,8 @@ export type POSCartItem = {
   variant_info?: string;
   color?: string;
   size?: string;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
 };
 
 export type POSCustomer = {
@@ -104,6 +106,8 @@ export type OfflineSaleItem = {
   variant_info: string;
   mrp_snapshot: number;
   barcode_snapshot: string;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
 };
 
 export type POSTransactionState =
@@ -159,6 +163,8 @@ export type BarcodeResult = {
   sales_channel?: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   buying_price?: number | null;
   buyingPrice?: number | null;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
 };
 
 import {
@@ -358,6 +364,8 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
           description: directProduct.description || "",
           sales_channel: (directProduct.sales_channel || "ONLINE_AND_OFFLINE") as
             "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+          hsn_code: (directProduct as any).hsn_code ?? null,
+          gst_rate: (directProduct as any).gst_rate != null ? Number((directProduct as any).gst_rate) : null,
         };
       } else {
         // Direct fallback: Check product_variants table directly for variant-specific barcode or SKU
@@ -397,6 +405,8 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
             description: parentProd.description || "",
             sales_channel: (parentProd.sales_channel || "ONLINE_AND_OFFLINE") as
               "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY",
+            hsn_code: (parentProd as any).hsn_code ?? null,
+            gst_rate: (parentProd as any).gst_rate != null ? Number((parentProd as any).gst_rate) : null,
           };
         }
       }
@@ -493,6 +503,8 @@ export type PlaceSaleInput = {
     qty: number;
     custom_price?: number;
     price?: number;
+    hsn_code?: string | null;
+    gst_rate?: number | null;
   }>;
   idempotency_key: string;
 };

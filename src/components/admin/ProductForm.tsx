@@ -99,8 +99,48 @@ export type ProductDraft = {
   relatedProductIds: string[];
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   colors: string[];
+  hsnCode?: string;
+  gstRate?: number | null;
   variants: ProductVariantDraft[];
 };
+
+export const HSN_GST_MASTER = [
+  { label: "BABY CLOTHS", hsn: "6111", gst: 5 },
+  { label: "BABY DIAPER", hsn: "96190040", gst: 5 },
+  { label: "BABY LEGGING", hsn: "6115", gst: 5 },
+  { label: "BABY NIPPLE", hsn: "40149030", gst: 5 },
+  { label: "BABY OIL", hsn: "2007", gst: 5 },
+  { label: "BABY PRODUCT", hsn: "63049190", gst: 5 },
+  { label: "BABY PUMP BOTTLE", hsn: "39249090", gst: 5 },
+  { label: "BABY RASH CREAM", hsn: "3004", gst: 5 },
+  { label: "BABY SHAMPOO", hsn: "3305", gst: 5 },
+  { label: "BABY SIPPER", hsn: "73239990", gst: 5 },
+  { label: "BABY SKIN PRODUCT", hsn: "33049120", gst: 5 },
+  { label: "BABY SOAP", hsn: "3401", gst: 5 },
+  { label: "BABY TEETHER", hsn: "95030030", gst: 5 },
+  { label: "BABY TOOTHBRUSH", hsn: "96032100", gst: 5 },
+  { label: "BABY WIPES", hsn: "33079090", gst: 5 },
+  { label: "BAG", hsn: "39269090", gst: 5 },
+  { label: "BOTTLE", hsn: "39233090", gst: 5 },
+  { label: "CHILDREN GARMENTS", hsn: "620990", gst: 5 },
+  { label: "COAT SET", hsn: "620319", gst: 5 },
+  { label: "COLOUR", hsn: "96099090", gst: 0 },
+  { label: "ERASER", hsn: "40169200", gst: 0 },
+  { label: "FANCY DRESS", hsn: "6204", gst: 5 },
+  { label: "FOOTWEAR", hsn: "64041110", gst: 5 },
+  { label: "GARMENTS", hsn: "6203", gst: 5 },
+  { label: "GIRLS TOP", hsn: "6106", gst: 5 },
+  { label: "KIDS DISPLAY", hsn: "9618", gst: 18 },
+  { label: "KIDS FOOTWEAR", hsn: "6404", gst: 5 },
+  { label: "PANT", hsn: "6203", gst: 5 },
+  { label: "PAPER ROLL", hsn: "49030020", gst: 0 },
+  { label: "PENCIL", hsn: "96089990", gst: 18 },
+  { label: "ROLL ON", hsn: "33039011", gst: 5 },
+  { label: "SIPPER", hsn: "39269099", gst: 5 },
+  { label: "SKIN PRODUCT", hsn: "3304", gst: 18 },
+  { label: "TOP", hsn: "610620", gst: 5 },
+  { label: "T SHIRT", hsn: "6117", gst: 5 },
+];
 
 const MATRIX_AVAILABLE_SIZES = [
   // Baby & Infant (0-24 Months)
@@ -341,6 +381,8 @@ const toDraft = (
     relatedProductIds: (p as any)?.relatedProductIds ?? [],
     salesChannel: p?.salesChannel ?? defaultSalesChannel ?? "ONLINE_AND_OFFLINE",
     colors: existingColors,
+    hsnCode: p?.hsn_code ?? "",
+    gstRate: p?.gst_rate != null ? Number(p.gst_rate) : null,
     variants: p?.variants?.length
       ? p.variants.map((v) => {
           const isDefault =
@@ -1241,6 +1283,8 @@ export function ProductForm({
           ageGroup: finalDraft.ageGroup || "",
           salesChannel: finalDraft.salesChannel,
           sales_channel: finalDraft.salesChannel,
+          hsn_code: finalDraft.hsnCode?.trim() || null,
+          gst_rate: finalDraft.gstRate != null ? Number(finalDraft.gstRate) : null,
           variants: (finalDraft.variants || []).map((v) => ({
             id: v.id || "",
             name: v.name,
@@ -2029,6 +2073,79 @@ export function ProductForm({
                       </div>
                     )}
                   </label>
+                </div>
+
+                {/* HSN & GST Fields (Optional) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <label className="text-sm font-semibold">
+                    <div className="flex items-center justify-between">
+                      <span>HSN Code</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Optional (Text)</span>
+                    </div>
+                    <input
+                      type="text"
+                      className={input}
+                      placeholder="e.g. 6111"
+                      value={draft.hsnCode || ""}
+                      onChange={(e) => set("hsnCode", e.target.value)}
+                      list="hsn-master-suggestions"
+                    />
+                    <datalist id="hsn-master-suggestions">
+                      {HSN_GST_MASTER.map((m) => (
+                        <option key={`${m.label}-${m.hsn}`} value={m.hsn}>
+                          {m.label} ({m.gst}%)
+                        </option>
+                      ))}
+                    </datalist>
+                  </label>
+
+                  <label className="text-sm font-semibold">
+                    <div className="flex items-center justify-between">
+                      <span>GST Rate</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Optional</span>
+                    </div>
+                    <select
+                      className={input}
+                      value={draft.gstRate != null ? String(draft.gstRate) : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        set("gstRate", val === "" ? null : Number(val));
+                      }}
+                    >
+                      <option value="">None / Not Set</option>
+                      <option value="0">0%</option>
+                      <option value="5">5%</option>
+                      <option value="12">12%</option>
+                      <option value="18">18%</option>
+                      <option value="28">28%</option>
+                    </select>
+                  </label>
+                </div>
+
+                {/* HSN Master Quick Fill Preset */}
+                <div className="mb-4">
+                  <select
+                    className="w-full text-xs rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-muted-foreground hover:text-foreground cursor-pointer transition"
+                    value=""
+                    onChange={(e) => {
+                      const found = HSN_GST_MASTER.find((m) => m.label === e.target.value);
+                      if (found) {
+                        setDraft((prev) => ({
+                          ...prev,
+                          hsnCode: found.hsn,
+                          gstRate: found.gst,
+                        }));
+                        toast.info(`Applied HSN ${found.hsn} and ${found.gst}% GST for ${found.label}`);
+                      }
+                    }}
+                  >
+                    <option value="">⚡ Quick fill from HSN / GST Reference Master (Optional)...</option>
+                    {HSN_GST_MASTER.map((m) => (
+                      <option key={m.label} value={m.label}>
+                        {m.label} — HSN: {m.hsn} ({m.gst}% GST)
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Delivery Fee Section (Compact & Clean) */}

@@ -61,6 +61,8 @@ type ProductRow = {
   sku?: string;
   barcode?: string | null;
   delivery_fee?: number | null;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
   image_url?: string | null;
   images?: string[] | null;
   product_images?:
@@ -384,6 +386,8 @@ export const mapProduct = (row: ProductRow): Product => {
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
     sales_channel:
       (row.sales_channel as "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY") ?? "ONLINE_AND_OFFLINE",
+    hsn_code: row.hsn_code ?? null,
+    gst_rate: row.gst_rate !== undefined && row.gst_rate !== null ? Number(row.gst_rate) : null,
     variants: normalizedVariants.map((v) => {
       const vSku = v.sku?.trim().toLowerCase();
       const vImages = (row.product_images || [])

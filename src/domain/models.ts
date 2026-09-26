@@ -67,6 +67,8 @@ export interface Product {
   recommendationMode?: "manual" | "auto" | "manual_fallback";
   salesChannel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
   sales_channel: "ONLINE_AND_OFFLINE" | "OFFLINE_ONLY";
+  hsn_code?: string | null;
+  gst_rate?: number | null;
   variants: ProductVariant[];
 }
 
@@ -240,6 +242,8 @@ export interface OrderItem {
   quantity?: number;
   subtotal?: number;
   buying_price?: number;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
 }
 
 export interface Order {

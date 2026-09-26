@@ -59,6 +59,8 @@ export type A4InvoiceItem = {
   price: number;
   mrp?: number;
   qty: number;
+  hsn_code?: string | null;
+  gst_rate?: number | null;
 };
 
 export type PrintStatus = "idle" | "printing" | "success" | "failed";
@@ -116,6 +118,11 @@ export function buildA4HTML(
     minute: "2-digit",
   });
 
+  let totalTaxable = 0;
+  let totalGstAmount = 0;
+  let totalCgst = 0;
+  let totalSgst = 0;
+
   const itemRows = items
     .map((item, i) => {
       const lineTotal = item.price * item.qty;
@@ -128,18 +135,37 @@ export function buildA4HTML(
         .filter(Boolean)
         .join(" · ");
 
+      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
+      const hasGst = item.gst_rate != null && item.gst_rate > 0;
+      const taxableValue = hasGst
+        ? Math.round((lineTotal / (1 + item.gst_rate! / 100)) * 100) / 100
+        : lineTotal;
+      const gstAmount = hasGst ? Math.round((lineTotal - taxableValue) * 100) / 100 : 0;
+      const gstRateStr = item.gst_rate != null ? `${item.gst_rate}%` : "—";
+      const cgst = Math.round((gstAmount / 2) * 100) / 100;
+      const sgst = Math.round((gstAmount - cgst) * 100) / 100;
+
+      totalTaxable += taxableValue;
+      totalGstAmount += gstAmount;
+      totalCgst += cgst;
+      totalSgst += sgst;
+
       return `
     <tr class="${i % 2 === 0 ? "even" : ""}">
       <td>
         <div class="item-name">${escapeHtml(item.name)}</div>
         ${variantDetails ? `<div class="sku" style="font-size: 10px; color: #475569; margin-top: 2px;">${variantDetails}</div>` : ""}
       </td>
+      <td class="center font-mono">${hsnDisplay}</td>
       <td class="center">${item.qty}</td>
       <td class="right">
         ${hasMRP ? `<div class="mrp-col">MRP: ₹${item.mrp!.toLocaleString("en-IN")}</div>` : ""}
         <div class="bold">₹${item.price.toLocaleString("en-IN")}</div>
         ${hasMRP ? `<div style="font-size: 9px; color: #15803d; margin-top: 2px;">Save: ₹${(item.mrp! - item.price).toLocaleString("en-IN")}</div>` : ""}
       </td>
+      <td class="right">₹${taxableValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      <td class="center">${gstRateStr}</td>
+      <td class="right">₹${gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       <td class="right bold">₹${lineTotal.toLocaleString("en-IN")}</td>
     </tr>`;
     })
@@ -372,7 +398,7 @@ export function buildA4HTML(
       In Front of Hanumanji Temple,<br/>
       Atwal Nagar, Kota, Rajasthan<br/>
       Ph: ${escapeHtml(store.contactPhone)}<br/>
-      ${escapeHtml(store.contactEmail)}
+      ${escapeHtml(store.contactEmail)}${store.settings?.["gstin"] || store.settings?.["store_gstin"] ? `<br/>GSTIN: ${escapeHtml(store.settings?.["gstin"] || store.settings?.["store_gstin"])}` : ""}
     </div>
   </div>
 </div>
@@ -418,8 +444,12 @@ ${
   <thead>
     <tr>
       <th style="text-align:left;">Product</th>
+      <th class="center">HSN</th>
       <th class="center">Qty</th>
-      <th class="right">Price / Savings</th>
+      <th class="right">Rate</th>
+      <th class="right">Taxable Value</th>
+      <th class="center">GST Rate</th>
+      <th class="right">GST Amount</th>
       <th class="right">Total</th>
     </tr>
   </thead>
@@ -435,6 +465,26 @@ ${
       <span>Subtotal</span>
       <span>₹${sale.subtotal.toLocaleString("en-IN")}</span>
     </div>
+    ${
+      totalGstAmount > 0
+        ? `<div class="totals-row alt" style="font-size: 10px; color: #475569;">
+        <span>Taxable Value</span>
+        <span>₹${totalTaxable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+      <div class="totals-row" style="font-size: 10px; color: #475569;">
+        <span>CGST</span>
+        <span>₹${totalCgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+      <div class="totals-row alt" style="font-size: 10px; color: #475569;">
+        <span>SGST</span>
+        <span>₹${totalSgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+      <div class="totals-row" style="font-size: 10px; font-weight: 700; color: #8B2020;">
+        <span>Total GST</span>
+        <span>₹${totalGstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>`
+        : ""
+    }
     ${
       sale.coupon_discount && sale.coupon_discount > 0
         ? `<div class="totals-row alt discount">
