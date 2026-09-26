@@ -362,7 +362,7 @@ export function DashboardTab({
         supabase
           .from("products")
           .select(
-            "id, price, stock, name, is_active, slug, category, product_images(public_url, is_primary, sort_order)",
+            "id, price, stock, name, is_active, slug, category, buying_price, cost_price, product_images(public_url, is_primary, sort_order)",
           ),
         Promise.resolve(supabase.from("product_costs").select("product_id, buying_price")).catch(
           () => ({ data: [] as { product_id: string; buying_price: number }[], error: null }),
@@ -379,10 +379,21 @@ export function DashboardTab({
           (c) => [c.product_id, c.buying_price],
         ),
       );
-      return (prodsRes.data || []).map((p) => ({
-        ...p,
-        product_costs: costMap.has(p.id) ? [{ buying_price: costMap.get(p.id)! }] : [],
-      }));
+      return (prodsRes.data || []).map((p) => {
+        const cVal = Number(
+          costMap.get(p.id) ??
+          (p as any).buying_price ??
+          (p as any).cost_price ??
+          0
+        );
+        return {
+          ...p,
+          buyingPrice: cVal,
+          buying_price: cVal,
+          cost_price: cVal,
+          product_costs: cVal > 0 ? [{ buying_price: cVal }] : (costMap.has(p.id) ? [{ buying_price: costMap.get(p.id)! }] : []),
+        };
+      });
     },
   });
 

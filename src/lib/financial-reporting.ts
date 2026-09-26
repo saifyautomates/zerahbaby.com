@@ -349,6 +349,7 @@ export function calculateFinancialMetrics({
         item.cost_price ??
         item.buying_price ??
         item.buyingPrice ??
+        (item as any).unit_cost ??
         0,
       );
       const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(prod);
@@ -418,7 +419,6 @@ export function calculateFinancialMetrics({
     if (
       retStatus === "returned" ||
       retStatus === "fully_returned" ||
-      retStatus === "completed" ||
       isFullyRefunded
     ) {
       return;
@@ -471,6 +471,7 @@ export function calculateFinancialMetrics({
         item.cost_price ??
         item.buying_price ??
         item.buyingPrice ??
+        (item as any).unit_cost ??
         0,
       );
       const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(prod);

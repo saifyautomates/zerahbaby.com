@@ -2642,6 +2642,8 @@ export type Database = {
         Row: {
           age_group: string
           size: string | null
+          buying_price: number | null
+          cost_price: number | null
           barcode: string | null
           bestseller: boolean
           brand: string

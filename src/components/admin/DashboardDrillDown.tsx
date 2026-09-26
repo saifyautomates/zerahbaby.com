@@ -1176,8 +1176,15 @@ export function DashboardDrillDown({
     colorClass,
     renderContent,
   } = useMemo(() => {
-    const getProduct = (slugOrId: string) => {
-      return products.find((p) => p.slug === slugOrId || p.id === slugOrId);
+    const getProduct = (slugOrIdOrName: string) => {
+      const key = (slugOrIdOrName || "").trim().toLowerCase();
+      if (!key) return undefined;
+      return products.find(
+        (p) =>
+          p.id?.toLowerCase() === key ||
+          p.slug?.toLowerCase() === key ||
+          p.name?.trim().toLowerCase() === key,
+      );
     };
 
     const getBuyingPrice = (p: DrillDownProduct | undefined) => {
@@ -1474,11 +1481,15 @@ export function DashboardDrillDown({
           const netQty = Math.max(0, itemQty - retQty);
           if (netQty <= 0) return;
 
-          const p = getProduct(item.product_slug || item.product_id || "");
+          const p =
+            (item.product_id ? getProduct(item.product_id) : undefined) ||
+            (item.product_slug ? getProduct(item.product_slug) : undefined) ||
+            (item.product_name ? getProduct(item.product_name) : undefined);
           const historicalBp = Number(
             (item as any).cost_price ??
             item.buying_price ??
             (item as any).buyingPrice ??
+            (item as any).unit_cost ??
             0,
           );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);
@@ -1514,7 +1525,6 @@ export function DashboardDrillDown({
         if (
           retStatus === "returned" ||
           retStatus === "fully_returned" ||
-          retStatus === "completed" ||
           isFullyRefunded
         ) {
           return; // Completely returned sale!
@@ -1564,11 +1574,15 @@ export function DashboardDrillDown({
           const netQty = Math.max(0, itemQty - retQty);
           if (netQty <= 0) return; // Completely returned product: remove from My Cost and Profit analysis!
 
-          const p = getProduct(item.product_id || item.product_slug || "");
+          const p =
+            (item.product_id ? getProduct(item.product_id) : undefined) ||
+            (item.product_slug ? getProduct(item.product_slug) : undefined) ||
+            (item.name ? getProduct(item.name) : undefined);
           const historicalBp = Number(
             (item as any).cost_price ??
             item.buying_price ??
             (item as any).buyingPrice ??
+            (item as any).unit_cost ??
             0,
           );
           const bp = historicalBp > 0 ? historicalBp : getBuyingPrice(p);

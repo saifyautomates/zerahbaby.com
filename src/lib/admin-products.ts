@@ -38,6 +38,8 @@ export const draftToRow = (draft: ProductDraft, isNew = false) => {
     sales_channel: draft.salesChannel,
     hsn_code: draft.hsnCode !== undefined ? (draft.hsnCode?.trim() || null) : undefined,
     gst_rate: draft.gstRate !== undefined ? (draft.gstRate != null ? Number(draft.gstRate) : null) : undefined,
+    buying_price: Number(draft.buyingPrice) || 0,
+    cost_price: Number(draft.buyingPrice) || 0,
   };
 
   if (isNew) {
