@@ -157,31 +157,8 @@ export function buildA4HTML(
       let gstAmount: number;
       let lineTotal: number;
 
-      if (isAdditive && gstRate > 0) {
-        // Exclusive rate mode (typical POS with additive GST)
-        unitRate = item.price;
-        const lineBase = unitRate * item.qty;
-        gstAmount = Math.round(lineBase * (gstRate / 100) * 100) / 100;
-        lineTotal = lineBase + gstAmount;
-        totalTaxable += lineBase;
-      } else if (gstRate > 0) {
-        // Inclusive rate mode
-        lineTotal = item.price * item.qty;
-        const taxable = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
-        gstAmount = Math.round((lineTotal - taxable) * 100) / 100;
-        unitRate = Math.round((taxable / item.qty) * 100) / 100;
-        totalTaxable += taxable;
-      } else {
-        unitRate = item.price;
-        gstAmount = 0;
-        lineTotal = unitRate * item.qty;
-        totalTaxable += lineTotal;
-      }
-
-      totalGstAmount += gstAmount;
-
       // Display-only discount allocation. This does NOT change sale totals,
-      // GST calculations, database values, or POS/backend logic.
+      // database values, POS/backend logic, or the stored sale discount.
       const grossLineAmount = item.price * item.qty;
       const discountShare =
         sale.discount > 0 && sale.subtotal > 0
@@ -197,6 +174,39 @@ export function buildA4HTML(
         item.qty > 0
           ? Math.round((discountedLineAmount / item.qty) * 100) / 100
           : 0;
+
+      if (isAdditive && gstRate > 0) {
+        // Exclusive rate mode: GST is calculated on the discounted price.
+        unitRate = item.price;
+        const discountedTaxableValue = discountedLineAmount;
+        gstAmount =
+          Math.round(discountedTaxableValue * (gstRate / 100) * 100) / 100;
+        lineTotal =
+          Math.round((discountedTaxableValue + gstAmount) * 100) / 100;
+        totalTaxable += discountedTaxableValue;
+      } else if (gstRate > 0) {
+        // Inclusive rate mode: extract GST from the discounted gross price.
+        const discountedGross = discountedLineAmount;
+        const taxable =
+          Math.round(
+            (discountedGross / (1 + gstRate / 100)) * 100
+          ) / 100;
+        gstAmount =
+          Math.round((discountedGross - taxable) * 100) / 100;
+        unitRate =
+          item.qty > 0
+            ? Math.round((taxable / item.qty) * 100) / 100
+            : 0;
+        lineTotal = discountedGross;
+        totalTaxable += taxable;
+      } else {
+        unitRate = item.price;
+        gstAmount = 0;
+        lineTotal = discountedLineAmount;
+        totalTaxable += discountedLineAmount;
+      }
+
+      totalGstAmount += gstAmount;
 
       const variantDetails = [
         item.color ? `Color: ${escapeHtml(item.color)}` : "",
