@@ -180,6 +180,24 @@ export function buildA4HTML(
 
       totalGstAmount += gstAmount;
 
+      // Display-only discount allocation. This does NOT change sale totals,
+      // GST calculations, database values, or POS/backend logic.
+      const grossLineAmount = item.price * item.qty;
+      const discountShare =
+        sale.discount > 0 && sale.subtotal > 0
+          ? Math.round((sale.discount * grossLineAmount / sale.subtotal) * 100) / 100
+          : 0;
+      const discountedLineAmount =
+        Math.round((grossLineAmount - discountShare) * 100) / 100;
+      const perUnitDiscount =
+        item.qty > 0
+          ? Math.round((discountShare / item.qty) * 100) / 100
+          : 0;
+      const perUnitDiscountedPrice =
+        item.qty > 0
+          ? Math.round((discountedLineAmount / item.qty) * 100) / 100
+          : 0;
+
       const variantDetails = [
         item.color ? `Color: ${escapeHtml(item.color)}` : "",
         item.size ? `Size: ${escapeHtml(item.size)}` : "",
@@ -203,6 +221,8 @@ export function buildA4HTML(
       <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${unitRate.toFixed(2)}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `−₹${perUnitDiscount.toFixed(2)}` : "—"}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${perUnitDiscountedPrice.toFixed(2)}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 800; color: #111; vertical-align: top;">₹${lineTotal.toFixed(2)}</td>
@@ -342,6 +362,8 @@ ${
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">HSN</th>
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 45px;">QTY</th>
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 65px;">RATE</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 70px;">DISCOUNT</th>
+      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 85px;">DISCOUNTED PRICE</th>
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">GST RATE</th>
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">GST AMOUNT</th>
       <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">TOTAL</th>
