@@ -231,7 +231,7 @@ export function buildA4HTML(
       <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${unitRate.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `−₹${perUnitDiscount.toFixed(2)}` : "—"}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `${((discountShare / grossLineAmount) * 100).toFixed(0)}% (−₹${perUnitDiscount.toFixed(2)})` : "—"}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${perUnitDiscountedPrice.toFixed(2)}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
