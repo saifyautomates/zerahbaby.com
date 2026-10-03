@@ -505,12 +505,53 @@ function ShopPage() {
   }, [list, category, deferredQ, selectedBrands, selectedAgeGroups, deferredMaxPrice, inStockOnly, sort]);
 
   const [displayLimit, setDisplayLimit] = useState(24);
+const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    setDisplayLimit(24);
-  }, [category, age, q, selectedBrands, selectedAgeGroups, maxPrice, inStockOnly, sort]);
+useEffect(() => {
+  setDisplayLimit(24);
+}, [
+  category,
+  age,
+  q,
+  selectedBrands,
+  selectedAgeGroups,
+  maxPrice,
+  inStockOnly,
+  sort,
+]);
 
-  const displayedProducts = useMemo(() => visible.slice(0, displayLimit), [visible, displayLimit]);
+const displayedProducts = useMemo(
+  () => visible.slice(0, displayLimit),
+  [visible, displayLimit],
+);
+
+const hasMoreProducts =
+  displayedProducts.length < visible.length;
+
+useEffect(() => {
+  if (!hasMoreProducts) return;
+
+  const sentinel = loadMoreSentinelRef.current;
+  if (!sentinel) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0]?.isIntersecting) return;
+
+      setDisplayLimit((prev) =>
+        Math.min(prev + 24, visible.length),
+      );
+    },
+    {
+      rootMargin: "500px 0px",
+      threshold: 0,
+    },
+  );
+
+  observer.observe(sentinel);
+
+  return () => observer.disconnect();
+}, [hasMoreProducts, visible.length]);
 
   const activeCategory = (categories ?? []).find((c) => c.slug === category);
   const hasAnyFilter = hasActiveFilters || !!category || !!q;
