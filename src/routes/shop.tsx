@@ -1,5 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useCallback, useEffect, useDeferredValue } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useDeferredValue,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { useCategories, useProducts } from "@/lib/store";
 import { ProductCard, ProductGridSkeleton } from "@/components/site/ProductCard";
