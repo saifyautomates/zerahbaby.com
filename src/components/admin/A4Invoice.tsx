@@ -145,63 +145,137 @@ export function buildA4HTML(
   let totalTaxable = 0;
   let totalGstAmount = 0;
 
-  // Detect whether item prices are base rates (exclusive of GST) or gross totals (inclusive)
-  const isAdditive =
-    sale.total > (sale.subtotal - (sale.discount || 0)) ||
-    Math.round((sale.total - sale.subtotal) * 100) / 100 > 0;
+  // INVOICE-ONLY PRICING DISPLAY
+  // MRP = original price shown to customer
+  // item.price = actual selling price stored for the sale
+  // sale.discount = any additional POS-level discount
+  //
+  // IMPORTANT:
+  // This changes ONLY the A4 invoice presentation.
+  // It does NOT modify POS totals, database values, inventory,
+  // checkout logic, or backend calculations.
+
+  const originalSubtotal = items.reduce((sum, item) => {
+    const originalRate =
+      item.mrp != null && Number(item.mrp) > 0
+        ? Number(item.mrp)
+        : Number(item.price || 0);
+
+    return sum + originalRate * Number(item.qty || 0);
+  }, 0);
+
+  const sellingSubtotal = items.reduce((sum, item) => {
+    return sum + Number(item.price || 0) * Number(item.qty || 0);
+  }, 0);
+
+  const productLevelDiscount = Math.max(
+    0,
+    originalSubtotal - sellingSubtotal,
+  );
+
+  const saleLevelDiscount = Math.max(0, Number(sale.discount || 0));
+
+  // Allocate any additional sale-level discount proportionally
+  // across the actual selling-value of each item.
+  const saleDiscountRatio =
+    sellingSubtotal > 0
+      ? Math.min(1, saleLevelDiscount / sellingSubtotal)
+      : 0;
 
   const itemRows = items
     .map((item, idx) => {
-      const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 0;
-      let gstAmount: number;
-      let lineTotal: number;
+      const qty = Number(item.qty || 0);
 
-      // Display-only discount allocation. This does NOT change sale totals,
-      // database values, POS/backend logic, or the stored sale discount.
-      const grossLineAmount =
-        Math.round(item.price * item.qty * 100) / 100;
-      const discountShare =
-        sale.discount > 0 && sale.subtotal > 0
+      const originalRate =
+        item.mrp != null && Number(item.mrp) > 0
+          ? Number(item.mrp)
+          : Number(item.price || 0);
+
+      const sellingRate = Number(item.price || 0);
+
+      const originalLineAmount =
+        Math.round(originalRate * qty * 100) / 100;
+
+      const sellingLineAmount =
+        Math.round(sellingRate * qty * 100) / 100;
+
+      const productDiscount =
+        Math.round(
+          Math.max(0, originalLineAmount - sellingLineAmount) * 100,
+        ) / 100;
+
+      const additionalSaleDiscount =
+        saleLevelDiscount > 0
           ? Math.round(
-              (sale.discount * grossLineAmount) / sale.subtotal * 100
+              sellingLineAmount * saleDiscountRatio * 100,
             ) / 100
           : 0;
+
+      const totalLineDiscount =
+        Math.round(
+          (productDiscount + additionalSaleDiscount) * 100,
+        ) / 100;
+
       const discountedLineAmount =
-        Math.round((grossLineAmount - discountShare) * 100) / 100;
+        Math.round(
+          Math.max(0, sellingLineAmount - additionalSaleDiscount) * 100,
+        ) / 100;
+
       const discountPercent =
-        grossLineAmount > 0
-          ? Math.round((discountShare / grossLineAmount) * 100)
-          : 0;
-      const perUnitDiscountedPrice =
-        item.qty > 0
-          ? Math.round((discountedLineAmount / item.qty) * 100) / 100
+        originalLineAmount > 0
+          ? Math.round(
+              (totalLineDiscount / originalLineAmount) * 100,
+            )
           : 0;
 
-      if (isAdditive && gstRate > 0) {
-        // Exclusive rate mode: GST is calculated on the discounted price.
-        const discountedTaxableValue = discountedLineAmount;
+      const discountedPricePerUnit =
+        qty > 0
+          ? Math.round((discountedLineAmount / qty) * 100) / 100
+          : 0;
+
+      const gstRate =
+        item.gst_rate != null
+          ? Number(item.gst_rate)
+          : 0;
+
+      let gstAmount = 0;
+      let taxableAmount = discountedLineAmount;
+      let lineTotal = discountedLineAmount;
+
+      const isAdditive =
+        sale.total >
+          (sale.subtotal - Number(sale.discount || 0)) ||
+        Math.round((sale.total - sale.subtotal) * 100) / 100 > 0;
+
+      if (gstRate > 0 && isAdditive) {
+        // GST-exclusive / additive mode.
+        taxableAmount = discountedLineAmount;
+
         gstAmount =
-          Math.round(discountedTaxableValue * (gstRate / 100) * 100) / 100;
-        lineTotal =
-          Math.round((discountedTaxableValue + gstAmount) * 100) / 100;
-        totalTaxable += discountedTaxableValue;
-      } else if (gstRate > 0) {
-        // Inclusive rate mode: extract GST from the discounted gross price.
-        const discountedGross = discountedLineAmount;
-        const taxable =
           Math.round(
-            (discountedGross / (1 + gstRate / 100)) * 100
+            taxableAmount * (gstRate / 100) * 100,
           ) / 100;
+
+        lineTotal =
+          Math.round(
+            (taxableAmount + gstAmount) * 100,
+          ) / 100;
+      } else if (gstRate > 0) {
+        // GST-inclusive fallback.
+        const gross = discountedLineAmount;
+
+        taxableAmount =
+          Math.round(
+            (gross / (1 + gstRate / 100)) * 100,
+          ) / 100;
+
         gstAmount =
-          Math.round((discountedGross - taxable) * 100) / 100;
-        lineTotal = discountedGross;
-        totalTaxable += taxable;
-      } else {
-        gstAmount = 0;
-        lineTotal = discountedLineAmount;
-        totalTaxable += discountedLineAmount;
+          Math.round((gross - taxableAmount) * 100) / 100;
+
+        lineTotal = gross;
       }
 
+      totalTaxable += taxableAmount;
       totalGstAmount += gstAmount;
 
       const variantDetails = [
@@ -211,28 +285,158 @@ export function buildA4HTML(
         .filter(Boolean)
         .join(" · ");
 
-      const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
-      const subInfo = [variantDetails, skuText].filter(Boolean).join(" · ");
+      const skuText = item.sku
+        ? `SKU: ${escapeHtml(item.sku)}`
+        : "";
 
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
-      const gstRateStr = gstRate > 0 ? `${gstRate}%` : "0%";
+      const subInfo = [variantDetails, skuText]
+        .filter(Boolean)
+        .join(" · ");
+
+      const hsnDisplay = item.hsn_code
+        ? escapeHtml(item.hsn_code)
+        : "—";
+
+      const gstRateStr =
+        gstRate > 0 ? `${gstRate}%` : "0%";
 
       return `
     <tr style="border-bottom: 1px solid #f3f4f6;">
-      <td style="padding: 10px 6px; text-align: center; font-weight: 700; color: #111; vertical-align: top;">${idx + 1}</td>
-      <td style="padding: 10px 8px; text-align: left; vertical-align: top;">
-        <div style="font-weight: 700; color: #111; font-size: 12px;">${escapeHtml(item.name)}</div>
-        ${subInfo ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 3px;">${subInfo}</div>` : ""}
+      <td style="
+        padding: 10px 6px;
+        text-align: center;
+        font-weight: 700;
+        color: #111;
+        vertical-align: top;
+      ">
+        ${idx + 1}
       </td>
-      <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
-      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${item.price.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `${discountPercent}%<br/><span style="font-size: 10px;">−₹${discountShare.toFixed(2)}</span>` : "—"}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${perUnitDiscountedPrice.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${discountedLineAmount.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 800; color: #111; vertical-align: top;">₹${lineTotal.toFixed(2)}</td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: top;
+      ">
+        <div style="
+          font-weight: 700;
+          color: #111;
+          font-size: 12px;
+        ">
+          ${escapeHtml(item.name)}
+        </div>
+
+        ${
+          subInfo
+            ? `<div style="
+                font-size: 9.5px;
+                color: #6b7280;
+                font-family: monospace;
+                margin-top: 3px;
+              ">${subInfo}</div>`
+            : ""
+        }
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: center;
+        font-family: monospace;
+        font-size: 11px;
+        color: #374151;
+        vertical-align: top;
+      ">
+        ${hsnDisplay}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: center;
+        font-size: 11px;
+        color: #111;
+        vertical-align: top;
+      ">
+        ${qty}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        color: #111;
+        vertical-align: top;
+      ">
+        ₹${originalRate.toFixed(2)}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        color: #15803d;
+        vertical-align: top;
+      ">
+        ${
+          totalLineDiscount > 0
+            ? `${discountPercent}%<br/>
+               <span style="font-size: 10px;">
+                 −₹${totalLineDiscount.toFixed(2)}
+               </span>`
+            : "—"
+        }
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        font-weight: 700;
+        color: #111;
+        vertical-align: top;
+      ">
+        ₹${discountedPricePerUnit.toFixed(2)}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: center;
+        font-size: 11px;
+        color: #374151;
+        vertical-align: top;
+      ">
+        ${gstRateStr}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        color: #374151;
+        vertical-align: top;
+      ">
+        ₹${gstAmount.toFixed(2)}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        font-weight: 700;
+        color: #111;
+        vertical-align: top;
+      ">
+        ₹${taxableAmount.toFixed(2)}
+      </td>
+
+      <td style="
+        padding: 10px 8px;
+        text-align: right;
+        font-size: 11px;
+        font-weight: 800;
+        color: #111;
+        vertical-align: top;
+      ">
+        ₹${lineTotal.toFixed(2)}
+      </td>
     </tr>`;
     })
     .join("");
@@ -241,11 +445,25 @@ export function buildA4HTML(
     ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1).toLowerCase()
     : "Cash";
 
-  const originalSubtotalDisplay = sale.subtotal.toFixed(2);
-  const totalDiscountDisplay = sale.discount.toFixed(2);
-  const totalBeforeGstDisplay = totalTaxable.toFixed(2);
-  const totalGstDisplay = totalGstAmount.toFixed(2);
-  const finalPaidDisplay = sale.total.toFixed(2);
+  const originalSubtotalDisplay =
+    originalSubtotal.toFixed(2);
+
+  const totalDiscount =
+    Math.round(
+      (productLevelDiscount + saleLevelDiscount) * 100,
+    ) / 100;
+
+  const totalDiscountDisplay =
+    totalDiscount.toFixed(2);
+
+  const totalBeforeGstDisplay =
+    totalTaxable.toFixed(2);
+
+  const totalGstDisplay =
+    totalGstAmount.toFixed(2);
+
+  const finalPaidDisplay =
+    sale.total.toFixed(2);
   const logoSrc = typeof window !== "undefined" && window.location ? `${window.location.origin}/logo.png` : "/logo.png";
 
   return `<!DOCTYPE html>
@@ -374,7 +592,10 @@ ${
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: left;">PRODUCT</th>
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 55px;">HSN</th>
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 40px;">QTY</th>
-      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 68px;">RATE<br/>(ORIGINAL)</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 82px; white-space: nowrap;">
+        <span style="white-space: nowrap;">MRP</span><br />
+        <span style="white-space: nowrap;">(ORIGINAL)</span>
+      </th>
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 78px;">DISCOUNT</th>
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 88px;">DISCOUNTED<br/>PRICE</th>
       <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 55px;">GST RATE</th>
@@ -396,7 +617,7 @@ ${
       <span>₹${originalSubtotalDisplay}</span>
     </div>
     ${
-      sale.discount > 0
+      totalDiscount > 0
         ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #15803d; font-weight: 700;">
             <span>Total Discount</span>
             <span>−₹${totalDiscountDisplay}</span>
