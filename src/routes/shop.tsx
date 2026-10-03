@@ -722,20 +722,13 @@ useEffect(() => {
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
-              {visible.length > displayLimit && (
-                <div className="mt-8 flex flex-col items-center justify-center gap-2">
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Showing {displayLimit} of {visible.length} products
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDisplayLimit((prev) => prev + 24)}
-                    className="rounded-full border border-border bg-card hover:bg-muted px-6 py-2.5 text-xs sm:text-sm font-semibold text-foreground transition shadow-2xs cursor-pointer"
-                  >
-                    Load More Products
-                  </button>
-                </div>
-              )}
+              {hasMoreProducts && (
+  <div
+    ref={loadMoreSentinelRef}
+    className="h-4"
+    aria-hidden="true"
+  />
+)}
             </>
           )}
         </div>
