@@ -153,22 +153,24 @@ export function buildA4HTML(
   const itemRows = items
     .map((item, idx) => {
       const gstRate = item.gst_rate != null ? Number(item.gst_rate) : 0;
-      let unitRate: number;
       let gstAmount: number;
       let lineTotal: number;
 
       // Display-only discount allocation. This does NOT change sale totals,
       // database values, POS/backend logic, or the stored sale discount.
-      const grossLineAmount = item.price * item.qty;
+      const grossLineAmount =
+        Math.round(item.price * item.qty * 100) / 100;
       const discountShare =
         sale.discount > 0 && sale.subtotal > 0
-          ? Math.round((sale.discount * grossLineAmount / sale.subtotal) * 100) / 100
+          ? Math.round(
+              (sale.discount * grossLineAmount) / sale.subtotal * 100
+            ) / 100
           : 0;
       const discountedLineAmount =
         Math.round((grossLineAmount - discountShare) * 100) / 100;
-      const perUnitDiscount =
-        item.qty > 0
-          ? Math.round((discountShare / item.qty) * 100) / 100
+      const discountPercent =
+        grossLineAmount > 0
+          ? Math.round((discountShare / grossLineAmount) * 100)
           : 0;
       const perUnitDiscountedPrice =
         item.qty > 0
@@ -177,7 +179,6 @@ export function buildA4HTML(
 
       if (isAdditive && gstRate > 0) {
         // Exclusive rate mode: GST is calculated on the discounted price.
-        unitRate = item.price;
         const discountedTaxableValue = discountedLineAmount;
         gstAmount =
           Math.round(discountedTaxableValue * (gstRate / 100) * 100) / 100;
@@ -193,14 +194,9 @@ export function buildA4HTML(
           ) / 100;
         gstAmount =
           Math.round((discountedGross - taxable) * 100) / 100;
-        unitRate =
-          item.qty > 0
-            ? Math.round((taxable / item.qty) * 100) / 100
-            : 0;
         lineTotal = discountedGross;
         totalTaxable += taxable;
       } else {
-        unitRate = item.price;
         gstAmount = 0;
         lineTotal = discountedLineAmount;
         totalTaxable += discountedLineAmount;
@@ -230,26 +226,26 @@ export function buildA4HTML(
       </td>
       <td style="padding: 10px 8px; text-align: center; font-family: monospace; font-size: 11px; color: #374151; vertical-align: top;">${hsnDisplay}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #111; vertical-align: top;">${item.qty}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${unitRate.toFixed(2)}</td>
-      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `${((discountShare / grossLineAmount) * 100).toFixed(0)}% (−₹${perUnitDiscount.toFixed(2)})` : "—"}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #111; vertical-align: top;">₹${item.price.toFixed(2)}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #15803d; vertical-align: top;">${discountShare > 0 ? `${discountPercent}%<br/><span style="font-size: 10px;">−₹${discountShare.toFixed(2)}</span>` : "—"}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${perUnitDiscountedPrice.toFixed(2)}</td>
       <td style="padding: 10px 8px; text-align: center; font-size: 11px; color: #374151; vertical-align: top;">${gstRateStr}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; color: #374151; vertical-align: top;">₹${gstAmount.toFixed(2)}</td>
+      <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #111; vertical-align: top;">₹${discountedLineAmount.toFixed(2)}</td>
       <td style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 800; color: #111; vertical-align: top;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
     })
     .join("");
 
-  const discountLabel =
-    sale.discount > 0
-      ? `Discount${sale.discount_type === "percentage" ? ` (${sale.discount_value}%)` : sale.discount_type === "fixed" ? ` (₹${sale.discount_value})` : ""}`
-      : "";
-
   const paymentDisplay = sale.payment_method
     ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1).toLowerCase()
     : "Cash";
 
-  const subtotalDisplay = (totalTaxable > 0 ? totalTaxable : sale.subtotal).toFixed(2);
+  const originalSubtotalDisplay = sale.subtotal.toFixed(2);
+  const totalDiscountDisplay = sale.discount.toFixed(2);
+  const totalBeforeGstDisplay = totalTaxable.toFixed(2);
+  const totalGstDisplay = totalGstAmount.toFixed(2);
+  const finalPaidDisplay = sale.total.toFixed(2);
   const logoSrc = typeof window !== "undefined" && window.location ? `${window.location.origin}/logo.png` : "/logo.png";
 
   return `<!DOCTYPE html>
@@ -294,6 +290,13 @@ export function buildA4HTML(
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 12px;
+    table-layout: fixed;
+  }
+
+  th,
+  td {
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
   }
   .no-print { display: none !important; }
 </style>
@@ -367,16 +370,17 @@ ${
 <table>
   <thead style="background: #fff5f5; border-bottom: 1.5px solid #fee2e2;">
     <tr>
-      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 35px;">#</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">HSN</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 45px;">QTY</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 65px;">RATE</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 70px;">DISCOUNT</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 85px;">DISCOUNTED PRICE</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 65px;">GST RATE</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">GST AMOUNT</th>
-      <th style="padding: 8px 8px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 75px;">TOTAL</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 30px;">#</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: left;">PRODUCT</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 55px;">HSN</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 40px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 68px;">RATE<br/>(ORIGINAL)</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 78px;">DISCOUNT</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 88px;">DISCOUNTED<br/>PRICE</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: center; width: 55px;">GST RATE</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 72px;">GST AMOUNT</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 82px;">AMOUNT<br/>WITHOUT GST</th>
+      <th style="padding: 8px 6px; font-size: 10px; font-weight: 800; color: #111; text-align: right; width: 82px;">PAID AMOUNT<br/>WITH GST</th>
     </tr>
   </thead>
   <tbody>
@@ -386,50 +390,54 @@ ${
 
 <!-- ── TOTALS ── -->
 <div class="totals">
-  <div style="width: 250px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff;">
+  <div style="width: 300px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff;">
     <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #374151;">
-      <span>Subtotal</span>
-      <span>₹${subtotalDisplay}</span>
+      <span>Subtotal (Original Price)</span>
+      <span>₹${originalSubtotalDisplay}</span>
     </div>
     ${
-      totalGstAmount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; background: #fef2f2; color: #dc2626; font-weight: 700; border-top: 1px solid #fee2e2; border-bottom: 1px solid #fee2e2;">
-            <span>Total GST</span>
-            <span>₹${totalGstAmount.toFixed(2)}</span>
+      sale.discount > 0
+        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #15803d; font-weight: 700;">
+            <span>Total Discount</span>
+            <span>−₹${totalDiscountDisplay}</span>
           </div>`
         : ""
     }
     ${
       sale.coupon_discount && sale.coupon_discount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
+        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #15803d;">
             <span>Coupon (${escapeHtml(sale.coupon_code || "PROMO")})</span>
             <span>−₹${sale.coupon_discount.toFixed(2)}</span>
           </div>`
         : ""
     }
+    <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #374151; border-top: 1px solid #f3f4f6;">
+      <span>Total Amount (Before GST)</span>
+      <span>₹${totalBeforeGstDisplay}</span>
+    </div>
     ${
-      sale.discount > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #15803d;">
-            <span>${escapeHtml(discountLabel)}</span>
-            <span>−₹${sale.discount.toFixed(2)}</span>
+      totalGstAmount > 0
+        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; background: #fef2f2; color: #dc2626; font-weight: 700;">
+            <span>Total GST</span>
+            <span>₹${totalGstDisplay}</span>
           </div>`
         : ""
     }
     ${
       sale.store_credit_used && sale.store_credit_used > 0
-        ? `<div style="display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; color: #047857; font-weight: 600;">
+        ? `<div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #047857; font-weight: 600;">
             <span>Store Credit</span>
             <span>−₹${sale.store_credit_used.toFixed(2)}</span>
           </div>`
         : ""
     }
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-      <span style="font-size: 18px; font-weight: 900; color: #111;">TOTAL</span>
-      <span style="font-size: 18px; font-weight: 900; color: #111;">₹${sale.total.toFixed(2)}</span>
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 11px 12px; border-top: 1px solid #e5e7eb; background: #fff5f5;">
+      <span style="font-size: 17px; font-weight: 900; color: #111;">TOTAL (WITH GST)</span>
+      <span style="font-size: 18px; font-weight: 900; color: #dc2626;">₹${finalPaidDisplay}</span>
     </div>
     <div style="display: flex; justify-content: space-between; padding: 7px 12px; font-size: 11px; color: #4b5563;">
       <span>Payment Method</span>
-      <span>${escapeHtml(paymentDisplay)}</span>
+      <span style="font-weight: 700;">${escapeHtml(paymentDisplay)}</span>
     </div>
   </div>
 </div>
