@@ -2529,7 +2529,7 @@ export function POSTab() {
             name: c.name,
             sku: c.sku,
             price: c.price,
-            mrp: c.mrp,
+            mrp: c.price,
             qty: c.qty,
             hsn_code: hasHsn ? String(rawHsn).trim() : null,
             gst_rate: hasHsn
@@ -5440,7 +5440,7 @@ export function POSTab() {
                     name: c.name,
                     sku: c.sku,
                     price: c.price,
-                    mrp: c.mrp,
+                    mrp: c.price,
                     qty: c.qty,
                     hsn_code: hasHsn ? rawHsn : null,
                     gst_rate: hasHsn ? (c.gst_rate != null ? Number(c.gst_rate) : 5) : null,

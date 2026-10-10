@@ -127,18 +127,18 @@ export function formatMonthlyBillNumber(val: number | string): string {
     return `Bill No - ${padded}`;
   }
   const str = String(val || "").trim();
-  if (/^Bill\s*No/i.test(str)) {
+  if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(str)) {
     return str;
   }
-  const cleanDigits = str.replace(/\D/g, "");
-  if (cleanDigits) {
-    const num = parseInt(cleanDigits, 10);
+  // Only accept sequential bill numbers up to 5 digits (e.g. "1", "51", "120") — NEVER long POS reference numbers or timestamps like "26101012421"
+  if (/^\d{1,5}$/.test(str)) {
+    const num = parseInt(str, 10);
     if (!isNaN(num) && num > 0) {
       const padded = num < 10 ? `0${num}` : `${num}`;
       return `Bill No - ${padded}`;
     }
   }
-  return "Bill No - 01";
+  return "";
 }
 
 /**
@@ -247,15 +247,17 @@ export function buildA4HTML(
 
   // Clean bill number e.g. "Bill No - 01" (resets to 01 at start of each month)
   let billNoDisplay = (billNoOverride || "").trim();
-  if (!billNoDisplay) {
+  if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(billNoDisplay)) {
     if (sale.monthly_bill_number != null) {
       billNoDisplay = formatMonthlyBillNumber(sale.monthly_bill_number);
-    } else {
-      const rawSaleNo = (sale.sale_number || "01").trim();
-      if (/^Bill\s*No/i.test(rawSaleNo)) {
+    }
+    if (!billNoDisplay || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(billNoDisplay)) {
+      const rawSaleNo = (sale.sale_number || "").trim();
+      if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(rawSaleNo)) {
         billNoDisplay = rawSaleNo;
       } else {
-        billNoDisplay = formatMonthlyBillNumber(rawSaleNo);
+        const fmt = formatMonthlyBillNumber(rawSaleNo);
+        billNoDisplay = fmt || "Bill No - 01";
       }
     }
   }
@@ -282,7 +284,7 @@ export function buildA4HTML(
         ? Math.round((sale.discount / sale.subtotal) * 100)
         : 0;
 
-    let totalMrp = 0;
+  let totalBasePrice = 0;
   let totalCgst = 0;
   let totalSgst = 0;
   let totalDiscount = 0;
@@ -325,55 +327,58 @@ export function buildA4HTML(
       const cgstRate = gstRate / 2;
       const sgstRate = gstRate / 2;
 
-      // Base unit MRP
-      const unitMrp =
-        item.mrp && item.mrp > item.price ? item.mrp : item.mrp || item.price;
-      const lineMrp = Math.round(unitMrp * qty * 100) / 100;
+      // Base unit selling price before sale discount (matches agreed price in transaction)
+      const unitBasePrice = Number(item.price || item.mrp || 0);
+      const lineBasePrice = Math.round(unitBasePrice * qty * 100) / 100;
 
-      // Combined product-level and sale-level discount
-      const productDiscount =
-        item.mrp && item.mrp > item.price
-          ? Math.round((item.mrp - item.price) * qty * 100) / 100
-          : 0;
-
-      let saleDiscount = 0;
+      // Proportional sale discount calculation
+      let lineDiscount = 0;
       if (overallDiscountPct > 0) {
-        saleDiscount = Math.round((lineMrp * (overallDiscountPct / 100)) * 100) / 100;
-      } else if (sale.discount > 0 && items.length === 1) {
-        saleDiscount = Math.round(sale.discount * 100) / 100;
+        lineDiscount = Math.round((lineBasePrice * (overallDiscountPct / 100)) * 100) / 100;
+      } else if (sale.discount > 0) {
+        if (items.length === 1) {
+          lineDiscount = Math.round(sale.discount * 100) / 100;
+        } else if (sale.subtotal > 0) {
+          lineDiscount = Math.round((sale.discount * (lineBasePrice / sale.subtotal)) * 100) / 100;
+        } else {
+          lineDiscount = Math.round((sale.discount / items.length) * 100) / 100;
+        }
       }
 
-      const itemDiscountAmount = productDiscount + saleDiscount;
-      const itemDiscountPct =
-        lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
+      const lineDiscountPct =
+        lineBasePrice > 0 && lineDiscount > 0
+          ? Math.round((lineDiscount / lineBasePrice) * 100)
+          : 0;
 
-      // Net final line amount payable after all discounts (inclusive of GST)
-      const lineTotal = Math.max(0, Math.round((lineMrp - itemDiscountAmount) * 100) / 100);
+      // Net discounted price
+      const lineDiscountedPrice = Math.max(0, Math.round((lineBasePrice - lineDiscount) * 100) / 100);
 
-      // GST is strictly INCLUDED within the final paid amount (only when HSN is present)
-      // Taxable Value = lineTotal / (1 + gstRate / 100)
-      // GST Amount = lineTotal - Taxable Value
+      // GST is strictly INCLUDED within the discounted price (only when HSN is present)
+      // Taxable Value = lineDiscountedPrice / (1 + gstRate / 100)
+      // GST Amount = lineDiscountedPrice - Taxable Value
       let lineCgst = 0;
       let lineSgst = 0;
       if (hasItemGst && gstRate > 0) {
-        const taxable = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
-        const totalTax = Math.round((lineTotal - taxable) * 100) / 100;
+        const taxable = Math.round((lineDiscountedPrice / (1 + gstRate / 100)) * 100) / 100;
+        const totalTax = Math.round((lineDiscountedPrice - taxable) * 100) / 100;
         lineCgst = Math.round((totalTax / 2) * 100) / 100;
         lineSgst = Math.round((totalTax - lineCgst) * 100) / 100;
       }
 
-      totalMrp += lineMrp;
+      // Net final line amount payable after all discounts (inclusive of GST)
+      const lineTotal = lineDiscountedPrice;
+
+      totalBasePrice += lineBasePrice;
       totalCgst += lineCgst;
       totalSgst += lineSgst;
-      totalDiscount += itemDiscountAmount;
+      totalDiscount += lineDiscount;
       grandTotal += lineTotal;
 
       let discountDisplay = "—";
-      if (itemDiscountAmount > 0) {
+      if (lineDiscount > 0) {
         discountDisplay = `
-          <div style="font-weight: 800; font-size: 11px;">${itemDiscountPct}%</div>
-          <div style="font-weight: 800; font-size: 11.5px; color: #000; margin-top: 1px;">₹${lineTotal.toFixed(2)}</div>
-          <div style="font-weight: 700; font-size: 10px; color: #4b5563; white-space: nowrap;">- ₹${itemDiscountAmount.toFixed(2)}</div>
+          <div style="font-weight: 800; font-size: 11px;">${lineDiscountPct}%</div>
+          <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${lineDiscount.toFixed(2)}</div>
         `;
       }
 
@@ -385,7 +390,7 @@ export function buildA4HTML(
 
       if (hasAnyHsn) {
         return `
-    <tr style="vertical-align: top; page-break-inside: avoid;">
+    <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
         <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
@@ -393,24 +398,26 @@ export function buildA4HTML(
       </td>
       <td style="padding: 10px 6px; text-align: center; font-family: monospace; font-size: 11.5px; color: #000;">${hsnDisplay}</td>
       <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineBasePrice.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; font-weight: 800; color: #000;">₹${lineDiscountedPrice.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${cgstDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${sgstDisplay}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
       }
 
       return `
-    <tr style="vertical-align: top; page-break-inside: avoid;">
+    <tr style="vertical-align: middle; page-break-inside: avoid; border-bottom: 1px solid #f1f5f9;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
         <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
         ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
       </td>
       <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineBasePrice.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; font-weight: 800; color: #000;">₹${lineDiscountedPrice.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
     })
@@ -418,14 +425,13 @@ export function buildA4HTML(
 
   // Determine overall discount cell for G.TOTAL row
   const displayTotalDiscount = sale.discount > 0 ? sale.discount : totalDiscount;
-  const discountedGrandTotal = Math.max(0, totalMrp - displayTotalDiscount);
+  const discountedGrandTotal = Math.max(0, totalBasePrice - displayTotalDiscount);
   let totalDiscountDisplay = "—";
   if (displayTotalDiscount > 0) {
-    const gDiscountPct = totalMrp > 0 ? Math.round((displayTotalDiscount / totalMrp) * 100) : 0;
+    const gDiscountPct = totalBasePrice > 0 ? Math.round((displayTotalDiscount / totalBasePrice) * 100) : 0;
     totalDiscountDisplay = `
       <div style="font-weight: 800; font-size: 11px;">${overallDiscountPct > 0 ? `${overallDiscountPct}%` : `${gDiscountPct}%`}</div>
-      <div style="font-weight: 800; font-size: 11.5px; color: #000; margin-top: 1px;">₹${discountedGrandTotal.toFixed(2)}</div>
-      <div style="font-weight: 800; font-size: 10px; color: #4b5563; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
+      <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
     `;
   }
 
@@ -538,23 +544,25 @@ ${
     ${
       hasAnyHsn
         ? `<tr style="border-bottom: 1.5px solid #000;">
-      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 30px;">#</th>
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 28px;">#</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 40px;">QTY</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 90px; line-height: 1.2;">M.R.P.<br/>(ORIGINAL)</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">CGST${gstHeaderSub}</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">SGST${gstHeaderSub}</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">DISCOUNT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">TOTAL</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 48px;">HSN</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 36px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 78px; line-height: 1.2;">TOTAL PRICE</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 72px;">DISCOUNT %</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 84px; line-height: 1.2;">DISCOUNTED<br/>PRICE</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 58px; line-height: 1.2;">CGST${gstHeaderSub}</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 58px; line-height: 1.2;">SGST${gstHeaderSub}</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">TOTAL</th>
     </tr>`
         : `<tr style="border-bottom: 1.5px solid #000;">
-      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 35px;">#</th>
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 32px;">#</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">QTY</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 110px; line-height: 1.2;">M.R.P.<br/>(ORIGINAL)</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 100px;">DISCOUNT</th>
-      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 110px;">TOTAL</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 44px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px; line-height: 1.2;">TOTAL PRICE</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">DISCOUNT %</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px; line-height: 1.2;">DISCOUNTED<br/>PRICE</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 95px;">TOTAL</th>
     </tr>`
     }
   </thead>
@@ -567,16 +575,19 @@ ${
         G.TOTAL
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalMrp.toFixed(2)}
+        ₹${totalBasePrice.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ${totalDiscountDisplay}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${discountedGrandTotal.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
         ${totalCgst > 0 ? `₹${totalCgst.toFixed(2)}` : "—"}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
         ${totalSgst > 0 ? `₹${totalSgst.toFixed(2)}` : "—"}
-      </td>
-      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ${totalDiscountDisplay}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
         ₹${finalGrandTotal.toFixed(2)}
@@ -587,10 +598,13 @@ ${
         G.TOTAL
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
-        ₹${totalMrp.toFixed(2)}
+        ₹${totalBasePrice.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
         ${totalDiscountDisplay}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${discountedGrandTotal.toFixed(2)}
       </td>
       <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
         ₹${finalGrandTotal.toFixed(2)}
@@ -649,11 +663,12 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     if (sale.monthly_bill_number != null) {
       return formatMonthlyBillNumber(sale.monthly_bill_number);
     }
-    const rawSaleNo = (sale.sale_number || "01").trim();
-    if (/^Bill\s*No/i.test(rawSaleNo)) {
+    const rawSaleNo = (sale.sale_number || "").trim();
+    if (/^Bill\s*No\s*-\s*\d{1,5}$/i.test(rawSaleNo)) {
       return rawSaleNo;
     }
-    return formatMonthlyBillNumber(rawSaleNo);
+    const fmt = formatMonthlyBillNumber(rawSaleNo);
+    return fmt || "";
   });
 
   useEffect(() => {
@@ -695,15 +710,18 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintFailedReason(null);
     try {
       let effectiveBillNo = billNoDisplay;
-      if (!effectiveBillNo || effectiveBillNo === "Bill No - 01") {
+      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
         if (sale.monthly_bill_number != null) {
           effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
-        } else {
+        }
+        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
           effectiveBillNo = await getMonthlyBillNumberForSale(
             sale.sale_date || new Date(),
             sale.id,
             sale.sale_number,
           );
+        }
+        if (effectiveBillNo) {
           setBillNoDisplay(effectiveBillNo);
         }
       }
@@ -736,15 +754,18 @@ export function A4Invoice({ sale, items, autoPrint, onPrintSuccess, onPrintFail,
     setPrintStatus("printing");
     try {
       let effectiveBillNo = overrideBillNo || billNoDisplay;
-      if (!effectiveBillNo || effectiveBillNo === "Bill No - 01") {
+      if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
         if (sale.monthly_bill_number != null) {
           effectiveBillNo = formatMonthlyBillNumber(sale.monthly_bill_number);
-        } else {
+        }
+        if (!effectiveBillNo || !/^Bill\s*No\s*-\s*\d{1,5}$/i.test(effectiveBillNo)) {
           effectiveBillNo = await getMonthlyBillNumberForSale(
             sale.sale_date || new Date(),
             sale.id,
             sale.sale_number,
           );
+        }
+        if (effectiveBillNo) {
           setBillNoDisplay(effectiveBillNo);
         }
       }

@@ -1865,8 +1865,14 @@ function ProductsTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const activeProducts = useMemo(() => (data ?? []).filter((p) => p.isActive), [data]);
-  const archivedProducts = useMemo(() => (data ?? []).filter((p) => !p.isActive), [data]);
+  const activeProducts = useMemo(
+    () => (data ?? []).filter((p) => p.isActive && (p.stock || 0) > 0),
+    [data],
+  );
+  const archivedProducts = useMemo(
+    () => (data ?? []).filter((p) => !p.isActive || (p.stock || 0) <= 0),
+    [data],
+  );
 
   const activeCount = activeProducts.length;
   const archivedCount = archivedProducts.length;
@@ -1900,19 +1906,19 @@ function ProductsTab() {
       const matchesSearch = !q || searchBlob.includes(q);
       const matchesCat = categoryFilter === "all" || p.category === categoryFilter;
 
-      // When in "archived" tab, show ONLY archived products
+      // When in "archived" tab, show ALL archived or out of stock products
       if (channelTab === "archived") {
-        return matchesSearch && matchesCat && !p.isActive;
+        return matchesSearch && matchesCat && (!p.isActive || (p.stock || 0) <= 0);
       }
 
-      // In all other tabs ("all", "ONLINE_AND_OFFLINE", "OFFLINE_ONLY"), NEVER show archived products
-      if (!p.isActive) return false;
+      // In all other tabs ("all", "ONLINE_AND_OFFLINE", "OFFLINE_ONLY"), NEVER show archived or out-of-stock products
+      if (!p.isActive || (p.stock || 0) <= 0) return false;
 
       let matchesStatus = true;
       if (statusFilter === "in_stock") matchesStatus = (p.stock || 0) > 0;
       else if (statusFilter === "low_stock")
         matchesStatus = (p.stock || 0) > 0 && (p.stock || 0) <= (p.lowStockAt || 5);
-      else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) === 0;
+      else if (statusFilter === "out_of_stock") matchesStatus = (p.stock || 0) <= 0;
 
       const pChannel = p.salesChannel ?? "ONLINE_AND_OFFLINE";
       const matchesChannel =
@@ -2051,14 +2057,17 @@ function ProductsTab() {
           <p className="mt-1 text-lg font-extrabold text-amber-600">{lowStockCount}</p>
         </div>
         <div
-          onClick={() => setStatusFilter((prev) => (prev === "out_of_stock" ? "all" : "out_of_stock"))}
+          onClick={() => {
+            setChannelTab("archived");
+            setStatusFilter("all");
+          }}
           className={`rounded-2xl border border-red-200 bg-red-50/50 p-3.5 shadow-2xs col-span-2 sm:col-span-1 cursor-pointer hover:bg-red-100/60 transition-all ${
-            statusFilter === "out_of_stock" ? "ring-2 ring-red-500 bg-red-100/80" : ""
+            channelTab === "archived" ? "ring-2 ring-red-500 bg-red-100/80" : ""
           }`}
-          title="Click to filter out of stock products"
+          title="Click to view Archived & Out of Stock products"
         >
-          <p className="text-[11px] font-bold uppercase text-red-800">Out of Stock</p>
-          <p className="mt-1 text-lg font-extrabold text-red-600">{outOfStockCount}</p>
+          <p className="text-[11px] font-bold uppercase text-red-800">Archived / Out of Stock</p>
+          <p className="mt-1 text-lg font-extrabold text-red-600">{archivedCount}</p>
         </div>
       </div>
       {/* Channel Segmented Control */}
@@ -2097,7 +2106,10 @@ function ProductsTab() {
           <span>Only Offline (POS) ({offlineOnlyCount})</span>
         </button>
         <button
-          onClick={() => setChannelTab("archived")}
+          onClick={() => {
+            setChannelTab("archived");
+            setStatusFilter("all");
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             channelTab === "archived"
               ? "bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900"
@@ -2105,7 +2117,7 @@ function ProductsTab() {
           }`}
         >
           <Archive className="size-3.5" />
-          <span>Archived Products ({archivedCount})</span>
+          <span>Archived / Out of Stock ({archivedCount})</span>
         </button>
       </div>
 
@@ -2116,11 +2128,11 @@ function ProductsTab() {
             <Archive className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <div>
               <span className="font-extrabold text-foreground">
-                Archived Products Section ({archivedCount} items)
+                Archived &amp; Out of Stock Products ({archivedCount} items)
               </span>
               <p className="text-muted-foreground mt-0.5">
-                These products have historical sales or transactions and are hidden from your active
-                store and POS catalog. You can restore them anytime using the Restore button.
+                These products are archived or out of stock (0 stock) and are hidden from your active
+                store and POS catalog. You can restore them anytime using the Restore button or by updating stock.
               </p>
             </div>
           </div>
@@ -2700,12 +2712,12 @@ function ProductsTab() {
                     <td className="px-5 py-4">
                       <span
                         className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                          p.isActive
+                          p.isActive && (p.stock || 0) > 0
                             ? "bg-blue-50 text-blue-700 border border-blue-200"
                             : "bg-muted text-muted-foreground border border-border"
                         }`}
                       >
-                        {p.isActive ? "Live" : "Archived"}
+                        {p.isActive && (p.stock || 0) > 0 ? "Live" : "Archived / Out of Stock"}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right min-w-[210px] whitespace-nowrap">
@@ -2750,7 +2762,7 @@ function ProductsTab() {
                         >
                           <Copy className="size-4 shrink-0" />
                         </button>
-                        {!p.isActive ? (
+                        {!p.isActive || (p.stock || 0) <= 0 ? (
                           <button
                             type="button"
                             onClick={() => restore.mutate(p.uuid)}
