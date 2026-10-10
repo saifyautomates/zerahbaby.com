@@ -11,6 +11,7 @@ import {
   generateClientReturnNumber,
   queueOfflineReturn,
 } from "@/lib/offline-sync-engine";
+import { resolveHistoricalReturnPricing } from "@/lib/return-pricing";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -547,7 +548,7 @@ export function useOfflineSalesForReturnsLookup() {
               Number(it.unit_mrp) || Number(it.mrp_snapshot) || Number(it.price) || 0;
             const dbUnitSelling = Number(it.unit_selling_price) || Number(it.price) || 0;
             let dbAllocBill = Number(it.allocated_bill_discount) || 0;
-            const dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
+            let dbAllocCoupon = Number(it.allocated_coupon_discount) || 0;
             const dbQuantitySold = Math.max(1, Number(it.quantity_sold) || Number(it.quantity) || itemQty);
             const dbQuantityReturned = Math.max(0, Math.max(Number(it.quantity_returned) || 0, alreadyReturned));
 
@@ -564,24 +565,25 @@ export function useOfflineSalesForReturnsLookup() {
 
             totalReturnableCount += dbQuantityReturnable;
 
-            const saleSubtotal = Number(s.subtotal) || Number(s.total) || 0;
-            const saleDiscount = Number(s.discount) || 0;
+            const saleBillDiscount = Number(s.discount) || 0;
+            const saleCouponDiscount = Number(s.coupon_discount) || 0;
+            const saleTotal = Number(s.total) || 0;
+            const saleSubtotal =
+              Number(s.subtotal) || saleTotal + saleBillDiscount + saleCouponDiscount;
 
-            let finalUnitPaid = dbFinalUnitPaid;
-            if (
-              finalUnitPaid <= 0 ||
-              (saleDiscount > 0 && Math.abs(finalUnitPaid - dbUnitSelling) < 0.001)
-            ) {
-              if (saleSubtotal > 0 && saleDiscount > 0) {
-                const propDiscount = (saleDiscount * dbUnitSelling) / saleSubtotal;
-                finalUnitPaid = Math.max(0, Number((dbUnitSelling - propDiscount).toFixed(2)));
-                if (dbAllocBill === 0 && dbAllocCoupon === 0) {
-                  dbAllocBill = Number(propDiscount.toFixed(2));
-                }
-              } else {
-                finalUnitPaid = dbUnitSelling;
-              }
-            }
+            const resolvedPricing = resolveHistoricalReturnPricing({
+              finalUnitPaidPrice: dbFinalUnitPaid,
+              unitSellingPrice: dbUnitSelling,
+              saleSubtotal,
+              saleTotal,
+              saleDiscount: saleBillDiscount,
+              saleCouponDiscount,
+              allocatedBillDiscount: dbAllocBill,
+              allocatedCouponDiscount: dbAllocCoupon,
+            });
+            const finalUnitPaid = resolvedPricing.finalUnitPaidPrice;
+            dbAllocBill = resolvedPricing.allocatedBillDiscount;
+            dbAllocCoupon = resolvedPricing.allocatedCouponDiscount;
 
             return {
               id: it.id,
