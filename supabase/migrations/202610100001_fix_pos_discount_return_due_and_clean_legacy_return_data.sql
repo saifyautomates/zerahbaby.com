@@ -1420,15 +1420,22 @@ CREATE TABLE admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_
   SELECT DISTINCT UPPER(TRIM(credit_token))
   FROM public.offline_returns
   WHERE NULLIF(TRIM(credit_token), '') IS NOT NULL
-  UNION
-  SELECT DISTINCT UPPER(TRIM(token))
-  FROM admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010
-  WHERE return_id IS NOT NULL
-    AND NULLIF(TRIM(token), '') IS NOT NULL;
+  ;
 CREATE TABLE admin_cleanup_archive.store_credit_vouchers_before_pos_return_reset_20261010 AS
   SELECT * FROM public.store_credit_vouchers;
 CREATE TABLE admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010 AS
   SELECT * FROM public.pos_exchange_vouchers;
+
+INSERT INTO admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010 (credit_token)
+SELECT DISTINCT UPPER(TRIM(token))
+FROM admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010
+WHERE return_id IS NOT NULL
+  AND NULLIF(TRIM(token), '') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010 existing
+    WHERE existing.credit_token = UPPER(TRIM(token))
+  );
 CREATE TABLE admin_cleanup_archive.pos_customers_credit_before_pos_return_reset_20261010 AS
   SELECT * FROM public.pos_customers
   WHERE COALESCE(store_credit_balance, 0) <> 0 OR COALESCE(store_credit, 0) <> 0;
