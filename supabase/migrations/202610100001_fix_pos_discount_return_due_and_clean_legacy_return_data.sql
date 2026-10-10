@@ -555,6 +555,9 @@ DECLARE
   v_item_returnable int;
   computed_total_refund numeric := 0;
   v_previous_refunds numeric := 0;
+  v_return_amount_remaining numeric := 0;
+  v_line_refund_total numeric := 0;
+  v_remaining_sale_refundable numeric := 0;
   v_existing_return record;
   v_orig_sale record;
   v_orig_item record;
@@ -734,11 +737,28 @@ BEGIN
        OR r.linked_sale_id = v_clean_sale_id
        OR (v_orig_sale_number IS NOT NULL AND r.original_sale_number = v_orig_sale_number);
 
+    v_remaining_sale_refundable := GREATEST(
+      0,
+      COALESCE(v_orig_sale.total, computed_total_refund) - v_previous_refunds
+    );
+
+    -- Only tolerate small paise differences from per-line unit-price rounding.
+    -- A larger mismatch indicates inconsistent old sale snapshots and should stop
+    -- instead of quietly issuing a smaller credit than the returned product value.
+    IF computed_total_refund > v_remaining_sale_refundable + 0.05 THEN
+      RAISE EXCEPTION
+        'Return value ₹% exceeds the remaining refundable sale balance ₹%. Review the original sale pricing before processing this return.',
+        ROUND(computed_total_refund, 2),
+        ROUND(v_remaining_sale_refundable, 2);
+    END IF;
+
     computed_total_refund := LEAST(
       GREATEST(0, computed_total_refund),
-      GREATEST(0, COALESCE(v_orig_sale.total, computed_total_refund) - v_previous_refunds)
+      v_remaining_sale_refundable
     );
   END IF;
+
+  v_return_amount_remaining := GREATEST(0, computed_total_refund);
 
   -- 6. Generate Public Return Number & Credit Token
   v_effective_return_num := COALESCE(NULLIF(trim(_custom_return_number), ''), NULLIF(trim(_return_number), ''));
@@ -953,6 +973,17 @@ BEGIN
       LIMIT 1;
     END IF;
 
+    -- Keep individual return-item totals reconciled to the voucher/refund amount.
+    -- If unit-level rounding differs by a few paise, put the residual on the
+    -- final line rather than creating or losing money across return rows.
+    v_line_refund_total := LEAST(
+      ROUND(item_refund_price * item_qty, 2),
+      v_return_amount_remaining
+    );
+    IF item_qty > 0 AND ABS(v_line_refund_total - ROUND(item_refund_price * item_qty, 2)) > 0.001 THEN
+      item_refund_price := ROUND(v_line_refund_total / item_qty, 8);
+    END IF;
+
     INSERT INTO public.offline_return_items (
       return_id,
       original_sale_item_id,
@@ -984,9 +1015,14 @@ BEGIN
       item_qty,
       item_refund_price,
       item_mrp,
-      ROUND(item_refund_price * item_qty, 2),
-      ROUND(item_refund_price * item_qty, 2),
+      v_line_refund_total,
+      v_line_refund_total,
       now()
+    );
+
+    v_return_amount_remaining := GREATEST(
+      0,
+      v_return_amount_remaining - v_line_refund_total
     );
 
     IF item_orig_sale_item_id IS NOT NULL THEN
