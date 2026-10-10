@@ -1433,6 +1433,7 @@ export function DashboardDrillDown({
           }
           if (["returned", "fully_returned", "completed"].includes(returnStatus)) return false;
           const due = Number(sale.total || 0) -
+            Number(sale.returned_amount || 0) -
             Number(sale.amount_paid || 0) -
             Number(sale.store_credit_used || 0);
           return due > 0;
@@ -1442,6 +1443,7 @@ export function DashboardDrillDown({
           balance_due: Math.max(
             0,
             Number(sale.total || 0) -
+              Number(sale.returned_amount || 0) -
               Number(sale.amount_paid || 0) -
               Number(sale.store_credit_used || 0),
           ),
