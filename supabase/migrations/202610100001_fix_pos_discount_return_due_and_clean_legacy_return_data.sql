@@ -43,6 +43,7 @@ DECLARE
   v_amount_paid numeric := 0;
   v_change_given numeric := 0;
   v_payment_status text := 'paid';
+  v_credit_owner record;
   v_existing_sale record;
   v_subtotal numeric := 0;
   v_discount numeric := 0;
@@ -170,20 +171,29 @@ BEGIN
     IF v_clean_token != '' AND v_clean_token IS NOT NULL THEN
       SELECT COALESCE(remaining_balance, original_amount, 0) INTO v_voucher_avail
       FROM public.pos_exchange_vouchers
-      WHERE UPPER(TRIM(token)) = v_clean_token AND status = 'active'
+      WHERE UPPER(TRIM(token)) = v_clean_token
+        AND status = 'active'
+        AND (expires_at IS NULL OR expires_at > now())
       FOR UPDATE;
 
       IF v_voucher_avail IS NULL OR v_voucher_avail <= 0 THEN
         SELECT COALESCE(current_balance, original_amount, 0) INTO v_voucher_avail
         FROM public.store_credit_vouchers
-        WHERE UPPER(TRIM(token)) = v_clean_token AND is_active = true
+        WHERE UPPER(TRIM(token)) = v_clean_token
+          AND is_active = true
+          AND (expires_at IS NULL OR expires_at > now())
         FOR UPDATE;
       END IF;
 
-      IF v_voucher_avail > 0 THEN
-        v_voucher_used := LEAST(v_gross_total, COALESCE(_store_credit_used, v_voucher_avail), v_voucher_avail);
-        v_voucher_token := v_clean_token;
+      IF COALESCE(v_voucher_avail, 0) <= 0 THEN
+        RAISE EXCEPTION 'Invalid, expired, or exhausted store credit voucher: %', v_clean_token;
       END IF;
+      v_voucher_used := LEAST(
+        v_gross_total,
+        COALESCE(NULLIF(_store_credit_used, 0), v_voucher_avail),
+        v_voucher_avail
+      );
+      v_voucher_token := v_clean_token;
     ELSIF v_cust_id IS NOT NULL THEN
       SELECT COALESCE(store_credit_balance, store_credit, 0) INTO v_voucher_avail
       FROM public.pos_customers
@@ -203,31 +213,7 @@ BEGIN
   IF v_payable_total = 0 AND v_voucher_used > 0 THEN
     v_effective_payment_method := 'store_credit';
   ELSE
-    v_effective_payment_method := COALESCE(_payment_method, 'cash');
-  END IF;
-
-  -- Record cash collected separately from credit and the sale's net total.
-  -- "due" is explicitly unpaid; partial cash is allowed and tracked as a balance.
-  IF lower(COALESCE(v_effective_payment_method, 'cash')) = 'due' THEN
-    v_amount_paid := 0;
-    v_change_given := 0;
-  ELSIF lower(COALESCE(v_effective_payment_method, 'cash')) = 'cash'
-        AND _cash_tendered IS NOT NULL THEN
-    v_amount_paid := LEAST(v_payable_total, GREATEST(0, _cash_tendered));
-    v_change_given := GREATEST(0, _cash_tendered - v_payable_total);
-  ELSE
-    -- UPI/card/other payments are treated as fully collected by the selected tender.
-    -- If older callers omit cash_tendered, preserve their historical "paid in full" behavior.
-    v_amount_paid := v_payable_total;
-    v_change_given := 0;
-  END IF;
-
-  IF v_amount_paid + v_voucher_used + 0.01 >= v_gross_total THEN
-    v_payment_status := 'paid';
-  ELSIF v_amount_paid > 0 OR v_voucher_used > 0 THEN
-    v_payment_status := 'partial';
-  ELSE
-    v_payment_status := 'pending';
+    v_effective_payment_method := COALESCE(NULLIF(trim(_payment_method), ''), 'cash');
   END IF;
 
   -- 9. Customer Resolution
@@ -238,6 +224,67 @@ BEGIN
       _customer_email,
       NULL
     );
+  END IF;
+
+  -- Verify credit ownership after resolving a named customer. Any failure raises
+  -- inside the transaction, rolling back the earlier balance updates above.
+  IF v_voucher_used > 0 AND v_voucher_token IS NOT NULL THEN
+    IF v_cust_id IS NULL THEN
+      RAISE EXCEPTION 'Select the voucher owner as the POS customer before redeeming store credit.';
+    END IF;
+
+    SELECT customer_id, customer_phone
+    INTO v_credit_owner
+    FROM public.pos_exchange_vouchers
+    WHERE UPPER(TRIM(token)) = v_voucher_token
+    LIMIT 1;
+
+    IF FOUND THEN
+      IF NOT public.verify_voucher_customer_ownership(
+        v_credit_owner.customer_id,
+        v_credit_owner.customer_phone,
+        v_cust_id,
+        _customer_phone
+      ) THEN
+        RAISE EXCEPTION 'This voucher is not available for the selected customer.';
+      END IF;
+    ELSE
+      SELECT customer_id, customer_phone
+      INTO v_credit_owner
+      FROM public.store_credit_vouchers
+      WHERE UPPER(TRIM(token)) = v_voucher_token
+      LIMIT 1;
+
+      IF FOUND AND NOT public.verify_voucher_customer_ownership(
+        v_credit_owner.customer_id,
+        v_credit_owner.customer_phone,
+        v_cust_id,
+        _customer_phone
+      ) THEN
+        RAISE EXCEPTION 'This voucher is not available for the selected customer.';
+      END IF;
+    END IF;
+  END IF;
+
+  -- Persist what was actually collected, separately from credit and the sales total.
+  IF lower(COALESCE(v_effective_payment_method, 'cash')) = 'due' THEN
+    v_amount_paid := 0;
+    v_change_given := 0;
+  ELSIF lower(COALESCE(v_effective_payment_method, 'cash')) = 'cash'
+        AND _cash_tendered IS NOT NULL THEN
+    v_amount_paid := LEAST(v_payable_total, GREATEST(0, _cash_tendered));
+    v_change_given := GREATEST(0, _cash_tendered - v_payable_total);
+  ELSE
+    v_amount_paid := v_payable_total;
+    v_change_given := 0;
+  END IF;
+
+  IF v_amount_paid + v_voucher_used + 0.01 >= v_gross_total THEN
+    v_payment_status := 'paid';
+  ELSIF v_amount_paid > 0 OR v_voucher_used > 0 THEN
+    v_payment_status := 'partial';
+  ELSE
+    v_payment_status := 'pending';
   END IF;
 
   -- 10. Generate Sale Number & Token Number safely
@@ -325,6 +372,29 @@ BEGIN
     now()
   ) RETURNING id INTO v_sale_id;
 
+  IF v_voucher_used > 0 THEN
+    INSERT INTO public.store_credit_ledger (
+      customer_id, user_id, customer_phone, customer_name, credit_token, type,
+      amount, balance_before, balance_after, used_in_sale_id, sale_id,
+      notes, created_by, created_at
+    ) VALUES (
+      v_cust_id,
+      v_cust_id,
+      COALESCE(v_clean_phone, ''),
+      COALESCE(NULLIF(trim(_customer_name), ''), 'Walk-in Customer'),
+      COALESCE(v_voucher_token, 'CUSTOMER-BALANCE'),
+      'CREDIT_USED',
+      v_voucher_used,
+      GREATEST(0, COALESCE(v_voucher_avail, v_voucher_used)),
+      GREATEST(0, COALESCE(v_voucher_avail, v_voucher_used) - v_voucher_used),
+      v_sale_id,
+      v_sale_id,
+      'Store credit redeemed on POS Sale #' || v_sale_number,
+      uid,
+      now()
+    );
+  END IF;
+
   -- 13. Insert Items & Deduct Stock with Variant Fallback Resolution & Buying Price Snapshot
   FOR elem IN SELECT * FROM jsonb_array_elements(_items) LOOP
     item_product_id := (elem->>'product_id')::uuid;
@@ -361,9 +431,8 @@ BEGIN
       LIMIT 1;
     END IF;
 
-    -- Persist the true net paid unit price after bill and coupon discounts.
-    -- Return processing reads final_unit_paid_price, so an ₹800 item with a
-    -- proportional ₹200 discount must be refundable at ₹600, not ₹800.
+    -- Store per-unit net paid price after the bill/coupon discount allocation so
+    -- the return RPC always refunds the discounted selling price, never the full MRP.
     item_line_subtotal := item_price * item_qty;
     IF v_subtotal > 0 THEN
       item_bill_discount := ROUND(((item_line_subtotal / v_subtotal) * v_discount) / item_qty, 4);
