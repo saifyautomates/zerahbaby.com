@@ -3989,9 +3989,14 @@ export function POSTab() {
                             ) : null
                           ) : (
                             discountAmount > 0 && (
-                              <span className="text-sm font-black text-emerald-700 whitespace-nowrap shrink-0 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
-                                −{formatPrice(discountAmount)}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                                  Discounted: {formatPrice(posFinancials.finalTotal)}
+                                </span>
+                                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                  (−{formatPrice(discountAmount)})
+                                </span>
+                              </div>
                             )
                           )}
                         </div>

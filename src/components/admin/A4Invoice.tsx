@@ -372,7 +372,8 @@ export function buildA4HTML(
       if (itemDiscountAmount > 0) {
         discountDisplay = `
           <div style="font-weight: 800; font-size: 11px;">${itemDiscountPct}%</div>
-          <div style="font-weight: 700; font-size: 11px; white-space: nowrap;">- ₹${itemDiscountAmount.toFixed(2)}</div>
+          <div style="font-weight: 800; font-size: 11.5px; color: #000; margin-top: 1px;">₹${lineTotal.toFixed(2)}</div>
+          <div style="font-weight: 700; font-size: 10px; color: #4b5563; white-space: nowrap;">- ₹${itemDiscountAmount.toFixed(2)}</div>
         `;
       }
 
@@ -417,12 +418,14 @@ export function buildA4HTML(
 
   // Determine overall discount cell for G.TOTAL row
   const displayTotalDiscount = sale.discount > 0 ? sale.discount : totalDiscount;
+  const discountedGrandTotal = Math.max(0, totalMrp - displayTotalDiscount);
   let totalDiscountDisplay = "—";
   if (displayTotalDiscount > 0) {
     const gDiscountPct = totalMrp > 0 ? Math.round((displayTotalDiscount / totalMrp) * 100) : 0;
     totalDiscountDisplay = `
       <div style="font-weight: 800; font-size: 11px;">${overallDiscountPct > 0 ? `${overallDiscountPct}%` : `${gDiscountPct}%`}</div>
-      <div style="font-weight: 800; font-size: 11px; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
+      <div style="font-weight: 800; font-size: 11.5px; color: #000; margin-top: 1px;">₹${discountedGrandTotal.toFixed(2)}</div>
+      <div style="font-weight: 800; font-size: 10px; color: #4b5563; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
     `;
   }
 
