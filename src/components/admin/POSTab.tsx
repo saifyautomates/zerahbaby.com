@@ -4685,7 +4685,7 @@ export function POSTab() {
                                       e.target.value === "" ? "" : Number(e.target.value),
                                     )
                                   }
-                                  placeholder={`Enter cash amount (min ${payableAfterCredit})`}
+                                  placeholder="Enter cash received (partial payment allowed)"
                                   min={0}
                                   className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-sm font-bold outline-none focus:border-primary transition-all"
                                 />
@@ -5201,7 +5201,13 @@ export function POSTab() {
                           <span>
                             {payableAfterCredit === 0 && effectiveCreditUsed > 0
                               ? `Complete Sale — Settle ₹0 (100% Store Credit)`
-                              : `Complete Sale — ${formatPrice(payableAfterCredit)}`}
+                              : paymentMethod === "due"
+                                ? `Complete Sale — Record Due ${formatPrice(payableAfterCredit)}`
+                                : paymentMethod === "cash" &&
+                                    typeof cashTendered === "number" &&
+                                    cashTendered < payableAfterCredit
+                                  ? `Complete Sale — Collect ${formatPrice(cashTendered)} + Due ${formatPrice(payableAfterCredit - cashTendered)}`
+                                  : `Complete Sale — ${formatPrice(payableAfterCredit)}`}
                           </span>
                         </>
                       )}
