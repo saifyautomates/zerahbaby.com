@@ -718,10 +718,10 @@ export function POSTab() {
 
   // POS Checkout GST / HSN Engine (Additive & Non-invasive, strictly GST-exclusive)
   const gstCalculations = useMemo(() => {
-    const subtotalExclGst = subtotal;
-    const discount = discountAmount;
-    const taxableAmount = Math.max(0, subtotalExclGst - discount);
-    const discountRatio = subtotalExclGst > 0 ? taxableAmount / subtotalExclGst : 1;
+    // In retail POS, item prices and totals are ALREADY INCLUSIVE of GST.
+    // The final payable total is subtotal - discount.
+    const saleTotal = Math.max(0, subtotal - discountAmount);
+    const discountRatio = subtotal > 0 ? saleTotal / subtotal : 1;
 
     let totalGstAmount = 0;
     const itemsBreakdown = cart.map((item) => {
@@ -749,12 +749,17 @@ export function POSTab() {
               : 5)
         : 0;
 
-      const rateExclTax = item.price;
       const qty = item.qty;
-      const lineBase = rateExclTax * qty;
-      const itemTaxable = Math.round(lineBase * discountRatio * 100) / 100;
-      const itemGst = Math.round(itemTaxable * (gstRate / 100) * 100) / 100;
-      const itemTotal = itemTaxable + itemGst;
+      const lineBase = item.price * qty;
+      const itemFinal = Math.round(lineBase * discountRatio * 100) / 100;
+
+      let itemTaxable = itemFinal;
+      let itemGst = 0;
+
+      if (hasHsn && gstRate > 0) {
+        itemTaxable = Math.round((itemFinal / (1 + gstRate / 100)) * 100) / 100;
+        itemGst = Math.round((itemFinal - itemTaxable) * 100) / 100;
+      }
 
       totalGstAmount += itemGst;
 
@@ -762,16 +767,21 @@ export function POSTab() {
         item,
         hsn,
         gstRate,
-        rateExclTax,
+        rateExclTax:
+          hasHsn && gstRate > 0
+            ? Math.round((item.price / (1 + gstRate / 100)) * 100) / 100
+            : item.price,
         qty,
         itemTaxable,
         itemGst,
-        itemTotal,
+        itemTotal: itemFinal,
       };
     });
 
     totalGstAmount = Math.round(totalGstAmount * 100) / 100;
-    const saleTotalInclGst = Math.round((taxableAmount + totalGstAmount) * 100) / 100;
+    const taxableAmount = Math.max(0, saleTotal - totalGstAmount);
+    // Crucial: Final sale total is EXACTLY what the customer pays (GST is strictly INCLUDED)
+    const saleTotalInclGst = saleTotal;
 
     // Determine state for IGST vs CGST/SGST if customer state information exists
     const custState = (customerMode === "existing" ? (customerIntel?.state || "") : "").trim().toLowerCase();
@@ -790,8 +800,8 @@ export function POSTab() {
     const distinctRates = Array.from(rateGroups.values());
 
     return {
-      subtotalExclGst,
-      discount,
+      subtotalExclGst: subtotal,
+      discount: discountAmount,
       taxableAmount,
       totalGstAmount,
       saleTotalInclGst,
@@ -5013,7 +5023,7 @@ export function POSTab() {
                     {/* Breakdown */}
                     <div className="space-y-2.5 text-sm pt-3 border-t border-border/60">
                       <div className="flex justify-between text-muted-foreground">
-                        <span>{gstCalculations.totalGstAmount > 0 ? "Items Subtotal (Excl. GST)" : "Items Subtotal"}</span>
+                        <span>Items Subtotal</span>
                         <span className="font-bold text-foreground">
                           {formatPrice(gstCalculations.subtotalExclGst)}
                         </span>

@@ -347,14 +347,20 @@ export function buildA4HTML(
       const itemDiscountPct =
         lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
 
-      // GST computed ONLY when HSN is added to this item
-      const lineCgst = hasItemGst
-        ? Math.round((lineMrp * (cgstRate / 100)) * 100) / 100
-        : 0;
-      const lineSgst = hasItemGst
-        ? Math.round((lineMrp * (sgstRate / 100)) * 100) / 100
-        : 0;
-      const lineTotal = Math.round((lineMrp - itemDiscountAmount + lineCgst + lineSgst) * 100) / 100;
+      // Net final line amount payable after all discounts (inclusive of GST)
+      const lineTotal = Math.max(0, Math.round((lineMrp - itemDiscountAmount) * 100) / 100);
+
+      // GST is strictly INCLUDED within the final paid amount (only when HSN is present)
+      // Taxable Value = lineTotal / (1 + gstRate / 100)
+      // GST Amount = lineTotal - Taxable Value
+      let lineCgst = 0;
+      let lineSgst = 0;
+      if (hasItemGst && gstRate > 0) {
+        const taxable = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
+        const totalTax = Math.round((lineTotal - taxable) * 100) / 100;
+        lineCgst = Math.round((totalTax / 2) * 100) / 100;
+        lineSgst = Math.round((totalTax - lineCgst) * 100) / 100;
+      }
 
       totalMrp += lineMrp;
       totalCgst += lineCgst;
