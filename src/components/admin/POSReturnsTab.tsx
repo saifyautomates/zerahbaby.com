@@ -1825,11 +1825,7 @@ export function POSReturnsTab() {
                     filteredHistory.map((ret) => {
                       const issued = Number(ret.refund_amount || 0);
                       const used = Number(ret.credit_used || 0);
-                      const remaining = Number(
-                        ret.credit_balance !== undefined && ret.credit_balance !== null
-                          ? ret.credit_balance
-                          : Math.max(0, issued - used),
-                      );
+                      const remaining = Math.max(0, issued - used);
                       const isFullyRedeemed = used >= issued && issued > 0;
                       const isPartiallyUsed = used > 0 && !isFullyRedeemed;
                       const isRowSelected = historySelection.isSelected(ret.id);
@@ -1910,7 +1906,7 @@ export function POSReturnsTab() {
                           <td className="p-3 font-bold text-muted-foreground whitespace-nowrap">
                             {formatPrice(used)}
                           </td>
-                          <td className="p-3 font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                          <td className={`p-3 font-black whitespace-nowrap ${remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                             {formatPrice(remaining)}
                           </td>
                           <td className="p-3 whitespace-nowrap">
@@ -1968,8 +1964,7 @@ export function POSReturnsTab() {
                                     refund_amount: ret.refund_amount,
                                     credit_used: ret.credit_used ?? 0,
                                     credit_balance:
-                                      ret.credit_balance ??
-                                      Math.max(0, ret.refund_amount - (ret.credit_used ?? 0)),
+                                      Math.max(0, Number(ret.refund_amount || 0) - Number(ret.credit_used ?? 0)),
                                     original_sale_number: ret.original_sale_number,
                                     original_sale_id: ret.original_sale_id,
                                     linked_sale_id: ret.linked_sale_id,
