@@ -188,6 +188,10 @@ BEGIN
       IF COALESCE(v_voucher_avail, 0) <= 0 THEN
         RAISE EXCEPTION 'Invalid, expired, or exhausted store credit voucher: %', v_clean_token;
       END IF;
+      IF _store_credit_used > v_voucher_avail + 0.01 THEN
+        RAISE EXCEPTION 'Requested store credit ₹% exceeds the available voucher balance ₹%.',
+          ROUND(_store_credit_used, 2), ROUND(v_voucher_avail, 2);
+      END IF;
       v_voucher_used := LEAST(
         v_gross_total,
         COALESCE(NULLIF(_store_credit_used, 0), v_voucher_avail),
@@ -201,11 +205,19 @@ BEGIN
       FOR UPDATE;
 
       IF v_voucher_avail > 0 THEN
+        IF _store_credit_used > v_voucher_avail + 0.01 THEN
+          RAISE EXCEPTION 'Requested customer credit ₹% exceeds the available balance ₹%.',
+            ROUND(_store_credit_used, 2), ROUND(v_voucher_avail, 2);
+        END IF;
         v_voucher_used := LEAST(v_gross_total, _store_credit_used, v_voucher_avail);
       END IF;
     END IF;
   END IF;
   v_voucher_used := COALESCE(v_voucher_used, 0);
+
+  IF _store_credit_used > 0 AND v_voucher_used <= 0 THEN
+    RAISE EXCEPTION 'No available store credit can be applied to this sale.';
+  END IF;
 
   v_payable_total := GREATEST(0, v_gross_total - v_voucher_used);
 
