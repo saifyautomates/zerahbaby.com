@@ -114,6 +114,9 @@ export interface ReportReturn {
   id: string;
   return_number?: string;
   sale_id?: string | null;
+  original_sale_id?: string | null;
+  linked_sale_id?: string | null;
+  original_sale_number?: string | null;
   created_at: string;
   status?: string;
   refund_status?: string;
@@ -314,17 +317,69 @@ export function calculateFinancialMetrics({
   const validPos = posSales.filter((s) => isValidPOSSale(s) && isInPeriod(s.created_at));
   const validReturns = returns.filter((r) => isValidReturn(r) && isInPeriod(r.created_at));
 
-  // 2. Gross revenues
-  const onlineGrossRevenue = validOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-  const offlineGrossRevenue = validPos.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  // 2. Gross revenue from all valid sales before return reconciliation.
+  const onlineGrossRevenue = validOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0,
+  );
+  const offlineGrossRevenue = validPos.reduce(
+    (sum, sale) => sum + Number(sale.total || 0),
+    0,
+  );
   const grossRevenue = onlineGrossRevenue + offlineGrossRevenue;
 
-  // 3. Returns & Refunds
-  const offlineReturns = validReturns.reduce((sum, r) => sum + Number(r.refund_amount || 0), 0);
+  // A sale marked fully returned must reduce net revenue even when older
+  // records have no offline_returns row and returned_amount is still zero.
+  const fullReturnStatuses = new Set(["returned", "fully_returned", "completed"]);
+  const fullyReturnedPosSales = validPos.filter((sale) => {
+    const returnStatus = (sale.return_status || "").toLowerCase().trim();
+    const saleTotal = Math.max(0, Number(sale.total || 0));
+    const returnedAmount = Math.max(0, Number(sale.returned_amount || 0));
+
+    return (
+      fullReturnStatuses.has(returnStatus) ||
+      (saleTotal > 0 && returnedAmount >= saleTotal)
+    );
+  });
+
+  const fullyReturnedSaleKeys = new Set<string>();
+  for (const sale of fullyReturnedPosSales) {
+    fullyReturnedSaleKeys.add(sale.id);
+    if (sale.sale_number) fullyReturnedSaleKeys.add(sale.sale_number);
+  }
+
+  const getReturnSaleKeys = (ret: ReportReturn): string[] =>
+    [
+      ret.sale_id,
+      ret.original_sale_id,
+      ret.linked_sale_id,
+      ret.original_sale_number,
+    ]
+      .filter((key): key is string => Boolean(key))
+      .map((key) => key.trim());
+
+  // If a return record belongs to a fully returned sale, the sale's full
+  // total is already deducted below; skip that record to avoid double-counting.
+  const recordedOfflineReturns = validReturns.reduce((sum, ret) => {
+    const linkedToFullyReturnedSale = getReturnSaleKeys(ret).some((key) =>
+      fullyReturnedSaleKeys.has(key),
+    );
+    return linkedToFullyReturnedSale
+      ? sum
+      : sum + Number(ret.refund_amount || 0);
+  }, 0);
+
+  const impliedFullReturnAmount = fullyReturnedPosSales.reduce(
+    (sum, sale) => sum + Math.max(0, Number(sale.total || 0)),
+    0,
+  );
+
+  const offlineReturns =
+    Math.round((recordedOfflineReturns + impliedFullReturnAmount) * 100) / 100;
   const onlineReturns = 0;
   const totalReturns = offlineReturns + onlineReturns;
 
-  // 4. Net Revenue
+  // 4. Net Revenue (returns are deducted exactly once).
   const netRevenue = Math.max(0, grossRevenue - totalReturns);
   const offlineNetRevenue = Math.max(0, offlineGrossRevenue - offlineReturns);
   const onlineNetRevenue = Math.max(0, onlineGrossRevenue - onlineReturns);
@@ -419,6 +474,7 @@ export function calculateFinancialMetrics({
     if (
       retStatus === "returned" ||
       retStatus === "fully_returned" ||
+      retStatus === "completed" ||
       isFullyRefunded
     ) {
       return;
@@ -494,6 +550,10 @@ export function calculateFinancialMetrics({
       const retQty = Number(item.qty || item.quantity || 1);
       totalUnitsReturned += retQty;
 
+      const returnBelongsToFullyReturnedSale = getReturnSaleKeys(r).some((key) =>
+        fullyReturnedSaleKeys.has(key),
+      );
+
       const p = products.find(
         (prod) =>
           (item.product_id && (prod.id === item.product_id || prod.slug === item.product_id)) ||
@@ -507,7 +567,11 @@ export function calculateFinancialMetrics({
         0,
       );
       const bp = historicalBp > 0 ? historicalBp : getProductBuyingPrice(p);
-      returnRecordsCogs += bp * retQty;
+      // COGS for fully returned sales was already excluded in the sale loop.
+      // Do not subtract those return items from unrelated remaining sales.
+      if (!returnBelongsToFullyReturnedSale) {
+        returnRecordsCogs += bp * retQty;
+      }
     });
   });
 
@@ -540,6 +604,7 @@ export function calculateFinancialMetrics({
     return (
       retStatus !== "returned" &&
       retStatus !== "fully_returned" &&
+      retStatus !== "completed" &&
       !isFullyRefunded
     );
   }).length;
