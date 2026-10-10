@@ -1335,73 +1335,10 @@ FROM public.offline_sales os
 WHERE os.id = osi.sale_id
   AND (COALESCE(os.discount, 0) > 0 OR COALESCE(os.coupon_discount, 0) > 0);
 
--- The only current-period synthetic sales are the two "card" records created
--- during return testing. Reverse real historical return stock increases, but not
--- these two sale+return pairs; deleting both sides should leave their stock net unchanged.
-WITH return_adjustments AS (
-  SELECT variant_id, SUM(GREATEST(0, COALESCE(quantity, 0))) AS qty
-  FROM public.inventory_transactions
-  WHERE (
-      lower(COALESCE(type::text, '')) = 'offline_return'
-      OR lower(COALESCE(transaction_type::text, '')) = 'offline_return'
-      OR lower(COALESCE(reference_type, '')) = 'offline_return'
-      OR COALESCE(notes, '') ILIKE 'POS Return #%'
-    )
-    AND reference_id NOT IN (
-      'd40466f5-641d-4f6f-9e23-c6e94d96f20e',
-      'b7891003-9062-4f63-9454-0545d0a8cccf'
-    )
-    AND variant_id IS NOT NULL
-  GROUP BY variant_id
-)
-UPDATE public.product_variants v
-SET stock = GREATEST(0, COALESCE(v.stock, 0) - a.qty),
-    updated_at = now()
-FROM return_adjustments a
-WHERE v.id = a.variant_id;
-
-WITH return_adjustments AS (
-  SELECT product_id, SUM(GREATEST(0, COALESCE(quantity, 0))) AS qty
-  FROM public.inventory_transactions
-  WHERE (
-      lower(COALESCE(type::text, '')) = 'offline_return'
-      OR lower(COALESCE(transaction_type::text, '')) = 'offline_return'
-      OR lower(COALESCE(reference_type, '')) = 'offline_return'
-      OR COALESCE(notes, '') ILIKE 'POS Return #%'
-    )
-    AND reference_id NOT IN (
-      'd40466f5-641d-4f6f-9e23-c6e94d96f20e',
-      'b7891003-9062-4f63-9454-0545d0a8cccf'
-    )
-    AND variant_id IS NULL
-    AND product_id IS NOT NULL
-  GROUP BY product_id
-)
-UPDATE public.products p
-SET stock = GREATEST(0, COALESCE(p.stock, 0) - a.qty),
-    updated_at = now()
-FROM return_adjustments a
-WHERE p.id = a.product_id
-  AND NOT EXISTS (SELECT 1 FROM public.product_variants v WHERE v.product_id = p.id);
-
--- The product's parent stock remains the sum of its variants.
-UPDATE public.products p
-SET stock = (
-  SELECT COALESCE(SUM(v.stock), 0)
-  FROM public.product_variants v
-  WHERE v.product_id = p.id
-), updated_at = now()
-WHERE p.id IN (
-  SELECT DISTINCT product_id
-  FROM public.inventory_transactions
-  WHERE lower(COALESCE(type::text, '')) = 'offline_return'
-     OR lower(COALESCE(transaction_type::text, '')) = 'offline_return'
-     OR lower(COALESCE(reference_type, '')) = 'offline_return'
-     OR COALESCE(notes, '') ILIKE 'POS Return #%'
-)
-AND EXISTS (
-  SELECT 1 FROM public.product_variants v WHERE v.product_id = p.id
-);
+-- Do NOT alter current product/variant stock while clearing legacy return history.
+-- A returned garment may physically be back in store; deleting its audit rows must not
+-- decrement the actual on-hand quantity. The two synthetic card sale+return transaction
+-- rows are removed by their exact sale/return IDs below, with no stock write here.
 
 -- Remove return rows/ledger/vouchers and their now-invalid credit balances.
 DELETE FROM public.offline_return_items;
