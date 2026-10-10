@@ -725,6 +725,9 @@ BEGIN
       IF v_orig_item.id IS NULL THEN
         RAISE EXCEPTION 'The original sale item % was not found. Refresh Sales History and select the original item again.', item_orig_sale_item_id;
       END IF;
+      IF v_clean_sale_id IS NOT NULL AND v_orig_item.sale_id IS DISTINCT FROM v_clean_sale_id THEN
+        RAISE EXCEPTION 'The selected return item does not belong to the selected original sale.';
+      END IF;
 
       v_original_item_units := GREATEST(
         1,
