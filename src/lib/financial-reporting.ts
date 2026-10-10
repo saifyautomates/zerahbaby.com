@@ -348,7 +348,6 @@ export function calculateFinancialMetrics({
     [
       ret.sale_id,
       ret.original_sale_id,
-      ret.linked_sale_id,
       ret.original_sale_number,
     ]
       .filter((key): key is string => Boolean(key))
@@ -475,10 +474,10 @@ export function calculateFinancialMetrics({
   const onlineReturns = 0;
   const totalReturns = offlineReturns + onlineReturns;
 
-  // 4. Net Revenue (returns are deducted exactly once).
-  const netRevenue = Math.max(0, grossRevenue - totalReturns);
-  const offlineNetRevenue = Math.max(0, offlineGrossRevenue - offlineReturns);
+  // 4. Net Revenue: Revenue of sales generated in period (net of returns on those sales, strictly matching SalesChannelDrillDown and Total Profit Analysis)
+  const offlineNetRevenue = Math.max(0, offlineGrossRevenue - impliedReturnsForPOSales);
   const onlineNetRevenue = Math.max(0, onlineGrossRevenue - onlineReturns);
+  const netRevenue = offlineNetRevenue + onlineNetRevenue;
 
   // 5. Units Sold & Historical Cost of Goods Sold (My Cost)
   // CRITICAL MANDATE: Never use current catalog cost for past transactions.
