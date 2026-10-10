@@ -46,6 +46,9 @@ export interface CanonicalPOSSale {
   discount_value: number;
   total: number;
   payment_method: string;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  change_given?: number | null;
   status: string;
   notes?: string | null;
   customer_id?: string | null;
