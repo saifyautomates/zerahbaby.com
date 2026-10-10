@@ -103,6 +103,7 @@ export interface DrillDownPOSSale {
   created_at: string;
   status?: string;
   return_status?: string | null;
+  returned_amount?: number | null;
   payment_status?: string | null;
   amount_paid?: number | null;
   store_credit_used?: number | null;
