@@ -5,6 +5,21 @@ DO $migration$
 DECLARE
   v_function regprocedure;
   v_definition text;
+  v_old_sale_select text := $old$
+    SELECT id, sale_number, total, return_status, amount_paid, payment_status, store_credit_used
+    INTO v_orig_sale
+    FROM public.offline_sales
+    WHERE id = _original_sale_id
+    FOR UPDATE;
+$old$;
+  v_new_sale_select text := $new$
+    SELECT id, sale_number, total, subtotal, discount, coupon_discount,
+           return_status, amount_paid, payment_status, store_credit_used
+    INTO v_orig_sale
+    FROM public.offline_sales
+    WHERE id = _original_sale_id
+    FOR UPDATE;
+$new$;
   v_old_calc text := $old$
       item_refund_price := COALESCE(
         NULLIF(v_orig_item.final_unit_paid_price, 0),
@@ -103,6 +118,8 @@ $new$;
 BEGIN
   -- Dollar-quoted blocks start with a newline; strip exactly that delimiter newline
   -- so the guard/replace compares the actual function text, including indentation.
+  v_old_sale_select := substring(v_old_sale_select FROM 2);
+  v_new_sale_select := substring(v_new_sale_select FROM 2);
   v_old_calc := substring(v_old_calc FROM 2);
   v_old_insert := substring(v_old_insert FROM 2);
 
@@ -121,6 +138,12 @@ BEGIN
   END IF;
 
   SELECT pg_get_functiondef(v_function) INTO v_definition;
+
+  IF position(v_old_sale_select IN v_definition) > 0 THEN
+    v_definition := replace(v_definition, v_old_sale_select, v_new_sale_select);
+  ELSIF position(v_new_sale_select IN v_definition) = 0 THEN
+    RAISE EXCEPTION 'Original-sale pricing columns could not be added safely; aborting';
+  END IF;
 
   IF position(v_old_calc IN v_definition) = 0 THEN
     RAISE EXCEPTION 'Return-calculation pricing block did not match; aborting safely';
