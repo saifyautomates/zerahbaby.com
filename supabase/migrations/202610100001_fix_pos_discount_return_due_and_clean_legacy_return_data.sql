@@ -557,7 +557,15 @@ CREATE TABLE admin_cleanup_archive.inventory_return_transactions_before_pos_retu
   WHERE lower(COALESCE(type::text, '')) = 'offline_return'
      OR lower(COALESCE(transaction_type::text, '')) = 'offline_return'
      OR lower(COALESCE(reference_type, '')) = 'offline_return'
-     OR COALESCE(notes, '') ILIKE 'POS Return #%';
+     OR COALESCE(notes, '') ILIKE 'POS Return #%'
+     OR reference_id IN (
+       'c5b9f5c5-7c39-40f8-af33-8630fda0f971',
+       '1ee50e2f-a86a-4ddf-bef5-51ce1fd0d25a'
+     )
+     OR COALESCE(notes, '') IN (
+       'POS Sale #POS-261010-28161',
+       'POS Sale #POS-261010-64400'
+     );
 CREATE TABLE admin_cleanup_archive.return_affected_variants_before_pos_return_reset_20261010 AS
   SELECT * FROM public.product_variants
   WHERE id IN (
@@ -642,6 +650,9 @@ WHERE p.id IN (
      OR lower(COALESCE(transaction_type::text, '')) = 'offline_return'
      OR lower(COALESCE(reference_type, '')) = 'offline_return'
      OR COALESCE(notes, '') ILIKE 'POS Return #%'
+)
+AND EXISTS (
+  SELECT 1 FROM public.product_variants v WHERE v.product_id = p.id
 );
 
 -- Remove return rows/ledger/vouchers and their now-invalid credit balances.
