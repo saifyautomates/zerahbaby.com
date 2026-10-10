@@ -58,6 +58,10 @@ import { generateIdempotencyKey } from "@/lib/pos";
 import { useTableSelection, getReturnsSelectionMetrics } from "@/lib/table-selection";
 import { SmartSelectionSummary } from "@/components/admin/SmartSelectionSummary";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/lib/auth";
+import { deleteQueuedSale } from "@/lib/offline-sync-engine";
+import { invalidateCanonicalReportingQueries, notifyPOSSaleChanged } from "@/lib/canonical-reporting";
 import {
   type ReturnCartItem,
   type OfflineReturn,
@@ -138,6 +142,91 @@ export function POSReturnsTab() {
   const processReturnMutation = useProcessOfflineReturn();
   const deleteReturnsMutation = useDeleteOfflineReturns();
   const [deleteTarget, setDeleteTarget] = useState<string[] | null>(null);
+
+  // Super Admin Authorization & Sale Deletion (Restricted exclusively to jackxparrowww@gmail.com)
+  const { session } = useSession();
+  const userEmail = (session?.user?.email ?? "").trim().toLowerCase();
+  const isSuperAdmin = userEmail === "jackxparrowww@gmail.com";
+  const [saleToDelete, setSaleToDelete] = useState<{ id: string; sale_number: string } | null>(null);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
+
+  const handleSuperAdminDeleteSale = async (sale: { id: string; sale_number: string }) => {
+    if (!isSuperAdmin) {
+      toast.error("Only Super Admin (jackxparrowww@gmail.com) can delete sales.");
+      return;
+    }
+    setIsDeletingSale(true);
+    try {
+      // 1. Find and delete any offline returns linked to this sale
+      const { data: linkedReturns } = await supabase
+        .from("offline_returns")
+        .select("id")
+        .or(`original_sale_id.eq.${sale.id},sale_id.eq.${sale.id},original_sale_number.eq.${sale.sale_number}`);
+
+      const returnIds = (linkedReturns || []).map((r: { id: string }) => r.id);
+      if (returnIds.length > 0) {
+        await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: any; error: any }>
+        )("admin_hard_delete_offline_returns", {
+          _return_ids: returnIds,
+          _revert_stock: false,
+        });
+      }
+
+      // 2. Delete the offline sale via canonical RPC if UUID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sale.id);
+      if (isUuid) {
+        const { data, error } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{
+            data: { success?: boolean; message?: string; deleted_count?: number } | null;
+            error: { message: string } | null;
+          }>
+        )("admin_hard_delete_offline_sales", {
+          _sale_ids: [sale.id],
+          _restore_stock: true,
+        });
+
+        if (error) {
+          throw new Error(error.message || "Failed to delete POS sale");
+        }
+      }
+
+      // 3. Clear local offline queue if present
+      try {
+        await deleteQueuedSale(sale.id);
+        if (sale.sale_number) {
+          await deleteQueuedSale(sale.sale_number);
+        }
+      } catch {
+        // Non-fatal if not in local queue
+      }
+
+      toast.success(`POS Sale #${sale.sale_number} permanently deleted.`);
+      setSaleToDelete(null);
+
+      // 4. Invalidate all relevant caches
+      qc.invalidateQueries({ queryKey: ["offline-sales-with-return-metrics"] });
+      qc.invalidateQueries({ queryKey: ["offline-returns"] });
+      qc.invalidateQueries({ queryKey: ["pos-returns"] });
+      qc.invalidateQueries({ queryKey: ["admin-canonical-pos-sales"] });
+      qc.invalidateQueries({ queryKey: ["pos-sales"] });
+      qc.invalidateQueries({ queryKey: ["offline_sales"] });
+      qc.invalidateQueries({ queryKey: ["admin-sales-raw"] });
+      invalidateCanonicalReportingQueries(qc);
+      notifyPOSSaleChanged();
+    } catch (err: any) {
+      console.error("[POSReturnsTab] Failed to delete sale:", err);
+      toast.error(err.message || "Failed to delete sale");
+    } finally {
+      setIsDeletingSale(false);
+    }
+  };
 
   // Clear any residual scans when entering Returns tab so POS Terminal is clean
   useEffect(() => {
@@ -1009,10 +1098,24 @@ export function POSReturnsTab() {
                                           {sale.payment_method}
                                         </span>
                                       </div>
-                                      <div className="text-right">
+                                      <div className="text-right flex items-center gap-2">
                                         <span className="font-extrabold text-foreground text-xs">
                                           Total: {formatPrice(sale.total)}
                                         </span>
+                                        {isSuperAdmin && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSaleToDelete({ id: sale.id, sale_number: sale.sale_number });
+                                            }}
+                                            title="Delete POS Sale (Super Admin Only)"
+                                            className="inline-flex items-center gap-1 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground px-2 py-0.5 text-[10px] font-bold transition cursor-pointer border border-destructive/20 shadow-2xs"
+                                          >
+                                            <Trash2 className="size-3" />
+                                            <span>Delete</span>
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
 
@@ -1255,6 +1358,20 @@ export function POSReturnsTab() {
                               <span className="font-mono font-bold text-primary">
                                 #{sale.sale_number}
                               </span>
+                              {isSuperAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSaleToDelete({ id: sale.id, sale_number: sale.sale_number });
+                                  }}
+                                  title="Delete POS Sale (Super Admin Only)"
+                                  className="inline-flex items-center gap-1 rounded-md bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground px-1.5 py-0.5 text-[9.5px] font-bold transition cursor-pointer border border-destructive/20"
+                                >
+                                  <Trash2 className="size-2.5" />
+                                  <span>Delete</span>
+                                </button>
+                              )}
                               <span className="font-semibold text-foreground">
                                 {sale.customer_name || "Walk-in Customer"}
                               </span>
@@ -1396,9 +1513,25 @@ export function POSReturnsTab() {
                             })}
                           </span>
                         </div>
-                        <span className="font-extrabold text-foreground text-sm">
-                          {formatPrice(invoiceQrMatch.total)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground text-sm">
+                            {formatPrice(invoiceQrMatch.total)}
+                          </span>
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSaleToDelete({ id: invoiceQrMatch.id, sale_number: invoiceQrMatch.sale_number });
+                              }}
+                              title="Delete POS Sale (Super Admin Only)"
+                              className="inline-flex items-center gap-1 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground px-2 py-1 text-[11px] font-bold transition cursor-pointer border border-destructive/20 shadow-2xs"
+                            >
+                              <Trash2 className="size-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="p-3 divide-y divide-border/60">
@@ -2028,6 +2161,22 @@ export function POSReturnsTab() {
             }
           }}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* ── SUPER ADMIN DELETE POS SALE CONFIRMATION DIALOG ── */}
+      {saleToDelete && (
+        <ConfirmDialog
+          title={`Delete POS Sale #${saleToDelete.sale_number}?`}
+          message="Are you sure you want to permanently delete this POS sale, its line items, and any linked return/voucher records? This cannot be undone."
+          confirmLabel={isDeletingSale ? "Deleting..." : "Yes, Delete Sale"}
+          cancelLabel="Cancel"
+          destructive
+          busy={isDeletingSale}
+          onConfirm={() => handleSuperAdminDeleteSale(saleToDelete)}
+          onCancel={() => {
+            if (!isDeletingSale) setSaleToDelete(null);
+          }}
         />
       )}
 
