@@ -1419,7 +1419,12 @@ CREATE TABLE admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_
   UNION
   SELECT DISTINCT UPPER(TRIM(credit_token))
   FROM public.offline_returns
-  WHERE NULLIF(TRIM(credit_token), '') IS NOT NULL;
+  WHERE NULLIF(TRIM(credit_token), '') IS NOT NULL
+  UNION
+  SELECT DISTINCT UPPER(TRIM(token))
+  FROM admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010
+  WHERE return_id IS NOT NULL
+    AND NULLIF(TRIM(token), '') IS NOT NULL;
 CREATE TABLE admin_cleanup_archive.store_credit_vouchers_before_pos_return_reset_20261010 AS
   SELECT * FROM public.store_credit_vouchers;
 CREATE TABLE admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010 AS
@@ -1567,34 +1572,51 @@ WHERE UPPER(TRIM(v.token)) IN (
 )
 OR v.return_id IS NOT NULL;
 
--- Only customer balances whose active return-generated vouchers are being retired.
--- The before-images above preserve their original values for audit/recovery.
-UPDATE public.pos_customers pc
-SET store_credit_balance = 0,
-    store_credit = 0,
-    updated_at = now()
-WHERE pc.id IN (
-  SELECT DISTINCT v.customer_id
+-- Deduct only the balance represented by the return-generated vouchers being retired.
+-- Preserve any unrelated customer balance/credit history. A token may appear in both
+-- voucher tables; the GROUP BY counts its balance only once.
+WITH retired_voucher_rows AS (
+  SELECT
+    v.customer_id,
+    UPPER(TRIM(v.token)) AS token,
+    GREATEST(COALESCE(v.current_balance, 0), 0) AS balance
   FROM admin_cleanup_archive.store_credit_vouchers_before_pos_return_reset_20261010 v
-  WHERE UPPER(TRIM(v.token)) IN (
-    SELECT credit_token
-    FROM admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010
-  )
-);
-
--- Profile balances mirror POS customer balances via the existing sync trigger.
-UPDATE public.profiles p
-SET store_credit_balance = 0,
-    updated_at = now()
-WHERE p.id IN (
-  SELECT DISTINCT v.customer_id
-  FROM admin_cleanup_archive.store_credit_vouchers_before_pos_return_reset_20261010 v
-  WHERE UPPER(TRIM(v.token)) IN (
-    SELECT credit_token
-    FROM admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010
-  )
+  WHERE NULLIF(TRIM(v.token), '') IS NOT NULL
+    AND UPPER(TRIM(v.token)) IN (
+      SELECT credit_token
+      FROM admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010
+    )
+  UNION ALL
+  SELECT
+    v.customer_id,
+    UPPER(TRIM(v.token)) AS token,
+    GREATEST(COALESCE(v.remaining_balance, 0), 0) AS balance
+  FROM admin_cleanup_archive.pos_exchange_vouchers_before_pos_return_reset_20261010 v
+  WHERE NULLIF(TRIM(v.token), '') IS NOT NULL
+    AND UPPER(TRIM(v.token)) IN (
+      SELECT credit_token
+      FROM admin_cleanup_archive.return_credit_tokens_before_pos_return_reset_20261010
+    )
+),
+retired_balance_by_customer AS (
+  SELECT customer_id, SUM(balance) AS balance
+  FROM (
+    SELECT customer_id, token, MAX(balance) AS balance
+    FROM retired_voucher_rows
+    GROUP BY customer_id, token
+  ) token_balances
+  GROUP BY customer_id
 )
-AND COALESCE(p.store_credit_balance, 0) <> 0;
+UPDATE public.pos_customers pc
+SET store_credit_balance = GREATEST(0, COALESCE(pc.store_credit_balance, 0) - r.balance),
+    store_credit = GREATEST(0, COALESCE(pc.store_credit, 0) - r.balance),
+    updated_at = now()
+FROM retired_balance_by_customer r
+WHERE r.customer_id = pc.id
+  AND r.balance > 0;
+
+-- The existing POS-customer/profile sync trigger propagates the preserved balance
+-- to profiles; do not overwrite any unrelated profile credit with a blanket zero.
 
 -- Reset every surviving sale/item to fully returnable because the old return ledger
 -- was explicitly retired; no old return flags may block future legitimate returns.
