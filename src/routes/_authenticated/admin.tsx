@@ -2040,11 +2040,23 @@ function ProductsTab() {
             Store Cost: {formatPrice(totalStockCost)}
           </p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-2xs">
+        <div
+          onClick={() => setStatusFilter((prev) => (prev === "low_stock" ? "all" : "low_stock"))}
+          className={`rounded-2xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-2xs cursor-pointer hover:bg-amber-100/60 transition-all ${
+            statusFilter === "low_stock" ? "ring-2 ring-amber-500 bg-amber-100/80" : ""
+          }`}
+          title="Click to filter low stock products"
+        >
           <p className="text-[11px] font-bold uppercase text-amber-800">Low Stock Alert</p>
           <p className="mt-1 text-lg font-extrabold text-amber-600">{lowStockCount}</p>
         </div>
-        <div className="rounded-2xl border border-red-200 bg-red-50/50 p-3.5 shadow-2xs col-span-2 sm:col-span-1">
+        <div
+          onClick={() => setStatusFilter((prev) => (prev === "out_of_stock" ? "all" : "out_of_stock"))}
+          className={`rounded-2xl border border-red-200 bg-red-50/50 p-3.5 shadow-2xs col-span-2 sm:col-span-1 cursor-pointer hover:bg-red-100/60 transition-all ${
+            statusFilter === "out_of_stock" ? "ring-2 ring-red-500 bg-red-100/80" : ""
+          }`}
+          title="Click to filter out of stock products"
+        >
           <p className="text-[11px] font-bold uppercase text-red-800">Out of Stock</p>
           <p className="mt-1 text-lg font-extrabold text-red-600">{outOfStockCount}</p>
         </div>
