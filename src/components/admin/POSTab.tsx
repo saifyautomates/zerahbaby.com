@@ -732,13 +732,22 @@ export function POSTab() {
           p.id === item.slug ||
           p.uuid === item.slug,
       );
-      const hsn = item.hsn_code ?? catalogProd?.hsn_code ?? null;
-      const gstRate =
-        item.gst_rate != null
-          ? Number(item.gst_rate)
-          : catalogProd?.gst_rate != null
-            ? Number(catalogProd.gst_rate)
-            : 0;
+      const rawHsn = item.hsn_code ?? catalogProd?.hsn_code ?? null;
+      const hasHsn = Boolean(
+        rawHsn &&
+        String(rawHsn).trim() !== "" &&
+        String(rawHsn).trim() !== "-" &&
+        String(rawHsn).trim() !== "—",
+      );
+      const hsn = hasHsn ? String(rawHsn).trim() : null;
+      // GST is ONLY applicable when HSN is added
+      const gstRate = hasHsn
+        ? (item.gst_rate != null
+            ? Number(item.gst_rate)
+            : catalogProd?.gst_rate != null
+              ? Number(catalogProd.gst_rate)
+              : 5)
+        : 0;
 
       const rateExclTax = item.price;
       const qty = item.qty;
@@ -2499,14 +2508,27 @@ export function POSTab() {
               p.id === c.slug ||
               p.uuid === c.slug,
           );
+          const rawHsn = c.hsn_code ?? catalogProd?.hsn_code ?? null;
+          const hasHsn = Boolean(
+            rawHsn &&
+            String(rawHsn).trim() !== "" &&
+            String(rawHsn).trim() !== "-" &&
+            String(rawHsn).trim() !== "—",
+          );
           return {
             name: c.name,
             sku: c.sku,
             price: c.price,
             mrp: c.mrp,
             qty: c.qty,
-            hsn_code: c.hsn_code ?? catalogProd?.hsn_code ?? null,
-            gst_rate: c.gst_rate != null ? Number(c.gst_rate) : (catalogProd?.gst_rate != null ? Number(catalogProd.gst_rate) : null),
+            hsn_code: hasHsn ? String(rawHsn).trim() : null,
+            gst_rate: hasHsn
+              ? (c.gst_rate != null
+                  ? Number(c.gst_rate)
+                  : catalogProd?.gst_rate != null
+                    ? Number(catalogProd.gst_rate)
+                    : 5)
+              : null,
           };
         }),
       );
@@ -5396,15 +5418,19 @@ export function POSTab() {
           items={
             saleItems.length > 0
               ? saleItems
-              : cart.map((c) => ({
-                  name: c.name,
-                  sku: c.sku,
-                  price: c.price,
-                  mrp: c.mrp,
-                  qty: c.qty,
-                  hsn_code: c.hsn_code ?? null,
-                  gst_rate: c.gst_rate != null ? Number(c.gst_rate) : null,
-                }))
+              : cart.map((c) => {
+                  const rawHsn = c.hsn_code ? String(c.hsn_code).trim() : "";
+                  const hasHsn = rawHsn !== "" && rawHsn !== "-" && rawHsn !== "—";
+                  return {
+                    name: c.name,
+                    sku: c.sku,
+                    price: c.price,
+                    mrp: c.mrp,
+                    qty: c.qty,
+                    hsn_code: hasHsn ? rawHsn : null,
+                    gst_rate: hasHsn ? (c.gst_rate != null ? Number(c.gst_rate) : 5) : null,
+                  };
+                })
           }
           autoPrint={true}
           onClose={() => {

@@ -85,8 +85,10 @@ export function buildOrderA4HTML(
           ? Math.round((totalLineDiscount / originalLineAmount) * 100)
           : 0;
 
-      const hasGst = item.gst_rate != null && Number(item.gst_rate) > 0;
-      const gstRate = hasGst ? Number(item.gst_rate) : 0;
+      const code = item.hsn_code ? String(item.hsn_code).trim() : "";
+      const hasItemHsn = code !== "" && code !== "-" && code !== "—";
+      const hasGst = hasItemHsn && (item.gst_rate != null ? Number(item.gst_rate) > 0 : true);
+      const gstRate = hasGst ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5) : 0;
       const taxableValue = hasGst
         ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
         : discountedLineAmount;
@@ -109,7 +111,7 @@ export function buildOrderA4HTML(
       totalSgst += sgst;
 
       const variantInfo = [item.color, item.size].filter(Boolean).join(" / ");
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "—";
+      const hsnDisplay = hasItemHsn ? escapeHtml(code) : "—";
 
       const discountHtml =
         totalLineDiscount > 0
@@ -121,6 +123,24 @@ export function buildOrderA4HTML(
           : `<div style="font-weight: 700; color: #15803d;">0%</div>
              <div style="font-size: 9px; color: #15803d;">− ₹0.00</div>`;
 
+      if (hasAnyHsn) {
+        return `<tr>
+          <td class="center">${idx + 1}</td>
+          <td>
+            <div class="bold">${escapeHtml(item.name)}</div>
+            ${variantInfo ? `<div style="font-size: 9px; color: #555;">${escapeHtml(variantInfo)}</div>` : ""}
+            ${item.sku_snapshot ? `<div style="font-size: 8.5px; color: #777;">SKU: ${escapeHtml(item.sku_snapshot)}</div>` : ""}
+          </td>
+          <td class="center font-mono">${hsnDisplay}</td>
+          <td class="center">${qty}</td>
+          <td class="right">₹${originalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td class="right">${isInterState ? "—" : (hasGst ? `₹${cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
+          <td class="right">${isInterState ? "—" : (hasGst ? `₹${sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
+          <td class="right">${discountHtml}</td>
+          <td class="right bold">₹${discountedLineAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>`;
+      }
+
       return `<tr>
         <td class="center">${idx + 1}</td>
         <td>
@@ -128,11 +148,8 @@ export function buildOrderA4HTML(
           ${variantInfo ? `<div style="font-size: 9px; color: #555;">${escapeHtml(variantInfo)}</div>` : ""}
           ${item.sku_snapshot ? `<div style="font-size: 8.5px; color: #777;">SKU: ${escapeHtml(item.sku_snapshot)}</div>` : ""}
         </td>
-        <td class="center font-mono">${hsnDisplay}</td>
         <td class="center">${qty}</td>
         <td class="right">₹${originalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td class="right">${isInterState ? "—" : (hasGst ? `₹${cgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
-        <td class="right">${isInterState ? "—" : (hasGst ? `₹${sgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
         <td class="right">${discountHtml}</td>
         <td class="right bold">₹${discountedLineAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>`;
@@ -165,6 +182,11 @@ export function buildOrderA4HTML(
     distinctOrderGstRates.length === 1
       ? `<br/>${distinctOrderGstRates[0] / 2}%`
       : "";
+
+  const hasAnyHsn = (order.order_items || []).some((item) => {
+    const code = item.hsn_code ? String(item.hsn_code).trim() : "";
+    return code !== "" && code !== "-" && code !== "—";
+  });
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -358,7 +380,9 @@ export function buildOrderA4HTML(
 
   <table>
     <thead>
-      <tr>
+      ${
+        hasAnyHsn
+          ? `<tr>
         <th style="width: 25px;">#</th>
         <th>PRODUCT</th>
         <th style="width: 55px;" class="center">HSN</th>
@@ -368,18 +392,36 @@ export function buildOrderA4HTML(
         <th style="width: 70px;" class="right">SGST${orderGstHeaderSub}</th>
         <th style="width: 85px;" class="right">DISCOUNT</th>
         <th style="width: 75px;" class="right">TOTAL</th>
-      </tr>
+      </tr>`
+          : `<tr>
+        <th style="width: 30px;">#</th>
+        <th>PRODUCT</th>
+        <th style="width: 50px;" class="center">QTY</th>
+        <th style="width: 100px;" class="right">M.R.P<br/>(ORIGINAL)</th>
+        <th style="width: 90px;" class="right">DISCOUNT</th>
+        <th style="width: 100px;" class="right">TOTAL</th>
+      </tr>`
+      }
     </thead>
     <tbody>
       ${rowsHtml}
-      <tr class="grand-total-row">
+      ${
+        hasAnyHsn
+          ? `<tr class="grand-total-row">
         <td colspan="4" class="grand-total-label">G.TOTAL</td>
         <td class="right">₹${totalOriginalMrp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td class="right">${isInterState ? "—" : (totalCgst > 0 ? `₹${totalCgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
         <td class="right">${isInterState ? "—" : (totalSgst > 0 ? `₹${totalSgst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—")}</td>
         <td class="right">${finalDiscountHtml}</td>
         <td class="right grand-total-final">₹${Number(order.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-      </tr>
+      </tr>`
+          : `<tr class="grand-total-row">
+        <td colspan="3" class="grand-total-label">G.TOTAL</td>
+        <td class="right">₹${totalOriginalMrp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="right">${finalDiscountHtml}</td>
+        <td class="right grand-total-final">₹${Number(order.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      </tr>`
+      }
     </tbody>
   </table>
 
@@ -541,6 +583,11 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                 ? Math.min(modalOrderDiscount / modalSellingSubtotal, 1)
                 : 0;
 
+            const modalHasAnyHsn = (order.order_items || []).some((i) => {
+              const code = i.hsn_code ? String(i.hsn_code).trim() : "";
+              return code !== "" && code !== "-" && code !== "—";
+            });
+
             const renderedRows = order.order_items.map((item, index) => {
               const qty = Number(item.qty || 0);
               const sellingPrice = Number(item.price || item.price_at_time || 0);
@@ -561,8 +608,10 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                   ? Math.round((lineDiscount / originalLineAmount) * 100)
                   : 0;
 
-              const hasGst = item.gst_rate != null && Number(item.gst_rate) > 0;
-              const gstRate = hasGst ? Number(item.gst_rate) : 0;
+              const code = item.hsn_code ? String(item.hsn_code).trim() : "";
+              const hasItemHsn = code !== "" && code !== "-" && code !== "—";
+              const hasGst = hasItemHsn && (item.gst_rate != null ? Number(item.gst_rate) > 0 : true);
+              const gstRate = hasGst ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5) : 0;
               const taxableValue = hasGst
                 ? Math.round((discountedLineAmount / (1 + gstRate / 100)) * 100) / 100
                 : discountedLineAmount;
@@ -612,9 +661,11 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                     </div>
                   </td>
 
-                  <td className="px-2 py-4 text-center font-mono text-xs text-slate-700">
-                    {item.hsn_code || "—"}
-                  </td>
+                  {modalHasAnyHsn && (
+                    <td className="px-2 py-4 text-center font-mono text-xs text-slate-700">
+                      {hasItemHsn ? code : "—"}
+                    </td>
+                  )}
 
                   <td className="px-2 py-4 text-center font-medium text-slate-700">
                     {qty}
@@ -624,13 +675,17 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                     {formatPrice(originalPrice)}
                   </td>
 
-                  <td className="px-2 py-4 text-right font-medium text-slate-700">
-                    {modalIsInterState ? "—" : (hasGst ? formatPrice(cgst) : "—")}
-                  </td>
+                  {modalHasAnyHsn && (
+                    <>
+                      <td className="px-2 py-4 text-right font-medium text-slate-700">
+                        {modalIsInterState ? "—" : (hasGst ? formatPrice(cgst) : "—")}
+                      </td>
 
-                  <td className="px-2 py-4 text-right font-medium text-slate-700">
-                    {modalIsInterState ? "—" : (hasGst ? formatPrice(sgst) : "—")}
-                  </td>
+                      <td className="px-2 py-4 text-right font-medium text-slate-700">
+                        {modalIsInterState ? "—" : (hasGst ? formatPrice(sgst) : "—")}
+                      </td>
+                    </>
+                  )}
 
                   <td className="px-2 py-4 text-right">
                     <div className="text-xs font-black text-emerald-600">
@@ -656,7 +711,11 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
             const distinctModalGstRates = Array.from(
               new Set(
                 (order.order_items || [])
-                  .map((i) => (i.gst_rate != null ? Number(i.gst_rate) : 0))
+                  .map((i) => {
+                    const code = i.hsn_code ? String(i.hsn_code).trim() : "";
+                    const hasHsn = code !== "" && code !== "-" && code !== "—";
+                    return hasHsn ? (i.gst_rate != null ? Number(i.gst_rate) : 5) : 0;
+                  })
                   .filter((r) => r > 0),
               ),
             );
@@ -671,11 +730,17 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                   <tr>
                     <th className="border border-[#d8b8ba] px-2 py-3 text-center">#</th>
                     <th className="border border-[#d8b8ba] px-3 py-3">PRODUCT</th>
-                    <th className="border border-[#d8b8ba] px-2 py-3 text-center">HSN</th>
+                    {modalHasAnyHsn && (
+                      <th className="border border-[#d8b8ba] px-2 py-3 text-center">HSN</th>
+                    )}
                     <th className="border border-[#d8b8ba] px-2 py-3 text-center">QTY</th>
                     <th className="border border-[#d8b8ba] px-2 py-3 text-right">M.R.P<br/>(ORIGINAL)</th>
-                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">CGST{modalGstHeaderSub}</th>
-                    <th className="border border-[#d8b8ba] px-2 py-3 text-right">SGST{modalGstHeaderSub}</th>
+                    {modalHasAnyHsn && (
+                      <>
+                        <th className="border border-[#d8b8ba] px-2 py-3 text-right">CGST{modalGstHeaderSub}</th>
+                        <th className="border border-[#d8b8ba] px-2 py-3 text-right">SGST{modalGstHeaderSub}</th>
+                      </>
+                    )}
                     <th className="border border-[#d8b8ba] px-2 py-3 text-right">DISCOUNT</th>
                     <th className="border border-[#d8b8ba] px-2 py-3 text-right">TOTAL</th>
                   </tr>
@@ -683,18 +748,22 @@ function InvoiceModal({ order, onClose }: { order: Order; onClose: () => void })
                 <tbody>
                   {renderedRows}
                   <tr className="bg-[#f8f1f1]">
-                    <td colSpan={4} className="border-b-2 border-t-2 border-primary px-3 py-4 text-right text-sm font-black uppercase tracking-wider text-primary">
+                    <td colSpan={modalHasAnyHsn ? 4 : 3} className="border-b-2 border-t-2 border-primary px-3 py-4 text-right text-sm font-black uppercase tracking-wider text-primary">
                       G.TOTAL
                     </td>
                     <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
                       {formatPrice(modalOriginalMrp)}
                     </td>
-                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
-                      {modalIsInterState ? "—" : (modalCgst > 0 ? formatPrice(modalCgst) : "—")}
-                    </td>
-                    <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
-                      {modalIsInterState ? "—" : (modalSgst > 0 ? formatPrice(modalSgst) : "—")}
-                    </td>
+                    {modalHasAnyHsn && (
+                      <>
+                        <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
+                          {modalIsInterState ? "—" : (modalCgst > 0 ? formatPrice(modalCgst) : "—")}
+                        </td>
+                        <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right font-bold">
+                          {modalIsInterState ? "—" : (modalSgst > 0 ? formatPrice(modalSgst) : "—")}
+                        </td>
+                      </>
+                    )}
                     <td className="border-b-2 border-t-2 border-primary px-2 py-4 text-right">
                       <div className="text-xs font-black text-emerald-600">
                         {modalDiscountPercent}%

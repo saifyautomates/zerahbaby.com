@@ -288,10 +288,19 @@ export function buildA4HTML(
   let totalDiscount = 0;
   let grandTotal = 0;
 
+  const hasAnyHsn = items.some((item) => {
+    const code = item.hsn_code ? String(item.hsn_code).trim() : "";
+    return code !== "" && code !== "-" && code !== "—";
+  });
+
   const distinctPositiveGstRates = Array.from(
     new Set(
       items
-        .map((i) => (i.gst_rate != null ? Number(i.gst_rate) : 0))
+        .map((i) => {
+          const code = i.hsn_code ? String(i.hsn_code).trim() : "";
+          const hasHsn = code !== "" && code !== "-" && code !== "—";
+          return hasHsn ? (i.gst_rate != null ? Number(i.gst_rate) : 5) : 0;
+        })
         .filter((r) => r > 0),
     ),
   );
@@ -303,11 +312,16 @@ export function buildA4HTML(
   const itemRows = items
     .map((item, idx) => {
       const qty = Math.max(1, item.qty || 1);
+      const code = item.hsn_code ? String(item.hsn_code).trim() : "";
+      const hasItemHsn = code !== "" && code !== "-" && code !== "—";
       const hasItemGst =
-        item.gst_rate != null &&
-        !isNaN(Number(item.gst_rate)) &&
-        Number(item.gst_rate) > 0;
-      const gstRate = hasItemGst ? Number(item.gst_rate) : 0;
+        hasItemHsn &&
+        (item.gst_rate != null
+          ? !isNaN(Number(item.gst_rate)) && Number(item.gst_rate) > 0
+          : true);
+      const gstRate = hasItemGst
+        ? (item.gst_rate != null && Number(item.gst_rate) > 0 ? Number(item.gst_rate) : 5)
+        : 0;
       const cgstRate = gstRate / 2;
       const sgstRate = gstRate / 2;
 
@@ -333,7 +347,7 @@ export function buildA4HTML(
       const itemDiscountPct =
         lineMrp > 0 ? Math.round((itemDiscountAmount / lineMrp) * 100) : 0;
 
-      // GST computed from line taxable / rate only when GST is explicitly set
+      // GST computed ONLY when HSN is added to this item
       const lineCgst = hasItemGst
         ? Math.round((lineMrp * (cgstRate / 100)) * 100) / 100
         : 0;
@@ -360,9 +374,10 @@ export function buildA4HTML(
       const sgstDisplay = lineSgst > 0 ? `₹${lineSgst.toFixed(2)}` : "—";
 
       const skuText = item.sku ? `SKU: ${escapeHtml(item.sku)}` : "";
-      const hsnDisplay = item.hsn_code ? escapeHtml(item.hsn_code) : "-";
+      const hsnDisplay = hasItemHsn ? escapeHtml(code) : "-";
 
-      return `
+      if (hasAnyHsn) {
+        return `
     <tr style="vertical-align: top; page-break-inside: avoid;">
       <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
       <td style="padding: 10px 6px; text-align: left;">
@@ -374,6 +389,20 @@ export function buildA4HTML(
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${cgstDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${sgstDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
+      <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
+    </tr>`;
+      }
+
+      return `
+    <tr style="vertical-align: top; page-break-inside: avoid;">
+      <td style="padding: 10px 4px; text-align: center; font-weight: 800; font-size: 11.5px; color: #000;">${idx + 1}</td>
+      <td style="padding: 10px 6px; text-align: left;">
+        <div style="font-weight: 800; font-size: 12px; color: #000;">${escapeHtml(item.name)}</div>
+        ${skuText ? `<div style="font-size: 9.5px; color: #6b7280; font-family: monospace; margin-top: 2px;">${skuText}</div>` : ""}
+      </td>
+      <td style="padding: 10px 6px; text-align: center; font-size: 11.5px; color: #000;">${qty}</td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">₹${lineMrp.toFixed(2)}</td>
       <td style="padding: 10px 6px; text-align: right; font-size: 11.5px; color: #000;">${discountDisplay}</td>
       <td style="padding: 10px 6px; text-align: right; font-weight: 800; font-size: 12px; color: #000;">₹${lineTotal.toFixed(2)}</td>
     </tr>`;
@@ -497,7 +526,9 @@ ${
 <!-- ── ITEMS TABLE ── -->
 <table>
   <thead>
-    <tr style="border-bottom: 1.5px solid #000;">
+    ${
+      hasAnyHsn
+        ? `<tr style="border-bottom: 1.5px solid #000;">
       <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 30px;">#</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">HSN</th>
@@ -507,11 +538,22 @@ ${
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 65px; line-height: 1.2;">SGST${gstHeaderSub}</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 80px;">DISCOUNT</th>
       <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 85px;">TOTAL</th>
-    </tr>
+    </tr>`
+        : `<tr style="border-bottom: 1.5px solid #000;">
+      <th style="padding: 8px 4px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 35px;">#</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: left;">PRODUCT</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: center; width: 50px;">QTY</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 110px; line-height: 1.2;">M.R.P.<br/>(ORIGINAL)</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 100px;">DISCOUNT</th>
+      <th style="padding: 8px 6px; font-size: 10.5px; font-weight: 800; color: #000; text-align: right; width: 110px;">TOTAL</th>
+    </tr>`
+    }
   </thead>
   <tbody>
     ${itemRows}
-    <tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
+    ${
+      hasAnyHsn
+        ? `<tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
       <td colspan="4" style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; color: #000;">
         G.TOTAL
       </td>
@@ -530,7 +572,22 @@ ${
       <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
         ₹${finalGrandTotal.toFixed(2)}
       </td>
-    </tr>
+    </tr>`
+        : `<tr style="border-top: 1.5px solid #000; border-bottom: 2px solid #000;">
+      <td colspan="3" style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; color: #000;">
+        G.TOTAL
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ₹${totalMrp.toFixed(2)}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 12px; font-weight: 800; color: #000;">
+        ${totalDiscountDisplay}
+      </td>
+      <td style="padding: 10px 6px; text-align: right; font-size: 13px; font-weight: 900; color: #000;">
+        ₹${finalGrandTotal.toFixed(2)}
+      </td>
+    </tr>`
+    }
   </tbody>
 </table>
 
