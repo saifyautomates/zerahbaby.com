@@ -299,6 +299,15 @@ BEGIN
     v_payment_status := 'pending';
   END IF;
 
+  IF v_payment_status IN ('pending', 'partial')
+     AND (
+       v_cust_id IS NULL
+       OR trim(COALESCE(_customer_name, '')) = ''
+       OR lower(trim(COALESCE(_customer_name, ''))) = 'walk-in customer'
+     ) THEN
+    RAISE EXCEPTION 'Select a named customer before recording a sale with an outstanding balance.';
+  END IF;
+
   -- 10. Generate Sale Number & Token Number safely
   v_sale_number := 'POS-' || to_char(now(), 'YYMMDD') || '-' || lpad(floor(random() * 90000 + 10000)::text, 5, '0');
   
