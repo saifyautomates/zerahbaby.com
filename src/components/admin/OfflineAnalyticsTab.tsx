@@ -116,6 +116,9 @@ type Sale = {
   return_status?: "none" | "partially_returned" | "returned" | null;
   returned_amount?: number | null;
   returned_units?: number | null;
+  payment_status?: string | null;
+  amount_paid?: number | null;
+  store_credit_used?: number | null;
   offline_sale_items?: SaleItem[];
 };
 
@@ -671,13 +674,60 @@ export function OfflineAnalyticsTab() {
   const upiSales = periodActiveSales.filter((s) => s.payment_method === "upi");
   const cardSales = periodActiveSales.filter((s) => s.payment_method === "card");
   const otherSales = periodActiveSales.filter(
-    (s) => !["cash", "upi", "card"].includes(s.payment_method),
+    (sale) => !["cash", "upi", "card", "due", "store_credit"].includes(
+      String(sale.payment_method || "").toLowerCase().trim(),
+    ),
   );
 
-  const cashTotal = cashSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
-  const upiTotal = upiSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
-  const cardTotal = cardSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
-  const otherTotal = otherSales.reduce((sum, sale) => sum + getSaleNetRevenue(sale), 0);
+  // Payment breakdown must show money collected, not the full value of a partially
+  // paid/due sale. Older records have amount_paid=0 despite payment_status="paid";
+  // preserve their known paid status without misclassifying pending/partial records.
+  const getCollectedAmount = (sale: Sale | CanonicalPOSSale) => {
+    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    const recordedPaid = Math.max(0, Number(sale.amount_paid || 0));
+    const creditUsed = Math.max(0, Number(sale.store_credit_used || 0));
+    if (paymentStatus === "paid" && recordedPaid === 0) {
+      return Math.max(0, Number(sale.total || 0) - creditUsed);
+    }
+    return recordedPaid;
+  };
+
+  const dueStatuses = new Set(["pending", "unpaid", "partial", "partially_paid", "due"]);
+  const dueSales = periodActiveSales.filter((sale) => {
+    const paymentStatus = String(sale.payment_status || "").toLowerCase().trim();
+    if (!dueStatuses.has(paymentStatus)) return false;
+    return (
+      Number(sale.total || 0) -
+        Number(sale.returned_amount || 0) -
+        Number(sale.amount_paid || 0) -
+        Number(sale.store_credit_used || 0) >
+      0
+    );
+  });
+  const storeCreditSales = periodActiveSales.filter(
+    (sale) => Number(sale.store_credit_used || 0) > 0,
+  );
+  const dueTotal = dueSales.reduce(
+    (sum, sale) =>
+      sum +
+      Math.max(
+        0,
+        Number(sale.total || 0) -
+          Number(sale.returned_amount || 0) -
+          Number(sale.amount_paid || 0) -
+          Number(sale.store_credit_used || 0),
+      ),
+    0,
+  );
+  const storeCreditTotal = storeCreditSales.reduce(
+    (sum, sale) => sum + Math.max(0, Number(sale.store_credit_used || 0)),
+    0,
+  );
+
+  const cashTotal = cashSales.reduce((sum, sale) => sum + getCollectedAmount(sale), 0);
+  const upiTotal = upiSales.reduce((sum, sale) => sum + getCollectedAmount(sale), 0);
+  const cardTotal = cardSales.reduce((sum, sale) => sum + getCollectedAmount(sale), 0);
+  const otherTotal = otherSales.reduce((sum, sale) => sum + getCollectedAmount(sale), 0);
   const totalDiscount = periodActiveSales.reduce(
     (sum, sale) => sum + Number(sale.discount ?? 0),
     0,
@@ -1052,9 +1102,35 @@ export function OfflineAnalyticsTab() {
                 </span>
               </span>
             </div>
+            {storeCreditSales.length > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-foreground/80">
+                  <Tag className="size-3.5 text-purple-600" /> Store Credit
+                </span>
+                <span className="font-bold text-foreground">
+                  {storeCreditSales.length}{" "}
+                  <span className="text-muted-foreground font-normal text-xs">
+                    ({formatPrice(storeCreditTotal)})
+                  </span>
+                </span>
+              </div>
+            )}
+            {dueSales.length > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-foreground/80">
+                  <AlertTriangle className="size-3.5 text-rose-600" /> Due / Outstanding
+                </span>
+                <span className="font-bold text-rose-600">
+                  {dueSales.length}{" "}
+                  <span className="font-normal text-xs">
+                    ({formatPrice(dueTotal)})
+                  </span>
+                </span>
+              </div>
+            )}
             {otherSales.length > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-foreground/80">Other</span>
+                <span className="text-foreground/80">Other Tender</span>
                 <span className="font-bold text-foreground">
                   {otherSales.length}{" "}
                   <span className="text-muted-foreground font-normal text-xs">
