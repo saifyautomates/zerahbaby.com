@@ -276,13 +276,12 @@ export function buildA4HTML(
     ? sale.payment_method.toUpperCase()
     : "CASH";
 
-  // Determine overall percentage discount if configured on sale
+  const isSalePercentDiscount =
+    sale.discount_type === "percentage" || (sale.discount_type as string) === "percent";
   const overallDiscountPct =
-    sale.discount_type === "percentage" || (sale.discount_type as string) === "percent"
-      ? Number(sale.discount_value || 0)
-      : sale.subtotal > 0 && sale.discount > 0
-        ? Math.round((sale.discount / sale.subtotal) * 100)
-        : 0;
+    isSalePercentDiscount && Number(sale.discount_value || 0) > 0
+      ? Number(sale.discount_value)
+      : 0;
 
   let totalBasePrice = 0;
   let totalCgst = 0;
@@ -331,10 +330,18 @@ export function buildA4HTML(
       const unitBasePrice = Number(item.price || item.mrp || 0);
       const lineBasePrice = Math.round(unitBasePrice * qty * 100) / 100;
 
+      // Exact item-level discount if recorded on the transaction item
+      const itemRecordedDiscount =
+        Number((item as any).allocated_bill_discount || 0) +
+        Number((item as any).allocated_coupon_discount || 0) +
+        Number((item as any).product_discount_amount || 0);
+
       // Proportional sale discount calculation
       let lineDiscount = 0;
-      if (overallDiscountPct > 0) {
-        lineDiscount = Math.round((lineBasePrice * (overallDiscountPct / 100)) * 100) / 100;
+      if (itemRecordedDiscount > 0) {
+        lineDiscount = Math.round(itemRecordedDiscount * 100) / 100;
+      } else if (overallDiscountPct > 0) {
+        lineDiscount = Math.round(((lineBasePrice * overallDiscountPct) / 100) * 100) / 100;
       } else if (sale.discount > 0) {
         if (items.length === 1) {
           lineDiscount = Math.round(sale.discount * 100) / 100;
@@ -347,7 +354,7 @@ export function buildA4HTML(
 
       const lineDiscountPct =
         lineBasePrice > 0 && lineDiscount > 0
-          ? Math.round((lineDiscount / lineBasePrice) * 100)
+          ? (lineDiscount / lineBasePrice) * 100
           : 0;
 
       // Net discounted price
@@ -372,8 +379,12 @@ export function buildA4HTML(
 
       let discountDisplay = "—";
       if (lineDiscount > 0) {
+        const pctFormatted =
+          lineDiscountPct % 1 === 0
+            ? `${lineDiscountPct}%`
+            : `${lineDiscountPct.toFixed(1).replace(/\.0$/, "")}%`;
         discountDisplay = `
-          <div style="font-weight: 800; font-size: 11px;">${lineDiscountPct}%</div>
+          <div style="font-weight: 800; font-size: 11px;">${pctFormatted}</div>
           <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${lineDiscount.toFixed(2)}</div>
         `;
       }
@@ -420,20 +431,24 @@ export function buildA4HTML(
     .join("");
 
   // Determine overall discount cell for G.TOTAL row
-  const displayTotalDiscount = sale.discount > 0 ? sale.discount : totalDiscount;
-  const discountedGrandTotal = Math.max(0, totalBasePrice - displayTotalDiscount);
+  const displayTotalDiscount = totalDiscount > 0 ? totalDiscount : (sale.discount > 0 ? sale.discount : 0);
+  const discountedGrandTotal = Math.max(0, Math.round((totalBasePrice - displayTotalDiscount) * 100) / 100);
   let totalDiscountDisplay = "—";
   if (displayTotalDiscount > 0) {
-    const gDiscountPct = totalBasePrice > 0 ? Math.round((displayTotalDiscount / totalBasePrice) * 100) : 0;
+    const gDiscountPct = totalBasePrice > 0 ? (displayTotalDiscount / totalBasePrice) * 100 : 0;
+    const gPctFormatted =
+      gDiscountPct % 1 === 0
+        ? `${gDiscountPct}%`
+        : `${gDiscountPct.toFixed(1).replace(/\.0$/, "")}%`;
     totalDiscountDisplay = `
-      <div style="font-weight: 800; font-size: 11px;">${overallDiscountPct > 0 ? `${overallDiscountPct}%` : `${gDiscountPct}%`}</div>
+      <div style="font-weight: 800; font-size: 11px;">${gPctFormatted}</div>
       <div style="font-weight: 700; font-size: 9.5px; color: #4b5563; white-space: nowrap;">- ₹${displayTotalDiscount.toFixed(2)}</div>
     `;
   }
 
   // Fallback to sale.total if closely matching
   const finalGrandTotal =
-    sale.total > 0 && Math.abs(grandTotal - sale.total) < 2 ? sale.total : grandTotal;
+    sale.total > 0 && Math.abs(grandTotal - sale.total) < 1 ? sale.total : grandTotal;
 
   return `<!DOCTYPE html>
 <html lang="en">
