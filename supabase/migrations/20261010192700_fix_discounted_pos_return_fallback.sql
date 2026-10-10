@@ -101,6 +101,11 @@ $old$;
         END IF;
 $new$;
 BEGIN
+  -- Dollar-quoted blocks start with a newline; strip exactly that delimiter newline
+  -- so the guard/replace compares the actual function text, including indentation.
+  v_old_calc := substring(v_old_calc FROM 2);
+  v_old_insert := substring(v_old_insert FROM 2);
+
   SELECT p.oid::regprocedure
     INTO v_function
   FROM pg_proc p
