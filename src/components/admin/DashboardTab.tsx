@@ -1547,7 +1547,7 @@ export function DashboardTab({
               setActiveDrillDown("cash");
             }
           }}
-          aria-label={`Cash Outstanding: ${formatPrice(stats.cashOutstanding)}. Click to view pending COD orders.`}
+          aria-label={`Cash Outstanding: ${formatPrice(stats.cashOutstanding)}. Click to view pending COD and POS due sales.`}
           className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 p-5 text-white shadow-sm hover:shadow-lg hover:shadow-rose-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[140px] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         >
           <div className="flex justify-between items-start">
@@ -1558,7 +1558,7 @@ export function DashboardTab({
               </h3>
               <p className="text-[11px] text-white/80 mt-0.5 truncate">
                 {stats.pendingCodCount > 0
-                  ? `${stats.pendingCodCount} orders pending COD`
+                  ? `${stats.pendingCodCount} pending collections (COD / POS due)`
                   : "No pending dues"}
               </p>
             </div>
